@@ -1,0 +1,10 @@
+[deploy]
+startCommand = "node server.js"
+healthcheckPath = "/health"
+healthcheckTimeout = 30
+
+[[services]]
+name = "flowcheck-backend"
+
+[services.variables]
+PORT = "8080"
