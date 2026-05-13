@@ -9,6 +9,8 @@
  *   POST /plaid/link-token      → { link_token }
  *   POST /plaid/exchange-token  → { success, item_id }
  *   GET  /plaid/sync            → { accounts: N, transactions: N }
+ *   DELETE /plaid/disconnect    → { success: true }
+ *   DELETE /user/account        → { success: true }
  * ─────────────────────────────────────────────────────────────
  */
 
