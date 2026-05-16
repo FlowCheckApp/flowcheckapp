@@ -634,15 +634,16 @@ app.get('/credit/score', requireAuth, perUserLimiter(5), async (req, res) => {
           'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
-          firstName: req.body?.firstName || 'John',
-          lastName:  req.body?.lastName  || 'Smith',
-          ssn:       req.body?.ssn       || '999999990',
-          dob:       _formatDob(req.body?.dob),
+          firstName:   req.body?.firstName || 'John',
+          lastName:    req.body?.lastName  || 'Smith',
+          ssn:         req.body?.ssn       || '999999990',
+          dateOfBirth: _formatDob(req.body?.dob), // Experian uses dateOfBirth not dob
+          subcode:     process.env.EXPERIAN_SUBSCRIBER_CODE || '2222222',
           currentAddress: {
-            addressLine1: req.body?.address || '1 Infinite Loop',
-            city:         req.body?.city    || 'Cupertino',
-            state:        req.body?.state   || 'CA',
-            zip:          req.body?.zip     || '95014',
+            line1: req.body?.address || '525 Market St', // Experian uses line1 not addressLine1
+            city:  req.body?.city    || 'San Francisco',
+            state: req.body?.state   || 'CA',
+            zip:   req.body?.zip     || '94105',
           },
         }),
       });
