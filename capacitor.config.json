@@ -1,0 +1,13 @@
+{
+  "appId": "com.brandon.flowcheck",
+  "appName": "FlowCheck",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "ios": {
+    "contentInset": "always",
+    "backgroundColor": "#0a1520",
+    "packageClassList": ["BiometricAuthNative"]
+  }
+}

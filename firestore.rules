@@ -1,0 +1,140 @@
+/**
+ * FlowCheck — Firestore Security Rules
+ * ─────────────────────────────────────────────────────────────
+ * Deploy via: firebase deploy --only firestore:rules
+ *
+ * Architecture:
+ *  - /users/{uid}/** — users can ONLY read/write their own data
+ *  - /plaid_items/**  — NO client access at all (Admin SDK only)
+ *
+ * These rules run AFTER Firebase Auth verifies the request.
+ * The backend (Admin SDK) bypasses all rules — it has full access
+ * regardless. Rules only restrict client SDK calls.
+ * ─────────────────────────────────────────────────────────────
+ */
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── Helper functions ──────────────────────────────────────
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Caller is the owner of this user document
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // Only allow certain fields to be written (prevents injection of
+    // arbitrary fields the app doesn't expect)
+    function allowedUserFields() {
+      return request.resource.data.keys().hasOnly([
+        'uid', 'name', 'email',
+        'created_at', 'last_seen', 'last_streak_date',
+        'plaid_linked', 'plaid_institution', 'plaid_institution_id', 'plaid_linked_at',
+        'pro', 'is_pro',
+        'streak',
+        'goals', 'budgets',
+        'notifications_enabled', 'biometric_enabled',
+        'onboarding_goal', 'onboarding_income',
+      ]);
+    }
+
+    // ─── /plaid_items — server-only, no client access ──────────
+    // The backend (Admin SDK) stores Plaid access_tokens here.
+    // Clients must never see or write to this collection.
+    match /plaid_items/{uid} {
+      allow read, write: if false;
+    }
+
+    // ─── /users/{uid} — own data only ─────────────────────────
+    match /users/{uid} {
+      // Read own profile
+      allow get: if isOwner(uid);
+
+      // Create own profile (signup) — must include uid field matching auth uid
+      allow create: if isOwner(uid)
+                    && request.resource.data.uid == uid
+                    && allowedUserFields();
+
+      // Update own profile (settings, preferences)
+      allow update: if isOwner(uid)
+                    && allowedUserFields()
+                    // uid and email cannot be changed after creation
+                    && (!request.resource.data.diff(resource.data).affectedKeys()
+                         .hasAny(['uid', 'email']));
+
+      // Never allow client-side deletes — deletion is server-side only
+      allow delete: if false;
+
+      // ── Subcollections ──────────────────────────────────────
+      // Accounts — read-only from client (backend writes via Admin SDK)
+      match /accounts/{accountId} {
+        allow read:   if isOwner(uid);
+        allow write:  if false;  // backend-managed
+      }
+
+      // Transactions — read-only from client
+      match /transactions/{txnId} {
+        allow read:   if isOwner(uid);
+        allow write:  if false;  // backend-managed
+      }
+
+      // Bills — users can create/update/delete their own bills
+      match /bills/{billId} {
+        allow read:   if isOwner(uid);
+        allow create: if isOwner(uid)
+                      && request.resource.data.keys().hasOnly([
+                           'name', 'amount', 'due_date', 'status',
+                           'category', 'type', 'icon', 'color',
+                           'paid_at', 'created_at', 'updated_at',
+                         ]);
+        allow update: if isOwner(uid)
+                      && request.resource.data.keys().hasOnly([
+                           'name', 'amount', 'due_date', 'status',
+                           'category', 'type', 'icon', 'color',
+                           'paid_at', 'created_at', 'updated_at',
+                         ]);
+        allow delete: if isOwner(uid);
+      }
+
+      // Goals — users can manage their own goals
+      match /goals/{goalId} {
+        allow read:   if isOwner(uid);
+        allow create: if isOwner(uid)
+                      && request.resource.data.keys().hasOnly([
+                           'name', 'target', 'current', 'emoji',
+                           'created_at', 'updated_at',
+                         ]);
+        allow update: if isOwner(uid)
+                      && request.resource.data.keys().hasOnly([
+                           'name', 'target', 'current', 'emoji',
+                           'created_at', 'updated_at',
+                         ]);
+        allow delete: if isOwner(uid);
+      }
+
+      // Budgets — users can manage their own budgets
+      match /budgets/{budgetId} {
+        allow read:   if isOwner(uid);
+        allow create: if isOwner(uid)
+                      && request.resource.data.keys().hasOnly([
+                           'category', 'limit', 'period', 'created_at',
+                         ]);
+        allow update: if isOwner(uid)
+                      && request.resource.data.keys().hasOnly([
+                           'category', 'limit', 'period', 'created_at',
+                         ]);
+        allow delete: if isOwner(uid);
+      }
+    }
+
+    // ─── Deny everything else ──────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

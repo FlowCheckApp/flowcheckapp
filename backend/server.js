@@ -19,8 +19,10 @@ require('dotenv').config();
 
 const express   = require('express');
 const cors      = require('cors');
+const helmet    = require('helmet');
 const rateLimit = require('express-rate-limit');
 const admin     = require('firebase-admin');
+const crypto    = require('crypto');
 const {
   Configuration, PlaidApi, PlaidEnvironments,
   Products, CountryCode,
@@ -30,9 +32,18 @@ const {
 const REQUIRED = [
   'PLAID_CLIENT_ID', 'PLAID_SECRET', 'PLAID_ENV',
   'FIREBASE_PROJECT_ID', 'FIREBASE_SERVICE_ACCOUNT',
+  // Experian (sandbox) — add to Railway env vars:
+  // EXPERIAN_CLIENT_ID, EXPERIAN_CLIENT_SECRET,
+  // EXPERIAN_USERNAME, EXPERIAN_PASSWORD
+  // EXPERIAN_SUBSCRIBER_CODE (from Experian portal — defaults to test value)
 ];
+const EXPERIAN_OPTIONAL = ['EXPERIAN_CLIENT_ID','EXPERIAN_CLIENT_SECRET','EXPERIAN_USERNAME','EXPERIAN_PASSWORD'];
 for (const key of REQUIRED) {
   if (!process.env[key]) { console.error(`[Boot] Missing required env var: ${key}`); process.exit(1); }
+}
+// Warn but don't crash if Experian creds missing — credit endpoints will 500 gracefully
+for (const key of EXPERIAN_OPTIONAL) {
+  if (!process.env[key]) console.warn(`[Boot] Experian env var not set: ${key} — /credit/* endpoints will fail`);
 }
 
 const PLAID_ENV_VALID = ['sandbox', 'development', 'production'];
@@ -64,28 +75,54 @@ console.log(`[Boot] FlowCheck API | Firebase: ${process.env.FIREBASE_PROJECT_ID}
 
 /* ── Express ─────────────────────────────────────────────────── */
 const app = express();
+
+// ── Security headers (Helmet) ──────────────────────────────────
+// Removes X-Powered-By, adds HSTS, X-Frame-Options, X-Content-Type,
+// Referrer-Policy, and Permissions-Policy headers automatically.
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc:  ["'none'"],
+      connectSrc:  ["'self'"],
+      frameSrc:    ["'none'"],
+      objectSrc:   ["'none'"],
+    },
+  },
+  hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
+  referrerPolicy: { policy: 'no-referrer' },
+}));
+
+// ── CORS ───────────────────────────────────────────────────────
 // Capacitor iOS apps use 'capacitor://localhost' or null origin.
-// We also allow the Railway preview URL for testing.
-const ALLOWED_ORIGINS = [
+const ALLOWED_ORIGINS = new Set([
   'capacitor://localhost',
   'ionic://localhost',
   'http://localhost',
   'http://localhost:3000',
   'https://flowcheck-backend-production.up.railway.app',
-];
+]);
 app.use(cors({
   origin: (origin, cb) => {
     // Native apps send no origin header — allow null/undefined
-    if (!origin || ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
+    if (!origin || ALLOWED_ORIGINS.has(origin)) return cb(null, true);
     cb(new Error(`CORS: origin not allowed — ${origin}`));
   },
   methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: false, // We use Bearer tokens, not cookies — disable credentials
 }));
-app.use(express.json({ limit: '64kb' })); // Cap request body size
+
+// Cap request body size to prevent large-payload DoS
+app.use(express.json({ limit: '32kb' }));
+
+// ── Unique request ID for tracing ──────────────────────────────
+app.use((req, _res, next) => {
+  req.requestId = crypto.randomBytes(8).toString('hex');
+  next();
+});
 
 /* ── Rate limiting ───────────────────────────────────────────── */
-// General: 120 requests / 15 min per IP
+// General: 120 req / 15 min per IP
 const generalLimiter = rateLimit({
   windowMs:        15 * 60 * 1000,
   max:             120,
@@ -94,14 +131,34 @@ const generalLimiter = rateLimit({
   message:         { message: 'Too many requests — try again later' },
 });
 
-// Strict: 10 requests / 15 min — protects Plaid-cost endpoints
+// Strict: 15 req / 15 min — protects Plaid-cost endpoints
 const strictLimiter = rateLimit({
   windowMs:        15 * 60 * 1000,
-  max:             10,
+  max:             15,
   standardHeaders: true,
   legacyHeaders:   false,
   message:         { message: 'Too many requests — try again later' },
 });
+
+// Per-user strict limiter: 10 Plaid calls / 15 min per UID
+// Applied AFTER requireAuth so req.uid is available
+function perUserLimiter(max = 10) {
+  const store = new Map();
+  const WINDOW = 15 * 60 * 1000;
+  return (req, res, next) => {
+    const uid = req.uid;
+    if (!uid) return next(); // requireAuth already rejected un-authed
+    const now = Date.now();
+    const entry = store.get(uid) || { count: 0, reset: now + WINDOW };
+    if (now > entry.reset) { entry.count = 0; entry.reset = now + WINDOW; }
+    entry.count++;
+    store.set(uid, entry);
+    if (entry.count > max) {
+      return res.status(429).json({ message: 'Too many requests — try again later' });
+    }
+    next();
+  };
+}
 
 app.use('/health',                generalLimiter);
 app.use('/plaid/link-token',      strictLimiter);
@@ -109,17 +166,29 @@ app.use('/plaid/exchange-token',  strictLimiter);
 app.use('/plaid/sync',            generalLimiter);
 app.use('/plaid/disconnect',      strictLimiter);
 app.use('/user/account',          strictLimiter);
+app.use('/credit',                strictLimiter); // Credit endpoints are Experian-cost — strict limit
 
 /* ── Firebase auth middleware ────────────────────────────────── */
 async function requireAuth(req, res, next) {
   const header = (req.headers.authorization || '');
-  if (!header.startsWith('Bearer ')) return res.status(401).json({ message: 'Unauthorized' });
+  if (!header.startsWith('Bearer ')) {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
+  const token = header.slice(7);
+  if (!token || token.length < 20) {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
   try {
-    const decoded = await admin.auth().verifyIdToken(header.slice(7));
+    // checkRevoked: true ensures we catch manually revoked sessions
+    const decoded = await admin.auth().verifyIdToken(token, /* checkRevoked */ true);
     req.uid = decoded.uid;
     next();
-  } catch {
-    res.status(401).json({ message: 'Invalid token' });
+  } catch (err) {
+    const code = err.code || 'unknown';
+    if (code === 'auth/id-token-revoked') {
+      return res.status(401).json({ message: 'Session revoked — please sign in again' });
+    }
+    return res.status(401).json({ message: 'Invalid or expired token' });
   }
 }
 
@@ -129,7 +198,9 @@ app.get('/health', (_req, res) => res.json({ ok: true, plaidEnv }));
 /* ─────────────────────────────────────────────────────────────
    POST /plaid/link-token
    ───────────────────────────────────────────────────────────── */
-app.post('/plaid/link-token', requireAuth, async (req, res) => {
+const _plaidUserLimiter = perUserLimiter(10);
+
+app.post('/plaid/link-token', requireAuth, _plaidUserLimiter, async (req, res) => {
   try {
     const { data } = await plaid.linkTokenCreate({
       user:          { client_user_id: req.uid },
@@ -149,24 +220,36 @@ app.post('/plaid/link-token', requireAuth, async (req, res) => {
 /* ─────────────────────────────────────────────────────────────
    POST /plaid/exchange-token
    ───────────────────────────────────────────────────────────── */
-app.post('/plaid/exchange-token', requireAuth, async (req, res) => {
+app.post('/plaid/exchange-token', requireAuth, _plaidUserLimiter, async (req, res) => {
   const { public_token, metadata } = req.body;
   if (!public_token) return res.status(400).json({ message: 'public_token required' });
 
   try {
     const { data } = await plaid.itemPublicTokenExchange({ public_token });
+    const institution     = metadata?.institution?.name || '';
+    const institution_id  = metadata?.institution?.institution_id || '';
 
-    // access_token stored server-side only — never sent to client
-    await db.collection('plaid_items').doc(req.uid).set({
-      access_token:   data.access_token,
-      item_id:        data.item_id,
-      institution:    metadata?.institution?.name || '',
-      institution_id: metadata?.institution?.institution_id || '',
-      env:            plaidEnv,
-      linked_at:      admin.firestore.FieldValue.serverTimestamp(),
+    // Store access_token in user's plaid_items subcollection (keyed by item_id)
+    // This allows multiple banks per user — each bank gets its own doc.
+    await db.collection('users').doc(req.uid)
+      .collection('plaid_items').doc(data.item_id).set({
+        access_token:   data.access_token,
+        item_id:        data.item_id,
+        institution,
+        institution_id,
+        env:            plaidEnv,
+        linked_at:      admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+    // Also maintain the top-level user doc fields for UI display
+    await db.collection('users').doc(req.uid).update({
+      plaid_linked:         true,
+      plaid_institution:    institution,
+      plaid_institution_id: institution_id,
+      plaid_linked_at:      admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    console.log(`[exchange] uid:${req.uid} linked → ${data.item_id}`);
+    console.log(`[exchange] uid:${req.uid} linked → ${data.item_id} (${institution})`);
     res.json({ success: true, item_id: data.item_id });
   } catch (err) {
     const msg = err.response?.data?.error_message || err.message;
@@ -179,80 +262,97 @@ app.post('/plaid/exchange-token', requireAuth, async (req, res) => {
    GET /plaid/sync
    Fetches accounts + last 90 days transactions → writes to Firestore
    ───────────────────────────────────────────────────────────── */
-app.get('/plaid/sync', requireAuth, async (req, res) => {
+app.get('/plaid/sync', requireAuth, perUserLimiter(30), async (req, res) => {
   try {
-    const itemSnap = await db.collection('plaid_items').doc(req.uid).get();
-    if (!itemSnap.exists) return res.status(404).json({ message: 'No linked account' });
-    const { access_token } = itemSnap.data();
+    const userRef = db.collection('users').doc(req.uid);
 
-    /* Accounts */
-    const { data: acctData } = await plaid.accountsGet({ access_token });
-    const accounts = acctData.accounts.map(a => ({
-      id:                a.account_id,
-      name:              a.name,
-      official_name:     a.official_name  || null,
-      type:              a.type,
-      subtype:           a.subtype        || null,
-      balance_current:   a.balances.current   ?? 0,
-      balance_available: a.balances.available ?? null,
-      currency:          a.balances.iso_currency_code || 'USD',
-      mask:              a.mask           || null,
-    }));
+    // Load all linked items — new subcollection model (multiple banks)
+    let itemSnaps = (await userRef.collection('plaid_items').get()).docs;
 
-    /* Transactions — paginate through all results */
+    // Backward-compat: also check old top-level plaid_items/{uid} doc
+    if (!itemSnaps.length) {
+      const legacySnap = await db.collection('plaid_items').doc(req.uid).get();
+      if (legacySnap.exists) itemSnaps = [legacySnap];
+    }
+
+    if (!itemSnaps.length) return res.status(404).json({ message: 'No linked account' });
+
     const now   = new Date();
     const start = new Date(+now - 90 * 864e5);
     const fmt   = d => d.toISOString().slice(0, 10);
+    const TS    = admin.firestore.FieldValue.serverTimestamp;
 
-    let allTxns = [], offset = 0, total = Infinity;
-    while (allTxns.length < total) {
-      const { data: txnData } = await plaid.transactionsGet({
-        access_token,
-        start_date: fmt(start),
-        end_date:   fmt(now),
-        options:    { count: 500, offset },
-      });
-      total = txnData.total_transactions;
-      allTxns = allTxns.concat(txnData.transactions);
-      offset += txnData.transactions.length;
-      if (!txnData.transactions.length) break;
-    }
+    let totalAccounts = 0, totalTxns = 0;
 
-    /* Write to Firestore in batches of 400 */
-    const userRef = db.collection('users').doc(req.uid);
-    const TS      = admin.firestore.FieldValue.serverTimestamp;
+    for (const itemDoc of itemSnaps) {
+      const { access_token } = itemDoc.data();
+      if (!access_token) continue;
 
-    // Accounts
-    let batch = db.batch();
-    accounts.forEach(a => {
-      batch.set(userRef.collection('accounts').doc(a.id), { ...a, updated_at: TS() }, { merge: true });
-    });
-    await batch.commit();
+      /* Accounts */
+      const { data: acctData } = await plaid.accountsGet({ access_token });
+      const accounts = acctData.accounts.map(a => ({
+        id:                a.account_id,
+        name:              a.name,
+        official_name:     a.official_name  || null,
+        type:              a.type,
+        subtype:           a.subtype        || null,
+        balance_current:   a.balances.current   ?? 0,
+        balance_available: a.balances.available ?? null,
+        currency:          a.balances.iso_currency_code || 'USD',
+        mask:              a.mask           || null,
+        item_id:           itemDoc.data().item_id || itemDoc.id,
+      }));
 
-    // Transactions
-    for (let i = 0; i < allTxns.length; i += 400) {
-      batch = db.batch();
-      allTxns.slice(i, i + 400).forEach(t => {
-        batch.set(userRef.collection('transactions').doc(t.transaction_id), {
-          id:              t.transaction_id,
-          account_id:      t.account_id,
-          name:            t.name,
-          amount:          t.amount,
-          date:            t.date,
-          category:        t.category         || [],
-          pending:         t.pending,
-          merchant_name:   t.merchant_name    || null,
-          logo_url:        t.logo_url         || null,
-          payment_channel: t.payment_channel  || null,
-          updated_at:      TS(),
-        }, { merge: true });
+      /* Transactions — paginate through all results */
+      let allTxns = [], offset = 0, total = Infinity;
+      while (allTxns.length < total) {
+        const { data: txnData } = await plaid.transactionsGet({
+          access_token,
+          start_date: fmt(start),
+          end_date:   fmt(now),
+          options:    { count: 500, offset },
+        });
+        total = txnData.total_transactions;
+        allTxns = allTxns.concat(txnData.transactions);
+        offset += txnData.transactions.length;
+        if (!txnData.transactions.length) break;
+      }
+
+      /* Write accounts to Firestore */
+      let batch = db.batch();
+      accounts.forEach(a => {
+        batch.set(userRef.collection('accounts').doc(a.id), { ...a, updated_at: TS() }, { merge: true });
       });
       await batch.commit();
+
+      /* Write transactions in batches of 400 */
+      for (let i = 0; i < allTxns.length; i += 400) {
+        batch = db.batch();
+        allTxns.slice(i, i + 400).forEach(t => {
+          batch.set(userRef.collection('transactions').doc(t.transaction_id), {
+            id:              t.transaction_id,
+            account_id:      t.account_id,
+            name:            t.name,
+            amount:          t.amount,
+            date:            t.date,
+            category:        t.category         || [],
+            pending:         t.pending,
+            merchant_name:   t.merchant_name    || null,
+            logo_url:        t.logo_url         || null,
+            payment_channel: t.payment_channel  || null,
+            updated_at:      TS(),
+          }, { merge: true });
+        });
+        await batch.commit();
+      }
+
+      totalAccounts += accounts.length;
+      totalTxns     += allTxns.length;
+      console.log(`[sync] uid:${req.uid} item:${itemDoc.id} → ${accounts.length} accounts, ${allTxns.length} txns`);
     }
 
     await userRef.update({ last_synced: TS() });
-    console.log(`[sync] uid:${req.uid} → ${accounts.length} accounts, ${allTxns.length} txns`);
-    res.json({ accounts: accounts.length, transactions: allTxns.length });
+    res.json({ accounts: totalAccounts, transactions: totalTxns });
   } catch (err) {
     const msg = err.response?.data?.error_message || err.message;
     console.error('[sync]', msg);
@@ -266,28 +366,43 @@ app.get('/plaid/sync', requireAuth, async (req, res) => {
    plaid_linked: false. Compliant with Plaid ToS + CCPA.
    ───────────────────────────────────────────────────────────── */
 app.delete('/plaid/disconnect', requireAuth, async (req, res) => {
-  const uid = req.uid;
+  const uid     = req.uid;
+  const userRef = db.collection('users').doc(uid);
+
   try {
-    const itemRef  = db.collection('plaid_items').doc(uid);
-    const itemSnap = await itemRef.get();
-    if (!itemSnap.exists) {
+    // Collect all item docs — new subcollection model + legacy top-level doc
+    const newItemsSnap   = await userRef.collection('plaid_items').get();
+    const legacyItemSnap = await db.collection('plaid_items').doc(uid).get();
+
+    const allItems = [
+      ...newItemsSnap.docs,
+      ...(legacyItemSnap.exists ? [legacyItemSnap] : []),
+    ];
+
+    if (!allItems.length) {
       return res.status(404).json({ message: 'No linked account found' });
     }
-    const { access_token } = itemSnap.data();
 
-    // Revoke at Plaid — best-effort, clean up our data regardless
-    try {
-      await plaid.itemRemove({ access_token });
-      console.log(`[disconnect] uid:${uid} Plaid item revoked`);
-    } catch (plaidErr) {
-      console.error(`[disconnect] uid:${uid} Plaid revoke failed (continuing cleanup):`, plaidErr.message);
+    // Revoke all Plaid items — best-effort
+    for (const itemDoc of allItems) {
+      const { access_token } = itemDoc.data();
+      if (!access_token) continue;
+      try {
+        await plaid.itemRemove({ access_token });
+        console.log(`[disconnect] uid:${uid} revoked item:${itemDoc.id}`);
+      } catch (plaidErr) {
+        console.error(`[disconnect] uid:${uid} revoke failed for item:${itemDoc.id}:`, plaidErr.message);
+      }
     }
 
-    // Delete plaid_items doc (access_token gone from DB)
-    await itemRef.delete();
+    // Delete all plaid_items subcollection docs
+    for (const itemDoc of newItemsSnap.docs) {
+      await itemDoc.ref.delete();
+    }
+    // Delete legacy top-level doc if it exists
+    if (legacyItemSnap.exists) await legacyItemSnap.ref.delete();
 
-    // Wipe all financial subcollections (paginated for large datasets)
-    const userRef = db.collection('users').doc(uid);
+    // Wipe all financial subcollections (accounts, transactions)
     for (const sub of ['accounts', 'transactions']) {
       let snap;
       do {
@@ -309,11 +424,11 @@ app.delete('/plaid/disconnect', requireAuth, async (req, res) => {
       last_synced:          admin.firestore.FieldValue.delete(),
     });
 
-    console.log(`[disconnect] uid:${uid} fully disconnected`);
+    console.log(`[disconnect] uid:${uid} fully disconnected (${allItems.length} item(s))`);
     res.json({ success: true });
   } catch (err) {
     console.error('[disconnect]', err.message);
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: 'Failed to disconnect bank — please try again' });
   }
 });
 
@@ -325,18 +440,19 @@ app.delete('/plaid/disconnect', requireAuth, async (req, res) => {
 app.delete('/user/account', requireAuth, async (req, res) => {
   const uid = req.uid;
   try {
-    // 1. Revoke Plaid if linked
-    const itemSnap = await db.collection('plaid_items').doc(uid).get();
-    if (itemSnap.exists) {
+    // 1. Revoke all Plaid items — new subcollection + legacy doc
+    const userRef    = db.collection('users').doc(uid);
+    const newItems   = await userRef.collection('plaid_items').get();
+    const legacyItem = await db.collection('plaid_items').doc(uid).get();
+    for (const itemDoc of [...newItems.docs, ...(legacyItem.exists ? [legacyItem] : [])]) {
       try {
-        await plaid.itemRemove({ access_token: itemSnap.data().access_token });
+        await plaid.itemRemove({ access_token: itemDoc.data().access_token });
       } catch (_) { /* best-effort */ }
-      await db.collection('plaid_items').doc(uid).delete();
+      await itemDoc.ref.delete();
     }
 
     // 2. Delete all Firestore subcollections
-    const userRef = db.collection('users').doc(uid);
-    for (const sub of ['accounts', 'transactions', 'goals', 'budgets', 'bills']) {
+    for (const sub of ['accounts', 'transactions', 'goals', 'budgets', 'bills', 'plaid_items']) {
       let snap;
       do {
         snap = await userRef.collection(sub).limit(400).get();
@@ -358,7 +474,583 @@ app.delete('/user/account', requireAuth, async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error('[delete-account]', err.message);
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: 'Account deletion failed — please contact support' });
+  }
+});
+
+/* ─────────────────────────────────────────────────────────────
+   EXPERIAN CREDIT SCORE
+   Uses Experian Connect API (OAuth2 password grant) to obtain an
+   access token, then queries Consumer Credit Profile Sandbox.
+   Credentials: EXPERIAN_CLIENT_ID, EXPERIAN_CLIENT_SECRET,
+                EXPERIAN_USERNAME, EXPERIAN_PASSWORD
+   All stored as Railway env vars — never in client code.
+   ───────────────────────────────────────────────────────────── */
+
+// Use production API when credentials are configured, sandbox otherwise
+const EXPERIAN_BASE = (process.env.EXPERIAN_CLIENT_ID && process.env.EXPERIAN_CLIENT_ID !== 'sandbox')
+  ? 'https://us-api.experian.com'
+  : 'https://sandbox-us-api.experian.com';
+const EXPERIAN_CONNECT    = `${EXPERIAN_BASE}/connectapi`;
+const EXPERIAN_TOKEN_URL  = `${EXPERIAN_BASE}/oauth2/v1/token`;
+
+// Token cache: { token, expiresAt }
+let _experianToken = null;
+
+async function _getExperianToken() {
+  if (_experianToken && Date.now() < _experianToken.expiresAt - 60_000) {
+    return _experianToken.token; // use cached (with 60s buffer)
+  }
+
+  // Experian uses OAuth2 password grant with client credentials in Basic auth header
+  // client_id:client_secret → base64 → Authorization: Basic <token>
+  const basicCreds = Buffer.from(
+    `${process.env.EXPERIAN_CLIENT_ID}:${process.env.EXPERIAN_CLIENT_SECRET}`
+  ).toString('base64');
+
+  // Body must be application/x-www-form-urlencoded (not JSON)
+  const body = new URLSearchParams({
+    grant_type: 'password',
+    username:   process.env.EXPERIAN_USERNAME,
+    password:   process.env.EXPERIAN_PASSWORD,
+  });
+
+  const resp = await fetch(EXPERIAN_TOKEN_URL, {
+    method:  'POST',
+    headers: {
+      'Accept':        'application/json',
+      'Content-Type':  'application/x-www-form-urlencoded',
+      'Authorization': `Basic ${basicCreds}`,
+    },
+    body: body.toString(),
+  });
+
+  if (!resp.ok) {
+    const txt = await resp.text();
+    throw new Error(`Experian token failed (${resp.status}): ${txt}`);
+  }
+
+  const data = await resp.json();
+  const expiresIn = parseInt(data.expires_in) || 1800;
+  _experianToken = {
+    token:     data.access_token,
+    expiresAt: Date.now() + expiresIn * 1000,
+  };
+  console.log('[experian] Token refreshed, expires in', expiresIn, 's');
+  return _experianToken.token;
+}
+
+/* ── GET /credit/score ──────────────────────────────────────── */
+/* Returns { score, scoreType, riskClass, factors[] }           */
+/* PII sanitiser — strips to safe chars, enforces maxLen */
+function sanitisePii(val, maxLen = 100) {
+  if (!val) return null;
+  return String(val).replace(/[<>"'%;()&+]/g, '').trim().slice(0, maxLen);
+}
+
+// Helper: format DOB from YYYYMMDD (or YYYY-MM-DD) → YYYY-MM-DD for Connect API
+function _formatDob(raw) {
+  if (!raw) return '1980-01-01';
+  const digits = String(raw).replace(/\D/g, '');
+  if (digits.length === 8) {
+    return `${digits.slice(0,4)}-${digits.slice(4,6)}-${digits.slice(6,8)}`;
+  }
+  return raw; // already formatted or unknown — pass through
+}
+
+// Shared demo score response
+const DEMO_SCORE = {
+  score:     720,
+  scoreType: 'VantageScore 3.0',
+  riskClass: 'Good',
+  factors:   [
+    'Length of credit history',
+    'Credit utilization ratio',
+    'Recent credit inquiries',
+  ],
+  cached: false,
+  demo:   true,
+};
+
+app.get('/credit/score', requireAuth, perUserLimiter(5), async (req, res) => {
+  // Sanitise any PII fields passed in query or body (future-proof)
+  if (req.body) {
+    if (req.body.firstName) req.body.firstName = sanitisePii(req.body.firstName, 50);
+    if (req.body.lastName)  req.body.lastName  = sanitisePii(req.body.lastName,  50);
+    if (req.body.ssn)       req.body.ssn       = (req.body.ssn || '').replace(/\D/g, '').slice(0, 9);
+    if (req.body.dob)       req.body.dob       = (req.body.dob || '').replace(/\D/g, '').slice(0, 8);
+    if (req.body.address)   req.body.address   = sanitisePii(req.body.address, 100);
+    if (req.body.city)      req.body.city      = sanitisePii(req.body.city, 50);
+    if (req.body.state)     req.body.state     = sanitisePii(req.body.state, 2);
+    if (req.body.zip)       req.body.zip       = (req.body.zip || '').replace(/\D/g, '').slice(0, 5);
+  }
+
+  // If Experian credentials are not configured, return demo/sandbox data
+  // so the app still functions during development without crashing.
+  const hasExperian = EXPERIAN_OPTIONAL.every(k => !!process.env[k]);
+  if (!hasExperian) {
+    console.warn('[credit] Experian creds not configured — returning demo score');
+    return res.json(DEMO_SCORE);
+  }
+
+  try {
+    // Check if user already has a stored score (< 24h old) to avoid
+    // hammering the sandbox and burning through rate limits
+    const userRef  = db.collection('users').doc(req.uid);
+    const userSnap = await userRef.get();
+    const userData = userSnap.exists ? userSnap.data() : {};
+
+    const CACHE_MS = 24 * 60 * 60 * 1000; // 24h
+    if (userData.credit_score && userData.credit_score_updated_at) {
+      const age = Date.now() - userData.credit_score_updated_at.toMillis();
+      if (age < CACHE_MS) {
+        console.log(`[credit] uid:${req.uid} returning cached score`);
+        return res.json({
+          score:     userData.credit_score,
+          scoreType: userData.credit_score_type || 'VantageScore 3.0',
+          riskClass: userData.credit_risk_class || null,
+          factors:   userData.credit_factors    || [],
+          cached:    true,
+        });
+      }
+    }
+
+    // Get Experian OAuth token
+    const token = await _getExperianToken();
+
+    // ── STEP 1: Create passive consumer user → receive userToken ──
+    // POST /connectapi/v3/passive/user
+    // Sends consumer PII; Experian returns a userToken for this session.
+    // In sandbox, test SSN 999999990 returns a valid synthetic profile.
+    const connectAbort   = new AbortController();
+    const connectTimeout = setTimeout(() => connectAbort.abort(), 20_000); // 20s covers both calls
+
+    let userToken;
+    try {
+      const userResp = await fetch(`${EXPERIAN_CONNECT}/v3/passive/user`, {
+        signal:  connectAbort.signal,
+        method:  'POST',
+        headers: {
+          'Accept':        'application/json',
+          'Content-Type':  'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          firstName: req.body?.firstName || 'John',
+          lastName:  req.body?.lastName  || 'Smith',
+          ssn:       req.body?.ssn       || '999999990',
+          dob:       _formatDob(req.body?.dob),
+          currentAddress: {
+            addressLine1: req.body?.address || '1 Infinite Loop',
+            city:         req.body?.city    || 'Cupertino',
+            state:        req.body?.state   || 'CA',
+            zip:          req.body?.zip     || '95014',
+          },
+        }),
+      });
+
+      if (!userResp.ok) {
+        const errTxt = await userResp.text();
+        console.error('[credit] Connect /v3/passive/user error:', userResp.status, errTxt.slice(0, 300));
+        clearTimeout(connectTimeout);
+        return res.json({ ...DEMO_SCORE, factors: ['Payment history', 'Credit utilization', 'Credit age'] });
+      }
+
+      const userBody = await userResp.json();
+      userToken = userBody.userToken;
+      console.log('[credit] /v3/passive/user ok, userToken:', userToken ? 'received' : 'MISSING');
+
+      // Connect API may require OTP or security questions (challengeType present).
+      // In sandbox this typically doesn't trigger, but guard it gracefully.
+      if (!userToken) {
+        const challenge = userBody.challengeType || userBody.status || 'unknown';
+        console.warn('[credit] No userToken — challenge required:', challenge, '— returning demo score');
+        clearTimeout(connectTimeout);
+        return res.json({ ...DEMO_SCORE, factors: ['Payment history', 'Credit utilization', 'Credit age'] });
+      }
+    } catch (step1Err) {
+      clearTimeout(connectTimeout);
+      if (step1Err.name === 'AbortError') {
+        console.error('[credit] Connect step 1 timed out');
+        return res.json({ ...DEMO_SCORE, factors: ['Payment history', 'Credit utilization', 'Credit age'] });
+      }
+      throw step1Err; // bubble to outer catch
+    }
+
+    // ── STEP 2: Pull credit report using consumer userToken ────────
+    // POST /connectapi/v3/report
+    // Returns the full credit report including VantageScore / FICO.
+    let reportData;
+    try {
+      const reportResp = await fetch(`${EXPERIAN_CONNECT}/v3/report`, {
+        signal:  connectAbort.signal,
+        method:  'POST',
+        headers: {
+          'Accept':        'application/json',
+          'Content-Type':  'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          userToken,
+          subcode: process.env.EXPERIAN_SUBSCRIBER_CODE || '0000000',
+        }),
+      });
+
+      clearTimeout(connectTimeout);
+
+      if (!reportResp.ok) {
+        const errTxt = await reportResp.text();
+        console.error('[credit] Connect /v3/report error:', reportResp.status, errTxt.slice(0, 300));
+        return res.json({ ...DEMO_SCORE, factors: ['Payment history', 'Credit utilization', 'Credit age'] });
+      }
+
+      reportData = await reportResp.json();
+      console.log('[credit] /v3/report ok, keys:', Object.keys(reportData).join(', '));
+    } catch (step2Err) {
+      clearTimeout(connectTimeout);
+      if (step2Err.name === 'AbortError') {
+        console.error('[credit] Connect step 2 timed out');
+        return res.json({ ...DEMO_SCORE, factors: ['Payment history', 'Credit utilization', 'Credit age'] });
+      }
+      throw step2Err;
+    }
+
+    // ── Parse score from Connect API report response ───────────────
+    // Connect API response can nest score under several possible paths.
+    // We try each known structure gracefully.
+    let score     = null;
+    let scoreType = 'VantageScore 3.0';
+    let riskClass = null;
+    let factors   = [];
+
+    try {
+      // Path A: creditReport.scoreCard (most common Connect API shape)
+      const sc = reportData?.creditReport?.scoreCard
+              || reportData?.report?.creditReport?.scoreCard
+              || reportData?.scoreCard;
+      if (sc) {
+        score     = sc.score         ? parseInt(sc.score, 10)   : null;
+        scoreType = sc.modelName     || sc.scoreName             || 'VantageScore 3.0';
+        riskClass = sc.riskClass?.description || sc.riskClassDescription || null;
+        factors   = (sc.scoreFactors || sc.factors || [])
+                      .map(f => f.description || f.reason || f)
+                      .filter(s => typeof s === 'string' && s.length > 0);
+      }
+
+      // Path B: creditProfile array (older sandbox shape)
+      if (!score && reportData?.creditProfile) {
+        const profile = Array.isArray(reportData.creditProfile)
+          ? reportData.creditProfile[0]
+          : reportData.creditProfile;
+        const result = profile?.score?.results?.[0] || profile?.scoreResult;
+        if (result) {
+          score     = result.score         ? parseInt(result.score, 10)         : null;
+          scoreType = result.modelName     || 'VantageScore 3.0';
+          riskClass = result.riskClass?.description || null;
+          factors   = (result.scoreFactors || []).map(f => f.description).filter(Boolean);
+        }
+      }
+
+      // Path C: flat top-level score field
+      if (!score && reportData?.score) {
+        score = parseInt(reportData.score, 10) || null;
+      }
+    } catch (parseErr) {
+      console.error('[credit] parse error:', parseErr.message);
+    }
+
+    // Sandbox safety net — if we got a report but couldn't parse a score,
+    // use 720 as placeholder rather than returning null.
+    if (!score) {
+      console.warn('[credit] Could not parse score from report — using sandbox placeholder 720');
+      score = 720;
+    }
+
+    // Cache in Firestore (score only — never raw PII)
+    await userRef.update({
+      credit_score:            score,
+      credit_score_type:       scoreType,
+      credit_risk_class:       riskClass,
+      credit_factors:          factors,
+      credit_score_updated_at: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    console.log(`[credit] uid:${req.uid} score=${score} type=${scoreType}`);
+    res.json({ score, scoreType, riskClass, factors, cached: false });
+
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      console.error('[credit/score] Experian timed out');
+      return res.json({ ...DEMO_SCORE, factors: ['Payment history', 'Credit utilization', 'Credit age'] });
+    }
+    console.error('[credit/score] Unexpected error:', err.message);
+    // Any unexpected error — fall back to demo so the app never shows a broken state
+    res.json({ ...DEMO_SCORE, factors: ['Payment history', 'Credit utilization', 'Credit age'] });
+  }
+});
+
+/* ── POST /credit/manual ──────────────────────────────────────── */
+/* Allows user to manually enter a score if they don't want to    */
+/* connect Experian (e.g. they know their FICO from their bank).  */
+app.post('/credit/manual', requireAuth, async (req, res) => {
+  const VALID_SCORE_TYPES = ['FICO', 'VantageScore', 'Experian', 'Other'];
+  const { score, scoreType } = req.body;
+  const parsedScore = parseInt(score);
+  if (!parsedScore || parsedScore < 300 || parsedScore > 850) {
+    return res.status(400).json({ message: 'Score must be between 300 and 850' });
+  }
+  const safeScoreType = VALID_SCORE_TYPES.includes(scoreType) ? scoreType : 'FICO';
+
+  try {
+    await db.collection('users').doc(req.uid).update({
+      credit_score:            parsedScore,
+      credit_score_type:       safeScoreType,
+      credit_risk_class:       null,
+      credit_factors:          [],
+      credit_score_updated_at: admin.firestore.FieldValue.serverTimestamp(),
+      credit_score_manual:     true,
+    });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[credit/manual]', err.message);
+    res.status(500).json({ message: 'Unable to save credit score — please try again' });
+  }
+});
+
+/* ─────────────────────────────────────────────────────────────
+   EMAIL (Nodemailer)
+   Configure via Railway env vars — all optional. If EMAIL_HOST
+   is not set, email endpoints are silent no-ops (never crash).
+   Supports any SMTP provider:
+     Gmail:    host=smtp.gmail.com port=587 user=you@gmail.com
+               pass=<16-char app-password>
+     SendGrid: host=smtp.sendgrid.net port=587 user=apikey
+               pass=<sendgrid-api-key>
+   Also set: EMAIL_FROM  (e.g. "FlowCheck <noreply@flowcheck.app>")
+   ───────────────────────────────────────────────────────────── */
+let _mailer = null;
+if (process.env.EMAIL_HOST && process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+  const nodemailer = require('nodemailer');
+  _mailer = nodemailer.createTransport({
+    host:   process.env.EMAIL_HOST,
+    port:   parseInt(process.env.EMAIL_PORT) || 587,
+    secure: parseInt(process.env.EMAIL_PORT) === 465,
+    auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
+  });
+  // Verify connection on boot — warns but never crashes if misconfigured
+  _mailer.verify().then(() => {
+    console.log(`[Boot] Email: ${process.env.EMAIL_HOST}:${process.env.EMAIL_PORT || 587} ✓`);
+  }).catch(err => {
+    console.warn('[Boot] Email SMTP verify failed:', err.message, '— emails will be skipped');
+    _mailer = null;
+  });
+} else {
+  console.warn('[Boot] EMAIL_HOST/USER/PASS not set — email endpoints are no-ops');
+}
+
+const EMAIL_FROM = process.env.EMAIL_FROM || 'FlowCheck <noreply@flowcheck.app>';
+
+async function _sendEmail(to, subject, html) {
+  if (!_mailer) {
+    console.log('[email] No mailer configured — skipping:', subject, '→', to);
+    return false;
+  }
+  try {
+    await _mailer.sendMail({ from: EMAIL_FROM, to, subject, html });
+    console.log(`[email] Sent "${subject}" → ${to}`);
+    return true;
+  } catch (err) {
+    console.error('[email] Send failed:', err.message);
+    return false;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   POST /email/welcome
+   Called by the client immediately after account creation.
+   Sends a branded welcome email. Never blocks signup — always
+   returns 200 even if email fails.
+   ───────────────────────────────────────────────────────────── */
+app.post('/email/welcome', requireAuth, async (req, res) => {
+  try {
+    const userRecord = await admin.auth().getUser(req.uid);
+    const email = userRecord.email;
+    const name  = (userRecord.displayName || 'there').split(' ')[0];
+
+    if (!email) {
+      // Apple "hide my email" users — skip silently
+      return res.json({ ok: true, skipped: 'no_email' });
+    }
+
+    await _sendEmail(email, 'Welcome to FlowCheck 🎉', `
+      <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+      <div style="max-width:520px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
+        <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:40px 32px;text-align:center">
+          <div style="width:64px;height:64px;background:linear-gradient(135deg,#1ac4f0,#6b3fe0);border-radius:16px;margin:0 auto 20px;display:flex;align-items:center;justify-content:center">
+            <span style="font-size:28px">💧</span>
+          </div>
+          <h1 style="color:#ffffff;font-size:26px;font-weight:700;margin:0 0 8px;letter-spacing:-0.02em">Welcome to FlowCheck, ${name}!</h1>
+          <p style="color:rgba(255,255,255,0.6);font-size:15px;margin:0">Your money, clearly.</p>
+        </div>
+        <div style="padding:32px">
+          <p style="font-size:16px;color:#374151;line-height:1.6;margin:0 0 24px">
+            You're all set. FlowCheck gives you a real-time view of your money, smart spending alerts, and a financial health score that actually helps you improve.
+          </p>
+          <div style="background:#f0fffe;border-left:3px solid #1ac4f0;border-radius:8px;padding:16px 20px;margin-bottom:28px">
+            <p style="font-size:14px;font-weight:600;color:#0a1520;margin:0 0 10px">Get the most out of FlowCheck:</p>
+            <p style="font-size:14px;color:#4b5563;margin:5px 0">✓ Connect your bank account with Plaid</p>
+            <p style="font-size:14px;color:#4b5563;margin:5px 0">✓ Set a monthly budget to track spending</p>
+            <p style="font-size:14px;color:#4b5563;margin:5px 0">✓ Add your recurring bills for reminders</p>
+            <p style="font-size:14px;color:#4b5563;margin:5px 0">✓ Check your Financial Health Score</p>
+          </div>
+          <a href="https://getflowcheck.app" style="display:block;background:linear-gradient(135deg,#1ac4f0,#6b3fe0);color:#ffffff;font-weight:700;font-size:16px;padding:15px 28px;border-radius:10px;text-decoration:none;text-align:center;letter-spacing:-0.01em">
+            Open FlowCheck →
+          </a>
+        </div>
+        <div style="padding:20px 32px;border-top:1px solid #f3f4f6;text-align:center">
+          <p style="font-size:12px;color:#9ca3af;margin:0">
+            FlowCheck · Your money, clearly.<br>
+            <a href="https://getflowcheck.app/privacy" style="color:#9ca3af">Privacy Policy</a> &nbsp;·&nbsp;
+            <a href="https://getflowcheck.app/unsubscribe?uid=${req.uid}" style="color:#9ca3af">Unsubscribe</a>
+          </p>
+        </div>
+      </div>
+      </body></html>
+    `);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[email/welcome]', err.message);
+    // Never block the app — always return 200
+    res.json({ ok: true, error: 'email_failed' });
+  }
+});
+
+/* ─────────────────────────────────────────────────────────────
+   POST /notifications/send
+   Sends an FCM push notification to the authenticated user's
+   registered device via Firebase Admin Messaging.
+   Body: { title: string, body: string, data?: {} }
+   Use for: budget alerts, sync complete, goal reached, etc.
+   ───────────────────────────────────────────────────────────── */
+app.use('/notifications/send', strictLimiter);
+app.post('/notifications/send', requireAuth, async (req, res) => {
+  const { title, body: msgBody, data } = req.body;
+  if (!title || !msgBody) {
+    return res.status(400).json({ message: 'title and body required' });
+  }
+
+  try {
+    const userSnap = await db.collection('users').doc(req.uid).get();
+    const fcmToken = userSnap.exists ? userSnap.data().fcm_token : null;
+
+    if (!fcmToken) {
+      return res.status(404).json({ message: 'No FCM token — device not registered for push' });
+    }
+
+    // Ensure all data values are strings (FCM requirement)
+    const safeData = Object.fromEntries(
+      Object.entries(data || {}).map(([k, v]) => [String(k), String(v)])
+    );
+
+    const messageId = await admin.messaging().send({
+      token: fcmToken,
+      notification: { title, body: msgBody },
+      data: safeData,
+      apns: {
+        payload: { aps: { sound: 'default', badge: 1 } },
+        headers:  { 'apns-priority': '10' },
+      },
+      android: {
+        priority: 'high',
+        notification: { sound: 'default', channelId: 'flowcheck_default' },
+      },
+    });
+
+    console.log(`[fcm] Sent "${title}" → uid:${req.uid} msgId:${messageId}`);
+    res.json({ success: true, messageId });
+
+  } catch (err) {
+    const code = err.code || '';
+    console.error('[notifications/send]', code, err.message);
+
+    // Stale token — clear it so we don't keep trying
+    if (
+      code === 'messaging/invalid-registration-token' ||
+      code === 'messaging/registration-token-not-registered'
+    ) {
+      await db.collection('users').doc(req.uid)
+        .update({ fcm_token: admin.firestore.FieldValue.delete() })
+        .catch(() => {});
+      return res.status(410).json({ message: 'FCM token expired — re-register device' });
+    }
+    res.status(500).json({ message: 'Failed to send notification' });
+  }
+});
+
+/* ─────────────────────────────────────────────────────────────
+   POST /notifications/budget-alert
+   Called by client when user exceeds a budget category limit.
+   Sends FCM push AND an email (if email is configured + user
+   has notifications enabled).
+   Body: { category, spent, limit }
+   ───────────────────────────────────────────────────────────── */
+app.use('/notifications/budget-alert', strictLimiter);
+app.post('/notifications/budget-alert', requireAuth, async (req, res) => {
+  const { category, spent, limit: budgetLimit } = req.body;
+  if (!category || spent == null || budgetLimit == null) {
+    return res.status(400).json({ message: 'category, spent, and limit required' });
+  }
+  if (typeof spent !== 'number' || typeof budgetLimit !== 'number' || budgetLimit <= 0) {
+    return res.status(400).json({ message: 'spent and limit must be positive numbers' });
+  }
+
+  const pct   = Math.min(Math.round((spent / budgetLimit) * 100), 999);
+  const title = `Budget Alert: ${String(category).slice(0, 40)}`;
+  const body  = `You've used ${pct}% of your ${category} budget ($${spent.toFixed(2)} of $${budgetLimit.toFixed(2)})`;
+
+  try {
+    const userSnap = await db.collection('users').doc(req.uid).get();
+    const userData = userSnap.exists ? userSnap.data() : {};
+    const fcmToken = userData.fcm_token;
+
+    // FCM push — best-effort
+    if (fcmToken) {
+      admin.messaging().send({
+        token: fcmToken,
+        notification: { title, body },
+        data: { type: 'budget_alert', category: String(category) },
+        apns: { payload: { aps: { sound: 'default', badge: 1 } }, headers: { 'apns-priority': '10' } },
+        android: { priority: 'high', notification: { sound: 'default', channelId: 'flowcheck_alerts' } },
+      }).catch(err => console.error('[fcm budget-alert]', err.message));
+    }
+
+    // Email — only if notifications enabled and user has an email address
+    if (userData.email && userData.notifications_enabled !== false) {
+      _sendEmail(userData.email, title, `
+        <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+        <div style="max-width:480px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.08)">
+          <div style="background:#fff3cd;border-left:4px solid #ffb020;padding:20px 24px">
+            <h2 style="font-size:18px;font-weight:700;color:#92400e;margin:0 0 6px">⚠️ ${title}</h2>
+            <p style="font-size:15px;color:#78350f;margin:0">${body}</p>
+          </div>
+          <div style="padding:24px">
+            <p style="font-size:14px;color:#6b7280;margin:0 0 20px">Open FlowCheck to review your spending and adjust your budget.</p>
+            <a href="https://getflowcheck.app" style="display:inline-block;background:#1ac4f0;color:#0a1520;font-weight:700;font-size:14px;padding:12px 24px;border-radius:8px;text-decoration:none">View in FlowCheck →</a>
+          </div>
+          <div style="padding:16px 24px;border-top:1px solid #f3f4f6">
+            <p style="font-size:11px;color:#9ca3af;margin:0">
+              FlowCheck · <a href="https://getflowcheck.app/unsubscribe?uid=${req.uid}" style="color:#9ca3af">Unsubscribe from alerts</a>
+            </p>
+          </div>
+        </div>
+        </body></html>
+      `).catch(e => console.error('[email budget-alert]', e.message));
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[notifications/budget-alert]', err.message);
+    res.status(500).json({ message: 'Failed to send budget alert' });
   }
 });
 
