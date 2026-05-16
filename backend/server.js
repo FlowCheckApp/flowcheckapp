@@ -494,8 +494,8 @@ app.delete('/user/account', requireAuth, async (req, res) => {
 const EXPERIAN_BASE = process.env.EXPERIAN_ENV === 'production'
   ? 'https://us-api.experian.com'
   : 'https://sandbox-us-api.experian.com';
-// Connect API base path — /consumerservices/connect (not /connectapi)
-const EXPERIAN_CONNECT    = `${EXPERIAN_BASE}/consumerservices/connect`;
+// Connect API base path — confirmed from Experian docs: sandbox-us-api.experian.com/connectapi
+const EXPERIAN_CONNECT    = `${EXPERIAN_BASE}/connectapi`;
 const EXPERIAN_TOKEN_URL  = `${EXPERIAN_BASE}/oauth2/v1/token`;
 
 // Token cache: { token, expiresAt }
