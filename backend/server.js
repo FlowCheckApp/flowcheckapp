@@ -502,27 +502,21 @@ async function _getExperianToken() {
     return _experianToken.token; // use cached (with 60s buffer)
   }
 
-  // Experian uses OAuth2 password grant with client credentials in Basic auth header
-  // client_id:client_secret → base64 → Authorization: Basic <token>
-  const basicCreds = Buffer.from(
-    `${process.env.EXPERIAN_CLIENT_ID}:${process.env.EXPERIAN_CLIENT_SECRET}`
-  ).toString('base64');
-
-  // Body must be application/x-www-form-urlencoded (not JSON)
-  const body = new URLSearchParams({
-    grant_type: 'password',
-    username:   process.env.EXPERIAN_USERNAME,
-    password:   process.env.EXPERIAN_PASSWORD,
-  });
-
+  // Experian OAuth2 password grant — all credentials go in the JSON body,
+  // Grant_type sent as a header (not in body), no Basic auth.
   const resp = await fetch(EXPERIAN_TOKEN_URL, {
     method:  'POST',
     headers: {
-      'Accept':        'application/json',
-      'Content-Type':  'application/x-www-form-urlencoded',
-      'Authorization': `Basic ${basicCreds}`,
+      'Accept':       'application/json',
+      'Content-Type': 'application/json',
+      'Grant_type':   'password',
     },
-    body: body.toString(),
+    body: JSON.stringify({
+      username:      process.env.EXPERIAN_USERNAME,
+      password:      process.env.EXPERIAN_PASSWORD,
+      client_id:     process.env.EXPERIAN_CLIENT_ID,
+      client_secret: process.env.EXPERIAN_CLIENT_SECRET,
+    }),
   });
 
   if (!resp.ok) {
