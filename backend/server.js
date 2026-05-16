@@ -489,7 +489,9 @@ app.delete('/user/account', requireAuth, async (req, res) => {
    ───────────────────────────────────────────────────────────── */
 
 // Use production API when credentials are configured, sandbox otherwise
-const EXPERIAN_BASE = (process.env.EXPERIAN_CLIENT_ID && process.env.EXPERIAN_CLIENT_ID !== 'sandbox')
+// Set EXPERIAN_ENV=production in Railway when you have production approval.
+// Leave unset (or set to 'sandbox') to use the sandbox endpoint.
+const EXPERIAN_BASE = process.env.EXPERIAN_ENV === 'production'
   ? 'https://us-api.experian.com'
   : 'https://sandbox-us-api.experian.com';
 const EXPERIAN_CONNECT    = `${EXPERIAN_BASE}/connectapi`;
