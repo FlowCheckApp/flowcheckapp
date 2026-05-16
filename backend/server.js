@@ -75,6 +75,7 @@ console.log(`[Boot] FlowCheck API | Firebase: ${process.env.FIREBASE_PROJECT_ID}
 
 /* ── Express ─────────────────────────────────────────────────── */
 const app = express();
+app.set('trust proxy', 1); // Railway / Render sit behind a reverse proxy
 
 // ── Security headers (Helmet) ──────────────────────────────────
 // Removes X-Powered-By, adds HSTS, X-Frame-Options, X-Content-Type,
