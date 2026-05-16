@@ -494,7 +494,8 @@ app.delete('/user/account', requireAuth, async (req, res) => {
 const EXPERIAN_BASE = process.env.EXPERIAN_ENV === 'production'
   ? 'https://us-api.experian.com'
   : 'https://sandbox-us-api.experian.com';
-const EXPERIAN_CONNECT    = `${EXPERIAN_BASE}/connectapi`;
+// Connect API base path — /consumerservices/connect (not /connectapi)
+const EXPERIAN_CONNECT    = `${EXPERIAN_BASE}/consumerservices/connect`;
 const EXPERIAN_TOKEN_URL  = `${EXPERIAN_BASE}/oauth2/v1/token`;
 
 // Token cache: { token, expiresAt }
@@ -689,7 +690,7 @@ app.get('/credit/score', requireAuth, perUserLimiter(5), async (req, res) => {
         },
         body: JSON.stringify({
           userToken,
-          subcode: process.env.EXPERIAN_SUBSCRIBER_CODE || '0000000',
+          subcode: process.env.EXPERIAN_SUBSCRIBER_CODE || '2222222', // Experian sandbox test subcode
         }),
       });
 
