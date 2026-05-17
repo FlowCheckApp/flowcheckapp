@@ -494,9 +494,9 @@ app.delete('/user/account', requireAuth, async (req, res) => {
 const EXPERIAN_BASE = process.env.EXPERIAN_ENV === 'production'
   ? 'https://us-api.experian.com'
   : 'https://sandbox-us-api.experian.com';
-// Connect API base path — confirmed from Experian docs: sandbox-us-api.experian.com/connectapi
-const EXPERIAN_CONNECT    = `${EXPERIAN_BASE}/connectapi`;
-const EXPERIAN_TOKEN_URL  = `${EXPERIAN_BASE}/oauth2/v1/token`;
+// Consumer Credit Profile API — plain JSON, no JavaScript Collector required
+const EXPERIAN_CREDIT_PROFILE_BASE = `${EXPERIAN_BASE}/consumerservices/credit-profile`;
+const EXPERIAN_TOKEN_URL           = `${EXPERIAN_BASE}/oauth2/v1/token`;
 
 // Token cache: { token, expiresAt }
 let _experianToken = null;
@@ -546,14 +546,25 @@ function sanitisePii(val, maxLen = 100) {
   return String(val).replace(/[<>"'%;()&+]/g, '').trim().slice(0, maxLen);
 }
 
-// Helper: format DOB from YYYYMMDD (or YYYY-MM-DD) → YYYY-MM-DD for Connect API
+// Helper: format DOB → MMDDYYYY (8 digits, no separators) for Experian Connect API
 function _formatDob(raw) {
-  if (!raw) return '1980-01-01';
+  if (!raw) return '01011980';
   const digits = String(raw).replace(/\D/g, '');
   if (digits.length === 8) {
-    return `${digits.slice(0,4)}-${digits.slice(4,6)}-${digits.slice(6,8)}`;
+    // Could be YYYYMMDD or MMDDYYYY — assume YYYYMMDD input, output MMDDYYYY
+    // If first 4 digits look like a year (1900-2099), reorder
+    const year = parseInt(digits.slice(0, 4));
+    if (year >= 1900 && year <= 2099) {
+      return `${digits.slice(4,6)}${digits.slice(6,8)}${digits.slice(0,4)}`;
+    }
+    return digits; // already MMDDYYYY
   }
-  return raw; // already formatted or unknown — pass through
+  if (raw.includes('-') && raw.length === 10) {
+    // YYYY-MM-DD → MMDDYYYY
+    const [y, m, d] = raw.split('-');
+    return `${m}${d}${y}`;
+  }
+  return digits.slice(0, 8) || '01011980';
 }
 
 // Shared demo score response
@@ -616,143 +627,119 @@ app.get('/credit/score', requireAuth, perUserLimiter(5), async (req, res) => {
     // Get Experian OAuth token
     const token = await _getExperianToken();
 
-    // ── STEP 1: Create passive consumer user → receive userToken ──
-    // POST /connectapi/v3/passive/user
-    // Sends consumer PII; Experian returns a userToken for this session.
-    // In sandbox, test SSN 999999990 returns a valid synthetic profile.
-    const connectAbort   = new AbortController();
-    const connectTimeout = setTimeout(() => connectAbort.abort(), 20_000); // 20s covers both calls
+    // ── Single call: POST /v2/credit-report ────────────────────────
+    // Consumer Credit Profile API — pure JSON, no JavaScript Collector
+    // required. Sandbox test SSN: 111111111. DOB: birth year only.
+    const abort   = new AbortController();
+    const timeout = setTimeout(() => abort.abort(), 20_000);
 
-    let userToken;
-    try {
-      const userResp = await fetch(`${EXPERIAN_CONNECT}/v3/passive/user`, {
-        signal:  connectAbort.signal,
-        method:  'POST',
-        headers: {
-          'Accept':        'application/json',
-          'Content-Type':  'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          firstName:   req.body?.firstName || 'John',
-          lastName:    req.body?.lastName  || 'Smith',
-          ssn:         req.body?.ssn       || '999999990',
-          dateOfBirth: _formatDob(req.body?.dob), // Experian uses dateOfBirth not dob
-          subcode:     process.env.EXPERIAN_SUBSCRIBER_CODE || '2222222',
-          currentAddress: {
-            line1: req.body?.address || '525 Market St', // Experian uses line1 not addressLine1
-            city:  req.body?.city    || 'San Francisco',
-            state: req.body?.state   || 'CA',
-            zip:   req.body?.zip     || '94105',
+    // Extract just the birth year for Consumer Credit Profile API
+    const dobYear = (() => {
+      const raw    = req.body?.dob || '';
+      const digits = String(raw).replace(/\D/g, '');
+      if (digits.length >= 4) return digits.slice(0, 4); // YYYYMMDD → YYYY
+      return '1980';
+    })();
+
+    const reportBody = {
+      consumerPii: {
+        primaryApplicant: {
+          name: {
+            lastName:  req.body?.lastName  || 'SMITH',
+            firstName: req.body?.firstName || 'JOHN',
           },
-        }),
-      });
+          dob:  { dob: dobYear },
+          ssn:  { ssn: req.body?.ssn || '111111111' },
+          currentAddress: {
+            line1:   req.body?.address || '1073 BUCKINGHAM DR',
+            city:    req.body?.city    || 'CAROL STREAM',
+            state:   req.body?.state   || 'IL',
+            zipCode: req.body?.zip     || '60188',
+          },
+        },
+      },
+      requestor:          { subscriberCode: process.env.EXPERIAN_SUBSCRIBER_CODE || '2222222' },
+      permissiblePurpose: { type: '08' },
+      resellerInfo:       { endUserName: 'CPAPIV2TC24' },
+      addOns: {
+        riskModels: { modelIndicator: ['V4'], scorePercentile: 'Y' },
+      },
+    };
 
-      if (!userResp.ok) {
-        const errTxt = await userResp.text();
-        console.error('[credit] Connect /v3/passive/user error:', userResp.status, errTxt.slice(0, 300));
-        clearTimeout(connectTimeout);
-        return res.json({ ...DEMO_SCORE, factors: ['Payment history', 'Credit utilization', 'Credit age'] });
-      }
-
-      const userBody = await userResp.json();
-      userToken = userBody.userToken;
-      console.log('[credit] /v3/passive/user ok, userToken:', userToken ? 'received' : 'MISSING');
-
-      // Connect API may require OTP or security questions (challengeType present).
-      // In sandbox this typically doesn't trigger, but guard it gracefully.
-      if (!userToken) {
-        const challenge = userBody.challengeType || userBody.status || 'unknown';
-        console.warn('[credit] No userToken — challenge required:', challenge, '— returning demo score');
-        clearTimeout(connectTimeout);
-        return res.json({ ...DEMO_SCORE, factors: ['Payment history', 'Credit utilization', 'Credit age'] });
-      }
-    } catch (step1Err) {
-      clearTimeout(connectTimeout);
-      if (step1Err.name === 'AbortError') {
-        console.error('[credit] Connect step 1 timed out');
-        return res.json({ ...DEMO_SCORE, factors: ['Payment history', 'Credit utilization', 'Credit age'] });
-      }
-      throw step1Err; // bubble to outer catch
-    }
-
-    // ── STEP 2: Pull credit report using consumer userToken ────────
-    // POST /connectapi/v3/report
-    // Returns the full credit report including VantageScore / FICO.
     let reportData;
     try {
-      const reportResp = await fetch(`${EXPERIAN_CONNECT}/v3/report`, {
-        signal:  connectAbort.signal,
+      const resp = await fetch(`${EXPERIAN_CREDIT_PROFILE_BASE}/v2/credit-report`, {
+        signal:  abort.signal,
         method:  'POST',
         headers: {
-          'Accept':        'application/json',
-          'Content-Type':  'application/json',
-          'Authorization': `Bearer ${token}`,
+          'Accept':            'application/json',
+          'Content-Type':      'application/json',
+          'Authorization':     `Bearer ${token}`,
+          'clientReferenceId': 'SBMYSQL',       // required for sandbox
         },
-        body: JSON.stringify({
-          userToken,
-          subcode: process.env.EXPERIAN_SUBSCRIBER_CODE || '2222222', // Experian sandbox test subcode
-        }),
+        body: JSON.stringify(reportBody),
       });
+      clearTimeout(timeout);
 
-      clearTimeout(connectTimeout);
-
-      if (!reportResp.ok) {
-        const errTxt = await reportResp.text();
-        console.error('[credit] Connect /v3/report error:', reportResp.status, errTxt.slice(0, 300));
+      if (!resp.ok) {
+        const errTxt = await resp.text();
+        console.error('[credit] /v2/credit-report error:', resp.status, errTxt.slice(0, 500));
         return res.json({ ...DEMO_SCORE, factors: ['Payment history', 'Credit utilization', 'Credit age'] });
       }
 
-      reportData = await reportResp.json();
-      console.log('[credit] /v3/report ok, keys:', Object.keys(reportData).join(', '));
-    } catch (step2Err) {
-      clearTimeout(connectTimeout);
-      if (step2Err.name === 'AbortError') {
-        console.error('[credit] Connect step 2 timed out');
+      reportData = await resp.json();
+      console.log('[credit] /v2/credit-report ok, keys:', Object.keys(reportData).join(', '));
+    } catch (fetchErr) {
+      clearTimeout(timeout);
+      if (fetchErr.name === 'AbortError') {
+        console.error('[credit] /v2/credit-report timed out');
         return res.json({ ...DEMO_SCORE, factors: ['Payment history', 'Credit utilization', 'Credit age'] });
       }
-      throw step2Err;
+      throw fetchErr;
     }
 
-    // ── Parse score from Connect API report response ───────────────
-    // Connect API response can nest score under several possible paths.
-    // We try each known structure gracefully.
+    // ── Parse score from Consumer Credit Profile response ──────────
+    // Response shape: { creditProfile: [{ riskModel: [{score, scoreFactors, ...}] }] }
     let score     = null;
     let scoreType = 'VantageScore 3.0';
     let riskClass = null;
     let factors   = [];
 
     try {
-      // Path A: creditReport.scoreCard (most common Connect API shape)
-      const sc = reportData?.creditReport?.scoreCard
-              || reportData?.report?.creditReport?.scoreCard
-              || reportData?.scoreCard;
-      if (sc) {
-        score     = sc.score         ? parseInt(sc.score, 10)   : null;
-        scoreType = sc.modelName     || sc.scoreName             || 'VantageScore 3.0';
-        riskClass = sc.riskClass?.description || sc.riskClassDescription || null;
-        factors   = (sc.scoreFactors || sc.factors || [])
-                      .map(f => f.description || f.reason || f)
-                      .filter(s => typeof s === 'string' && s.length > 0);
+      const profile = Array.isArray(reportData?.creditProfile)
+        ? reportData.creditProfile[0]
+        : reportData?.creditProfile;
+
+      // Path A: riskModel array — returned when addOns.riskModels requested
+      const rmArr = profile?.riskModel;
+      const rm    = Array.isArray(rmArr) ? rmArr[0] : rmArr;
+      if (rm) {
+        score     = rm.score ? parseInt(rm.score, 10) : null;
+        scoreType = rm.modelIndicator ? `Experian ${rm.modelIndicator}` : 'VantageScore 3.0';
+        riskClass = rm.riskClass?.description || null;
+        factors   = (rm.scoreFactors || [])
+          .map(f => f.description || f.reason || f)
+          .filter(s => typeof s === 'string' && s.length > 0);
       }
 
-      // Path B: creditProfile array (older sandbox shape)
-      if (!score && reportData?.creditProfile) {
-        const profile = Array.isArray(reportData.creditProfile)
-          ? reportData.creditProfile[0]
-          : reportData.creditProfile;
-        const result = profile?.score?.results?.[0] || profile?.scoreResult;
-        if (result) {
-          score     = result.score         ? parseInt(result.score, 10)         : null;
-          scoreType = result.modelName     || 'VantageScore 3.0';
-          riskClass = result.riskClass?.description || null;
-          factors   = (result.scoreFactors || []).map(f => f.description).filter(Boolean);
+      // Path B: score.results array (alternate shape)
+      if (!score && profile?.score?.results) {
+        const results = Array.isArray(profile.score.results)
+          ? profile.score.results[0]
+          : profile.score.results;
+        if (results) {
+          score     = results.score ? parseInt(results.score, 10) : null;
+          scoreType = results.modelIndicator ? `Experian ${results.modelIndicator}` : 'VantageScore 3.0';
+          riskClass = results.riskClass?.description || null;
+          factors   = (results.scoreFactors || [])
+            .map(f => f.description || f.reason || f)
+            .filter(s => typeof s === 'string' && s.length > 0);
         }
       }
 
-      // Path C: flat top-level score field
-      if (!score && reportData?.score) {
-        score = parseInt(reportData.score, 10) || null;
+      // Path C: flat score on profile
+      if (!score && profile?.score && typeof profile.score !== 'object') {
+        score = parseInt(profile.score, 10) || null;
       }
     } catch (parseErr) {
       console.error('[credit] parse error:', parseErr.message);
