@@ -642,36 +642,41 @@ app.get('/credit/score', requireAuth, perUserLimiter(5), async (req, res) => {
       return ''; // let reportBody handle the sandbox default
     })();
 
-    // Sandbox test consumer: SSN 111111111 → KARL E ARMSTRONG, DOB 1959, CAROL STREAM IL
-    // PII must match exactly or Experian returns error 76 "INQUIRY NOT ALLOWED"
+    // Sandbox test consumer: KIMBERLY CBRILEY — plain credit report, no special add-ons required.
+    // This is TestCase_Email_Address from the Experian OAS spec — the simplest positive test case.
+    // PII must match exactly. TC24 (Armstrong/Rent Bureau) requires a product we may not have.
     const isSandbox = !process.env.EXPERIAN_ENV || process.env.EXPERIAN_ENV !== 'production';
-    const nameObj = {
-      lastName:  req.body?.lastName   || (isSandbox ? 'ARMSTRONG' : ''),
-      firstName: req.body?.firstName  || (isSandbox ? 'KARL'      : ''),
-      ...(isSandbox && !req.body?.firstName ? { middleName: 'E' } : {}),
-    };
 
     const reportBody = {
       consumerPii: {
         primaryApplicant: {
-          name: nameObj,
-          dob:  { dob: dobYear || (isSandbox ? '1959' : '') },
+          name: {
+            lastName:  req.body?.lastName  || (isSandbox ? 'CBRILEY'   : ''),
+            firstName: req.body?.firstName || (isSandbox ? 'KIMBERLY'  : ''),
+          },
+          dob:  { dob: dobYear || (isSandbox ? '1969' : '') },
           ssn:  { ssn: req.body?.ssn || (isSandbox ? '111111111' : '') },
           currentAddress: {
-            line1:   req.body?.address || (isSandbox ? '1073 BUCKINGHAM DR' : ''),
-            city:    req.body?.city    || (isSandbox ? 'CAROL STREAM'       : ''),
-            state:   req.body?.state   || (isSandbox ? 'IL'                  : ''),
-            zipCode: req.body?.zip     || (isSandbox ? '60188'               : ''),
+            line1:   req.body?.address || (isSandbox ? '5870 SPENCER PIKE' : ''),
+            city:    req.body?.city    || (isSandbox ? 'MOUNT STERLING'    : ''),
+            state:   req.body?.state   || (isSandbox ? 'KY'                : ''),
+            zipCode: req.body?.zip     || (isSandbox ? '40353'             : ''),
           },
         },
       },
       requestor:          { subscriberCode: process.env.EXPERIAN_SUBSCRIBER_CODE || '2222222' },
-      permissiblePurpose: { type: '08' },                    // 08 = account review
-      resellerInfo:       { endUserName: 'CPAPIV2TC24' },   // required for sandbox test cases
+      permissiblePurpose: { type: '18' },   // 18 = credit transaction (matches CBRILEY test case)
       addOns: {
-        riskModels: { modelIndicator: [''], scorePercentile: '' },
+        // V3 = VantageScore 3.0, F = FICO — no resellerInfo needed for this test case
+        riskModels: { modelIndicator: ['V3', 'F'], scorePercentile: 'Y' },
       },
     };
+
+    // Log the request structure (no SSN) for debugging
+    console.log('[credit] Sending to Experian:', JSON.stringify({
+      ...reportBody,
+      consumerPii: { primaryApplicant: { ...reportBody.consumerPii.primaryApplicant, ssn: '***' } },
+    }));
 
     let reportData;
     try {
