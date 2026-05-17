@@ -634,35 +634,42 @@ app.get('/credit/score', requireAuth, perUserLimiter(5), async (req, res) => {
     const timeout = setTimeout(() => abort.abort(), 20_000);
 
     // Extract just the birth year for Consumer Credit Profile API
+    // Sandbox test consumer DOB year is 1959 — set as fallback below in reportBody
     const dobYear = (() => {
       const raw    = req.body?.dob || '';
       const digits = String(raw).replace(/\D/g, '');
       if (digits.length >= 4) return digits.slice(0, 4); // YYYYMMDD → YYYY
-      return '1980';
+      return ''; // let reportBody handle the sandbox default
     })();
+
+    // Sandbox test consumer: SSN 111111111 → KARL E ARMSTRONG, DOB 1959, CAROL STREAM IL
+    // PII must match exactly or Experian returns error 76 "INQUIRY NOT ALLOWED"
+    const isSandbox = !process.env.EXPERIAN_ENV || process.env.EXPERIAN_ENV !== 'production';
+    const nameObj = {
+      lastName:  req.body?.lastName   || (isSandbox ? 'ARMSTRONG' : ''),
+      firstName: req.body?.firstName  || (isSandbox ? 'KARL'      : ''),
+      ...(isSandbox && !req.body?.firstName ? { middleName: 'E' } : {}),
+    };
 
     const reportBody = {
       consumerPii: {
         primaryApplicant: {
-          name: {
-            lastName:  req.body?.lastName  || 'SMITH',
-            firstName: req.body?.firstName || 'JOHN',
-          },
-          dob:  { dob: dobYear },
-          ssn:  { ssn: req.body?.ssn || '111111111' },
+          name: nameObj,
+          dob:  { dob: dobYear || (isSandbox ? '1959' : '') },
+          ssn:  { ssn: req.body?.ssn || (isSandbox ? '111111111' : '') },
           currentAddress: {
-            line1:   req.body?.address || '1073 BUCKINGHAM DR',
-            city:    req.body?.city    || 'CAROL STREAM',
-            state:   req.body?.state   || 'IL',
-            zipCode: req.body?.zip     || '60188',
+            line1:   req.body?.address || (isSandbox ? '1073 BUCKINGHAM DR' : ''),
+            city:    req.body?.city    || (isSandbox ? 'CAROL STREAM'       : ''),
+            state:   req.body?.state   || (isSandbox ? 'IL'                  : ''),
+            zipCode: req.body?.zip     || (isSandbox ? '60188'               : ''),
           },
         },
       },
       requestor:          { subscriberCode: process.env.EXPERIAN_SUBSCRIBER_CODE || '2222222' },
-      permissiblePurpose: { type: '08' },
-      resellerInfo:       { endUserName: 'CPAPIV2TC24' },
+      permissiblePurpose: { type: '08' },                    // 08 = account review
+      resellerInfo:       { endUserName: 'CPAPIV2TC24' },   // required for sandbox test cases
       addOns: {
-        riskModels: { modelIndicator: ['V4'], scorePercentile: 'Y' },
+        riskModels: { modelIndicator: [''], scorePercentile: '' },
       },
     };
 
