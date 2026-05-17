@@ -278,6 +278,30 @@ app.post('/plaid/exchange-token', requireAuth, _plaidUserLimiter, async (req, re
    GET /plaid/sync
    Fetches accounts + last 90 days transactions → writes to Firestore
    ───────────────────────────────────────────────────────────── */
+/* ── GET /plaid/items — list connected banks (no access_tokens) ── */
+app.get('/plaid/items', requireAuth, async (req, res) => {
+  try {
+    const userRef = db.collection('users').doc(req.uid);
+    const snap    = await userRef.collection('plaid_items').get();
+    let items = snap.docs.map(d => {
+      const { access_token, ...safe } = d.data(); // strip access_token
+      return { id: d.id, ...safe };
+    });
+    // Backward-compat: legacy top-level plaid_items/{uid}
+    if (!items.length) {
+      const legacySnap = await db.collection('plaid_items').doc(req.uid).get();
+      if (legacySnap.exists) {
+        const { access_token, ...safe } = legacySnap.data();
+        items = [{ id: req.uid, ...safe }];
+      }
+    }
+    res.json({ items });
+  } catch (err) {
+    console.error('[plaid/items]', err.message);
+    res.status(500).json({ message: err.message });
+  }
+});
+
 app.get('/plaid/sync', requireAuth, perUserLimiter(30), async (req, res) => {
   try {
     const userRef = db.collection('users').doc(req.uid);
