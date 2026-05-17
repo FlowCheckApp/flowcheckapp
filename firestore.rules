@@ -28,9 +28,8 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == uid;
     }
 
-    // Only allow certain fields to be written (prevents injection of
-    // arbitrary fields the app doesn't expect)
-    function allowedUserFields() {
+    // Fields allowed when CREATING a user doc (complete doc — all fields listed)
+    function allowedUserCreateFields() {
       return request.resource.data.keys().hasOnly([
         'uid', 'name', 'email',
         'created_at', 'last_seen', 'last_streak_date',
@@ -40,6 +39,24 @@ service cloud.firestore {
         'goals', 'budgets',
         'notifications_enabled', 'biometric_enabled',
         'onboarding_goal', 'onboarding_income',
+      ]);
+    }
+
+    // Fields the CLIENT is allowed to CHANGE on update.
+    // Intentionally separate from create — backend writes many fields
+    // (last_synced, credit_score, fcm_token, plaid_linked, etc.) that must
+    // not block client writes just because they exist in the document.
+    // Using affectedKeys() means we only restrict what's being changed,
+    // not what the document already contains.
+    function allowedUserUpdateFields() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+        'name',
+        'last_seen', 'last_streak_date',
+        'streak',
+        'goals', 'budgets',
+        'notifications_enabled', 'biometric_enabled',
+        'onboarding_goal', 'onboarding_income', 'onboarding_complete',
+        'fcm_token', 'fcm_updated_at',
       ]);
     }
 
@@ -58,14 +75,14 @@ service cloud.firestore {
       // Create own profile (signup) — must include uid field matching auth uid
       allow create: if isOwner(uid)
                     && request.resource.data.uid == uid
-                    && allowedUserFields();
+                    && allowedUserCreateFields();
 
       // Update own profile (settings, preferences)
+      // Only the fields listed in allowedUserUpdateFields() may be changed.
+      // uid, email, plaid_*, pro, credit_* are immutable from the client
+      // (backend Admin SDK bypasses rules and writes those directly).
       allow update: if isOwner(uid)
-                    && allowedUserFields()
-                    // uid and email cannot be changed after creation
-                    && (!request.resource.data.diff(resource.data).affectedKeys()
-                         .hasAny(['uid', 'email']));
+                    && allowedUserUpdateFields();
 
       // Never allow client-side deletes — deletion is server-side only
       allow delete: if false;
@@ -107,12 +124,12 @@ service cloud.firestore {
         allow create: if isOwner(uid)
                       && request.resource.data.keys().hasOnly([
                            'name', 'target', 'current', 'emoji',
-                           'created_at', 'updated_at',
+                           'target_date', 'created_at', 'updated_at',
                          ]);
         allow update: if isOwner(uid)
                       && request.resource.data.keys().hasOnly([
                            'name', 'target', 'current', 'emoji',
-                           'created_at', 'updated_at',
+                           'target_date', 'created_at', 'updated_at',
                          ]);
         allow delete: if isOwner(uid);
       }
@@ -122,13 +139,41 @@ service cloud.firestore {
         allow read:   if isOwner(uid);
         allow create: if isOwner(uid)
                       && request.resource.data.keys().hasOnly([
-                           'category', 'limit', 'period', 'created_at',
+                           'category', 'limit', 'period', 'created_at', 'updated_at',
                          ]);
         allow update: if isOwner(uid)
                       && request.resource.data.keys().hasOnly([
-                           'category', 'limit', 'period', 'created_at',
+                           'category', 'limit', 'period', 'created_at', 'updated_at',
                          ]);
         allow delete: if isOwner(uid);
+      }
+
+      // Transaction overrides — user-edited names/categories
+      match /transaction_overrides/{txnId} {
+        allow read:   if isOwner(uid);
+        allow create: if isOwner(uid)
+                      && request.resource.data.keys().hasOnly([
+                           'name', 'category', 'updated_at',
+                         ]);
+        allow update: if isOwner(uid)
+                      && request.resource.data.keys().hasOnly([
+                           'name', 'category', 'updated_at',
+                         ]);
+        allow delete: if isOwner(uid);
+      }
+
+      // Notifications — written by backend, read-only from client
+      match /notifications/{notifId} {
+        allow read:   if isOwner(uid);
+        allow update: if isOwner(uid)
+                      && request.resource.data.keys().hasOnly(['read']);
+        allow write:  if false; // backend-managed (create/delete)
+      }
+
+      // Credit history — written by backend after Experian calls
+      match /credit_history/{monthId} {
+        allow read:   if isOwner(uid);
+        allow write:  if false; // backend-managed
       }
     }
 
