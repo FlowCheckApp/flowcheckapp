@@ -113,8 +113,13 @@ app.use(cors({
   credentials: false, // We use Bearer tokens, not cookies — disable credentials
 }));
 
-// Cap request body size to prevent large-payload DoS
-app.use(express.json({ limit: '32kb' }));
+// Cap request body size to prevent large-payload DoS.
+// The `verify` callback captures the raw buffer — required for
+// Plaid webhook JWT signature verification on POST /plaid/webhook.
+app.use(express.json({
+  limit: '32kb',
+  verify: (req, _res, buf) => { req.rawBody = buf; },
+}));
 
 // ── Unique request ID for tracing ──────────────────────────────
 app.use((req, _res, next) => {
@@ -161,13 +166,20 @@ function perUserLimiter(max = 10) {
   };
 }
 
-app.use('/health',                generalLimiter);
-app.use('/plaid/link-token',      strictLimiter);
-app.use('/plaid/exchange-token',  strictLimiter);
-app.use('/plaid/sync',            generalLimiter);
-app.use('/plaid/disconnect',      strictLimiter);
-app.use('/user/account',          strictLimiter);
-app.use('/credit',                strictLimiter); // Credit endpoints are Experian-cost — strict limit
+app.use('/health',                      generalLimiter);
+app.use('/plaid/link-token',            strictLimiter);
+app.use('/plaid/exchange-token',        strictLimiter);
+app.use('/plaid/sync',                  generalLimiter);
+app.use('/plaid/webhook',              generalLimiter); // Plaid calls this — must stay responsive
+app.use('/plaid/disconnect',            strictLimiter); // covers /plaid/disconnect AND /plaid/disconnect/:itemId
+app.use('/user/account',                strictLimiter);
+app.use('/credit',                      strictLimiter); // Experian-cost — strict limit
+app.use('/notifications/send',          strictLimiter);
+app.use('/notifications/budget-alert',  strictLimiter);
+app.use('/notifications/register',      generalLimiter);
+app.use('/notifications/mark-all-read', generalLimiter);
+app.use('/notifications/',              generalLimiter); // covers /notifications/:id/read
+app.use('/email/',                      strictLimiter);  // covers welcome, test, etc.
 
 /* ── Firebase auth middleware ────────────────────────────────── */
 async function requireAuth(req, res, next) {
@@ -194,7 +206,7 @@ async function requireAuth(req, res, next) {
 }
 
 /* ── Health check ────────────────────────────────────────────── */
-app.get('/health', (_req, res) => res.json({ ok: true, plaidEnv }));
+app.get('/health', (_req, res) => res.json({ ok: true }));
 
 /* ─────────────────────────────────────────────────────────────
    POST /plaid/link-token
@@ -209,6 +221,9 @@ app.post('/plaid/link-token', requireAuth, _plaidUserLimiter, async (req, res) =
       products:      [Products.Transactions],
       country_codes: [CountryCode.Us],
       language:      'en',
+      // Webhook registered at link time — Plaid calls this whenever
+      // new transactions are available for this item.
+      webhook: 'https://flowcheck-backend-production.up.railway.app/plaid/webhook',
     });
     res.json({ link_token: data.link_token });
   } catch (err) {
@@ -330,11 +345,13 @@ app.get('/plaid/sync', requireAuth, perUserLimiter(30), async (req, res) => {
       for (let i = 0; i < allTxns.length; i += 400) {
         batch = db.batch();
         allTxns.slice(i, i + 400).forEach(t => {
+          // Plaid convention: negative amount = income/credit, positive = expense/debit
           batch.set(userRef.collection('transactions').doc(t.transaction_id), {
             id:              t.transaction_id,
             account_id:      t.account_id,
             name:            t.name,
-            amount:          t.amount,
+            amount:          Math.abs(t.amount),
+            isCredit:        t.amount < 0,
             date:            t.date,
             category:        t.category         || [],
             pending:         t.pending,
@@ -434,6 +451,91 @@ app.delete('/plaid/disconnect', requireAuth, async (req, res) => {
 });
 
 /* ─────────────────────────────────────────────────────────────
+   DELETE /plaid/disconnect/:itemId
+   Revokes a single Plaid item, deletes its accounts + transactions.
+   If this was the last item, sets plaid_linked: false.
+   ───────────────────────────────────────────────────────────── */
+app.delete('/plaid/disconnect/:itemId', requireAuth, async (req, res) => {
+  const uid    = req.uid;
+  const itemId = req.params.itemId;
+  const userRef = db.collection('users').doc(uid);
+
+  try {
+    const itemDoc = await userRef.collection('plaid_items').doc(itemId).get();
+    if (!itemDoc.exists) {
+      return res.status(404).json({ message: 'Bank not found' });
+    }
+
+    // Revoke Plaid access token — best-effort
+    const { access_token } = itemDoc.data();
+    if (access_token) {
+      try {
+        await plaid.itemRemove({ access_token });
+        console.log(`[disconnect-item] uid:${uid} revoked item:${itemId}`);
+      } catch (plaidErr) {
+        console.error(`[disconnect-item] revoke failed for item:${itemId}:`, plaidErr.message);
+      }
+    }
+
+    // Delete the plaid_items doc
+    await itemDoc.ref.delete();
+
+    // Find all accounts for this item
+    const accountsSnap = await userRef.collection('accounts')
+      .where('item_id', '==', itemId).get();
+    const accountIds = accountsSnap.docs.map(d => d.id);
+
+    // Delete transactions for each account
+    for (const accountId of accountIds) {
+      let txSnap;
+      do {
+        txSnap = await userRef.collection('transactions')
+          .where('account_id', '==', accountId)
+          .limit(400).get();
+        if (!txSnap.empty) {
+          const batch = db.batch();
+          txSnap.docs.forEach(d => batch.delete(d.ref));
+          await batch.commit();
+        }
+      } while (!txSnap.empty);
+    }
+
+    // Delete the accounts themselves
+    if (accountsSnap.docs.length) {
+      const batch = db.batch();
+      accountsSnap.docs.forEach(d => batch.delete(d.ref));
+      await batch.commit();
+    }
+
+    // Check remaining items
+    const remainingSnap = await userRef.collection('plaid_items').get();
+    if (remainingSnap.empty) {
+      // Last bank — clear plaid state from user doc
+      await userRef.update({
+        plaid_linked:         false,
+        plaid_institution:    admin.firestore.FieldValue.delete(),
+        plaid_institution_id: admin.firestore.FieldValue.delete(),
+        plaid_linked_at:      admin.firestore.FieldValue.delete(),
+        last_synced:          admin.firestore.FieldValue.delete(),
+      });
+    } else {
+      // Update user doc to reflect most-recently-connected remaining bank
+      const lastItem = remainingSnap.docs[remainingSnap.docs.length - 1].data();
+      await userRef.update({
+        plaid_institution:    lastItem.institution    || '',
+        plaid_institution_id: lastItem.institution_id || '',
+      });
+    }
+
+    console.log(`[disconnect-item] uid:${uid} item:${itemId} done (${remainingSnap.size} remaining)`);
+    res.json({ success: true, remaining: remainingSnap.size });
+  } catch (err) {
+    console.error('[disconnect-item]', err.message);
+    res.status(500).json({ message: 'Failed to disconnect bank — please try again' });
+  }
+});
+
+/* ─────────────────────────────────────────────────────────────
    DELETE /user/account
    Full CCPA-compliant account erasure.
    Removes: Plaid item, all Firestore data, Firebase Auth user.
@@ -452,8 +554,9 @@ app.delete('/user/account', requireAuth, async (req, res) => {
       await itemDoc.ref.delete();
     }
 
-    // 2. Delete all Firestore subcollections
-    for (const sub of ['accounts', 'transactions', 'goals', 'budgets', 'bills', 'plaid_items']) {
+    // 2. Delete all Firestore subcollections (CCPA: must erase everything)
+    for (const sub of ['accounts', 'transactions', 'goals', 'budgets', 'bills', 'plaid_items',
+                        'notifications', 'transaction_overrides', 'credit_history']) {
       let snap;
       do {
         snap = await userRef.collection(sub).limit(400).get();
@@ -525,6 +628,7 @@ async function _getExperianToken() {
 
   if (!resp.ok) {
     const txt = await resp.text();
+    _experianToken = null; // Clear stale cache on any auth failure
     throw new Error(`Experian token failed (${resp.status}): ${txt}`);
   }
 
@@ -924,13 +1028,44 @@ app.post('/email/welcome', requireAuth, async (req, res) => {
 });
 
 /* ─────────────────────────────────────────────────────────────
+   POST /email/test
+   Sends a test email to the authenticated user's address.
+   Useful for verifying SMTP configuration is working.
+   ───────────────────────────────────────────────────────────── */
+app.post('/email/test', requireAuth, async (req, res) => {
+  try {
+    const userRecord = await admin.auth().getUser(req.uid);
+    const email = userRecord.email;
+    if (!email) return res.json({ ok: true, skipped: 'no_email' });
+
+    const sent = await _sendEmail(email, 'FlowCheck email test ✅', `
+      <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+      <div style="max-width:480px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.08)">
+        <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:28px;text-align:center">
+          <div style="font-size:40px;margin-bottom:8px">✅</div>
+          <h2 style="color:#fff;font-size:20px;font-weight:700;margin:0">Email is working!</h2>
+        </div>
+        <div style="padding:24px">
+          <p style="font-size:15px;color:#374151;margin:0 0 16px">Your FlowCheck email system is configured correctly. Transactional emails like bill reminders, budget alerts, and weekly summaries will be delivered to: <strong>${email}</strong></p>
+          <p style="font-size:13px;color:#9ca3af;margin:0">Sent at ${new Date().toUTCString()}</p>
+        </div>
+      </div>
+      </body></html>
+    `);
+    res.json({ ok: true, sent, to: email });
+  } catch (err) {
+    console.error('[email/test]', err.message);
+    res.status(500).json({ message: 'Email test failed: ' + err.message });
+  }
+});
+
+/* ─────────────────────────────────────────────────────────────
    POST /notifications/send
    Sends an FCM push notification to the authenticated user's
    registered device via Firebase Admin Messaging.
    Body: { title: string, body: string, data?: {} }
    Use for: budget alerts, sync complete, goal reached, etc.
    ───────────────────────────────────────────────────────────── */
-app.use('/notifications/send', strictLimiter);
 app.post('/notifications/send', requireAuth, async (req, res) => {
   const { title, body: msgBody, data } = req.body;
   if (!title || !msgBody) {
@@ -941,31 +1076,20 @@ app.post('/notifications/send', requireAuth, async (req, res) => {
     const userSnap = await db.collection('users').doc(req.uid).get();
     const fcmToken = userSnap.exists ? userSnap.data().fcm_token : null;
 
-    if (!fcmToken) {
+    // Use improved _sendFCM helper (proper APN headers + Firestore save)
+    const sent = await _sendFCM(req.uid, fcmToken, {
+      title,
+      body:      msgBody,
+      type:      (data && data.type) || 'general',
+      data:      data || {},
+    });
+
+    if (!sent) {
       return res.status(404).json({ message: 'No FCM token — device not registered for push' });
     }
 
-    // Ensure all data values are strings (FCM requirement)
-    const safeData = Object.fromEntries(
-      Object.entries(data || {}).map(([k, v]) => [String(k), String(v)])
-    );
-
-    const messageId = await admin.messaging().send({
-      token: fcmToken,
-      notification: { title, body: msgBody },
-      data: safeData,
-      apns: {
-        payload: { aps: { sound: 'default', badge: 1 } },
-        headers:  { 'apns-priority': '10' },
-      },
-      android: {
-        priority: 'high',
-        notification: { sound: 'default', channelId: 'flowcheck_default' },
-      },
-    });
-
-    console.log(`[fcm] Sent "${title}" → uid:${req.uid} msgId:${messageId}`);
-    res.json({ success: true, messageId });
+    console.log(`[fcm] Sent "${title}" → uid:${req.uid}`);
+    res.json({ success: true });
 
   } catch (err) {
     const code = err.code || '';
@@ -992,7 +1116,6 @@ app.post('/notifications/send', requireAuth, async (req, res) => {
    has notifications enabled).
    Body: { category, spent, limit }
    ───────────────────────────────────────────────────────────── */
-app.use('/notifications/budget-alert', strictLimiter);
 app.post('/notifications/budget-alert', requireAuth, async (req, res) => {
   const { category, spent, limit: budgetLimit } = req.body;
   if (!category || spent == null || budgetLimit == null) {
@@ -1011,15 +1134,17 @@ app.post('/notifications/budget-alert', requireAuth, async (req, res) => {
     const userData = userSnap.exists ? userSnap.data() : {};
     const fcmToken = userData.fcm_token;
 
-    // FCM push — best-effort
+    // FCM push — best-effort (uses improved _sendFCM helper)
     if (fcmToken) {
-      admin.messaging().send({
-        token: fcmToken,
-        notification: { title, body },
-        data: { type: 'budget_alert', category: String(category) },
-        apns: { payload: { aps: { sound: 'default', badge: 1 } }, headers: { 'apns-priority': '10' } },
-        android: { priority: 'high', notification: { sound: 'default', channelId: 'flowcheck_alerts' } },
+      _sendFCM(req.uid, fcmToken, {
+        title, body,
+        type:      'budget_alert',
+        data:      { category: String(category) },
+        channelId: 'flowcheck_alerts',
       }).catch(err => console.error('[fcm budget-alert]', err.message));
+    } else {
+      // No FCM token — still save to notification center
+      _saveNotification(req.uid, { title, body, type: 'budget_alert', data: { category: String(category) } }).catch(() => {});
     }
 
     // Email — only if notifications enabled and user has an email address
@@ -1052,5 +1177,621 @@ app.post('/notifications/budget-alert', requireAuth, async (req, res) => {
   }
 });
 
+/* ─────────────────────────────────────────────────────────────
+   NOTIFICATION HELPERS
+   ───────────────────────────────────────────────────────────── */
+
+/**
+ * Save a notification to the user's Firestore notifications subcollection.
+ * This powers the in-app notification center.
+ */
+async function _saveNotification(uid, { title, body, type, data = {} }) {
+  try {
+    await db.collection('users').doc(uid)
+      .collection('notifications').add({
+        title,
+        body,
+        type:       type || 'general',
+        data:       data,
+        read:       false,
+        created_at: admin.firestore.FieldValue.serverTimestamp(),
+      });
+  } catch (err) {
+    console.error('[saveNotification]', err.message);
+  }
+}
+
+/**
+ * Send an FCM push notification to a specific device token.
+ * Includes proper iOS APN headers for reliable background + foreground delivery.
+ * Also saves to Firestore for the in-app notification center.
+ */
+async function _sendFCM(uid, fcmToken, { title, body, type, data = {}, channelId = 'flowcheck_default' }) {
+  if (!fcmToken) return false;
+  const stringData = Object.fromEntries(
+    Object.entries({ type: String(type || 'general'), ...data }).map(([k, v]) => [k, String(v)])
+  );
+  try {
+    await admin.messaging().send({
+      token:        fcmToken,
+      notification: { title, body },
+      data:         stringData,
+      apns: {
+        headers: {
+          'apns-priority':  '10',
+          'apns-push-type': 'alert',
+        },
+        payload: {
+          aps: {
+            alert:             { title, body },
+            sound:             'default',
+            badge:             1,
+            'content-available': 1,
+          },
+        },
+      },
+      android: {
+        priority: 'high',
+        notification: { title, body, sound: 'default', channelId },
+      },
+    });
+    // Persist to Firestore so the in-app notification center picks it up
+    if (uid) await _saveNotification(uid, { title, body, type, data: stringData });
+    return true;
+  } catch (err) {
+    if (err.code === 'messaging/registration-token-not-registered' ||
+        err.code === 'messaging/invalid-registration-token') {
+      // Token stale — clear it from Firestore
+      if (uid) {
+        db.collection('users').doc(uid).update({
+          fcm_token: admin.firestore.FieldValue.delete(),
+        }).catch(() => {});
+      }
+    }
+    console.error('[FCM]', err.code, err.message);
+    return false;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   POST /notifications/register
+   Saves (or refreshes) the FCM token for this user.
+   Called by the app immediately after push registration.
+   ───────────────────────────────────────────────────────────── */
+app.post('/notifications/register', requireAuth, async (req, res) => {
+  const { fcm_token } = req.body;
+  if (!fcm_token || typeof fcm_token !== 'string' || fcm_token.length > 500) {
+    return res.status(400).json({ message: 'fcm_token required and must be under 500 chars' });
+  }
+  try {
+    await db.collection('users').doc(req.uid).update({
+      fcm_token,
+      fcm_updated_at: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to register token' });
+  }
+});
+
+/* ─────────────────────────────────────────────────────────────
+   PATCH /notifications/:id/read
+   Mark a single notification as read.
+   ───────────────────────────────────────────────────────────── */
+app.patch('/notifications/:id/read', requireAuth, async (req, res) => {
+  try {
+    await db.collection('users').doc(req.uid)
+      .collection('notifications').doc(req.params.id)
+      .update({ read: true });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to mark read' });
+  }
+});
+
+/* ─────────────────────────────────────────────────────────────
+   POST /notifications/mark-all-read
+   Mark all notifications read for this user.
+   ───────────────────────────────────────────────────────────── */
+app.post('/notifications/mark-all-read', requireAuth, async (req, res) => {
+  try {
+    const snap = await db.collection('users').doc(req.uid)
+      .collection('notifications').where('read', '==', false).get();
+    const batch = db.batch();
+    snap.docs.forEach(d => batch.update(d.ref, { read: true }));
+    await batch.commit();
+    res.json({ ok: true, count: snap.size });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to mark all read' });
+  }
+});
+
+/* ─────────────────────────────────────────────────────────────
+   SCHEDULED NOTIFICATIONS (node-cron)
+   Runs inside this process — no external scheduler needed.
+   Times are UTC. Railway servers stay up continuously.
+
+   Daily  09:00 UTC  → Bill-due reminders (bills due in 1–2 days)
+   Sunday 07:00 UTC  → Weekly financial summary email
+   ───────────────────────────────────────────────────────────── */
+let cron;
+try { cron = require('node-cron'); } catch (_) {
+  console.warn('[Cron] node-cron not installed — scheduled notifications disabled. Run: npm install node-cron');
+}
+
+/** Format a dollar amount for display */
+const _fmt = (n) => '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/**
+ * Send bill-due reminders for a single user.
+ * Checks all bills due in the next 1-2 days and sends push + email.
+ */
+async function _sendBillRemindersForUser(uid, userData) {
+  const fcmToken   = userData.fcm_token;
+  const email      = userData.email;
+  const notifOn    = userData.notifications_enabled !== false;
+  if (!notifOn) return;
+
+  const now        = new Date();
+  const tomorrow   = new Date(now); tomorrow.setDate(now.getDate() + 1);
+  const dayAfter   = new Date(now); dayAfter.setDate(now.getDate() + 2);
+  const fmt        = d => d.toISOString().slice(0, 10);
+  const todayStr   = fmt(now);
+  const tomorrowStr = fmt(tomorrow);
+  const dayAfterStr = fmt(dayAfter);
+
+  let billsSnap;
+  try {
+    billsSnap = await db.collection('users').doc(uid).collection('bills')
+      .where('status', '!=', 'paid').get();
+  } catch (err) {
+    console.error(`[cron/bills] uid:${uid} query failed:`, err.message);
+    return;
+  }
+
+  for (const doc of billsSnap.docs) {
+    const bill = doc.data();
+    if (!bill.due_date || !bill.name) continue;
+    const due = bill.due_date.slice(0, 10);
+    if (due !== tomorrowStr && due !== dayAfterStr) continue;
+
+    const daysUntil = due === tomorrowStr ? 1 : 2;
+    const dayLabel  = daysUntil === 1 ? 'tomorrow' : 'in 2 days';
+    const title     = `💳 ${bill.name} due ${dayLabel}`;
+    const body      = `${_fmt(bill.amount || 0)} will be charged ${dayLabel}. Tap to review.`;
+
+    // FCM push
+    if (fcmToken) {
+      await _sendFCM(uid, fcmToken, {
+        title, body,
+        type:      'bill_due',
+        data:      { bill_id: doc.id, due_date: due },
+        channelId: 'flowcheck_bills',
+      });
+    } else if (uid) {
+      // No FCM token but save to notification center anyway
+      await _saveNotification(uid, { title, body, type: 'bill_due', data: { bill_id: doc.id } });
+    }
+
+    // Email
+    if (email && _mailer) {
+      const amountStr = _fmt(bill.amount || 0);
+      _sendEmail(email, title, `
+        <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+        <div style="max-width:520px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
+          <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:32px;text-align:center">
+            <div style="font-size:40px;margin-bottom:12px">💳</div>
+            <h1 style="color:#ffffff;font-size:22px;font-weight:700;margin:0 0 6px">${bill.name} due ${dayLabel}</h1>
+            <p style="color:rgba(255,255,255,0.6);font-size:15px;margin:0">${amountStr} · ${due}</p>
+          </div>
+          <div style="padding:28px 32px">
+            <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 24px">
+              Just a heads up — your <strong>${bill.name}</strong> payment of <strong>${amountStr}</strong> is due ${dayLabel}.
+              Make sure you have sufficient funds in your account.
+            </p>
+            <a href="https://getflowcheck.app" style="display:block;background:linear-gradient(135deg,#1ac4f0,#6b3fe0);color:#ffffff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
+              Review in FlowCheck →
+            </a>
+          </div>
+          <div style="padding:16px 32px;border-top:1px solid #f3f4f6;text-align:center">
+            <p style="font-size:11px;color:#9ca3af;margin:0">
+              FlowCheck · <a href="https://getflowcheck.app/unsubscribe?uid=${uid}" style="color:#9ca3af">Unsubscribe</a>
+            </p>
+          </div>
+        </div>
+        </body></html>
+      `).catch(e => console.error('[email bill-reminder]', e.message));
+    }
+  }
+}
+
+/**
+ * Send weekly financial summary email to a user.
+ */
+async function _sendWeeklySummaryForUser(uid, userData) {
+  const email   = userData.email;
+  const notifOn = userData.notifications_enabled !== false;
+  if (!email || !notifOn || !_mailer) return;
+
+  const name = (userData.display_name || userData.name || 'there').split(' ')[0];
+
+  // Aggregate last 7 days of transactions
+  const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 7);
+  const cutoffStr = cutoff.toISOString().slice(0, 10);
+
+  let txnSnap;
+  try {
+    txnSnap = await db.collection('users').doc(uid)
+      .collection('transactions')
+      .where('date', '>=', cutoffStr)
+      .where('pending', '==', false)
+      .get();
+  } catch (_) { return; }
+
+  if (txnSnap.empty) return; // No transactions — skip
+
+  let totalSpent = 0;
+  const categories = {};
+  txnSnap.docs.forEach(d => {
+    const t = d.data();
+    // isCredit=false means expense. Amount is always stored positive (Math.abs) after the fix.
+    if (!t.isCredit) {
+      totalSpent += t.amount;
+      const cat = (t.category && t.category[0]) || 'Other';
+      categories[cat] = (categories[cat] || 0) + t.amount;
+    }
+  });
+
+  // Top 3 spending categories
+  const topCats = Object.entries(categories)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([cat, amt]) => `<tr><td style="padding:6px 0;color:#374151;font-size:14px">${cat}</td><td style="padding:6px 0;text-align:right;font-weight:600;color:#111827;font-size:14px">${_fmt(amt)}</td></tr>`)
+    .join('');
+
+  _sendEmail(email, `Your FlowCheck weekly summary 📊`, `
+    <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+    <div style="max-width:520px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
+      <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:36px 32px;text-align:center">
+        <div style="font-size:40px;margin-bottom:12px">📊</div>
+        <h1 style="color:#ffffff;font-size:22px;font-weight:700;margin:0 0 6px">Weekly Summary, ${name}!</h1>
+        <p style="color:rgba(255,255,255,0.6);font-size:14px;margin:0">Here's how your money moved this week</p>
+      </div>
+      <div style="padding:28px 32px">
+        <div style="background:#f0f9ff;border-radius:12px;padding:20px;text-align:center;margin-bottom:24px">
+          <div style="font-size:13px;color:#6b7280;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.05em">Total Spent This Week</div>
+          <div style="font-size:32px;font-weight:800;color:#0a1520;letter-spacing:-0.03em">${_fmt(totalSpent)}</div>
+        </div>
+        ${topCats ? `
+        <div style="margin-bottom:24px">
+          <div style="font-size:13px;font-weight:600;color:#374151;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:12px">Top Categories</div>
+          <table style="width:100%;border-collapse:collapse">${topCats}</table>
+        </div>` : ''}
+        <a href="https://getflowcheck.app" style="display:block;background:linear-gradient(135deg,#1ac4f0,#6b3fe0);color:#ffffff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
+          View Full Breakdown →
+        </a>
+      </div>
+      <div style="padding:16px 32px;border-top:1px solid #f3f4f6;text-align:center">
+        <p style="font-size:11px;color:#9ca3af;margin:0">
+          FlowCheck · Your money, clearly<br>
+          <a href="https://getflowcheck.app/unsubscribe?uid=${uid}" style="color:#9ca3af">Unsubscribe from weekly summaries</a>
+        </p>
+      </div>
+    </div>
+    </body></html>
+  `).catch(e => console.error('[email weekly]', e.message));
+}
+
+// ── Cron: daily bill reminders at 09:00 UTC ─────────────────
+if (cron) {
+  cron.schedule('0 9 * * *', async () => {
+    console.log('[Cron] Running daily bill reminder job…');
+    try {
+      const usersSnap = await db.collection('users').get();
+      let sent = 0;
+      for (const userDoc of usersSnap.docs) {
+        const data = userDoc.data();
+        // Send reminders to all users who have notifications enabled —
+        // bills can exist without Plaid being linked (manually added bills)
+        await _sendBillRemindersForUser(userDoc.id, data).catch(err =>
+          console.error(`[cron/bills] uid:${userDoc.id}:`, err.message)
+        );
+        sent++;
+      }
+      console.log(`[Cron] Bill reminders: checked ${sent} users`);
+    } catch (err) {
+      console.error('[Cron] Bill reminder job failed:', err.message);
+    }
+  }, { timezone: 'UTC' });
+  console.log('[Boot] Cron: daily bill reminders scheduled (09:00 UTC)');
+}
+
+// ── Cron: weekly summary email every Sunday at 07:00 UTC ────
+if (cron) {
+  cron.schedule('0 7 * * 0', async () => {
+    console.log('[Cron] Running weekly summary job…');
+    try {
+      const usersSnap = await db.collection('users').get();
+      let sent = 0;
+      for (const userDoc of usersSnap.docs) {
+        const data = userDoc.data();
+        if (!data.plaid_linked || !data.email) continue;
+        await _sendWeeklySummaryForUser(userDoc.id, data).catch(err =>
+          console.error(`[cron/weekly] uid:${userDoc.id}:`, err.message)
+        );
+        sent++;
+      }
+      console.log(`[Cron] Weekly summaries: processed ${sent} users`);
+    } catch (err) {
+      console.error('[Cron] Weekly summary job failed:', err.message);
+    }
+  }, { timezone: 'UTC' });
+  console.log('[Boot] Cron: weekly summary scheduled (Sunday 07:00 UTC)');
+}
+
+/* ─────────────────────────────────────────────────────────────
+   PLAID WEBHOOK — real-time transaction updates
+   ─────────────────────────────────────────────────────────────
+   Plaid calls this endpoint when new transactions are available.
+   We verify the JWT signature using Plaid's published public key,
+   then trigger a background sync for the affected user.
+
+   Setup (Railway env vars):
+     PLAID_WEBHOOK_SECRET — optional extra shared-secret header
+       (not required; JWT verification is the primary auth)
+
+   In Plaid Dashboard → Webhooks, set URL to:
+     https://flowcheck-backend-production.up.railway.app/plaid/webhook
+   ─────────────────────────────────────────────────────────────── */
+
+// Cache Plaid JWK keys in memory (keyed by key_id).
+// Keys rotate infrequently; 1-hour TTL is Plaid's recommendation.
+const _plaidKeyCache = new Map(); // key_id → { jwk, expiresAt }
+const _PLAID_KEY_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+/**
+ * Fetch and cache a Plaid webhook verification key.
+ */
+async function _getPlaidWebhookKey(keyId) {
+  const cached = _plaidKeyCache.get(keyId);
+  if (cached && Date.now() < cached.expiresAt) return cached.jwk;
+
+  const { data } = await plaid.webhookVerificationKeyGet({ key_id: keyId });
+  const jwk = data.key;
+  _plaidKeyCache.set(keyId, { jwk, expiresAt: Date.now() + _PLAID_KEY_TTL_MS });
+  return jwk;
+}
+
+/**
+ * Decode a base64url string to a Buffer (no padding needed).
+ */
+function _b64url(str) {
+  return Buffer.from(str.replace(/-/g, '+').replace(/_/g, '/'), 'base64');
+}
+
+/**
+ * Verify a Plaid webhook JWT using Node 18 native crypto.subtle (ES256).
+ * Returns the parsed payload on success, throws on failure.
+ *
+ * Security properties:
+ *  - Signature verified against Plaid's published ECDSA P-256 public key
+ *  - `iat` claim checked — rejects webhooks older than 5 minutes (replay protection)
+ *  - `alg` must be ES256
+ */
+async function _verifyPlaidJwt(token, rawBodyBuf) {
+  const parts = token.split('.');
+  if (parts.length !== 3) throw new Error('Malformed JWT');
+
+  const [headerB64, payloadB64, sigB64] = parts;
+
+  // Decode header to get key_id and algorithm
+  const header = JSON.parse(_b64url(headerB64).toString('utf8'));
+  if (header.alg !== 'ES256') throw new Error(`Unsupported JWT alg: ${header.alg}`);
+  if (!header.kid) throw new Error('JWT missing kid');
+
+  // Fetch Plaid's public key for this key_id
+  const jwk = await _getPlaidWebhookKey(header.kid);
+
+  // Import the JWK as a CryptoKey (available in Node 18+ without webcrypto import)
+  const { subtle } = require('crypto');
+  const publicKey = await subtle.importKey(
+    'jwk',
+    { kty: jwk.kty, crv: jwk.crv, x: jwk.x, y: jwk.y },
+    { name: 'ECDSA', namedCurve: 'P-256' },
+    false,
+    ['verify']
+  );
+
+  // Signed content = header.payload (ASCII bytes)
+  const signedContent = Buffer.from(`${headerB64}.${payloadB64}`, 'ascii');
+  const signature     = _b64url(sigB64);
+
+  const valid = await subtle.verify(
+    { name: 'ECDSA', hash: 'SHA-256' },
+    publicKey,
+    signature,
+    signedContent
+  );
+  if (!valid) throw new Error('JWT signature invalid');
+
+  const payload = JSON.parse(_b64url(payloadB64).toString('utf8'));
+
+  // Replay protection: reject webhooks older than 5 minutes
+  const ageSeconds = Math.floor(Date.now() / 1000) - (payload.iat || 0);
+  if (ageSeconds > 300) throw new Error(`JWT too old: ${ageSeconds}s`);
+
+  // The payload's `request_body_sha256` must match SHA-256 of the raw request body
+  if (rawBodyBuf && payload.request_body_sha256) {
+    const { createHash } = require('crypto');
+    const actualHash = createHash('sha256').update(rawBodyBuf).digest('hex');
+    if (actualHash !== payload.request_body_sha256) {
+      throw new Error('Body hash mismatch — possible tampering');
+    }
+  }
+
+  return payload;
+}
+
+/**
+ * Trigger a background sync for a specific Plaid item_id.
+ * Finds the user who owns this item, then re-runs account + transaction sync.
+ * Errors are logged but never surface to the caller (webhook must always 200).
+ */
+async function _webhookSyncItem(itemId) {
+  try {
+    // Find the user who owns this item_id
+    const itemSnap = await db.collectionGroup('plaid_items')
+      .where('item_id', '==', itemId)
+      .limit(1)
+      .get();
+
+    if (itemSnap.empty) {
+      console.warn(`[webhook] item_id ${itemId} not found in Firestore — ignoring`);
+      return;
+    }
+
+    const itemDoc  = itemSnap.docs[0];
+    const userRef  = itemDoc.ref.parent.parent; // users/{uid}
+    const uid      = userRef.id;
+    const { access_token } = itemDoc.data();
+
+    if (!access_token) {
+      console.warn(`[webhook] item ${itemId} has no access_token`);
+      return;
+    }
+
+    const TS  = admin.firestore.FieldValue.serverTimestamp;
+    const now = new Date();
+    const start = new Date(+now - 90 * 864e5);
+    const fmt = d => d.toISOString().slice(0, 10);
+
+    // ── Accounts ──────────────────────────────────────────────────
+    const { data: acctData } = await plaid.accountsGet({ access_token });
+    const accounts = acctData.accounts.map(a => ({
+      id:                a.account_id,
+      name:              a.name,
+      official_name:     a.official_name  || null,
+      type:              a.type,
+      subtype:           a.subtype        || null,
+      balance_current:   a.balances.current   ?? 0,
+      balance_available: a.balances.available ?? null,
+      currency:          a.balances.iso_currency_code || 'USD',
+      mask:              a.mask           || null,
+      item_id:           itemId,
+    }));
+
+    let batch = db.batch();
+    accounts.forEach(a => {
+      batch.set(userRef.collection('accounts').doc(a.id), { ...a, updated_at: TS() }, { merge: true });
+    });
+    await batch.commit();
+
+    // ── Transactions (paginated) ──────────────────────────────────
+    let allTxns = [], offset = 0, total = Infinity;
+    while (allTxns.length < total) {
+      const { data: txnData } = await plaid.transactionsGet({
+        access_token,
+        start_date: fmt(start),
+        end_date:   fmt(now),
+        options:    { count: 500, offset },
+      });
+      total = txnData.total_transactions;
+      allTxns = allTxns.concat(txnData.transactions);
+      offset += txnData.transactions.length;
+      if (!txnData.transactions.length) break;
+    }
+
+    for (let i = 0; i < allTxns.length; i += 400) {
+      batch = db.batch();
+      allTxns.slice(i, i + 400).forEach(t => {
+        // Plaid convention: negative amount = income/credit, positive = expense/debit
+        batch.set(userRef.collection('transactions').doc(t.transaction_id), {
+          id:              t.transaction_id,
+          account_id:      t.account_id,
+          name:            t.name,
+          amount:          Math.abs(t.amount),
+          isCredit:        t.amount < 0,
+          date:            t.date,
+          category:        t.category         || [],
+          pending:         t.pending,
+          merchant_name:   t.merchant_name    || null,
+          logo_url:        t.logo_url         || null,
+          payment_channel: t.payment_channel  || null,
+          updated_at:      TS(),
+        }, { merge: true });
+      });
+      await batch.commit();
+    }
+
+    await userRef.update({ last_synced: TS() });
+    console.log(`[webhook] Synced uid:${uid} item:${itemId} → ${accounts.length} accounts, ${allTxns.length} txns`);
+  } catch (err) {
+    console.error(`[webhook] Sync failed for item ${itemId}:`, err.message);
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   POST /plaid/webhook
+   ─────────────────────────────────────────────────────────────
+   Called by Plaid when transactions change. We:
+   1. Verify the Plaid-Verification JWT (ES256, Plaid's public key)
+   2. Respond 200 immediately (Plaid requires < 10s response)
+   3. Trigger a background sync for the affected item
+
+   Webhook types we act on:
+   - TRANSACTIONS_DEFAULT_UPDATE   → new transactions available
+   - TRANSACTIONS_SYNC_UPDATES_AVAILABLE → use /transactions/sync
+   - TRANSACTIONS_REMOVED         → deleted transactions (future)
+   ─────────────────────────────────────────────────────────────── */
+const WEBHOOK_TYPES_TO_SYNC = new Set([
+  'TRANSACTIONS_DEFAULT_UPDATE',
+  'TRANSACTIONS_SYNC_UPDATES_AVAILABLE',
+  'DEFAULT_UPDATE',           // legacy code (Plaid v1)
+  'INITIAL_UPDATE',           // first pull after link
+  'HISTORICAL_UPDATE',        // historical transactions ready
+]);
+
+app.post('/plaid/webhook', async (req, res) => {
+  // Always respond quickly so Plaid doesn't retry
+  const respond = (status, body) => {
+    if (!res.headersSent) res.status(status).json(body);
+  };
+
+  try {
+    // ── 1. Verify JWT signature ──────────────────────────────────
+    const token = req.headers['plaid-verification'];
+    if (!token) {
+      console.warn('[webhook] Missing Plaid-Verification header — ignoring');
+      return respond(400, { message: 'Missing verification token' });
+    }
+
+    try {
+      await _verifyPlaidJwt(token, req.rawBody);
+    } catch (verifyErr) {
+      console.warn('[webhook] JWT verification failed:', verifyErr.message);
+      return respond(401, { message: 'Webhook verification failed' });
+    }
+
+    // ── 2. Parse body & respond 200 immediately ──────────────────
+    const { webhook_type, webhook_code, item_id } = req.body || {};
+    respond(200, { received: true });
+
+    // ── 3. Trigger background sync if relevant ───────────────────
+    const code = webhook_code || webhook_type || '';
+    if (item_id && WEBHOOK_TYPES_TO_SYNC.has(code)) {
+      console.log(`[webhook] Triggering sync for item:${item_id} type:${code}`);
+      _webhookSyncItem(item_id); // intentionally not awaited
+    } else {
+      console.log(`[webhook] Ignoring webhook type:${webhook_type} code:${code}`);
+    }
+  } catch (err) {
+    console.error('[webhook] Unexpected error:', err.message);
+    respond(500, { message: 'Internal error' });
+  }
+});
+
+/* ─────────────────────────────────────────────────────────────
+   START SERVER
+   ───────────────────────────────────────────────────────────── */
 const PORT = parseInt(process.env.PORT) || 8080;
 app.listen(PORT, '0.0.0.0', () => console.log(`[Boot] Listening on :${PORT}`));
