@@ -38,6 +38,7 @@ service cloud.firestore {
         'streak',
         'goals', 'budgets',
         'notifications_enabled', 'biometric_enabled',
+        'email_marketing_opt_in',
         'onboarding_goal', 'onboarding_income',
       ]);
     }
@@ -55,6 +56,7 @@ service cloud.firestore {
         'streak',
         'goals', 'budgets',
         'notifications_enabled', 'biometric_enabled',
+        'email_marketing_opt_in',
         'onboarding_goal', 'onboarding_income', 'onboarding_complete',
         'fcm_token', 'fcm_updated_at',
       ]);
@@ -106,13 +108,13 @@ service cloud.firestore {
         allow create: if isOwner(uid)
                       && request.resource.data.keys().hasOnly([
                            'name', 'amount', 'due_date', 'status',
-                           'category', 'type', 'icon', 'color',
+                           'category', 'type', 'icon', 'color', 'frequency',
                            'paid_at', 'created_at', 'updated_at',
                          ]);
         allow update: if isOwner(uid)
                       && request.resource.data.keys().hasOnly([
                            'name', 'amount', 'due_date', 'status',
-                           'category', 'type', 'icon', 'color',
+                           'category', 'type', 'icon', 'color', 'frequency',
                            'paid_at', 'created_at', 'updated_at',
                          ]);
         allow delete: if isOwner(uid);
@@ -170,10 +172,14 @@ service cloud.firestore {
         allow write:  if false; // backend-managed (create/delete)
       }
 
-      // Credit history — written by backend after Experian calls
+      // Credit history — read/write by owner (client saves snapshots after fetching score)
       match /credit_history/{monthId} {
         allow read:   if isOwner(uid);
-        allow write:  if false; // backend-managed
+        allow create: if isOwner(uid)
+                      && request.resource.data.keys().hasOnly(['month', 'score', 'saved_at']);
+        allow update: if isOwner(uid)
+                      && request.resource.data.keys().hasOnly(['month', 'score', 'saved_at']);
+        allow delete: if false;
       }
     }
 

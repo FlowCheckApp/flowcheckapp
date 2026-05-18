@@ -26,13 +26,36 @@
 	<true/>
 	<key>NSFaceIDUsageDescription</key>
 	<string>FlowCheck uses Face ID to securely unlock your financial data.</string>
+	<key>NSUserNotificationsUsageDescription</key>
+	<string>FlowCheck sends bill reminders and account alerts to help you stay on top of your finances.</string>
+	<!-- NSCameraUsageDescription intentionally omitted — FlowCheck has no camera feature.
+	     Declaring it without using it causes App Store review rejection (Apple guideline 5.1.1). -->
+	<!-- Plaid OAuth: required so Plaid can return to the app after authenticating
+	     with banks that use OAuth (Chase, Capital One, etc.). The scheme must match
+	     what you register in Plaid Dashboard → API → Allowed redirect URIs. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>flowcheck</string>
+			</array>
+			<key>CFBundleURLName</key>
+			<string>com.brandon.flowcheck</string>
+		</dict>
+	</array>
+	<!-- Background push notifications — required for delivery when app is suspended -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
 	<key>UIRequiredDeviceCapabilities</key>
 	<array>
-		<string>armv7</string>
+		<string>arm64</string>
 	</array>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>

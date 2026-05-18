@@ -4,9 +4,10 @@ node_modules/
 .pnp.js
 
 # ── Build outputs ────────────────────────────────────────────────
+# NOTE: www/ is intentionally tracked — it is the hand-written source code
+# for the Capacitor web layer, not a build artifact. Do NOT add it here.
 dist/
 build/
-www/
 .output/
 
 # ── Capacitor ────────────────────────────────────────────────────

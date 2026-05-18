@@ -1,0 +1,3366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<!-- Content Security Policy: blocks injected external scripts while allowing
+     our inline code, Firebase, Plaid CDN, and backend API.
+     'unsafe-eval' is required in script-src because Plaid Link SDK (cdn.plaid.com)
+     uses eval() internally. It is intentionally NOT in default-src so it only
+     applies to JavaScript, not other resource types. -->
+<meta http-equiv="Content-Security-Policy"
+  content="default-src 'self' 'unsafe-inline' blob: data:;
+           script-src 'self' 'unsafe-inline' 'unsafe-eval'
+             https://cdn.plaid.com
+             https://www.gstatic.com
+             https://cdn.jsdelivr.net;
+           connect-src 'self'
+             https://flowcheck-backend-production.up.railway.app
+             https://*.googleapis.com
+             https://*.firebaseio.com
+             https://*.firestore.googleapis.com
+             wss://*.firebaseio.com
+             https://api.plaid.com
+             https://cdn.plaid.com;
+           img-src 'self' data: https: blob:;
+           font-src 'self' data: https:;
+           style-src 'self' 'unsafe-inline' https:;
+           frame-src https://cdn.plaid.com;">
+<title>FlowCheck</title>
+<meta name="theme-color" content="#0a1520">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="stylesheet" href="css/flowcheck-design-system.css">
+
+<style>
+/* ════════════════════════════════════════════════════════════
+   GLOBAL SCREEN SYSTEM
+   body[data-screen="X"] shows only .fc-screen[data-screen="X"]
+   ════════════════════════════════════════════════════════════ */
+.fc-screen {
+  display: none;
+  flex-direction: column;
+  min-height: 100dvh;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+body[data-screen="splash"]     .fc-screen[data-screen="splash"]     { display: flex; }
+body[data-screen="login"]      .fc-screen[data-screen="login"]      { display: flex; }
+body[data-screen="register"]   .fc-screen[data-screen="register"]   { display: flex; }
+body[data-screen="onboarding"] .fc-screen[data-screen="onboarding"] { display: flex; }
+body[data-screen="paywall"]    .fc-screen[data-screen="paywall"]    { display: flex; }
+body[data-screen="app"]        .fc-screen[data-screen="app"]        { display: flex; }
+
+/* Dev preview phone frame */
+html, body {
+  height: 100%;
+  overflow: hidden;          /* kill body-level scroll — views scroll internally */
+  background: #030b12;
+  font-variant-numeric: tabular-nums;
+  overscroll-behavior: none; /* no iOS bounce on body */
+}
+.phone-frame {
+  max-width: 440px;
+  margin: 24px auto;
+  background: var(--fc-bg);
+  border-radius: 36px;
+  overflow: hidden;
+  box-shadow: 0 32px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.06);
+  height: 100vh;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+@media (min-width: 600px) { body { padding: 24px; } }
+@media (max-width: 599px) {
+  html, body { background: var(--fc-bg); }
+  .phone-frame { margin: 0; max-width: 100%; border-radius: 0; box-shadow: none; height: 100dvh; }
+}
+
+/* ════════════════════════════════════════════════════════════
+   SPLASH SCREEN
+   ════════════════════════════════════════════════════════════ */
+.fc-splash {
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(ellipse at 50% 60%, rgba(26,196,240,0.15) 0%, transparent 60%),
+              radial-gradient(ellipse at 80% 20%, rgba(107,63,224,0.12) 0%, transparent 50%),
+              var(--fc-bg);
+  gap: 24px;
+}
+.fc-splash-logo {
+  width: 80px; height: 80px;
+  background: linear-gradient(135deg, var(--fc-accent), var(--fc-purple));
+  border-radius: 26px;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 20px 60px rgba(26,196,240,0.35);
+  animation: fcLogoIn 0.6s var(--fc-ease-spring) both;
+}
+.fc-splash-wordmark {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  color: white;
+  animation: fcFadeUp 0.5s 0.2s var(--fc-ease-out) both;
+}
+.fc-splash-loader {
+  display: flex; gap: 6px;
+  animation: fcFadeUp 0.5s 0.4s var(--fc-ease-out) both;
+}
+.fc-splash-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--fc-accent);
+  opacity: 0.3;
+}
+.fc-splash-dot:nth-child(1) { animation: fcPulse 1.2s 0.0s ease-in-out infinite; }
+.fc-splash-dot:nth-child(2) { animation: fcPulse 1.2s 0.2s ease-in-out infinite; }
+.fc-splash-dot:nth-child(3) { animation: fcPulse 1.2s 0.4s ease-in-out infinite; }
+@keyframes fcPulse { 0%,100% { opacity:0.3; transform:scale(1); } 50% { opacity:1; transform:scale(1.3); } }
+@keyframes fcLogoIn { from { opacity:0; transform:scale(0.7) translateY(20px); } to { opacity:1; transform:none; } }
+
+/* ════════════════════════════════════════════════════════════
+   AUTH SCREENS (login + register)
+   ════════════════════════════════════════════════════════════ */
+.fc-auth-screen {
+  align-items: center;
+  justify-content: flex-start;
+  background: radial-gradient(ellipse at 50% -20%, rgba(26,196,240,0.2) 0%, transparent 60%),
+              var(--fc-bg);
+  padding: calc(env(safe-area-inset-top) + 60px) 24px 40px;
+  gap: 0;
+  overflow-y: auto;
+}
+.fc-auth-logo {
+  width: 56px; height: 56px;
+  background: linear-gradient(135deg, var(--fc-accent), var(--fc-purple));
+  border-radius: 18px;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 12px 40px rgba(26,196,240,0.3);
+  margin-bottom: 20px;
+}
+.fc-auth-title {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.022em;
+  color: white;
+  margin-bottom: 6px;
+  text-align: center;
+}
+.fc-auth-subtitle {
+  font-size: 14px;
+  color: var(--fc-text-faint);
+  text-align: center;
+  margin-bottom: 36px;
+}
+
+/* Input fields */
+.fc-input-group { width: 100%; margin-bottom: 12px; }
+.fc-input-label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fc-text-faint);
+  margin-bottom: 6px;
+}
+.fc-input {
+  width: 100%;
+  height: 52px;
+  background: rgba(255,255,255,0.06);
+  border: 1.5px solid rgba(255,255,255,0.1);
+  border-radius: 14px;
+  color: white;
+  font-size: 15px;
+  font-family: inherit;
+  padding: 0 16px;
+  transition: border-color 0.15s, background 0.15s;
+  box-sizing: border-box;
+}
+.fc-input:focus {
+  outline: none;
+  border-color: var(--fc-accent);
+  background: rgba(26,196,240,0.06);
+}
+.fc-input::placeholder { color: rgba(255,255,255,0.3); }
+.fc-input-wrap { position: relative; }
+.fc-input-eye {
+  position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; color: var(--fc-text-faint); cursor: pointer;
+  padding: 4px; display: flex;
+}
+
+/* Auth error */
+.fc-auth-error {
+  width: 100%;
+  background: rgba(255,69,58,0.12);
+  border: 1px solid rgba(255,69,58,0.25);
+  border-radius: 10px;
+  color: var(--fc-danger);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  display: none;
+}
+
+/* Face ID button */
+.fc-biometric-btn {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  width: 100%;
+  height: 52px;
+  background: rgba(255,255,255,0.05);
+  border: 1.5px solid rgba(255,255,255,0.1);
+  border-radius: 14px;
+  color: var(--fc-text-muted);
+  font-size: 15px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  margin-top: 8px;
+  transition: background 0.15s, border-color 0.15s;
+}
+.fc-biometric-btn:active { transform: scale(0.97); background: rgba(255,255,255,0.08); }
+
+/* Auth divider */
+.fc-auth-divider {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; margin: 20px 0;
+}
+.fc-auth-divider::before, .fc-auth-divider::after {
+  content: ''; flex: 1; height: 1px; background: rgba(255,255,255,0.08);
+}
+.fc-auth-divider span { color: var(--fc-text-faint); font-size: 12px; font-weight: 500; }
+
+/* Auth link */
+.fc-auth-link {
+  margin-top: 24px;
+  font-size: 14px;
+  color: var(--fc-text-faint);
+  text-align: center;
+}
+.fc-auth-link button {
+  background: none; border: none;
+  color: var(--fc-accent);
+  font-size: 14px; font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* Forgot password */
+.fc-forgot-btn {
+  background: none; border: none;
+  color: var(--fc-accent);
+  font-size: 12px; font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 0;
+  float: right;
+  margin-top: -8px;
+  margin-bottom: 16px;
+}
+
+/* ════════════════════════════════════════════════════════════
+   ONBOARDING (Plaid connect)
+   ════════════════════════════════════════════════════════════ */
+.fc-onboarding {
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(ellipse at 50% 30%, rgba(107,63,224,0.2) 0%, transparent 60%),
+              var(--fc-bg);
+  padding: 48px 32px;
+  text-align: center;
+  gap: 0;
+}
+.fc-onboarding-icon {
+  width: 96px; height: 96px;
+  background: linear-gradient(135deg, rgba(107,63,224,0.25), rgba(26,196,240,0.15));
+  border: 1.5px solid rgba(107,63,224,0.3);
+  border-radius: 32px;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 28px;
+}
+.fc-onboarding h1 {
+  font-size: 26px; font-weight: 700; letter-spacing: -0.022em;
+  color: white; margin-bottom: 10px;
+}
+.fc-onboarding p {
+  font-size: 15px; line-height: 1.5;
+  color: var(--fc-text-faint);
+  margin-bottom: 40px;
+  max-width: 280px;
+}
+.fc-onboarding-trust {
+  display: flex; gap: 16px; flex-wrap: wrap; justify-content: center;
+  margin-bottom: 36px;
+}
+.fc-onboarding-trust-item {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--fc-text-faint);
+}
+.fc-skip-btn {
+  background: none; border: none;
+  color: var(--fc-text-faint);
+  font-size: 14px; font-family: inherit;
+  cursor: pointer; margin-top: 16px;
+  text-decoration: underline; text-underline-offset: 3px;
+}
+
+/* ════════════════════════════════════════════════════════════
+   APP SHELL (views + nav)
+   ════════════════════════════════════════════════════════════ */
+.fc-screen[data-screen="app"] {
+  position: relative;
+  padding-bottom: 0;
+  /* Lock to exact screen height so flex:1 views are properly constrained
+     and overflow-y:scroll fires correctly on iOS WKWebView */
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+}
+.fc-view { display: none; flex-direction: column; }
+.fc-view.active { display: flex; flex: 1; min-height: 0; }
+
+/* Dynamic Island */
+.fc-island { display: flex; justify-content: center; padding: 10px 0 0; flex-shrink: 0; }
+.fc-island-pill {
+  background: #000; padding: 6px 16px; border-radius: 999px;
+  display: inline-flex; align-items: center; gap: 8px;
+  transition: background 0.2s;
+}
+.fc-island-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--fc-success); box-shadow: 0 0 8px var(--fc-success);
+}
+.fc-island-text { color: white; font-size: 12px; font-weight: 500; }
+
+/* Brand header */
+.fc-brand { display: flex; align-items: center; gap: 8px; }
+.fc-brand-mark {
+  width: 32px; height: 32px;
+  background: linear-gradient(135deg, var(--fc-accent), var(--fc-purple));
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+}
+.fc-brand-name { color: white; font-size: 17px; font-weight: 700; letter-spacing: -0.02em; }
+
+/* Icon buttons */
+.fc-iconbtn {
+  width: 42px; height: 42px; border-radius: 50%;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.04);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: white; position: relative;
+  transition: background 0.15s, transform 0.1s;
+}
+.fc-iconbtn:active { transform: scale(0.94); }
+.fc-iconbtn-badge {
+  position: absolute; top: 9px; right: 10px;
+  width: 9px; height: 9px; background: var(--fc-danger);
+  border-radius: 50%; border: 2px solid var(--fc-bg);
+}
+
+/* Hero card */
+.fc-hero-wrap { margin: 18px 16px 0; position: relative; }
+.fc-hero-glow {
+  position: absolute; inset: 4px;
+  background:
+    radial-gradient(ellipse 70% 60% at 30% 0%, rgba(26,196,240,0.35), transparent 65%),
+    radial-gradient(ellipse 60% 50% at 80% 100%, rgba(107,63,224,0.28), transparent 60%);
+  filter: blur(32px); border-radius: 30px; pointer-events: none;
+  animation: heroGlowPulse 5s ease-in-out infinite alternate;
+}
+@keyframes heroGlowPulse {
+  0%   { opacity: 0.7; }
+  100% { opacity: 1; }
+}
+.fc-hero {
+  position: relative; padding: 22px 22px 16px;
+  background: linear-gradient(145deg, rgba(26,196,240,0.10) 0%, rgba(107,63,224,0.08) 55%, rgba(26,196,240,0.04) 100%);
+  border: 1px solid rgba(26,196,240,0.22);
+  border-radius: 24px; overflow: hidden;
+}
+.fc-hero-orb {
+  position: absolute; top: -40px; right: -40px;
+  opacity: 0.6; width: 180px; height: 180px; pointer-events: none;
+  animation: orbFloat 8s ease-in-out infinite;
+}
+@keyframes orbFloat {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%  { transform: translate(-8px, 6px) scale(1.05); }
+  66%  { transform: translate(6px, -4px) scale(0.97); }
+}
+.fc-hero-amount {
+  color: white; font-size: 44px; font-weight: 800;
+  letter-spacing: -0.035em; line-height: 1;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 40px rgba(26,196,240,0.15);
+}
+.fc-hero-cents { font-size: 26px; color: rgba(255,255,255,0.45); font-weight: 700; }
+.fc-hero-sub { color: rgba(255,255,255,0.45); font-size: 12px; margin: 5px 0 14px; }
+
+/* Scrubber */
+.fc-scrubber {
+  display: flex; gap: 3px; margin-top: 14px;
+  padding: 3px; background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 999px;
+}
+.fc-scrubber button {
+  flex: 1; padding: 7px 0;
+  background: transparent; border: none;
+  color: rgba(255,255,255,0.45); font-size: 11px; font-weight: 600;
+  border-radius: 999px; cursor: pointer; font-family: inherit;
+  transition: background 0.18s, color 0.18s, box-shadow 0.18s;
+  letter-spacing: 0.01em;
+}
+.fc-scrubber button.active {
+  background: rgba(26,196,240,0.18);
+  color: var(--fc-accent);
+  box-shadow: 0 0 0 1px rgba(26,196,240,0.25);
+}
+
+/* Activity filter chips */
+.fc-chip {
+  flex-shrink: 0;
+  padding: 6px 13px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 999px;
+  color: var(--fc-text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.fc-chip:active { opacity: 0.7; }
+.fc-chip--active {
+  background: rgba(26,196,240,0.15);
+  border-color: rgba(26,196,240,0.3);
+  color: var(--fc-accent);
+}
+
+/* AI insight */
+.fc-ai-card {
+  margin: 16px 16px 0; padding: 18px 20px;
+  background: linear-gradient(135deg, rgba(155,122,255,0.14), rgba(107,63,224,0.06));
+  border: 1px solid rgba(155,122,255,0.22); border-radius: 22px;
+}
+.fc-ai-row { display: flex; align-items: flex-start; gap: 12px; }
+.fc-ai-icon {
+  width: 36px; height: 36px; border-radius: 12px;
+  background: linear-gradient(135deg, var(--fc-purple), var(--fc-purple-2));
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.fc-ai-body { flex: 1; }
+.fc-ai-eyebrow { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.fc-ai-text { color: white; font-size: 14px; font-weight: 500; line-height: 1.4; }
+.fc-ai-cta {
+  margin-top: 12px; padding: 8px 14px;
+  background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 999px; color: white; font-size: 12px; font-weight: 500;
+  cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+  font-family: inherit; transition: background 0.15s;
+}
+.fc-ai-cta:active { transform: scale(0.96); }
+
+/* Streak chips */
+.fc-chips { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
+.fc-chip {
+  padding: 5px 10px; background: rgba(255,255,255,0.06);
+  border-radius: 999px; font-size: 11px; color: rgba(255,255,255,0.7);
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.fc-chip-dot { width: 5px; height: 5px; border-radius: 50%; }
+
+/* View title */
+.fc-view-title {
+  padding: 18px 20px 4px;
+  font-size: 30px; font-weight: 800;
+  letter-spacing: -0.030em; color: var(--fc-text);
+  line-height: 1.1;
+}
+
+/* Category rows */
+.fc-category-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.fc-category-row:last-child { border-bottom: none; }
+.fc-category-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.fc-category-label { flex: 1; color: var(--fc-text); font-size: 14px; font-weight: 500; }
+.fc-category-amount { color: var(--fc-text); font-size: 14px; font-weight: 600; white-space: nowrap; }
+.fc-category-pct { color: var(--fc-text-faint); font-size: 12px; margin-left: 4px; }
+.fc-category-bar { height: 4px; background: rgba(255,255,255,0.05); border-radius: 999px; margin: -4px 0 6px; }
+.fc-category-bar-fill { height: 100%; border-radius: 999px; }
+
+/* Goal cards */
+.fc-goal-card {
+  background: var(--fc-card-bg); border: 1px solid var(--fc-border);
+  border-radius: var(--fc-r-xl); padding: 18px; margin-bottom: 10px;
+  display: flex; align-items: center; gap: 16px;
+}
+
+/* Settings */
+.fc-settings-row {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 0; border-bottom: 1px solid rgba(255,255,255,0.05); cursor: pointer;
+}
+.fc-settings-row:last-child { border-bottom: none; }
+.fc-settings-row:active { opacity: 0.7; }
+.fc-settings-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.fc-settings-label { flex: 1; color: var(--fc-text); font-size: 15px; font-weight: 500; }
+.fc-settings-value { color: var(--fc-text-faint); font-size: 13px; }
+
+/* Toggle switch */
+.fc-toggle {
+  width: 44px; height: 26px; border-radius: 999px;
+  background: rgba(255,255,255,0.12);
+  position: relative; cursor: pointer; flex-shrink: 0;
+  transition: background 0.2s;
+}
+.fc-toggle::after {
+  content: ''; position: absolute;
+  top: 3px; left: 3px;
+  width: 20px; height: 20px;
+  border-radius: 50%; background: white;
+  transition: transform 0.2s var(--fc-ease-spring);
+}
+.fc-toggle.on { background: var(--fc-accent); }
+.fc-toggle.on::after { transform: translateX(18px); }
+
+/* Search bar */
+.fc-search {
+  display: flex; align-items: center; gap: 10px;
+  background: rgba(255,255,255,0.05); border: 1px solid var(--fc-border);
+  border-radius: 14px; padding: 0 14px; margin-bottom: 16px; height: 44px;
+}
+.fc-search input {
+  background: none; border: none; color: white; font-size: 14px;
+  font-family: inherit; flex: 1; outline: none; height: 100%;
+}
+.fc-search input::placeholder { color: var(--fc-text-faint); }
+
+/* Date label */
+.fc-date-label {
+  color: var(--fc-text-faint); font-size: 11px; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  margin: 18px 0 6px;
+  display: flex; align-items: center; gap: 8px;
+}
+.fc-date-label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(255,255,255,0.06);
+}
+.fc-date-label:first-child { margin-top: 4px; }
+
+/* Pull-to-refresh indicator */
+#fc-pull-indicator {
+  position: fixed; top: 60px; left: 50%; transform: translateX(-50%);
+  width: 32px; height: 32px;
+  background: var(--fc-bg-elevated);
+  border: 1px solid var(--fc-border);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0;
+  transition: transform 0.2s, opacity 0.2s;
+  z-index: 40;
+  pointer-events: none;
+}
+
+/* Toast */
+.fc-toast {
+  position: fixed; bottom: calc(env(safe-area-inset-bottom) + 88px); left: 50%;
+  transform: translateX(-50%) translateY(12px);
+  background: rgba(22, 32, 44, 0.94);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255,255,255,0.1);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.08);
+  border-radius: 999px;
+  padding: 10px 20px;
+  font-size: 13px; font-weight: 500;
+  color: white;
+  white-space: nowrap;
+  z-index: 200;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s, transform 0.25s var(--fc-ease-spring);
+  max-width: 90vw;
+}
+.fc-toast.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+.fc-toast--success { border-color: rgba(52,199,89,0.3); color: var(--fc-success); }
+.fc-toast--error   { border-color: rgba(255,69,58,0.3); color: var(--fc-danger); }
+.fc-toast--info    { border-color: rgba(26,196,240,0.3); color: var(--fc-accent); }
+
+/* Skeleton shimmer overlay */
+.fc-skeleton-wrap { position: relative; }
+.fc-skeleton-wrap::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.04) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: fcShimmer 1.4s infinite linear;
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+/* ════════════════════════════════════════════════════════════
+   NATIVE FEEL PATCH
+   Eliminates every "this is a website" tell
+   ════════════════════════════════════════════════════════════ */
+
+/* Kill double-tap zoom & 300ms tap delay on every element */
+* { touch-action: manipulation; }
+
+/* Prevent text selection on all UI chrome */
+.fc-nav, .fc-nav-item, .fc-header, .fc-island, .fc-island-pill,
+.fc-btn, .fc-card-header, .fc-card-action, .fc-settings-row,
+.fc-iconbtn, .fc-scrubber button, .fc-tab, .fc-chip,
+.fc-ai-cta, .fc-ob-cta, .fc-skip-btn, .fc-forgot-btn,
+.fc-auth-link button, button, a[role="tab"] {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* Hide all scrollbars — kinetic scroll still works */
+* { scrollbar-width: none; }
+*::-webkit-scrollbar { display: none; }
+
+/* ── Tab view entrance animation ─────────────────────────── */
+.fc-view.active {
+  animation: fcViewIn 0.2s cubic-bezier(0.25, 0.1, 0.25, 1) both;
+}
+@keyframes fcViewIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Screen entrance animation ───────────────────────────── */
+body[data-screen="login"]      .fc-screen[data-screen="login"],
+body[data-screen="register"]   .fc-screen[data-screen="register"],
+body[data-screen="onboarding"] .fc-screen[data-screen="onboarding"],
+body[data-screen="app"]        .fc-screen[data-screen="app"] {
+  animation: fcScreenIn 0.38s cubic-bezier(0.25, 0.1, 0.25, 1) both;
+}
+@keyframes fcScreenIn {
+  from { opacity: 0; transform: translateY(18px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ── Nav item press + active icon glow ───────────────────── */
+.fc-nav-item {
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.1s;
+  will-change: transform;
+}
+.fc-nav-item:active { transform: scale(0.86); opacity: 0.65; }
+.fc-nav-item.active svg { filter: drop-shadow(0 0 5px rgba(26,196,240,0.55)); }
+
+/* ── Card & tappable press states ────────────────────────── */
+.fc-hero         { transition: transform 0.15s ease; }
+.fc-ai-card      { transition: transform 0.15s ease; }
+.fc-goal-card    { transition: transform 0.15s ease, background 0.15s; }
+.fc-stat         { transition: transform 0.15s ease; }
+.fc-settings-row { transition: opacity 0.1s; }
+.fc-hero:active, .fc-ai-card:active, .fc-goal-card:active { transform: scale(0.985); }
+.fc-stat:active          { transform: scale(0.96); }
+.fc-settings-row:active  { opacity: 0.5; }
+
+/* ── Button press depth ──────────────────────────────────── */
+.fc-btn { transition: transform 0.12s ease, opacity 0.12s; }
+.fc-btn:active { transform: scale(0.97); opacity: 0.88; }
+.fc-iconbtn { transition: background 0.15s, transform 0.12s cubic-bezier(0.34,1.56,0.64,1); }
+.fc-iconbtn:active { transform: scale(0.88); background: rgba(255,255,255,0.12); }
+
+/* ── Island text fade ────────────────────────────────────── */
+#islandText { transition: opacity 0.25s ease; }
+#islandText.fc-fade { opacity: 0; }
+
+/* ── Momentum scroll on all scroll views ─────────────────── */
+.fc-view, .fc-auth-screen {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+/* ── Prevent flex children from shrinking so overflow-y scroll fires ── */
+.fc-view > * { flex-shrink: 0; }
+
+/* ── Prevent cursor flicker on iOS ───────────────────────── */
+button, a { cursor: default; }
+
+/* ── Font rendering polish ───────────────────────────────── */
+body {
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ════════════════════════════════════════════════════════════
+   BOTTOM SHEETS — bank management, disconnect, delete account
+   ════════════════════════════════════════════════════════════ */
+.fc-sheet-overlay {
+  position: fixed; inset: 0; z-index: 400;
+  background: rgba(0,0,0,0.65);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  display: flex; align-items: flex-end;
+  animation: fcOverlayIn 0.2s ease both;
+}
+@keyframes fcOverlayIn { from { opacity: 0; } to { opacity: 1; } }
+.fc-sheet {
+  width: 100%; background: #1c2b3a;
+  border: 1px solid rgba(255,255,255,0.07); border-bottom: none;
+  border-radius: 24px 24px 0 0;
+  padding: 12px 20px calc(env(safe-area-inset-bottom) + 20px);
+  max-height: 90dvh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  animation: fcSheetUp 0.34s cubic-bezier(0.34,1.56,0.64,1) both;
+  -webkit-user-select: none; user-select: none;
+}
+@keyframes fcSheetUp {
+  from { transform: translateY(100%); opacity: 0.6; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+.fc-sheet-handle {
+  width: 36px; height: 4px; border-radius: 2px;
+  background: rgba(255,255,255,0.2); margin: 0 auto 20px;
+}
+.fc-sheet-title {
+  font-size: 13px; font-weight: 600; letter-spacing: 0.05em;
+  text-transform: uppercase; color: var(--fc-text-faint);
+  text-align: center; margin-bottom: 6px;
+}
+.fc-sheet-bank-name {
+  font-size: 22px; font-weight: 700; color: white;
+  text-align: center; margin-bottom: 6px;
+}
+.fc-sheet-bank-status {
+  display: flex; align-items: center; justify-content: center;
+  gap: 6px; font-size: 13px; color: var(--fc-text-faint); margin-bottom: 24px;
+}
+.fc-sheet-cancel {
+  width: 100%; height: 48px; margin-top: 6px;
+  background: none; border: none; color: var(--fc-text-muted);
+  font-size: 16px; font-family: inherit; font-weight: 500; cursor: default;
+}
+.fc-sheet-cancel:active { opacity: 0.6; }
+.fc-sheet-icon-wrap {
+  width: 56px; height: 56px; border-radius: 999px;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 16px;
+}
+.fc-sheet-heading {
+  font-size: 20px; font-weight: 700; color: white;
+  text-align: center; margin-bottom: 10px;
+}
+.fc-sheet-body {
+  font-size: 14px; line-height: 1.6; color: var(--fc-text-faint);
+  text-align: center; max-width: 280px; margin: 0 auto 28px;
+}
+
+/* ════════════════════════════════════════════════════════════
+   FACE ID LOCK SCREEN — Premium
+   ════════════════════════════════════════════════════════════ */
+#fc-lock-screen {
+  position: fixed; inset: 0; z-index: 500;
+  background: #07101a;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: calc(env(safe-area-inset-top) + 24px) 32px
+           calc(env(safe-area-inset-bottom) + 32px);
+}
+#fc-lock-screen.hidden { display: none; }
+
+/* Ambient radial glow behind button */
+#fc-lock-screen::before {
+  content: '';
+  position: absolute;
+  width: 320px; height: 320px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(26,196,240,0.12) 0%, transparent 70%);
+  pointer-events: none;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  animation: fcLockGlow 3s ease-in-out infinite alternate;
+}
+@keyframes fcLockGlow {
+  from { opacity: 0.6; transform: translate(-50%, -50%) scale(0.9); }
+  to   { opacity: 1;   transform: translate(-50%, -50%) scale(1.1); }
+}
+
+/* App icon */
+.fc-lock-logo {
+  width: 72px; height: 72px; border-radius: 22px;
+  background: linear-gradient(145deg, var(--fc-accent), var(--fc-purple));
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 20px 60px rgba(26,196,240,0.35), 0 4px 16px rgba(0,0,0,0.4);
+  margin-bottom: 22px;
+  animation: fcLogoIn 0.55s var(--fc-ease-spring) both;
+}
+.fc-lock-app-name {
+  font-size: 26px; font-weight: 800; color: white; letter-spacing: -0.03em;
+  margin-bottom: 6px;
+  animation: fcFadeUp 0.4s 0.1s var(--fc-ease-out) both;
+}
+.fc-lock-tagline {
+  font-size: 13px; color: var(--fc-text-faint); margin-bottom: 56px; letter-spacing: 0.02em;
+  animation: fcFadeUp 0.4s 0.15s var(--fc-ease-out) both;
+}
+
+/* Outer pulse ring */
+.fc-lock-ring {
+  position: relative; width: 110px; height: 110px;
+  display: flex; align-items: center; justify-content: center;
+  animation: fcFadeUp 0.5s 0.2s var(--fc-ease-out) both;
+}
+.fc-lock-ring::before,
+.fc-lock-ring::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  border: 1.5px solid rgba(26,196,240,0.25);
+  animation: fcRingPulse 2.4s ease-out infinite;
+}
+.fc-lock-ring::before { width: 100%; height: 100%; animation-delay: 0s; }
+.fc-lock-ring::after  { width: 85%;  height: 85%;  animation-delay: 0.6s; }
+
+@keyframes fcRingPulse {
+  0%   { transform: scale(0.88); opacity: 0; }
+  30%  { opacity: 1; }
+  100% { transform: scale(1.15); opacity: 0; }
+}
+
+/* Face ID button */
+.fc-lock-btn {
+  width: 88px; height: 88px; border-radius: 999px;
+  background: rgba(26,196,240,0.08);
+  border: 1.5px solid rgba(26,196,240,0.35);
+  display: flex; align-items: center; justify-content: center;
+  cursor: default;
+  transition: transform 0.2s var(--fc-ease-spring), background 0.25s, border-color 0.25s, box-shadow 0.25s;
+  box-shadow: 0 0 0 0 rgba(26,196,240,0);
+  position: relative; z-index: 1;
+}
+.fc-lock-btn:active { transform: scale(0.91); background: rgba(26,196,240,0.16); }
+.fc-lock-btn.fc-lock-success {
+  background: rgba(52,199,89,0.15);
+  border-color: rgba(52,199,89,0.5);
+  box-shadow: 0 0 40px rgba(52,199,89,0.2);
+  animation: fcLockSuccess 0.5s var(--fc-ease-spring) both;
+}
+.fc-lock-btn.fc-lock-fail {
+  background: rgba(255,69,58,0.12);
+  border-color: rgba(255,69,58,0.4);
+  animation: fcShake 0.38s ease both;
+}
+@keyframes fcLockSuccess {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.2); }
+  65%  { transform: scale(0.95); }
+  100% { transform: scale(1); }
+}
+@keyframes fcShake {
+  0%,100% { transform: translateX(0); }
+  20%     { transform: translateX(-9px); }
+  40%     { transform: translateX(9px); }
+  60%     { transform: translateX(-6px); }
+  80%     { transform: translateX(6px); }
+}
+
+.fc-lock-status {
+  margin-top: 28px; font-size: 14px; font-weight: 500;
+  color: var(--fc-text-faint); min-height: 20px; text-align: center;
+  transition: color 0.25s, opacity 0.25s;
+  animation: fcFadeUp 0.4s 0.25s var(--fc-ease-out) both;
+}
+.fc-lock-status.error   { color: var(--fc-danger); }
+.fc-lock-status.success { color: var(--fc-success); }
+
+.fc-lock-password-btn {
+  position: absolute; bottom: calc(env(safe-area-inset-bottom) + 28px);
+  background: none; border: none; color: rgba(255,255,255,0.35);
+  font-size: 14px; font-weight: 500; font-family: inherit; cursor: default;
+  padding: 10px 20px; letter-spacing: 0.01em;
+  transition: color 0.2s;
+}
+.fc-lock-password-btn:active { color: var(--fc-accent); }
+
+/* ════════════════════════════════════════════════════════════
+   SEGMENT CONTROL  (fc-segment)
+   ════════════════════════════════════════════════════════════ */
+.fc-segment {
+  display: flex; background: rgba(255,255,255,0.05); border-radius: 10px;
+  padding: 3px; gap: 3px;
+}
+.fc-segment-btn {
+  flex: 1; border: none; background: none; border-radius: 8px;
+  color: var(--fc-text-faint); font-size: 13px; font-weight: 600;
+  font-family: inherit; padding: 7px 0; cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+.fc-segment-btn.active {
+  background: rgba(255,255,255,0.12); color: white;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
+/* ════════════════════════════════════════════════════════════
+   PAYWALL SCREEN  (fc-pw-*)
+   ════════════════════════════════════════════════════════════ */
+.fc-paywall {
+  background: var(--fc-bg);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  position: relative;
+}
+/* Ambient glow backdrop */
+.fc-paywall::before {
+  content: '';
+  position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(ellipse 80% 40% at 50% 0%,   rgba(107,63,224,0.28) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 30% at 80% 90%,  rgba(26,196,240,0.14) 0%, transparent 55%),
+    radial-gradient(ellipse 40% 25% at 10% 70%,  rgba(107,63,224,0.10) 0%, transparent 50%);
+}
+
+/* Close / skip button (top-right) */
+.fc-pw-close {
+  position: absolute; top: calc(env(safe-area-inset-top) + 14px); right: 16px;
+  width: 30px; height: 30px; border-radius: 50%;
+  background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--fc-text-faint); cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s, color 0.15s;
+  z-index: 10;
+}
+.fc-pw-close:active { background: rgba(255,255,255,0.14); color: var(--fc-text); }
+
+/* Pro badge pill */
+.fc-pw-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: linear-gradient(135deg, rgba(107,63,224,0.25), rgba(26,196,240,0.15));
+  border: 1px solid rgba(107,63,224,0.45);
+  color: #c4a8ff; font-size: 11px; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 5px 13px; border-radius: 999px;
+  margin-bottom: 16px;
+}
+
+/* Hero icon */
+.fc-pw-hero-icon {
+  width: 72px; height: 72px; border-radius: 22px;
+  background: linear-gradient(135deg, var(--fc-purple) 0%, var(--fc-accent) 100%);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 34px; margin-bottom: 20px;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.08),
+              0 12px 40px rgba(107,63,224,0.45),
+              0 0 60px rgba(26,196,240,0.15);
+  flex-shrink: 0;
+}
+
+/* Title & subtitle */
+.fc-pw-title {
+  font-size: 27px; font-weight: 800; letter-spacing: -0.7px;
+  color: var(--fc-text); text-align: center;
+  margin: 0 0 10px; line-height: 1.18;
+}
+.fc-pw-subtitle {
+  font-size: 14px; color: var(--fc-text-faint);
+  text-align: center; margin: 0 0 26px; line-height: 1.55;
+  max-width: 280px;
+}
+
+/* Feature list — icon + title + description row */
+.fc-pw-features {
+  list-style: none; margin: 0 0 22px; padding: 0;
+  display: flex; flex-direction: column; gap: 0;
+  width: 100%;
+  border-radius: 16px; overflow: hidden;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.07);
+}
+.fc-pw-feature {
+  display: flex; align-items: center; gap: 14px;
+  padding: 13px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.fc-pw-feature:last-child { border-bottom: none; }
+.fc-pw-feature-icon {
+  width: 38px; height: 38px; border-radius: 11px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 19px;
+}
+.fc-pw-feature-text { flex: 1; min-width: 0; }
+.fc-pw-feature-name  { font-size: 14px; font-weight: 600; color: var(--fc-text); line-height: 1.3; }
+.fc-pw-feature-desc  { font-size: 12px; color: var(--fc-text-faint); line-height: 1.3; margin-top: 1px; }
+.fc-pw-feature-check {
+  color: var(--fc-success); font-size: 16px; flex-shrink: 0; font-weight: 700;
+}
+
+/* Plan selector */
+.fc-pw-plans {
+  display: flex; flex-direction: column; gap: 10px;
+  margin-bottom: 6px; width: 100%;
+}
+.fc-pw-plan {
+  display: flex; align-items: center; gap: 14px;
+  background: rgba(255,255,255,0.05); border: 1.5px solid rgba(255,255,255,0.1);
+  border-radius: 16px; padding: 15px 16px;
+  cursor: pointer; transition: border-color 0.2s, background 0.2s, transform 0.12s;
+  -webkit-tap-highlight-color: transparent; position: relative;
+}
+.fc-pw-plan.selected {
+  border-color: var(--fc-accent);
+  background: rgba(26,196,240,0.07);
+  box-shadow: 0 0 0 1px rgba(26,196,240,0.15), inset 0 0 0 1px rgba(26,196,240,0.05);
+}
+.fc-pw-plan:active { transform: scale(0.984); }
+
+/* Radio dot */
+.fc-pw-plan-radio {
+  width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
+  border: 2px solid rgba(255,255,255,0.22);
+  transition: border-color 0.2s, background 0.2s;
+  display: flex; align-items: center; justify-content: center;
+}
+.fc-pw-plan.selected .fc-pw-plan-radio {
+  border-color: var(--fc-accent);
+  background: var(--fc-accent);
+  box-shadow: 0 0 0 3px rgba(26,196,240,0.18);
+}
+.fc-pw-plan.selected .fc-pw-plan-radio::after {
+  content: '';
+  width: 7px; height: 7px; border-radius: 50%;
+  background: #fff; display: block;
+}
+
+/* Plan text */
+.fc-pw-plan-info { flex: 1; }
+.fc-pw-plan-name {
+  font-size: 15px; font-weight: 700; color: var(--fc-text); margin-bottom: 2px;
+  display: flex; align-items: center; gap: 8px;
+}
+.fc-pw-plan-price { font-size: 12px; color: var(--fc-text-faint); line-height: 1.45; }
+.fc-pw-plan-savings {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+  background: var(--fc-success-soft); color: var(--fc-success); border-radius: 6px;
+  padding: 2px 7px; display: inline-block; margin-top: 4px;
+}
+
+/* Best value badge */
+.fc-pw-plan-badge {
+  background: linear-gradient(135deg, var(--fc-accent) 0%, var(--fc-purple) 100%);
+  color: #fff; font-size: 10px; font-weight: 700; letter-spacing: 0.05em;
+  padding: 4px 10px; border-radius: 999px; text-transform: uppercase;
+  white-space: nowrap; flex-shrink: 0;
+}
+
+/* Price emphasis */
+.fc-pw-annual-big {
+  display: flex; align-items: baseline; gap: 4px; margin-bottom: 3px;
+}
+.fc-pw-annual-amount {
+  font-size: 20px; font-weight: 800; color: var(--fc-text); letter-spacing: -0.5px;
+}
+.fc-pw-annual-period { font-size: 13px; color: var(--fc-text-faint); }
+
+/* Trial notice bar */
+.fc-pw-trial-bar {
+  background: var(--fc-success-soft); border: 1px solid rgba(52,199,89,0.22);
+  border-radius: 12px; padding: 11px 16px;
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 20px; width: 100%;
+}
+.fc-pw-trial-icon { font-size: 20px; flex-shrink: 0; }
+.fc-pw-trial-text { font-size: 13px; font-weight: 600; color: var(--fc-success); line-height: 1.3; }
+.fc-pw-trial-sub  { font-size: 11px; color: rgba(52,199,89,0.65); margin-top: 2px; }
+
+/* CTA button */
+.fc-pw-cta {
+  display: flex; align-items: center; justify-content: center;
+  height: 56px; border-radius: 18px; border: none;
+  background: linear-gradient(135deg, #1ac4f0 0%, #6b3fe0 100%);
+  color: #fff; font-size: 17px; font-weight: 800; font-family: inherit;
+  letter-spacing: -0.3px; cursor: pointer;
+  box-shadow: 0 8px 28px rgba(107,63,224,0.45), 0 2px 8px rgba(26,196,240,0.2);
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s cubic-bezier(0.34,1.56,0.64,1), opacity 0.1s, box-shadow 0.2s;
+  margin-bottom: 10px; width: 100%;
+}
+.fc-pw-cta:active { transform: scale(0.97); opacity: 0.92; box-shadow: 0 4px 14px rgba(107,63,224,0.3); }
+.fc-pw-cta:disabled { opacity: 0.5; transform: none; }
+
+/* Legal text */
+.fc-pw-terms {
+  font-size: 11px; color: var(--fc-text-faint); text-align: center;
+  margin: 0 0 14px; line-height: 1.55;
+}
+
+/* Footer links */
+.fc-pw-footer {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding-bottom: calc(env(safe-area-inset-bottom) + 20px);
+}
+.fc-pw-footer a {
+  font-size: 12px; color: var(--fc-text-faint); text-decoration: none;
+  padding: 6px 8px; transition: color 0.15s; -webkit-tap-highlight-color: transparent;
+}
+.fc-pw-footer a:active { color: var(--fc-accent); }
+.fc-pw-footer-sep { font-size: 11px; color: rgba(255,255,255,0.15); }
+
+/* ── WEALTH TAB ─────────────────────────────────────────────── */
+.fc-wealth-segs {
+  display:flex;gap:0;margin:0 16px 16px;
+  background:rgba(255,255,255,0.06);border-radius:10px;padding:3px;
+}
+.fc-wealth-seg {
+  flex:1;padding:7px 0;border:none;background:transparent;
+  color:var(--fc-text-faint);font-size:13px;font-weight:600;
+  border-radius:8px;cursor:pointer;transition:all 0.18s;
+  -webkit-tap-highlight-color:transparent;
+}
+.fc-wealth-seg--active { background:rgba(26,196,240,0.18);color:var(--fc-accent); }
+.fc-wealth-panel { display:none; }
+.fc-wealth-panel--active {
+  display: flex !important;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow-y: scroll;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  padding-bottom: 90px;
+}
+.fc-wealth-panel--active > * { flex-shrink: 0; }
+/* Explicit flex-shrink:0 on all sub-panels so the parent fc-view can overflow+scroll */
+#activity-txns-panel,
+#activity-bills-panel {
+  flex: 1;
+  min-height: 0;
+  overflow-y: scroll;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  padding-bottom: 90px;
+}
+.fc-acct-card {
+  display:flex;align-items:center;gap:12px;
+  background:rgba(255,255,255,0.04);border-radius:14px;
+  padding:14px;margin-bottom:10px;border:1px solid rgba(255,255,255,0.06);
+}
+.fc-acct-icon {
+  width:40px;height:40px;border-radius:12px;flex-shrink:0;
+  background:rgba(255,255,255,0.07);display:flex;
+  align-items:center;justify-content:center;font-size:20px;
+}
+.fc-acct-info { flex:1;min-width:0; }
+.fc-acct-name { font-size:14px;font-weight:600;color:rgba(255,255,255,0.9);white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+.fc-acct-bank { font-size:12px;color:var(--fc-text-faint);margin-top:1px; }
+.fc-acct-bal  { font-size:15px;font-weight:700;color:rgba(255,255,255,0.9);white-space:nowrap; }
+.fc-util-bar  { height:4px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden; }
+.fc-util-fill { height:100%;border-radius:2px;transition:width 0.4s; }
+
+/* ── PAYWALL SUCCESS OVERLAY ─────────────────────────────────── */
+.fc-pw-success {
+  position:absolute;inset:0;background:var(--fc-bg);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:40px 32px calc(env(safe-area-inset-bottom) + 40px);text-align:center;
+  z-index:50;opacity:0;pointer-events:none;transition:opacity 0.35s;
+}
+.fc-pw-success.visible { opacity:1;pointer-events:all; }
+.fc-pw-success-icon {
+  width:88px;height:88px;border-radius:50%;
+  background:linear-gradient(135deg,var(--fc-success),#2ecc71);
+  display:flex;align-items:center;justify-content:center;
+  font-size:42px;margin-bottom:24px;
+  animation:fcProPop 0.5s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+@keyframes fcProPop {
+  from { transform:scale(0);opacity:0; }
+  to   { transform:scale(1);opacity:1; }
+}
+.fc-pw-success-title {
+  font-size:28px;font-weight:800;letter-spacing:-0.03em;color:white;margin-bottom:6px;
+}
+.fc-pw-success-sub {
+  font-size:15px;color:var(--fc-text-faint);line-height:1.5;margin-bottom:28px;max-width:280px;
+}
+.fc-pw-success-perks {
+  list-style:none;padding:0;margin:0 0 32px;text-align:left;width:100%;
+}
+.fc-pw-success-perks li {
+  display:flex;align-items:center;gap:10px;padding:10px 0;
+  border-bottom:1px solid rgba(255,255,255,0.06);font-size:14px;font-weight:500;color:rgba(255,255,255,0.85);
+}
+.fc-pw-success-perks li:last-child { border:none; }
+.fc-pw-success-perks li::before {
+  content:'✓';width:24px;height:24px;border-radius:50%;flex-shrink:0;
+  background:rgba(52,199,89,0.15);color:var(--fc-success);
+  font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;
+}
+.fc-pw-success-cta {
+  width:100%;padding:17px;border-radius:16px;border:none;cursor:pointer;
+  background:linear-gradient(135deg,#34c759,#2ecc71);
+  color:white;font-size:17px;font-weight:700;letter-spacing:-0.01em;
+  box-shadow:0 8px 24px rgba(52,199,89,0.35);
+}
+</style>
+</head>
+
+<body class="fc-theme" data-screen="splash">
+<div class="phone-frame">
+
+<!-- ══════════════════════════════════════════ TOAST -->
+<div id="fc-toast" class="fc-toast" role="status" aria-live="polite"></div>
+
+<!-- ══════════════════════════════════════ PULL INDICATOR -->
+<div id="fc-pull-indicator" aria-hidden="true">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-accent)" stroke-width="2.5" stroke-linecap="round">
+    <path d="M12 5v14M5 12l7-7 7 7"/>
+  </svg>
+</div>
+
+
+<!-- ══════════════════════════════════════ SCREEN: SPLASH -->
+<section class="fc-screen fc-splash" data-screen="splash" aria-label="Loading">
+  <div class="fc-splash-logo">
+    <svg width="40" height="40" viewBox="0 0 24 24" fill="white" aria-hidden="true">
+      <path d="M4 4h16v3H4zm0 6h11v3H4zm0 6h7v3H4z"/>
+    </svg>
+  </div>
+  <div class="fc-splash-wordmark">FlowCheck</div>
+  <div class="fc-splash-loader">
+    <div class="fc-splash-dot"></div>
+    <div class="fc-splash-dot"></div>
+    <div class="fc-splash-dot"></div>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════ SCREEN: LOGIN -->
+<section class="fc-screen fc-auth-screen" data-screen="login" aria-label="Sign in">
+  <div class="fc-auth-logo">
+    <svg width="30" height="30" viewBox="0 0 24 24" fill="white" aria-hidden="true">
+      <path d="M4 4h16v3H4zm0 6h11v3H4zm0 6h7v3H4z"/>
+    </svg>
+  </div>
+  <h1 class="fc-auth-title">Welcome back</h1>
+  <p class="fc-auth-subtitle">Sign in to your FlowCheck account</p>
+
+  <div id="login-error" class="fc-auth-error" role="alert"></div>
+
+  <div class="fc-input-group" style="width:100%">
+    <div class="fc-input-label">Email</div>
+    <input id="login-email" class="fc-input" type="email" autocomplete="email"
+           placeholder="you@example.com" inputmode="email">
+  </div>
+
+  <div class="fc-input-group" style="width:100%">
+    <div class="fc-input-label">Password</div>
+    <div class="fc-input-wrap">
+      <input id="login-password" class="fc-input" type="password"
+             autocomplete="current-password" placeholder="••••••••"
+             style="padding-right:48px">
+      <button class="fc-input-eye" onclick="togglePasswordVisibility('login-password',this)" type="button" aria-label="Show password">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <button class="fc-forgot-btn" onclick="FCApp.handleForgotPassword(document.getElementById('login-email').value)" type="button">
+    Forgot password?
+  </button>
+
+  <button id="btn-login" class="fc-btn fc-btn--primary fc-btn--block"
+          onclick="FCApp.handleLogin(document.getElementById('login-email').value, document.getElementById('login-password').value)"
+          type="button">
+    Sign In
+  </button>
+
+  <div id="biometric-login-wrap" style="display:none;width:100%">
+    <div class="fc-auth-divider"><span>or</span></div>
+    <button class="fc-biometric-btn" onclick="FCApp.handleBiometricLogin()" type="button">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <path d="M12 2C9.8 2 8 3.8 8 6v1H5v14h14V7h-3V6c0-2.2-1.8-4-4-4zm0 10c1.1 0 2 .9 2 2v2h-4v-2c0-1.1.9-2 2-2z"/>
+      </svg>
+      Sign in with Face ID
+    </button>
+  </div>
+
+  <div class="fc-auth-divider"><span>or</span></div>
+
+  <button class="fc-biometric-btn" onclick="FCApp.handleAppleSignIn()" type="button" style="gap:10px">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="white" aria-hidden="true">
+      <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.7 9.05 7.4c1.42.07 2.4.78 3.28.84 1.22-.24 2.4-1.03 3.7-1.02 1.56.02 2.74.74 3.51 1.9-3.19 1.96-2.67 6.28.51 7.54-.64 1.62-1.5 3.23-3 3.62zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
+    </svg>
+    Sign in with Apple
+  </button>
+
+  <div class="fc-auth-link">
+    Don't have an account?
+    <button onclick="FCApp.setScreen('register')">Create account</button>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════ SCREEN: REGISTER -->
+<section class="fc-screen fc-auth-screen" data-screen="register" aria-label="Create account">
+  <div class="fc-auth-logo">
+    <svg width="30" height="30" viewBox="0 0 24 24" fill="white" aria-hidden="true">
+      <path d="M4 4h16v3H4zm0 6h11v3H4zm0 6h7v3H4z"/>
+    </svg>
+  </div>
+  <h1 class="fc-auth-title">Create account</h1>
+  <p class="fc-auth-subtitle">Start tracking your finances in seconds</p>
+
+  <div id="register-error" class="fc-auth-error" role="alert"></div>
+
+  <div class="fc-input-group" style="width:100%">
+    <div class="fc-input-label">Full name</div>
+    <input id="reg-name" class="fc-input" type="text" autocomplete="name" placeholder="Brandon Minkler">
+  </div>
+  <div class="fc-input-group" style="width:100%">
+    <div class="fc-input-label">Email</div>
+    <input id="reg-email" class="fc-input" type="email" autocomplete="email" inputmode="email" placeholder="you@example.com">
+  </div>
+  <div class="fc-input-group" style="width:100%">
+    <div class="fc-input-label">Password</div>
+    <div class="fc-input-wrap">
+      <input id="reg-password" class="fc-input" type="password" autocomplete="new-password"
+             placeholder="At least 6 characters" style="padding-right:48px">
+      <button class="fc-input-eye" onclick="togglePasswordVisibility('reg-password',this)" type="button" aria-label="Show password">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <button id="btn-register" class="fc-btn fc-btn--primary fc-btn--block"
+          onclick="FCApp.handleRegister(document.getElementById('reg-name').value, document.getElementById('reg-email').value, document.getElementById('reg-password').value)"
+          type="button">
+    Create Account
+  </button>
+
+  <div class="fc-auth-link">
+    Already have an account?
+    <button onclick="FCApp.setScreen('login')">Sign in</button>
+  </div>
+
+  <div style="color:var(--fc-text-faint);font-size:11px;text-align:center;margin-top:16px;line-height:1.5">
+    By creating an account you agree to our
+    <a href="#" style="color:var(--fc-accent)">Terms of Service</a> and
+    <a href="#" style="color:var(--fc-accent)">Privacy Policy</a>.
+  </div>
+</section>
+
+
+<!-- ════════════════════════════════════ SCREEN: ONBOARDING -->
+<style>
+/* ── Onboarding v2 — Immersive Premium ───────────────────── */
+.fc-ob-screen {
+  flex-direction: column; align-items: stretch; background: var(--fc-bg);
+  padding-top: calc(env(safe-area-inset-top) + 12px);
+  padding-bottom: calc(env(safe-area-inset-bottom) + 24px);
+  overflow: hidden; position: relative;
+}
+.fc-ob-orb {
+  position: absolute; border-radius: 50%; filter: blur(70px);
+  pointer-events: none; will-change: opacity, transform;
+  transition: opacity 0.9s ease, transform 1.4s cubic-bezier(0.25,0.1,0.25,1);
+}
+.fc-ob-steps {
+  display: flex; justify-content: center; gap: 6px;
+  padding: 8px 0 14px; flex-shrink: 0; position: relative; z-index: 2;
+}
+.fc-ob-step {
+  width: 6px; height: 6px; border-radius: 999px; background: rgba(255,255,255,0.15);
+  transition: width 0.35s cubic-bezier(0.34,1.56,0.64,1), background 0.3s;
+}
+.fc-ob-step.active { width: 22px; background: var(--fc-accent); }
+.fc-ob-slides { flex: 1; position: relative; overflow: hidden; z-index: 2; }
+.fc-ob-slide {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: flex-start;
+  padding: 0 28px; text-align: center; opacity: 0; pointer-events: none;
+  transform: translateX(44px) scale(0.97);
+  transition: opacity 0.36s ease, transform 0.36s cubic-bezier(0.25,0.1,0.25,1);
+}
+.fc-ob-slide.active { opacity: 1; pointer-events: all; transform: none; }
+.fc-ob-slide.exit   { opacity: 0; transform: translateX(-44px) scale(0.97); pointer-events: none; }
+.fc-ob-slide.fc-ob-question { justify-content: center; gap: 0; }
+.fc-ob-art {
+  width: 100%; height: 216px; position: relative;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 20px; flex-shrink: 0;
+}
+.fc-ob-glow { position: absolute; inset: 0; pointer-events: none; filter: blur(32px); border-radius: 50%; }
+.fc-ob-hero-card {
+  background: linear-gradient(145deg,rgba(26,196,240,0.17),rgba(107,63,224,0.10));
+  border: 1px solid rgba(26,196,240,0.28); border-radius: 24px; padding: 20px 22px;
+  width: 236px; text-align: left;
+  box-shadow: 0 28px 72px rgba(26,196,240,0.22),0 8px 24px rgba(0,0,0,0.45);
+  animation: fcObFloat 3.8s ease-in-out infinite; position: relative; z-index: 1;
+}
+@keyframes fcObFloat {
+  0%,100% { transform: translateY(0) rotate(-1deg); }
+  50%      { transform: translateY(-11px) rotate(-1deg); }
+}
+.fc-ob-hero-label { font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.36);margin-bottom:5px; }
+.fc-ob-hero-score {
+  font-size:44px;font-weight:800;letter-spacing:-0.04em;line-height:1;margin-bottom:8px;
+  background:linear-gradient(135deg,#1ac4f0,#9b6ef8);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.fc-ob-hero-badge {
+  display:inline-flex;align-items:center;gap:4px;background:rgba(52,199,89,0.14);color:#34c759;
+  font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;
+  border:1px solid rgba(52,199,89,0.24);margin-bottom:14px;
+}
+.fc-ob-hero-bars { display:flex;gap:5px;align-items:flex-end;height:36px; }
+.fc-ob-hero-bar {
+  flex:1;border-radius:4px 4px 0 0;animation:fcBarGrow 0.9s var(--fc-ease-spring) both;
+  background:linear-gradient(to top,rgba(26,196,240,0.55),rgba(26,196,240,0.2));
+}
+@keyframes fcBarGrow { from{transform:scaleY(0);transform-origin:bottom;}to{transform:scaleY(1);} }
+.fc-ob-hero-bar:nth-child(1){height:52%;animation-delay:.10s;}
+.fc-ob-hero-bar:nth-child(2){height:78%;animation-delay:.18s;}
+.fc-ob-hero-bar:nth-child(3){height:42%;animation-delay:.26s;}
+.fc-ob-hero-bar:nth-child(4){height:88%;animation-delay:.34s;}
+.fc-ob-hero-bar:nth-child(5){height:62%;animation-delay:.42s;}
+.fc-ob-hero-bar:nth-child(6){height:72%;animation-delay:.50s;}
+.fc-ob-hero-bar:nth-child(7){height:100%;animation-delay:.58s;background:linear-gradient(to top,var(--fc-accent),rgba(26,196,240,0.45));}
+.fc-ob-ring-wrap { position:relative;z-index:1;display:flex;flex-direction:column;align-items:center; }
+.fc-ob-ring-track { fill:none;stroke:rgba(255,255,255,0.07);stroke-width:10; }
+.fc-ob-ring-fill {
+  fill:none;stroke:url(#obRingGrad);stroke-width:10;stroke-linecap:round;
+  stroke-dasharray:251.2;stroke-dashoffset:251.2;
+  transition:stroke-dashoffset 1.8s cubic-bezier(0.34,1.05,0.64,1) 0.15s;
+  transform-origin:center;transform:rotate(-90deg);
+}
+.fc-ob-ring-fill.animate { stroke-dashoffset:55; }
+.fc-ob-ring-num {
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  font-size:38px;font-weight:800;letter-spacing:-0.04em;
+  background:linear-gradient(135deg,#1ac4f0,#9b6ef8);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.fc-ob-ring-label { font-size:11px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:rgba(255,255,255,0.38);margin-top:6px; }
+.fc-ob-ring-chips { display:flex;gap:7px;flex-wrap:wrap;justify-content:center;margin-top:10px; }
+.fc-ob-ring-chip { display:flex;align-items:center;gap:5px;background:rgba(255,255,255,0.06);border-radius:999px;padding:4px 10px;font-size:11px;font-weight:500;color:rgba(255,255,255,0.52); }
+.fc-ob-ring-chip-dot { width:6px;height:6px;border-radius:50%; }
+.fc-ob-shield-ring {
+  width:120px;height:120px;border-radius:999px;background:rgba(52,199,89,0.07);
+  border:1.5px solid rgba(52,199,89,0.22);display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 48px rgba(52,199,89,0.18),0 0 90px rgba(52,199,89,0.07);
+  animation:fcShieldPulse 2.6s ease-in-out infinite;position:relative;z-index:1;
+}
+@keyframes fcShieldPulse {
+  0%,100%{box-shadow:0 0 48px rgba(52,199,89,0.18),0 0 90px rgba(52,199,89,0.07);}
+  50%{box-shadow:0 0 70px rgba(52,199,89,0.30),0 0 120px rgba(52,199,89,0.13);}
+}
+.fc-ob-q-icon { font-size:52px;margin-bottom:18px;line-height:1; }
+.fc-ob-grid { width:100%;display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:20px; }
+.fc-ob-grid-option {
+  padding:18px 12px 16px;background:rgba(255,255,255,0.05);
+  border:1.5px solid rgba(255,255,255,0.09);border-radius:20px;color:white;
+  font-size:13px;font-weight:600;text-align:center;
+  transition:background 0.15s,border-color 0.15s,transform 0.12s;
+  -webkit-user-select:none;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;gap:9px;line-height:1.3;
+}
+.fc-ob-grid-option:active { transform:scale(0.95); }
+.fc-ob-grid-option.selected { background:rgba(26,196,240,0.13);border-color:var(--fc-accent);color:var(--fc-accent); }
+.fc-ob-grid-icon { font-size:32px;line-height:1;transition:transform 0.25s cubic-bezier(0.34,1.56,0.64,1); }
+.fc-ob-grid-option.selected .fc-ob-grid-icon { transform:scale(1.18); }
+.fc-ob-options { width:100%;display:flex;flex-direction:column;gap:10px;margin-top:20px; }
+.fc-ob-option {
+  width:100%;padding:15px 18px;background:rgba(255,255,255,0.05);
+  border:1.5px solid rgba(255,255,255,0.09);border-radius:16px;color:white;
+  font-size:16px;font-weight:500;text-align:left;
+  transition:background 0.15s,border-color 0.15s,transform 0.12s;
+  -webkit-user-select:none;cursor:pointer;display:flex;align-items:center;gap:10px;
+}
+.fc-ob-option:active { transform:scale(0.975); }
+.fc-ob-option.selected { background:rgba(26,196,240,0.12);border-color:var(--fc-accent);color:var(--fc-accent); }
+.fc-ob-option-check {
+  width:22px;height:22px;border-radius:50%;flex-shrink:0;border:2px solid rgba(255,255,255,0.18);
+  margin-left:auto;display:flex;align-items:center;justify-content:center;
+  transition:background 0.15s,border-color 0.15s;
+}
+.fc-ob-option.selected .fc-ob-option-check { background:var(--fc-accent);border-color:var(--fc-accent); }
+.fc-ob-option.selected .fc-ob-option-check::after { content:'';width:6px;height:6px;background:#07101a;border-radius:50%; }
+.fc-ob-title { font-size:28px;font-weight:800;letter-spacing:-0.026em;line-height:1.18;color:white;margin:0 0 10px; }
+.fc-ob-title-grad {
+  background:linear-gradient(135deg,#ffffff 30%,rgba(26,196,240,0.88));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.fc-ob-title.fc-ob-title--lg { font-size:29px; }
+.fc-ob-desc { font-size:15px;line-height:1.56;color:rgba(255,255,255,0.45);margin:0;max-width:290px; }
+.fc-ob-trust { display:flex;flex-wrap:wrap;justify-content:center;gap:10px 18px;margin-top:18px; }
+.fc-ob-trust-item { display:flex;align-items:center;gap:5px;font-size:12px;color:rgba(255,255,255,0.5); }
+.fc-ob-cta { padding:16px 24px 0;flex-shrink:0;display:flex;flex-direction:column;align-items:center;position:relative;z-index:2; }
+
+/* ── Slide 4: Notification pre-permission styles ─────────── */
+.fc-ob-notif-bell {
+  display:flex;align-items:center;justify-content:center;
+  width:86px;height:86px;
+  background:radial-gradient(ellipse at 50% 60%,rgba(255,176,32,0.22),rgba(255,176,32,0.06));
+  border:1px solid rgba(255,176,32,0.20);
+  border-radius:50%;
+  margin:0 auto 18px;
+  animation:fc-bell-ring 4s ease-in-out infinite;
+}
+@keyframes fc-bell-ring {
+  0%,100%,65%  { transform:rotate(0deg); }
+  5%           { transform:rotate(-14deg); }
+  10%          { transform:rotate(14deg); }
+  15%          { transform:rotate(-10deg); }
+  20%          { transform:rotate(10deg); }
+  25%          { transform:rotate(-4deg); }
+  30%          { transform:rotate(4deg); }
+  35%          { transform:rotate(0deg); }
+}
+.fc-ob-notif-cards {
+  display:flex;flex-direction:column;gap:9px;width:100%;max-width:290px;margin:0 auto;
+}
+.fc-ob-notif-card {
+  display:flex;align-items:center;gap:10px;
+  background:rgba(255,255,255,0.055);
+  border:1px solid rgba(255,255,255,0.09);
+  border-radius:12px;padding:10px 13px;
+  transition:opacity 0.3s,transform 0.3s;
+}
+.fc-ob-notif-card:nth-child(2) { opacity:0.72;transform:scale(0.97); }
+.fc-ob-notif-card-icon {
+  width:34px;height:34px;border-radius:9px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:17px;flex-shrink:0;
+}
+.fc-ob-notif-card-title  { font-size:13px;font-weight:600;color:rgba(255,255,255,0.88);line-height:1.3; }
+.fc-ob-notif-card-body   { font-size:11px;color:rgba(255,255,255,0.42);margin-top:2px; }
+</style>
+
+<section class="fc-screen fc-ob-screen" data-screen="onboarding" aria-label="Welcome to FlowCheck">
+
+  <!-- Ambient orbs -->
+  <div id="ob-orb-cyan"   class="fc-ob-orb" style="width:420px;height:420px;top:-120px;left:-100px;background:radial-gradient(circle,rgba(26,196,240,0.28),transparent 68%);opacity:1;transition:opacity 0.8s ease"></div>
+  <div id="ob-orb-purple" class="fc-ob-orb" style="width:340px;height:340px;bottom:60px;right:-110px;background:radial-gradient(circle,rgba(107,63,224,0.24),transparent 68%);opacity:0.4;transition:opacity 0.8s ease"></div>
+  <div id="ob-orb-green"  class="fc-ob-orb" style="width:300px;height:300px;bottom:30px;left:-80px;background:radial-gradient(circle,rgba(52,199,89,0.22),transparent 68%);opacity:0;transition:opacity 0.8s ease"></div>
+
+  <!-- Step dots -->
+  <div class="fc-ob-steps" aria-hidden="true">
+    <div class="fc-ob-step active"></div>
+    <div class="fc-ob-step"></div>
+    <div class="fc-ob-step"></div>
+    <div class="fc-ob-step"></div>
+    <div class="fc-ob-step"></div>
+  </div>
+
+  <div class="fc-ob-slides">
+
+    <!-- ── SLIDE 0: Hero — full financial picture ───────────────── -->
+    <div class="fc-ob-slide active" id="ob-slide-0">
+      <!-- Mock dashboard art -->
+      <div class="fc-ob-art" style="height:280px">
+        <div class="fc-ob-glow" style="background:radial-gradient(ellipse at 50% 50%,rgba(26,196,240,0.30),transparent 65%)"></div>
+        <!-- Floating net worth card -->
+        <div style="position:relative;z-index:2;width:100%;max-width:300px;display:flex;flex-direction:column;gap:10px">
+          <!-- Main card -->
+          <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.10);border-radius:20px;padding:20px;backdrop-filter:blur(12px)">
+            <div style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.35);margin-bottom:8px">NET WORTH</div>
+            <div style="font-size:36px;font-weight:800;letter-spacing:-0.03em;color:#fff;line-height:1" id="ob-counter">$0</div>
+            <div style="display:flex;align-items:center;gap:6px;margin-top:6px">
+              <span style="font-size:11px;font-weight:700;color:#34c759;background:rgba(52,199,89,0.15);border-radius:999px;padding:3px 8px">↑ +$847 this month</span>
+            </div>
+            <!-- Mini bar chart -->
+            <div style="display:flex;gap:4px;align-items:flex-end;height:32px;margin-top:14px">
+              <div style="flex:1;height:40%;background:rgba(26,196,240,0.3);border-radius:3px 3px 0 0"></div>
+              <div style="flex:1;height:60%;background:rgba(26,196,240,0.4);border-radius:3px 3px 0 0"></div>
+              <div style="flex:1;height:50%;background:rgba(26,196,240,0.35);border-radius:3px 3px 0 0"></div>
+              <div style="flex:1;height:75%;background:rgba(26,196,240,0.45);border-radius:3px 3px 0 0"></div>
+              <div style="flex:1;height:55%;background:rgba(26,196,240,0.38);border-radius:3px 3px 0 0"></div>
+              <div style="flex:1;height:90%;background:linear-gradient(to top,#1ac4f0,rgba(26,196,240,0.5));border-radius:3px 3px 0 0;box-shadow:0 0 8px rgba(26,196,240,0.4)"></div>
+              <div style="flex:1;height:100%;background:linear-gradient(to top,#1ac4f0,#6b3fe0);border-radius:3px 3px 0 0;box-shadow:0 0 12px rgba(107,63,224,0.5)"></div>
+            </div>
+          </div>
+          <!-- Floating stat pills -->
+          <div style="display:flex;gap:8px">
+            <div style="flex:1;background:rgba(52,199,89,0.12);border:1px solid rgba(52,199,89,0.22);border-radius:14px;padding:12px;text-align:center">
+              <div style="font-size:15px;font-weight:800;color:#34c759">742</div>
+              <div style="font-size:9px;font-weight:600;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:0.06em;margin-top:2px">Health Score</div>
+            </div>
+            <div style="flex:1;background:rgba(255,176,32,0.10);border:1px solid rgba(255,176,32,0.20);border-radius:14px;padding:12px;text-align:center">
+              <div style="font-size:15px;font-weight:800;color:#ffb020">$2.1k</div>
+              <div style="font-size:9px;font-weight:600;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:0.06em;margin-top:2px">Saved this mo</div>
+            </div>
+            <div style="flex:1;background:rgba(107,63,224,0.10);border:1px solid rgba(107,63,224,0.22);border-radius:14px;padding:12px;text-align:center">
+              <div style="font-size:15px;font-weight:800;color:#9b7aff">$0</div>
+              <div style="font-size:9px;font-weight:600;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:0.06em;margin-top:2px">Bills overdue</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <h1 class="fc-ob-title" style="margin-top:4px"><span class="fc-ob-title-grad">See every dollar.</span><br>Always know where<br>you stand.</h1>
+      <p class="fc-ob-desc">Live balances, credit score, smart spending alerts, and a financial health score — all in one place.</p>
+    </div>
+
+    <!-- ── SLIDE 1: Goal picker ──────────────────────────────────── -->
+    <div class="fc-ob-slide fc-ob-question" id="ob-slide-1">
+      <div class="fc-ob-q-icon" style="font-size:48px;margin-bottom:14px">🎯</div>
+      <h1 class="fc-ob-title fc-ob-title--lg" style="margin-bottom:6px">What's your #1<br>money goal?</h1>
+      <p class="fc-ob-desc" style="margin-bottom:0;font-size:14px">We'll personalize FlowCheck around what matters to you.</p>
+      <div class="fc-ob-grid" style="margin-top:22px">
+        <button class="fc-ob-grid-option" onclick="obSelectGridOption(this,'goal','save_more')" type="button">
+          <span class="fc-ob-grid-icon">💰</span>Save more
+        </button>
+        <button class="fc-ob-grid-option" onclick="obSelectGridOption(this,'goal','pay_debt')" type="button">
+          <span class="fc-ob-grid-icon">💳</span>Pay off debt
+        </button>
+        <button class="fc-ob-grid-option" onclick="obSelectGridOption(this,'goal','track_spending')" type="button">
+          <span class="fc-ob-grid-icon">📊</span>Track spending
+        </button>
+        <button class="fc-ob-grid-option" onclick="obSelectGridOption(this,'goal','build_wealth')" type="button">
+          <span class="fc-ob-grid-icon">📈</span>Build wealth
+        </button>
+      </div>
+    </div>
+
+    <!-- ── SLIDE 2: Feature showcase + social proof ──────────────── -->
+    <div class="fc-ob-slide" id="ob-slide-2">
+      <div class="fc-ob-art" style="height:220px">
+        <div class="fc-ob-glow" style="background:radial-gradient(ellipse at 50% 55%,rgba(107,63,224,0.32),transparent 65%)"></div>
+        <!-- Feature grid -->
+        <div style="position:relative;z-index:2;width:100%;max-width:300px;display:flex;flex-direction:column;gap:9px">
+          <div style="display:flex;align-items:center;gap:14px;background:rgba(255,255,255,0.055);border:1px solid rgba(255,255,255,0.09);border-radius:16px;padding:14px 16px">
+            <div style="width:40px;height:40px;border-radius:12px;background:rgba(26,196,240,0.15);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">🏦</div>
+            <div>
+              <div style="font-size:14px;font-weight:700;color:#fff;margin-bottom:2px">Live bank balances</div>
+              <div style="font-size:11px;color:rgba(255,255,255,0.38)">All accounts in one view, always fresh</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:14px;background:rgba(255,255,255,0.055);border:1px solid rgba(255,255,255,0.09);border-radius:16px;padding:14px 16px">
+            <div style="width:40px;height:40px;border-radius:12px;background:rgba(52,199,89,0.15);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">📈</div>
+            <div>
+              <div style="font-size:14px;font-weight:700;color:#fff;margin-bottom:2px">Credit score monitoring</div>
+              <div style="font-size:11px;color:rgba(255,255,255,0.38)">Powered by Experian, soft pull only</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:14px;background:rgba(255,255,255,0.055);border:1px solid rgba(255,255,255,0.09);border-radius:16px;padding:14px 16px">
+            <div style="width:40px;height:40px;border-radius:12px;background:rgba(255,176,32,0.14);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">🔔</div>
+            <div>
+              <div style="font-size:14px;font-weight:700;color:#fff;margin-bottom:2px">Smart bill &amp; budget alerts</div>
+              <div style="font-size:11px;color:rgba(255,255,255,0.38)">Never miss a due date or blow your budget</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <h1 class="fc-ob-title" style="font-size:26px;margin-top:8px">Everything you need.<br><span class="fc-ob-title-grad">Nothing you don't.</span></h1>
+      <p class="fc-ob-desc" style="font-size:14px">No spreadsheets. No guessing. FlowCheck connects to your bank and does the work automatically.</p>
+    </div>
+
+    <!-- ── SLIDE 3: Permissions — notifications, Face ID, email ── -->
+    <div class="fc-ob-slide" id="ob-slide-3">
+      <div class="fc-ob-art" style="height:108px">
+        <div class="fc-ob-glow" style="background:radial-gradient(ellipse at 50% 55%,rgba(107,63,224,0.30),transparent 65%)"></div>
+        <div style="position:relative;z-index:2;font-size:62px;line-height:1">⚙️</div>
+      </div>
+      <h1 class="fc-ob-title" style="font-size:26px;margin-top:10px">Set up your<br><span class="fc-ob-title-grad">preferences.</span></h1>
+      <p class="fc-ob-desc" style="font-size:13px;margin-bottom:20px">Customize your experience. Everything can be changed later in Settings.</p>
+
+      <!-- Permission rows -->
+      <div style="width:100%;max-width:340px;display:flex;flex-direction:column;border-radius:18px;overflow:hidden;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.04)">
+
+        <!-- Push notifications -->
+        <div style="display:flex;align-items:center;gap:14px;padding:16px 18px;border-bottom:1px solid rgba(255,255,255,0.06)">
+          <div style="width:38px;height:38px;border-radius:10px;background:rgba(255,176,32,0.14);display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0">🔔</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;font-weight:600;color:#fff;margin-bottom:2px">Bill &amp; budget alerts</div>
+            <div style="font-size:11px;color:rgba(255,255,255,0.38);line-height:1.35">Reminders before due dates, budget warnings</div>
+          </div>
+          <label class="fc-toggle" aria-label="Enable notifications" style="flex-shrink:0">
+            <input type="checkbox" id="ob-notif-toggle" checked>
+            <span class="fc-toggle-track"></span>
+          </label>
+        </div>
+
+        <!-- Face ID -->
+        <div style="display:flex;align-items:center;gap:14px;padding:16px 18px;border-bottom:1px solid rgba(255,255,255,0.06)">
+          <div style="width:38px;height:38px;border-radius:10px;background:rgba(26,196,240,0.14);display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0">🔒</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;font-weight:600;color:#fff;margin-bottom:2px">Face ID sign-in</div>
+            <div style="font-size:11px;color:rgba(255,255,255,0.38);line-height:1.35">Unlock FlowCheck instantly and securely</div>
+          </div>
+          <label class="fc-toggle" aria-label="Enable Face ID" style="flex-shrink:0">
+            <input type="checkbox" id="ob-faceid-toggle" checked>
+            <span class="fc-toggle-track"></span>
+          </label>
+        </div>
+
+        <!-- Email marketing (opt-in, unchecked by default — GDPR compliant) -->
+        <div style="display:flex;align-items:center;gap:14px;padding:16px 18px">
+          <div style="width:38px;height:38px;border-radius:10px;background:rgba(107,63,224,0.14);display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0">✉️</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;font-weight:600;color:#fff;margin-bottom:2px">Tips &amp; product updates <span style="font-size:9px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:rgba(255,255,255,0.28);margin-left:4px">Optional</span></div>
+            <div style="font-size:11px;color:rgba(255,255,255,0.38);line-height:1.35">Weekly financial insights &amp; app news by email</div>
+          </div>
+          <label class="fc-toggle" aria-label="Email updates" style="flex-shrink:0">
+            <input type="checkbox" id="ob-email-toggle">
+            <span class="fc-toggle-track"></span>
+          </label>
+        </div>
+
+      </div>
+
+      <!-- Inline legal disclosure -->
+      <p style="font-size:10px;color:rgba(255,255,255,0.22);text-align:center;margin-top:14px;line-height:1.6;padding:0 8px;max-width:320px">
+        Security alerts and account-related emails are always sent — they're required to keep your account safe and cannot be disabled. Marketing emails are optional; unsubscribe any time. See our <a href="#" onclick="FCApp.openUrl('/legal/privacy.html');return false" style="color:rgba(255,255,255,0.38);text-decoration:underline">Privacy Policy</a>.
+      </p>
+    </div>
+
+    <!-- ── SLIDE 4: Security + Connect (final) ──────────────────── -->
+    <div class="fc-ob-slide" id="ob-slide-4">
+      <div class="fc-ob-art" style="height:210px">
+        <div class="fc-ob-glow" style="background:radial-gradient(ellipse at 50% 55%,rgba(52,199,89,0.30),transparent 65%)"></div>
+        <!-- Shield with ring -->
+        <div style="position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:16px">
+          <div style="width:90px;height:90px;border-radius:50%;background:rgba(52,199,89,0.12);border:1.5px solid rgba(52,199,89,0.28);display:flex;align-items:center;justify-content:center">
+            <div style="width:66px;height:66px;border-radius:50%;background:rgba(52,199,89,0.18);border:1.5px solid rgba(52,199,89,0.35);display:flex;align-items:center;justify-content:center">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#34c759" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                <polyline points="9 12 11 14 15 10" stroke-width="2.3"/>
+              </svg>
+            </div>
+          </div>
+          <!-- Plaid badge -->
+          <div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.10);border-radius:999px;padding:8px 16px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1ac4f0" stroke-width="2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+            <span style="font-size:12px;font-weight:600;color:rgba(255,255,255,0.7)">Secured by Plaid · 12,000+ banks</span>
+          </div>
+        </div>
+      </div>
+      <h1 class="fc-ob-title" style="font-size:27px">You're 30 seconds from<br>your full picture.</h1>
+      <p class="fc-ob-desc" style="font-size:14px;margin-bottom:14px">Your bank credentials are <strong style="color:rgba(255,255,255,0.7)">never shared with FlowCheck</strong>. Plaid's read-only link is encrypted end-to-end.</p>
+      <div class="fc-ob-trust" style="margin-bottom:0">
+        <div class="fc-ob-trust-item">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--fc-success)" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>256-bit TLS
+        </div>
+        <div class="fc-ob-trust-item">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--fc-success)" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Read-only access
+        </div>
+        <div class="fc-ob-trust-item">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--fc-success)" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Revoke any time
+        </div>
+        <div class="fc-ob-trust-item">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--fc-success)" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>CCPA compliant
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /fc-ob-slides -->
+
+  <div class="fc-ob-cta">
+    <button id="ob-next-btn" class="fc-btn fc-btn--primary fc-btn--block"
+            onclick="obNext()" type="button" style="font-size:17px;height:56px;margin-bottom:0">
+      Get Started
+    </button>
+    <button id="btn-plaid-link" class="fc-btn fc-btn--primary fc-btn--block"
+            onclick="FCApp.startPlaidLink()" type="button"
+            style="font-size:17px;height:56px;display:none;margin-bottom:0;background:linear-gradient(135deg,#1ac4f0,#6b3fe0)">
+      Connect My Bank
+    </button>
+    <button class="fc-skip-btn" onclick="FCApp.skipOnboarding()" type="button"
+            style="margin-top:14px;padding:8px 0;display:none;opacity:0.5;font-size:13px" id="ob-skip-btn">
+      Skip for now — explore without bank
+    </button>
+    <p id="ob-legal-note" style="display:none;font-size:10px;color:rgba(255,255,255,0.25);text-align:center;margin-top:10px;line-height:1.6">
+      By connecting your bank, you agree to our <a href="#" onclick="FCApp.openUrl('/legal/terms.html');return false" style="color:rgba(255,255,255,0.38)">Terms of Service</a> and <a href="#" onclick="FCApp.openUrl('/legal/privacy.html');return false" style="color:rgba(255,255,255,0.38)">Privacy Policy</a>. FlowCheck uses Plaid to connect your bank with read-only access. Your login credentials are never shared with or stored by FlowCheck.
+    </p>
+  </div>
+
+</section>
+
+
+
+<!-- ════════════════════════════════════════ SCREEN: PAYWALL -->
+<section class="fc-screen fc-paywall" data-screen="paywall" aria-label="FlowCheck Pro">
+
+  <!-- Close button -->
+  <button class="fc-pw-close" onclick="FCApp.skipPaywall()" aria-label="Skip for now" type="button">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+  </button>
+
+  <div style="position:relative;z-index:1;padding:calc(env(safe-area-inset-top) + 52px) 22px 0;display:flex;flex-direction:column;align-items:center">
+
+    <!-- Hero icon -->
+    <div class="fc-pw-hero-icon" aria-hidden="true">⚡</div>
+
+    <!-- Pro badge -->
+    <div class="fc-pw-badge">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="#c4a8ff" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      FlowCheck Pro
+    </div>
+
+    <!-- Headline -->
+    <h1 class="fc-pw-title">Your complete<br>financial picture.</h1>
+    <p class="fc-pw-subtitle">Everything you need to build real wealth — credit, budgets, goals, and insights in one place.</p>
+
+    <!-- 14-day trial notice -->
+    <div class="fc-pw-trial-bar">
+      <div class="fc-pw-trial-icon">🎁</div>
+      <div>
+        <div class="fc-pw-trial-text">7-day free trial included</div>
+        <div class="fc-pw-trial-sub">No charge until your trial ends. Cancel anytime.</div>
+      </div>
+    </div>
+
+    <!-- Feature list -->
+    <ul class="fc-pw-features">
+      <li class="fc-pw-feature">
+        <div class="fc-pw-feature-icon" style="background:rgba(26,196,240,0.14)">🏦</div>
+        <div class="fc-pw-feature-text">
+          <div class="fc-pw-feature-name">Live bank balances</div>
+          <div class="fc-pw-feature-desc">All your accounts synced in real time</div>
+        </div>
+        <div class="fc-pw-feature-check">✓</div>
+      </li>
+      <li class="fc-pw-feature">
+        <div class="fc-pw-feature-icon" style="background:rgba(107,63,224,0.14)">📊</div>
+        <div class="fc-pw-feature-text">
+          <div class="fc-pw-feature-name">Credit score monitoring</div>
+          <div class="fc-pw-feature-desc">Experian soft pull — no impact on your score</div>
+        </div>
+        <div class="fc-pw-feature-check">✓</div>
+      </li>
+      <li class="fc-pw-feature">
+        <div class="fc-pw-feature-icon" style="background:rgba(255,176,32,0.14)">🔔</div>
+        <div class="fc-pw-feature-text">
+          <div class="fc-pw-feature-name">Smart bill &amp; budget alerts</div>
+          <div class="fc-pw-feature-desc">Never miss a due date or overspend</div>
+        </div>
+        <div class="fc-pw-feature-check">✓</div>
+      </li>
+      <li class="fc-pw-feature">
+        <div class="fc-pw-feature-icon" style="background:rgba(52,199,89,0.14)">🎯</div>
+        <div class="fc-pw-feature-text">
+          <div class="fc-pw-feature-name">Unlimited savings goals</div>
+          <div class="fc-pw-feature-desc">Track every target with visual progress rings</div>
+        </div>
+        <div class="fc-pw-feature-check">✓</div>
+      </li>
+      <li class="fc-pw-feature">
+        <div class="fc-pw-feature-icon" style="background:rgba(255,69,58,0.14)">🤖</div>
+        <div class="fc-pw-feature-text">
+          <div class="fc-pw-feature-name">AI spending insights</div>
+          <div class="fc-pw-feature-desc">Personalized weekly patterns &amp; subscription alerts</div>
+        </div>
+        <div class="fc-pw-feature-check">✓</div>
+      </li>
+      <li class="fc-pw-feature">
+        <div class="fc-pw-feature-icon" style="background:rgba(255,255,255,0.07)">🔒</div>
+        <div class="fc-pw-feature-text">
+          <div class="fc-pw-feature-name">Face ID privacy lock</div>
+          <div class="fc-pw-feature-desc">Biometric protection every time you open</div>
+        </div>
+        <div class="fc-pw-feature-check">✓</div>
+      </li>
+    </ul>
+
+    <!-- Plan selector -->
+    <div class="fc-pw-plans" id="pw-plans">
+      <!-- Annual — default selected, most prominent -->
+      <div class="fc-pw-plan selected" id="pw-plan-annual"
+           onclick="FCApp.selectPlan('annual')" role="radio" aria-checked="true">
+        <div class="fc-pw-plan-radio"></div>
+        <div class="fc-pw-plan-info">
+          <div class="fc-pw-plan-name">
+            Annual
+          </div>
+          <div class="fc-pw-annual-big">
+            <span class="fc-pw-annual-amount" id="pw-price-annual-amount">$34.99</span>
+            <span class="fc-pw-annual-period">/ year</span>
+          </div>
+          <div class="fc-pw-plan-price" id="pw-price-annual">$2.92/mo — 7-day free trial</div>
+          <div class="fc-pw-plan-savings">Save 41% vs monthly</div>
+        </div>
+        <div class="fc-pw-plan-badge">Best Value</div>
+      </div>
+
+      <!-- Monthly -->
+      <div class="fc-pw-plan" id="pw-plan-monthly"
+           onclick="FCApp.selectPlan('monthly')" role="radio" aria-checked="false">
+        <div class="fc-pw-plan-radio"></div>
+        <div class="fc-pw-plan-info">
+          <div class="fc-pw-plan-name">Monthly</div>
+          <div class="fc-pw-plan-price" id="pw-price-monthly">$4.99/mo · Billed monthly</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Primary CTA -->
+    <button id="pw-cta-btn" class="fc-pw-cta" onclick="FCApp.paywallPurchase()" type="button">
+      Try Free for 14 Days
+    </button>
+
+    <!-- Legal disclosure -->
+    <p class="fc-pw-terms">
+      <span id="pw-terms-text">Then $34.99/year. Cancel anytime in App Store settings.</span>
+    </p>
+
+    <!-- Footer links — required by App Store guidelines -->
+    <div class="fc-pw-footer">
+      <a href="#" onclick="FCApp.paywallRestore(); return false">Restore</a>
+      <span class="fc-pw-footer-sep">·</span>
+      <a href="#" onclick="FCApp.openUrl(FC_CONFIG && FC_CONFIG.app.termsUrl); return false">Terms</a>
+      <span class="fc-pw-footer-sep">·</span>
+      <a href="#" onclick="FCApp.openUrl(FC_CONFIG && FC_CONFIG.app.privacyUrl); return false">Privacy</a>
+    </div>
+
+    <div style="height:6px"></div>
+  </div>
+
+  <!-- ── Purchase success overlay ── -->
+  <div class="fc-pw-success" id="pw-success-overlay" aria-live="polite">
+    <div class="fc-pw-success-icon" id="pw-success-icon">✓</div>
+    <div class="fc-pw-success-title">You're Pro! 🎉</div>
+    <p class="fc-pw-success-sub" id="pw-success-sub">Your FlowCheck Pro subscription is now active.</p>
+    <ul class="fc-pw-success-perks">
+      <li>All accounts synced in real time</li>
+      <li>Credit score monitoring</li>
+      <li>Smart spending insights</li>
+      <li>Net worth tracking &amp; history</li>
+    </ul>
+    <button class="fc-pw-success-cta" onclick="FCApp.setScreen('app'); FCApp.renderHomeAfterPro()">
+      Let's Go →
+    </button>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════ SCREEN: APP -->
+<section class="fc-screen" data-screen="app" aria-label="FlowCheck">
+
+  <!-- Dynamic Island -->
+  <div class="fc-island" style="flex-shrink:0">
+    <div class="fc-island-pill">
+      <span class="fc-island-dot"></span>
+      <span class="fc-island-text" id="islandText">All caught up</span>
+    </div>
+  </div>
+
+  <!-- Shared header -->
+  <header class="fc-header" style="flex-shrink:0">
+    <div class="fc-brand">
+      <div class="fc-brand-mark">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="white" aria-hidden="true"><path d="M4 4h16v3H4zm0 6h11v3H4zm0 6h7v3H4z"/></svg>
+      </div>
+      <span class="fc-brand-name">FlowCheck</span>
+    </div>
+    <div style="display:flex;gap:6px">
+      <button class="fc-iconbtn" aria-label="Sync accounts" id="header-sync-btn" onclick="FCApp.manualSync && FCApp.manualSync()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+          <path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+        </svg>
+      </button>
+      <button class="fc-iconbtn" id="notif-bell-btn" aria-label="Notifications" onclick="FCApp.toggleNotificationCenter()">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/>
+        </svg>
+        <span class="fc-iconbtn-badge" id="notif-badge" aria-hidden="true" style="display:none"></span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ───────────────────────────── VIEW: HOME -->
+  <div id="view-home" class="fc-view active" role="tabpanel" style="overflow-y:scroll;-webkit-overflow-scrolling:touch;padding-bottom:90px">
+
+    <section class="fc-greeting fc-fade-up">
+      <h1 class="fc-h1 fc-greeting-text">Good evening,<br>Brandon</h1>
+      <div class="fc-chips">
+        <div class="fc-chip"><span class="fc-chip-dot" style="background:var(--fc-success)"></span>Synced 2m ago</div>
+        <div class="fc-chip" id="streak-chip" style="background:var(--fc-accent-soft);color:var(--fc-accent)">Day 1 streak</div>
+      </div>
+    </section>
+
+    <!-- Hero -->
+    <div class="fc-hero-wrap fc-fade-up" style="animation-delay:0.04s">
+      <div class="fc-hero-glow"></div>
+      <article class="fc-hero">
+        <svg class="fc-hero-orb" viewBox="0 0 100 100" aria-hidden="true">
+          <defs><radialGradient id="orb"><stop offset="0%" stop-color="#1ac4f0" stop-opacity="0.4"/><stop offset="100%" stop-color="#1ac4f0" stop-opacity="0"/></radialGradient></defs>
+          <circle cx="50" cy="50" r="50" fill="url(#orb)"/>
+        </svg>
+        <div class="fc-card-header" style="position:relative">
+          <span class="fc-eyebrow">Net worth</span>
+          <span class="fc-pill" id="hero-delta" style="display:none;font-size:11px;font-weight:700">+$0</span>
+        </div>
+        <div class="fc-hero-amount" style="position:relative">
+          <span id="hero-networth" data-anim-val="0">$0.00</span>
+        </div>
+        <div class="fc-hero-sub" style="position:relative">Live balance across all accounts</div>
+        <!-- Assets / Liabilities breakdown -->
+        <div style="display:flex;gap:8px;margin-top:2px;margin-bottom:10px">
+          <div style="flex:1;background:rgba(52,199,89,0.08);border:1px solid rgba(52,199,89,0.15);border-radius:10px;padding:8px 10px">
+            <div style="font-size:10px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:var(--fc-success);margin-bottom:2px">Assets</div>
+            <div id="hero-assets" style="font-size:15px;font-weight:700;color:white">—</div>
+          </div>
+          <div style="flex:1;background:rgba(255,69,58,0.08);border:1px solid rgba(255,69,58,0.15);border-radius:10px;padding:8px 10px">
+            <div style="font-size:10px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:var(--fc-danger);margin-bottom:2px">Liabilities</div>
+            <div id="hero-liabilities" style="font-size:15px;font-weight:700;color:white">—</div>
+          </div>
+        </div>
+
+        <svg id="hero-sparkline" viewBox="0 0 320 60" width="100%" height="56" preserveAspectRatio="none" style="position:relative;display:block" aria-hidden="true">
+          <defs>
+            <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#1ac4f0" stop-opacity="0.45"/>
+              <stop offset="100%" stop-color="#1ac4f0" stop-opacity="0"/>
+            </linearGradient>
+            <filter id="sparkGlow"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          </defs>
+          <path id="sparkline-area" d="M0,48 C30,46 50,38 80,34 C110,30 140,38 170,24 C200,12 230,22 260,14 C290,6 310,10 320,7 L320,60 L0,60 Z" fill="url(#sparkGrad)"/>
+          <path id="sparkline-line" d="M0,48 C30,46 50,38 80,34 C110,30 140,38 170,24 C200,12 230,22 260,14 C290,6 310,10 320,7" stroke="#1ac4f0" stroke-width="2.2" fill="none" stroke-linecap="round" filter="url(#sparkGlow)"/>
+          <circle id="sparkline-dot-bg" cx="320" cy="7" r="6" fill="#1ac4f0" opacity="0.3"/>
+          <circle id="sparkline-dot" cx="320" cy="7" r="3.5" fill="#1ac4f0"/>
+        </svg>
+        <div class="fc-scrubber" role="tablist" aria-label="Time period">
+          <button role="tab" data-period="1D" aria-selected="false" onclick="FCApp.switchPeriod('1D')">1D</button>
+          <button role="tab" data-period="1W" aria-selected="false" onclick="FCApp.switchPeriod('1W')">1W</button>
+          <button role="tab" data-period="1M" aria-selected="true" class="active" onclick="FCApp.switchPeriod('1M')">1M</button>
+          <button role="tab" data-period="3M" aria-selected="false" onclick="FCApp.switchPeriod('3M')">3M</button>
+          <button role="tab" data-period="1Y" aria-selected="false" onclick="FCApp.switchPeriod('1Y')">1Y</button>
+        </div>
+      </article>
+    </div>
+
+    <!-- Spending Chart -->
+    <section class="fc-section fc-fade-up" id="spending-chart-section" style="animation-delay:0.06s;padding-bottom:0">
+      <article class="fc-card" style="padding:16px 16px 10px">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px">
+          <div>
+            <div class="fc-eyebrow" style="margin-bottom:2px">Spending</div>
+            <div id="chart-total" style="font-size:22px;font-weight:800;letter-spacing:-0.025em;color:white">—</div>
+          </div>
+          <div id="chart-delta" style="font-size:11px;font-weight:600;padding:4px 9px;border-radius:999px;display:none"></div>
+        </div>
+        <svg id="spending-chart-svg" viewBox="0 0 320 80" width="100%" style="overflow:visible;display:block" aria-label="Spending by period" role="img">
+          <text x="50%" y="44" text-anchor="middle" fill="rgba(255,255,255,0.15)" font-size="12" font-family="-apple-system,sans-serif">Connect a bank to see spending</text>
+        </svg>
+        <div id="chart-x-labels" style="display:flex;justify-content:space-between;margin-top:4px;padding:0 1px;min-height:14px"></div>
+      </article>
+    </section>
+
+    <!-- Safe to Spend card -->
+    <section class="fc-section fc-fade-up" style="animation-delay:0.07s;padding-bottom:0">
+      <article class="fc-card" id="safe-to-spend-card" style="background:linear-gradient(135deg,rgba(26,196,240,0.1),rgba(107,63,224,0.07));border-color:rgba(26,196,240,0.2);cursor:pointer" onclick="FCApp.switchTab('insights')" role="button">
+        <div class="fc-card-header" style="margin-bottom:6px">
+          <div>
+            <div class="fc-eyebrow" style="margin-bottom:2px">Safe to Spend</div>
+            <div style="font-size:28px;font-weight:800;letter-spacing:-0.03em;color:white" id="stat-safe-to-spend">—</div>
+          </div>
+          <div style="text-align:right">
+            <div class="fc-eyebrow" style="margin-bottom:4px">This month</div>
+            <div style="font-size:12px;color:var(--fc-text-faint)" id="safe-spend-meta">Connect a bank</div>
+          </div>
+        </div>
+        <div class="fc-progress-bar" style="height:5px">
+          <div id="safe-spend-bar" class="fc-progress-fill" style="width:0%;background:linear-gradient(90deg,var(--fc-accent),var(--fc-purple));transition:width 0.8s var(--fc-ease-out)"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:8px">
+          <span style="font-size:11px;color:var(--fc-text-faint)">Spent <span id="safe-spent-label" style="color:var(--fc-text-muted);font-weight:500">$0</span></span>
+          <span style="font-size:11px;color:var(--fc-text-faint)">Bills due <span id="safe-bills-label" style="color:var(--fc-warning);font-weight:500">$0</span></span>
+        </div>
+      </article>
+    </section>
+
+    <!-- Financial Health Score -->
+    <section class="fc-section fc-fade-up" style="animation-delay:0.10s;padding-bottom:0">
+      <article class="fc-card" id="health-score-card" style="background:linear-gradient(135deg,rgba(107,63,224,0.12),rgba(26,196,240,0.06));border-color:rgba(107,63,224,0.25);cursor:pointer" onclick="FCApp.switchTab('insights')" role="button">
+        <div style="display:flex;align-items:center;gap:16px">
+          <!-- Score ring -->
+          <div style="position:relative;width:82px;height:82px;flex-shrink:0">
+            <svg width="82" height="82" viewBox="0 0 82 82" aria-hidden="true">
+              <circle cx="41" cy="41" r="34" stroke="rgba(255,255,255,0.07)" stroke-width="7" fill="none"/>
+              <circle cx="41" cy="41" r="34" id="health-score-ring"
+                      stroke="var(--fc-purple)" stroke-width="7" fill="none"
+                      stroke-dasharray="214" stroke-dashoffset="214"
+                      stroke-linecap="round" transform="rotate(-90 41 41)"
+                      style="transition:stroke-dashoffset 1.2s var(--fc-ease-out),stroke 0.5s"/>
+            </svg>
+            <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0">
+              <div id="health-score-num" style="font-size:21px;font-weight:800;color:white;line-height:1">—</div>
+              <div style="font-size:9px;color:var(--fc-text-faint);font-weight:500;letter-spacing:0.04em">/850</div>
+            </div>
+          </div>
+          <!-- Label + sub -->
+          <div class="fc-grow">
+            <div class="fc-eyebrow" style="margin-bottom:3px">Financial Health</div>
+            <div id="health-score-label" style="font-size:20px;font-weight:800;color:white;letter-spacing:-0.02em;margin-bottom:4px">—</div>
+            <div id="health-score-sub" style="font-size:12px;color:var(--fc-text-faint);line-height:1.4">Connect a bank to calculate your score</div>
+          </div>
+        </div>
+        <!-- Factor pills -->
+        <div id="health-factors" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:14px"></div>
+      </article>
+    </section>
+
+    <!-- Spending Pulse -->
+    <section class="fc-section fc-fade-up" style="animation-delay:0.13s;padding-bottom:0">
+      <article class="fc-card" id="spending-pulse-card" style="cursor:pointer" onclick="FCApp.switchTab('insights')" role="button">
+        <div class="fc-card-header" style="margin-bottom:10px">
+          <div>
+            <div class="fc-eyebrow" style="margin-bottom:2px">Spending Pulse</div>
+            <div id="pulse-headline" style="font-size:15px;font-weight:600;color:white">This week vs last</div>
+          </div>
+          <div id="pulse-badge" class="fc-pill" style="font-size:11px;padding:4px 10px;display:none"></div>
+        </div>
+        <div style="display:flex;gap:16px">
+          <div style="flex:1">
+            <div style="font-size:11px;color:var(--fc-text-faint);margin-bottom:5px;font-weight:500">THIS WEEK</div>
+            <div id="pulse-this-week" style="font-size:19px;font-weight:700;color:white;letter-spacing:-0.02em">$0</div>
+            <div style="height:3px;background:rgba(255,255,255,0.07);border-radius:2px;margin-top:8px;overflow:hidden">
+              <div id="pulse-this-bar" style="height:100%;background:var(--fc-accent);border-radius:2px;width:0%;transition:width 0.9s var(--fc-ease-out)"></div>
+            </div>
+          </div>
+          <div style="width:1px;background:rgba(255,255,255,0.06);flex-shrink:0"></div>
+          <div style="flex:1">
+            <div style="font-size:11px;color:var(--fc-text-faint);margin-bottom:5px;font-weight:500">LAST WEEK</div>
+            <div id="pulse-last-week" style="font-size:19px;font-weight:700;color:var(--fc-text-muted);letter-spacing:-0.02em">$0</div>
+            <div style="height:3px;background:rgba(255,255,255,0.07);border-radius:2px;margin-top:8px;overflow:hidden">
+              <div id="pulse-last-bar" style="height:100%;background:rgba(255,255,255,0.18);border-radius:2px;width:0%;transition:width 0.9s var(--fc-ease-out)"></div>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <!-- Credit Score Card -->
+    <section class="fc-section fc-fade-up" style="animation-delay:0.13s;padding-bottom:0" id="credit-score-section">
+      <article class="fc-card" style="background:linear-gradient(135deg,rgba(52,199,89,0.09),rgba(26,196,240,0.05));border-color:rgba(52,199,89,0.2)">
+        <div class="fc-card-header" style="margin-bottom:14px">
+          <h2 class="fc-h3">Credit Score</h2>
+          <button class="fc-card-action" id="credit-refresh-btn" onclick="FCApp.refreshCreditScore()" style="display:none">Refresh</button>
+        </div>
+        <!-- No score state -->
+        <div id="credit-no-score" style="text-align:center;padding:8px 0 4px">
+          <div style="font-size:13px;color:var(--fc-text-faint);margin-bottom:14px;line-height:1.5">
+            Connect Experian to see your live credit score — pulled directly from the source.
+          </div>
+          <button style="display:inline-flex;align-items:center;justify-content:center;gap:7px;width:100%;height:44px;padding:0 20px;background:rgba(52,199,89,0.12);border:1px solid rgba(52,199,89,0.28);border-radius:14px;color:var(--fc-success);font-size:14px;font-weight:600;cursor:pointer;letter-spacing:-0.01em;transition:background 0.15s,border-color 0.15s"
+                  onclick="FCApp.fetchCreditScore()" id="credit-connect-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+            Check My Credit Score
+          </button>
+          <div style="font-size:11px;color:var(--fc-text-faint);margin-top:10px">Powered by Experian · Read-only · No hard inquiry</div>
+        </div>
+        <!-- Score display state (hidden until score fetched) -->
+        <div id="credit-score-display" style="display:none">
+          <!-- Gauge arc -->
+          <div style="display:flex;align-items:center;gap:16px">
+            <div style="position:relative;width:88px;height:88px;flex-shrink:0">
+              <svg width="88" height="88" viewBox="0 0 88 88">
+                <defs>
+                  <linearGradient id="csGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stop-color="#34c759"/>
+                    <stop offset="100%" stop-color="#1ac4f0"/>
+                  </linearGradient>
+                </defs>
+                <!-- Background arc (180deg, bottom half hidden) -->
+                <circle cx="44" cy="44" r="36" fill="none"
+                  stroke="rgba(255,255,255,0.07)" stroke-width="8"
+                  stroke-dasharray="188 226" stroke-dashoffset="-19"
+                  stroke-linecap="round" transform="rotate(135 44 44)"/>
+                <!-- Score arc — JS sets stroke-dasharray dynamically -->
+                <circle id="cs-arc" cx="44" cy="44" r="36" fill="none"
+                  stroke="url(#csGrad)" stroke-width="8"
+                  stroke-dasharray="0 226" stroke-dashoffset="-19"
+                  stroke-linecap="round" transform="rotate(135 44 44)"
+                  style="transition:stroke-dasharray 1.4s cubic-bezier(0.34,1.05,0.64,1) 0.2s"/>
+              </svg>
+              <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding-top:6px">
+                <div id="cs-number" style="font-size:22px;font-weight:800;color:white;letter-spacing:-0.04em;line-height:1">—</div>
+                <div id="cs-type" style="font-size:9px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:rgba(255,255,255,0.35);margin-top:1px">FICO</div>
+              </div>
+            </div>
+            <div style="flex:1;min-width:0">
+              <div id="cs-label" style="font-size:18px;font-weight:700;color:white;margin-bottom:3px">—</div>
+              <div id="cs-range" style="font-size:12px;color:var(--fc-text-faint);margin-bottom:8px">300–850 scale</div>
+              <div id="cs-updated" style="font-size:11px;color:rgba(255,255,255,0.28)"></div>
+            </div>
+          </div>
+          <!-- Factor pills -->
+          <div id="cs-factors" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"></div>
+          <!-- Credit score history sparkline -->
+          <div id="cs-history-chart" style="margin-top:14px;display:none">
+            <div style="font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--fc-text-faint);margin-bottom:8px">Score History</div>
+            <svg id="cs-history-svg" viewBox="0 0 280 56" width="100%" height="56" preserveAspectRatio="none" style="display:block"></svg>
+            <div id="cs-history-range" style="display:flex;justify-content:space-between;margin-top:4px;font-size:10px;color:var(--fc-text-faint)"></div>
+          </div>
+
+        </div>
+      </article>
+    </section>
+
+    <!-- Stat grid — 4 up -->
+    <section class="fc-section fc-fade-up" style="animation-delay:0.14s">
+      <div class="fc-stat-grid" style="grid-template-columns:repeat(4,1fr)">
+        <div class="fc-stat" style="cursor:pointer" onclick="FCApp.switchTab('activity')" role="button" tabindex="0">
+          <div class="fc-stat-label">Cash</div>
+          <div class="fc-stat-value" id="stat-cash" style="font-size:14px">$0</div>
+          <div class="fc-stat-meta" id="stat-account-count">0 accounts</div>
+        </div>
+        <div class="fc-stat" style="background:rgba(52,199,89,0.06);border-color:rgba(52,199,89,0.12);cursor:pointer"
+             onclick="FCApp.switchTab('insights')" role="button" tabindex="0">
+          <div class="fc-stat-label">Income</div>
+          <div class="fc-stat-value" id="stat-income" style="font-size:14px;color:var(--fc-success)">$0</div>
+          <div class="fc-stat-meta" id="stat-income-period">this month</div>
+        </div>
+        <div class="fc-stat" style="background:rgba(255,69,58,0.06);border-color:rgba(255,69,58,0.12);cursor:pointer"
+             onclick="FCApp.switchTab('activity');FCApp.switchActivitySegment('bills')" role="button" tabindex="0">
+          <div class="fc-stat-label">Bills</div>
+          <div class="fc-stat-value" id="stat-bills" style="font-size:14px">$0</div>
+          <div class="fc-stat-meta fc-stat-meta--danger" id="bills-due-meta">due soon</div>
+        </div>
+        <div class="fc-stat" style="cursor:pointer" onclick="FCApp.switchTab('insights')" role="button" tabindex="0">
+          <div class="fc-stat-label">Subs</div>
+          <div class="fc-stat-value" id="stat-subs" style="font-size:14px">$0</div>
+          <div class="fc-stat-meta">monthly</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Smart Insights -->
+    <section class="fc-section fc-fade-up" style="animation-delay:0.15s;padding-bottom:0" id="smart-insights-section">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <h2 class="fc-h3" style="font-size:16px">Smart Insights</h2>
+        <span style="font-size:10px;font-weight:600;letter-spacing:0.06em;color:var(--fc-accent);text-transform:uppercase">AI</span>
+      </div>
+      <div id="smart-insights-list" style="display:flex;flex-direction:column;gap:7px"></div>
+    </section>
+
+    <!-- Bills -->
+    <section class="fc-section fc-fade-up" style="animation-delay:0.16s">
+      <article class="fc-card">
+        <div class="fc-card-header" style="cursor:pointer" onclick="FCApp.switchTab('activity');FCApp.switchActivitySegment('bills')" role="button">
+          <div style="display:flex;align-items:center;gap:8px">
+            <h2 class="fc-h3">Upcoming bills</h2>
+            <span id="bills-badge" class="fc-pill fc-pill--danger" style="padding:2px 7px;font-size:10px;display:none">0</span>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button class="fc-iconbtn" onclick="event.stopPropagation();FCApp.showBillSheet()" type="button" aria-label="Add bill"
+                    style="width:28px;height:28px;background:rgba(26,196,240,0.12);color:var(--fc-accent);border-radius:8px;font-size:18px;line-height:1">+</button>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+          </div>
+        </div>
+        <div id="home-bills-list">
+          <div style="color:var(--fc-text-faint);font-size:13px;padding:12px 0;text-align:center">
+            Connect a bank to see upcoming bills
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <!-- Goal -->
+    <section class="fc-section fc-fade-up" style="animation-delay:0.20s;padding-bottom:0">
+      <article class="fc-card" style="display:flex;align-items:center;gap:16px;cursor:pointer" id="home-goal-card" onclick="FCApp.switchTab('wealth')" role="button">
+        <div style="width:64px;height:64px;position:relative;flex-shrink:0">
+          <svg width="64" height="64" viewBox="0 0 64 64" aria-label="62 percent" aria-hidden="true">
+            <defs><linearGradient id="ring" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#1ac4f0"/><stop offset="100%" stop-color="#9b7aff"/></linearGradient></defs>
+            <circle cx="32" cy="32" r="27" stroke="rgba(255,255,255,0.08)" stroke-width="6" fill="none"/>
+            <circle cx="32" cy="32" r="27" stroke="url(#ring)" stroke-width="6" fill="none" stroke-dasharray="170" stroke-dashoffset="65" stroke-linecap="round" transform="rotate(-90 32 32)"/>
+          </svg>
+          <div style="position:absolute;inset:0;display:grid;place-items:center;color:white;font-size:14px;font-weight:700">62<span style="font-size:9px;opacity:0.7">%</span></div>
+        </div>
+        <div class="fc-grow">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+            <span class="fc-eyebrow">Goal</span>
+            <span style="color:var(--fc-accent);font-size:10px;font-weight:500">on track</span>
+          </div>
+          <div class="fc-h3" style="font-size:16px;margin-bottom:2px">Emergency fund</div>
+          <div class="fc-xs">$6,200 of $10,000 · 4 mo left</div>
+        </div>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+      </article>
+    </section>
+
+  </div><!-- /view-home -->
+
+
+  <!-- ────────────────────────────── VIEW: ACTIVITY -->
+  <div id="view-activity" class="fc-view" role="tabpanel">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 16px 0">
+      <div class="fc-view-title" style="margin:0">Activity</div>
+      <button id="activity-add-bill-btn" class="fc-iconbtn" onclick="FCApp.showBillSheet()" type="button"
+              aria-label="Add bill" style="display:none;width:28px;height:28px;background:rgba(26,196,240,0.12);color:var(--fc-accent);border-radius:8px;font-size:18px;line-height:1">+</button>
+    </div>
+
+    <!-- Segment control: Transactions | Bills -->
+    <div style="padding:12px 16px 0">
+      <div class="fc-segment" role="tablist" aria-label="Activity view">
+        <button class="fc-segment-btn active" id="seg-txns" role="tab" aria-selected="true"
+                onclick="FCApp.switchActivitySegment('transactions')" type="button">Transactions</button>
+        <button class="fc-segment-btn" id="seg-bills" role="tab" aria-selected="false"
+                onclick="FCApp.switchActivitySegment('bills')" type="button">Bills</button>
+      </div>
+    </div>
+
+    <!-- Transactions panel -->
+    <div id="activity-txns-panel">
+      <section class="fc-section" style="padding-top:8px">
+        <!-- Activity filter strip -->
+        <div style="display:flex;gap:6px;margin-bottom:10px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none">
+          <button class="fc-chip fc-chip--active" data-activity-period="all"   onclick="FCApp.filterActivity('all')"  >All</button>
+          <button class="fc-chip"                 data-activity-period="today" onclick="FCApp.filterActivity('today')" >Today</button>
+          <button class="fc-chip"                 data-activity-period="week"  onclick="FCApp.filterActivity('week')"  >This week</button>
+          <button class="fc-chip"                 data-activity-period="month" onclick="FCApp.filterActivity('month')" >This month</button>
+          <button class="fc-chip"                 data-activity-period="income" onclick="FCApp.filterActivity('income')">Income</button>
+        </div>
+        <div class="fc-search">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>
+          <input id="activity-search" type="search" placeholder="Search transactions…" autocomplete="off">
+        </div>
+        <!-- Category filter chips -->
+        <div id="activity-cat-chips" style="display:flex;gap:6px;margin-bottom:10px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none;-webkit-overflow-scrolling:touch">
+          <button class="fc-chip fc-chip--active" data-cat-chip="all"        onclick="FCApp.filterActivityCategory('all')">All</button>
+          <button class="fc-chip"                 data-cat-chip="food"       onclick="FCApp.filterActivityCategory('food')">🍔 Food</button>
+          <button class="fc-chip"                 data-cat-chip="transport"  onclick="FCApp.filterActivityCategory('transport')">🚗 Transport</button>
+          <button class="fc-chip"                 data-cat-chip="shopping"   onclick="FCApp.filterActivityCategory('shopping')">🛍 Shopping</button>
+          <button class="fc-chip"                 data-cat-chip="entertainment" onclick="FCApp.filterActivityCategory('entertainment')">🎬 Entertain</button>
+          <button class="fc-chip"                 data-cat-chip="health"     onclick="FCApp.filterActivityCategory('health')">💊 Health</button>
+          <button class="fc-chip"                 data-cat-chip="income"     onclick="FCApp.filterActivityCategory('income')">💰 Income</button>
+        </div>
+        <div id="activity-list">
+          <div style="text-align:center;padding:48px 24px;color:var(--fc-text-faint)">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom:12px;opacity:0.4" aria-hidden="true"><path d="M3 12h4l3-9 4 18 3-9h4"/></svg>
+            <div style="font-size:15px;font-weight:500;color:var(--fc-text-muted);margin-bottom:4px">No transactions yet</div>
+            <div style="font-size:13px">Connect a bank account to see your transactions here</div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Bills panel (hidden by default) -->
+    <div id="activity-bills-panel" style="display:none">
+      <section class="fc-section" style="padding-top:8px">
+        <div id="bills-full-list">
+          <div style="text-align:center;padding:48px 24px;color:var(--fc-text-faint)">
+            <div style="font-size:15px;font-weight:500;color:var(--fc-text-muted);margin-bottom:8px">No bills yet</div>
+            <div style="font-size:13px;margin-bottom:20px">Tap + to add your first bill</div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div><!-- /view-activity -->
+
+
+  <!-- ────────────────────────────── VIEW: INSIGHTS -->
+  <div id="view-insights" class="fc-view" role="tabpanel" style="overflow-y:scroll;-webkit-overflow-scrolling:touch;padding-bottom:90px">
+    <div class="fc-view-title">Insights</div>
+
+    <!-- Period scrubber -->
+    <div class="fc-scrubber" role="tablist" aria-label="Time period" style="margin:0 16px 16px">
+      <button role="tab" data-period="1D" aria-selected="false" onclick="FCApp.switchPeriod('1D')">1D</button>
+      <button role="tab" data-period="1W" aria-selected="false" onclick="FCApp.switchPeriod('1W')">1W</button>
+      <button role="tab" data-period="1M" aria-selected="true" class="active" onclick="FCApp.switchPeriod('1M')">1M</button>
+      <button role="tab" data-period="3M" aria-selected="false" onclick="FCApp.switchPeriod('3M')">3M</button>
+      <button role="tab" data-period="1Y" aria-selected="false" onclick="FCApp.switchPeriod('1Y')">1Y</button>
+    </div>
+
+    <!-- ── Spending Hero ─────────────────────────────────────────── -->
+    <section class="fc-section" style="padding-top:0;padding-bottom:0">
+      <article class="fc-card" style="background:linear-gradient(135deg,rgba(26,196,240,0.1) 0%,rgba(107,63,224,0.08) 60%,rgba(10,21,32,0.9) 100%);border-color:rgba(26,196,240,0.18);margin-bottom:10px">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px">
+          <div>
+            <div class="fc-eyebrow" style="margin-bottom:4px">Spending · <span id="insights-period-label">this month</span></div>
+            <div id="insights-total-spend" data-anim-val="0" style="font-size:38px;font-weight:800;letter-spacing:-0.04em;color:white;line-height:1">$0</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;padding-top:2px">
+            <span id="insights-spend-delta" style="display:none;font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px"></span>
+            <span id="insights-budget-pill" style="font-size:11px;font-weight:600;padding:4px 10px;border-radius:999px;background:rgba(255,255,255,0.08);color:var(--fc-text-muted)">$0 / $3,000</span>
+          </div>
+        </div>
+        <!-- Budget progress -->
+        <div style="margin-bottom:6px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+            <span style="font-size:11px;color:var(--fc-text-faint);font-weight:500">MONTHLY BUDGET</span>
+            <div style="display:flex;align-items:center;gap:6px">
+              <span id="insights-budget-remaining" style="font-size:11px;color:var(--fc-text-faint)">$3,000 remaining</span>
+              <button type="button" onclick="FCApp.openCategoryBudgetSheet('total', (window._fcBudgetLimit||3000))" style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:99px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);color:var(--fc-text-faint);cursor:pointer">Edit</button>
+            </div>
+          </div>
+          <div class="fc-progress-bar" style="height:8px;border-radius:99px">
+            <div id="insights-budget-fill" class="fc-progress-fill" style="width:0%;background:linear-gradient(90deg,var(--fc-accent),var(--fc-purple));border-radius:99px;transition:width 0.9s cubic-bezier(0.25,0.1,0.25,1)"></div>
+          </div>
+          <div id="insights-budget-pace" style="font-size:11px;color:var(--fc-text-faint);margin-top:5px"></div>
+        </div>
+        <!-- Savings rate + budget health inline -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.07)">
+          <div>
+            <div style="display:flex;align-items:center;gap:5px;margin-bottom:4px">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--fc-success)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+              <span style="font-size:10px;color:var(--fc-text-faint);font-weight:500;letter-spacing:0.3px;text-transform:uppercase">Savings</span>
+            </div>
+            <span id="savings-rate" style="font-size:16px;font-weight:800;color:var(--fc-success)">—</span>
+            <div style="height:3px;background:rgba(255,255,255,0.05);border-radius:2px;margin-top:5px;overflow:hidden">
+              <div id="savings-bar" style="height:100%;background:var(--fc-success);border-radius:2px;width:0%;transition:width 0.9s cubic-bezier(0.25,0.1,0.25,1)"></div>
+            </div>
+          </div>
+          <div>
+            <div style="display:flex;align-items:center;gap:5px;margin-bottom:4px">
+              <span style="font-size:12px" aria-hidden="true">🎯</span>
+              <span style="font-size:10px;color:var(--fc-text-faint);font-weight:500;letter-spacing:0.3px;text-transform:uppercase">Budget Health</span>
+            </div>
+            <span id="insights-budget-health" style="font-size:16px;font-weight:800;color:var(--fc-success)">—</span>
+            <div style="height:3px;background:rgba(255,255,255,0.05);border-radius:2px;margin-top:5px;overflow:hidden">
+              <div id="insights-budget-health-bar" style="height:100%;border-radius:2px;width:0%;transition:width 0.9s cubic-bezier(0.25,0.1,0.25,1)"></div>
+            </div>
+          </div>
+        </div>
+        <div id="savings-meta" style="font-size:11px;color:var(--fc-text-faint);margin-top:8px">Link accounts to track savings rate</div>
+      </article>
+    </section>
+
+    <!-- ── Month-by-Month Budget Calendar ─────────────────────────── -->
+    <section class="fc-section" style="padding-bottom:0">
+      <article class="fc-card" style="margin-bottom:10px;padding:20px 20px 16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <div>
+            <div class="fc-eyebrow" style="margin-bottom:2px">Budget Calendar</div>
+            <h2 class="fc-h3" style="margin:0">Month by Month</h2>
+          </div>
+          <span id="budget-year-label" style="font-size:13px;font-weight:700;color:var(--fc-text-faint)">2026</span>
+        </div>
+        <!-- Horizontal scroll strip of month cards -->
+        <div id="budget-monthly-grid" style="display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:6px;scroll-snap-type:x mandatory;scrollbar-width:none"></div>
+        <!-- Annual summary -->
+        <div style="margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,0.07)">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px">
+            <span style="font-size:11px;color:var(--fc-text-faint);font-weight:500;text-transform:uppercase;letter-spacing:0.3px">Annual Spending</span>
+            <div style="text-align:right">
+              <span id="budget-annual-spend" style="font-size:16px;font-weight:800;color:white">$0</span>
+              <span id="budget-annual-limit" style="font-size:11px;color:var(--fc-text-faint);margin-left:5px">of $0</span>
+            </div>
+          </div>
+          <div class="fc-progress-bar" style="height:5px;border-radius:99px;margin-top:6px">
+            <div id="budget-annual-fill" class="fc-progress-fill" style="width:0%;background:linear-gradient(90deg,var(--fc-accent),var(--fc-purple));border-radius:99px;transition:width 0.9s cubic-bezier(0.25,0.1,0.25,1)"></div>
+          </div>
+          <div id="budget-annual-meta" style="font-size:11px;color:var(--fc-text-faint);margin-top:5px"></div>
+        </div>
+      </article>
+    </section>
+
+    <!-- ── Spending by Category ───────────────────────────────────── -->
+    <section class="fc-section" style="padding-bottom:0">
+      <article class="fc-card" style="margin-bottom:10px;padding:20px 20px 16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <h2 class="fc-h3">By Category</h2>
+          <span style="font-size:11px;color:var(--fc-text-faint)" id="insights-cat-period">this month</span>
+        </div>
+        <!-- Donut + legend -->
+        <div style="display:flex;align-items:center;gap:20px;margin-bottom:18px">
+          <div style="position:relative;flex-shrink:0;width:120px;height:120px">
+            <svg id="insights-donut-svg" viewBox="0 0 120 120" width="120" height="120" style="overflow:visible;transform:rotate(-90deg)" aria-label="Spending donut chart" role="img">
+              <circle cx="60" cy="60" r="46" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="16"/>
+            </svg>
+            <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none">
+              <div id="insights-donut-center-amt" style="font-size:15px;font-weight:800;color:white;letter-spacing:-0.03em;line-height:1">—</div>
+              <div style="font-size:10px;color:var(--fc-text-faint);font-weight:500;margin-top:2px">spent</div>
+            </div>
+          </div>
+          <div id="insights-donut-legend" style="flex:1;display:flex;flex-direction:column;gap:8px;min-width:0"></div>
+        </div>
+        <div id="insights-categories">
+          <div style="color:var(--fc-text-faint);text-align:center;padding:28px 0;font-size:14px">Connect a bank to see your spending</div>
+        </div>
+      </article>
+    </section>
+
+    <!-- ── Net Worth Trend ───────────────────────────────────────── -->
+    <section class="fc-section" style="padding-bottom:0">
+      <article class="fc-card" style="margin-bottom:10px" id="insights-nw-card">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px">
+          <div>
+            <div class="fc-eyebrow" style="margin-bottom:4px">Net Worth Trend</div>
+            <div id="insights-nw-value" style="font-size:26px;font-weight:800;letter-spacing:-0.03em;color:white">—</div>
+          </div>
+          <span id="insights-nw-delta" style="font-size:12px;font-weight:600;padding:5px 11px;border-radius:999px;display:none;margin-top:4px"></span>
+        </div>
+        <svg id="insights-nw-sparkline" viewBox="0 0 280 56" width="100%" style="display:block;overflow:visible;margin-bottom:4px" aria-label="Net worth history" role="img">
+          <text x="50%" y="32" text-anchor="middle" fill="rgba(255,255,255,0.1)" font-size="11" font-family="-apple-system,sans-serif">No history yet — check back tomorrow</text>
+        </svg>
+        <div style="font-size:11px;color:var(--fc-text-faint);margin-top:2px" id="insights-nw-range"></div>
+      </article>
+    </section>
+
+    <!-- ── Cash Flow — Next 7 Days ───────────────────────────────── -->
+    <section class="fc-section" style="padding-bottom:0">
+      <article class="fc-card" style="margin-bottom:10px" id="cashflow-card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <div>
+            <div class="fc-eyebrow" style="margin-bottom:4px">Cash Flow</div>
+            <h2 class="fc-h3" style="margin:0">Next 7 Days</h2>
+          </div>
+          <span id="cashflow-net" style="font-size:13px;font-weight:700;padding:5px 12px;border-radius:999px;background:rgba(255,255,255,0.06)"></span>
+        </div>
+        <div id="cashflow-timeline" style="display:flex;flex-direction:column;gap:0">
+          <div style="color:var(--fc-text-faint);text-align:center;padding:20px 0;font-size:14px">Connect a bank to see your forecast</div>
+        </div>
+      </article>
+    </section>
+
+    <!-- ── Top Merchants ─────────────────────────────────────────── -->
+    <section class="fc-section" style="padding-bottom:0">
+      <article class="fc-card" style="margin-bottom:10px" id="top-merchants-card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <div>
+            <div class="fc-eyebrow" style="margin-bottom:4px">Where You Spend</div>
+            <h2 class="fc-h3" style="margin:0">Top Merchants</h2>
+          </div>
+          <span id="top-merchants-period" style="font-size:11px;color:var(--fc-text-faint)">this month</span>
+        </div>
+        <div id="top-merchants-list">
+          <div style="color:var(--fc-text-faint);text-align:center;padding:20px 0;font-size:14px">Connect a bank to see your top merchants</div>
+        </div>
+      </article>
+    </section>
+
+    <!-- ── Subscription Hunter ───────────────────────────────────── -->
+    <section class="fc-section">
+      <article class="fc-card" id="sub-hunter-card" style="margin-bottom:10px;display:none">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+          <div style="width:36px;height:36px;border-radius:10px;background:rgba(255,69,58,0.12);border:1px solid rgba(255,69,58,0.2);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🔍</div>
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:6px">
+              <h2 class="fc-h3" style="margin:0">Subscriptions</h2>
+              <span id="sub-hunter-badge" class="fc-pill fc-pill--danger" style="font-size:10px;padding:2px 7px">0</span>
+            </div>
+            <div style="font-size:12px;color:var(--fc-text-faint);margin-top:1px">Recurring charges detected</div>
+          </div>
+        </div>
+        <div id="sub-hunter-list" style="display:flex;flex-direction:column;gap:4px"></div>
+      </article>
+    </section>
+
+  </div><!-- /view-insights -->
+
+
+  <!-- ────────────────────────────── VIEW: WEALTH -->
+  <div id="view-wealth" class="fc-view" role="tabpanel">
+    <div class="fc-view-title">Wealth</div>
+
+    <!-- Segment control -->
+    <div class="fc-wealth-segs">
+      <button class="fc-wealth-seg fc-wealth-seg--active" data-seg="savings" onclick="FCApp.switchWealthSegment('savings')">Savings</button>
+      <button class="fc-wealth-seg" data-seg="goals" onclick="FCApp.switchWealthSegment('goals')">Goals</button>
+      <button class="fc-wealth-seg" data-seg="debt" onclick="FCApp.switchWealthSegment('debt')">Debt</button>
+    </div>
+
+    <!-- ── Savings panel ── -->
+    <div class="fc-wealth-panel fc-wealth-panel--active" id="wealth-panel-savings">
+      <div id="savings-summary"></div>
+      <section class="fc-section" style="padding-top:8px">
+        <div id="savings-list"></div>
+      </section>
+    </div>
+
+    <!-- ── Goals panel ── -->
+    <div class="fc-wealth-panel" id="wealth-panel-goals">
+      <div style="display:flex;justify-content:flex-end;padding:4px 16px 0">
+        <button class="fc-btn fc-btn--sm" style="background:var(--fc-accent-soft);color:var(--fc-accent);border:1px solid rgba(26,196,240,0.2)"
+                onclick="FCApp.showAddGoalSheet()">+ Add Goal</button>
+      </div>
+      <section class="fc-section" style="padding-top:8px">
+        <div id="goals-list"></div>
+      </section>
+    </div>
+
+    <!-- ── Debt panel ── -->
+    <div class="fc-wealth-panel" id="wealth-panel-debt">
+      <div id="debt-summary"></div>
+      <section class="fc-section" style="padding-top:8px">
+        <div id="debt-list"></div>
+      </section>
+    </div>
+  </div><!-- /view-wealth -->
+
+
+  <!-- ────────────────────────────── VIEW: SETTINGS -->
+  <div id="view-settings" class="fc-view" role="tabpanel" style="overflow-y:scroll;-webkit-overflow-scrolling:touch;padding-bottom:90px">
+    <div class="fc-view-title">Settings</div>
+    <section class="fc-section" style="padding-top:8px">
+
+      <!-- Profile card -->
+      <article class="fc-card" style="display:flex;align-items:center;gap:14px;margin-bottom:10px">
+        <div id="settings-avatar" style="width:52px;height:52px;border-radius:999px;background:linear-gradient(135deg,var(--fc-accent),var(--fc-purple));display:grid;place-items:center;font-size:22px;font-weight:700;color:white;flex-shrink:0">B</div>
+        <div class="fc-grow">
+          <div id="settings-name" style="color:var(--fc-text);font-size:16px;font-weight:600">Brandon</div>
+          <div id="settings-email" class="fc-xs">brandon.tminkler01@gmail.com</div>
+          <div id="settings-streak" style="color:var(--fc-accent);font-size:11px;font-weight:600;margin-top:2px">Day 1 streak</div>
+        </div>
+        <span class="fc-pill fc-pill--accent" style="font-size:10px;padding:3px 8px">Pro</span>
+      </article>
+
+      <!-- Accounts -->
+      <article class="fc-card" style="padding:4px 16px;margin-bottom:10px">
+        <div class="fc-settings-row" id="settings-bank-row"
+             onclick="FCApp.showBankSheet && FCApp.showBankSheet()">
+          <div class="fc-settings-icon" style="background:rgba(26,196,240,0.15)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-accent)" stroke-width="2" aria-hidden="true"><rect x="1" y="4" width="22" height="16" rx="2"/><path d="M1 10h22"/></svg>
+          </div>
+          <div class="fc-settings-label">Connected bank</div>
+          <div class="fc-settings-value" id="settings-institution">Not connected</div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+        </div>
+        <div class="fc-settings-row" onclick="FCApp.showManualAccountSheet && FCApp.showManualAccountSheet()">
+          <div class="fc-settings-icon" style="background:rgba(107,63,224,0.15)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-purple)" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+          </div>
+          <div class="fc-settings-label">Add manual account</div>
+          <div class="fc-settings-value">Savings, debt…</div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+        </div>
+        <div class="fc-settings-row" onclick="FCApp.switchTab('activity')">
+          <div class="fc-settings-icon" style="background:rgba(52,199,89,0.15)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-success)" stroke-width="2" aria-hidden="true"><path d="M3 12h4l3-9 4 18 3-9h4"/></svg>
+          </div>
+          <div class="fc-settings-label">Transactions</div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+        </div>
+      </article>
+
+      <!-- Security & notifications -->
+      <article class="fc-card" style="padding:4px 16px;margin-bottom:10px">
+        <div class="fc-settings-row">
+          <div class="fc-settings-icon" style="background:rgba(255,176,32,0.15)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-warning)" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+          <div class="fc-settings-label">Face ID</div>
+          <div id="toggle-biometric" class="fc-toggle" role="switch" aria-checked="true"
+               onclick="handleBiometricToggle(this)"></div>
+        </div>
+        <div class="fc-settings-row">
+          <div class="fc-settings-icon" style="background:rgba(26,196,240,0.15)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-accent)" stroke-width="2" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/></svg>
+          </div>
+          <div class="fc-settings-label">Notifications</div>
+          <div id="toggle-notifications" class="fc-toggle on" role="switch" aria-checked="true"
+               onclick="handleNotifToggle(this)"></div>
+        </div>
+      </article>
+
+      <!-- Privacy & Data -->
+      <article class="fc-card" style="padding:4px 16px;margin-bottom:10px">
+        <div class="fc-settings-row" onclick="FCApp.openUrl(FC_CONFIG && FC_CONFIG.app.privacyUrl)">
+          <div class="fc-settings-icon" style="background:rgba(107,63,224,0.15)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-purple-2)" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+          <div class="fc-settings-label">Privacy Policy</div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+        </div>
+        <div class="fc-settings-row" onclick="FCApp.openUrl(FC_CONFIG && FC_CONFIG.app.termsUrl)">
+          <div class="fc-settings-icon" style="background:rgba(107,63,224,0.15)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-purple-2)" stroke-width="2" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          </div>
+          <div class="fc-settings-label">Terms of Service</div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+        </div>
+        <div class="fc-settings-row" style="border-bottom:none"
+             onclick="FCApp.showDeleteSheet && FCApp.showDeleteSheet()">
+          <div class="fc-settings-icon" style="background:rgba(255,69,58,0.12)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-danger)" stroke-width="2" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+          </div>
+          <div class="fc-settings-label" style="color:var(--fc-danger)">Delete My Account &amp; Data</div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-danger)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true" style="opacity:0.5"><path d="M9 6l6 6-6 6"/></svg>
+        </div>
+      </article>
+
+      <!-- App & subscription -->
+      <article class="fc-card" style="padding:4px 16px;margin-bottom:10px">
+        <div class="fc-settings-row" onclick="FCApp.showPaywall()" id="settings-pro-row">
+          <div class="fc-settings-icon" style="background:rgba(155,122,255,0.15)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-purple-2)" stroke-width="2" aria-hidden="true"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+          </div>
+          <div class="fc-settings-label">FlowCheck Pro</div>
+          <span class="fc-pill fc-pill--accent" id="settings-pro-pill" style="font-size:10px;padding:3px 8px">Manage</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+        </div>
+        <!-- Cancel subscription — only shown for Pro users, hidden via JS -->
+        <div class="fc-settings-row" id="settings-cancel-sub-row" style="display:none;border-bottom:1px solid rgba(255,255,255,0.05)"
+             onclick="FCApp._openCancelSheet && FCApp._openCancelSheet()">
+          <div class="fc-settings-icon" style="background:rgba(255,69,58,0.08)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-danger)" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><line x1="9" y1="9" x2="15" y2="15"/><line x1="15" y1="9" x2="9" y2="15"/></svg>
+          </div>
+          <div class="fc-settings-label" style="color:var(--fc-danger)">Cancel Subscription</div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-danger)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true" style="opacity:0.5"><path d="M9 6l6 6-6 6"/></svg>
+        </div>
+
+        <div class="fc-settings-row" onclick="FCApp.openUrl(FC_CONFIG && FC_CONFIG.app.supportUrl)">
+          <div class="fc-settings-icon" style="background:rgba(255,255,255,0.06)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-muted)" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </div>
+          <div class="fc-settings-label">Help &amp; Support</div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+        </div>
+        <div class="fc-settings-row">
+          <div class="fc-settings-icon" style="background:rgba(255,255,255,0.06)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-muted)" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          </div>
+          <div class="fc-settings-label">Version</div>
+          <div class="fc-settings-value">2.0.0</div>
+        </div>
+      </article>
+
+      <button class="fc-btn fc-btn--ghost fc-btn--block"
+              style="color:var(--fc-danger);border-color:rgba(255,69,58,0.25);margin-top:4px"
+              onclick="FCApp.handleSignOut()">
+        Sign Out
+      </button>
+
+      <div style="text-align:center;padding:24px 16px 8px;color:var(--fc-text-faint);font-size:11px;line-height:1.8;max-width:300px;margin:0 auto">
+        FlowCheck is not a bank. Account data is for informational purposes only
+        and may not reflect real-time balances. Nothing in this app constitutes
+        financial advice.
+      </div>
+
+    </section>
+  </div><!-- /view-settings -->
+
+
+  <!-- Bottom navigation -->
+  <nav class="fc-nav" role="tablist" aria-label="Main navigation" style="flex-shrink:0">
+    <a class="fc-nav-item active" role="tab" data-view="home" aria-selected="true" tabindex="0">
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2L2 10v12h7v-6h6v6h7V10z"/></svg>
+      Home
+    </a>
+    <a class="fc-nav-item" role="tab" data-view="activity" aria-selected="false" tabindex="-1">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3-9 4 18 3-9h4"/></svg>
+      Activity
+    </a>
+    <a class="fc-nav-item" role="tab" data-view="insights" aria-selected="false" tabindex="-1">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="12" width="4" height="9" rx="1"/><rect x="10" y="6" width="4" height="15" rx="1"/><rect x="17" y="3" width="4" height="18" rx="1"/></svg>
+      Insights
+    </a>
+    <a class="fc-nav-item" role="tab" data-view="wealth" aria-selected="false" tabindex="-1">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+      Wealth
+    </a>
+    <a class="fc-nav-item" role="tab" data-view="settings" aria-selected="false" tabindex="-1">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.5-2.5l2-1.5-2-3.5-2.5 1a7 7 0 0 0-2.5-1.5L13 2h-2l-.5 2A7 7 0 0 0 8 5.5l-2.5-1-2 3.5 2 1.5A7 7 0 0 0 5 12c0 .9.2 1.7.5 2.5l-2 1.5 2 3.5 2.5-1c.7.6 1.6 1.1 2.5 1.5l.5 2h2l.5-2c.9-.4 1.8-.9 2.5-1.5l2.5 1 2-3.5-2-1.5c.3-.8.5-1.6.5-2.5z"/></svg>
+      Settings
+    </a>
+  </nav>
+
+</section><!-- /app screen -->
+
+</div><!-- /phone-frame -->
+
+<!-- ══════════════════════════════ FACE ID LOCK SCREEN ══════ -->
+<div id="fc-lock-screen" class="hidden" role="dialog" aria-label="Unlock FlowCheck" aria-modal="true">
+
+  <!-- App icon -->
+  <div class="fc-lock-logo">
+    <svg width="38" height="38" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" fill="rgba(255,255,255,0.15)" stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+      <polyline points="9 22 9 12 15 12 15 22" stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+    </svg>
+  </div>
+
+  <div class="fc-lock-app-name">FlowCheck</div>
+  <div class="fc-lock-tagline" id="lock-sub">Your finances are locked</div>
+
+  <!-- Pulsing ring + Face ID button -->
+  <div class="fc-lock-ring">
+    <button id="fc-lock-btn" class="fc-lock-btn" onclick="FCApp.triggerBiometricUnlock()"
+            aria-label="Unlock with Face ID" type="button">
+      <!-- Proper Face ID icon -->
+      <svg width="42" height="42" viewBox="0 0 24 24" fill="none"
+           stroke="var(--fc-accent)" stroke-width="1.5" stroke-linecap="round" id="lock-icon">
+        <!-- Corner brackets — Apple Face ID style -->
+        <path d="M4 7V5a1 1 0 0 1 1-1h2M4 17v2a1 1 0 0 0 1 1h2M17 4h2a1 1 0 0 1 1 1v2M17 20h2a1 1 0 0 0 1-1v-2"/>
+        <!-- Eyes -->
+        <circle cx="9" cy="10" r="0.6" fill="var(--fc-accent)" stroke="none"/>
+        <circle cx="15" cy="10" r="0.6" fill="var(--fc-accent)" stroke="none"/>
+        <!-- Nose bridge -->
+        <path d="M12 9v2.5"/>
+        <!-- Smile -->
+        <path d="M9 15.5c.8 1 5.2 1 6 0" stroke-linejoin="round"/>
+      </svg>
+    </button>
+  </div><!-- /fc-lock-ring -->
+
+  <div id="lock-status" class="fc-lock-status"></div>
+  <button class="fc-lock-password-btn" onclick="FCApp.unlockWithPassword()" type="button">
+    Use Password Instead
+  </button>
+</div>
+
+<!-- ══════════════════════ SHEET: BANK MANAGEMENT ═══════════ -->
+<!-- ════════════════════ NOTIFICATION CENTER ═════════════════ -->
+<div id="fc-notif-center" style="display:none;position:fixed;inset:0;z-index:900;pointer-events:none">
+  <!-- Backdrop -->
+  <div id="fc-notif-backdrop" onclick="FCApp.closeNotificationCenter()"
+       style="position:absolute;inset:0;background:rgba(0,0,0,0.55);pointer-events:auto;opacity:0;transition:opacity 0.2s ease"></div>
+  <!-- Panel slides down from top -->
+  <div id="fc-notif-panel"
+       style="position:absolute;top:0;left:0;right:0;background:var(--fc-card-bg);border-bottom-left-radius:20px;border-bottom-right-radius:20px;max-height:70vh;display:flex;flex-direction:column;pointer-events:auto;transform:translateY(-100%);transition:transform 0.3s cubic-bezier(0.34,1.05,0.64,1);box-shadow:0 8px 32px rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.06);border-top:none">
+    <!-- Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 20px 14px;border-bottom:1px solid rgba(255,255,255,0.06);flex-shrink:0">
+      <div style="font-size:17px;font-weight:700;color:white">Notifications</div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <button onclick="FCApp.markAllNotifsRead()" id="notif-mark-all-btn"
+                style="font-size:12px;font-weight:600;color:var(--fc-accent);background:none;border:none;cursor:pointer;padding:0;display:none">
+          Mark all read
+        </button>
+        <button onclick="FCApp.closeNotificationCenter()"
+                style="width:28px;height:28px;background:rgba(255,255,255,0.08);border:none;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;color:rgba(255,255,255,0.5)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+    <!-- Notification list -->
+    <div id="fc-notif-list" style="overflow-y:auto;flex:1;padding:8px 0"></div>
+  </div>
+</div>
+
+<div id="fc-bank-sheet" class="fc-sheet-overlay" onclick="FCApp.closeBankSheet()" style="display:none">
+  <div class="fc-sheet" onclick="event.stopPropagation()">
+    <div class="fc-sheet-handle"></div>
+    <div class="fc-sheet-title">Connected Banks</div>
+    <!-- Dynamic bank list — populated by showBankSheet() -->
+    <div id="bank-list-container" style="margin-bottom:14px"></div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <button class="fc-btn fc-btn--ghost fc-btn--block"
+              onclick="FCApp.closeBankSheet();setTimeout(()=>FCApp.startPlaidLink(),120)"
+              type="button">
+        + Add Another Bank
+      </button>
+    </div>
+    <button class="fc-sheet-cancel" onclick="FCApp.closeBankSheet()" type="button">Cancel</button>
+  </div>
+</div>
+
+<!-- ════════════════════ SHEET: DISCONNECT CONFIRM ══════════ -->
+<div id="fc-disconnect-sheet" class="fc-sheet-overlay" onclick="FCApp.closeDisconnectSheet()" style="display:none">
+  <div class="fc-sheet" onclick="event.stopPropagation()">
+    <div class="fc-sheet-handle"></div>
+    <div class="fc-sheet-icon-wrap" style="background:rgba(255,69,58,0.12)">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none"
+           stroke="var(--fc-danger)" stroke-width="2" stroke-linecap="round">
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+        <polyline points="16 17 21 12 16 7"/>
+        <line x1="21" y1="12" x2="9" y2="12"/>
+      </svg>
+    </div>
+    <div class="fc-sheet-heading">Disconnect bank?</div>
+    <div class="fc-sheet-body" id="disconnect-sheet-body">
+      This removes your bank connection and deletes all synced transaction data from FlowCheck.
+      <strong style="color:rgba(255,255,255,0.75)">Your actual bank account is not affected.</strong>
+    </div>
+    <button id="btn-confirm-disconnect" class="fc-btn fc-btn--block"
+            style="background:var(--fc-danger);color:#fff;margin-bottom:10px"
+            onclick="FCApp.disconnectBank()" type="button">
+      Yes, Disconnect
+    </button>
+    <button class="fc-btn fc-btn--ghost fc-btn--block"
+            onclick="FCApp.closeDisconnectSheet()" type="button">
+      Keep Connected
+    </button>
+  </div>
+</div>
+
+<!-- ════════════════════ SHEET: DELETE ACCOUNT ══════════════ -->
+<div id="fc-delete-sheet" class="fc-sheet-overlay" onclick="FCApp.closeDeleteSheet()" style="display:none">
+  <div class="fc-sheet" onclick="event.stopPropagation()">
+    <div class="fc-sheet-handle"></div>
+    <div class="fc-sheet-icon-wrap" style="background:rgba(255,69,58,0.12)">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none"
+           stroke="var(--fc-danger)" stroke-width="2" stroke-linecap="round">
+        <polyline points="3 6 5 6 21 6"/>
+        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+        <path d="M10 11v6M14 11v6"/>
+        <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+      </svg>
+    </div>
+    <div class="fc-sheet-heading">Delete account?</div>
+    <div class="fc-sheet-body">
+      This permanently deletes your FlowCheck account, disconnects your bank, and erases
+      all your data. <strong style="color:rgba(255,255,255,0.75)">This cannot be undone.</strong>
+    </div>
+    <button id="btn-confirm-delete" class="fc-btn fc-btn--block"
+            style="background:var(--fc-danger);color:#fff;margin-bottom:10px"
+            onclick="FCApp.deleteAccount()" type="button">
+      Permanently Delete My Account
+    </button>
+    <button class="fc-btn fc-btn--ghost fc-btn--block"
+            onclick="FCApp.closeDeleteSheet()" type="button">
+      Cancel
+    </button>
+  </div>
+</div>
+
+<!-- ════════════════════ SHEET: ADD / EDIT GOAL ════════════════ -->
+<div id="fc-goal-sheet" class="fc-sheet-overlay" onclick="if(event.target===this)FCApp.closeGoalSheet()" style="display:none">
+  <div class="fc-sheet" onclick="event.stopPropagation()" style="padding:24px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <div class="fc-h3" id="goal-sheet-title">Add Goal</div>
+      <button class="fc-iconbtn" onclick="FCApp.closeGoalSheet()" type="button" aria-label="Close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div class="fc-input-group" style="margin:0">
+        <label class="fc-input-label">Goal Name</label>
+        <input id="goal-name-input" type="text" class="fc-input" placeholder="e.g. Emergency Fund, New Car…" maxlength="50" autocomplete="off">
+      </div>
+      <div class="fc-input-group" style="margin:0">
+        <label class="fc-input-label">Target Amount ($)</label>
+        <input id="goal-target-input" type="number" class="fc-input" placeholder="10000" min="1" step="1" oninput="FCApp._updateGoalCalc&&FCApp._updateGoalCalc()">
+      </div>
+      <div class="fc-input-group" style="margin:0">
+        <label class="fc-input-label">Current Progress ($)</label>
+        <input id="goal-current-input" type="number" class="fc-input" placeholder="0" min="0" step="1" oninput="FCApp._updateGoalCalc&&FCApp._updateGoalCalc()">
+      </div>
+      <div class="fc-input-group" style="margin:0">
+        <label class="fc-input-label">Target Date <span style="color:var(--fc-text-faint);font-weight:400">(optional)</span></label>
+        <input id="goal-date-input" type="month" class="fc-input"
+               oninput="FCApp._updateGoalCalc && FCApp._updateGoalCalc()"
+               style="color-scheme:dark">
+      </div>
+      <!-- Monthly savings hint -->
+      <div id="goal-monthly-calc" style="display:none;font-size:12px;color:var(--fc-accent);background:rgba(26,196,240,0.08);border:1px solid rgba(26,196,240,0.15);border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:6px"></div>
+    </div>
+    <button class="fc-btn fc-btn--primary" id="goal-save-btn" onclick="FCApp.saveGoal()" type="button"
+            style="width:100%;margin-top:20px">
+      Save Goal
+    </button>
+    <button id="goal-delete-btn" class="fc-btn" onclick="FCApp.deleteGoalById()" type="button"
+            style="width:100%;margin-top:10px;background:rgba(255,69,58,0.1);color:var(--fc-danger);border-color:rgba(255,69,58,0.2);display:none">
+      Delete Goal
+    </button>
+  </div>
+</div>
+
+
+<!-- ════════════════════ SHEET: TRANSACTION DETAIL ═════════════════ -->
+<div id="fc-txn-sheet" class="fc-sheet-overlay" onclick="if(event.target===this)FCApp.closeTransactionSheet()" style="display:none" role="dialog" aria-modal="true" aria-label="Edit Transaction">
+  <div class="fc-sheet" onclick="event.stopPropagation()" style="padding:24px;max-height:85dvh;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <div class="fc-h3">Transaction Detail</div>
+      <button class="fc-iconbtn" onclick="FCApp.closeTransactionSheet()" type="button" aria-label="Close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <!-- Original info -->
+    <div id="txn-original-info" style="background:rgba(255,255,255,0.04);border-radius:12px;padding:12px 14px;margin-bottom:16px">
+      <div style="font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--fc-text-faint);margin-bottom:6px">Original</div>
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div id="txn-orig-name" style="font-size:14px;font-weight:600;color:white"></div>
+          <div id="txn-orig-cat" style="font-size:12px;color:var(--fc-text-faint);margin-top:2px"></div>
+        </div>
+        <div id="txn-orig-amount" style="font-size:16px;font-weight:700"></div>
+      </div>
+    </div>
+    <!-- Edit fields -->
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div class="fc-input-group" style="margin:0">
+        <label class="fc-input-label">Custom Name <span style="color:var(--fc-text-faint);font-weight:400">(optional)</span></label>
+        <input id="txn-name-input" type="text" class="fc-input" placeholder="Leave blank to keep original" maxlength="60" autocomplete="off">
+      </div>
+      <div class="fc-input-group" style="margin:0">
+        <label class="fc-input-label">Category</label>
+        <select id="txn-cat-select" class="fc-input" style="color-scheme:dark;cursor:pointer"></select>
+      </div>
+    </div>
+    <button class="fc-btn fc-btn--primary" id="txn-save-btn" onclick="FCApp.saveTransactionEdit()" type="button"
+            style="width:100%;margin-top:20px">
+      Save Changes
+    </button>
+    <button id="txn-reset-btn" class="fc-btn" onclick="FCApp.resetTransactionEdit()" type="button"
+            style="width:100%;margin-top:10px;background:rgba(255,159,10,0.1);color:var(--fc-warning);border-color:rgba(255,159,10,0.2);display:none">
+      Revert to Original
+    </button>
+  </div>
+</div>
+
+<!-- ════════════════════ SHEET: CATEGORY BUDGET ══════════════════ -->
+<div id="fc-budget-sheet" class="fc-sheet-overlay" onclick="if(event.target===this)FCApp.closeCategoryBudgetSheet()" style="display:none" role="dialog" aria-modal="true" aria-label="Set Category Budget">
+  <div class="fc-sheet" onclick="event.stopPropagation()" style="padding:24px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <div class="fc-h3" id="budget-sheet-title">Set Budget</div>
+      <button class="fc-iconbtn" onclick="FCApp.closeCategoryBudgetSheet()" type="button" aria-label="Close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div id="budget-current-spend" style="font-size:13px;color:var(--fc-text-faint);margin-bottom:14px"></div>
+    <div class="fc-input-group" style="margin:0">
+      <label class="fc-input-label">Monthly Budget ($)</label>
+      <input id="budget-limit-input" type="number" class="fc-input" placeholder="e.g. 500" min="0" step="10">
+    </div>
+    <!-- Quick presets -->
+    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap" id="budget-presets"></div>
+    <button class="fc-btn fc-btn--primary" id="budget-save-btn" onclick="FCApp.saveCategoryBudget()" type="button"
+            style="width:100%;margin-top:20px">
+      Save Budget
+    </button>
+    <button class="fc-btn" onclick="FCApp.closeCategoryBudgetSheet()" type="button"
+            style="width:100%;margin-top:10px">
+      Cancel
+    </button>
+  </div>
+</div>
+
+<!-- ════════════════════ SHEET: MANUAL ACCOUNT ═════════════════ -->
+<div id="fc-manual-account-sheet" class="fc-sheet-overlay" onclick="if(event.target===this)FCApp.closeManualAccountSheet()" style="display:none">
+  <div class="fc-sheet" onclick="event.stopPropagation()" style="padding:24px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <div class="fc-h3">Add Account</div>
+      <button class="fc-iconbtn" onclick="FCApp.closeManualAccountSheet()" type="button" aria-label="Close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div class="fc-input-group" style="margin:0">
+        <label class="fc-input-label">Account Name</label>
+        <input id="manual-acct-name" type="text" class="fc-input" placeholder="e.g. High-Yield Savings" maxlength="50" autocomplete="off">
+      </div>
+      <div class="fc-input-group" style="margin:0">
+        <label class="fc-input-label">Account Type</label>
+        <select id="manual-acct-type" class="fc-input" style="background:var(--fc-card-bg);color:white;-webkit-appearance:none">
+          <option value="savings">Savings</option>
+          <option value="checking">Checking</option>
+          <option value="investment">Investment / Brokerage</option>
+          <option value="credit">Credit Card (Debt)</option>
+          <option value="loan">Loan / Mortgage (Debt)</option>
+        </select>
+      </div>
+      <div class="fc-input-group" style="margin:0">
+        <label class="fc-input-label">Balance ($)</label>
+        <input id="manual-acct-balance" type="number" class="fc-input" placeholder="0.00" min="0" step="0.01">
+      </div>
+    </div>
+    <p style="font-size:12px;color:var(--fc-text-faint);margin-top:14px;line-height:1.5">
+      Debts (credit cards, loans) are subtracted from your net worth. Assets are added.
+    </p>
+    <button class="fc-btn fc-btn--primary" id="manual-acct-save-btn" onclick="FCApp.saveManualAccount()" type="button"
+            style="width:100%;margin-top:16px">
+      Add Account
+    </button>
+  </div>
+</div>
+
+<!-- ════════════════════════════════ BILL SHEET (add / edit) ════ -->
+<div id="fc-bill-sheet" class="fc-sheet-overlay" onclick="if(event.target===this)FCApp.closeBillSheet()" style="display:none">
+  <div class="fc-sheet" onclick="event.stopPropagation()" style="padding:24px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <div class="fc-h3" id="bill-sheet-title">Add Bill</div>
+      <button class="fc-iconbtn" onclick="FCApp.closeBillSheet()" type="button" aria-label="Close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <input type="hidden" id="bill-edit-id">
+      <div class="fc-input-group" style="margin:0">
+        <label class="fc-input-label">Bill Name</label>
+        <input id="bill-name" type="text" class="fc-input" placeholder="e.g. Netflix, Rent, Electric" maxlength="60" autocomplete="off">
+      </div>
+      <div class="fc-input-group" style="margin:0">
+        <label class="fc-input-label">Amount ($)</label>
+        <input id="bill-amount" type="number" class="fc-input" placeholder="0.00" min="0" step="0.01">
+      </div>
+      <div class="fc-input-group" style="margin:0">
+        <label class="fc-input-label">Due Date</label>
+        <input id="bill-due-date" type="date" class="fc-input" style="color-scheme:dark">
+      </div>
+      <div class="fc-input-group" style="margin:0">
+        <label class="fc-input-label">Category</label>
+        <select id="bill-category" class="fc-input" style="background:var(--fc-card-bg);color:white;-webkit-appearance:none">
+          <option value="Subscription">Subscription</option>
+          <option value="Utilities">Utilities</option>
+          <option value="Housing">Housing / Rent</option>
+          <option value="Insurance">Insurance</option>
+          <option value="Loan">Loan / Debt</option>
+          <option value="Phone">Phone / Internet</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="fc-input-group" style="margin:0">
+        <label class="fc-input-label">Frequency</label>
+        <select id="bill-frequency" class="fc-input" style="background:var(--fc-card-bg);color:white;-webkit-appearance:none">
+          <option value="monthly">Monthly</option>
+          <option value="weekly">Weekly</option>
+          <option value="annual">Annual</option>
+          <option value="one-time">One-time</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:20px">
+      <button class="fc-btn" id="bill-delete-btn" onclick="FCApp.deleteBillById()" type="button"
+              style="flex:0 0 auto;background:rgba(255,69,58,0.12);color:var(--fc-danger);border:1px solid rgba(255,69,58,0.3);display:none">
+        Delete
+      </button>
+      <button class="fc-btn fc-btn--primary" id="bill-save-btn" onclick="FCApp.saveBill()" type="button"
+              style="flex:1">
+        Save Bill
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════ SCRIPTS ════════════ -->
+
+<!-- Firebase SDK (compat) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<!-- firebase-messaging-compat not needed: push is handled natively by Capacitor PushNotifications -->
+
+<!-- Plaid Link -->
+<script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"></script>
+
+<!-- FlowCheck modules (order matters) -->
+<script src="js/fc-config.js"></script>
+<script src="js/fc-debug.js"></script>
+<script src="js/fc-auth.js"></script>
+<script src="js/fc-data.js"></script>
+<script src="js/fc-push.js"></script>
+<script src="js/fc-iap.js"></script>
+<script src="js/fc-app.js"></script>
+
+<script>
+'use strict';
+
+/* ── Misc inline helpers (DOM-dependent) ─────────────────── */
+
+function togglePasswordVisibility(inputId, btn) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  const isPassword = input.type === 'password';
+  input.type = isPassword ? 'text' : 'password';
+  btn.innerHTML = isPassword
+    ? `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`
+    : `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+}
+
+async function handleBiometricToggle(el) {
+  const willEnable = !el.classList.contains('on');
+  el.classList.toggle('on', willEnable);
+  el.setAttribute('aria-checked', willEnable);
+  await FCApp.toggleBiometric(willEnable);
+}
+
+async function handleNotifToggle(el) {
+  const willEnable = !el.classList.contains('on');
+  const granted = await FCApp.toggleNotifications(willEnable);
+  if (granted !== false) {
+    el.classList.toggle('on', willEnable);
+    el.setAttribute('aria-checked', willEnable);
+  }
+}
+
+/* ── Add Apple sign-in handler to FCApp ──────────────────── */
+FCApp.handleAppleSignIn = async function() {
+  try {
+    await FCAuth.signInWithApple();
+  } catch (err) {
+    FCApp.toast && FCApp.toast('Apple sign-in failed: ' + err.message, 'error');
+  }
+};
+
+/* ── Onboarding stepper (5 slides) ──────────────────────── */
+let _obStep = 0;
+const _OB_TOTAL   = 5;
+const _obAnswers  = {};
+// Labels per step — null means the slide handles its own progression
+// slide 1 (goal picker) auto-advances; slide 4 (connect) shows Plaid CTA
+const _obLabels = ['Get Started', null, 'Continue', 'Continue', null];
+
+function _obUpdateControls() {
+  const nextBtn  = document.getElementById('ob-next-btn');
+  const plaidBtn = document.getElementById('btn-plaid-link');
+  const skipBtn  = document.getElementById('ob-skip-btn');
+
+  const label = _obLabels[_obStep];
+
+  const legalNote = document.getElementById('ob-legal-note');
+  if (_obStep === _OB_TOTAL - 1) {
+    // Last slide → show Plaid connect button + skip + legal note
+    if (nextBtn)    nextBtn.style.display    = 'none';
+    if (plaidBtn)   plaidBtn.style.display   = '';
+    if (skipBtn)    skipBtn.style.display    = '';
+    if (legalNote)  legalNote.style.display  = '';
+  } else if (label === null) {
+    // Question slide → hide all buttons (option tap advances)
+    if (nextBtn)    nextBtn.style.display    = 'none';
+    if (plaidBtn)   plaidBtn.style.display   = 'none';
+    if (skipBtn)    skipBtn.style.display    = 'none';
+    if (legalNote)  legalNote.style.display  = 'none';
+  } else {
+    // Normal slide → show next button with correct label and action
+    if (nextBtn) {
+      nextBtn.style.display = '';
+      nextBtn.textContent   = label;
+      nextBtn.onclick = () => obNext();
+    }
+    if (plaidBtn)   plaidBtn.style.display   = 'none';
+    if (skipBtn)    skipBtn.style.display    = 'none';
+    if (legalNote)  legalNote.style.display  = 'none';
+  }
+}
+
+/**
+ * Apply permissions chosen on slide 3, then move to the next slide.
+ * Separated so obNext() stays synchronous for all other slides.
+ */
+async function _obApplyPermissions() {
+  const wantsNotif  = document.getElementById('ob-notif-toggle')?.checked  ?? true;
+  const wantsFaceId = document.getElementById('ob-faceid-toggle')?.checked ?? true;
+  const wantsEmail  = document.getElementById('ob-email-toggle')?.checked  ?? false;
+
+  _obAnswers.notifications_enabled  = wantsNotif;
+  _obAnswers.email_marketing_opt_in = wantsEmail;
+
+  // Persist preferences to Firestore immediately (best-effort)
+  try {
+    const user = FCAuth.currentUser && FCAuth.currentUser();
+    const db   = FCAuth.db && FCAuth.db();
+    if (user && db) {
+      db.collection('users').doc(user.uid)
+        .update({ notifications_enabled: wantsNotif, email_marketing_opt_in: wantsEmail })
+        .catch(() => {});
+    }
+  } catch (_) {}
+
+  // Face ID — store preference via FCAuth (uses Capacitor Preferences, not Firestore)
+  try {
+    if (FCAuth.setBiometricEnabled) await FCAuth.setBiometricEnabled(wantsFaceId);
+  } catch (_) {}
+
+  // Request push permission from the OS — do this AFTER user consented on slide 3
+  if (wantsNotif && window.FCPush) {
+    FCPush.requestAndRegister().catch(() => {});
+    FCPush.requestLocalPermission().catch(() => {});
+  }
+}
+
+async function obNext() {
+  if (_obStep >= _OB_TOTAL - 1) return;
+
+  // Permissions slide — apply choices before advancing
+  if (_obStep === 3) {
+    const btn = document.getElementById('ob-next-btn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+    await _obApplyPermissions();
+    if (btn) { btn.disabled = false; btn.textContent = 'Continue'; }
+  }
+
+  const current = document.getElementById('ob-slide-' + _obStep);
+  const next    = document.getElementById('ob-slide-' + (_obStep + 1));
+  const dots    = document.querySelectorAll('.fc-ob-step');
+
+  if (current) {
+    current.classList.remove('active');
+    current.classList.add('exit');
+    setTimeout(() => current.classList.remove('exit'), 380);
+  }
+  if (next) next.classList.add('active');
+
+  _obStep++;
+  dots.forEach((d, i) => d.classList.toggle('active', i === _obStep));
+
+  // Ambient orb shift per slide
+  _obUpdateOrbs(_obStep);
+  _obUpdateControls();
+}
+
+function _obUpdateOrbs(step) {
+  const cyan   = document.getElementById('ob-orb-cyan');
+  const purple = document.getElementById('ob-orb-purple');
+  const green  = document.getElementById('ob-orb-green');
+  if (!cyan) return;
+  // Adjust orb intensities per slide for ambient variety
+  const configs = [
+    { c:'1',   p:'0.5', g:'0'   }, // slide 0 — cyan dominant (hero)
+    { c:'0.4', p:'0.9', g:'0'   }, // slide 1 — purple (goal picker)
+    { c:'0.3', p:'0.8', g:'0.1' }, // slide 2 — purple (feature showcase)
+    { c:'0.2', p:'0.9', g:'0.2' }, // slide 3 — purple (permissions)
+    { c:'0',   p:'0.2', g:'1'   }, // slide 4 — green (security + connect)
+  ];
+  const cfg = configs[Math.min(step, configs.length - 1)];
+  cyan.style.opacity   = cfg.c;
+  purple.style.opacity = cfg.p;
+  green.style.opacity  = cfg.g;
+}
+
+function obSelectGridOption(el, field, value) {
+  // Deselect siblings in grid, select tapped card
+  const siblings = el.closest('.fc-ob-grid').querySelectorAll('.fc-ob-grid-option');
+  siblings.forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+
+  _obAnswers[field] = value;
+
+  try {
+    const user = FCAuth.currentUser && FCAuth.currentUser();
+    const db   = FCAuth.db && FCAuth.db();
+    if (user && db) {
+      db.collection('users').doc(user.uid)
+        .update({ ['onboarding_' + field]: value })
+        .catch(() => {});
+    }
+  } catch (_) {}
+
+  setTimeout(() => obNext(), 460);
+}
+
+function obSelectOption(el, field, value) {
+  const siblings = el.closest('.fc-ob-options').querySelectorAll('.fc-ob-option');
+  siblings.forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+
+  _obAnswers[field] = value;
+
+  try {
+    const user = FCAuth.currentUser && FCAuth.currentUser();
+    const db   = FCAuth.db && FCAuth.db();
+    if (user && db) {
+      db.collection('users').doc(user.uid)
+        .update({ ['onboarding_' + field]: value })
+        .catch(() => {});
+    }
+  } catch (_) {}
+
+  setTimeout(() => obNext(), 420);
+}
+</script>
+
+<!-- ════════════ IN-APP PAGE VIEWER (legal, help) ══════════════ -->
+<div id="fc-inapp-page-overlay"
+     style="display:none;position:fixed;inset:0;z-index:9000;flex-direction:column;background:#0a1520">
+  <!-- Header bar with close button -->
+  <div style="display:flex;align-items:center;padding:max(env(safe-area-inset-top),14px) 16px 10px;
+              background:rgba(10,21,32,0.96);flex-shrink:0;border-bottom:1px solid rgba(255,255,255,0.07)">
+    <button onclick="FCApp.closeInAppPage()" type="button"
+            style="background:rgba(255,255,255,0.06);border:none;border-radius:8px;
+                   width:36px;height:36px;display:flex;align-items:center;justify-content:center;
+                   cursor:pointer;color:white;margin-right:12px;flex-shrink:0"
+            aria-label="Close">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+           stroke-linecap="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </button>
+    <span style="color:var(--fc-text);font-size:15px;font-weight:600">FlowCheck</span>
+  </div>
+  <!-- Content iframe -->
+  <iframe id="fc-inapp-page-iframe" src="" frameborder="0"
+          style="flex:1;min-height:0;width:100%;border:none;background:#0a1520"
+          title="Page viewer"></iframe>
+</div>
+
+</body>
+</html>
