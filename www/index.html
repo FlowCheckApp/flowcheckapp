@@ -2000,19 +2000,19 @@ body {
           <span class="fc-eyebrow">Net worth</span>
           <span class="fc-pill" id="hero-delta" style="display:none;font-size:11px;font-weight:700">+$0</span>
         </div>
-        <div class="fc-hero-amount" style="position:relative">
+        <div class="fc-hero-amount" style="position:relative;font-variant-numeric:tabular-nums">
           <span id="hero-networth" data-anim-val="0">$0.00</span>
         </div>
-        <div class="fc-hero-sub" style="position:relative">Live balance across all accounts</div>
+        <div class="fc-hero-sub" style="position:relative">Total net worth · all accounts</div>
         <!-- Assets / Liabilities breakdown -->
-        <div style="display:flex;gap:8px;margin-top:2px;margin-bottom:10px">
-          <div style="flex:1;background:rgba(52,199,89,0.08);border:1px solid rgba(52,199,89,0.15);border-radius:10px;padding:8px 10px">
-            <div style="font-size:10px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:var(--fc-success);margin-bottom:2px">Assets</div>
-            <div id="hero-assets" style="font-size:15px;font-weight:700;color:white">—</div>
+        <div style="display:flex;gap:8px;margin-top:6px;margin-bottom:10px">
+          <div style="flex:1;background:rgba(52,199,89,0.09);border:1px solid rgba(52,199,89,0.18);border-radius:12px;padding:9px 12px">
+            <div style="font-size:9px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--fc-success);margin-bottom:3px">Assets</div>
+            <div id="hero-assets" style="font-size:16px;font-weight:800;color:white;font-variant-numeric:tabular-nums;letter-spacing:-0.02em">—</div>
           </div>
-          <div style="flex:1;background:rgba(255,69,58,0.08);border:1px solid rgba(255,69,58,0.15);border-radius:10px;padding:8px 10px">
-            <div style="font-size:10px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:var(--fc-danger);margin-bottom:2px">Liabilities</div>
-            <div id="hero-liabilities" style="font-size:15px;font-weight:700;color:white">—</div>
+          <div style="flex:1;background:rgba(255,69,58,0.09);border:1px solid rgba(255,69,58,0.18);border-radius:12px;padding:9px 12px">
+            <div style="font-size:9px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--fc-danger);margin-bottom:3px">Liabilities</div>
+            <div id="hero-liabilities" style="font-size:16px;font-weight:800;color:white;font-variant-numeric:tabular-nums;letter-spacing:-0.02em">—</div>
           </div>
         </div>
 
@@ -2049,7 +2049,7 @@ body {
           </div>
           <div id="chart-delta" style="font-size:11px;font-weight:600;padding:4px 9px;border-radius:999px;display:none"></div>
         </div>
-        <svg id="spending-chart-svg" viewBox="0 0 320 80" width="100%" style="overflow:visible;display:block" aria-label="Spending by period" role="img">
+        <svg id="spending-chart-svg" viewBox="0 0 320 84" width="100%" style="overflow:visible;display:block" aria-label="Spending by period" role="img">
           <text x="50%" y="44" text-anchor="middle" fill="rgba(255,255,255,0.15)" font-size="12" font-family="-apple-system,sans-serif">Connect a bank to see spending</text>
         </svg>
         <div id="chart-x-labels" style="display:flex;justify-content:space-between;margin-top:4px;padding:0 1px;min-height:14px"></div>
@@ -2361,68 +2361,78 @@ body {
 
   <!-- ────────────────────────────── VIEW: INSIGHTS -->
   <div id="view-insights" class="fc-view" role="tabpanel" style="overflow-y:scroll;-webkit-overflow-scrolling:touch;padding-bottom:90px">
-    <div class="fc-view-title">Insights</div>
 
-    <!-- Period scrubber -->
-    <div class="fc-scrubber" role="tablist" aria-label="Time period" style="margin:0 16px 16px">
-      <button role="tab" data-period="1D" aria-selected="false" onclick="FCApp.switchPeriod('1D')">1D</button>
-      <button role="tab" data-period="1W" aria-selected="false" onclick="FCApp.switchPeriod('1W')">1W</button>
-      <button role="tab" data-period="1M" aria-selected="true" class="active" onclick="FCApp.switchPeriod('1M')">1M</button>
-      <button role="tab" data-period="3M" aria-selected="false" onclick="FCApp.switchPeriod('3M')">3M</button>
-      <button role="tab" data-period="1Y" aria-selected="false" onclick="FCApp.switchPeriod('1Y')">1Y</button>
+    <!-- Header + period scrubber -->
+    <div style="padding:0 16px 6px">
+      <div class="fc-view-title" style="margin-bottom:12px">Analytics</div>
+      <div class="fc-scrubber" role="tablist" aria-label="Time period">
+        <button role="tab" data-period="1D" aria-selected="false" onclick="FCApp.switchPeriod('1D')">1D</button>
+        <button role="tab" data-period="1W" aria-selected="false" onclick="FCApp.switchPeriod('1W')">1W</button>
+        <button role="tab" data-period="1M" aria-selected="true" class="active" onclick="FCApp.switchPeriod('1M')">1M</button>
+        <button role="tab" data-period="3M" aria-selected="false" onclick="FCApp.switchPeriod('3M')">3M</button>
+        <button role="tab" data-period="1Y" aria-selected="false" onclick="FCApp.switchPeriod('1Y')">1Y</button>
+      </div>
     </div>
 
     <!-- ── Spending Hero ─────────────────────────────────────────── -->
-    <section class="fc-section" style="padding-top:0;padding-bottom:0">
-      <article class="fc-card" style="background:linear-gradient(135deg,rgba(26,196,240,0.1) 0%,rgba(107,63,224,0.08) 60%,rgba(10,21,32,0.9) 100%);border-color:rgba(26,196,240,0.18);margin-bottom:10px">
-        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px">
-          <div>
-            <div class="fc-eyebrow" style="margin-bottom:4px">Spending · <span id="insights-period-label">this month</span></div>
-            <div id="insights-total-spend" data-anim-val="0" style="font-size:38px;font-weight:800;letter-spacing:-0.04em;color:white;line-height:1">$0</div>
+    <section class="fc-section" style="padding-top:8px;padding-bottom:0">
+      <article class="fc-card" style="background:linear-gradient(145deg,rgba(26,196,240,0.13) 0%,rgba(107,63,224,0.09) 55%,rgba(10,21,32,0.95) 100%);border-color:rgba(26,196,240,0.2);box-shadow:0 0 40px rgba(26,196,240,0.08),0 1px 3px rgba(0,0,0,0.3);margin-bottom:10px;padding:20px">
+
+        <!-- Eyebrow + delta badge -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <div class="fc-eyebrow">Spending · <span id="insights-period-label">this month</span></div>
+          <span id="insights-spend-delta" style="display:none;font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px"></span>
+        </div>
+
+        <!-- Big spend number -->
+        <div id="insights-total-spend" data-anim-val="0" style="font-size:46px;font-weight:800;letter-spacing:-0.045em;color:white;line-height:1;margin-bottom:16px;font-variant-numeric:tabular-nums">$0</div>
+
+        <!-- 3-column quick stats -->
+        <div style="display:grid;grid-template-columns:1fr 1px 1fr 1px 1fr;margin-bottom:16px;padding:12px 0;border-top:1px solid rgba(255,255,255,0.07);border-bottom:1px solid rgba(255,255,255,0.07)">
+          <div style="text-align:center">
+            <div style="font-size:9px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:var(--fc-text-faint);margin-bottom:5px">Budget</div>
+            <span id="insights-budget-pill" style="font-size:13px;font-weight:700;color:var(--fc-accent)">$0 / $3k</span>
           </div>
-          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;padding-top:2px">
-            <span id="insights-spend-delta" style="display:none;font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px"></span>
-            <span id="insights-budget-pill" style="font-size:11px;font-weight:600;padding:4px 10px;border-radius:999px;background:rgba(255,255,255,0.08);color:var(--fc-text-muted)">$0 / $3,000</span>
+          <div style="background:rgba(255,255,255,0.07);width:1px"></div>
+          <div style="text-align:center">
+            <div style="font-size:9px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:var(--fc-text-faint);margin-bottom:5px">Remaining</div>
+            <span id="insights-budget-remaining" style="font-size:13px;font-weight:700;color:white">$3,000</span>
+          </div>
+          <div style="background:rgba(255,255,255,0.07);width:1px"></div>
+          <div style="text-align:center">
+            <div style="font-size:9px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:var(--fc-text-faint);margin-bottom:5px">Savings</div>
+            <span id="savings-rate" style="font-size:13px;font-weight:700;color:var(--fc-success)">—</span>
           </div>
         </div>
-        <!-- Budget progress -->
-        <div style="margin-bottom:6px">
-          <div style="display:flex;justify-content:space-between;margin-bottom:6px">
-            <span style="font-size:11px;color:var(--fc-text-faint);font-weight:500">MONTHLY BUDGET</span>
-            <div style="display:flex;align-items:center;gap:6px">
-              <span id="insights-budget-remaining" style="font-size:11px;color:var(--fc-text-faint)">$3,000 remaining</span>
-              <button type="button" onclick="FCApp.openCategoryBudgetSheet('total', (window._fcBudgetLimit||3000))" style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:99px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);color:var(--fc-text-faint);cursor:pointer">Edit</button>
-            </div>
-          </div>
-          <div class="fc-progress-bar" style="height:8px;border-radius:99px">
-            <div id="insights-budget-fill" class="fc-progress-fill" style="width:0%;background:linear-gradient(90deg,var(--fc-accent),var(--fc-purple));border-radius:99px;transition:width 0.9s cubic-bezier(0.25,0.1,0.25,1)"></div>
-          </div>
-          <div id="insights-budget-pace" style="font-size:11px;color:var(--fc-text-faint);margin-top:5px"></div>
+
+        <!-- Budget progress bar -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">
+          <span style="font-size:9px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:var(--fc-text-faint)">Monthly Budget</span>
+          <button type="button" onclick="FCApp.openCategoryBudgetSheet('total', (window._fcBudgetLimit||3000))" style="font-size:10px;font-weight:600;padding:2px 9px;border-radius:99px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);color:var(--fc-text-faint);cursor:pointer;-webkit-tap-highlight-color:transparent">Edit</button>
         </div>
-        <!-- Savings rate + budget health inline -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.07)">
-          <div>
-            <div style="display:flex;align-items:center;gap:5px;margin-bottom:4px">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--fc-success)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
-              <span style="font-size:10px;color:var(--fc-text-faint);font-weight:500;letter-spacing:0.3px;text-transform:uppercase">Savings</span>
-            </div>
-            <span id="savings-rate" style="font-size:16px;font-weight:800;color:var(--fc-success)">—</span>
-            <div style="height:3px;background:rgba(255,255,255,0.05);border-radius:2px;margin-top:5px;overflow:hidden">
+        <div class="fc-progress-bar" style="height:6px;border-radius:99px;background:rgba(255,255,255,0.07)">
+          <div id="insights-budget-fill" style="height:6px;border-radius:99px;width:0%;background:linear-gradient(90deg,var(--fc-accent),var(--fc-purple));transition:width 0.9s cubic-bezier(0.25,0.1,0.25,1)"></div>
+        </div>
+        <div id="insights-budget-pace" style="font-size:11px;color:var(--fc-text-faint);margin-top:6px;line-height:1.4"></div>
+
+        <!-- Footer: savings bar + budget health (hidden bars kept for JS compat) -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.06)">
+          <div style="display:flex;align-items:center;gap:5px">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--fc-success)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+            <span style="font-size:10px;color:var(--fc-text-faint);font-weight:500;text-transform:uppercase;letter-spacing:0.3px">Savings Rate</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="width:60px;height:3px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden">
               <div id="savings-bar" style="height:100%;background:var(--fc-success);border-radius:2px;width:0%;transition:width 0.9s cubic-bezier(0.25,0.1,0.25,1)"></div>
             </div>
-          </div>
-          <div>
-            <div style="display:flex;align-items:center;gap:5px;margin-bottom:4px">
-              <span style="font-size:12px" aria-hidden="true">🎯</span>
-              <span style="font-size:10px;color:var(--fc-text-faint);font-weight:500;letter-spacing:0.3px;text-transform:uppercase">Budget Health</span>
-            </div>
-            <span id="insights-budget-health" style="font-size:16px;font-weight:800;color:var(--fc-success)">—</span>
-            <div style="height:3px;background:rgba(255,255,255,0.05);border-radius:2px;margin-top:5px;overflow:hidden">
-              <div id="insights-budget-health-bar" style="height:100%;border-radius:2px;width:0%;transition:width 0.9s cubic-bezier(0.25,0.1,0.25,1)"></div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="font-size:10px;color:var(--fc-text-faint);font-weight:500;text-transform:uppercase;letter-spacing:0.3px">Health</span>
+              <span id="insights-budget-health" style="font-size:13px;font-weight:700;color:var(--fc-success)">—</span>
+              <div style="display:none"><div id="insights-budget-health-bar"></div></div>
             </div>
           </div>
         </div>
-        <div id="savings-meta" style="font-size:11px;color:var(--fc-text-faint);margin-top:8px">Link accounts to track savings rate</div>
+        <div id="savings-meta" style="display:none"></div>
       </article>
     </section>
 
@@ -2458,23 +2468,25 @@ body {
     <!-- ── Spending by Category ───────────────────────────────────── -->
     <section class="fc-section" style="padding-bottom:0">
       <article class="fc-card" style="margin-bottom:10px;padding:20px 20px 16px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-          <h2 class="fc-h3">By Category</h2>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+          <h2 class="fc-h3" style="margin:0">Spending Breakdown</h2>
           <span style="font-size:11px;color:var(--fc-text-faint)" id="insights-cat-period">this month</span>
         </div>
-        <!-- Donut + legend -->
-        <div style="display:flex;align-items:center;gap:20px;margin-bottom:18px">
-          <div style="position:relative;flex-shrink:0;width:120px;height:120px">
-            <svg id="insights-donut-svg" viewBox="0 0 120 120" width="120" height="120" style="overflow:visible;transform:rotate(-90deg)" aria-label="Spending donut chart" role="img">
-              <circle cx="60" cy="60" r="46" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="16"/>
+        <!-- Donut centred above legend for more visual impact -->
+        <div style="display:flex;flex-direction:column;align-items:center;margin-bottom:20px">
+          <div style="position:relative;flex-shrink:0;width:148px;height:148px">
+            <svg id="insights-donut-svg" viewBox="0 0 120 120" width="148" height="148" style="overflow:visible;transform:rotate(-90deg)" aria-label="Spending donut chart" role="img">
+              <circle cx="60" cy="60" r="46" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="14"/>
             </svg>
             <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none">
-              <div id="insights-donut-center-amt" style="font-size:15px;font-weight:800;color:white;letter-spacing:-0.03em;line-height:1">—</div>
-              <div style="font-size:10px;color:var(--fc-text-faint);font-weight:500;margin-top:2px">spent</div>
+              <div id="insights-donut-center-amt" style="font-size:18px;font-weight:800;color:white;letter-spacing:-0.03em;line-height:1">—</div>
+              <div style="font-size:10px;color:var(--fc-text-faint);font-weight:500;margin-top:3px;text-transform:uppercase;letter-spacing:0.04em">spent</div>
             </div>
           </div>
-          <div id="insights-donut-legend" style="flex:1;display:flex;flex-direction:column;gap:8px;min-width:0"></div>
+          <!-- Legend: 2-column grid below the donut -->
+          <div id="insights-donut-legend" style="display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;margin-top:16px;width:100%"></div>
         </div>
+        <!-- Category rows -->
         <div id="insights-categories">
           <div style="color:var(--fc-text-faint);text-align:center;padding:28px 0;font-size:14px">Connect a bank to see your spending</div>
         </div>

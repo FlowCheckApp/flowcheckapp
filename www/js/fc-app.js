@@ -183,10 +183,42 @@ window.FCApp = (function () {
     const lastX = toX(values.length - 1);
     const lastY = toY(values[values.length - 1]);
 
+    // Thicker line + stronger glow
     linePath.setAttribute('d', line);
+    linePath.setAttribute('stroke-width', '2.5');
     areaPath.setAttribute('d', `${line} L${lastX},${H} L0,${H} Z`);
-    if (dot)   { dot.setAttribute('cx', lastX);   dot.setAttribute('cy', lastY); }
-    if (dotBg) { dotBg.setAttribute('cx', lastX); dotBg.setAttribute('cy', lastY); }
+
+    // Animate the endpoint dot with a CSS pulse
+    if (dot) {
+      dot.setAttribute('cx', lastX);
+      dot.setAttribute('cy', lastY);
+      dot.setAttribute('r', '3.5');
+      // Add pulse ring as sibling element if not already present
+      const sparkSvg = dot.closest('svg');
+      if (sparkSvg) {
+        let pulse = sparkSvg.querySelector('#sparkline-pulse');
+        if (!pulse) {
+          pulse = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+          pulse.setAttribute('id', 'sparkline-pulse');
+          pulse.setAttribute('fill', 'none');
+          pulse.setAttribute('stroke', '#1ac4f0');
+          pulse.setAttribute('stroke-width', '1.5');
+          pulse.setAttribute('opacity', '0');
+          pulse.style.cssText = 'animation:sparkPulse 2s ease-out infinite';
+          sparkSvg.appendChild(pulse);
+          // Inject keyframes once
+          if (!document.getElementById('spark-pulse-style')) {
+            const s = document.createElement('style');
+            s.id = 'spark-pulse-style';
+            s.textContent = '@keyframes sparkPulse{0%{r:3.5px;opacity:0.8}100%{r:10px;opacity:0}}';
+            document.head.appendChild(s);
+          }
+        }
+        pulse.setAttribute('cx', lastX);
+        pulse.setAttribute('cy', lastY);
+      }
+    }
+    if (dotBg) { dotBg.setAttribute('cx', lastX); dotBg.setAttribute('cy', lastY); dotBg.setAttribute('r', '7'); dotBg.setAttribute('opacity', '0.25'); }
 
     // Delta badge: compare today vs 30 days ago (or earliest available)
     if (deltaEl && values.length >= 2) {
@@ -311,25 +343,47 @@ window.FCApp = (function () {
 
     const buckets  = _groupChartBuckets(periodTxns);
     const maxVal   = Math.max(...buckets.map(b => b.total), 1);
-    const W = 320, H = 80, GAP = 2;
+    const W = 320, H = 84, GAP = 3;
     const barW  = Math.max(Math.floor((W - GAP * (buckets.length + 1)) / buckets.length), 2);
+    const rx    = Math.min(Math.ceil(barW / 2.5), 5); // rounded tops
+
+    // Gradient: bottom = purple, top = cyan — more premium upward flow
     const DEFS  = `<defs>
-      <linearGradient id="cg" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="#1ac4f0"/>
-        <stop offset="100%" stop-color="#6b3fe0" stop-opacity="0.5"/>
+      <linearGradient id="cg" x1="0" y1="1" x2="0" y2="0">
+        <stop offset="0%" stop-color="#6b3fe0" stop-opacity="0.7"/>
+        <stop offset="100%" stop-color="#1ac4f0"/>
       </linearGradient>
+      <linearGradient id="cg-now" x1="0" y1="1" x2="0" y2="0">
+        <stop offset="0%" stop-color="#6b3fe0"/>
+        <stop offset="100%" stop-color="#1ac4f0"/>
+      </linearGradient>
+      <filter id="glow-bar" x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur stdDeviation="2.5" result="b"/>
+        <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
     </defs>`;
 
+    // Subtle average reference line
+    const avgH   = buckets.filter(b => b.total > 0).reduce((s, b) => s + b.total, 0) / (buckets.filter(b => b.total > 0).length || 1);
+    const avgY   = H - Math.max(Math.round((avgH / maxVal) * (H - 10)), 1);
+    const refLine = avgH > 0
+      ? `<line x1="${GAP}" y1="${avgY}" x2="${W - GAP}" y2="${avgY}" stroke="rgba(255,255,255,0.08)" stroke-width="1" stroke-dasharray="3 3"/>`
+      : '';
+
     const bars = buckets.map((b, i) => {
-      const x = GAP + i * (barW + GAP);
-      const h = b.total > 0 ? Math.max(Math.round((b.total / maxVal) * (H - 10)), 3) : 1;
-      const y = H - h;
-      const opacity = b.isNow ? '1' : '0.55';
-      const glowFilter = b.isNow ? 'filter:drop-shadow(0 0 4px rgba(26,196,240,0.5))' : '';
-      return `<rect x="${x}" y="${y}" width="${barW}" height="${h}" rx="${Math.min(Math.ceil(barW / 3), 4)}" fill="url(#cg)" opacity="${opacity}" style="${glowFilter}"/>`;
+      const x  = GAP + i * (barW + GAP);
+      const h  = b.total > 0 ? Math.max(Math.round((b.total / maxVal) * (H - 10)), 3) : 2;
+      const y  = H - h;
+      if (b.isNow) {
+        // Active bucket: full gradient + glow + bright top cap
+        return `<rect x="${x}" y="${y}" width="${barW}" height="${h}" rx="${rx}" fill="url(#cg-now)" filter="url(#glow-bar)"/>
+                <rect x="${x}" y="${y}" width="${barW}" height="${Math.min(rx * 2, h)}" rx="${rx}" fill="rgba(26,196,240,0.35)"/>`;
+      }
+      return `<rect x="${x}" y="${y}" width="${barW}" height="${h}" rx="${rx}" fill="url(#cg)" opacity="0.5"/>`;
     }).join('');
 
-    svgEl.innerHTML = DEFS + bars;
+    svgEl.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    svgEl.innerHTML = DEFS + refLine + bars;
 
     // Build x-axis labels — cap at ~6 labels max to avoid overflow
     if (labelsEl) {
@@ -1673,14 +1727,17 @@ window.FCApp = (function () {
         }
 
         if (donutLegend) {
-          const legendSlices = allSlices.slice(0, 5);
+          const legendSlices = allSlices.slice(0, 6);
           donutLegend.innerHTML = legendSlices.map(([cat, amount]) => {
             const col = FCData.categoryColor(cat);
             const p   = Math.round((amount / periodSpend) * 100);
-            return `<div style="display:flex;align-items:center;gap:8px">
-              <div style="width:10px;height:10px;border-radius:3px;background:${col};flex-shrink:0"></div>
-              <span style="font-size:12px;color:var(--fc-text-muted);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cat}</span>
-              <span style="font-size:12px;font-weight:700;color:white">${p}%</span>
+            const emoji = (typeof FCData.categoryEmoji === 'function') ? FCData.categoryEmoji(cat) : '📦';
+            return `<div style="display:flex;align-items:center;gap:7px;min-width:0">
+              <div style="width:8px;height:8px;border-radius:2px;background:${col};flex-shrink:0"></div>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:11px;font-weight:600;color:var(--fc-text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cat}</div>
+                <div style="font-size:10px;color:var(--fc-text-faint)">${p}% · ${FCData.formatCurrency(amount)}</div>
+              </div>
             </div>`;
           }).join('');
         }
