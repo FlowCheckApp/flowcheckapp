@@ -17,12 +17,13 @@
 'use strict';
 require('dotenv').config();
 
-const express   = require('express');
-const cors      = require('cors');
-const helmet    = require('helmet');
-const rateLimit = require('express-rate-limit');
-const admin     = require('firebase-admin');
-const crypto    = require('crypto');
+const express      = require('express');
+const cors         = require('cors');
+const helmet       = require('helmet');
+const rateLimit    = require('express-rate-limit');
+const compression  = require('compression');
+const admin        = require('firebase-admin');
+const crypto       = require('crypto');
 const {
   Configuration, PlaidApi, PlaidEnvironments,
   Products, CountryCode,
@@ -73,9 +74,66 @@ const plaid = new PlaidApi(new Configuration({
 
 console.log(`[Boot] FlowCheck API | Firebase: ${process.env.FIREBASE_PROJECT_ID} | Plaid: ${plaidEnv}`);
 
+/* ── Backend base URL (used for Plaid webhook + OAuth redirect) ─ */
+// Set BACKEND_URL in Railway env vars, e.g.:
+//   https://flowcheck-backend-production.up.railway.app
+// Falls back to the hard-coded value so existing deploys keep working.
+const BACKEND_URL = (process.env.BACKEND_URL || 'https://flowcheck-backend-production.up.railway.app').replace(/\/$/, '');
+
+/* ── HTML escape — prevents injection in email templates ────────── */
+// Any user-controlled string interpolated into HTML must be passed
+// through this function first (bill names, categories, display names).
+function _htmlEscape(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;');
+}
+
+/* ── Firebase ID-token cache (LRU, 14-min TTL) ──────────────────── */
+// Firebase Admin SDK caches tokens internally but still does JWT
+// parsing on every call. This thin in-process cache cuts redundant
+// work on bursts of requests from the same user.
+const _TOKEN_CACHE_TTL_MS = 14 * 60 * 1000; // 14 min (tokens expire at 60 min)
+const _tokenCache = new Map(); // token → { uid, expiresAt }
+
+async function _verifyFirebaseToken(token) {
+  const now    = Date.now();
+  const cached = _tokenCache.get(token);
+  if (cached) {
+    if (now < cached.expiresAt) return cached.uid;
+    _tokenCache.delete(token); // expired — evict eagerly
+  }
+
+  // checkRevoked: true ensures manually revoked sessions are rejected
+  const decoded = await admin.auth().verifyIdToken(token, true);
+
+  // Evict stale entries when approaching limit.
+  // First pass: remove all expired entries (TTL-based eviction).
+  // Second pass: if still full, remove the oldest by insertion order (FIFO).
+  if (_tokenCache.size >= 1000) {
+    for (const [k, v] of _tokenCache) {
+      if (now >= v.expiresAt) _tokenCache.delete(k);
+    }
+    if (_tokenCache.size >= 1000) {
+      // All entries are still valid — evict the oldest
+      _tokenCache.delete(_tokenCache.keys().next().value);
+    }
+  }
+  _tokenCache.set(token, { uid: decoded.uid, expiresAt: now + _TOKEN_CACHE_TTL_MS });
+  return decoded.uid;
+}
+
 /* ── Express ─────────────────────────────────────────────────── */
 const app = express();
 app.set('trust proxy', 1); // Railway / Render sit behind a reverse proxy
+
+// ── Response compression ───────────────────────────────────────
+// Gzip/deflate all JSON responses — meaningful savings on sync
+// payloads with hundreds of transactions.
+app.use(compression());
 
 // ── Security headers (Helmet) ──────────────────────────────────
 // Removes X-Powered-By, adds HSTS, X-Frame-Options, X-Content-Type,
@@ -113,6 +171,21 @@ app.use(cors({
   credentials: false, // We use Bearer tokens, not cookies — disable credentials
 }));
 
+// ── Global request timeout ─────────────────────────────────────
+// Kill any request that hasn't responded in 30 seconds.
+// Prevents hung Plaid/Experian calls from tying up the event loop.
+// The webhook route handles its own tight timing — 30s is plenty there.
+app.use((req, res, next) => {
+  const timer = setTimeout(() => {
+    if (!res.headersSent) {
+      res.status(503).json({ message: 'Request timed out — please try again' });
+    }
+  }, 30_000);
+  res.on('finish', () => clearTimeout(timer));
+  res.on('close',  () => clearTimeout(timer));
+  next();
+});
+
 // Cap request body size to prevent large-payload DoS.
 // The `verify` callback captures the raw buffer — required for
 // Plaid webhook JWT signature verification on POST /plaid/webhook.
@@ -147,14 +220,38 @@ const strictLimiter = rateLimit({
 });
 
 // Per-user strict limiter: 10 Plaid calls / 15 min per UID
-// Applied AFTER requireAuth so req.uid is available
+// Applied AFTER requireAuth so req.uid is available.
+// The store is capped at 10K entries and expired entries are purged every
+// WINDOW ms so it doesn't grow unbounded in production.
 function perUserLimiter(max = 10) {
-  const store = new Map();
+  const store  = new Map();
   const WINDOW = 15 * 60 * 1000;
+  const MAX_STORE_SIZE = 10_000;
+  let   lastPurge = Date.now();
+
   return (req, res, next) => {
     const uid = req.uid;
     if (!uid) return next(); // requireAuth already rejected un-authed
     const now = Date.now();
+
+    // Periodic purge: remove entries whose rate-limit window has expired.
+    // Runs at most once per WINDOW so overhead is negligible.
+    if (now - lastPurge > WINDOW) {
+      for (const [k, v] of store) {
+        if (now > v.reset) store.delete(k);
+      }
+      lastPurge = now;
+    }
+
+    // Hard cap: if still over limit after purge, evict oldest entries.
+    if (store.size >= MAX_STORE_SIZE) {
+      let evict = Math.floor(MAX_STORE_SIZE * 0.1); // drop 10%
+      for (const k of store.keys()) {
+        store.delete(k);
+        if (--evict <= 0) break;
+      }
+    }
+
     const entry = store.get(uid) || { count: 0, reset: now + WINDOW };
     if (now > entry.reset) { entry.count = 0; entry.reset = now + WINDOW; }
     entry.count++;
@@ -192,11 +289,11 @@ async function requireAuth(req, res, next) {
     return res.status(401).json({ message: 'Unauthorized' });
   }
   try {
-    // checkRevoked: true ensures we catch manually revoked sessions
-    const decoded = await admin.auth().verifyIdToken(token, /* checkRevoked */ true);
-    req.uid = decoded.uid;
+    req.uid = await _verifyFirebaseToken(token);
     next();
   } catch (err) {
+    // On token revocation, purge from cache so the next request re-checks
+    _tokenCache.delete(token);
     const code = err.code || 'unknown';
     if (code === 'auth/id-token-revoked') {
       return res.status(401).json({ message: 'Session revoked — please sign in again' });
@@ -223,7 +320,12 @@ app.post('/plaid/link-token', requireAuth, _plaidUserLimiter, async (req, res) =
       language:      'en',
       // Webhook registered at link time — Plaid calls this whenever
       // new transactions are available for this item.
-      webhook: 'https://flowcheck-backend-production.up.railway.app/plaid/webhook',
+      webhook: `${BACKEND_URL}/plaid/webhook`,
+      // OAuth redirect URI — required for banks that use OAuth (Chase, Capital One, etc.)
+      // The custom scheme 'flowcheck://' must also be registered in:
+      //   1. iOS Info.plist → CFBundleURLTypes (done)
+      //   2. Plaid Dashboard → Team Settings → API → Allowed redirect URIs
+      redirect_uri: `${BACKEND_URL}/plaid/oauth-return`,
     });
     res.json({ link_token: data.link_token });
   } catch (err) {
@@ -231,6 +333,22 @@ app.post('/plaid/link-token', requireAuth, _plaidUserLimiter, async (req, res) =
     console.error('[link-token]', msg);
     res.status(500).json({ message: msg });
   }
+});
+
+/* ─────────────────────────────────────────────────────────────
+   GET /plaid/oauth-return
+   Plaid OAuth flow: after the user authenticates with their bank
+   (Chase, Capital One, etc.), the bank redirects back to this URL.
+   We immediately redirect to the app using the custom URL scheme
+   so Plaid Link can complete the flow inside the app.
+   Register this URL in Plaid Dashboard → Team Settings → API →
+   Allowed redirect URIs.
+   ───────────────────────────────────────────────────────────── */
+app.get('/plaid/oauth-return', (req, res) => {
+  // Pass through all query params Plaid appended (oauth_state_id, etc.)
+  const params = new URLSearchParams(req.query).toString();
+  const deepLink = `flowcheck://plaid-oauth-return${params ? '?' + params : ''}`;
+  res.redirect(302, deepLink);
 });
 
 /* ─────────────────────────────────────────────────────────────
@@ -317,18 +435,15 @@ app.get('/plaid/sync', requireAuth, perUserLimiter(30), async (req, res) => {
 
     if (!itemSnaps.length) return res.status(404).json({ message: 'No linked account' });
 
-    const now   = new Date();
-    const start = new Date(+now - 90 * 864e5);
-    const fmt   = d => d.toISOString().slice(0, 10);
-    const TS    = admin.firestore.FieldValue.serverTimestamp;
-
-    let totalAccounts = 0, totalTxns = 0;
+    const TS = admin.firestore.FieldValue.serverTimestamp;
+    let totalAccounts = 0, totalAdded = 0, totalModified = 0, totalRemoved = 0;
 
     for (const itemDoc of itemSnaps) {
-      const { access_token } = itemDoc.data();
+      const itemData = itemDoc.data();
+      const { access_token } = itemData;
       if (!access_token) continue;
 
-      /* Accounts */
+      /* ── Accounts (always fresh — small write, critical for balance accuracy) ── */
       const { data: acctData } = await plaid.accountsGet({ access_token });
       const accounts = acctData.accounts.map(a => ({
         id:                a.account_id,
@@ -340,36 +455,41 @@ app.get('/plaid/sync', requireAuth, perUserLimiter(30), async (req, res) => {
         balance_available: a.balances.available ?? null,
         currency:          a.balances.iso_currency_code || 'USD',
         mask:              a.mask           || null,
-        item_id:           itemDoc.data().item_id || itemDoc.id,
+        item_id:           itemData.item_id || itemDoc.id,
       }));
 
-      /* Transactions — paginate through all results */
-      let allTxns = [], offset = 0, total = Infinity;
-      while (allTxns.length < total) {
-        const { data: txnData } = await plaid.transactionsGet({
-          access_token,
-          start_date: fmt(start),
-          end_date:   fmt(now),
-          options:    { count: 500, offset },
-        });
-        total = txnData.total_transactions;
-        allTxns = allTxns.concat(txnData.transactions);
-        offset += txnData.transactions.length;
-        if (!txnData.transactions.length) break;
-      }
-
-      /* Write accounts to Firestore */
       let batch = db.batch();
       accounts.forEach(a => {
         batch.set(userRef.collection('accounts').doc(a.id), { ...a, updated_at: TS() }, { merge: true });
       });
       await batch.commit();
 
-      /* Write transactions in batches of 400 */
-      for (let i = 0; i < allTxns.length; i += 400) {
+      /* ── Transactions — cursor-based (only writes the delta, not all history) ── */
+      // After first sync the cursor is stored, so subsequent syncs only write
+      // new/modified/removed transactions — dramatically fewer Firestore writes.
+      let cursor = itemData.plaid_cursor || undefined;
+      let added = [], modified = [], removed = [];
+      let hasMore = true;
+
+      while (hasMore) {
+        const reqBody = { access_token, count: 500 };
+        if (cursor) reqBody.cursor = cursor;
+        const { data } = await plaid.transactionsSync(reqBody);
+        added    = added.concat(data.added);
+        modified = modified.concat(data.modified);
+        removed  = removed.concat(data.removed);
+        hasMore  = data.has_more;
+        cursor   = data.next_cursor;
+      }
+
+      // Persist new cursor so next sync is a true delta
+      await itemDoc.ref.update({ plaid_cursor: cursor });
+
+      /* Write added + modified transactions */
+      const upserts = [...added, ...modified];
+      for (let i = 0; i < upserts.length; i += 400) {
         batch = db.batch();
-        allTxns.slice(i, i + 400).forEach(t => {
-          // Plaid convention: negative amount = income/credit, positive = expense/debit
+        upserts.slice(i, i + 400).forEach(t => {
           batch.set(userRef.collection('transactions').doc(t.transaction_id), {
             id:              t.transaction_id,
             account_id:      t.account_id,
@@ -377,7 +497,9 @@ app.get('/plaid/sync', requireAuth, perUserLimiter(30), async (req, res) => {
             amount:          Math.abs(t.amount),
             isCredit:        t.amount < 0,
             date:            t.date,
-            category:        t.category         || [],
+            category:        t.personal_finance_category?.primary
+                               ? [t.personal_finance_category.primary]
+                               : (t.category || []),
             pending:         t.pending,
             merchant_name:   t.merchant_name    || null,
             logo_url:        t.logo_url         || null,
@@ -388,13 +510,24 @@ app.get('/plaid/sync', requireAuth, perUserLimiter(30), async (req, res) => {
         await batch.commit();
       }
 
-      totalAccounts += accounts.length;
-      totalTxns     += allTxns.length;
-      console.log(`[sync] uid:${req.uid} item:${itemDoc.id} → ${accounts.length} accounts, ${allTxns.length} txns`);
+      /* Delete removed transactions */
+      for (let i = 0; i < removed.length; i += 400) {
+        batch = db.batch();
+        removed.slice(i, i + 400).forEach(r => {
+          batch.delete(userRef.collection('transactions').doc(r.transaction_id));
+        });
+        await batch.commit();
+      }
+
+      totalAccounts  += accounts.length;
+      totalAdded     += added.length;
+      totalModified  += modified.length;
+      totalRemoved   += removed.length;
+      console.log(`[sync] uid:${req.uid} item:${itemDoc.id} → ${accounts.length} accounts, +${added.length}~${modified.length}-${removed.length} txns`);
     }
 
     await userRef.update({ last_synced: TS() });
-    res.json({ accounts: totalAccounts, transactions: totalTxns });
+    res.json({ accounts: totalAccounts, added: totalAdded, modified: totalModified, removed: totalRemoved });
   } catch (err) {
     const msg = err.response?.data?.error_message || err.message;
     console.error('[sync]', msg);
@@ -1015,7 +1148,7 @@ app.post('/email/welcome', requireAuth, async (req, res) => {
           <div style="width:64px;height:64px;background:linear-gradient(135deg,#1ac4f0,#6b3fe0);border-radius:16px;margin:0 auto 20px;display:flex;align-items:center;justify-content:center">
             <span style="font-size:28px">💧</span>
           </div>
-          <h1 style="color:#ffffff;font-size:26px;font-weight:700;margin:0 0 8px;letter-spacing:-0.02em">Welcome to FlowCheck, ${name}!</h1>
+          <h1 style="color:#ffffff;font-size:26px;font-weight:700;margin:0 0 8px;letter-spacing:-0.02em">Welcome to FlowCheck, ${_htmlEscape(name)}!</h1>
           <p style="color:rgba(255,255,255,0.6);font-size:15px;margin:0">Your money, clearly.</p>
         </div>
         <div style="padding:32px">
@@ -1070,7 +1203,7 @@ app.post('/email/test', requireAuth, async (req, res) => {
           <h2 style="color:#fff;font-size:20px;font-weight:700;margin:0">Email is working!</h2>
         </div>
         <div style="padding:24px">
-          <p style="font-size:15px;color:#374151;margin:0 0 16px">Your FlowCheck email system is configured correctly. Transactional emails like bill reminders, budget alerts, and weekly summaries will be delivered to: <strong>${email}</strong></p>
+          <p style="font-size:15px;color:#374151;margin:0 0 16px">Your FlowCheck email system is configured correctly. Transactional emails like bill reminders, budget alerts, and weekly summaries will be delivered to: <strong>${_htmlEscape(email)}</strong></p>
           <p style="font-size:13px;color:#9ca3af;margin:0">Sent at ${new Date().toUTCString()}</p>
         </div>
       </div>
@@ -1149,9 +1282,10 @@ app.post('/notifications/budget-alert', requireAuth, async (req, res) => {
     return res.status(400).json({ message: 'spent and limit must be positive numbers' });
   }
 
-  const pct   = Math.min(Math.round((spent / budgetLimit) * 100), 999);
-  const title = `Budget Alert: ${String(category).slice(0, 40)}`;
-  const body  = `You've used ${pct}% of your ${category} budget ($${spent.toFixed(2)} of $${budgetLimit.toFixed(2)})`;
+  const pct      = Math.min(Math.round((spent / budgetLimit) * 100), 999);
+  const safeCat  = _htmlEscape(String(category).slice(0, 40));
+  const title    = `Budget Alert: ${safeCat}`;
+  const body     = `You've used ${pct}% of your ${safeCat} budget ($${spent.toFixed(2)} of $${budgetLimit.toFixed(2)})`;
 
   try {
     const userSnap = await db.collection('users').doc(req.uid).get();
@@ -1379,10 +1513,11 @@ async function _sendBillRemindersForUser(uid, userData) {
     const due = bill.due_date.slice(0, 10);
     if (due !== tomorrowStr && due !== dayAfterStr) continue;
 
-    const daysUntil = due === tomorrowStr ? 1 : 2;
-    const dayLabel  = daysUntil === 1 ? 'tomorrow' : 'in 2 days';
-    const title     = `💳 ${bill.name} due ${dayLabel}`;
-    const body      = `${_fmt(bill.amount || 0)} will be charged ${dayLabel}. Tap to review.`;
+    const daysUntil  = due === tomorrowStr ? 1 : 2;
+    const dayLabel   = daysUntil === 1 ? 'tomorrow' : 'in 2 days';
+    const safeBill   = _htmlEscape(bill.name);
+    const title      = `💳 ${safeBill} due ${dayLabel}`;
+    const body       = `${_fmt(bill.amount || 0)} will be charged ${dayLabel}. Tap to review.`;
 
     // FCM push
     if (fcmToken) {
@@ -1405,12 +1540,12 @@ async function _sendBillRemindersForUser(uid, userData) {
         <div style="max-width:520px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
           <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:32px;text-align:center">
             <div style="font-size:40px;margin-bottom:12px">💳</div>
-            <h1 style="color:#ffffff;font-size:22px;font-weight:700;margin:0 0 6px">${bill.name} due ${dayLabel}</h1>
+            <h1 style="color:#ffffff;font-size:22px;font-weight:700;margin:0 0 6px">${safeBill} due ${dayLabel}</h1>
             <p style="color:rgba(255,255,255,0.6);font-size:15px;margin:0">${amountStr} · ${due}</p>
           </div>
           <div style="padding:28px 32px">
             <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 24px">
-              Just a heads up — your <strong>${bill.name}</strong> payment of <strong>${amountStr}</strong> is due ${dayLabel}.
+              Just a heads up — your <strong>${safeBill}</strong> payment of <strong>${amountStr}</strong> is due ${dayLabel}.
               Make sure you have sufficient funds in your account.
             </p>
             <a href="https://getflowcheck.app" style="display:block;background:linear-gradient(135deg,#1ac4f0,#6b3fe0);color:#ffffff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
@@ -1437,7 +1572,7 @@ async function _sendWeeklySummaryForUser(uid, userData) {
   const notifOn = userData.notifications_enabled !== false;
   if (!email || !notifOn || !_mailer) return;
 
-  const name = (userData.display_name || userData.name || 'there').split(' ')[0];
+  const name = _htmlEscape((userData.display_name || userData.name || 'there').split(' ')[0]);
 
   // Aggregate last 7 days of transactions
   const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 7);
@@ -1470,7 +1605,7 @@ async function _sendWeeklySummaryForUser(uid, userData) {
   const topCats = Object.entries(categories)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 3)
-    .map(([cat, amt]) => `<tr><td style="padding:6px 0;color:#374151;font-size:14px">${cat}</td><td style="padding:6px 0;text-align:right;font-weight:600;color:#111827;font-size:14px">${_fmt(amt)}</td></tr>`)
+    .map(([cat, amt]) => `<tr><td style="padding:6px 0;color:#374151;font-size:14px">${_htmlEscape(cat)}</td><td style="padding:6px 0;text-align:right;font-weight:600;color:#111827;font-size:14px">${_fmt(amt)}</td></tr>`)
     .join('');
 
   _sendEmail(email, `Your FlowCheck weekly summary 📊`, `
@@ -1478,7 +1613,7 @@ async function _sendWeeklySummaryForUser(uid, userData) {
     <div style="max-width:520px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
       <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:36px 32px;text-align:center">
         <div style="font-size:40px;margin-bottom:12px">📊</div>
-        <h1 style="color:#ffffff;font-size:22px;font-weight:700;margin:0 0 6px">Weekly Summary, ${name}!</h1>
+        <h1 style="color:#ffffff;font-size:22px;font-weight:700;margin:0 0 6px">Weekly Summary, ${_htmlEscape(name)}!</h1>
         <p style="color:rgba(255,255,255,0.6);font-size:14px;margin:0">Here's how your money moved this week</p>
       </div>
       <div style="padding:28px 32px">
@@ -1661,7 +1796,7 @@ async function _verifyPlaidJwt(token, rawBodyBuf) {
  * Finds the user who owns this item, then re-runs account + transaction sync.
  * Errors are logged but never surface to the caller (webhook must always 200).
  */
-async function _webhookSyncItem(itemId) {
+async function _webhookSyncItem(itemId, retryCount = 0) {
   try {
     // Find the user who owns this item_id
     const itemSnap = await db.collectionGroup('plaid_items')
@@ -1677,19 +1812,17 @@ async function _webhookSyncItem(itemId) {
     const itemDoc  = itemSnap.docs[0];
     const userRef  = itemDoc.ref.parent.parent; // users/{uid}
     const uid      = userRef.id;
-    const { access_token } = itemDoc.data();
+    const itemData = itemDoc.data();
+    const { access_token } = itemData;
 
     if (!access_token) {
       console.warn(`[webhook] item ${itemId} has no access_token`);
       return;
     }
 
-    const TS  = admin.firestore.FieldValue.serverTimestamp;
-    const now = new Date();
-    const start = new Date(+now - 90 * 864e5);
-    const fmt = d => d.toISOString().slice(0, 10);
+    const TS = admin.firestore.FieldValue.serverTimestamp;
 
-    // ── Accounts ──────────────────────────────────────────────────
+    // ── Accounts (always fresh — small write, critical for balance accuracy) ──
     const { data: acctData } = await plaid.accountsGet({ access_token });
     const accounts = acctData.accounts.map(a => ({
       id:                a.account_id,
@@ -1710,25 +1843,30 @@ async function _webhookSyncItem(itemId) {
     });
     await batch.commit();
 
-    // ── Transactions (paginated) ──────────────────────────────────
-    let allTxns = [], offset = 0, total = Infinity;
-    while (allTxns.length < total) {
-      const { data: txnData } = await plaid.transactionsGet({
-        access_token,
-        start_date: fmt(start),
-        end_date:   fmt(now),
-        options:    { count: 500, offset },
-      });
-      total = txnData.total_transactions;
-      allTxns = allTxns.concat(txnData.transactions);
-      offset += txnData.transactions.length;
-      if (!txnData.transactions.length) break;
+    // ── Transactions — cursor-based delta sync ──────────────────────
+    let cursor = itemData.plaid_cursor || undefined;
+    let added = [], modified = [], removed = [];
+    let hasMore = true;
+
+    while (hasMore) {
+      const reqBody = { access_token, count: 500 };
+      if (cursor) reqBody.cursor = cursor;
+      const { data } = await plaid.transactionsSync(reqBody);
+      added    = added.concat(data.added);
+      modified = modified.concat(data.modified);
+      removed  = removed.concat(data.removed);
+      hasMore  = data.has_more;
+      cursor   = data.next_cursor;
     }
 
-    for (let i = 0; i < allTxns.length; i += 400) {
+    // Persist new cursor
+    await itemDoc.ref.update({ plaid_cursor: cursor });
+
+    /* Write added + modified */
+    const upserts = [...added, ...modified];
+    for (let i = 0; i < upserts.length; i += 400) {
       batch = db.batch();
-      allTxns.slice(i, i + 400).forEach(t => {
-        // Plaid convention: negative amount = income/credit, positive = expense/debit
+      upserts.slice(i, i + 400).forEach(t => {
         batch.set(userRef.collection('transactions').doc(t.transaction_id), {
           id:              t.transaction_id,
           account_id:      t.account_id,
@@ -1736,7 +1874,9 @@ async function _webhookSyncItem(itemId) {
           amount:          Math.abs(t.amount),
           isCredit:        t.amount < 0,
           date:            t.date,
-          category:        t.category         || [],
+          category:        t.personal_finance_category?.primary
+                             ? [t.personal_finance_category.primary]
+                             : (t.category || []),
           pending:         t.pending,
           merchant_name:   t.merchant_name    || null,
           logo_url:        t.logo_url         || null,
@@ -1747,9 +1887,25 @@ async function _webhookSyncItem(itemId) {
       await batch.commit();
     }
 
+    /* Delete removed */
+    for (let i = 0; i < removed.length; i += 400) {
+      batch = db.batch();
+      removed.slice(i, i + 400).forEach(r => {
+        batch.delete(userRef.collection('transactions').doc(r.transaction_id));
+      });
+      await batch.commit();
+    }
+
     await userRef.update({ last_synced: TS() });
-    console.log(`[webhook] Synced uid:${uid} item:${itemId} → ${accounts.length} accounts, ${allTxns.length} txns`);
+    console.log(`[webhook] Synced uid:${uid} item:${itemId} → ${accounts.length} accounts, +${added.length}~${modified.length}-${removed.length} txns`);
   } catch (err) {
+    // FAILED_PRECONDITION on a brand-new item means Plaid isn't ready yet — retry once
+    if (err.code === 9 && retryCount < 2) {
+      const delay = (retryCount + 1) * 30_000; // 30s, 60s
+      console.warn(`[webhook] FAILED_PRECONDITION for item ${itemId} — retrying in ${delay / 1000}s`);
+      setTimeout(() => _webhookSyncItem(itemId, retryCount + 1), delay);
+      return;
+    }
     console.error(`[webhook] Sync failed for item ${itemId}:`, err.message);
   }
 }
@@ -1767,10 +1923,12 @@ async function _webhookSyncItem(itemId) {
    - TRANSACTIONS_SYNC_UPDATES_AVAILABLE → use /transactions/sync
    - TRANSACTIONS_REMOVED         → deleted transactions (future)
    ─────────────────────────────────────────────────────────────── */
-const WEBHOOK_TYPES_TO_SYNC = new Set([
-  'TRANSACTIONS_DEFAULT_UPDATE',
-  'TRANSACTIONS_SYNC_UPDATES_AVAILABLE',
-  'DEFAULT_UPDATE',           // legacy code (Plaid v1)
+// Plaid sends webhook_type ('TRANSACTIONS') and webhook_code ('DEFAULT_UPDATE') separately.
+// We match on webhook_code only — the compound 'TRANSACTIONS_DEFAULT_UPDATE' strings
+// are documentation shorthand, NOT what Plaid actually sends in the payload.
+const WEBHOOK_CODES_TO_SYNC = new Set([
+  'DEFAULT_UPDATE',           // new transactions available
+  'SYNC_UPDATES_AVAILABLE',   // use /transactions/sync
   'INITIAL_UPDATE',           // first pull after link
   'HISTORICAL_UPDATE',        // historical transactions ready
 ]);
@@ -1801,12 +1959,11 @@ app.post('/plaid/webhook', async (req, res) => {
     respond(200, { received: true });
 
     // ── 3. Trigger background sync if relevant ───────────────────
-    const code = webhook_code || webhook_type || '';
-    if (item_id && WEBHOOK_TYPES_TO_SYNC.has(code)) {
-      console.log(`[webhook] Triggering sync for item:${item_id} type:${code}`);
+    if (item_id && WEBHOOK_CODES_TO_SYNC.has(webhook_code)) {
+      console.log(`[webhook] Triggering sync for item:${item_id} type:${webhook_type} code:${webhook_code}`);
       _webhookSyncItem(item_id); // intentionally not awaited
     } else {
-      console.log(`[webhook] Ignoring webhook type:${webhook_type} code:${code}`);
+      console.log(`[webhook] Ignoring webhook type:${webhook_type} code:${webhook_code}`);
     }
   } catch (err) {
     console.error('[webhook] Unexpected error:', err.message);
@@ -1815,7 +1972,46 @@ app.post('/plaid/webhook', async (req, res) => {
 });
 
 /* ─────────────────────────────────────────────────────────────
-   START SERVER
-   ───────────────────────────────────────────────────────────── */
+   PROCESS-LEVEL ERROR GUARDS
+   ─────────────────────────────────────────────────────────────
+   Prevent unhandled promise rejections and uncaught exceptions
+   from silently crashing the process in production.
+   ─────────────────────────────────────────────────────────────── */
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[Process] Unhandled promise rejection:', reason);
+  // Don't crash — Railway will restart on exit code 1.
+  // Logging is sufficient; the individual request paths have their own error handling.
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('[Process] Uncaught exception:', err);
+  // For truly unexpected errors, exit cleanly so Railway restarts the process.
+  process.exit(1);
+});
+
+/* ─────────────────────────────────────────────────────────────
+   START SERVER — with graceful shutdown
+   ─────────────────────────────────────────────────────────────
+   Railway sends SIGTERM before replacing this process during a
+   redeploy. We stop accepting new connections and let in-flight
+   requests finish (up to 10 s) before exiting cleanly.
+   ─────────────────────────────────────────────────────────────── */
 const PORT = parseInt(process.env.PORT) || 8080;
-app.listen(PORT, '0.0.0.0', () => console.log(`[Boot] Listening on :${PORT}`));
+const server = app.listen(PORT, '0.0.0.0', () => console.log(`[Boot] Listening on :${PORT}`));
+
+function _gracefulShutdown(signal) {
+  console.log(`[Shutdown] ${signal} received — draining connections…`);
+  server.close((err) => {
+    if (err) console.error('[Shutdown] Error closing server:', err.message);
+    console.log('[Shutdown] Server closed — exiting');
+    process.exit(err ? 1 : 0);
+  });
+  // Force-exit after 10 s if connections haven't drained
+  setTimeout(() => {
+    console.error('[Shutdown] Drain timeout — forcing exit');
+    process.exit(1);
+  }, 10_000).unref();
+}
+
+process.on('SIGTERM', () => _gracefulShutdown('SIGTERM'));
+process.on('SIGINT',  () => _gracefulShutdown('SIGINT'));
