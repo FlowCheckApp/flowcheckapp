@@ -90,10 +90,28 @@ service cloud.firestore {
       allow delete: if false;
 
       // ── Subcollections ──────────────────────────────────────
-      // Accounts — read-only from client (backend writes via Admin SDK)
+      // Accounts — Plaid accounts are backend-managed (read-only from client).
+      // Manual accounts (manual: true) may be created/updated/deleted by the owner.
       match /accounts/{accountId} {
-        allow read:   if isOwner(uid);
-        allow write:  if false;  // backend-managed
+        allow read: if isOwner(uid);
+
+        // Manual accounts created by the user from the UI
+        allow create: if isOwner(uid)
+                      && request.resource.data.manual == true
+                      && request.resource.data.keys().hasOnly([
+                           'name', 'type', 'subtype', 'balance', 'balance_current',
+                           'currency', 'mask', 'manual', 'created_at', 'updated_at',
+                         ]);
+        allow update: if isOwner(uid)
+                      && resource.data.manual == true
+                      && request.resource.data.manual == true
+                      && request.resource.data.keys().hasOnly([
+                           'name', 'type', 'subtype', 'balance', 'balance_current',
+                           'currency', 'mask', 'manual', 'created_at', 'updated_at',
+                         ]);
+        allow delete: if isOwner(uid) && resource.data.manual == true;
+
+        // Plaid-synced accounts: no client writes
       }
 
       // Transactions — read-only from client
@@ -164,21 +182,31 @@ service cloud.firestore {
         allow delete: if isOwner(uid);
       }
 
-      // Notifications — written by backend, read-only from client
+      // Notifications — written by backend only; client can mark as read.
+      // Note: 'write' covers create+update+delete. Listing create/update/delete
+      // explicitly avoids the ambiguity of overlapping allow write: if false.
       match /notifications/{notifId} {
         allow read:   if isOwner(uid);
+        allow create: if false;  // backend-managed only
+        allow delete: if false;  // backend-managed only
         allow update: if isOwner(uid)
-                      && request.resource.data.keys().hasOnly(['read']);
-        allow write:  if false; // backend-managed (create/delete)
+                      && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
       }
 
-      // Credit history — read/write by owner (client saves snapshots after fetching score)
+      // Credit history — read/write by owner (client saves snapshots after fetching score).
+      // Fields written by saveCreditSnapshot() in fc-data.js.
       match /credit_history/{monthId} {
         allow read:   if isOwner(uid);
         allow create: if isOwner(uid)
-                      && request.resource.data.keys().hasOnly(['month', 'score', 'saved_at']);
+                      && request.resource.data.keys().hasOnly([
+                           'month', 'score', 'source', 'fetched_at', 'updated_at',
+                           'change', 'rating', 'factors', 'provider',
+                         ]);
         allow update: if isOwner(uid)
-                      && request.resource.data.keys().hasOnly(['month', 'score', 'saved_at']);
+                      && request.resource.data.keys().hasOnly([
+                           'month', 'score', 'source', 'fetched_at', 'updated_at',
+                           'change', 'rating', 'factors', 'provider',
+                         ]);
         allow delete: if false;
       }
     }

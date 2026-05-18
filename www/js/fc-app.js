@@ -578,10 +578,11 @@ window.FCApp = (function () {
 
     try {
       const token = await FCAuth.getIdToken();
+      // Backend generates its own title/body from category+spent+limit — send those three.
       await fetch(FC_CONFIG.notifications.budgetAlertEndpoint, {
         method:  'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ title, body, pct: Math.round(pct), spent: monthSpend, limit: budgetLimit }),
+        body:    JSON.stringify({ category: 'total', spent: monthSpend, limit: budgetLimit }),
       });
     } catch (_) { /* best-effort */ }
   }
@@ -807,7 +808,8 @@ window.FCApp = (function () {
     if (tabId === 'wealth')   _renderWealth();
     if (tabId === 'settings') _renderSettings();
 
-    window.scrollTo({ top: 0, behavior: 'instant' });
+    // Reset the view's own scroll — body has overflow:hidden so window never scrolls
+    if (target) target.scrollTop = 0;
     haptic('light');
     fcLog('Tab →', tabId, '(from', prev + ')');
   }
@@ -1534,7 +1536,7 @@ window.FCApp = (function () {
         const isEmojiIcon = emoji.length <= 2 && isNaN(emoji);
         const color = t.isCredit ? 'var(--fc-success)' : 'var(--fc-danger)';
         const sign  = t.isCredit ? '+' : '−';
-        const txDate = t.date ? new Date(t.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+        const txDate = t.date ? FCData.parseDateLocal(t.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
         const editedDot = t._edited
           ? '<span style="width:5px;height:5px;background:var(--fc-accent);border-radius:50%;display:inline-block;margin-left:4px;vertical-align:middle"></span>'
           : '';
@@ -1587,7 +1589,7 @@ window.FCApp = (function () {
         const lmEnd   = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
         const lastMoSpend = state.transactions
           .filter(t => !t.isCredit)
-          .filter(t => { const d = new Date(t.date || t.authorized_date); return d >= lmStart && d <= lmEnd; })
+          .filter(t => { const d = FCData.parseDateLocal(t.date || t.authorized_date); return d >= lmStart && d <= lmEnd; })
           .reduce((s, t) => s + (t.amount || 0), 0);
         if (lastMoSpend > 0) {
           const delta = periodSpend - lastMoSpend;
@@ -1607,7 +1609,7 @@ window.FCApp = (function () {
 
     // ── Budget progress card ──────────────────────────────────────
     const budgetLimit  = state.budgets && state.budgets['total'] ? state.budgets['total'].limit : 3000;
-    window._fcBudgetLimit = budgetLimit; // exposed for Edit button onclick
+    // budgetLimit used locally — accessed via FCApp.getTotalBudgetLimit() for the static Edit button in index.html
     const budgetPct    = Math.min(Math.round((periodSpend / budgetLimit) * 100), 100);
     const budgetColor  = budgetPct > 90 ? 'var(--fc-danger)'
                        : budgetPct > 70 ? 'var(--fc-warning)'
@@ -2398,7 +2400,10 @@ window.FCApp = (function () {
     document.addEventListener('touchstart', e => {
       // Only allow pull-to-refresh on the main app screen
       if (state.screen !== 'app') return;
-      if (window.scrollY === 0) {
+      // body has overflow:hidden so window.scrollY is always 0 — check the
+      // active view's own scrollTop instead so PTR only fires at the real top
+      const activeView = document.querySelector('.fc-view.active');
+      if (!activeView || activeView.scrollTop === 0) {
         _pullStartY = e.touches[0].clientY;
         _pullDelta  = 0;
         _pulling    = true;
@@ -2455,6 +2460,10 @@ window.FCApp = (function () {
     }
 
     state.syncing = true;
+    let _syncSucceeded = false;
+
+    // Idle text depends on whether a bank is linked
+    const _idleText = () => (state.user && state.user.plaid_linked) ? 'All caught up' : 'Connect a bank to start';
 
     // Fade island text to "Syncing…" without jarring jump
     const islandText = document.getElementById('islandText');
@@ -2469,6 +2478,7 @@ window.FCApp = (function () {
     try {
       await FCData.syncTransactions();
       state.lastSyncAt = Date.now();
+      _syncSucceeded = true;
       haptic('light');
       if (islandText) {
         islandText.classList.add('fc-fade');
@@ -2483,23 +2493,24 @@ window.FCApp = (function () {
       if (islandText) {
         islandText.classList.add('fc-fade');
         setTimeout(() => {
-          islandText.textContent = 'Sync failed';
+          // Background syncs fail silently — keep island neutral
+          // User-initiated syncs show "Sync failed" briefly
+          islandText.textContent = showToast ? 'Sync failed' : _idleText();
           islandText.classList.remove('fc-fade');
         }, 200);
       }
-      // Always show errors so the user knows something went wrong
-      toast('Sync failed — check connection', 'error');
+      // Only surface error toast for user-initiated syncs.
+      // Background syncs (app launch, screen focus) fail silently so the
+      // user isn't greeted by a red banner every time Railway cold-starts.
+      if (showToast) toast('Sync failed — check connection', 'error');
     } finally {
       state.syncing = false;
-      setTimeout(() => {
-        if (islandText) {
-          islandText.classList.add('fc-fade');
-          setTimeout(() => {
-            islandText.textContent = 'All caught up';
-            islandText.classList.remove('fc-fade');
-          }, 200);
-        }
-      }, 3000);
+      // After a successful sync the island already says "All caught up" — no reset needed.
+      // After a user-triggered failure, give the user a moment to read "Sync failed"
+      // then quietly restore the idle state.
+      if (!_syncSucceeded && showToast) {
+        setTimeout(() => _setIslandText(_idleText()), 4000);
+      }
     }
   }
 
@@ -2682,13 +2693,25 @@ window.FCApp = (function () {
   }
 
   /** User tapped "Skip for now" on the last onboarding slide */
+  let _skippingOnboarding = false;
   async function skipOnboarding() {
+    if (_skippingOnboarding) return;         // debounce: ignore rapid double-taps
+    _skippingOnboarding = true;
     haptic('light');
-    await _markOnboardingComplete();
-    setScreen('app');
-    _renderHome();
-    // Trigger a background sync if the user already linked a bank
-    setTimeout(() => _doSync(false), 800);
+    try {
+      await _markOnboardingComplete();
+    } catch (_) {
+      // Non-blocking — a Firestore error (e.g. RESOURCE_EXHAUSTED) must never
+      // trap the user on the onboarding screen. The flag will be retried on
+      // next launch via the normal auth boot path.
+    } finally {
+      setScreen('app');
+      _renderHome();
+      // Trigger a background sync if the user already linked a bank
+      setTimeout(() => _doSync(false), 800);
+      // Reset after transition completes so back-navigation works
+      setTimeout(() => { _skippingOnboarding = false; }, 1500);
+    }
   }
 
   /* ─────────────────────────────────────────────────────────────
@@ -2731,7 +2754,16 @@ window.FCApp = (function () {
      DATA LISTENERS (attach after login)
      ───────────────────────────────────────────────────────────── */
 
+  // Guard: prevent duplicate listener stacks on repeated onAuthStateChanged fires
+  // (token refreshes, reconnects). Each duplicate stack = N extra Firestore reads.
+  let _listenersAttached = false;
+
   function _attachDataListeners() {
+    if (_listenersAttached) {
+      fcLog('[FCApp] Listeners already attached — skipping duplicate attach');
+      return;
+    }
+    _listenersAttached = true;
     FCData.listenToUser(user => {
       state.user = user;
       if (state.screen === 'app') _renderSettings();
@@ -2869,8 +2901,13 @@ window.FCApp = (function () {
         // Attach real-time data listeners
         _attachDataListeners();
 
-        // Navigate to the correct screen
-        const userDoc = await FCAuth.getUserDoc();
+        // Navigate to the correct screen.
+        // Fetch userDoc and biometric setting in parallel — they're independent
+        // and running them sequentially added ~100-300ms to every cold launch.
+        const [userDoc, biometricEnabled] = await Promise.all([
+          FCAuth.getUserDoc(),
+          FCAuth.isBiometricEnabled(),
+        ]);
         // Show onboarding only for brand-new users (no onboarding_complete flag)
         // who also haven't connected a bank yet. Existing users with plaid_linked
         // bypass regardless (backward-compatible).
@@ -2884,12 +2921,12 @@ window.FCApp = (function () {
           setTimeout(() => _doSync(false), 900);
           // Show lock screen on first load if biometrics are enabled.
           // (App-resume lock handles subsequent background-to-foreground.)
-          const biometricEnabled = await FCAuth.isBiometricEnabled();
           if (biometricEnabled) showLockScreen();
         }
       } else {
         fcLog('No user — showing login');
         FCData.detachAllListeners();
+        _listenersAttached = false; // allow re-attach on next sign-in
         setScreen('login');
       }
     });
@@ -3840,7 +3877,7 @@ window.FCApp = (function () {
     if (catEl)   catEl.value   = cat;
     if (amtEl)   amtEl.textContent = (txn.isCredit ? '+' : '−') + FCData.formatCurrency(txn.amount);
     if (amtEl)   amtEl.style.color = txn.isCredit ? 'var(--fc-success)' : 'var(--fc-danger)';
-    if (dateEl)  dateEl.textContent = txn.date ? new Date(txn.date).toLocaleDateString('en-US', { weekday:'short', month:'long', day:'numeric' }) : '';
+    if (dateEl)  dateEl.textContent = txn.date ? FCData.parseDateLocal(txn.date).toLocaleDateString('en-US', { weekday:'short', month:'long', day:'numeric' }) : '';
     if (origEl)  {
       origEl.textContent = ov.name ? `Original: ${txn.name}` : '';
       origEl.style.display = ov.name ? '' : 'none';
@@ -4177,6 +4214,8 @@ window.FCApp = (function () {
     _updateGoalCalc,
     // Utilities
     animateNumber,
+    // Getter for static HTML onclick handlers — avoids global namespace pollution
+    getTotalBudgetLimit: () => (state.budgets && state.budgets['total'] ? state.budgets['total'].limit : 3000),
   };
 })();
 
