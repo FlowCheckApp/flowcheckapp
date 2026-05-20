@@ -312,7 +312,8 @@ async function requireAuth(req, res, next) {
   }
 }
 
-/* ── Health check ────────────────────────────────────────────── */
+/* ── Root + Health check ─────────────────────────────────────── */
+app.get('/', (_req, res) => res.json({ name: 'FlowCheck API', status: 'ok', version: '1.0.0' }));
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
 /* ─────────────────────────────────────────────────────────────
