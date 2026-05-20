@@ -931,7 +931,8 @@ app.post('/credit/score', requireAuth, perUserLimiter(5), async (req, res) => {
             lastName:  req.body?.lastName  || (isSandbox ? 'CBRILEY'   : ''),
             firstName: req.body?.firstName || (isSandbox ? 'KIMBERLY'  : ''),
           },
-          dob:  { dob: dobYear || (isSandbox ? '1969' : '') },
+          // Spec requires MMDDYYYY (8 digits) for CBRILEY — "01011969" not "1969"
+          dob:  { dob: dobYear || (isSandbox ? '01011969' : '') },
           ssn:  { ssn: req.body?.ssn || (isSandbox ? '111111111' : '') },
           currentAddress: {
             line1:   req.body?.address || (isSandbox ? '5870 SPENCER PIKE' : ''),
