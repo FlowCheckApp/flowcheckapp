@@ -2317,11 +2317,20 @@ window.FCApp = (function () {
     setTimeout(() => _tryStartTour(), 1200);
   }
 
-  /** Show the app tour for first-time users (checks tour_completed flag) */
+  /** Show the app tour for first-time users only.
+   *
+   *  Two-layer check to avoid a Firestore timing race:
+   *  1. localStorage  — written instantly when completeTour() fires; survives
+   *     the race where the Firestore listener hasn't populated state.user yet.
+   *  2. state.user.tour_completed — Firestore source-of-truth; catches users
+   *     who cleared localStorage or installed fresh on a new device.
+   */
   function _tryStartTour() {
     try {
-      // Only show if the user hasn't completed the tour yet
-      if (!state.user?.tour_completed && typeof startTour === 'function') {
+      const uid    = FCAuth.currentUser && FCAuth.currentUser()?.uid;
+      const lsDone = uid ? localStorage.getItem('fc_tour_done_' + uid) === '1' : false;
+      const fsDone = state.user?.tour_completed === true;
+      if (!lsDone && !fsDone && typeof startTour === 'function') {
         startTour();
       }
     } catch (_) {}
