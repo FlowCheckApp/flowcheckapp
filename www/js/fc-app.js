@@ -2552,7 +2552,9 @@ window.FCApp = (function () {
       // Always navigate to the app screen so home refreshes with bank data
       setScreen('app');
       _renderHome();
-      // Then show paywall on top if user hasn't subscribed yet
+      // Then show paywall on top if user hasn't subscribed yet.
+      // Configure RC first to force a live check (not stale localStorage cache).
+      try { if (!FCPurchases.isConfigured()) await FCPurchases.configure(); } catch (_) {}
       const isPro = await FCPurchases.checkProStatus().catch(() => false);
       if (!isPro) {
         setTimeout(() => showPaywall(), 500);
@@ -2608,6 +2610,9 @@ window.FCApp = (function () {
       // straight to the existing account's home screen.
       try { FCData.detachAllListeners(); _listenersAttached = false; await FCAuth.signOut(); } catch (_) {}
       await FCAuth.signUp(name, email, password);
+      // Clear any stale RevenueCat pro cache from a previous test session
+      // so the paywall always shows correctly for brand-new accounts.
+      try { localStorage.removeItem('fc_pro_status_v1'); } catch (_) {}
       // Fire welcome email — non-blocking, never delays onboarding
       _sendWelcomeEmail().catch(() => {});
       // Auth observer will trigger onboarding
@@ -2720,7 +2725,10 @@ window.FCApp = (function () {
       // trap the user on the onboarding screen. The flag will be retried on
       // next launch via the normal auth boot path.
     } finally {
-      // Gate non-pro users behind the paywall before entering the app
+      // Gate non-pro users behind the paywall before entering the app.
+      // Always configure RC first so we do a live check — not the localStorage
+      // cache, which can falsely return true from a previous test purchase.
+      try { if (!FCPurchases.isConfigured()) await FCPurchases.configure(); } catch (_) {}
       const isPro = await FCPurchases.checkProStatus().catch(() => false);
       if (!isPro) {
         showPaywall();
