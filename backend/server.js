@@ -80,6 +80,16 @@ console.log(`[Boot] FlowCheck API | Firebase: ${process.env.FIREBASE_PROJECT_ID}
 // Falls back to the hard-coded value so existing deploys keep working.
 const BACKEND_URL = (process.env.BACKEND_URL || 'https://flowcheck-backend-production.up.railway.app').replace(/\/$/, '');
 
+/* ── Safe error messages — never leak internals to clients ─────── */
+// Returns a safe, user-friendly error string.
+// In production, internal error details stay in logs only.
+function _safeMsg(err, fallback = 'An unexpected error occurred — please try again') {
+  if (err?.response?.data?.error_message) return err.response.data.error_message;
+  if (err?.response?.data?.error_code)    return `Error: ${err.response.data.error_code}`;
+  if (err?.code?.startsWith('auth/'))     return err.message;
+  return process.env.NODE_ENV === 'development' ? (err?.message || fallback) : fallback;
+}
+
 /* ── HTML escape — prevents injection in email templates ────────── */
 // Any user-controlled string interpolated into HTML must be passed
 // through this function first (bill names, categories, display names).
@@ -1176,10 +1186,13 @@ app.post('/email/welcome', requireAuth, async (req, res) => {
       </div>
       </body></html>
     `);
-    res.json({ ok: true });
+    return res.json({ ok: true });
   } catch (err) {
     console.error('[email/welcome]', err.message);
     // Never block the app — always return 200
+    // Guard: nodemailer sometimes fires a late timeout event after the promise
+    // already settled, which can reach this catch AFTER res.json() was sent.
+    if (res.headersSent) return;
     res.json({ ok: true, error: 'email_failed' });
   }
 });
@@ -1209,9 +1222,10 @@ app.post('/email/test', requireAuth, async (req, res) => {
       </div>
       </body></html>
     `);
-    res.json({ ok: true, sent, to: email });
+    return res.json({ ok: true, sent, to: email });
   } catch (err) {
     console.error('[email/test]', err.message);
+    if (res.headersSent) return;
     res.status(500).json({ message: 'Email test failed: ' + err.message });
   }
 });
@@ -1969,6 +1983,19 @@ app.post('/plaid/webhook', async (req, res) => {
     console.error('[webhook] Unexpected error:', err.message);
     respond(500, { message: 'Internal error' });
   }
+});
+
+/* ── Global Express error handler ──────────────────────────────── */
+// Catches any error passed to next(err) or thrown in async routes
+// that isn't caught by their own try/catch.
+// Must be defined with 4 params so Express recognises it as error middleware.
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+  console.error(`[Error] ${req.method} ${req.path} →`, err.message || err);
+  if (res.headersSent) return;
+  res.status(err.status || 500).json({
+    message: _safeMsg(err, 'An unexpected error occurred — please try again'),
+  });
 });
 
 /* ─────────────────────────────────────────────────────────────

@@ -959,116 +959,171 @@ body {
    PAYWALL SCREEN  (fc-pw-*)
    ════════════════════════════════════════════════════════════ */
 .fc-paywall {
-  background: var(--fc-bg);
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  position: relative;
+  background: var(--fc-bg); overflow-y: auto;
+  -webkit-overflow-scrolling: touch; overscroll-behavior: contain; position: relative;
 }
-/* Ambient glow backdrop */
 .fc-paywall::before {
-  content: '';
-  position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
   background:
-    radial-gradient(ellipse 80% 40% at 50% 0%,   rgba(107,63,224,0.28) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 30% at 80% 90%,  rgba(26,196,240,0.14) 0%, transparent 55%),
-    radial-gradient(ellipse 40% 25% at 10% 70%,  rgba(107,63,224,0.10) 0%, transparent 50%);
+    radial-gradient(ellipse 90% 50% at 50% -5%,  rgba(107,63,224,0.34) 0%, transparent 65%),
+    radial-gradient(ellipse 55% 35% at 88% 95%,  rgba(26,196,240,0.18) 0%, transparent 55%),
+    radial-gradient(ellipse 42% 28% at  8% 68%,  rgba(107,63,224,0.12) 0%, transparent 50%);
 }
 
-/* Close / skip button (top-right) */
-.fc-pw-close {
-  position: absolute; top: calc(env(safe-area-inset-top) + 14px); right: 16px;
-  width: 30px; height: 30px; border-radius: 50%;
-  background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1);
-  display: flex; align-items: center; justify-content: center;
-  color: var(--fc-text-faint); cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: background 0.15s, color 0.15s;
-  z-index: 10;
+/* ── APP TOUR ──────────────────────────────────────────────── */
+#fc-tour {
+  position: fixed; inset: 0; z-index: 8500;
+  transition: opacity 0.3s ease;
 }
-.fc-pw-close:active { background: rgba(255,255,255,0.14); color: var(--fc-text); }
+#fc-tour-spot {
+  position: absolute;
+  border-radius: 18px;
+  box-shadow: 0 0 0 2000px rgba(4,10,20,0.82);
+  pointer-events: none;
+  transition: left 0.4s cubic-bezier(0.4,0,0.2,1),
+              top  0.4s cubic-bezier(0.4,0,0.2,1),
+              width 0.4s cubic-bezier(0.4,0,0.2,1),
+              height 0.4s cubic-bezier(0.4,0,0.2,1);
+  border: 2px solid rgba(26,196,240,0.5);
+}
+#fc-tour-card {
+  position: absolute;
+  left: 20px; right: 20px;
+  background: rgba(12,20,32,0.98);
+  border: 1px solid rgba(255,255,255,0.11);
+  border-radius: 22px;
+  padding: 22px 22px 18px;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 24px 64px rgba(0,0,0,0.6), 0 0 0 1px rgba(26,196,240,0.08);
+  transition: bottom 0.4s cubic-bezier(0.4,0,0.2,1), top 0.4s cubic-bezier(0.4,0,0.2,1);
+  animation: tourCardIn 0.35s cubic-bezier(0.34,1.56,0.64,1);
+}
+@keyframes tourCardIn {
+  from { opacity: 0; transform: translateY(18px) scale(0.97); }
+  to   { opacity: 1; transform: none; }
+}
+.fc-tour-step-dots {
+  display: flex; gap: 6px; justify-content: center; margin-bottom: 16px;
+}
+.fc-tour-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: rgba(255,255,255,0.18);
+  transition: background 0.3s, width 0.3s;
+}
+.fc-tour-dot.active {
+  background: #1ac4f0; width: 18px; border-radius: 3px;
+}
+.fc-tour-icon { font-size: 38px; margin-bottom: 10px; line-height: 1; }
+.fc-tour-title {
+  font-size: 20px; font-weight: 800; color: #fff;
+  margin: 0 0 7px; letter-spacing: -0.02em;
+}
+.fc-tour-desc {
+  font-size: 14px; color: rgba(255,255,255,0.58);
+  margin: 0; line-height: 1.55;
+}
+.fc-tour-actions {
+  display: flex; align-items: center;
+  justify-content: space-between; margin-top: 20px;
+}
+.fc-tour-skip {
+  background: none; border: none;
+  color: rgba(255,255,255,0.28); font-size: 13px;
+  padding: 10px 4px; cursor: pointer; font-family: inherit;
+  min-height: 44px;
+}
+.fc-tour-next {
+  background: linear-gradient(135deg,#1ac4f0,#6b3fe0);
+  color: #fff; border: none; border-radius: 12px;
+  font-size: 15px; font-weight: 700; padding: 13px 26px;
+  cursor: pointer; font-family: inherit;
+  box-shadow: 0 6px 20px rgba(107,63,224,0.4);
+  transition: opacity 0.15s;
+}
+.fc-tour-next:active { opacity: 0.8; }
 
-/* Pro badge pill */
+/* Social proof pill */
+.fc-pw-social {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 999px; padding: 6px 14px; margin-bottom: 18px;
+}
+.fc-pw-stars { font-size: 11px; letter-spacing: 1.5px; color: #ffb020; line-height: 1; }
+.fc-pw-social-text { font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.6); letter-spacing: -0.1px; }
+
+/* Pro badge */
 .fc-pw-badge {
   display: inline-flex; align-items: center; gap: 6px;
-  background: linear-gradient(135deg, rgba(107,63,224,0.25), rgba(26,196,240,0.15));
-  border: 1px solid rgba(107,63,224,0.45);
-  color: #c4a8ff; font-size: 11px; font-weight: 700; letter-spacing: 0.06em;
-  text-transform: uppercase;
-  padding: 5px 13px; border-radius: 999px;
-  margin-bottom: 16px;
+  background: linear-gradient(135deg, rgba(107,63,224,0.3), rgba(26,196,240,0.18));
+  border: 1px solid rgba(107,63,224,0.5);
+  color: #c4a8ff; font-size: 11px; font-weight: 700; letter-spacing: 0.07em;
+  text-transform: uppercase; padding: 5px 13px; border-radius: 999px; margin-bottom: 14px;
 }
 
-/* Hero icon */
+/* Hero icon — breathes with glow pulse */
 .fc-pw-hero-icon {
-  width: 72px; height: 72px; border-radius: 22px;
-  background: linear-gradient(135deg, var(--fc-purple) 0%, var(--fc-accent) 100%);
+  width: 80px; height: 80px; border-radius: 24px;
+  background: linear-gradient(145deg, #6b3fe0 0%, #1ac4f0 100%);
   display: flex; align-items: center; justify-content: center;
-  font-size: 34px; margin-bottom: 20px;
-  box-shadow: 0 0 0 1px rgba(255,255,255,0.08),
-              0 12px 40px rgba(107,63,224,0.45),
-              0 0 60px rgba(26,196,240,0.15);
-  flex-shrink: 0;
+  font-size: 38px; margin-bottom: 18px; flex-shrink: 0;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.1), 0 16px 48px rgba(107,63,224,0.5), 0 0 80px rgba(26,196,240,0.18);
+  animation: pw-icon-pulse 3.2s ease-in-out infinite;
+}
+@keyframes pw-icon-pulse {
+  0%,100% { box-shadow: 0 0 0 1px rgba(255,255,255,0.1),  0 16px 48px rgba(107,63,224,0.5),  0 0 80px  rgba(26,196,240,0.18); }
+  50%      { box-shadow: 0 0 0 1px rgba(255,255,255,0.15), 0 18px 58px rgba(107,63,224,0.68), 0 0 110px rgba(26,196,240,0.3);  }
 }
 
-/* Title & subtitle */
+/* Title */
 .fc-pw-title {
-  font-size: 27px; font-weight: 800; letter-spacing: -0.7px;
-  color: var(--fc-text); text-align: center;
-  margin: 0 0 10px; line-height: 1.18;
-}
-.fc-pw-subtitle {
-  font-size: 14px; color: var(--fc-text-faint);
-  text-align: center; margin: 0 0 26px; line-height: 1.55;
-  max-width: 280px;
+  font-size: 30px; font-weight: 800; letter-spacing: -0.8px;
+  color: var(--fc-text); text-align: center; margin: 0 0 8px; line-height: 1.12;
 }
 
-/* Feature list — icon + title + description row */
+/* Feature list — 4 rows, staggered entrance */
 .fc-pw-features {
-  list-style: none; margin: 0 0 22px; padding: 0;
-  display: flex; flex-direction: column; gap: 0;
-  width: 100%;
-  border-radius: 16px; overflow: hidden;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.07);
+  list-style: none; margin: 0 0 18px; padding: 0; display: flex; flex-direction: column; gap: 0;
+  width: 100%; border-radius: 18px; overflow: hidden;
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07);
 }
 .fc-pw-feature {
-  display: flex; align-items: center; gap: 14px;
-  padding: 13px 16px;
+  display: flex; align-items: center; gap: 14px; padding: 14px 16px;
   border-bottom: 1px solid rgba(255,255,255,0.05);
+  animation: pw-feature-in 0.5s cubic-bezier(0.25,0.1,0.25,1) both;
 }
 .fc-pw-feature:last-child { border-bottom: none; }
+.fc-pw-feature:nth-child(1) { animation-delay: 0.08s; }
+.fc-pw-feature:nth-child(2) { animation-delay: 0.16s; }
+.fc-pw-feature:nth-child(3) { animation-delay: 0.24s; }
+.fc-pw-feature:nth-child(4) { animation-delay: 0.32s; }
+@keyframes pw-feature-in {
+  from { opacity: 0; transform: translateX(-10px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
 .fc-pw-feature-icon {
-  width: 38px; height: 38px; border-radius: 11px; flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 19px;
+  width: 40px; height: 40px; border-radius: 12px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-size: 20px;
 }
 .fc-pw-feature-text { flex: 1; min-width: 0; }
-.fc-pw-feature-name  { font-size: 14px; font-weight: 600; color: var(--fc-text); line-height: 1.3; }
-.fc-pw-feature-desc  { font-size: 12px; color: var(--fc-text-faint); line-height: 1.3; margin-top: 1px; }
-.fc-pw-feature-check {
-  color: var(--fc-success); font-size: 16px; flex-shrink: 0; font-weight: 700;
-}
+.fc-pw-feature-name { font-size: 14px; font-weight: 600; color: var(--fc-text); line-height: 1.3; }
+.fc-pw-feature-desc { font-size: 12px; color: rgba(255,255,255,0.45); line-height: 1.35; margin-top: 2px; }
+.fc-pw-feature-check { color: var(--fc-success); font-size: 17px; flex-shrink: 0; font-weight: 700; }
 
 /* Plan selector */
-.fc-pw-plans {
-  display: flex; flex-direction: column; gap: 10px;
-  margin-bottom: 6px; width: 100%;
-}
+.fc-pw-plans { display: flex; flex-direction: column; gap: 10px; margin-bottom: 6px; width: 100%; }
 .fc-pw-plan {
   display: flex; align-items: center; gap: 14px;
   background: rgba(255,255,255,0.05); border: 1.5px solid rgba(255,255,255,0.1);
-  border-radius: 16px; padding: 15px 16px;
+  border-radius: 18px; padding: 16px;
   cursor: pointer; transition: border-color 0.2s, background 0.2s, transform 0.12s;
   -webkit-tap-highlight-color: transparent; position: relative;
 }
 .fc-pw-plan.selected {
-  border-color: var(--fc-accent);
-  background: rgba(26,196,240,0.07);
-  box-shadow: 0 0 0 1px rgba(26,196,240,0.15), inset 0 0 0 1px rgba(26,196,240,0.05);
+  border-color: var(--fc-accent); background: rgba(26,196,240,0.08);
+  box-shadow: 0 0 0 1px rgba(26,196,240,0.2), inset 0 0 0 1px rgba(26,196,240,0.06);
 }
 .fc-pw-plan:active { transform: scale(0.984); }
-
-/* Radio dot */
 .fc-pw-plan-radio {
   width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
   border: 2px solid rgba(255,255,255,0.22);
@@ -1076,86 +1131,86 @@ body {
   display: flex; align-items: center; justify-content: center;
 }
 .fc-pw-plan.selected .fc-pw-plan-radio {
-  border-color: var(--fc-accent);
-  background: var(--fc-accent);
+  border-color: var(--fc-accent); background: var(--fc-accent);
   box-shadow: 0 0 0 3px rgba(26,196,240,0.18);
 }
 .fc-pw-plan.selected .fc-pw-plan-radio::after {
-  content: '';
-  width: 7px; height: 7px; border-radius: 50%;
-  background: #fff; display: block;
+  content: ''; width: 7px; height: 7px; border-radius: 50%; background: #fff; display: block;
 }
-
-/* Plan text */
 .fc-pw-plan-info { flex: 1; }
 .fc-pw-plan-name {
-  font-size: 15px; font-weight: 700; color: var(--fc-text); margin-bottom: 2px;
+  font-size: 15px; font-weight: 700; color: var(--fc-text); margin-bottom: 3px;
   display: flex; align-items: center; gap: 8px;
 }
-.fc-pw-plan-price { font-size: 12px; color: var(--fc-text-faint); line-height: 1.45; }
+.fc-pw-plan-price { font-size: 12px; color: rgba(255,255,255,0.5); line-height: 1.5; }
+.fc-pw-plan-strike { text-decoration: line-through; color: rgba(255,255,255,0.28); font-weight: 400; font-size: 11px; }
 .fc-pw-plan-savings {
   font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
-  background: var(--fc-success-soft); color: var(--fc-success); border-radius: 6px;
-  padding: 2px 7px; display: inline-block; margin-top: 4px;
+  background: var(--fc-success-soft); color: var(--fc-success);
+  border-radius: 6px; padding: 2px 7px; display: inline-block; margin-top: 4px;
 }
-
-/* Best value badge */
 .fc-pw-plan-badge {
   background: linear-gradient(135deg, var(--fc-accent) 0%, var(--fc-purple) 100%);
   color: #fff; font-size: 10px; font-weight: 700; letter-spacing: 0.05em;
-  padding: 4px 10px; border-radius: 999px; text-transform: uppercase;
-  white-space: nowrap; flex-shrink: 0;
+  padding: 4px 10px; border-radius: 999px; text-transform: uppercase; white-space: nowrap; flex-shrink: 0;
 }
-
-/* Price emphasis */
-.fc-pw-annual-big {
-  display: flex; align-items: baseline; gap: 4px; margin-bottom: 3px;
-}
+.fc-pw-annual-big { display: flex; align-items: baseline; gap: 4px; margin-bottom: 3px; }
 .fc-pw-annual-amount {
-  font-size: 20px; font-weight: 800; color: var(--fc-text); letter-spacing: -0.5px;
+  font-size: 22px; font-weight: 800; color: var(--fc-text);
+  letter-spacing: -0.5px; font-variant-numeric: tabular-nums;
 }
-.fc-pw-annual-period { font-size: 13px; color: var(--fc-text-faint); }
+.fc-pw-annual-period { font-size: 13px; color: rgba(255,255,255,0.45); }
 
-/* Trial notice bar */
-.fc-pw-trial-bar {
-  background: var(--fc-success-soft); border: 1px solid rgba(52,199,89,0.22);
-  border-radius: 12px; padding: 11px 16px;
-  display: flex; align-items: center; gap: 10px;
-  margin-bottom: 20px; width: 100%;
-}
-.fc-pw-trial-icon { font-size: 20px; flex-shrink: 0; }
-.fc-pw-trial-text { font-size: 13px; font-weight: 600; color: var(--fc-success); line-height: 1.3; }
-.fc-pw-trial-sub  { font-size: 11px; color: rgba(52,199,89,0.65); margin-top: 2px; }
-
-/* CTA button */
+/* CTA — gradient + shine sweep animation */
 .fc-pw-cta {
-  display: flex; align-items: center; justify-content: center;
-  height: 56px; border-radius: 18px; border: none;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  height: 58px; border-radius: 18px; border: none;
   background: linear-gradient(135deg, #1ac4f0 0%, #6b3fe0 100%);
-  color: #fff; font-size: 17px; font-weight: 800; font-family: inherit;
+  color: #fff; font-size: 18px; font-weight: 800; font-family: inherit;
   letter-spacing: -0.3px; cursor: pointer;
-  box-shadow: 0 8px 28px rgba(107,63,224,0.45), 0 2px 8px rgba(26,196,240,0.2);
+  box-shadow: 0 10px 32px rgba(107,63,224,0.5), 0 2px 10px rgba(26,196,240,0.22);
   -webkit-tap-highlight-color: transparent;
   transition: transform 0.15s cubic-bezier(0.34,1.56,0.64,1), opacity 0.1s, box-shadow 0.2s;
-  margin-bottom: 10px; width: 100%;
+  margin-bottom: 12px; width: 100%; position: relative; overflow: hidden;
 }
-.fc-pw-cta:active { transform: scale(0.97); opacity: 0.92; box-shadow: 0 4px 14px rgba(107,63,224,0.3); }
+.fc-pw-cta::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(105deg, transparent 38%, rgba(255,255,255,0.22) 50%, transparent 62%);
+  transform: translateX(-120%); animation: pw-shine 3.8s ease-in-out infinite;
+}
+@keyframes pw-shine {
+  0%  { transform: translateX(-120%); }
+  45% { transform: translateX(120%); }
+  100%{ transform: translateX(120%); }
+}
+.fc-pw-cta:active { transform: scale(0.97); opacity: 0.92; box-shadow: 0 4px 16px rgba(107,63,224,0.35); }
 .fc-pw-cta:disabled { opacity: 0.5; transform: none; }
+.fc-pw-cta:disabled::after { display: none; }
+
+/* Risk-erasure trust strip */
+.fc-pw-trust {
+  display: flex; align-items: center; justify-content: center; gap: 16px;
+  margin: 0 0 14px; flex-wrap: wrap;
+}
+.fc-pw-trust-item {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 11px; font-weight: 500; color: rgba(255,255,255,0.4); white-space: nowrap;
+}
 
 /* Legal text */
 .fc-pw-terms {
-  font-size: 11px; color: var(--fc-text-faint); text-align: center;
-  margin: 0 0 14px; line-height: 1.55;
+  font-size: 11px; color: rgba(255,255,255,0.32); text-align: center; margin: 0 0 16px; line-height: 1.6;
 }
 
 /* Footer links */
 .fc-pw-footer {
   display: flex; align-items: center; justify-content: center; gap: 6px;
-  padding-bottom: calc(env(safe-area-inset-bottom) + 20px);
+  padding-bottom: calc(env(safe-area-inset-bottom) + 16px);
 }
 .fc-pw-footer a {
-  font-size: 12px; color: var(--fc-text-faint); text-decoration: none;
-  padding: 6px 8px; transition: color 0.15s; -webkit-tap-highlight-color: transparent;
+  font-size: 12px; color: rgba(255,255,255,0.32); text-decoration: none;
+  padding: 8px; transition: color 0.15s; -webkit-tap-highlight-color: transparent;
+  min-height: 44px; display: flex; align-items: center;
 }
 .fc-pw-footer a:active { color: var(--fc-accent); }
 .fc-pw-footer-sep { font-size: 11px; color: rgba(255,255,255,0.15); }
@@ -1656,6 +1711,22 @@ body {
       </div>
       <h1 class="fc-ob-title" style="margin-top:4px"><span class="fc-ob-title-grad">See every dollar.</span><br>Always know where<br>you stand.</h1>
       <p class="fc-ob-desc">Live balances, credit score, smart spending alerts, and a financial health score — all in one place.</p>
+
+      <!-- Legal consent — must be checked before proceeding (FCRA + App Store req.) -->
+      <label id="ob-consent-label" style="display:flex;align-items:flex-start;gap:12px;margin-top:20px;cursor:pointer;text-align:left;padding:0 4px">
+        <input type="checkbox" id="ob-consent-check"
+               onchange="obConsentChanged()"
+               style="width:20px;height:20px;min-width:20px;margin-top:2px;accent-color:#1ac4f0;cursor:pointer">
+        <span style="font-size:12px;color:rgba(255,255,255,0.42);line-height:1.65">
+          I am 13 or older and I agree to FlowCheck's
+          <a href="#" onclick="FCApp.openUrl('/legal/terms.html');return false"
+             style="color:rgba(26,196,240,0.85);text-decoration:underline">Terms of Service</a>
+          and
+          <a href="#" onclick="FCApp.openUrl('/legal/privacy.html');return false"
+             style="color:rgba(26,196,240,0.85);text-decoration:underline">Privacy Policy</a>,
+          including the use of Plaid to connect bank accounts and Experian for credit data.
+        </span>
+      </label>
     </div>
 
     <!-- ── SLIDE 1: Goal picker ──────────────────────────────────── -->
@@ -1679,8 +1750,41 @@ body {
       </div>
     </div>
 
-    <!-- ── SLIDE 2: Feature showcase + social proof ──────────────── -->
-    <div class="fc-ob-slide" id="ob-slide-2">
+    <!-- ── SLIDE 2: Attribution — where did you find us? ───────── -->
+    <div class="fc-ob-slide fc-ob-question" id="ob-slide-2">
+      <div class="fc-ob-q-icon" style="font-size:48px;margin-bottom:14px">👋</div>
+      <h1 class="fc-ob-title fc-ob-title--lg" style="margin-bottom:6px">Where did you<br>find us?</h1>
+      <p class="fc-ob-desc" style="margin-bottom:0;font-size:14px">Helps us know where to spread the word.</p>
+      <div class="fc-ob-grid" style="margin-top:22px">
+        <button class="fc-ob-grid-option" onclick="obSelectAttribution(this,'tiktok')" type="button">
+          <span class="fc-ob-grid-icon">📱</span>TikTok
+        </button>
+        <button class="fc-ob-grid-option" onclick="obSelectAttribution(this,'instagram')" type="button">
+          <span class="fc-ob-grid-icon">📸</span>Instagram
+        </button>
+        <button class="fc-ob-grid-option" onclick="obSelectAttribution(this,'youtube')" type="button">
+          <span class="fc-ob-grid-icon">📺</span>YouTube
+        </button>
+        <button class="fc-ob-grid-option" onclick="obSelectAttribution(this,'google')" type="button">
+          <span class="fc-ob-grid-icon">🔍</span>Google
+        </button>
+        <button class="fc-ob-grid-option" onclick="obSelectAttribution(this,'app_store')" type="button">
+          <span class="fc-ob-grid-icon">🍎</span>App Store
+        </button>
+        <button class="fc-ob-grid-option" onclick="obSelectAttribution(this,'friend')" type="button">
+          <span class="fc-ob-grid-icon">👥</span>Friend / Family
+        </button>
+        <button class="fc-ob-grid-option" onclick="obSelectAttribution(this,'reddit')" type="button">
+          <span class="fc-ob-grid-icon">👾</span>Reddit
+        </button>
+        <button class="fc-ob-grid-option" onclick="obSelectAttribution(this,'other')" type="button">
+          <span class="fc-ob-grid-icon">✨</span>Other
+        </button>
+      </div>
+    </div>
+
+    <!-- ── SLIDE 3: Feature showcase + social proof ──────────────── -->
+    <div class="fc-ob-slide" id="ob-slide-3" style="justify-content:center;padding-top:16px">
       <div class="fc-ob-art" style="height:220px">
         <div class="fc-ob-glow" style="background:radial-gradient(ellipse at 50% 55%,rgba(107,63,224,0.32),transparent 65%)"></div>
         <!-- Feature grid -->
@@ -1712,8 +1816,8 @@ body {
       <p class="fc-ob-desc" style="font-size:14px">No spreadsheets. No guessing. FlowCheck connects to your bank and does the work automatically.</p>
     </div>
 
-    <!-- ── SLIDE 3: Permissions — notifications, Face ID, email ── -->
-    <div class="fc-ob-slide" id="ob-slide-3">
+    <!-- ── SLIDE 4: Permissions — notifications, Face ID, email ── -->
+    <div class="fc-ob-slide" id="ob-slide-4">
       <div class="fc-ob-art" style="height:108px">
         <div class="fc-ob-glow" style="background:radial-gradient(ellipse at 50% 55%,rgba(107,63,224,0.30),transparent 65%)"></div>
         <div style="position:relative;z-index:2;font-size:62px;line-height:1">⚙️</div>
@@ -1771,8 +1875,8 @@ body {
       </p>
     </div>
 
-    <!-- ── SLIDE 4: Security + Connect (final) ──────────────────── -->
-    <div class="fc-ob-slide" id="ob-slide-4">
+    <!-- ── SLIDE 5: Security + Connect (final) ──────────────────── -->
+    <div class="fc-ob-slide" id="ob-slide-5">
       <div class="fc-ob-art" style="height:210px">
         <div class="fc-ob-glow" style="background:radial-gradient(ellipse at 50% 55%,rgba(52,199,89,0.30),transparent 65%)"></div>
         <!-- Shield with ring -->
@@ -1838,15 +1942,12 @@ body {
 <!-- ════════════════════════════════════════ SCREEN: PAYWALL -->
 <section class="fc-screen fc-paywall" data-screen="paywall" aria-label="FlowCheck Pro">
 
-  <!-- Close button -->
-  <button class="fc-pw-close" onclick="FCApp.skipPaywall()" aria-label="Skip for now" type="button">
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-  </button>
+  <!-- No instant-close — "Maybe later" fades in after 4 s via showPaywall() -->
 
-  <div style="position:relative;z-index:1;padding:calc(env(safe-area-inset-top) + 52px) 22px 0;display:flex;flex-direction:column;align-items:center">
+  <div style="position:relative;z-index:1;padding:calc(env(safe-area-inset-top) + 40px) 22px 0;display:flex;flex-direction:column;align-items:center">
 
-    <!-- Hero icon -->
-    <div class="fc-pw-hero-icon" aria-hidden="true">⚡</div>
+    <!-- Hero app icon — breathes with glow pulse -->
+    <div class="fc-pw-hero-icon" aria-hidden="true">💸</div>
 
     <!-- Pro badge -->
     <div class="fc-pw-badge">
@@ -1854,87 +1955,67 @@ body {
       FlowCheck Pro
     </div>
 
-    <!-- Headline -->
-    <h1 class="fc-pw-title">Your complete<br>financial picture.</h1>
-    <p class="fc-pw-subtitle">Everything you need to build real wealth — credit, budgets, goals, and insights in one place.</p>
+    <!-- Headline — punchy, personal, active -->
+    <h1 class="fc-pw-title">Know where every<br>dollar goes.</h1>
 
-    <!-- 14-day trial notice -->
-    <div class="fc-pw-trial-bar">
-      <div class="fc-pw-trial-icon">🎁</div>
-      <div>
-        <div class="fc-pw-trial-text">7-day free trial included</div>
-        <div class="fc-pw-trial-sub">No charge until your trial ends. Cancel anytime.</div>
-      </div>
+    <!-- Social proof pill -->
+    <div class="fc-pw-social" aria-label="4.8 stars, loved by thousands of users">
+      <span class="fc-pw-stars" aria-hidden="true">★★★★★</span>
+      <span class="fc-pw-social-text">4.8 · Loved by thousands</span>
     </div>
 
-    <!-- Feature list -->
-    <ul class="fc-pw-features">
+    <!-- 4 features with staggered entrance animation -->
+    <ul class="fc-pw-features" aria-label="Included with Pro">
       <li class="fc-pw-feature">
-        <div class="fc-pw-feature-icon" style="background:rgba(26,196,240,0.14)">🏦</div>
+        <div class="fc-pw-feature-icon" style="background:rgba(26,196,240,0.14)" aria-hidden="true">🏦</div>
         <div class="fc-pw-feature-text">
-          <div class="fc-pw-feature-name">Live bank balances</div>
-          <div class="fc-pw-feature-desc">All your accounts synced in real time</div>
+          <div class="fc-pw-feature-name">Real-time bank sync</div>
+          <div class="fc-pw-feature-desc">Every account, live — see exactly where you stand</div>
         </div>
-        <div class="fc-pw-feature-check">✓</div>
+        <div class="fc-pw-feature-check" aria-hidden="true">✓</div>
       </li>
       <li class="fc-pw-feature">
-        <div class="fc-pw-feature-icon" style="background:rgba(107,63,224,0.14)">📊</div>
+        <div class="fc-pw-feature-icon" style="background:rgba(107,63,224,0.14)" aria-hidden="true">📈</div>
         <div class="fc-pw-feature-text">
           <div class="fc-pw-feature-name">Credit score monitoring</div>
-          <div class="fc-pw-feature-desc">Experian soft pull — no impact on your score</div>
+          <div class="fc-pw-feature-desc">Experian tracking — zero impact on your score</div>
         </div>
-        <div class="fc-pw-feature-check">✓</div>
+        <div class="fc-pw-feature-check" aria-hidden="true">✓</div>
       </li>
       <li class="fc-pw-feature">
-        <div class="fc-pw-feature-icon" style="background:rgba(255,176,32,0.14)">🔔</div>
-        <div class="fc-pw-feature-text">
-          <div class="fc-pw-feature-name">Smart bill &amp; budget alerts</div>
-          <div class="fc-pw-feature-desc">Never miss a due date or overspend</div>
-        </div>
-        <div class="fc-pw-feature-check">✓</div>
-      </li>
-      <li class="fc-pw-feature">
-        <div class="fc-pw-feature-icon" style="background:rgba(52,199,89,0.14)">🎯</div>
-        <div class="fc-pw-feature-text">
-          <div class="fc-pw-feature-name">Unlimited savings goals</div>
-          <div class="fc-pw-feature-desc">Track every target with visual progress rings</div>
-        </div>
-        <div class="fc-pw-feature-check">✓</div>
-      </li>
-      <li class="fc-pw-feature">
-        <div class="fc-pw-feature-icon" style="background:rgba(255,69,58,0.14)">🤖</div>
+        <div class="fc-pw-feature-icon" style="background:rgba(255,69,58,0.14)" aria-hidden="true">🤖</div>
         <div class="fc-pw-feature-text">
           <div class="fc-pw-feature-name">AI spending insights</div>
-          <div class="fc-pw-feature-desc">Personalized weekly patterns &amp; subscription alerts</div>
+          <div class="fc-pw-feature-desc">Spot what's draining you before it becomes a problem</div>
         </div>
-        <div class="fc-pw-feature-check">✓</div>
+        <div class="fc-pw-feature-check" aria-hidden="true">✓</div>
       </li>
       <li class="fc-pw-feature">
-        <div class="fc-pw-feature-icon" style="background:rgba(255,255,255,0.07)">🔒</div>
+        <div class="fc-pw-feature-icon" style="background:rgba(255,176,32,0.14)" aria-hidden="true">🎯</div>
         <div class="fc-pw-feature-text">
-          <div class="fc-pw-feature-name">Face ID privacy lock</div>
-          <div class="fc-pw-feature-desc">Biometric protection every time you open</div>
+          <div class="fc-pw-feature-name">Bills, budgets &amp; goals</div>
+          <div class="fc-pw-feature-desc">Alerts before you overspend. Rings when you hit targets.</div>
         </div>
-        <div class="fc-pw-feature-check">✓</div>
+        <div class="fc-pw-feature-check" aria-hidden="true">✓</div>
       </li>
     </ul>
 
     <!-- Plan selector -->
-    <div class="fc-pw-plans" id="pw-plans">
-      <!-- Annual — default selected, most prominent -->
+    <div class="fc-pw-plans" id="pw-plans" role="radiogroup" aria-label="Choose a plan">
+      <!-- Annual — default selected -->
       <div class="fc-pw-plan selected" id="pw-plan-annual"
            onclick="FCApp.selectPlan('annual')" role="radio" aria-checked="true">
         <div class="fc-pw-plan-radio"></div>
         <div class="fc-pw-plan-info">
-          <div class="fc-pw-plan-name">
-            Annual
-          </div>
+          <div class="fc-pw-plan-name">Annual · 7-day free trial</div>
           <div class="fc-pw-annual-big">
             <span class="fc-pw-annual-amount" id="pw-price-annual-amount">$34.99</span>
             <span class="fc-pw-annual-period">/ year</span>
           </div>
-          <div class="fc-pw-plan-price" id="pw-price-annual">$2.92/mo — 7-day free trial</div>
-          <div class="fc-pw-plan-savings">Save 41% vs monthly</div>
+          <div class="fc-pw-plan-price" id="pw-price-annual">
+            $2.92/mo &nbsp;<span class="fc-pw-plan-strike">vs $59.88</span>
+          </div>
+          <div class="fc-pw-plan-savings">Save 41%</div>
         </div>
         <div class="fc-pw-plan-badge">Best Value</div>
       </div>
@@ -1945,15 +2026,31 @@ body {
         <div class="fc-pw-plan-radio"></div>
         <div class="fc-pw-plan-info">
           <div class="fc-pw-plan-name">Monthly</div>
-          <div class="fc-pw-plan-price" id="pw-price-monthly">$4.99/mo · Billed monthly</div>
+          <div class="fc-pw-plan-price" id="pw-price-monthly">$4.99/mo · No commitment</div>
         </div>
       </div>
     </div>
 
-    <!-- Primary CTA -->
+    <!-- Primary CTA — shine sweep animation via CSS -->
     <button id="pw-cta-btn" class="fc-pw-cta" onclick="FCApp.paywallPurchase()" type="button">
-      Try Free for 14 Days
+      Start My Free Week →
     </button>
+
+    <!-- Risk-erasure trust strip — kills the 3 biggest objections -->
+    <div class="fc-pw-trust" aria-label="Purchase guarantees">
+      <div class="fc-pw-trust-item">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        Secure payment
+      </div>
+      <div class="fc-pw-trust-item">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        No charge for 7 days
+      </div>
+      <div class="fc-pw-trust-item">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+        Cancel anytime
+      </div>
+    </div>
 
     <!-- Legal disclosure -->
     <p class="fc-pw-terms">
@@ -1969,7 +2066,9 @@ body {
       <a href="#" onclick="FCApp.openUrl(FC_CONFIG && FC_CONFIG.app.privacyUrl); return false">Privacy</a>
     </div>
 
-    <div style="height:6px"></div>
+    <!-- No skip — subscription required to access FlowCheck -->
+
+    <div style="height:calc(env(safe-area-inset-bottom) + 20px)"></div>
   </div>
 
   <!-- ── Purchase success overlay ── -->
@@ -1983,7 +2082,7 @@ body {
       <li>Smart spending insights</li>
       <li>Net worth tracking &amp; history</li>
     </ul>
-    <button class="fc-pw-success-cta" onclick="FCApp.setScreen('app'); FCApp.renderHomeAfterPro()">
+    <button class="fc-pw-success-cta" onclick="FCApp.setScreen('app'); FCApp.renderHomeAfterPro();">
       Let's Go →
     </button>
   </div>
@@ -3240,11 +3339,11 @@ FCApp.handleAppleSignIn = async function() {
 
 /* ── Onboarding stepper (5 slides) ──────────────────────── */
 let _obStep = 0;
-const _OB_TOTAL   = 5;
+const _OB_TOTAL   = 6;
 const _obAnswers  = {};
 // Labels per step — null means the slide handles its own progression
-// slide 1 (goal picker) auto-advances; slide 4 (connect) shows Plaid CTA
-const _obLabels = ['Get Started', null, 'Continue', 'Continue', null];
+// slide 1 (goal picker) and slide 2 (attribution) auto-advance; slide 5 (connect) shows Plaid CTA
+const _obLabels = ['Get Started', null, null, 'Continue', 'Continue', null];
 
 function _obUpdateControls() {
   const nextBtn  = document.getElementById('ob-next-btn');
@@ -3272,11 +3371,44 @@ function _obUpdateControls() {
       nextBtn.style.display = '';
       nextBtn.textContent   = label;
       nextBtn.onclick = () => obNext();
+
+      // Slide 0 — consent gate: button starts disabled until checkbox checked
+      if (_obStep === 0) {
+        const checked = document.getElementById('ob-consent-check')?.checked ?? false;
+        nextBtn.disabled      = !checked;
+        nextBtn.style.opacity = checked ? '1' : '0.4';
+      } else {
+        nextBtn.disabled      = false;
+        nextBtn.style.opacity = '1';
+      }
     }
     if (plaidBtn)   plaidBtn.style.display   = 'none';
     if (skipBtn)    skipBtn.style.display    = 'none';
     if (legalNote)  legalNote.style.display  = 'none';
   }
+}
+
+/** Called when the consent checkbox changes — enables/disables Get Started button */
+function obConsentChanged() {
+  const checked = document.getElementById('ob-consent-check')?.checked ?? false;
+  const btn     = document.getElementById('ob-next-btn');
+  if (!btn || _obStep !== 0) return;
+  btn.disabled      = !checked;
+  btn.style.opacity = checked ? '1' : '0.4';
+}
+
+/** Persist legal consent timestamp to Firestore (best-effort, non-blocking) */
+function _obSaveConsent() {
+  try {
+    const user = FCAuth.currentUser && FCAuth.currentUser();
+    const db   = FCAuth.db && FCAuth.db();
+    if (user && db) {
+      db.collection('users').doc(user.uid).update({
+        terms_accepted_at: new Date().toISOString(),
+        terms_version:     '2026-05-18',
+      }).catch(() => {});
+    }
+  } catch (_) {}
 }
 
 /**
@@ -3307,7 +3439,7 @@ async function _obApplyPermissions() {
     if (FCAuth.setBiometricEnabled) await FCAuth.setBiometricEnabled(wantsFaceId);
   } catch (_) {}
 
-  // Request push permission from the OS — do this AFTER user consented on slide 3
+  // Request push permission from the OS — do this AFTER user consented on slide 4
   if (wantsNotif && window.FCPush) {
     FCPush.requestAndRegister().catch(() => {});
     FCPush.requestLocalPermission().catch(() => {});
@@ -3317,8 +3449,36 @@ async function _obApplyPermissions() {
 async function obNext() {
   if (_obStep >= _OB_TOTAL - 1) return;
 
+  // Slide 0 — consent gate: must check box before advancing
+  if (_obStep === 0) {
+    const checked = document.getElementById('ob-consent-check')?.checked ?? false;
+    if (!checked) {
+      // Shake the label to draw attention
+      const label = document.getElementById('ob-consent-label');
+      if (label) {
+        label.style.transition = 'transform 0.08s ease';
+        const shakes = [8, -8, 6, -6, 3, -3, 0];
+        let i = 0;
+        const shake = () => {
+          if (i < shakes.length) {
+            label.style.transform = `translateX(${shakes[i]}px)`;
+            i++;
+            setTimeout(shake, 80);
+          } else {
+            label.style.transform = '';
+            label.style.transition = '';
+          }
+        };
+        shake();
+      }
+      return;
+    }
+    // Consent checked — persist immediately
+    _obSaveConsent();
+  }
+
   // Permissions slide — apply choices before advancing
-  if (_obStep === 3) {
+  if (_obStep === 4) {
     const btn = document.getElementById('ob-next-btn');
     if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
     await _obApplyPermissions();
@@ -3353,9 +3513,10 @@ function _obUpdateOrbs(step) {
   const configs = [
     { c:'1',   p:'0.5', g:'0'   }, // slide 0 — cyan dominant (hero)
     { c:'0.4', p:'0.9', g:'0'   }, // slide 1 — purple (goal picker)
-    { c:'0.3', p:'0.8', g:'0.1' }, // slide 2 — purple (feature showcase)
-    { c:'0.2', p:'0.9', g:'0.2' }, // slide 3 — purple (permissions)
-    { c:'0',   p:'0.2', g:'1'   }, // slide 4 — green (security + connect)
+    { c:'0.7', p:'0.4', g:'0'   }, // slide 2 — cyan/mixed (attribution)
+    { c:'0.3', p:'0.8', g:'0.1' }, // slide 3 — purple (feature showcase)
+    { c:'0.2', p:'0.9', g:'0.2' }, // slide 4 — purple (permissions)
+    { c:'0',   p:'0.2', g:'1'   }, // slide 5 — green (security + connect)
   ];
   const cfg = configs[Math.min(step, configs.length - 1)];
   cyan.style.opacity   = cfg.c;
@@ -3403,6 +3564,26 @@ function obSelectOption(el, field, value) {
 
   setTimeout(() => obNext(), 420);
 }
+
+function obSelectAttribution(el, value) {
+  const siblings = el.closest('.fc-ob-grid').querySelectorAll('.fc-ob-grid-option');
+  siblings.forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+
+  _obAnswers.attribution = value;
+
+  try {
+    const user = FCAuth.currentUser && FCAuth.currentUser();
+    const db   = FCAuth.db && FCAuth.db();
+    if (user && db) {
+      db.collection('users').doc(user.uid)
+        .update({ onboarding_attribution: value })
+        .catch(() => {});
+    }
+  } catch (_) {}
+
+  setTimeout(() => obNext(), 460);
+}
 </script>
 
 <!-- ════════════ IN-APP PAGE VIEWER (legal, help) ══════════════ -->
@@ -3426,6 +3607,120 @@ function obSelectOption(el, field, value) {
           style="flex:1;min-height:0;width:100%;border:none;background:#0a1520"
           title="Page viewer"></iframe>
 </div>
+
+<!-- ════════════════════════════════════════════ APP TOUR -->
+<div id="fc-tour" style="display:none" aria-label="App tour" role="dialog">
+  <!-- Spotlight cutout -->
+  <div id="fc-tour-spot"></div>
+
+  <!-- Card -->
+  <div id="fc-tour-card">
+    <!-- Progress dots -->
+    <div class="fc-tour-step-dots" id="fc-tour-dots"></div>
+    <div class="fc-tour-icon" id="fc-tour-icon">🏠</div>
+    <h3 class="fc-tour-title" id="fc-tour-title"></h3>
+    <p class="fc-tour-desc"  id="fc-tour-desc"></p>
+    <div class="fc-tour-actions">
+      <button class="fc-tour-skip" onclick="skipTour()" type="button">Skip tour</button>
+      <button class="fc-tour-next" id="fc-tour-next" onclick="tourNext()" type="button">Next →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ── App Tour ────────────────────────────────────────────── */
+const _TOUR_STEPS = [
+  { target: null,             icon: '👋', title: 'Welcome to FlowCheck!',  desc: 'You\'re all set. Let us show you around in 30 seconds — then you\'re on your own.' },
+  { target: '[data-view="home"]',     icon: '🏠', title: 'Dashboard',           desc: 'Your net worth, credit score, and recent activity — updated live every time you open the app.' },
+  { target: '[data-view="activity"]', icon: '💳', title: 'Activity',             desc: 'Every transaction across all your linked accounts, automatically categorized and searchable.' },
+  { target: '[data-view="insights"]', icon: '📊', title: 'Insights',             desc: 'Smart spending breakdowns and budget tracking — see exactly where your money actually goes.' },
+  { target: '[data-view="wealth"]',   icon: '📈', title: 'Wealth',               desc: 'Track your net worth and credit score over time. Connect more accounts to see the full picture.' },
+  { target: '[data-view="settings"]', icon: '⚙️', title: 'Settings',             desc: 'Manage linked banks, set savings goals, configure alerts, and customize your experience.' },
+];
+
+let _tourStep = 0;
+
+function startTour() {
+  _tourStep = 0;
+  const tour = document.getElementById('fc-tour');
+  if (!tour) return;
+  tour.style.display = 'block';
+  tour.style.opacity = '0';
+  requestAnimationFrame(() => { tour.style.transition = 'opacity 0.3s'; tour.style.opacity = '1'; });
+  _renderTourStep();
+}
+
+function _renderTourStep() {
+  const step  = _TOUR_STEPS[_tourStep];
+  if (!step)  { completeTour(); return; }
+
+  // Content
+  document.getElementById('fc-tour-icon').textContent  = step.icon;
+  document.getElementById('fc-tour-title').textContent = step.title;
+  document.getElementById('fc-tour-desc').textContent  = step.desc;
+  const nextBtn = document.getElementById('fc-tour-next');
+  if (nextBtn) nextBtn.textContent = _tourStep === _TOUR_STEPS.length - 1 ? "Let's go! 🚀" : 'Next →';
+
+  // Dots
+  const dotsEl = document.getElementById('fc-tour-dots');
+  if (dotsEl) {
+    dotsEl.innerHTML = _TOUR_STEPS.map((_, i) =>
+      `<div class="fc-tour-dot${i === _tourStep ? ' active' : ''}"></div>`
+    ).join('');
+  }
+
+  // Spotlight
+  const spot = document.getElementById('fc-tour-spot');
+  const card = document.getElementById('fc-tour-card');
+  if (step.target) {
+    const el = document.querySelector(step.target);
+    if (el && spot) {
+      const r = el.getBoundingClientRect();
+      const p = 10;
+      spot.style.left   = (r.left - p) + 'px';
+      spot.style.top    = (r.top  - p) + 'px';
+      spot.style.width  = (r.width  + p * 2) + 'px';
+      spot.style.height = (r.height + p * 2) + 'px';
+      spot.style.opacity = '1';
+    }
+    // Card sits above the nav bar
+    if (card) { card.style.bottom = '115px'; card.style.top = ''; }
+  } else {
+    // Welcome step — no spotlight, card centered
+    if (spot) spot.style.opacity = '0';
+    if (card) {
+      const mid = Math.round(window.innerHeight / 2 - 160);
+      card.style.top    = mid + 'px';
+      card.style.bottom = '';
+    }
+  }
+  // Restart card animation
+  if (card) { card.style.animation = 'none'; void card.offsetHeight; card.style.animation = ''; }
+}
+
+function tourNext() {
+  _tourStep++;
+  if (_tourStep >= _TOUR_STEPS.length) completeTour();
+  else _renderTourStep();
+}
+
+function skipTour()    { completeTour(); }
+
+function completeTour() {
+  const tour = document.getElementById('fc-tour');
+  if (tour) {
+    tour.style.opacity    = '0';
+    tour.style.transition = 'opacity 0.3s';
+    setTimeout(() => { tour.style.display = 'none'; tour.style.opacity = ''; }, 320);
+  }
+  // Persist so tour never shows again
+  try {
+    const user = FCAuth.currentUser && FCAuth.currentUser();
+    const db   = FCAuth.db && FCAuth.db();
+    if (user && db) db.collection('users').doc(user.uid).update({ tour_completed: true }).catch(() => {});
+  } catch (_) {}
+}
+</script>
 
 </body>
 </html>

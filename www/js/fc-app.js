@@ -2314,6 +2314,17 @@ window.FCApp = (function () {
   /* Helper called by CTA button after paywall success */
   function renderHomeAfterPro() {
     _renderHome();
+    setTimeout(() => _tryStartTour(), 1200);
+  }
+
+  /** Show the app tour for first-time users (checks tour_completed flag) */
+  function _tryStartTour() {
+    try {
+      // Only show if the user hasn't completed the tour yet
+      if (!state.user?.tour_completed && typeof startTour === 'function') {
+        startTour();
+      }
+    } catch (_) {}
   }
 
   /* ─────────────────────────────────────────────────────────────
@@ -2592,6 +2603,10 @@ window.FCApp = (function () {
     _setLoading('btn-register', true, 'Creating account…');
     _clearError('register-error');
     try {
+      // Sign out any cached session first — prevents onAuthStateChanged firing
+      // with the OLD user before signUp completes and routing a new registrant
+      // straight to the existing account's home screen.
+      try { FCData.detachAllListeners(); _listenersAttached = false; await FCAuth.signOut(); } catch (_) {}
       await FCAuth.signUp(name, email, password);
       // Fire welcome email — non-blocking, never delays onboarding
       _sendWelcomeEmail().catch(() => {});
@@ -2705,11 +2720,15 @@ window.FCApp = (function () {
       // trap the user on the onboarding screen. The flag will be retried on
       // next launch via the normal auth boot path.
     } finally {
-      setScreen('app');
-      _renderHome();
-      // Trigger a background sync if the user already linked a bank
-      setTimeout(() => _doSync(false), 800);
-      // Reset after transition completes so back-navigation works
+      // Gate non-pro users behind the paywall before entering the app
+      const isPro = await FCPurchases.checkProStatus().catch(() => false);
+      if (!isPro) {
+        showPaywall();
+      } else {
+        setScreen('app');
+        _renderHome();
+        setTimeout(() => _doSync(false), 800);
+      }
       setTimeout(() => { _skippingOnboarding = false; }, 1500);
     }
   }
@@ -2917,11 +2936,19 @@ window.FCApp = (function () {
         } else {
           setScreen('app');
           _renderHome();
-          // Background sync so data is fresh on every launch
           setTimeout(() => _doSync(false), 900);
-          // Show lock screen on first load if biometrics are enabled.
-          // (App-resume lock handles subsequent background-to-foreground.)
           if (biometricEnabled) showLockScreen();
+          // Gate non-pro returning users — check Firestore first (instant),
+          // then verify with RevenueCat if Firestore says not pro.
+          if (!userDoc?.is_pro && !_paywallShownThisSession) {
+            FCPurchases.checkProStatus().then(isPro => {
+              if (!isPro && !_paywallShownThisSession) setTimeout(() => showPaywall(), 1500);
+              else if (isPro) setTimeout(() => _tryStartTour(), 1400);
+            }).catch(() => {});
+          } else if (userDoc?.is_pro) {
+            // Pro user — offer tour if they haven't seen it
+            setTimeout(() => _tryStartTour(), 1400);
+          }
         }
       } else {
         fcLog('No user — showing login');
@@ -3386,14 +3413,14 @@ window.FCApp = (function () {
      Soft gate — user can dismiss. Annual plan selected by default.
      ───────────────────────────────────────────────────────────── */
 
-  let _selectedPlan = 'annual'; // 'annual' | 'monthly'
-  let _pwOfferings  = null;
+  let _selectedPlan          = 'annual'; // 'annual' | 'monthly'
+  let _pwOfferings           = null;
+  let _paywallShownThisSession = false;  // prevents re-trigger mid-session
 
   async function showPaywall() {
+    _paywallShownThisSession = true;
     setScreen('paywall');
     haptic('light');
-
-    // Load live prices from RevenueCat in background
     _loadPaywallOfferings();
   }
 
@@ -3446,7 +3473,7 @@ window.FCApp = (function () {
     const btn   = document.getElementById('pw-cta-btn');
     const terms = document.getElementById('pw-terms-text');
     if (plan === 'annual') {
-      if (btn)   btn.textContent   = 'Try Free for 7 Days';
+      if (btn)   btn.textContent   = 'Start My Free Week →';
       if (terms) terms.textContent = 'Then $34.99/year. Cancel anytime in App Store settings.';
     } else {
       if (btn)   btn.textContent   = 'Start Monthly Plan';
@@ -3512,8 +3539,25 @@ window.FCApp = (function () {
           _renderHome();
         }
       } else {
-        toast('Purchase pending — check App Store for approval', 'info');
-        if (btn) { btn.disabled = false; btn.textContent = _selectedPlan === 'annual' ? 'Try Free for 7 Days' : 'Start Monthly Plan'; }
+        // RevenueCat can be slow to reflect the new entitlement — retry once after 3 s
+        if (btn) btn.textContent = 'Activating…';
+        setTimeout(async () => {
+          try {
+            const isPro2 = await FCPurchases.checkProStatus();
+            if (isPro2) {
+              haptic('medium');
+              await FCData.updateUserField('is_pro', true);
+              setScreen('app');
+              _renderHome();
+              setTimeout(() => _tryStartTour(), 1200);
+            } else {
+              // Still pending — show "Check again" button so user isn't stuck
+              _showPendingState(btn);
+            }
+          } catch (_) {
+            _showPendingState(btn);
+          }
+        }, 3000);
       }
     } catch (err) {
       if (err.message?.toLowerCase().includes('cancel')) {
@@ -3525,6 +3569,39 @@ window.FCApp = (function () {
         btn.disabled = false;
         btn.textContent = _selectedPlan === 'annual' ? 'Try Free for 7 Days' : 'Start Monthly Plan';
       }
+    }
+  }
+
+  /** Called when a purchase is in pending/Ask-to-Buy state.
+   *  Shows a friendly message and swaps the CTA to "Check Approval Status"
+   *  so the user can re-check without being stuck forever. */
+  function _showPendingState(btn) {
+    toast('Purchase received — tap below to activate your plan', 'info', 5000);
+    if (btn) {
+      btn.disabled    = false;
+      btn.textContent = 'Activate My Plan';
+      btn.onclick     = async () => {
+        btn.disabled    = true;
+        btn.textContent = 'Activating…';
+        try {
+          if (!FCPurchases.isConfigured()) await FCPurchases.configure();
+          const isPro = await FCPurchases.checkProStatus();
+          if (isPro) {
+            haptic('medium');
+            await FCData.updateUserField('is_pro', true);
+            setScreen('app');
+            _renderHome();
+            setTimeout(() => _tryStartTour(), 1200);
+          } else {
+            toast('Not activated yet — try restoring purchases below', 'info', 5000);
+            btn.disabled    = false;
+            btn.textContent = 'Activate My Plan';
+          }
+        } catch (_) {
+          btn.disabled    = false;
+          btn.textContent = 'Check Approval Status';
+        }
+      };
     }
   }
 

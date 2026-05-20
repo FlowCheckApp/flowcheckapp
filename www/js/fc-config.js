@@ -69,7 +69,7 @@ window.FC_CONFIG = {
   revenueCat: {
     apiKey:        'appl_uXPDYRZDWiuLWcHfmesBUwKHmOQ',
     appId:         'app4590b0f1ba',
-    entitlementId: 'pro',
+    entitlementId: 'premium',
   },
 
   /* ── Notifications ─────────────────────────────────────────

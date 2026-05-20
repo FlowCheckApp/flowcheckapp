@@ -58,7 +58,10 @@ service cloud.firestore {
         'notifications_enabled', 'biometric_enabled',
         'email_marketing_opt_in',
         'onboarding_goal', 'onboarding_income', 'onboarding_complete',
+        'onboarding_attribution',
+        'tour_completed',
         'fcm_token', 'fcm_updated_at',
+        'terms_accepted_at', 'terms_version',
       ]);
     }
 
