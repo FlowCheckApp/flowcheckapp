@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "postinstall": "node -e \"const fs=require('fs');const p='node_modules/@capacitor-community/apple-sign-in/Package.swift';let c=fs.readFileSync(p,'utf8');c=c.replace('from: \\\"7.0.0\\\"','from: \\\"8.0.0\\\"');fs.writeFileSync(p,c);console.log('Patched apple-sign-in Package.swift for Capacitor 8');\""
   },
   "keywords": [],
   "author": "",
