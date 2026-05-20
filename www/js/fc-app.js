@@ -225,13 +225,17 @@ window.FCApp = (function () {
       const first   = values[Math.max(0, values.length - 30)];
       const last    = values[values.length - 1];
       const delta   = last - first;
-      const pct     = first !== 0 ? Math.round((delta / Math.abs(first)) * 100) : 0;
-      const up      = delta >= 0;
-      deltaEl.style.display     = '';
-      deltaEl.textContent       = (up ? '↑' : '↓') + ' ' + FCData.formatCurrency(Math.abs(delta));
-      deltaEl.style.background  = up ? 'rgba(52,199,89,0.15)'  : 'rgba(255,69,58,0.12)';
-      deltaEl.style.color       = up ? 'var(--fc-success)'     : 'var(--fc-danger)';
-      deltaEl.style.border      = up ? '1px solid rgba(52,199,89,0.25)' : '1px solid rgba(255,69,58,0.2)';
+      // Only show delta badge if the reference point is meaningful (not zero / first-ever snapshot)
+      if (first !== 0) {
+        const up      = delta >= 0;
+        deltaEl.style.display     = '';
+        deltaEl.textContent       = (up ? '↑' : '↓') + ' ' + FCData.formatCurrency(Math.abs(delta));
+        deltaEl.style.background  = up ? 'rgba(52,199,89,0.15)'  : 'rgba(255,69,58,0.12)';
+        deltaEl.style.color       = up ? 'var(--fc-success)'     : 'var(--fc-danger)';
+        deltaEl.style.border      = up ? '1px solid rgba(52,199,89,0.25)' : '1px solid rgba(255,69,58,0.2)';
+      } else {
+        deltaEl.style.display = 'none';
+      }
     }
   }
 
@@ -372,14 +376,15 @@ window.FCApp = (function () {
 
     const bars = buckets.map((b, i) => {
       const x  = GAP + i * (barW + GAP);
-      const h  = b.total > 0 ? Math.max(Math.round((b.total / maxVal) * (H - 10)), 3) : 2;
+      const h  = b.total > 0 ? Math.max(Math.round((b.total / maxVal) * (H - 10)), 4) : 0;
       const y  = H - h;
+      if (h === 0) return ''; // zero-spend day — no bar at all
       if (b.isNow) {
         // Active bucket: full gradient + glow + bright top cap
         return `<rect x="${x}" y="${y}" width="${barW}" height="${h}" rx="${rx}" fill="url(#cg-now)" filter="url(#glow-bar)"/>
                 <rect x="${x}" y="${y}" width="${barW}" height="${Math.min(rx * 2, h)}" rx="${rx}" fill="rgba(26,196,240,0.35)"/>`;
       }
-      return `<rect x="${x}" y="${y}" width="${barW}" height="${h}" rx="${rx}" fill="url(#cg)" opacity="0.5"/>`;
+      return `<rect x="${x}" y="${y}" width="${barW}" height="${h}" rx="${rx}" fill="url(#cg)" opacity="0.75"/>`;
     }).join('');
 
     svgEl.setAttribute('viewBox', `0 0 ${W} ${H}`);
@@ -852,10 +857,12 @@ window.FCApp = (function () {
       const eased    = 1 - Math.pow(1 - progress, 3); // ease-out cubic
       const current  = startValue + (target - startValue) * eased;
 
-      element.textContent = prefix + current.toLocaleString('en-US', {
+      const isNeg  = current < 0;
+      const absStr = Math.abs(current).toLocaleString('en-US', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
-      }) + suffix;
+      });
+      element.textContent = (isNeg ? (prefix ? '−' + prefix : '−') : (prefix || '')) + absStr + suffix;
       element.dataset.animVal = current;
 
       if (progress < 1) requestAnimationFrame(step);
@@ -1005,18 +1012,23 @@ window.FCApp = (function () {
     if (thisBar) thisBar.style.width = Math.round((thisWeek / max) * 100) + '%';
     if (lastBar) lastBar.style.width = Math.round((lastWeek / max) * 100) + '%';
 
-    // Badge + headline
-    if (lastWeek > 0 && badgeEl && headlineEl) {
-      const pct   = Math.round(((thisWeek - lastWeek) / lastWeek) * 100);
-      const less  = pct < 0;
+    // Normalize by days elapsed so Monday morning doesn't look like huge savings
+    const daysElapsed = Math.max(1, dayOfWeek === 0 ? 7 : dayOfWeek); // Sun=0 → treat as 7 (full week just ended)
+    const thisAvg = thisWeek / daysElapsed;
+    const lastAvg = lastWeek / 7;
+
+    // Badge + headline — only show if last week had spend AND at least 2 days have elapsed
+    if (lastWeek > 0 && daysElapsed >= 2 && badgeEl && headlineEl) {
+      const pct    = Math.round(((thisAvg - lastAvg) / lastAvg) * 100);
+      const less   = pct < 0;
       const absPct = Math.abs(pct);
       badgeEl.style.display = '';
       badgeEl.textContent   = (less ? '↓ ' : '↑ ') + absPct + '%';
       badgeEl.style.background = less ? 'rgba(52,199,89,0.15)'  : 'rgba(255,69,58,0.12)';
       badgeEl.style.color      = less ? 'var(--fc-success)'     : 'var(--fc-danger)';
       headlineEl.textContent   = less
-        ? `Spending ${absPct}% less than last week 🎉`
-        : `Spending ${absPct}% more than last week`;
+        ? `Spending ${absPct}% less per day than last week 🎉`
+        : `Spending ${absPct}% more per day than last week`;
       headlineEl.style.color   = less ? 'var(--fc-success)' : 'white';
     } else if (badgeEl) {
       badgeEl.style.display = 'none';
@@ -1228,6 +1240,15 @@ window.FCApp = (function () {
      RENDER: HOME
      ───────────────────────────────────────────────────────────── */
 
+  // Compact currency for tight stat cards — $19,330 → $19.3K, $1,200,000 → $1.2M
+  function _fmtCompact(val) {
+    const abs = Math.abs(val);
+    const sign = val < 0 ? '−$' : '$';
+    if (abs >= 1000000) return sign + (abs / 1000000).toFixed(1) + 'M';
+    if (abs >= 10000)   return sign + (abs / 1000).toFixed(1)    + 'K';
+    return FCData.formatCurrency(val);
+  }
+
   function _renderHome() {
     // Update island text based on bank link status
     if (state.user && !state.user.plaid_linked) {
@@ -1256,7 +1277,7 @@ window.FCApp = (function () {
     // Cash stat
     const cash   = FCData.calcCash(state.accounts);
     const cashEl = document.getElementById('stat-cash');
-    if (cashEl) cashEl.textContent = FCData.formatCurrency(cash);
+    if (cashEl) cashEl.textContent = _fmtCompact(cash);
 
     // Account count
     const acctEl = document.getElementById('stat-account-count');
@@ -1316,14 +1337,14 @@ window.FCApp = (function () {
       const billTotal    = state.bills
         .filter(b => b.category === 'Subscription' || b.type === 'subscription')
         .reduce((sum, b) => sum + (b.amount || 0), 0);
-      subsEl.textContent = FCData.formatCurrency(autoTotal || billTotal);
+      subsEl.textContent = _fmtCompact(autoTotal || billTotal);
     }
 
     // Bills due stat
     const unpaidBills = state.bills.filter(b => b.status !== 'paid');
     const unpaidBillsTotal = unpaidBills.reduce((s, b) => s + (b.amount || 0), 0);
     const billsStatEl = document.getElementById('stat-bills');
-    if (billsStatEl) billsStatEl.textContent = FCData.formatCurrency(unpaidBillsTotal);
+    if (billsStatEl) billsStatEl.textContent = _fmtCompact(unpaidBillsTotal);
 
     // Update bills-due-meta label dynamically — only red if something is actually due soon
     const billsDueMeta = document.getElementById('bills-due-meta');
@@ -1366,7 +1387,7 @@ window.FCApp = (function () {
     const overdueCount = state.bills.filter(b => b.status !== 'paid' && FCData.daysUntil(b.due_date) < 0).length;
 
     const incomeEl       = document.getElementById('stat-income');
-    if (incomeEl) incomeEl.textContent = FCData.formatCurrency(periodIncome);
+    if (incomeEl) incomeEl.textContent = _fmtCompact(periodIncome);
     const incomePeriodEl = document.getElementById('stat-income-period');
     if (incomePeriodEl) incomePeriodEl.textContent = _PERIOD_LABELS[state.period] || 'this month';
 
@@ -1393,7 +1414,7 @@ window.FCApp = (function () {
         <div class="fc-grow">
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
             <span class="fc-eyebrow">Goal</span>
-            <span style="color:var(--fc-accent);font-size:10px;font-weight:500">${pct >= 100 ? 'complete 🎉' : 'on track'}</span>
+            <span style="color:${pct >= 100 ? 'var(--fc-success)' : pct >= 75 ? 'var(--fc-accent)' : pct >= 10 ? 'var(--fc-accent)' : 'var(--fc-text-faint)'};font-size:10px;font-weight:600">${pct >= 100 ? 'Complete 🎉' : pct >= 75 ? 'Almost there' : pct >= 10 ? 'In progress' : pct > 0 ? 'Just started' : 'Get started'}</span>
           </div>
           <div class="fc-h3" style="font-size:16px;margin-bottom:2px">${g.name}</div>
           <div class="fc-xs">${current} of ${target}</div>
@@ -1434,18 +1455,31 @@ window.FCApp = (function () {
     const billsLbl  = document.getElementById('safe-bills-label');
 
     if (state.user && state.user.plaid_linked) {
-      // Safe to Spend = Cash − upcoming bills − 10% savings buffer
       const buffer        = cash * 0.10;
       const safeToSpend   = Math.max(0, cash - unpaidBillsTotal - buffer);
-      // Progress bar shows how much of cash has been committed (spend + bills)
       const committed     = monthSpend + unpaidBillsTotal;
-      const barPct        = cash > 0 ? Math.min(Math.round((committed / cash) * 100), 100) : 0;
-      const barColor      = barPct > 85 ? 'var(--fc-danger)'
-                          : barPct > 65 ? 'var(--fc-warning)'
+      // isOver: month spending has blown past the current cash balance
+      const isOver        = cash > 0 && committed >= cash;
+
+      // Bar: when not over, tracks committed-vs-cash; when over, stays solid red
+      const barPct        = cash > 0 ? Math.min(Math.round((committed / cash) * 100), 100) : 100;
+      const barColor      = isOver             ? 'var(--fc-danger)'
+                          : barPct > 85        ? 'var(--fc-danger)'
+                          : barPct > 65        ? 'var(--fc-warning)'
                           : 'linear-gradient(90deg,var(--fc-accent),var(--fc-purple))';
 
-      if (safeEl)   animateNumber(safeEl, safeToSpend, '$');
-      if (metaEl)   metaEl.textContent = `${Math.round(barPct)}% of cash committed`;
+      // Card label flips when over: "Safe to Spend" → "Cash Balance"
+      const cardLabelEl = document.getElementById('safe-spend-card-label');
+      if (cardLabelEl) cardLabelEl.textContent = isOver ? 'Cash Balance' : 'Safe to Spend';
+
+      // Value: when over, show real cash on hand; otherwise show safe-to-spend
+      if (safeEl) animateNumber(safeEl, isOver ? Math.max(0, cash) : safeToSpend, '$');
+
+      // Meta: context-appropriate message — no more "100% committed" alongside a positive number
+      if (metaEl) metaEl.textContent = isOver
+        ? 'Month spend exceeds cash on hand'
+        : `${Math.round(barPct)}% of cash committed`;
+
       if (barEl)  { barEl.style.width = barPct + '%'; barEl.style.background = barColor; }
       if (spentLbl) spentLbl.textContent = FCData.formatCurrency(monthSpend);
       if (billsLbl) billsLbl.textContent = FCData.formatCurrency(unpaidBillsTotal);
