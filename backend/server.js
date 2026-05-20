@@ -1093,45 +1093,47 @@ app.post('/credit/manual', requireAuth, async (req, res) => {
 });
 
 /* ─────────────────────────────────────────────────────────────
-   EMAIL (Nodemailer)
-   Configure via Railway env vars — all optional. If EMAIL_HOST
-   is not set, email endpoints are silent no-ops (never crash).
-   Supports any SMTP provider:
-     Gmail:    host=smtp.gmail.com port=587 user=you@gmail.com
-               pass=<16-char app-password>
-     SendGrid: host=smtp.sendgrid.net port=587 user=apikey
-               pass=<sendgrid-api-key>
+   EMAIL (Resend)
+   Set RESEND_API_KEY in Railway env vars.
+   All email automation (bill reminders, weekly summaries, budget
+   alerts, welcome emails) is handled entirely in this backend —
+   no need to configure automations in the Resend dashboard.
    Also set: EMAIL_FROM  (e.g. "FlowCheck <noreply@flowcheck.app>")
+             Must be a verified sender domain in Resend.
    ───────────────────────────────────────────────────────────── */
-let _mailer = null;
-if (process.env.EMAIL_HOST && process.env.EMAIL_USER && process.env.EMAIL_PASS) {
-  const nodemailer = require('nodemailer');
-  _mailer = nodemailer.createTransport({
-    host:   process.env.EMAIL_HOST,
-    port:   parseInt(process.env.EMAIL_PORT) || 587,
-    secure: parseInt(process.env.EMAIL_PORT) === 465,
-    auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
-  });
-  // Verify connection on boot — warns but never crashes if misconfigured
-  _mailer.verify().then(() => {
-    console.log(`[Boot] Email: ${process.env.EMAIL_HOST}:${process.env.EMAIL_PORT || 587} ✓`);
-  }).catch(err => {
-    console.warn('[Boot] Email SMTP verify failed:', err.message, '— emails will be skipped');
-    _mailer = null;
-  });
+const _resendApiKey = process.env.RESEND_API_KEY || null;
+if (_resendApiKey) {
+  console.log('[Boot] Email: Resend configured ✓');
 } else {
-  console.warn('[Boot] EMAIL_HOST/USER/PASS not set — email endpoints are no-ops');
+  console.warn('[Boot] RESEND_API_KEY not set — email endpoints are no-ops');
 }
 
 const EMAIL_FROM = process.env.EMAIL_FROM || 'FlowCheck <noreply@flowcheck.app>';
 
-async function _sendEmail(to, subject, html) {
-  if (!_mailer) {
-    console.log('[email] No mailer configured — skipping:', subject, '→', to);
+async function _sendEmail(to, subject, html, uid = null) {
+  if (!_resendApiKey) {
+    console.log('[email] No Resend API key configured — skipping:', subject, '→', to);
     return false;
   }
+  // RFC 8058 List-Unsubscribe headers — enables one-click unsubscribe in Gmail + Apple Mail
+  const headers = uid ? {
+    'List-Unsubscribe':      `<${BACKEND_URL}/unsubscribe?uid=${uid}&type=all>`,
+    'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+  } : {};
   try {
-    await _mailer.sendMail({ from: EMAIL_FROM, to, subject, html });
+    const resp = await fetch('https://api.resend.com/emails', {
+      method:  'POST',
+      headers: {
+        'Authorization': `Bearer ${_resendApiKey}`,
+        'Content-Type':  'application/json',
+      },
+      body: JSON.stringify({ from: EMAIL_FROM, to, subject, html, headers }),
+    });
+    if (!resp.ok) {
+      const errText = await resp.text();
+      console.error(`[email] Resend error ${resp.status}:`, errText.slice(0, 300));
+      return false;
+    }
     console.log(`[email] Sent "${subject}" → ${to}`);
     return true;
   } catch (err) {
@@ -1508,6 +1510,7 @@ async function _sendBillRemindersForUser(uid, userData) {
   const fcmToken   = userData.fcm_token;
   const email      = userData.email;
   const notifOn    = userData.notifications_enabled !== false;
+  const alertsOn   = userData.email_alerts_enabled  !== false; // respects granular unsubscribe
   if (!notifOn) return;
 
   const now        = new Date();
@@ -1552,8 +1555,8 @@ async function _sendBillRemindersForUser(uid, userData) {
       await _saveNotification(uid, { title, body, type: 'bill_due', data: { bill_id: doc.id } });
     }
 
-    // Email
-    if (email && _mailer) {
+    // Email — only if alerts not unsubscribed
+    if (email && _resendApiKey && alertsOn) {
       const amountStr = _fmt(bill.amount || 0);
       _sendEmail(email, title, `
         <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
@@ -1579,7 +1582,7 @@ async function _sendBillRemindersForUser(uid, userData) {
           </div>
         </div>
         </body></html>
-      `).catch(e => console.error('[email bill-reminder]', e.message));
+      `, uid).catch(e => console.error('[email bill-reminder]', e.message));
     }
   }
 }
@@ -1588,9 +1591,10 @@ async function _sendBillRemindersForUser(uid, userData) {
  * Send weekly financial summary email to a user.
  */
 async function _sendWeeklySummaryForUser(uid, userData) {
-  const email   = userData.email;
-  const notifOn = userData.notifications_enabled !== false;
-  if (!email || !notifOn || !_mailer) return;
+  const email    = userData.email;
+  const notifOn  = userData.notifications_enabled !== false;
+  const weeklyOn = userData.email_weekly_enabled  !== false; // respects granular unsubscribe
+  if (!email || !notifOn || !weeklyOn || !_resendApiKey) return;
 
   const name = _htmlEscape((userData.display_name || userData.name || 'there').split(' ')[0]);
 
@@ -1628,6 +1632,20 @@ async function _sendWeeklySummaryForUser(uid, userData) {
     .map(([cat, amt]) => `<tr><td style="padding:6px 0;color:#374151;font-size:14px">${_htmlEscape(cat)}</td><td style="padding:6px 0;text-align:right;font-weight:600;color:#111827;font-size:14px">${_fmt(amt)}</td></tr>`)
     .join('');
 
+  // FCM push — sent before email so users get an instant heads-up
+  if (userData.fcm_token && notifOn) {
+    const topCatName = Object.entries(categories).sort((a, b) => b[1] - a[1])[0]?.[0] || '';
+    const catLabel   = topCatName
+      ? topCatName.charAt(0) + topCatName.slice(1).toLowerCase().replace(/_/g, ' ')
+      : '';
+    _sendFCM(uid, userData.fcm_token, {
+      title: '📊 Your Weekly Summary is Ready',
+      body:  `You spent ${_fmt(totalSpent)} this week${catLabel ? ` — mostly on ${catLabel}` : ''}.`,
+      type:  'weekly_summary',
+      channelId: 'flowcheck_default',
+    }).catch(() => {});
+  }
+
   _sendEmail(email, `Your FlowCheck weekly summary 📊`, `
     <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
     <div style="max-width:520px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
@@ -1658,7 +1676,7 @@ async function _sendWeeklySummaryForUser(uid, userData) {
       </div>
     </div>
     </body></html>
-  `).catch(e => console.error('[email weekly]', e.message));
+  `, uid).catch(e => console.error('[email weekly]', e.message));
 }
 
 // ── Cron: daily bill reminders at 09:00 UTC ─────────────────
@@ -1666,17 +1684,22 @@ if (cron) {
   cron.schedule('0 9 * * *', async () => {
     console.log('[Cron] Running daily bill reminder job…');
     try {
-      const usersSnap = await db.collection('users').get();
+      let lastDoc = null;
       let sent = 0;
-      for (const userDoc of usersSnap.docs) {
-        const data = userDoc.data();
-        // Send reminders to all users who have notifications enabled —
-        // bills can exist without Plaid being linked (manually added bills)
-        await _sendBillRemindersForUser(userDoc.id, data).catch(err =>
-          console.error(`[cron/bills] uid:${userDoc.id}:`, err.message)
-        );
-        sent++;
-      }
+      const PAGE = 200;
+      do {
+        let q = db.collection('users').orderBy('__name__').limit(PAGE);
+        if (lastDoc) q = q.startAfter(lastDoc);
+        const page = await q.get();
+        if (page.empty) break;
+        lastDoc = page.docs[page.docs.length - 1];
+        for (const userDoc of page.docs) {
+          await _sendBillRemindersForUser(userDoc.id, userDoc.data()).catch(err =>
+            console.error(`[cron/bills] uid:${userDoc.id}:`, err.message)
+          );
+          sent++;
+        }
+      } while (true);
       console.log(`[Cron] Bill reminders: checked ${sent} users`);
     } catch (err) {
       console.error('[Cron] Bill reminder job failed:', err.message);
@@ -1690,16 +1713,24 @@ if (cron) {
   cron.schedule('0 7 * * 0', async () => {
     console.log('[Cron] Running weekly summary job…');
     try {
-      const usersSnap = await db.collection('users').get();
+      let lastDoc = null;
       let sent = 0;
-      for (const userDoc of usersSnap.docs) {
-        const data = userDoc.data();
-        if (!data.plaid_linked || !data.email) continue;
-        await _sendWeeklySummaryForUser(userDoc.id, data).catch(err =>
-          console.error(`[cron/weekly] uid:${userDoc.id}:`, err.message)
-        );
-        sent++;
-      }
+      const PAGE = 200;
+      do {
+        let q = db.collection('users').orderBy('__name__').limit(PAGE);
+        if (lastDoc) q = q.startAfter(lastDoc);
+        const page = await q.get();
+        if (page.empty) break;
+        lastDoc = page.docs[page.docs.length - 1];
+        for (const userDoc of page.docs) {
+          const data = userDoc.data();
+          if (!data.plaid_linked || !data.email) continue;
+          await _sendWeeklySummaryForUser(userDoc.id, data).catch(err =>
+            console.error(`[cron/weekly] uid:${userDoc.id}:`, err.message)
+          );
+          sent++;
+        }
+      } while (true);
       console.log(`[Cron] Weekly summaries: processed ${sent} users`);
     } catch (err) {
       console.error('[Cron] Weekly summary job failed:', err.message);
@@ -1917,6 +1948,118 @@ async function _webhookSyncItem(itemId, retryCount = 0) {
     }
 
     await userRef.update({ last_synced: TS() });
+
+    // ── Post-sync intelligence: payday detection + budget alerts ───────
+    // Only worth running when there are new transactions to analyse.
+    if (added.length > 0) {
+      const userSnap = await userRef.get();
+      const userData = userSnap.exists ? userSnap.data() : {};
+      const fcmToken = userData.fcm_token || null;
+      const notifOn  = userData.notifications_enabled !== false;
+
+      if (notifOn) {
+
+        // ── 1. Payday / Early-pay detection ──────────────────────────
+        // Plaid encodes credits (money IN) as negative amounts.
+        const INCOME_PRIMARY  = new Set(['INCOME', 'TRANSFER_IN']);
+        const INCOME_DETAILED = new Set([
+          'INCOME_WAGES', 'INCOME_OTHER_INCOME', 'INCOME_TAX_REFUND',
+          'TRANSFER_IN_PAYROLL_ACCOUNT_DEPOSIT', 'TRANSFER_IN_ACCOUNT_TRANSFER',
+        ]);
+        const PAYDAY_RE     = /\b(payroll|paycheck|direct dep|direct deposit|ach dep|salary|wages|employer|adp|gusto|paychex|intuit payroll|zenpayroll|rippling|bamboohr)\b/i;
+        const EARLY_PAY_RE  = /\b(earnin|dave\b|brigit|chime early|axos early|current early|one pay|albert|varo|go2bank early|jelli|even\b|floatme|klover)\b/i;
+        const MIN_PAY       = 200; // ignore micro-deposits < $200
+
+        for (const t of added) {
+          if (t.amount >= 0) continue;            // positive = expense in Plaid
+          const credit = Math.abs(t.amount);
+          if (credit < MIN_PAY) continue;
+
+          const catPrimary  = t.personal_finance_category?.primary  || '';
+          const catDetailed = t.personal_finance_category?.detailed || '';
+          const txnName     = t.name            || '';
+          const merch       = t.merchant_name   || '';
+
+          const isIncome = INCOME_PRIMARY.has(catPrimary) ||
+                           INCOME_DETAILED.has(catDetailed) ||
+                           PAYDAY_RE.test(txnName) ||
+                           PAYDAY_RE.test(merch);
+          if (!isIncome) continue;
+
+          const isEarlyPay = EARLY_PAY_RE.test(txnName) || EARLY_PAY_RE.test(merch);
+          const title = isEarlyPay ? '💸 Early Pay Arrived!' : '🎉 Payday!';
+          const body  = `${_fmt(credit)} just landed in your account.`;
+
+          _sendFCM(uid, fcmToken, {
+            title, body,
+            type:      'payday',
+            data:      { amount: String(credit), account_id: t.account_id || '' },
+            channelId: 'flowcheck_default',
+          }).catch(err => console.error('[fcm payday]', err.message));
+
+          break; // one payday alert per sync batch is enough
+        }
+
+        // ── 2. Budget overage detection ───────────────────────────────
+        // Only check categories touched by new expense transactions.
+        const budgetSnap = await userRef.collection('budgets').get();
+        if (!budgetSnap.empty) {
+          const budgetMap = {};
+          budgetSnap.docs.forEach(d => {
+            const b = d.data();
+            if (b.category && b.limit) budgetMap[b.category.toUpperCase()] = b.limit;
+          });
+
+          const now        = new Date();
+          const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+
+          // Unique expense categories from this batch
+          const touchedCats = new Set(
+            added
+              .filter(t => t.amount > 0) // expense = positive in Plaid
+              .map(t => (
+                t.personal_finance_category?.primary ||
+                (t.category && t.category[0]) ||
+                ''
+              ).toUpperCase())
+              .filter(Boolean)
+          );
+
+          for (const cat of touchedCats) {
+            const budgetLimit = budgetMap[cat];
+            if (!budgetLimit) continue;
+
+            // Month-to-date spend in this category (from Firestore after the batch write)
+            const catSnap = await userRef.collection('transactions')
+              .where('date', '>=', monthStart)
+              .where('pending', '==', false)
+              .get();
+
+            let monthlySpent = 0;
+            catSnap.docs.forEach(d => {
+              const tx = d.data();
+              const txCat = (tx.category && tx.category[0] || '').toUpperCase();
+              if (txCat === cat && !tx.isCredit) monthlySpent += tx.amount;
+            });
+
+            if (monthlySpent > budgetLimit) {
+              const overBy   = monthlySpent - budgetLimit;
+              const catLabel = cat.charAt(0) + cat.slice(1).toLowerCase().replace(/_/g, ' ');
+              const title    = `⚠️ Budget Exceeded: ${catLabel}`;
+              const body     = `You've spent ${_fmt(monthlySpent)} of your ${_fmt(budgetLimit)} ${catLabel} budget — ${_fmt(overBy)} over.`;
+              _sendFCM(uid, fcmToken, {
+                title, body,
+                type:      'budget_alert',
+                data:      { category: cat, spent: String(monthlySpent), limit: String(budgetLimit) },
+                channelId: 'flowcheck_alerts',
+              }).catch(err => console.error('[fcm budget-alert/webhook]', err.message));
+            }
+          }
+        }
+      }
+    }
+    // ─────────────────────────────────────────────────────────────────
+
     console.log(`[webhook] Synced uid:${uid} item:${itemId} → ${accounts.length} accounts, +${added.length}~${modified.length}-${removed.length} txns`);
   } catch (err) {
     // FAILED_PRECONDITION on a brand-new item means Plaid isn't ready yet — retry once

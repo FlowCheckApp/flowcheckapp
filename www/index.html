@@ -3718,11 +3718,16 @@ function completeTour() {
     tour.style.transition = 'opacity 0.3s';
     setTimeout(() => { tour.style.display = 'none'; tour.style.opacity = ''; }, 320);
   }
-  // Persist so tour never shows again
+  // Persist so tour never shows again.
+  // localStorage write is instant — avoids the Firestore listener timing race
+  // where state.user isn't populated yet when _tryStartTour() runs on login.
   try {
     const user = FCAuth.currentUser && FCAuth.currentUser();
     const db   = FCAuth.db && FCAuth.db();
-    if (user && db) db.collection('users').doc(user.uid).update({ tour_completed: true }).catch(() => {});
+    if (user?.uid) {
+      localStorage.setItem('fc_tour_done_' + user.uid, '1');
+      if (db) db.collection('users').doc(user.uid).update({ tour_completed: true }).catch(() => {});
+    }
   } catch (_) {}
 }
 </script>
