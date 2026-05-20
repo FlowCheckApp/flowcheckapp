@@ -287,14 +287,18 @@ window.FCAuth = (function () {
     // Use Capacitor's Sign in with Apple if on iOS, otherwise Firebase popup
     const isNative = window.Capacitor && window.Capacitor.isNativePlatform();
 
-    if (isNative && Cap() && Cap().SignInWithApple) {
+    // @capacitor-community/apple-sign-in registers as 'SignInWithApple'
+    // v1–v5: Authorize()   v6+: authorize() (lowercase)
+    const applePlugin = Cap() && (Cap().SignInWithApple);
+    if (isNative && applePlugin) {
       // Generate a proper nonce: send the SHA-256 hash to Apple,
       // pass the raw value to Firebase so it can verify the token.
       const { raw: rawNonce, hashed: hashedNonce } = await _generateNonce();
 
-      // capacitor-sign-in-with-apple plugin — pass the hashed nonce so
-      // Apple embeds it in the identity token for Firebase to verify.
-      const result = await Cap().SignInWithApple.Authorize({ nonce: hashedNonce });
+      // Support both v5 (Authorize) and v6+ (authorize) API
+      const authFn = applePlugin.authorize || applePlugin.Authorize;
+      if (!authFn) throw new Error('Apple Sign In plugin not compatible — update @capacitor-community/apple-sign-in');
+      const result = await authFn.call(applePlugin, { nonce: hashedNonce });
       const provider = new firebase.auth.OAuthProvider('apple.com');
       const credential = provider.credential({
         idToken:  result.response.identityToken,

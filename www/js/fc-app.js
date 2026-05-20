@@ -2913,6 +2913,10 @@ window.FCApp = (function () {
       if (user) {
         fcLog('User authenticated:', user.uid);
 
+        // Warm the Railway backend immediately after auth so it's ready
+        // before the user taps anything — prevents cold-start timeouts.
+        FCData.warmBackend();
+
         // Request push permissions (non-blocking)
         FCPush.requestAndRegister().catch(() => {});
         FCPush.requestLocalPermission().catch(() => {});
@@ -4297,8 +4301,12 @@ window.FCApp = (function () {
 })();
 
 /* ── Boot on DOM ready ───────────────────────────────────────── */
+// requestAnimationFrame gives the browser a chance to paint the
+// splash screen (pure CSS, no JS) before booting. This makes the
+// app feel instant — the user sees the splash immediately while
+// Firebase init, auth check, and data listeners start in the background.
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => FCApp.boot());
+  document.addEventListener('DOMContentLoaded', () => requestAnimationFrame(() => FCApp.boot()));
 } else {
-  FCApp.boot();
+  requestAnimationFrame(() => FCApp.boot());
 }

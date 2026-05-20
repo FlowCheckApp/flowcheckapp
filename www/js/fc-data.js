@@ -30,6 +30,28 @@ window.FCData = (function () {
     return new Date(y, m - 1, d); // local midnight
   }
 
+  /* ── Backend warm-up (Railway cold-start prevention) ─────── */
+  /**
+   * Railway hobby/free instances sleep after ~5 min of inactivity.
+   * A cold start can take 5–15 seconds, which hits the 15s fetch timeout
+   * and shows the user a "server unavailable" error before they do anything.
+   *
+   * warmBackend() pings /health silently in the background.
+   * Call it on app launch (after auth) so the backend is warm before
+   * the user taps "Connect Bank" or triggers a sync.
+   *
+   * It is intentionally fire-and-forget — never blocks the UI.
+   */
+  let _backendWarmed = false;
+  function warmBackend() {
+    if (_backendWarmed) return;
+    _backendWarmed = true;
+    const base = (window.FC_CONFIG && FC_CONFIG.app.apiBase) || 'https://flowcheck-backend-production.up.railway.app';
+    fetch(`${base}/health`, { method: 'GET', signal: AbortSignal.timeout(20_000) })
+      .then(() => fcLog('[FCData] Backend warmed'))
+      .catch(() => fcLog('[FCData] Backend warm-up failed — will retry on first real request'));
+  }
+
   /* ── Authenticated fetch helper ───────────────────────────── */
   /**
    * Fetch with:
@@ -882,5 +904,6 @@ window.FCData = (function () {
     daysUntil,
     billDueLabelAndColor,
     formatCurrency,
+    warmBackend,
   };
 })();
