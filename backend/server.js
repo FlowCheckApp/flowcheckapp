@@ -287,6 +287,7 @@ app.use('/notifications/register',      generalLimiter);
 app.use('/notifications/mark-all-read', generalLimiter);
 app.use('/notifications/',              generalLimiter); // covers /notifications/:id/read
 app.use('/email/',                      strictLimiter);  // covers welcome, test, etc.
+// /unsubscribe uses its own _unsubLimiter defined inline (no auth — uid in URL)
 
 /* ── Firebase auth middleware ────────────────────────────────── */
 async function requireAuth(req, res, next) {
@@ -839,11 +840,13 @@ function _formatDob(raw) {
   return digits.slice(0, 8) || '01011980';
 }
 
-// Shared demo score response
+// Shared demo score response — returned when Experian is unreachable or unconfigured.
+// isDemo: true tells the client to show "Score unavailable" instead of a fake number.
 const DEMO_SCORE = {
   score:     720,
   scoreType: 'VantageScore 3.0',
   riskClass: 'Good',
+  isDemo:    true,   // CLIENT: check this flag — if true, show "Score unavailable"
   factors:   [
     'Length of credit history',
     'Credit utilization ratio',
@@ -892,6 +895,8 @@ app.get('/credit/score', requireAuth, perUserLimiter(5), async (req, res) => {
           riskClass: userData.credit_risk_class || null,
           factors:   userData.credit_factors    || [],
           cached:    true,
+          isDemo:    false,
+          demo:      false,
         });
       }
     }
@@ -1983,6 +1988,130 @@ app.post('/plaid/webhook', async (req, res) => {
   } catch (err) {
     console.error('[webhook] Unexpected error:', err.message);
     respond(500, { message: 'Internal error' });
+  }
+});
+
+/* ─────────────────────────────────────────────────────────────
+   GET  /unsubscribe   — one-click email unsubscribe (CAN-SPAM required)
+   POST /unsubscribe   — RFC 8058 List-Unsubscribe-Post support
+   ─────────────────────────────────────────────────────────────
+   Linked from every outbound email footer: ?uid=<firebase_uid>&type=<type>
+   type values:
+     all       → disable all email (marketing + alerts + weekly)
+     marketing → disable marketing/welcome emails only
+     alerts    → disable budget alert + bill reminder emails
+     weekly    → disable weekly summary emails
+
+   No auth token required — the uid in the URL is the only credential.
+   Rate-limited to 10 req / 15 min per IP to prevent scraping.
+   ─────────────────────────────────────────────────────────────── */
+const _unsubLimiter = rateLimit({
+  windowMs:        15 * 60 * 1000,
+  max:             10,
+  standardHeaders: true,
+  legacyHeaders:   false,
+  message:         { message: 'Too many requests' },
+});
+
+function _unsubscribeHtml(success, message) {
+  const color  = success ? '#1ac4f0' : '#ef4444';
+  const icon   = success ? '✅' : '⚠️';
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>FlowCheck · Unsubscribe</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #f9fafb; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 24px; }
+    .card { background: #fff; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); max-width: 480px; width: 100%; overflow: hidden; }
+    .header { background: linear-gradient(135deg, #0a1520, #112230); padding: 36px 32px; text-align: center; }
+    .icon { font-size: 40px; margin-bottom: 12px; }
+    .title { color: #fff; font-size: 22px; font-weight: 700; }
+    .body { padding: 28px 32px; text-align: center; }
+    .msg { font-size: 15px; color: #374151; line-height: 1.6; margin-bottom: 24px; }
+    .badge { display: inline-block; background: ${color}22; color: ${color}; font-size: 13px; font-weight: 600; padding: 6px 14px; border-radius: 20px; margin-bottom: 20px; }
+    .link { color: #6b7280; font-size: 13px; }
+    .link a { color: #1ac4f0; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <div class="icon">${icon}</div>
+      <div class="title">FlowCheck</div>
+    </div>
+    <div class="body">
+      <div class="badge">${message}</div>
+      <p class="msg">
+        ${success
+          ? 'You\'ve been unsubscribed. You may still receive critical account and security emails.'
+          : 'Something went wrong. Please try again or contact support.'}
+      </p>
+      <p class="link">Questions? <a href="https://getflowcheck.app/support">Contact support</a></p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+async function _handleUnsubscribe(uid, type) {
+  if (!uid || typeof uid !== 'string' || uid.length > 128 || !/^[a-zA-Z0-9_-]+$/.test(uid)) {
+    throw new Error('invalid_uid');
+  }
+
+  const validTypes = new Set(['all', 'marketing', 'alerts', 'weekly']);
+  const safeType   = validTypes.has(type) ? type : 'all';
+
+  const update = {};
+  if (safeType === 'marketing' || safeType === 'all') {
+    update.email_marketing_opt_in = false;
+  }
+  if (safeType === 'alerts' || safeType === 'all') {
+    update.email_alerts_enabled = false;
+  }
+  if (safeType === 'weekly' || safeType === 'all') {
+    update.email_weekly_enabled = false;
+  }
+  // 'all' also disables notifications_enabled so cron skips this user
+  if (safeType === 'all') {
+    update.notifications_enabled = false;
+  }
+
+  await db.collection('users').doc(uid).update(update);
+  console.log(`[unsubscribe] uid:${uid} type:${safeType} → ${JSON.stringify(update)}`);
+}
+
+app.get('/unsubscribe', _unsubLimiter, async (req, res) => {
+  const { uid, type = 'all' } = req.query;
+  try {
+    await _handleUnsubscribe(uid, type);
+    res.send(_unsubscribeHtml(true, 'You\'ve been unsubscribed'));
+  } catch (err) {
+    if (err.message === 'invalid_uid') {
+      return res.status(400).send(_unsubscribeHtml(false, 'Invalid unsubscribe link'));
+    }
+    console.error('[unsubscribe GET]', err.message);
+    res.status(500).send(_unsubscribeHtml(false, 'Something went wrong'));
+  }
+});
+
+// POST /unsubscribe — RFC 8058 List-Unsubscribe-Post (Apple Mail, Gmail one-click)
+// Add to your emails: List-Unsubscribe-Post: List-Unsubscribe=One-Click
+//                     List-Unsubscribe: <https://...railway.app/unsubscribe?uid=X>
+app.post('/unsubscribe', _unsubLimiter, async (req, res) => {
+  const uid  = req.query.uid || req.body?.uid;
+  const type = req.query.type || req.body?.type || 'all';
+  try {
+    await _handleUnsubscribe(uid, type);
+    res.json({ unsubscribed: true });
+  } catch (err) {
+    if (err.message === 'invalid_uid') {
+      return res.status(400).json({ message: 'Invalid unsubscribe link' });
+    }
+    console.error('[unsubscribe POST]', err.message);
+    res.status(500).json({ message: 'Unsubscribe failed' });
   }
 });
 
