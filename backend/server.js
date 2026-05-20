@@ -856,7 +856,7 @@ const DEMO_SCORE = {
   demo:   true,
 };
 
-app.get('/credit/score', requireAuth, perUserLimiter(5), async (req, res) => {
+app.post('/credit/score', requireAuth, perUserLimiter(5), async (req, res) => {
   // Sanitise any PII fields passed in query or body (future-proof)
   if (req.body) {
     if (req.body.firstName) req.body.firstName = sanitisePii(req.body.firstName, 50);
@@ -961,10 +961,11 @@ app.get('/credit/score', requireAuth, perUserLimiter(5), async (req, res) => {
         signal:  abort.signal,
         method:  'POST',
         headers: {
-          'Accept':            'application/json',
-          'Content-Type':      'application/json',
-          'Authorization':     `Bearer ${token}`,
-          'clientReferenceId': 'SBMYSQL',       // required for sandbox
+          'Accept':          'application/json',
+          'Content-Type':    'application/json',
+          'Authorization':   `Bearer ${token}`,
+          // clientReferenceId is sandbox-only — omit in production
+          ...(isSandbox ? { 'clientReferenceId': 'SBMYSQL' } : {}),
         },
         body: JSON.stringify(reportBody),
       });

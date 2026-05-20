@@ -1150,9 +1150,27 @@ window.FCApp = (function () {
                         || 'https://flowcheck-backend-production.up.railway.app/credit/score';
       const abort   = new AbortController();
       const timeout = setTimeout(() => abort.abort(), 12_000); // 12s frontend timeout
+      // POST so the body is available server-side for production PII lookup.
+      // In sandbox the server uses hardcoded test consumer — body fields are optional.
+      // In production, populate these from a PII collection screen before calling.
+      const creditPii = state.user?.credit_pii || {};
       const resp  = await fetch(creditUrl, {
+        method:  'POST',
         signal:  abort.signal,
-        headers: { 'Authorization': `Bearer ${token}` },
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type':  'application/json',
+        },
+        body: JSON.stringify({
+          firstName: creditPii.firstName || '',
+          lastName:  creditPii.lastName  || '',
+          ssn:       creditPii.ssn       || '',
+          dob:       creditPii.dob       || '',
+          address:   creditPii.address   || '',
+          city:      creditPii.city      || '',
+          state:     creditPii.state     || '',
+          zip:       creditPii.zip       || '',
+        }),
       });
       clearTimeout(timeout);
 
