@@ -68,7 +68,6 @@ window.FCPurchases = (function () {
     }
     try {
       const { customerInfo } = await plugin.getCustomerInfo();
-      console.log('[RC DEBUG] getCustomerInfo entitlements:', JSON.stringify(customerInfo?.entitlements?.active));
       _proStatus = customerInfo.entitlements.active[cfg.entitlementId] !== undefined;
       _writeProCache(_proStatus); // persist for network-error fallback
       fcLog('FCPurchases: pro =', _proStatus);
@@ -133,11 +132,7 @@ window.FCPurchases = (function () {
     if (!plugin || !_configured) throw new Error('Purchases not available on this device');
 
     const { customerInfo } = await plugin.purchasePackage({ aPackage: pkg });
-    console.log('[RC DEBUG] purchasePackage customerInfo:', JSON.stringify(customerInfo));
-    console.log('[RC DEBUG] entitlements.active:', JSON.stringify(customerInfo?.entitlements?.active));
-    console.log('[RC DEBUG] looking for entitlement:', cfg.entitlementId);
     _proStatus = customerInfo.entitlements.active[cfg.entitlementId] !== undefined;
-    console.log('[RC DEBUG] isPro result:', _proStatus);
     fcLog('FCPurchases: purchase complete, pro =', _proStatus);
     return { isPro: _proStatus, customerInfo };
   }
