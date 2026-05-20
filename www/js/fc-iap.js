@@ -11,7 +11,7 @@
  *   flowcheck.pro.monthly  — $4.99/mo
  *   flowcheck.pro.annual   — $34.99/yr  (7-day free trial)
  *
- * Entitlement ID: "pro"
+ * Entitlement ID: "premium"  ← must match RevenueCat dashboard exactly
  *
  * Architecture:
  *   - Native context  → calls Capacitor.Plugins.Purchases directly

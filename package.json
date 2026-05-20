@@ -12,6 +12,7 @@
   "type": "commonjs",
   "dependencies": {
     "@aparajita/capacitor-biometric-auth": "^8.0.0",
+    "@capacitor-community/apple-sign-in": "^6.0.0",
     "@capacitor/app": "^8.0.0",
     "@capacitor/cli": "^8.3.4",
     "@capacitor/core": "^8.3.4",

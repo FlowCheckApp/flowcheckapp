@@ -3278,7 +3278,12 @@ body {
      would force CDN re-downloads if these were still remote URLs.
      To upgrade: run `npm install firebase@NEW_VERSION` in /tmp, copy the
      three compat files into www/js/vendor/, and update the version comment. -->
-<!-- firebase 10.12.0 -->
+<!-- firebase 10.12.0
+     NOTE: defer is intentionally NOT used here. The inline <script> blocks
+     below reference FCApp/FCAuth directly and must run AFTER these scripts.
+     Since scripts are at the bottom of <body>, HTML is already parsed by the
+     time they execute — defer would cause FCApp to be undefined in inline blocks.
+     Long-term fix: bundle with Vite/webpack so all modules are in one file. -->
 <script src="js/vendor/firebase-app-compat.js"></script>
 <script src="js/vendor/firebase-auth-compat.js"></script>
 <script src="js/vendor/firebase-firestore-compat.js"></script>
