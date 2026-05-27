@@ -1,0 +1,335 @@
+/**
+ * FlowCheck — Referral System
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Mount in server.js with:
+ *   const referralRouter = require('./referral');
+ *   app.use('/api/referral', referralRouter);
+ *
+ * Firestore structure:
+ *   /referrals/{code}          — { uid, created_at, activations: 0, lifetime_pro: false }
+ *   /users/{uid}               — gets fields: referral_code, referred_by_code,
+ *                                referred_by_uid, referral_activations,
+ *                                pro, is_pro, pro_expires_at (already exists),
+ *                                referral_pro_months_earned
+ *
+ * Reward logic:
+ *   - Referred user connects first bank → both referrer + referred get 1 free Pro month
+ *   - Referrer reaches 3 activations → lifetime Pro (referral_lifetime_pro = true)
+ *
+ * All routes require Firebase ID token in Authorization header.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+
+'use strict';
+
+const express = require('express');
+const router  = express.Router();
+
+// Expect admin and db to be injected via module.exports pattern
+// server.js calls: require('./referral')(admin, db)
+
+module.exports = function makeReferralRouter(admin, db) {
+
+  // ── Middleware: verify Firebase ID token ──────────────────────────────────
+  async function requireAuth(req, res, next) {
+    const header = req.headers.authorization;
+    if (!header || !header.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Missing auth token' });
+    }
+    const token = header.slice(7);
+    try {
+      const decoded = await admin.auth().verifyIdToken(token);
+      req.uid = decoded.uid;
+      next();
+    } catch {
+      return res.status(401).json({ error: 'Invalid auth token' });
+    }
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  /**
+   * Generate a short, human-readable referral code.
+   * Format: FLOW-XXXXX (5 uppercase alphanum chars, no ambiguous chars 0/O/I/1)
+   */
+  function generateCode() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let code = 'FLOW-';
+    for (let i = 0; i < 5; i++) {
+      code += chars[Math.floor(Math.random() * chars.length)];
+    }
+    return code;
+  }
+
+  /**
+   * Add Pro months to a user. Stacks on top of any existing pro_expires_at.
+   * @param {FirebaseFirestore.Transaction} trx
+   * @param {string} uid
+   * @param {number} months  Number of Pro months to credit
+   */
+  async function grantProMonths(trx, uid, months) {
+    const userRef = db.collection('users').doc(uid);
+    const userSnap = await trx.get(userRef);
+    if (!userSnap.exists) return;
+
+    const data = userSnap.data();
+    const now = new Date();
+
+    // Start from the later of now or the existing expiry
+    const currentExpiry = data.pro_expires_at
+      ? (data.pro_expires_at.toDate ? data.pro_expires_at.toDate() : new Date(data.pro_expires_at))
+      : now;
+
+    const base = currentExpiry > now ? currentExpiry : now;
+    const newExpiry = new Date(base);
+    newExpiry.setMonth(newExpiry.getMonth() + months);
+
+    trx.update(userRef, {
+      pro: true,
+      is_pro: true,
+      pro_expires_at: admin.firestore.Timestamp.fromDate(newExpiry),
+      referral_pro_months_earned: admin.firestore.FieldValue.increment(months),
+    });
+  }
+
+  // ── POST /api/referral/generate ───────────────────────────────────────────
+  // Generate (or return existing) referral code for the authenticated user.
+  router.post('/generate', requireAuth, async (req, res) => {
+    const uid = req.uid;
+    const userRef = db.collection('users').doc(uid);
+
+    try {
+      // Return existing code if already generated
+      const userSnap = await userRef.get();
+      if (!userSnap.exists) return res.status(404).json({ error: 'User not found' });
+
+      const existing = userSnap.data().referral_code;
+      if (existing) return res.json({ code: existing });
+
+      // Generate a unique code (retry up to 5 times on collision)
+      let code = null;
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const candidate = generateCode();
+        const snap = await db.collection('referrals').doc(candidate).get();
+        if (!snap.exists) { code = candidate; break; }
+      }
+
+      if (!code) return res.status(500).json({ error: 'Could not generate unique code' });
+
+      const now = admin.firestore.FieldValue.serverTimestamp();
+
+      // Atomic write: create referral doc + save code on user
+      const batch = db.batch();
+      batch.set(db.collection('referrals').doc(code), {
+        uid,
+        created_at: now,
+        activations: 0,
+        lifetime_pro: false,
+      });
+      batch.update(userRef, { referral_code: code });
+
+      await batch.commit();
+
+      return res.json({ code });
+    } catch (err) {
+      console.error('[referral/generate]', err);
+      return res.status(500).json({ error: 'Internal error' });
+    }
+  });
+
+  // ── POST /api/referral/apply ──────────────────────────────────────────────
+  // Apply a referral code at signup (before or just after bank connection).
+  // Safe to call multiple times — idempotent.
+  router.post('/apply', requireAuth, async (req, res) => {
+    const uid = req.uid;
+    const { code } = req.body;
+
+    if (!code || typeof code !== 'string' || !/^FLOW-[A-Z0-9]{5}$/.test(code)) {
+      return res.status(400).json({ error: 'Invalid code format' });
+    }
+
+    const upperCode = code.toUpperCase();
+
+    try {
+      const referralRef = db.collection('referrals').doc(upperCode);
+      const userRef     = db.collection('users').doc(uid);
+
+      const [referralSnap, userSnap] = await Promise.all([
+        referralRef.get(),
+        userRef.get(),
+      ]);
+
+      if (!referralSnap.exists) return res.status(404).json({ error: 'Code not found' });
+      if (!userSnap.exists)     return res.status(404).json({ error: 'User not found' });
+
+      const referrerUid = referralSnap.data().uid;
+
+      // Prevent self-referral
+      if (referrerUid === uid) return res.status(400).json({ error: 'Cannot use your own code' });
+
+      // Already applied
+      const userData = userSnap.data();
+      if (userData.referred_by_code) {
+        return res.json({ status: 'already_applied', code: userData.referred_by_code });
+      }
+
+      // Save referral metadata on the new user (reward fires on first bank connection)
+      await userRef.update({
+        referred_by_code:    upperCode,
+        referred_by_uid:     referrerUid,
+        referral_applied_at: admin.firestore.FieldValue.serverTimestamp(),
+        referral_activated:  false,
+      });
+
+      return res.json({ status: 'applied' });
+    } catch (err) {
+      console.error('[referral/apply]', err);
+      return res.status(500).json({ error: 'Internal error' });
+    }
+  });
+
+  // ── POST /api/referral/activate ───────────────────────────────────────────
+  // Call this from the Plaid token-exchange flow AFTER a user successfully
+  // connects their first bank account. Awards 1 free Pro month to both sides.
+  // This is called SERVER-SIDE from within the token exchange route,
+  // not directly by the client.
+  router.post('/activate', requireAuth, async (req, res) => {
+    const uid = req.uid;
+
+    try {
+      const userRef  = db.collection('users').doc(uid);
+      const userSnap = await userRef.get();
+
+      if (!userSnap.exists) return res.status(404).json({ error: 'User not found' });
+
+      const userData = userSnap.data();
+
+      // No referral on this account, or already activated
+      if (!userData.referred_by_code) return res.json({ status: 'no_referral' });
+      if (userData.referral_activated) return res.json({ status: 'already_activated' });
+
+      const referrerUid   = userData.referred_by_uid;
+      const code          = userData.referred_by_code;
+      const referralRef   = db.collection('referrals').doc(code);
+      const referrerRef   = db.collection('users').doc(referrerUid);
+
+      // Run in a transaction for atomicity
+      await db.runTransaction(async (trx) => {
+        const referralSnap = await trx.get(referralRef);
+        if (!referralSnap.exists) return; // referral doc was deleted, skip
+
+        const newActivations = (referralSnap.data().activations || 0) + 1;
+        const lifetimePro    = newActivations >= 3;
+
+        // 1. Mark the referred user's referral as activated + grant 1 Pro month
+        trx.update(userRef, { referral_activated: true });
+        await grantProMonths(trx, uid, 1);
+
+        // 2. Grant the referrer: 1 Pro month (or lifetime if threshold hit)
+        if (lifetimePro && !referralSnap.data().lifetime_pro) {
+          // Lifetime Pro: set pro_expires_at far in the future (100 years)
+          const referrerSnap = await trx.get(referrerRef);
+          if (referrerSnap.exists) {
+            const forever = new Date();
+            forever.setFullYear(forever.getFullYear() + 100);
+            trx.update(referrerRef, {
+              pro: true,
+              is_pro: true,
+              pro_expires_at: admin.firestore.Timestamp.fromDate(forever),
+              referral_lifetime_pro: true,
+            });
+          }
+          trx.update(referralRef, {
+            activations: newActivations,
+            lifetime_pro: true,
+          });
+        } else {
+          await grantProMonths(trx, referrerUid, 1);
+          trx.update(referralRef, { activations: newActivations });
+        }
+
+        // 3. Queue push notification to referrer
+        const referrerSnap2 = await trx.get(referrerRef);
+        if (referrerSnap2.exists && referrerSnap2.data().fcm_token) {
+          // Notification is sent outside the transaction (below)
+        }
+      });
+
+      // Send push notification to referrer (outside transaction, best-effort)
+      try {
+        const referrerSnap = await referrerRef.get();
+        const fcmToken = referrerSnap.data()?.fcm_token;
+        if (fcmToken) {
+          const newActivations = (await referralRef.get()).data()?.activations || 1;
+          const isLifetime     = newActivations >= 3;
+
+          await admin.messaging().send({
+            token: fcmToken,
+            notification: {
+              title: isLifetime ? '🎉 Lifetime Pro unlocked!' : '🎁 You earned a free month!',
+              body: isLifetime
+                ? 'You\'ve referred 3 friends — FlowCheck Pro is yours for life.'
+                : 'A friend just connected their bank. You\'ve earned 1 free month of Pro!',
+            },
+            data: {
+              type:   isLifetime ? 'referral_lifetime' : 'referral_reward',
+              screen: 'settings',
+            },
+            apns: {
+              payload: {
+                aps: { badge: 1, sound: 'default' },
+              },
+            },
+          });
+        }
+      } catch (notifErr) {
+        // Non-fatal — reward was already applied
+        console.warn('[referral/activate] push notification failed:', notifErr.message);
+      }
+
+      return res.json({ status: 'activated' });
+    } catch (err) {
+      console.error('[referral/activate]', err);
+      return res.status(500).json({ error: 'Internal error' });
+    }
+  });
+
+  // ── GET /api/referral/stats ───────────────────────────────────────────────
+  // Return the authenticated user's referral stats for the Settings UI.
+  router.get('/stats', requireAuth, async (req, res) => {
+    const uid = req.uid;
+
+    try {
+      const userSnap = await db.collection('users').doc(uid).get();
+      if (!userSnap.exists) return res.status(404).json({ error: 'User not found' });
+
+      const data = userSnap.data();
+      const code = data.referral_code;
+
+      let activations       = 0;
+      let lifetime_pro      = false;
+
+      if (code) {
+        const referralSnap = await db.collection('referrals').doc(code).get();
+        if (referralSnap.exists) {
+          activations  = referralSnap.data().activations || 0;
+          lifetime_pro = referralSnap.data().lifetime_pro || false;
+        }
+      }
+
+      return res.json({
+        code:               code || null,
+        activations,
+        lifetime_pro,
+        months_earned:      data.referral_pro_months_earned || 0,
+        referred_by_code:   data.referred_by_code   || null,
+        referral_activated: data.referral_activated || false,
+      });
+    } catch (err) {
+      console.error('[referral/stats]', err);
+      return res.status(500).json({ error: 'Internal error' });
+    }
+  });
+
+  return router;
+};
