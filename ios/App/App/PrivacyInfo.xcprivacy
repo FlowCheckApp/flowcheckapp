@@ -1,0 +1,220 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  PrivacyInfo.xcprivacy — Apple Privacy Manifest
+  ─────────────────────────────────────────────────────────────
+  Required for App Store submission as of May 1, 2024 (Xcode 15+).
+  Declares:
+    1. Required-reason API categories the app uses
+    2. What data FlowCheck collects and why
+    3. Whether the app participates in tracking (NO)
+
+  Update this file whenever you add a new SDK, API category,
+  or data collection purpose. App Store review will flag mismatches
+  between this manifest and the App Privacy nutrition label in
+  App Store Connect.
+
+  Reference: https://developer.apple.com/documentation/bundleresources/privacy_manifest_files
+  ─────────────────────────────────────────────────────────────
+-->
+<plist version="1.0">
+<dict>
+
+  <!-- ── Tracking ─────────────────────────────────────────────
+       FlowCheck does NOT track users across apps or websites
+       owned by other companies. No ad SDKs, no ATT prompt needed.
+  ───────────────────────────────────────────────────────────── -->
+  <key>NSPrivacyTracking</key>
+  <false/>
+
+  <key>NSPrivacyTrackingDomains</key>
+  <array/>
+
+  <!-- ── Required-reason APIs ──────────────────────────────────
+       These are OS APIs that require a declared purpose.
+       Apple's list: https://developer.apple.com/documentation/bundleresources/privacy_manifest_files/describing_use_of_required_reason_api
+  ───────────────────────────────────────────────────────────── -->
+  <key>NSPrivacyAccessedAPITypes</key>
+  <array>
+
+    <!-- NSUserDefaults / Capacitor Preferences
+         Used by: @capacitor/preferences (stores auth state, biometric flag,
+                  notification preferences, and onboarding completion flag).
+         Reason CA92.1: Read/write values that the app itself previously wrote. -->
+    <dict>
+      <key>NSPrivacyAccessedAPIType</key>
+      <string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+      <key>NSPrivacyAccessedAPITypeReasons</key>
+      <array>
+        <string>CA92.1</string>
+      </array>
+    </dict>
+
+    <!-- File timestamps
+         Used by: WKWebView (reading modification times of cached web resources),
+                  Capacitor Filesystem plugin (managing downloaded assets).
+         Reason DDA9.1: Access modification/creation times of files this app created. -->
+    <dict>
+      <key>NSPrivacyAccessedAPIType</key>
+      <string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
+      <key>NSPrivacyAccessedAPITypeReasons</key>
+      <array>
+        <string>DDA9.1</string>
+      </array>
+    </dict>
+
+    <!-- Disk space
+         Used by: WKWebView and Capacitor when deciding whether to cache
+                  web assets or offline Firestore data.
+         Reason E174.1: Check available disk space before writing caches. -->
+    <dict>
+      <key>NSPrivacyAccessedAPIType</key>
+      <string>NSPrivacyAccessedAPICategoryDiskSpace</string>
+      <key>NSPrivacyAccessedAPITypeReasons</key>
+      <array>
+        <string>E174.1</string>
+      </array>
+    </dict>
+
+    <!-- System boot time
+         Used by: Firebase Performance SDK (if integrated), Crashlytics
+                  for accurate event timestamps relative to last reboot.
+         Reason 35F9.1: Calculate how long since the system last booted
+                        for diagnostic/crash-report timestamps. -->
+    <dict>
+      <key>NSPrivacyAccessedAPIType</key>
+      <string>NSPrivacyAccessedAPICategorySystemBootTime</string>
+      <key>NSPrivacyAccessedAPITypeReasons</key>
+      <array>
+        <string>35F9.1</string>
+      </array>
+    </dict>
+
+  </array>
+
+  <!-- ── Collected data types ───────────────────────────────────
+       Declare every category of data FlowCheck collects.
+       These must match the App Privacy nutrition label in
+       App Store Connect → Your App → App Privacy.
+
+       IMPORTANT: Update this array whenever you add new data
+       collection (new analytics SDK, new Firestore fields, etc.).
+  ───────────────────────────────────────────────────────────── -->
+  <key>NSPrivacyCollectedDataTypes</key>
+  <array>
+
+    <!-- Financial information
+         What: Bank account balances, transaction history, account numbers
+               (masked), institution names — fetched via Plaid.
+         Linked to user: YES (stored under Firebase UID)
+         Used for tracking: NO -->
+    <dict>
+      <key>NSPrivacyCollectedDataType</key>
+      <string>NSPrivacyCollectedDataTypeFinancialInfo</string>
+      <key>NSPrivacyCollectedDataTypeLinked</key>
+      <true/>
+      <key>NSPrivacyCollectedDataTypeTracking</key>
+      <false/>
+      <key>NSPrivacyCollectedDataTypePurposes</key>
+      <array>
+        <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+      </array>
+    </dict>
+
+    <!-- Email address
+         What: Email address provided during sign-up or Sign in with Apple.
+               Stored in Firebase Auth and Firestore users collection.
+         Linked to user: YES
+         Used for tracking: NO -->
+    <dict>
+      <key>NSPrivacyCollectedDataType</key>
+      <string>NSPrivacyCollectedDataTypeEmailAddress</string>
+      <key>NSPrivacyCollectedDataTypeLinked</key>
+      <true/>
+      <key>NSPrivacyCollectedDataTypeTracking</key>
+      <false/>
+      <key>NSPrivacyCollectedDataTypePurposes</key>
+      <array>
+        <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+      </array>
+    </dict>
+
+    <!-- Name
+         What: Display name provided during sign-up or via Sign in with Apple.
+               Stored in Firebase Auth profile and Firestore.
+         Linked to user: YES
+         Used for tracking: NO -->
+    <dict>
+      <key>NSPrivacyCollectedDataType</key>
+      <string>NSPrivacyCollectedDataTypeName</string>
+      <key>NSPrivacyCollectedDataTypeLinked</key>
+      <true/>
+      <key>NSPrivacyCollectedDataTypeTracking</key>
+      <false/>
+      <key>NSPrivacyCollectedDataTypePurposes</key>
+      <array>
+        <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+      </array>
+    </dict>
+
+    <!-- User ID
+         What: Firebase UID — a random identifier generated on account creation.
+               Used as the primary key for all user data in Firestore.
+         Linked to user: YES
+         Used for tracking: NO -->
+    <dict>
+      <key>NSPrivacyCollectedDataType</key>
+      <string>NSPrivacyCollectedDataTypeUserID</string>
+      <key>NSPrivacyCollectedDataTypeLinked</key>
+      <true/>
+      <key>NSPrivacyCollectedDataTypeTracking</key>
+      <false/>
+      <key>NSPrivacyCollectedDataTypePurposes</key>
+      <array>
+        <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+      </array>
+    </dict>
+
+    <!-- Push notification token (device token / FCM token)
+         What: APNs device token passed through Firebase to enable push
+               notifications for bill reminders and budget alerts.
+               Stored in Firestore users/{uid}.fcm_token.
+         Linked to user: YES
+         Used for tracking: NO -->
+    <dict>
+      <key>NSPrivacyCollectedDataType</key>
+      <string>NSPrivacyCollectedDataTypeDeviceID</string>
+      <key>NSPrivacyCollectedDataTypeLinked</key>
+      <true/>
+      <key>NSPrivacyCollectedDataTypeTracking</key>
+      <false/>
+      <key>NSPrivacyCollectedDataTypePurposes</key>
+      <array>
+        <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+      </array>
+    </dict>
+
+    <!-- Product interaction / app usage
+         What: Which tabs the user visits, which features they use —
+               tracked only within the app to improve the experience
+               (e.g., surfacing the most-used features). No third-party
+               analytics SDK is in use; all analytics are first-party only.
+         Linked to user: NO (aggregated / anonymised)
+         Used for tracking: NO -->
+    <dict>
+      <key>NSPrivacyCollectedDataType</key>
+      <string>NSPrivacyCollectedDataTypeProductInteraction</string>
+      <key>NSPrivacyCollectedDataTypeLinked</key>
+      <false/>
+      <key>NSPrivacyCollectedDataTypeTracking</key>
+      <false/>
+      <key>NSPrivacyCollectedDataTypePurposes</key>
+      <array>
+        <string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+      </array>
+    </dict>
+
+  </array>
+
+</dict>
+</plist>

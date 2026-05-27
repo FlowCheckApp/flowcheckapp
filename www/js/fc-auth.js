@@ -235,7 +235,7 @@ window.FCAuth = (function () {
   }
 
   /* ── Sign up ─────────────────────────────────────────────── */
-  async function signUp(name, email, password) {
+  async function signUp(name, email, password, referralCode = '') {
     if (!_auth) init();
     const cred = await _auth.createUserWithEmailAndPassword(email, password);
     const user = cred.user;
@@ -246,7 +246,7 @@ window.FCAuth = (function () {
     // Create Firestore user document.
     // email_marketing_opt_in defaults to false — the onboarding permissions
     // slide lets the user explicitly opt in (required for GDPR compliance).
-    await _db.collection('users').doc(user.uid).set({
+    const doc = {
       uid:         user.uid,
       name:        name,
       email:       email,
@@ -260,7 +260,13 @@ window.FCAuth = (function () {
       notifications_enabled:  true,
       biometric_enabled:      true,
       email_marketing_opt_in: false,  // set by onboarding slide 3
-    });
+    };
+
+    // Store referral code if provided — backend processes it to credit the referrer
+    const cleanCode = (referralCode || '').trim().toUpperCase();
+    if (cleanCode) doc.referred_by = cleanCode;
+
+    await _db.collection('users').doc(user.uid).set(doc);
 
     haptic('medium');
     return user;
