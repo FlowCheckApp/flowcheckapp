@@ -49,16 +49,15 @@ module.exports = function makeReferralRouter(admin, db) {
   // ── Helpers ───────────────────────────────────────────────────────────────
 
   /**
-   * Generate a short, human-readable referral code.
-   * Format: FLOW-XXXXX (5 uppercase alphanum chars, no ambiguous chars 0/O/I/1)
+   * Derive the canonical referral code for a uid.
+   * Format: FLOW + first 6 alphanumeric chars of uid, uppercase.
+   * e.g. uid "abc123xyz" → "FLOWABC123"
+   *
+   * Matches the client-side _getReferralCode() in fc-app.js so codes
+   * displayed in the UI and codes validated here are always identical.
    */
-  function generateCode() {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    let code = 'FLOW-';
-    for (let i = 0; i < 5; i++) {
-      code += chars[Math.floor(Math.random() * chars.length)];
-    }
-    return code;
+  function generateCode(uid) {
+    return 'FLOW' + uid.replace(/[^A-Za-z0-9]/g, '').slice(0, 6).toUpperCase();
   }
 
   /**
@@ -106,24 +105,16 @@ module.exports = function makeReferralRouter(admin, db) {
       const existing = userSnap.data().referral_code;
       if (existing) return res.json({ code: existing });
 
-      // Generate a unique code (retry up to 5 times on collision)
-      let code = null;
-      for (let attempt = 0; attempt < 5; attempt++) {
-        const candidate = generateCode();
-        const snap = await db.collection('referrals').doc(candidate).get();
-        if (!snap.exists) { code = candidate; break; }
-      }
+      // Derive deterministic code from uid — same algorithm as the client
+      const code = generateCode(uid);
+      const now  = admin.firestore.FieldValue.serverTimestamp();
 
-      if (!code) return res.status(500).json({ error: 'Could not generate unique code' });
-
-      const now = admin.firestore.FieldValue.serverTimestamp();
-
-      // Atomic write: create referral doc + save code on user
+      // Atomic write: index doc in referrals/ + persist code on user
       const batch = db.batch();
       batch.set(db.collection('referrals').doc(code), {
         uid,
-        created_at: now,
-        activations: 0,
+        created_at:   now,
+        activations:  0,
         lifetime_pro: false,
       });
       batch.update(userRef, { referral_code: code });
@@ -144,25 +135,50 @@ module.exports = function makeReferralRouter(admin, db) {
     const uid = req.uid;
     const { code } = req.body;
 
-    if (!code || typeof code !== 'string' || !/^FLOW-[A-Z0-9]{5}$/.test(code)) {
+    // Accept both legacy backend format (FLOW-XXXXX) and current client
+    // format (FLOWXXXXXX — FLOW + 6 alphanumeric chars, no dash).
+    if (!code || typeof code !== 'string' || !/^FLOW[A-Z0-9]{4,8}$|^FLOW-[A-Z0-9]{5}$/.test(code)) {
       return res.status(400).json({ error: 'Invalid code format' });
     }
 
     const upperCode = code.toUpperCase();
 
     try {
-      const referralRef = db.collection('referrals').doc(upperCode);
-      const userRef     = db.collection('users').doc(uid);
+      const userRef = db.collection('users').doc(uid);
 
-      const [referralSnap, userSnap] = await Promise.all([
-        referralRef.get(),
-        userRef.get(),
-      ]);
+      // ── Resolve referrer uid from the code ───────────────────────
+      // Primary:  referrals/{code} index doc (written by /generate)
+      // Fallback: query users where referral_code == code
+      //           (covers client-side codes never passed through /generate)
+      let referrerUid = null;
 
-      if (!referralSnap.exists) return res.status(404).json({ error: 'Code not found' });
-      if (!userSnap.exists)     return res.status(404).json({ error: 'User not found' });
+      const referralRef  = db.collection('referrals').doc(upperCode);
+      const referralSnap = await referralRef.get();
 
-      const referrerUid = referralSnap.data().uid;
+      if (referralSnap.exists) {
+        referrerUid = referralSnap.data().uid;
+      } else {
+        // Fallback: find the user who owns this code
+        const q = await db.collection('users')
+          .where('referral_code', '==', upperCode)
+          .limit(1)
+          .get();
+        if (!q.empty) {
+          referrerUid = q.docs[0].id;
+          // Back-fill the referrals/ index so future lookups are O(1)
+          referralRef.set({
+            uid:          referrerUid,
+            created_at:   admin.firestore.FieldValue.serverTimestamp(),
+            activations:  0,
+            lifetime_pro: false,
+          }).catch(() => {});
+        }
+      }
+
+      if (!referrerUid) return res.status(404).json({ error: 'Code not found' });
+
+      const userSnap = await userRef.get();
+      if (!userSnap.exists) return res.status(404).json({ error: 'User not found' });
 
       // Prevent self-referral
       if (referrerUid === uid) return res.status(400).json({ error: 'Cannot use your own code' });
