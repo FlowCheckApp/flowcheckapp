@@ -109,9 +109,24 @@ window.FCData = (function () {
      ───────────────────────────────────────────────────────────── */
 
   /** Open Plaid Link. Resolves when user successfully connects a bank. */
+  /** Lazily load the Plaid Link SDK from CDN (one-time, cached on window.Plaid) */
+  function _loadPlaidSDK() {
+    if (window.Plaid) return Promise.resolve();
+    return new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.plaid.com/link/v2/stable/link-initialize.js';
+      s.onload  = res;
+      s.onerror = () => rej(new Error('Failed to load Plaid SDK — check network'));
+      document.head.appendChild(s);
+    });
+  }
+
   async function openPlaidLink() {
     return new Promise(async (resolve, reject) => {
       try {
+        // 0. Ensure the Plaid Link SDK is loaded (lazy — only on first use)
+        await _loadPlaidSDK();
+
         // 1. Get link_token from your backend
         const { link_token } = await _authedFetch(FC_CONFIG.plaid.linkTokenEndpoint, {
           method: 'POST',
@@ -333,7 +348,48 @@ window.FCData = (function () {
     return groups;
   }
 
+  /**
+   * Normalize Plaid's personal_finance_category.primary (ALL_CAPS_SNAKE)
+   * into a human-readable display string used by categoryColor/categoryEmoji.
+   * Also passes through legacy category strings unchanged.
+   */
+  function normalizePlaidCategory(cat) {
+    if (!cat) return 'Other';
+    const PLAID_MAP = {
+      FOOD_AND_DRINK:        'Food and Drink',
+      GENERAL_MERCHANDISE:   'Shopping',
+      GENERAL_SERVICES:      'Services',
+      TRAVEL:                'Travel',
+      TRANSPORTATION:        'Auto and Transport',
+      ENTERTAINMENT:         'Entertainment',
+      PERSONAL_CARE:         'Personal Care',
+      MEDICAL:               'Healthcare',
+      LOAN_PAYMENTS:         'Loan',
+      RENT_AND_UTILITIES:    'Utilities',
+      HOME_IMPROVEMENT:      'Home Improvement',
+      INCOME:                'Income',
+      TRANSFER_IN:           'Transfer',
+      TRANSFER_OUT:          'Transfer',
+      BANK_FEES:             'Bank Fees',
+      GOVERNMENT_AND_NON_PROFIT: 'Government',
+      EDUCATION:             'Education',
+      AUTOMOTIVE:            'Auto and Transport',
+      GROCERIES:             'Grocery',
+      RESTAURANTS:           'Restaurants',
+      COFFEE_SHOPS:          'Coffee Shop',
+      GAS_STATIONS:          'Gas Stations',
+      CREDIT_CARD:           'Credit Card',
+      INVESTMENTS:           'Investments',
+      OTHER:                 'Other',
+    };
+    const upper = cat.toUpperCase().replace(/ /g, '_');
+    return PLAID_MAP[upper] || cat
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, c => c.toUpperCase());
+  }
+
   function categoryColor(category) {
+    const normalized = normalizePlaidCategory(category);
     const map = {
       // Food
       'Food and Drink':     '#ff6b35',
@@ -407,9 +463,12 @@ window.FCData = (function () {
       'Community':          '#a29bfe',
       'Charity':            '#fd79a8',
       'Taxes':              '#e17055',
+      // Home
+      'Home Improvement':   '#55efc4',
+      'Services':           '#6c5ce7',
     };
     if (!category) return '#555570';
-    const lower = category.toLowerCase();
+    const lower = normalized.toLowerCase();
     for (const [key, val] of Object.entries(map)) {
       if (lower.includes(key.toLowerCase())) return val;
     }
@@ -422,7 +481,8 @@ window.FCData = (function () {
 
   // Returns an emoji icon for a transaction/category — much more recognizable than a letter
   function categoryEmoji(categoryArr, name) {
-    const cat  = (Array.isArray(categoryArr) ? (categoryArr[0] || '') : (categoryArr || '')).toLowerCase();
+    const rawCat = Array.isArray(categoryArr) ? (categoryArr[0] || '') : (categoryArr || '');
+    const cat  = normalizePlaidCategory(rawCat).toLowerCase();
     const nm   = (name || '').toLowerCase();
 
     // Name-based overrides (most specific)
@@ -487,9 +547,11 @@ window.FCData = (function () {
     if (cat.includes('child') || cat.includes('kid'))   return '👶';
     if (cat.includes('tax'))       return '📋';
     if (cat.includes('parking'))   return '🅿️';
+    if (cat.includes('service'))   return '⚙️';
+    if (cat.includes('fee') || cat.includes('bank')) return '🏦';
 
-    // Fallback to first letter of name
-    return name ? name.charAt(0).toUpperCase() : '?';
+    // Fallback to generic card icon — never show a raw letter
+    return '💳';
   }
 
   /* ─────────────────────────────────────────────────────────────
@@ -898,6 +960,7 @@ window.FCData = (function () {
     calcCash,
     parseDateLocal,
     groupTransactionsByDate,
+    normalizePlaidCategory,
     categoryColor,
     categoryInitial,
     categoryEmoji,

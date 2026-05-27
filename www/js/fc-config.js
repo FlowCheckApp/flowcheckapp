@@ -91,6 +91,75 @@ window.FC_CONFIG = {
     welcomeEndpoint: 'https://flowcheck-backend-production.up.railway.app/email/welcome',
   },
 
+  /* ── Affiliate Offers ──────────────────────────────────────
+     Partner offers shown contextually on the home dashboard.
+     Replace placeholder URLs with your real affiliate links
+     once approved by each partner program.
+
+     How to get affiliate links:
+       SoFi      → impact.com (search "SoFi") — $100–200/funded account
+       Marcus    → marcus.com/referral or NerdWallet partner program
+       Chime     → impact.com (search "Chime") — $50–100/signup
+       Betterment→ betterment.com/affiliates — $100–300/funded account
+       Robinhood → robinhood.com/affiliates — $20–50/signup
+
+     'trigger' conditions — all must be true to show this offer:
+       minSavings / maxSavings   — user's total savings balance
+       minIncome                 — monthly income threshold
+       noInvestments             — true = only show if no investment accounts
+       lowSavingsRate            — true = only show if saving < 10% of income
+     ─────────────────────────────────────────────────────────── */
+  offers: [
+    {
+      id:          'hysa-sofi',
+      institution: 'sofi',              // suppressed if user already has SoFi accounts
+      badge:       'High-Yield Savings',
+      headline:    'Earn up to 12x more on your savings',
+      sub:         'SoFi members earn 4.6% APY. Most checking accounts earn 0.01%.',
+      cta:         'See Offer',
+      color:       '#6C47FF',   // SoFi purple
+      icon:        '🏦',
+      url:         'https://sofi.com/savings/?ref=PLACEHOLDER',  // replace with your affiliate URL
+      trigger:     { maxSavings: 15000, minIncome: 1000 },
+    },
+    {
+      id:          'hysa-marcus',
+      institution: 'marcus',
+      badge:       'High-Yield Savings',
+      headline:    'Put your savings to work',
+      sub:         'Marcus by Goldman Sachs offers 4.5% APY with no fees.',
+      cta:         'See Offer',
+      color:       '#00A86B',
+      icon:        '💰',
+      url:         'https://marcus.com/?ref=PLACEHOLDER',
+      trigger:     { minSavings: 1000, maxSavings: 50000 },
+    },
+    {
+      id:          'invest-betterment',
+      institution: 'betterment',
+      badge:       'Investing',
+      headline:    'Your money should work as hard as you do',
+      sub:         'Betterment automatically invests and rebalances your portfolio.',
+      cta:         'Start Investing',
+      color:       '#1ac4f0',
+      icon:        '📈',
+      url:         'https://betterment.com/?ref=PLACEHOLDER',
+      trigger:     { noInvestments: true, minIncome: 2000 },
+    },
+    {
+      id:          'checking-chime',
+      institution: 'chime',
+      badge:       'Free Checking',
+      headline:    'Get paid up to 2 days early',
+      sub:         'Chime has no monthly fees, no minimums, and early direct deposit.',
+      cta:         'See Offer',
+      color:       '#00D4AA',
+      icon:        '💳',
+      url:         'https://chime.com/?ref=PLACEHOLDER',
+      trigger:     { minIncome: 500 },
+    },
+  ],
+
   /* ── App ────────────────────────────────────────────────────
      ─────────────────────────────────────────────────────────── */
   app: {

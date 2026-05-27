@@ -241,10 +241,46 @@ window.FCDebug = (function () {
     observer.observe(document.body, { childList: true, subtree: true });
   }
 
+  /* ── Production error boundary (always on) ─────────────────── */
+  // Even in production, uncaught JS errors and unhandled Promise rejections
+  // should show a user-friendly toast rather than silently disappearing.
+  // The verbose logging (_attachErrorBoundary) only runs in dev mode,
+  // but this thin production layer always runs.
+  function _attachProductionErrorBoundary() {
+    const _isSilentError = msg => (
+      !msg ||
+      msg.includes('ResizeObserver loop') ||    // benign browser noise
+      msg.includes('Non-Error promise rejection') ||
+      msg.includes('cancelled') ||              // Plaid user-cancelled
+      msg.includes('AbortError')               // share sheet dismissed
+    );
+
+    window.addEventListener('unhandledrejection', e => {
+      const msg = e.reason?.message || String(e.reason || '');
+      if (_isSilentError(msg)) return;
+      // Log to device console (shows in Xcode / Safari Web Inspector)
+      console.error('[FCApp] Unhandled rejection:', msg);
+      // Only show toast if FCApp is booted and visible to user
+      if (window.FCApp?.toast) {
+        FCApp.toast('Something went wrong — please try again', 'error', 4000);
+      }
+    });
+
+    window.addEventListener('error', e => {
+      const msg = e.message || '';
+      if (_isSilentError(msg)) return;
+      console.error('[FCApp] Uncaught error:', msg, `@ ${e.filename}:${e.lineno}`);
+    });
+  }
+
   /* ── Init ──────────────────────────────────────────────────── */
   function init() {
+    // Production error boundary always runs — catches anything that slips through
+    _attachProductionErrorBoundary();
+
     if (!isDevMode()) return;
 
+    // Dev-only extras: verbose logging, console interception, debug panel
     _interceptConsole();
     _attachErrorBoundary();
     _attachTrigger();

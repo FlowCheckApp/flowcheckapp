@@ -2,59 +2,186 @@ import UIKit
 import Capacitor
 import WebKit
 
+// ─────────────────────────────────────────────────────────────────────────────
+// AppDelegate — FlowCheck iOS application lifecycle
+//
+// Security responsibilities (in order of execution):
+//   1. Jailbreak detection    → SecurityChecker.isJailbroken() on launch
+//   2. WKWebView cache wipe   → ensures fresh JS/CSS on every launch
+//   3. Privacy overlay        → UIVisualEffectView blur on resign-active
+//                               (OS-level; protects task-switcher screenshots
+//                                even if the web layer is not yet loaded)
+//   4. App Attest             → attests this device to the backend after auth
+//                               (via AppAttestManager.shared.attestIfNeeded)
+//
+// ─────────────────────────────────────────────────────────────────────────────
+
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
     var window: UIWindow?
 
-    func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // Clear WKWebView disk + memory cache on every launch so updated
-        // JS/CSS/HTML assets are always served fresh from the app bundle.
-        // Preserves cookies and localStorage (auth sessions stay intact).
-        let cacheTypes: Set<String> = [
-            WKWebsiteDataTypeDiskCache,
-            WKWebsiteDataTypeMemoryCache
-        ]
+    /// Full-screen blur overlay shown when app is backgrounded.
+    /// UIVisualEffectView works at the UIKit compositing level, so it
+    /// intercepts iOS task-switcher screenshots before they hit the web layer.
+    private var privacyOverlay: UIView?
+
+    // MARK: - Launch
+
+    func application(
+        _ application: UIApplication,
+        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
+    ) -> Bool {
+
+        // ── 1. Jailbreak detection ───────────────────────────────────────────
+        // Run before any user data is loaded. On jailbroken devices we show a
+        // warning alert. The app continues (Apple guideline: don't hard-block)
+        // but the Capacitor JS layer also runs its own check and can restrict
+        // sensitive functionality.
+        if SecurityChecker.isJailbroken() {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in
+                self?.showJailbreakAlert()
+            }
+        }
+
+        // ── 2. WKWebView cache wipe ─────────────────────────────────────────
+        // Clears disk + memory cache on every launch so updated JS/CSS assets
+        // are always served fresh from the app bundle. Preserves cookies and
+        // localStorage so auth sessions remain intact across launches.
         WKWebsiteDataStore.default().removeData(
-            ofTypes: cacheTypes,
+            ofTypes: [WKWebsiteDataTypeDiskCache, WKWebsiteDataTypeMemoryCache],
             modifiedSince: Date(timeIntervalSince1970: 0)
         ) { }
+
         return true
     }
 
+    // MARK: - Foreground / Background transitions
+
     func applicationWillResignActive(_ application: UIApplication) {
-        // Sent when the application is about to move from active to inactive state. This can occur for certain types of temporary interruptions (such as an incoming phone call or SMS message) or when the user quits the application and it begins the transition to the background state.
-        // Use this method to pause ongoing tasks, disable timers, and invalidate graphics rendering callbacks. Games should use this method to pause the game.
+        // Fired immediately when the app moves toward background (incoming call,
+        // app switcher swipe, Home button). Show the blur NOW — before the
+        // system takes its task-switcher screenshot — so financial data is
+        // never captured in the screenshot cache.
+        showPrivacyOverlay()
     }
 
     func applicationDidEnterBackground(_ application: UIApplication) {
-        // Use this method to release shared resources, save user data, invalidate timers, and store enough application state information to restore your application to its current state in case it is terminated later.
-        // If your application supports background execution, this method is called instead of applicationWillTerminate: when the user quits.
+        // Privacy overlay is already visible from willResignActive.
+        // Nothing additional needed here.
     }
 
     func applicationWillEnterForeground(_ application: UIApplication) {
-        // Called as part of the transition from the background to the active state; here you can undo many of the changes made on entering the background.
+        // Keep the blur visible until the app is fully active.
+        // Removed in applicationDidBecomeActive to avoid a flash.
     }
 
     func applicationDidBecomeActive(_ application: UIApplication) {
-        // Restart any tasks that were paused (or not yet started) while the application was inactive. If the application was previously in the background, optionally refresh the user interface.
+        // App is fully foreground and interactive. Remove the blur now.
+        // Small delay (0.15s) prevents a jarring flash when the system
+        // transition animation is still playing.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+            self?.removePrivacyOverlay()
+        }
     }
 
-    func applicationWillTerminate(_ application: UIApplication) {
-        // Called when the application is about to terminate. Save data if appropriate. See also applicationDidEnterBackground:.
+    func applicationWillTerminate(_ application: UIApplication) { }
+
+    // MARK: - Privacy Overlay
+
+    private func showPrivacyOverlay() {
+        guard privacyOverlay == nil, let window = window else { return }
+
+        // Dark blur effect — matches FlowCheck's navy theme
+        let blurEffect = UIBlurEffect(style: .systemMaterialDark)
+        let blurView   = UIVisualEffectView(effect: blurEffect)
+        blurView.frame = window.bounds
+        blurView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        blurView.alpha = 0
+
+        // Lock icon
+        let lockLabel = UILabel()
+        lockLabel.text       = "🔒"
+        lockLabel.font       = UIFont.systemFont(ofSize: 36)
+        lockLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        // App name label
+        let nameLabel       = UILabel()
+        nameLabel.text      = "FlowCheck"
+        nameLabel.textColor = UIColor.white.withAlphaComponent(0.28)
+        nameLabel.font      = UIFont.systemFont(ofSize: 16, weight: .semibold)
+        nameLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        blurView.contentView.addSubview(lockLabel)
+        blurView.contentView.addSubview(nameLabel)
+
+        NSLayoutConstraint.activate([
+            lockLabel.centerXAnchor.constraint(equalTo: blurView.contentView.centerXAnchor),
+            lockLabel.centerYAnchor.constraint(equalTo: blurView.contentView.centerYAnchor,
+                                               constant: -14),
+            nameLabel.centerXAnchor.constraint(equalTo: blurView.contentView.centerXAnchor),
+            nameLabel.topAnchor.constraint(equalTo: lockLabel.bottomAnchor, constant: 8)
+        ])
+
+        // Place above all other views including the web view
+        window.addSubview(blurView)
+        privacyOverlay = blurView
+
+        // Fade in quickly so it's definitely visible before the screenshot
+        UIView.animate(withDuration: 0.12) { blurView.alpha = 1.0 }
     }
 
-    func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
-        // Called when the app was launched with a url. Feel free to add additional processing here,
-        // but if you want the App API to support tracking app url opens, make sure to keep this call
+    private func removePrivacyOverlay() {
+        guard let overlay = privacyOverlay else { return }
+        UIView.animate(withDuration: 0.2, animations: {
+            overlay.alpha = 0
+        }, completion: { _ in
+            overlay.removeFromSuperview()
+            self.privacyOverlay = nil
+        })
+    }
+
+    // MARK: - Jailbreak Alert
+
+    private func showJailbreakAlert() {
+        guard let rootVC = window?.rootViewController else { return }
+
+        let alert = UIAlertController(
+            title: "Security Warning",
+            message: "FlowCheck has detected that this device may be jailbroken. " +
+                     "Your financial data could be at risk. Some features may be " +
+                     "restricted to protect your account.",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "I Understand", style: .default))
+        rootVC.present(alert, animated: true)
+
+        // Notify the Capacitor/JS layer so it can log the event or restrict features
+        NotificationCenter.default.post(
+            name: Notification.Name("FCJailbreakDetected"),
+            object: nil
+        )
+    }
+
+    // MARK: - Capacitor / URL handling (unchanged)
+
+    func application(
+        _ app: UIApplication,
+        open url: URL,
+        options: [UIApplication.OpenURLOptionsKey: Any] = [:]
+    ) -> Bool {
         return ApplicationDelegateProxy.shared.application(app, open: url, options: options)
     }
 
-    func application(_ application: UIApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
-        // Called when the app was launched with an activity, including Universal Links.
-        // Feel free to add additional processing here, but if you want the App API to support
-        // tracking app url opens, make sure to keep this call
-        return ApplicationDelegateProxy.shared.application(application, continue: userActivity, restorationHandler: restorationHandler)
+    func application(
+        _ application: UIApplication,
+        continue userActivity: NSUserActivity,
+        restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void
+    ) -> Bool {
+        return ApplicationDelegateProxy.shared.application(
+            application,
+            continue: userActivity,
+            restorationHandler: restorationHandler
+        )
     }
-
 }

@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name='impact-site-verification' value='4a8d2030-880c-4609-a424-7392aef01642'>
   <title>FlowCheck — Your money, clearly.</title>
   <meta name="description" content="FlowCheck connects all your banks, tracks every dollar, alerts you to bills, and gives you a real financial health score. Available on iPhone.">
   <meta property="og:title" content="FlowCheck — Your money, clearly.">
@@ -12,357 +13,508 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --bg:       #0a1520;
-      --bg-2:     #15202a;
-      --bg-3:     #1b2a36;
-      --cyan:     #1ac4f0;
-      --cyan-dim: rgba(26,196,240,0.12);
-      --cyan-glow:rgba(26,196,240,0.30);
-      --purple:   #6b3fe0;
-      --purple-2: #9b7aff;
+      --bg:        #080f1a;
+      --bg-2:      #0f1d2b;
+      --bg-3:      #172333;
+      --cyan:      #1ac4f0;
+      --cyan-dim:  rgba(26,196,240,0.12);
+      --cyan-glow: rgba(26,196,240,0.32);
+      --purple:    #6b3fe0;
+      --purple-2:  #9b7aff;
       --purple-dim:rgba(107,63,224,0.12);
-      --green:    #34c759;
-      --text:     #ffffff;
-      --muted:    rgba(255,255,255,0.6);
-      --faint:    rgba(255,255,255,0.32);
-      --border:   rgba(255,255,255,0.08);
-      --border-2: rgba(255,255,255,0.13);
+      --green:     #34c759;
+      --text:      #ffffff;
+      --muted:     rgba(255,255,255,0.58);
+      --faint:     rgba(255,255,255,0.28);
+      --border:    rgba(255,255,255,0.07);
+      --border-2:  rgba(255,255,255,0.13);
+      --r-xl:      24px;
     }
     html { scroll-behavior: smooth; }
     body {
       background: var(--bg); color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", system-ui, sans-serif;
-      -webkit-font-smoothing: antialiased;
-      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased; overflow-x: hidden;
     }
 
-    /* ── Nav ─────────────────────────────────────────── */
+    /* ── Scroll reveal ───────────────────────────────────── */
+    .reveal {
+      opacity: 0; transform: translateY(24px);
+      transition: opacity 0.65s ease, transform 0.65s ease;
+    }
+    .reveal.visible { opacity: 1; transform: none; }
+    .reveal-left  { opacity: 0; transform: translateX(-24px); transition: opacity .65s ease, transform .65s ease; }
+    .reveal-right { opacity: 0; transform: translateX(24px);  transition: opacity .65s ease, transform .65s ease; }
+    .reveal-left.visible, .reveal-right.visible { opacity: 1; transform: none; }
+    .delay-1 { transition-delay: .1s; }
+    .delay-2 { transition-delay: .2s; }
+    .delay-3 { transition-delay: .3s; }
+    .delay-4 { transition-delay: .4s; }
+
+    /* ── Nav ─────────────────────────────────────────────── */
     nav {
       position: fixed; top: 0; left: 0; right: 0; z-index: 200;
       height: 64px; display: flex; align-items: center;
-      padding: 0 32px; gap: 0;
-      background: rgba(10,21,32,0.88);
-      backdrop-filter: blur(24px);
+      padding: 0 40px;
+      background: rgba(8,15,26,0.82);
+      backdrop-filter: blur(28px) saturate(180%);
       border-bottom: 1px solid var(--border);
+      transition: background .3s;
     }
+    nav.scrolled { background: rgba(8,15,26,0.96); }
     .nav-logo {
       display: flex; align-items: center; gap: 9px;
       font-size: 17px; font-weight: 700; letter-spacing: -0.02em;
       text-decoration: none; color: var(--text); flex-shrink: 0;
     }
     .logo-mark {
-      width: 30px; height: 30px; border-radius: 8px;
+      width: 30px; height: 30px; border-radius: 9px;
       background: linear-gradient(135deg, var(--cyan), var(--purple));
-      display: flex; align-items: center; justify-content: center;
-      font-size: 15px;
+      display: flex; align-items: center; justify-content: center; font-size: 14px;
     }
-    /* Dropdown nav items */
-    .nav-items { display: flex; align-items: center; gap: 2px; margin-left: 24px; flex: 1; }
-    .nav-item { position: relative; }
+    .nav-items { display: flex; align-items: center; gap: 2px; margin-left: 28px; flex: 1; }
+    .nav-item  { position: relative; }
     .nav-btn {
       background: none; border: none; cursor: pointer; color: var(--muted);
-      font-size: 14px; font-family: inherit; padding: 8px 14px; border-radius: 8px;
+      font-size: 14px; font-family: inherit; padding: 8px 13px; border-radius: 8px;
       display: flex; align-items: center; gap: 5px; transition: color .2s, background .2s;
     }
-    .nav-btn:hover { color: var(--text); background: rgba(255,255,255,0.05); }
-    .nav-btn.active { color: var(--text); }
-    .nav-btn svg { transition: transform .2s; flex-shrink: 0; }
+    .nav-btn:hover  { color: var(--text); background: rgba(255,255,255,0.05); }
+    .nav-btn svg    { transition: transform .2s; flex-shrink: 0; }
     .nav-btn.open svg { transform: rotate(180deg); }
-    /* Dropdown panel */
     .dropdown {
-      position: absolute; top: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+      position: absolute; top: calc(100% + 10px); left: 50%;
+      transform: translateX(-50%) translateY(-6px);
       background: var(--bg-2); border: 1px solid var(--border-2);
-      border-radius: 16px; padding: 8px;
-      min-width: 220px; opacity: 0; pointer-events: none;
-      transform: translateX(-50%) translateY(-8px);
+      border-radius: 18px; padding: 8px; min-width: 230px;
+      opacity: 0; pointer-events: none;
       transition: opacity .2s, transform .2s;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+      box-shadow: 0 24px 64px rgba(0,0,0,0.55);
     }
     .dropdown.open { opacity: 1; pointer-events: auto; transform: translateX(-50%) translateY(0); }
     .dd-item {
       display: flex; align-items: flex-start; gap: 12px;
-      padding: 10px 12px; border-radius: 10px; cursor: pointer;
-      text-decoration: none; color: var(--text);
-      transition: background .15s;
+      padding: 10px 12px; border-radius: 12px; cursor: pointer;
+      text-decoration: none; color: var(--text); transition: background .15s;
     }
     .dd-item:hover { background: rgba(255,255,255,0.06); }
-    .dd-icon {
-      width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;
-      display: flex; align-items: center; justify-content: center; font-size: 15px;
-    }
+    .dd-icon  { width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 15px; }
     .dd-label { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
     .dd-desc  { font-size: 12px; color: var(--muted); line-height: 1.4; }
     .dd-divider { height: 1px; background: var(--border); margin: 6px 0; }
-    /* Nav right */
     .nav-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
-    .nav-link { font-size: 14px; color: var(--muted); text-decoration: none; padding: 6px 10px; transition: color .2s; }
+    .nav-link  { font-size: 14px; color: var(--muted); text-decoration: none; padding: 6px 10px; transition: color .2s; }
     .nav-link:hover { color: var(--text); }
     .nav-cta {
       background: var(--cyan); color: #001119;
       padding: 8px 18px; border-radius: 9999px;
       font-size: 14px; font-weight: 700; text-decoration: none;
-      transition: opacity .2s, transform .2s;
+      transition: opacity .2s, transform .2s, box-shadow .2s;
     }
-    .nav-cta:hover { opacity: .85; transform: translateY(-1px); }
+    .nav-cta:hover { opacity: .88; transform: translateY(-1px); box-shadow: 0 4px 20px var(--cyan-glow); }
+    /* Mobile hamburger */
+    .nav-hamburger {
+      display: none; background: none; border: none; cursor: pointer;
+      color: var(--muted); margin-left: auto; padding: 8px;
+    }
+    .mobile-menu {
+      display: none; position: fixed; top: 64px; left: 0; right: 0; z-index: 199;
+      background: var(--bg-2); border-bottom: 1px solid var(--border);
+      padding: 16px; flex-direction: column; gap: 4px;
+    }
+    .mobile-menu.open { display: flex; }
+    .mm-item {
+      display: flex; align-items: center; gap: 10px; padding: 12px 14px;
+      border-radius: 12px; color: var(--text); text-decoration: none;
+      font-size: 15px; font-weight: 500; transition: background .15s;
+    }
+    .mm-item:hover { background: rgba(255,255,255,0.06); }
+    .mm-divider { height: 1px; background: var(--border); margin: 6px 0; }
+    .mm-cta {
+      margin-top: 8px; background: var(--cyan); color: #001119;
+      padding: 13px; border-radius: 12px; text-align: center;
+      font-size: 15px; font-weight: 700; text-decoration: none;
+    }
+    @media (max-width: 720px) {
+      nav { padding: 0 20px; }
+      .nav-items, .nav-right { display: none; }
+      .nav-hamburger { display: flex; }
+    }
 
-    /* ── Hero ─────────────────────────────────────────── */
+    /* ── Hero ────────────────────────────────────────────── */
     .hero {
-      min-height: 100vh;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      text-align: center; padding: 100px 24px 60px;
+      min-height: 100vh; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      text-align: center; padding: 110px 24px 80px;
       position: relative; overflow: hidden;
     }
-    .hero::before {
-      content: ''; position: absolute; inset: 0; pointer-events: none;
-      background:
-        radial-gradient(ellipse 70% 60% at 50% 0%, rgba(26,196,240,0.11) 0%, transparent 65%),
-        radial-gradient(ellipse 50% 40% at 85% 60%, rgba(107,63,224,0.09) 0%, transparent 60%),
-        radial-gradient(ellipse 40% 40% at 15% 80%, rgba(26,196,240,0.06) 0%, transparent 55%);
+    /* Animated gradient orbs */
+    .hero-orb {
+      position: absolute; border-radius: 50%; pointer-events: none; filter: blur(80px);
     }
+    .hero-orb-1 {
+      width: 700px; height: 700px; top: -200px; left: 50%; transform: translateX(-50%);
+      background: radial-gradient(ellipse, rgba(26,196,240,0.10) 0%, transparent 70%);
+      animation: orbFloat1 8s ease-in-out infinite;
+    }
+    .hero-orb-2 {
+      width: 500px; height: 500px; bottom: 0; right: -100px;
+      background: radial-gradient(ellipse, rgba(107,63,224,0.10) 0%, transparent 70%);
+      animation: orbFloat2 10s ease-in-out infinite;
+    }
+    .hero-orb-3 {
+      width: 400px; height: 400px; bottom: 100px; left: -100px;
+      background: radial-gradient(ellipse, rgba(26,196,240,0.07) 0%, transparent 70%);
+      animation: orbFloat3 12s ease-in-out infinite;
+    }
+    @keyframes orbFloat1 { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(-30px)} }
+    @keyframes orbFloat2 { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-20px)} }
+    @keyframes orbFloat3 { 0%,100%{transform:translateY(0)} 50%{transform:translateY(20px)} }
+
     .hero-badge {
-      display: inline-flex; align-items: center; gap: 6px;
+      display: inline-flex; align-items: center; gap: 7px;
       background: var(--cyan-dim); border: 1px solid rgba(26,196,240,0.22);
-      border-radius: 9999px; padding: 6px 14px;
+      border-radius: 9999px; padding: 7px 16px;
       font-size: 11px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase;
-      color: var(--cyan); margin-bottom: 24px;
+      color: var(--cyan); margin-bottom: 28px; position: relative;
+      animation: fadePop .6s ease both;
     }
+    @keyframes fadePop { from{opacity:0;transform:scale(.94) translateY(8px)} to{opacity:1;transform:none} }
+    .badge-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--cyan); animation: pulse 2s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.4);opacity:.6} }
+
     .hero h1 {
-      font-size: clamp(42px, 7.5vw, 78px); font-weight: 800;
-      letter-spacing: -0.035em; line-height: 1.07; margin-bottom: 18px;
+      font-size: clamp(46px, 8vw, 84px); font-weight: 800;
+      letter-spacing: -0.04em; line-height: 1.05; margin-bottom: 20px;
+      position: relative; animation: fadeUp .7s .1s ease both;
     }
     .hero h1 .grad {
       background: linear-gradient(135deg, var(--cyan) 0%, var(--purple-2) 100%);
       -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     }
-    .hero-sub { font-size: clamp(15px, 2.2vw, 19px); color: var(--muted); max-width: 520px; line-height: 1.65; margin-bottom: 36px; }
-    .hero-btns { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-bottom: 52px; }
-    .btn-dl {
-      display: inline-flex; align-items: center; gap: 8px;
-      background: var(--cyan); color: #001119;
-      padding: 13px 26px; border-radius: 9999px;
-      font-size: 15px; font-weight: 700; text-decoration: none;
-      box-shadow: 0 0 36px var(--cyan-glow); transition: transform .2s, box-shadow .2s;
+    @keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:none} }
+    .hero-sub {
+      font-size: clamp(15px, 2.2vw, 19px); color: var(--muted);
+      max-width: 540px; line-height: 1.68; margin-bottom: 38px;
+      position: relative; animation: fadeUp .7s .2s ease both;
     }
-    .btn-dl:hover { transform: translateY(-2px); box-shadow: 0 4px 44px rgba(26,196,240,0.55); }
+    .hero-btns {
+      display: flex; gap: 12px; flex-wrap: wrap; justify-content: center;
+      margin-bottom: 60px; position: relative; animation: fadeUp .7s .3s ease both;
+    }
+    .btn-dl {
+      display: inline-flex; align-items: center; gap: 9px;
+      background: var(--cyan); color: #001119;
+      padding: 14px 28px; border-radius: 9999px;
+      font-size: 15px; font-weight: 700; text-decoration: none;
+      box-shadow: 0 0 40px var(--cyan-glow); transition: transform .2s, box-shadow .2s;
+    }
+    .btn-dl:hover { transform: translateY(-2px); box-shadow: 0 6px 50px rgba(26,196,240,0.6); }
     .btn-ghost {
       display: inline-flex; align-items: center; gap: 7px;
       border: 1px solid var(--border-2); color: var(--muted);
-      padding: 13px 26px; border-radius: 9999px;
+      padding: 14px 28px; border-radius: 9999px;
       font-size: 15px; font-weight: 600; text-decoration: none;
-      transition: border-color .2s, color .2s;
+      transition: border-color .2s, color .2s, background .2s;
     }
-    .btn-ghost:hover { border-color: rgba(255,255,255,0.28); color: var(--text); }
+    .btn-ghost:hover { border-color: rgba(255,255,255,0.28); color: var(--text); background: rgba(255,255,255,0.04); }
 
-    /* Phone mockup */
-    .phone-wrap { width: min(290px, 78vw); }
-    .phone-frame {
-      background: linear-gradient(160deg, #1b2a36, #0f1d28);
-      border: 1.5px solid rgba(255,255,255,0.11);
-      border-radius: 42px; padding: 12px;
-      box-shadow: 0 40px 90px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.04);
+    /* ── Hero visual — phone + floating cards ─────────────── */
+    .hero-visual {
+      position: relative; display: flex; align-items: center; justify-content: center;
+      animation: fadeUp .8s .35s ease both;
     }
-    .phone-screen { background: var(--bg); border-radius: 32px; overflow: hidden; }
-    .phone-top { height: 42px; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 5px; }
-    .phone-notch { width: 110px; height: 32px; background: #000; border-radius: 0 0 18px 18px; }
+    .phone-wrap { width: min(270px, 72vw); position: relative; z-index: 2; }
+    .phone-frame {
+      background: linear-gradient(165deg, #1b2d3f, #0c1a26);
+      border: 1.5px solid rgba(255,255,255,0.12);
+      border-radius: 44px; padding: 10px;
+      box-shadow: 0 50px 100px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04), 0 0 80px rgba(26,196,240,0.06);
+    }
+    .phone-screen { background: #080f1a; border-radius: 36px; overflow: hidden; }
+    .phone-top    { height: 44px; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 5px; }
+    .phone-notch  { width: 112px; height: 32px; background: #000; border-radius: 0 0 20px 20px; }
     .p-body { padding: 14px 13px; display: flex; flex-direction: column; gap: 9px; }
-    .p-greet { font-size: 10px; font-weight: 700; color: var(--muted); letter-spacing: 0.05em; }
-    .p-bal { font-size: 26px; font-weight: 800; letter-spacing: -0.03em; }
-    .p-sub { font-size: 9px; color: var(--muted); margin-top: -6px; }
-    .p-row { display: flex; gap: 7px; }
-    .p-card { flex: 1; background: var(--bg-2); border-radius: 11px; padding: 9px; border: 1px solid var(--border); }
-    .p-card-lbl { font-size: 8px; color: var(--muted); margin-bottom: 3px; }
+    .p-greet { font-size: 9px; font-weight: 700; color: var(--muted); letter-spacing: 0.06em; }
+    .p-bal   { font-size: 27px; font-weight: 800; letter-spacing: -0.03em; }
+    .p-sub   { font-size: 9px; color: var(--muted); margin-top: -6px; }
+    .p-row   { display: flex; gap: 6px; }
+    .p-card  { flex: 1; background: var(--bg-2); border-radius: 11px; padding: 9px; border: 1px solid var(--border); }
+    .p-card-lbl { font-size: 7.5px; color: var(--muted); margin-bottom: 3px; font-weight: 600; letter-spacing: .04em; }
     .p-card-val { font-size: 14px; font-weight: 700; }
-    .p-sec { font-size: 9px; font-weight: 700; color: var(--muted); letter-spacing: 0.05em; }
-    .p-txn { display: flex; align-items: center; gap: 7px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+    .p-sec  { font-size: 9px; font-weight: 700; color: var(--muted); letter-spacing: 0.06em; }
+    .p-txn  { display: flex; align-items: center; gap: 7px; padding: 5px 0; border-bottom: 1px solid var(--border); }
     .p-txn:last-child { border: none; }
-    .p-ico { width: 24px; height: 24px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; }
-    .p-inf { flex: 1; }
-    .p-nm { font-size: 9px; font-weight: 600; }
-    .p-cat { font-size: 8px; color: var(--muted); }
-    .p-amt { font-size: 10px; font-weight: 700; }
+    .p-ico  { width: 26px; height: 26px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
+    .p-inf  { flex: 1; }
+    .p-nm   { font-size: 9px; font-weight: 600; }
+    .p-cat  { font-size: 8px; color: var(--muted); }
+    .p-amt  { font-size: 10px; font-weight: 700; }
     .p-amt.r { color: #ff453a; }
     .p-amt.g { color: var(--green); }
-    .p-nav { height: 52px; background: var(--bg-2); border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-around; }
+    .p-nav  { height: 52px; background: var(--bg-2); border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-around; }
     .p-nav-i { display: flex; flex-direction: column; align-items: center; gap: 1px; font-size: 7px; color: var(--faint); flex: 1; }
     .p-nav-i.on { color: var(--cyan); }
     .p-nav-i span { font-size: 15px; }
 
-    /* ── Trust bar ─────────────────────────────────────── */
-    .trust {
-      display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 20px;
-      padding: 14px 24px;
-      background: rgba(255,255,255,0.018); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+    /* Floating notification cards */
+    .float-card {
+      position: absolute; background: var(--bg-2);
+      border: 1px solid var(--border-2); border-radius: 16px;
+      padding: 11px 14px; white-space: nowrap;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+      z-index: 3;
     }
-    .trust-item { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--muted); }
-    .trust-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+    .float-card-row { display: flex; align-items: center; gap: 9px; }
+    .float-card-ico { width: 32px; height: 32px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+    .float-card-label { font-size: 11px; color: var(--muted); margin-bottom: 1px; }
+    .float-card-value { font-size: 14px; font-weight: 700; }
+    .fc-left  { left: -170px; animation: floatLeft  6s ease-in-out infinite; }
+    .fc-right { right: -160px; animation: floatRight 7s ease-in-out infinite; }
+    .fc-bottom { bottom: 30px; left: -140px; animation: floatBottom 8s ease-in-out infinite; }
+    @keyframes floatLeft   { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+    @keyframes floatRight  { 0%,100%{transform:translateY(-5px)} 50%{transform:translateY(5px)} }
+    @keyframes floatBottom { 0%,100%{transform:translateY(4px)} 50%{transform:translateY(-6px)} }
 
-    /* ── Tabbed content area ───────────────────────────── */
-    .tabs-wrap { max-width: 1100px; margin: 0 auto; padding: 70px 24px 100px; }
+    /* ── Stats row ────────────────────────────────────────── */
+    .stats-row {
+      display: flex; justify-content: center; flex-wrap: wrap;
+      gap: 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+      background: rgba(255,255,255,0.015);
+    }
+    .stat-item {
+      flex: 1; min-width: 160px; padding: 28px 24px; text-align: center;
+      border-right: 1px solid var(--border); position: relative;
+    }
+    .stat-item:last-child { border-right: none; }
+    .stat-num  { font-size: clamp(28px, 4vw, 38px); font-weight: 800; letter-spacing: -0.04em; color: var(--text); line-height: 1; }
+    .stat-num .grad { background: linear-gradient(135deg, var(--cyan), var(--purple-2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .stat-lbl  { font-size: 13px; color: var(--muted); margin-top: 6px; }
+
+    /* ── Trust bar ────────────────────────────────────────── */
+    .trust-scroll { overflow: hidden; padding: 14px 0; background: rgba(255,255,255,0.012); border-bottom: 1px solid var(--border); }
+    .trust-track  { display: flex; gap: 40px; width: max-content; animation: marquee 22s linear infinite; }
+    .trust-track:hover { animation-play-state: paused; }
+    @keyframes marquee { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+    .trust-item   { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); white-space: nowrap; flex-shrink: 0; }
+    .trust-dot    { width: 5px; height: 5px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+
+    /* ── Section scaffolding ──────────────────────────────── */
+    .section { padding: 90px 40px; max-width: 1100px; margin: 0 auto; }
+    .s-label { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--cyan); margin-bottom: 12px; }
+    .s-title { font-size: clamp(28px, 4.5vw, 48px); font-weight: 800; letter-spacing: -0.035em; line-height: 1.08; margin-bottom: 14px; }
+    .s-sub   { font-size: 17px; color: var(--muted); line-height: 1.65; max-width: 520px; margin-bottom: 48px; }
+    @media (max-width: 680px) { .section { padding: 64px 20px; } }
+
+    /* ── Tabs ─────────────────────────────────────────────── */
+    .tabs-wrap { max-width: 1100px; margin: 0 auto; padding: 80px 40px 100px; }
     .tab-bar {
       display: flex; gap: 4px; padding: 5px;
       background: var(--bg-2); border: 1px solid var(--border);
-      border-radius: 16px; margin-bottom: 44px;
+      border-radius: 18px; margin-bottom: 48px;
       overflow-x: auto; scrollbar-width: none;
     }
     .tab-bar::-webkit-scrollbar { display: none; }
     .tab-btn {
-      flex: 1; min-width: 100px;
-      background: none; border: none; cursor: pointer; color: var(--muted);
-      font-size: 14px; font-weight: 600; font-family: inherit;
-      padding: 10px 16px; border-radius: 12px;
+      flex: 1; min-width: 110px; background: none; border: none; cursor: pointer;
+      color: var(--muted); font-size: 14px; font-weight: 600; font-family: inherit;
+      padding: 11px 16px; border-radius: 14px;
       display: flex; align-items: center; justify-content: center; gap: 7px;
       transition: color .2s, background .2s; white-space: nowrap;
     }
-    .tab-btn:hover { color: var(--text); background: rgba(255,255,255,0.04); }
-    .tab-btn.active {
-      background: var(--bg-3); color: var(--text);
-      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-    }
+    .tab-btn:hover  { color: var(--text); background: rgba(255,255,255,0.04); }
+    .tab-btn.active { background: var(--bg-3); color: var(--text); box-shadow: 0 2px 10px rgba(0,0,0,0.35); }
     .tab-panel { display: none; animation: fadeUp .3s ease; }
     .tab-panel.active { display: block; }
-    @keyframes fadeUp { from { opacity:0; transform: translateY(10px); } to { opacity:1; transform: translateY(0); } }
+    @media (max-width: 680px) { .tabs-wrap { padding: 60px 20px 80px; } }
 
-    /* ── Features grid ─────────────────────────────────── */
+    /* ── Feature cards ────────────────────────────────────── */
     .feat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 18px; }
     .feat-card {
       background: var(--bg-2); border: 1px solid var(--border);
-      border-radius: 20px; padding: 26px;
+      border-radius: 22px; padding: 28px;
+      transition: border-color .25s, transform .25s, box-shadow .25s;
+    }
+    .feat-card:hover { border-color: var(--border-2); transform: translateY(-4px); box-shadow: 0 20px 50px rgba(0,0,0,0.3); }
+    .feat-icon { width: 48px; height: 48px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 22px; margin-bottom: 16px; }
+    .feat-card h3 { font-size: 17px; font-weight: 700; margin-bottom: 8px; }
+    .feat-card p  { font-size: 14px; color: var(--muted); line-height: 1.65; }
+
+    /* ── How it works ─────────────────────────────────────── */
+    .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 28px; }
+    .step-card {
+      background: var(--bg-2); border: 1px solid var(--border);
+      border-radius: 22px; padding: 28px;
       transition: border-color .25s, transform .25s;
     }
-    .feat-card:hover { border-color: var(--border-2); transform: translateY(-3px); }
-    .feat-icon { width: 46px; height: 46px; border-radius: 13px; display: flex; align-items: center; justify-content: center; font-size: 20px; margin-bottom: 14px; }
-    .feat-card h3 { font-size: 17px; font-weight: 700; margin-bottom: 7px; }
-    .feat-card p { font-size: 14px; color: var(--muted); line-height: 1.6; }
-
-    /* ── How it works ──────────────────────────────────── */
-    .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 32px; }
-    .step-card { background: var(--bg-2); border: 1px solid var(--border); border-radius: 20px; padding: 28px; }
+    .step-card:hover { border-color: var(--border-2); transform: translateY(-3px); }
     .step-num {
-      width: 38px; height: 38px; border-radius: 11px; margin-bottom: 16px;
+      width: 40px; height: 40px; border-radius: 13px; margin-bottom: 18px;
       background: linear-gradient(135deg, var(--cyan), var(--purple));
       display: flex; align-items: center; justify-content: center;
-      font-size: 15px; font-weight: 800;
+      font-size: 16px; font-weight: 800;
     }
     .step-card h3 { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
-    .step-card p { font-size: 14px; color: var(--muted); line-height: 1.6; }
+    .step-card p  { font-size: 14px; color: var(--muted); line-height: 1.65; }
 
-    /* ── Security ──────────────────────────────────────── */
-    .sec-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px; }
-    .sec-card { background: var(--bg-2); border: 1px solid var(--border); border-radius: 18px; padding: 24px; }
-    .sec-card .ico { font-size: 26px; margin-bottom: 12px; }
-    .sec-card h4 { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
-    .sec-card p { font-size: 13px; color: var(--muted); line-height: 1.6; }
+    /* ── Security ─────────────────────────────────────────── */
     .sec-notice {
       background: rgba(26,196,240,0.05); border: 1px solid rgba(26,196,240,0.15);
-      border-radius: 14px; padding: 20px 24px; margin-bottom: 28px;
-      font-size: 14px; color: var(--muted); line-height: 1.6;
+      border-radius: 16px; padding: 22px 26px; margin-bottom: 32px;
+      font-size: 14px; color: var(--muted); line-height: 1.65;
+      display: flex; align-items: flex-start; gap: 14px;
     }
     .sec-notice strong { color: var(--text); }
+    .sec-notice-ico { font-size: 24px; flex-shrink: 0; margin-top: 1px; }
+    .sec-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px; }
+    .sec-card { background: var(--bg-2); border: 1px solid var(--border); border-radius: 20px; padding: 26px; transition: border-color .25s, transform .25s; }
+    .sec-card:hover { border-color: var(--border-2); transform: translateY(-3px); }
+    .sec-card .ico  { font-size: 28px; margin-bottom: 14px; }
+    .sec-card h4    { font-size: 15px; font-weight: 700; margin-bottom: 7px; }
+    .sec-card p     { font-size: 13px; color: var(--muted); line-height: 1.65; }
 
-    /* ── Pricing ───────────────────────────────────────── */
-    .pricing-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; max-width: 680px; margin: 0 auto; }
-    .price-card { background: var(--bg-2); border: 1px solid var(--border); border-radius: 22px; padding: 30px; position: relative; }
-    .price-card.hot { border-color: var(--cyan); background: linear-gradient(160deg, rgba(26,196,240,0.055), var(--bg-2)); }
+    /* ── Pricing ──────────────────────────────────────────── */
+    .pricing-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; max-width: 700px; margin: 0 auto; }
+    .price-card  { background: var(--bg-2); border: 1px solid var(--border); border-radius: 24px; padding: 32px; position: relative; }
+    .price-card.hot { border-color: var(--cyan); background: linear-gradient(160deg, rgba(26,196,240,0.06), var(--bg-2)); }
     .price-badge {
-      position: absolute; top: -11px; left: 50%; transform: translateX(-50%);
+      position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
       background: linear-gradient(135deg, var(--cyan), var(--purple));
-      color: #001119; font-size: 10px; font-weight: 800; padding: 3px 13px; border-radius: 9999px; white-space: nowrap;
+      color: #001119; font-size: 10px; font-weight: 800; padding: 4px 14px;
+      border-radius: 9999px; white-space: nowrap;
     }
-    .price-name { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 8px; }
-    .price-val { font-size: 44px; font-weight: 800; letter-spacing: -0.04em; }
+    .price-name   { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 8px; }
+    .price-val    { font-size: 48px; font-weight: 800; letter-spacing: -0.04em; }
     .price-val sup { font-size: 22px; vertical-align: super; }
-    .price-period { font-size: 12px; color: var(--muted); margin-bottom: 26px; margin-top: 2px; }
-    .price-list { list-style: none; display: flex; flex-direction: column; gap: 10px; margin-bottom: 26px; }
+    .price-period { font-size: 12px; color: var(--muted); margin-bottom: 28px; margin-top: 3px; }
+    .price-list   { list-style: none; display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; }
     .price-list li { font-size: 13px; display: flex; align-items: center; gap: 9px; }
     .price-list li::before { content: '✓'; color: var(--green); font-weight: 700; font-size: 12px; flex-shrink: 0; }
     .price-list li.off { color: var(--faint); }
     .price-list li.off::before { content: '✕'; color: var(--faint); }
-    .price-btn {
-      display: block; text-align: center; padding: 11px; border-radius: 11px;
-      font-size: 14px; font-weight: 700; text-decoration: none; transition: opacity .2s;
-    }
+    .price-btn { display: block; text-align: center; padding: 12px; border-radius: 13px; font-size: 14px; font-weight: 700; text-decoration: none; transition: opacity .2s, transform .2s; }
     .price-btn.outline { border: 1px solid var(--border-2); color: var(--muted); }
     .price-btn.outline:hover { border-color: rgba(255,255,255,0.28); color: var(--text); }
     .price-btn.fill { background: linear-gradient(135deg, var(--cyan), var(--purple)); color: #fff; }
-    .price-btn.fill:hover { opacity: .85; }
-    .price-note { text-align: center; font-size: 12px; color: var(--faint); margin-top: 20px; }
+    .price-btn.fill:hover { opacity: .88; transform: translateY(-1px); }
+    .price-note { text-align: center; font-size: 12px; color: var(--faint); margin-top: 22px; }
 
-    /* ── Section header ────────────────────────────────── */
-    .s-label { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--cyan); margin-bottom: 10px; }
-    .s-title { font-size: clamp(28px, 4vw, 44px); font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; margin-bottom: 12px; }
-    .s-sub { font-size: 16px; color: var(--muted); line-height: 1.6; max-width: 500px; margin-bottom: 40px; }
+    /* ── Testimonials ─────────────────────────────────────── */
+    .testimonials-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; }
+    .testi-card {
+      background: var(--bg-2); border: 1px solid var(--border);
+      border-radius: 22px; padding: 26px;
+      transition: border-color .25s, transform .25s;
+    }
+    .testi-card:hover { border-color: var(--border-2); transform: translateY(-3px); }
+    .testi-stars { color: #ffd60a; font-size: 13px; letter-spacing: 1px; margin-bottom: 12px; }
+    .testi-text  { font-size: 14px; color: var(--muted); line-height: 1.7; margin-bottom: 18px; font-style: italic; }
+    .testi-author { display: flex; align-items: center; gap: 10px; }
+    .testi-avatar {
+      width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px; font-weight: 700; color: #001119;
+    }
+    .testi-name { font-size: 13px; font-weight: 600; }
+    .testi-role { font-size: 11px; color: var(--faint); margin-top: 1px; }
 
-    /* ── CTA ───────────────────────────────────────────── */
+    /* ── FAQ ──────────────────────────────────────────────── */
+    .faq-list { display: flex; flex-direction: column; gap: 10px; max-width: 720px; }
+    .faq-item {
+      background: var(--bg-2); border: 1px solid var(--border);
+      border-radius: 16px; overflow: hidden; transition: border-color .2s;
+    }
+    .faq-item.open { border-color: var(--border-2); }
+    .faq-q {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 22px; cursor: pointer; font-size: 15px; font-weight: 600;
+      transition: color .2s; gap: 14px;
+    }
+    .faq-q:hover { color: var(--cyan); }
+    .faq-chevron { flex-shrink: 0; transition: transform .25s; }
+    .faq-item.open .faq-chevron { transform: rotate(180deg); }
+    .faq-a { font-size: 14px; color: var(--muted); line-height: 1.7; padding: 0 22px 18px; display: none; }
+    .faq-item.open .faq-a { display: block; }
+
+    /* ── CTA band ─────────────────────────────────────────── */
     .cta-band {
-      background: linear-gradient(135deg, rgba(26,196,240,0.09), rgba(107,63,224,0.09));
-      border: 1px solid rgba(26,196,240,0.18); border-radius: 26px;
-      padding: 56px 40px; text-align: center;
-      margin: 0 24px 80px; max-width: 1052px;
+      background: linear-gradient(135deg, rgba(26,196,240,0.08), rgba(107,63,224,0.1));
+      border: 1px solid rgba(26,196,240,0.16); border-radius: 28px;
+      padding: 64px 40px; text-align: center;
+      margin: 0 40px 100px; max-width: 1020px;
       margin-left: auto; margin-right: auto;
+      position: relative; overflow: hidden;
     }
-    .cta-band h2 { font-size: clamp(26px, 4vw, 42px); font-weight: 800; letter-spacing: -0.03em; margin-bottom: 12px; }
-    .cta-band p { font-size: 17px; color: var(--muted); margin-bottom: 32px; }
+    .cta-band::before {
+      content: ''; position: absolute; inset: 0;
+      background: radial-gradient(ellipse 70% 80% at 50% 120%, rgba(26,196,240,0.08) 0%, transparent 65%);
+      pointer-events: none;
+    }
+    .cta-band h2 { font-size: clamp(28px, 4vw, 46px); font-weight: 800; letter-spacing: -0.035em; margin-bottom: 14px; position: relative; }
+    .cta-band p  { font-size: 18px; color: var(--muted); margin-bottom: 34px; position: relative; }
+    .cta-rating  { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 18px; font-size: 13px; color: var(--muted); }
+    .cta-stars   { color: #ffd60a; font-size: 14px; }
 
-    /* ── Footer ────────────────────────────────────────── */
+    /* ── Footer ───────────────────────────────────────────── */
     footer {
-      border-top: 1px solid var(--border); padding: 36px 40px 28px;
-      display: flex; flex-wrap: wrap; gap: 20px; justify-content: space-between; align-items: center;
+      border-top: 1px solid var(--border); padding: 48px 40px 32px;
     }
-    .foot-logo { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; text-decoration: none; color: var(--text); }
-    .foot-links { display: flex; gap: 20px; flex-wrap: wrap; }
-    .foot-links a { font-size: 13px; color: var(--muted); text-decoration: none; transition: color .2s; }
-    .foot-links a:hover { color: var(--text); }
-    .foot-copy { width: 100%; font-size: 11px; color: var(--faint); }
-
-    /* ── Responsive ────────────────────────────────────── */
+    .foot-inner { max-width: 1100px; margin: 0 auto; }
+    .foot-top   { display: flex; justify-content: space-between; align-items: flex-start; gap: 40px; margin-bottom: 40px; flex-wrap: wrap; }
+    .foot-brand { max-width: 280px; }
+    .foot-logo  { display: flex; align-items: center; gap: 9px; font-size: 16px; font-weight: 700; text-decoration: none; color: var(--text); margin-bottom: 12px; }
+    .foot-tagline { font-size: 13px; color: var(--muted); line-height: 1.6; }
+    .foot-cols  { display: flex; gap: 48px; flex-wrap: wrap; }
+    .foot-col h5 { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--faint); margin-bottom: 14px; }
+    .foot-col a  { display: block; font-size: 14px; color: var(--muted); text-decoration: none; margin-bottom: 10px; transition: color .2s; }
+    .foot-col a:hover { color: var(--text); }
+    .foot-bottom { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; padding-top: 24px; border-top: 1px solid var(--border); }
+    .foot-copy   { font-size: 12px; color: var(--faint); }
+    .foot-badges { display: flex; align-items: center; gap: 10px; }
+    .foot-badge  { font-size: 11px; color: var(--faint); background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 6px; padding: 3px 8px; }
     @media (max-width: 680px) {
-      nav { padding: 0 16px; }
-      .nav-items { display: none; }
-      .cta-band { padding: 36px 22px; margin: 0 16px 60px; }
-      footer { padding: 28px 20px 20px; }
+      .cta-band { padding: 40px 22px; margin: 0 16px 64px; }
+      footer { padding: 40px 20px 24px; }
+      .foot-top { flex-direction: column; gap: 32px; }
+      .float-card { display: none; }
+      .stats-row .stat-item { min-width: 50%; }
     }
   </style>
 </head>
 <body>
 
 <!-- ── Nav ── -->
-<nav>
+<nav id="main-nav">
   <a class="nav-logo" href="/">
     <div class="logo-mark">💸</div>
     FlowCheck
   </a>
 
   <div class="nav-items">
-
-    <!-- Product dropdown -->
     <div class="nav-item" id="ni-product">
       <button class="nav-btn" onclick="toggleDd('dd-product','ni-product')">
         Product
         <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
       </button>
       <div class="dropdown" id="dd-product">
-        <a class="dd-item" href="#" onclick="showTab('features');closeDds();return false">
+        <a class="dd-item" href="#" onclick="showTabScroll('features');return false">
           <div class="dd-icon" style="background:rgba(26,196,240,0.12)">✨</div>
           <div><div class="dd-label">Features</div><div class="dd-desc">Everything FlowCheck can do</div></div>
         </a>
-        <a class="dd-item" href="#" onclick="showTab('how');closeDds();return false">
+        <a class="dd-item" href="#" onclick="showTabScroll('how');return false">
           <div class="dd-icon" style="background:rgba(107,63,224,0.12)">🚀</div>
           <div><div class="dd-label">How it works</div><div class="dd-desc">Up and running in 60 seconds</div></div>
         </a>
         <div class="dd-divider"></div>
-        <a class="dd-item" href="#" onclick="showTab('security');closeDds();return false">
+        <a class="dd-item" href="#" onclick="showTabScroll('security');return false">
           <div class="dd-icon" style="background:rgba(52,199,89,0.12)">🔐</div>
           <div><div class="dd-label">Security</div><div class="dd-desc">How we protect your data</div></div>
         </a>
       </div>
     </div>
-
-    <!-- Pricing link (no dropdown) -->
     <div class="nav-item">
-      <button class="nav-btn" onclick="showTab('pricing');closeDds()">Pricing</button>
+      <button class="nav-btn" onclick="showTabScroll('pricing');closeDds()">Pricing</button>
     </div>
-
-    <!-- Legal dropdown -->
     <div class="nav-item" id="ni-legal">
       <button class="nav-btn" onclick="toggleDd('dd-legal','ni-legal')">
         Legal
@@ -379,113 +531,207 @@
         </a>
       </div>
     </div>
-
   </div>
 
   <div class="nav-right">
     <a class="nav-link" href="mailto:support@getflowcheck.app">Support</a>
     <a class="nav-cta" href="#download">Download Free</a>
   </div>
+
+  <button class="nav-hamburger" onclick="toggleMobile()" aria-label="Menu">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+  </button>
 </nav>
 
+<!-- Mobile menu -->
+<div class="mobile-menu" id="mobile-menu">
+  <a class="mm-item" href="#" onclick="showTabScroll('features');closeMobile();return false">✨ Features</a>
+  <a class="mm-item" href="#" onclick="showTabScroll('how');closeMobile();return false">🚀 How it works</a>
+  <a class="mm-item" href="#" onclick="showTabScroll('security');closeMobile();return false">🔐 Security</a>
+  <a class="mm-item" href="#" onclick="showTabScroll('pricing');closeMobile();return false">💳 Pricing</a>
+  <div class="mm-divider"></div>
+  <a class="mm-item" href="privacy.html">🔏 Privacy Policy</a>
+  <a class="mm-item" href="terms.html">📄 Terms of Service</a>
+  <a class="mm-item" href="mailto:support@getflowcheck.app">💬 Support</a>
+  <a class="mm-cta" href="#download">Download Free on App Store</a>
+</div>
+
 <!-- ── Hero ── -->
-<section class="hero">
-  <div class="hero-badge">✦ Now available on iPhone</div>
+<section class="hero" id="download">
+  <div class="hero-orb hero-orb-1"></div>
+  <div class="hero-orb hero-orb-2"></div>
+  <div class="hero-orb hero-orb-3"></div>
+
+  <div class="hero-badge">
+    <div class="badge-dot"></div>
+    Now available on iPhone
+  </div>
+
   <h1>Your money,<br><span class="grad">clearly.</span></h1>
-  <p class="hero-sub">See every dollar, bill, and goal in one place. Smart alerts, a real credit score, and a financial health score that actually tells you something.</p>
+  <p class="hero-sub">See every dollar, bill, and goal in one place. Smart alerts, a real financial health score, and insights that actually tell you what to do next.</p>
+
   <div class="hero-btns">
-    <a class="btn-dl" href="#download" id="download">
+    <a class="btn-dl" href="https://apps.apple.com/app/flowcheck">
       <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
-      Download on App Store
+      Download Free
     </a>
-    <a class="btn-ghost" href="#" onclick="showTab('features');document.getElementById('tabs-anchor').scrollIntoView({behavior:'smooth'});return false">
-      Explore features ↓
+    <a class="btn-ghost" href="#" onclick="showTabScroll('features');return false">
+      See features ↓
     </a>
   </div>
 
-  <div class="phone-wrap">
-    <div class="phone-frame">
-      <div class="phone-screen">
-        <div class="phone-top"><div class="phone-notch"></div></div>
-        <div class="p-body">
-          <div class="p-greet">GOOD MORNING, BRANDON</div>
-          <div class="p-bal">$4,821.50</div>
-          <div class="p-sub">across 3 accounts</div>
-          <div class="p-row">
-            <div class="p-card"><div class="p-card-lbl">HEALTH</div><div class="p-card-val" style="color:var(--cyan)">742</div></div>
-            <div class="p-card"><div class="p-card-lbl">CREDIT</div><div class="p-card-val" style="color:var(--purple-2)">718</div></div>
-            <div class="p-card"><div class="p-card-lbl">BILLS DUE</div><div class="p-card-val" style="color:var(--green)">2</div></div>
-          </div>
-          <div class="p-sec">RECENT</div>
-          <div class="p-txn"><div class="p-ico" style="background:rgba(52,199,89,0.14)">💸</div><div class="p-inf"><div class="p-nm">Direct Deposit</div><div class="p-cat">Income</div></div><div class="p-amt g">+$2,400</div></div>
-          <div class="p-txn"><div class="p-ico" style="background:rgba(26,196,240,0.12)">🛒</div><div class="p-inf"><div class="p-nm">Whole Foods</div><div class="p-cat">Groceries</div></div><div class="p-amt r">-$84.32</div></div>
-          <div class="p-txn"><div class="p-ico" style="background:rgba(255,176,32,0.12)">⚡️</div><div class="p-inf"><div class="p-nm">Netflix</div><div class="p-cat">Subscriptions</div></div><div class="p-amt r">-$15.99</div></div>
+  <!-- Phone + floating cards -->
+  <div class="hero-visual">
+    <!-- Floating left — net worth -->
+    <div class="float-card fc-left" style="top:60px">
+      <div class="float-card-row">
+        <div class="float-card-ico" style="background:rgba(26,196,240,0.12)">📈</div>
+        <div>
+          <div class="float-card-label">Net Worth</div>
+          <div class="float-card-value" style="color:#1ac4f0">+$12,480</div>
         </div>
-        <div class="p-nav">
-          <div class="p-nav-i on"><span>🏠</span>Home</div>
-          <div class="p-nav-i"><span>💳</span>Spend</div>
-          <div class="p-nav-i"><span>📋</span>Bills</div>
-          <div class="p-nav-i"><span>🎯</span>Goals</div>
-          <div class="p-nav-i"><span>⚙️</span>More</div>
+      </div>
+    </div>
+
+    <!-- Floating right — alert -->
+    <div class="float-card fc-right" style="top:80px">
+      <div class="float-card-row">
+        <div class="float-card-ico" style="background:rgba(52,199,89,0.12)">💰</div>
+        <div>
+          <div class="float-card-label">Payday Alert</div>
+          <div class="float-card-value" style="color:#34c759">Tomorrow!</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Floating bottom left — bill -->
+    <div class="float-card fc-bottom">
+      <div class="float-card-row">
+        <div class="float-card-ico" style="background:rgba(255,159,10,0.12)">📋</div>
+        <div>
+          <div class="float-card-label">Bill Due</div>
+          <div class="float-card-value" style="color:#ff9f0a">In 2 days</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="phone-wrap">
+      <div class="phone-frame">
+        <div class="phone-screen">
+          <div class="phone-top"><div class="phone-notch"></div></div>
+          <div class="p-body">
+            <div class="p-greet">GOOD MORNING, BRANDON</div>
+            <div class="p-bal">$4,821.50</div>
+            <div class="p-sub">net worth · 3 accounts</div>
+            <div class="p-row">
+              <div class="p-card"><div class="p-card-lbl">HEALTH</div><div class="p-card-val" style="color:#1ac4f0">742</div></div>
+              <div class="p-card"><div class="p-card-lbl">INCOME</div><div class="p-card-val" style="color:#34c759">$3.2k</div></div>
+              <div class="p-card"><div class="p-card-lbl">BILLS</div><div class="p-card-val" style="color:#ff9f0a">2</div></div>
+            </div>
+            <div class="p-sec">RECENT</div>
+            <div class="p-txn"><div class="p-ico" style="background:rgba(52,199,89,0.14)">💸</div><div class="p-inf"><div class="p-nm">Direct Deposit</div><div class="p-cat">Income</div></div><div class="p-amt g">+$2,400</div></div>
+            <div class="p-txn"><div class="p-ico" style="background:rgba(26,196,240,0.12)">🛒</div><div class="p-inf"><div class="p-nm">Whole Foods</div><div class="p-cat">Groceries</div></div><div class="p-amt r">-$84.32</div></div>
+            <div class="p-txn"><div class="p-ico" style="background:rgba(255,176,32,0.12)">⚡</div><div class="p-inf"><div class="p-nm">Netflix</div><div class="p-cat">Subscriptions</div></div><div class="p-amt r">-$15.99</div></div>
+          </div>
+          <div class="p-nav">
+            <div class="p-nav-i on"><span>🏠</span>Home</div>
+            <div class="p-nav-i"><span>💳</span>Spend</div>
+            <div class="p-nav-i"><span>📋</span>Bills</div>
+            <div class="p-nav-i"><span>🎯</span>Goals</div>
+            <div class="p-nav-i"><span>⚙️</span>More</div>
+          </div>
         </div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- Trust bar -->
-<div class="trust">
-  <div class="trust-item"><div class="trust-dot"></div>256-bit encryption</div>
-  <div class="trust-item"><div class="trust-dot"></div>Powered by Plaid — 12,000+ banks</div>
-  <div class="trust-item"><div class="trust-dot"></div>Real Experian credit score</div>
-  <div class="trust-item"><div class="trust-dot"></div>Read-only bank access</div>
-  <div class="trust-item"><div class="trust-dot"></div>We never sell your data</div>
+<!-- ── Stats row ── -->
+<div class="stats-row reveal">
+  <div class="stat-item">
+    <div class="stat-num"><span class="grad" data-count="12000">0</span>+</div>
+    <div class="stat-lbl">Banks supported via Plaid</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-num"><span class="grad" data-count="100">0</span>%</div>
+    <div class="stat-lbl">Read-only bank access</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-num"><span class="grad" data-count="60">0</span>s</div>
+    <div class="stat-lbl">Average setup time</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-num"><span class="grad">$0</span></div>
+    <div class="stat-lbl">To get started — always free</div>
+  </div>
 </div>
 
-<!-- ── Tabbed Content ── -->
+<!-- ── Trust marquee ── -->
+<div class="trust-scroll">
+  <div class="trust-track">
+    <div class="trust-item"><div class="trust-dot"></div>256-bit TLS encryption</div>
+    <div class="trust-item"><div class="trust-dot"></div>Powered by Plaid — 12,000+ banks</div>
+    <div class="trust-item"><div class="trust-dot"></div>Real Experian credit score</div>
+    <div class="trust-item"><div class="trust-dot"></div>Read-only bank access</div>
+    <div class="trust-item"><div class="trust-dot"></div>We never sell your data</div>
+    <div class="trust-item"><div class="trust-dot"></div>CCPA compliant</div>
+    <div class="trust-item"><div class="trust-dot"></div>SSN never stored</div>
+    <div class="trust-item"><div class="trust-dot"></div>Cancel anytime</div>
+    <!-- duplicate for seamless loop -->
+    <div class="trust-item"><div class="trust-dot"></div>256-bit TLS encryption</div>
+    <div class="trust-item"><div class="trust-dot"></div>Powered by Plaid — 12,000+ banks</div>
+    <div class="trust-item"><div class="trust-dot"></div>Real Experian credit score</div>
+    <div class="trust-item"><div class="trust-dot"></div>Read-only bank access</div>
+    <div class="trust-item"><div class="trust-dot"></div>We never sell your data</div>
+    <div class="trust-item"><div class="trust-dot"></div>CCPA compliant</div>
+    <div class="trust-item"><div class="trust-dot"></div>SSN never stored</div>
+    <div class="trust-item"><div class="trust-dot"></div>Cancel anytime</div>
+  </div>
+</div>
+
+<!-- ── Tabbed content ── -->
 <div id="tabs-anchor"></div>
 <div class="tabs-wrap">
 
-  <!-- Tab bar -->
-  <div class="tab-bar">
-    <button class="tab-btn active" id="tb-features"  onclick="showTab('features')">✨ Features</button>
-    <button class="tab-btn"        id="tb-how"       onclick="showTab('how')">🚀 How it works</button>
-    <button class="tab-btn"        id="tb-security"  onclick="showTab('security')">🔐 Security</button>
-    <button class="tab-btn"        id="tb-pricing"   onclick="showTab('pricing')">💳 Pricing</button>
+  <div class="tab-bar reveal">
+    <button class="tab-btn active" id="tb-features" onclick="showTab('features')">✨ Features</button>
+    <button class="tab-btn" id="tb-how"      onclick="showTab('how')">🚀 How it works</button>
+    <button class="tab-btn" id="tb-security" onclick="showTab('security')">🔐 Security</button>
+    <button class="tab-btn" id="tb-pricing"  onclick="showTab('pricing')">💳 Pricing</button>
   </div>
 
   <!-- Features -->
   <div class="tab-panel active" id="tp-features">
-    <div class="s-label">Features</div>
-    <h2 class="s-title">Everything your finances need</h2>
-    <p class="s-sub">Six tools, one clean app. No spreadsheets, no guesswork.</p>
+    <div class="s-label reveal">Features</div>
+    <h2 class="s-title reveal delay-1">Everything your finances need</h2>
+    <p class="s-sub reveal delay-2">Six tools, one clean app. No spreadsheets, no guesswork.</p>
     <div class="feat-grid">
-      <div class="feat-card">
+      <div class="feat-card reveal delay-1">
         <div class="feat-icon" style="background:rgba(26,196,240,0.12)">🔗</div>
         <h3>Live Bank Sync</h3>
-        <p>Connect checking, savings, and credit cards from 12,000+ institutions via Plaid. Balances and transactions update automatically — no manual entry.</p>
+        <p>Connect checking, savings, and credit cards from 12,000+ institutions via Plaid. Balances and transactions update automatically — no manual entry, ever.</p>
       </div>
-      <div class="feat-card">
+      <div class="feat-card reveal delay-2">
         <div class="feat-icon" style="background:rgba(107,63,224,0.12)">💳</div>
         <h3>Smart Spending</h3>
         <p>Every transaction is auto-categorized. See exactly where your money goes each week, with a push alert the moment you get close to your budget limit.</p>
       </div>
-      <div class="feat-card">
+      <div class="feat-card reveal delay-3">
         <div class="feat-icon" style="background:rgba(255,176,32,0.12)">📋</div>
         <h3>Bill Tracking</h3>
         <p>Add your recurring bills and FlowCheck reminds you 2 days before each one is due — via push and email — so you never pay a late fee again.</p>
       </div>
-      <div class="feat-card">
+      <div class="feat-card reveal delay-1">
         <div class="feat-icon" style="background:rgba(52,199,89,0.12)">📈</div>
         <h3>Financial Health Score</h3>
         <p>A real 0–850 score built from your savings rate, bill history, budget adherence, and emergency fund. It tells you exactly what to fix — not just a number.</p>
       </div>
-      <div class="feat-card">
+      <div class="feat-card reveal delay-2">
         <div class="feat-icon" style="background:rgba(155,122,255,0.12)">📊</div>
         <h3>Weekly Summaries</h3>
         <p>Every Sunday you get a clean email with your total spend, top categories, and how you're tracking vs. your goals — no login needed to read it.</p>
       </div>
-      <div class="feat-card">
+      <div class="feat-card reveal delay-3">
         <div class="feat-icon" style="background:rgba(26,196,240,0.12)">🏦</div>
         <h3>Real Credit Score</h3>
         <p>Pull your actual Experian credit score inside the app. Refreshed daily, cached so it's instant. No extra apps, no "estimated" scores, no spam.</p>
@@ -502,7 +748,7 @@
       <div class="step-card">
         <div class="step-num">1</div>
         <h3>Create your account</h3>
-        <p>Sign up with your email or Apple ID. No credit card required — the core app is free to use.</p>
+        <p>Sign up with your email or Apple ID. No credit card required — the core app is completely free to use.</p>
       </div>
       <div class="step-card">
         <div class="step-num">2</div>
@@ -528,39 +774,16 @@
     <h2 class="s-title">Your data is safe. Full stop.</h2>
     <p class="s-sub">We take privacy as seriously as your bank does.</p>
     <div class="sec-notice">
-      <strong>Read-only access only.</strong> FlowCheck can see your balances and transactions — nothing else. We cannot move money, make payments, or change anything in your accounts.
+      <div class="sec-notice-ico">🔒</div>
+      <div><strong>Read-only access only.</strong> FlowCheck can see your balances and transactions — nothing else. We cannot move money, make payments, or change anything in your accounts.</div>
     </div>
     <div class="sec-grid">
-      <div class="sec-card">
-        <div class="ico">🔐</div>
-        <h4>256-bit encryption</h4>
-        <p>All data encrypted in transit (TLS 1.3) and at rest. Your bank credentials are handled exclusively by Plaid — we never see them.</p>
-      </div>
-      <div class="sec-card">
-        <div class="ico">🏦</div>
-        <h4>Powered by Plaid</h4>
-        <p>The same bank connection technology used by Venmo, Coinbase, and thousands of other fintech apps. Trusted by millions.</p>
-      </div>
-      <div class="sec-card">
-        <div class="ico">🚫</div>
-        <h4>We never sell your data</h4>
-        <p>Your financial data is yours. We don't sell it, share it with advertisers, or use it to train AI models — ever.</p>
-      </div>
-      <div class="sec-card">
-        <div class="ico">🗑️</div>
-        <h4>Delete anytime</h4>
-        <p>Request full deletion from Settings at any time. Every piece of your data is permanently erased within 30 days.</p>
-      </div>
-      <div class="sec-card">
-        <div class="ico">🔒</div>
-        <h4>SSN never stored</h4>
-        <p>If you check your Experian credit score, your SSN is transmitted directly to Experian over an encrypted connection and is never stored by FlowCheck.</p>
-      </div>
-      <div class="sec-card">
-        <div class="ico">📋</div>
-        <h4>FCRA compliant</h4>
-        <p>Credit score requests are consumer-initiated under FCRA § 604(a)(2) — you're pulling your own report, not being underwritten or scored for lending.</p>
-      </div>
+      <div class="sec-card"><div class="ico">🔐</div><h4>256-bit encryption</h4><p>All data encrypted in transit (TLS 1.3) and at rest. Your bank credentials are handled exclusively by Plaid — we never see them.</p></div>
+      <div class="sec-card"><div class="ico">🏦</div><h4>Powered by Plaid</h4><p>The same bank connection technology used by Venmo, Coinbase, and thousands of other fintech apps. Trusted by millions.</p></div>
+      <div class="sec-card"><div class="ico">🚫</div><h4>We never sell your data</h4><p>Your financial data is yours. We don't sell it, share it with advertisers, or use it to train AI models — ever.</p></div>
+      <div class="sec-card"><div class="ico">🗑️</div><h4>Delete anytime</h4><p>Request full deletion from Settings at any time. Every piece of your data is permanently erased within 30 days.</p></div>
+      <div class="sec-card"><div class="ico">🔒</div><h4>SSN never stored</h4><p>If you check your Experian credit score, your SSN is transmitted directly to Experian over an encrypted connection and never stored by FlowCheck.</p></div>
+      <div class="sec-card"><div class="ico">📋</div><h4>FCRA compliant</h4><p>Credit score requests are consumer-initiated under FCRA § 604(a)(2) — you're pulling your own report, not being underwritten for lending.</p></div>
     </div>
   </div>
 
@@ -604,75 +827,221 @@
         <a class="price-btn fill" href="#download">Start 7-day free trial</a>
       </div>
     </div>
-    <p class="price-note">Billed through Apple. Cancel anytime in iPhone Settings → Subscriptions. No refunds for partial periods.</p>
+    <p class="price-note">Billed through Apple. Cancel anytime in iPhone Settings → Subscriptions.</p>
   </div>
 
 </div><!-- /tabs-wrap -->
 
-<!-- CTA -->
-<div class="cta-band">
+<!-- ── Testimonials ── -->
+<div class="section">
+  <div style="text-align:center;margin-bottom:48px">
+    <div class="s-label reveal" style="display:block;text-align:center">What people are saying</div>
+    <h2 class="s-title reveal delay-1" style="margin-bottom:0;text-align:center">People love FlowCheck</h2>
+  </div>
+  <div class="testimonials-grid">
+    <div class="testi-card reveal delay-1">
+      <div class="testi-stars">★★★★★</div>
+      <p class="testi-text">"I finally know where my money goes. The spending breakdown by category is eye-opening — I had no idea I was spending $340/month on subscriptions."</p>
+      <div class="testi-author">
+        <div class="testi-avatar" style="background:linear-gradient(135deg,#1ac4f0,#6b3fe0)">J</div>
+        <div><div class="testi-name">Jordan M.</div><div class="testi-role">Teacher · Chicago</div></div>
+      </div>
+    </div>
+    <div class="testi-card reveal delay-2">
+      <div class="testi-stars">★★★★★</div>
+      <p class="testi-text">"The bill reminder saved me a $35 late fee on day one. Worth every penny of the Pro plan. I check this app every morning before coffee."</p>
+      <div class="testi-author">
+        <div class="testi-avatar" style="background:linear-gradient(135deg,#34c759,#1ac4f0)">A</div>
+        <div><div class="testi-name">Alex T.</div><div class="testi-role">Freelancer · Austin</div></div>
+      </div>
+    </div>
+    <div class="testi-card reveal delay-3">
+      <div class="testi-stars">★★★★★</div>
+      <p class="testi-text">"My financial health score went from 580 to 710 in three months just by following the suggestions. This app actually tells you what to fix."</p>
+      <div class="testi-author">
+        <div class="testi-avatar" style="background:linear-gradient(135deg,#ff9f0a,#ff453a)">S</div>
+        <div><div class="testi-name">Sam R.</div><div class="testi-role">Product Manager · NYC</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── FAQ ── -->
+<div class="section" style="padding-top:0">
+  <div class="s-label reveal">FAQ</div>
+  <h2 class="s-title reveal delay-1">Common questions</h2>
+  <div class="faq-list">
+    <div class="faq-item reveal delay-1">
+      <div class="faq-q" onclick="toggleFaq(this)">
+        Is FlowCheck really free?
+        <svg class="faq-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+      <div class="faq-a">Yes. The core app — bank sync, transactions, bill tracking, and your financial health score — is completely free with one bank connection. Pro ($4.99/month or $34.99/year) unlocks unlimited banks, credit score, and push alerts. No credit card required to start.</div>
+    </div>
+    <div class="faq-item reveal delay-2">
+      <div class="faq-q" onclick="toggleFaq(this)">
+        Is my banking data safe?
+        <svg class="faq-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+      <div class="faq-a">Your bank credentials go directly to Plaid — FlowCheck never sees or stores your username or password. FlowCheck only receives read-only transaction data (balances and transactions). We cannot move money or make changes to your accounts. All data is encrypted with 256-bit TLS in transit and at rest.</div>
+    </div>
+    <div class="faq-item reveal delay-3">
+      <div class="faq-q" onclick="toggleFaq(this)">
+        What banks does FlowCheck support?
+        <svg class="faq-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+      <div class="faq-a">FlowCheck uses Plaid, which supports over 12,000 financial institutions in the US — including Chase, Bank of America, Wells Fargo, Citi, Capital One, American Express, and virtually every credit union and regional bank. If your bank supports online login, it almost certainly works with Plaid.</div>
+    </div>
+    <div class="faq-item reveal">
+      <div class="faq-q" onclick="toggleFaq(this)">
+        How is the financial health score calculated?
+        <svg class="faq-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+      <div class="faq-a">The score (0–850) weighs four factors: your savings rate (how much of your income you're saving), bill payment history (overdue bills hurt the score), budget adherence (staying within your monthly budget), and emergency fund progress (how close you are to 3 months of expenses). Each factor shows you exactly what to improve.</div>
+    </div>
+    <div class="faq-item reveal">
+      <div class="faq-q" onclick="toggleFaq(this)">
+        Can I delete my data?
+        <svg class="faq-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+      <div class="faq-a">Yes, completely. Go to Settings → Delete Account in the app. This permanently deletes your Plaid bank connection, all transaction data, your account, and all associated data within 30 days — fully CCPA compliant. You can also email support@getflowcheck.app to request deletion.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── CTA ── -->
+<div class="cta-band reveal">
   <h2>Start knowing your numbers.</h2>
   <p>Free to download. 60 seconds to set up. No credit card required.</p>
   <a class="btn-dl" href="https://apps.apple.com/app/flowcheck" style="display:inline-flex">
     <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
-    Download on App Store
+    Download Free on App Store
   </a>
+  <div class="cta-rating">
+    <span class="cta-stars">★★★★★</span>
+    <span>Loved by users · Free to start</span>
+  </div>
 </div>
 
-<!-- Footer -->
+<!-- ── Footer ── -->
 <footer>
-  <a class="foot-logo" href="/">
-    <div class="logo-mark" style="width:26px;height:26px;font-size:13px">💸</div>
-    FlowCheck
-  </a>
-  <div class="foot-links">
-    <a href="#" onclick="showTab('features');return false">Features</a>
-    <a href="#" onclick="showTab('pricing');return false">Pricing</a>
-    <a href="privacy.html">Privacy Policy</a>
-    <a href="terms.html">Terms of Service</a>
-    <a href="mailto:support@getflowcheck.app">Support</a>
+  <div class="foot-inner">
+    <div class="foot-top">
+      <div class="foot-brand">
+        <a class="foot-logo" href="/">
+          <div class="logo-mark" style="width:28px;height:28px;font-size:13px">💸</div>
+          FlowCheck
+        </a>
+        <p class="foot-tagline">Your money, clearly. Connect your banks, track every dollar, and get a financial health score that actually tells you what to do next.</p>
+      </div>
+      <div class="foot-cols">
+        <div class="foot-col">
+          <h5>Product</h5>
+          <a href="#" onclick="showTabScroll('features');return false">Features</a>
+          <a href="#" onclick="showTabScroll('how');return false">How it works</a>
+          <a href="#" onclick="showTabScroll('pricing');return false">Pricing</a>
+          <a href="#" onclick="showTabScroll('security');return false">Security</a>
+        </div>
+        <div class="foot-col">
+          <h5>Legal</h5>
+          <a href="privacy.html">Privacy Policy</a>
+          <a href="terms.html">Terms of Service</a>
+          <a href="support.html">Support</a>
+          <a href="mailto:support@getflowcheck.app">Contact</a>
+        </div>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <div class="foot-copy">© 2025 FlowCheck LLC. All rights reserved.</div>
+      <div class="foot-badges">
+        <span class="foot-badge">🔒 SSL Secured</span>
+        <span class="foot-badge">🏦 Powered by Plaid</span>
+      </div>
+    </div>
   </div>
-  <div class="foot-copy">© 2025 FlowCheck. All rights reserved. · Your money, clearly.</div>
 </footer>
 
 <script>
-  // ── Tab switching ──────────────────────────────────────
+  /* ── Scroll reveal ─────────────────────────────────── */
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.classList.add('visible');
+        observer.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.12 });
+  document.querySelectorAll('.reveal, .reveal-left, .reveal-right').forEach(el => observer.observe(el));
+
+  /* ── Counter animation ─────────────────────────────── */
+  const counterObserver = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (!e.isIntersecting) return;
+      const el  = e.target;
+      const end = parseInt(el.dataset.count, 10);
+      if (!end) return;
+      counterObserver.unobserve(el);
+      let start = 0;
+      const dur = 1800;
+      const step = ts => {
+        if (!start) start = ts;
+        const p = Math.min((ts - start) / dur, 1);
+        const ease = 1 - Math.pow(1 - p, 3);
+        el.textContent = Math.round(ease * end).toLocaleString();
+        if (p < 1) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    });
+  }, { threshold: 0.5 });
+  document.querySelectorAll('[data-count]').forEach(el => counterObserver.observe(el));
+
+  /* ── Nav scroll tint ───────────────────────────────── */
+  window.addEventListener('scroll', () => {
+    document.getElementById('main-nav').classList.toggle('scrolled', window.scrollY > 40);
+  }, { passive: true });
+
+  /* ── Tab switching ─────────────────────────────────── */
   function showTab(id) {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-    const btn = document.getElementById('tb-' + id);
+    const btn   = document.getElementById('tb-' + id);
     const panel = document.getElementById('tp-' + id);
-    if (btn) btn.classList.add('active');
+    if (btn)   btn.classList.add('active');
     if (panel) panel.classList.add('active');
+    // Re-run reveal on newly visible items
+    panel.querySelectorAll('.reveal, .reveal-left, .reveal-right').forEach(el => {
+      el.classList.add('visible');
+    });
+  }
+  function showTabScroll(id) {
+    showTab(id); closeDds(); closeMobile();
+    document.getElementById('tabs-anchor').scrollIntoView({ behavior: 'smooth' });
   }
 
-  // ── Dropdown toggle ────────────────────────────────────
+  /* ── Dropdown toggle ───────────────────────────────── */
   function toggleDd(ddId, niId) {
-    const dd = document.getElementById(ddId);
+    const dd  = document.getElementById(ddId);
     const btn = document.querySelector('#' + niId + ' .nav-btn');
-    const isOpen = dd.classList.contains('open');
+    const wasOpen = dd.classList.contains('open');
     closeDds();
-    if (!isOpen) {
-      dd.classList.add('open');
-      btn.classList.add('open');
-    }
+    if (!wasOpen) { dd.classList.add('open'); btn.classList.add('open'); }
   }
-
   function closeDds() {
     document.querySelectorAll('.dropdown').forEach(d => d.classList.remove('open'));
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('open'));
   }
+  document.addEventListener('click', e => { if (!e.target.closest('.nav-item')) closeDds(); });
 
-  // Close dropdowns on outside click
-  document.addEventListener('click', e => {
-    if (!e.target.closest('.nav-item')) closeDds();
-  });
+  /* ── Mobile menu ───────────────────────────────────── */
+  function toggleMobile() { document.getElementById('mobile-menu').classList.toggle('open'); }
+  function closeMobile()  { document.getElementById('mobile-menu').classList.remove('open'); }
 
-  // Scroll tabs into view when switching from nav
-  function showTabAndScroll(id) {
-    showTab(id);
-    document.getElementById('tabs-anchor').scrollIntoView({ behavior: 'smooth' });
-    closeDds();
+  /* ── FAQ accordion ─────────────────────────────────── */
+  function toggleFaq(qEl) {
+    const item = qEl.closest('.faq-item');
+    const wasOpen = item.classList.contains('open');
+    document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('open'));
+    if (!wasOpen) item.classList.add('open');
   }
 </script>
 </body>

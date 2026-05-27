@@ -40,6 +40,8 @@ service cloud.firestore {
         'notifications_enabled', 'biometric_enabled',
         'email_marketing_opt_in',
         'onboarding_goal', 'onboarding_income',
+        // Referral — stored at signup if the user entered a referral code
+        'referred_by',
       ]);
     }
 
@@ -62,6 +64,8 @@ service cloud.firestore {
         'tour_completed',
         'fcm_token', 'fcm_updated_at',
         'terms_accepted_at', 'terms_version',
+        // Referral system — client generates and persists its own code
+        'referral_code',
       ]);
     }
 
@@ -212,6 +216,13 @@ service cloud.firestore {
                          ]);
         allow delete: if false;
       }
+    }
+
+    // ─── /referrals — Admin SDK only ──────────────────────────────
+    // Maps referral codes → referrer uid + activation stats.
+    // The backend validates and activates codes; clients never read/write directly.
+    match /referrals/{code} {
+      allow read, write: if false;
     }
 
     // ─── Deny everything else ──────────────────────────────────
