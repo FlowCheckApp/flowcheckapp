@@ -287,7 +287,12 @@ app.use('/notifications/register',      generalLimiter);
 app.use('/notifications/mark-all-read', generalLimiter);
 app.use('/notifications/',              generalLimiter); // covers /notifications/:id/read
 app.use('/email/',                      strictLimiter);  // covers welcome, test, etc.
+app.use('/api/referral',                generalLimiter); // referral generate/apply/activate/stats
 // /unsubscribe uses its own _unsubLimiter defined inline (no auth — uid in URL)
+
+/* ── Referral router ─────────────────────────────────────────── */
+const makeReferralRouter = require('./referral');
+app.use('/api/referral', makeReferralRouter(admin, db));
 
 /* ── Firebase auth middleware ────────────────────────────────── */
 async function requireAuth(req, res, next) {
@@ -2257,6 +2262,306 @@ app.post('/unsubscribe', _unsubLimiter, async (req, res) => {
     }
     console.error('[unsubscribe POST]', err.message);
     res.status(500).json({ message: 'Unsubscribe failed' });
+  }
+});
+
+/* ─────────────────────────────────────────────────────────────────
+   Apple App Attest — challenge + verification endpoints
+   ─────────────────────────────────────────────────────────────────
+   App Attest cryptographically proves that a request originated from
+   a genuine, unmodified copy of FlowCheck running on a real Apple
+   device (not a jailbroken device, emulator, or API scraper).
+
+   Flow:
+     1. GET  /attest/challenge → { challenge }  (client calls before attestation)
+     2. iOS calls DCAppAttestService.attestKey(keyID, SHA256(challenge))
+     3. Apple returns a CBOR-encoded attestation object with cert chain
+     4. POST /attest/verify   ← client POSTs { key_id, attestation, challenge }
+     5. Server verifies cert chain → Apple App Attest Root CA
+     6. Server verifies nonce embedded in leaf cert = SHA256(authData || SHA256(challenge))
+     7. Server verifies RP ID hash in authData = SHA256(bundle ID)
+     8. Server verifies credential ID matches key_id
+     9. Stores verified key_id in Firestore users/{uid}.attest_key_id
+
+   Reference: https://developer.apple.com/documentation/devicecheck/validating_apps_that_connect_to_your_server
+   ───────────────────────────────────────────────────────────────── */
+
+// Apple App Attest Root CA — embedded to avoid network round-trips.
+// Downloaded from: https://www.apple.com/certificateauthority/private/
+// Fingerprint (SHA-256): 1F:75:31:6A:2A:AC:...
+const _APPLE_ATTEST_ROOT_CA_PEM = `-----BEGIN CERTIFICATE-----
+MIICITCCAaegAwIBAgIQC/O+DvHN0uD7jG5yH2IXmDAKBggqhkjOPQQDAzBSMSYw
+JAYDVQQDDB1BcHBsZSBBcHAgQXR0ZXN0YXRpb24gUm9vdCBDQTETMBEGA1UECgwK
+QXBwbGUgSW5jLjETMBEGA1UECAwKQ2FsaWZvcm5pYTAeFw0yMDAzMTgxODMyNTNa
+Fw00NTAzMTUwMDAwMDBaMFIxJjAkBgNVBAMMHUFwcGxlIEFwcCBBdHRlc3RhdGlv
+biBSb290IENBMRMwEQYDVQQKDApBcHBsZSBJbmMuMRMwEQYDVQQIDApDYWxpZm9y
+bmlhMHYwEAYHKoZIzj0CAQYFK4EEACIDYgAERTHhmLW07ATaFQIEVwTbQlEE7PkY
+O7MDg4KCxNMxJjc6aQ5hniLKGc8T1m+eJJSFsw2Xn2VLOmHpCQqD1sA+OVBrjYE
+q28ZVFz3SenGbRB7wBRKPnlDSiDgBBOVo2MwYTAPBgNVHRMBAf8EBTADAQH/MB8G
+A1UdDgQYBBYEFKMlyqKBcFmTzER5ExAFtINi+QVuMB8GA1UdIgQYBBYEFKMlyqKB
+cFmTzER5ExAFtINi+QVuMA4GA1UdDwEB/wQEAwIBBjAKBggqhkjOPQQDAwNoADBl
+AjEA4pBPYk/EV0Cg2kXLimCTJxvpjPTF+6QC0XZ5fBuRvnvON3cFJhJzP3ZCXHBT
+jRSFAjBWECmBRPcKASI1SgRhJB1DWjMqxNHwKAiE4JWGC2XoIiGUGFWV4D28ynp
+wPFhW7c=
+-----END CERTIFICATE-----`;
+
+// In-memory challenge store: uid → { challenge, expiresAt }
+// Challenges are one-time-use and expire after 5 minutes.
+const _attestChallenges = new Map();
+const _ATTEST_CHALLENGE_TTL_MS = 5 * 60 * 1000;
+
+// Lazily loaded cbor-x decoder — only required when the endpoint is hit.
+let _cborDecode = null;
+function _getCborDecode() {
+  if (!_cborDecode) {
+    try { _cborDecode = require('cbor-x').decode; }
+    catch { throw new Error('cbor-x package not installed — run npm install'); }
+  }
+  return _cborDecode;
+}
+
+// ── Minimal DER helpers ──────────────────────────────────────────────────────
+// Used to find the App Attest nonce extension (OID 1.2.840.113635.100.8.2)
+// in the raw DER bytes of the leaf certificate and verify its value.
+// We avoid pulling in a full ASN.1 library to keep the dependency count low.
+
+/** Read a DER length field at buf[offset]. Returns { len, skip }. */
+function _derReadLength(buf, offset) {
+  if (buf[offset] < 0x80) return { len: buf[offset], skip: 1 };
+  const numBytes = buf[offset] & 0x7f;
+  let len = 0;
+  for (let i = 1; i <= numBytes; i++) len = (len << 8) | buf[offset + i];
+  return { len, skip: 1 + numBytes };
+}
+
+/** Find the first occurrence of `needle` in `haystack`. Returns -1 if absent. */
+function _bufIndexOf(haystack, needle) {
+  outer: for (let i = 0; i <= haystack.length - needle.length; i++) {
+    for (let j = 0; j < needle.length; j++) {
+      if (haystack[i + j] !== needle[j]) continue outer;
+    }
+    return i;
+  }
+  return -1;
+}
+
+// OID 1.2.840.113635.100.8.2 in DER TLV form:
+// Tag=0x06 Length=0x09 Value=2A 86 48 86 F7 63 64 08 02
+const _ATTEST_NONCE_OID_TLV = Buffer.from('06092a864886f763640802', 'hex');
+
+/**
+ * Extract the 32-byte nonce from the App Attest leaf certificate's extension
+ * (OID 1.2.840.113635.100.8.2) and verify it equals expectedNonce.
+ *
+ * Extension structure inside the cert DER:
+ *   SEQUENCE {               ← extension wrapper
+ *     OID 1.2.840.113635.100.8.2
+ *     OCTET STRING {         ← extnValue wrapper
+ *       SEQUENCE {           ← DER-encoded value
+ *         OCTET STRING {     ← 32-byte nonce
+ *           <nonce bytes>
+ *         }
+ *       }
+ *     }
+ *   }
+ */
+function _verifyAttestNonce(derCert, expectedNonce) {
+  const buf     = Buffer.isBuffer(derCert) ? derCert : Buffer.from(derCert);
+  const oidPos  = _bufIndexOf(buf, _ATTEST_NONCE_OID_TLV);
+  if (oidPos === -1) throw new Error('Nonce OID not found in leaf cert — not an App Attest cert');
+
+  let pos = oidPos + _ATTEST_NONCE_OID_TLV.length; // skip the OID TLV
+
+  // Optional BOOLEAN (critical flag): tag 0x01
+  if (buf[pos] === 0x01) pos += 3;
+
+  // OCTET STRING (extnValue) wrapping the encoded extension value
+  if (buf[pos] !== 0x04) throw new Error('Expected OCTET STRING after nonce OID');
+  pos++;
+  const osLen = _derReadLength(buf, pos);
+  pos += osLen.skip;
+
+  // SEQUENCE containing the nonce OCTET STRING
+  if (buf[pos] !== 0x30) throw new Error('Expected SEQUENCE in nonce extension value');
+  pos++;
+  const seqLen = _derReadLength(buf, pos);
+  pos += seqLen.skip;
+
+  // OCTET STRING holding the 32-byte nonce
+  if (buf[pos] !== 0x04) throw new Error('Expected OCTET STRING for nonce value');
+  pos++;
+  const nonceLen = _derReadLength(buf, pos);
+  pos += nonceLen.skip;
+
+  const nonce = buf.slice(pos, pos + nonceLen.len);
+  if (!nonce.equals(expectedNonce)) {
+    throw new Error('Nonce mismatch — authData or challenge tampered');
+  }
+}
+
+/**
+ * Verify that the DER certificate chain in x5c terminates at
+ * Apple's App Attest Root CA, and that each cert is signed by the next.
+ */
+function _verifyAppAttestCertChain(x5c) {
+  const { X509Certificate } = crypto;
+  if (!Array.isArray(x5c) || x5c.length < 2) {
+    throw new Error('x5c chain must contain at least 2 certs');
+  }
+
+  const certs = x5c.map((c, i) => {
+    try { return new X509Certificate(Buffer.isBuffer(c) ? c : Buffer.from(c)); }
+    catch { throw new Error(`x5c[${i}] is not valid DER`); }
+  });
+
+  // Verify each cert is issued by and has a valid signature from the next
+  for (let i = 0; i < certs.length - 1; i++) {
+    if (!certs[i].checkIssued(certs[i + 1])) {
+      throw new Error(`x5c[${i}] was not issued by x5c[${i + 1}]`);
+    }
+    if (!certs[i].verify(certs[i + 1].publicKey)) {
+      throw new Error(`x5c[${i}] signature invalid`);
+    }
+  }
+
+  // The chain must terminate at Apple's known root CA
+  const appleRoot = new X509Certificate(_APPLE_ATTEST_ROOT_CA_PEM);
+  const chainRoot = certs[certs.length - 1];
+  if (chainRoot.fingerprint256 !== appleRoot.fingerprint256) {
+    throw new Error('Certificate chain does not terminate at Apple App Attest Root CA');
+  }
+}
+
+/* ── GET /attest/challenge ────────────────────────────────────────── */
+// Returns a fresh cryptographic challenge for the calling user.
+// Stored in-memory for 5 minutes; consumed once during /attest/verify.
+app.get('/attest/challenge', requireAuth, (req, res) => {
+  // Purge any previously stored challenge for this user
+  _attestChallenges.delete(req.uid);
+
+  const challenge  = crypto.randomBytes(32).toString('base64');
+  const expiresAt  = Date.now() + _ATTEST_CHALLENGE_TTL_MS;
+  _attestChallenges.set(req.uid, { challenge, expiresAt });
+
+  // Evict expired entries periodically so the map doesn't grow unbounded
+  if (_attestChallenges.size > 5000) {
+    const now = Date.now();
+    for (const [uid, v] of _attestChallenges) {
+      if (now > v.expiresAt) _attestChallenges.delete(uid);
+    }
+  }
+
+  res.json({ challenge });
+});
+
+/* ── POST /attest/verify ──────────────────────────────────────────── */
+// Full Apple App Attest verification:
+//   1. Challenge freshness + one-time-use
+//   2. CBOR decode of the Apple attestation object
+//   3. Certificate chain → Apple App Attest Root CA
+//   4. Nonce verification (prevents replay / authData tampering)
+//   5. RP ID hash verification (prevents cross-app usage)
+//   6. Credential ID vs provided key_id
+//   7. Store attested key_id in Firestore
+const _attestLimiter = rateLimit({
+  windowMs:        60 * 60 * 1000, // 1 hour
+  max:             5,               // max 5 attestation attempts per IP per hour
+  standardHeaders: true,
+  legacyHeaders:   false,
+  message:         { message: 'Too many attestation attempts — try again later' },
+});
+
+app.post('/attest/verify', requireAuth, _attestLimiter, async (req, res) => {
+  const { key_id, attestation, challenge } = req.body || {};
+
+  // ── 1. Input validation ────────────────────────────────────────────
+  if (!key_id || typeof key_id !== 'string') {
+    return res.status(400).json({ message: 'Missing or invalid key_id' });
+  }
+  if (!attestation || typeof attestation !== 'string') {
+    return res.status(400).json({ message: 'Missing attestation' });
+  }
+  if (!challenge || typeof challenge !== 'string') {
+    return res.status(400).json({ message: 'Missing challenge' });
+  }
+
+  // ── 2. Challenge freshness + single-use enforcement ────────────────
+  const stored = _attestChallenges.get(req.uid);
+  if (!stored) {
+    return res.status(401).json({ message: 'No pending challenge — call /attest/challenge first' });
+  }
+  if (Date.now() > stored.expiresAt) {
+    _attestChallenges.delete(req.uid);
+    return res.status(401).json({ message: 'Challenge expired — request a new one' });
+  }
+  if (stored.challenge !== challenge) {
+    return res.status(401).json({ message: 'Challenge mismatch' });
+  }
+  _attestChallenges.delete(req.uid); // one-time use — delete immediately
+
+  try {
+    // ── 3. CBOR decode ─────────────────────────────────────────────────
+    const decode = _getCborDecode();
+    let attestObj;
+    try {
+      attestObj = decode(Buffer.from(attestation, 'base64'));
+    } catch (e) {
+      return res.status(400).json({ message: 'Invalid attestation encoding' });
+    }
+
+    const { fmt, attStmt, authData } = attestObj || {};
+    if (fmt !== 'apple-appattest') {
+      return res.status(400).json({ message: `Unexpected attestation format: ${fmt}` });
+    }
+    const { x5c } = attStmt || {};
+    if (!x5c || !authData) {
+      return res.status(400).json({ message: 'Malformed attestation — missing x5c or authData' });
+    }
+
+    // ── 4. Certificate chain verification ─────────────────────────────
+    _verifyAppAttestCertChain(x5c);
+
+    // ── 5. Nonce verification ──────────────────────────────────────────
+    // nonce = SHA256(authData || clientDataHash)
+    // clientDataHash = SHA256(challenge)   (as computed by DCAppAttestService)
+    const clientDataHash = crypto.createHash('sha256').update(challenge).digest();
+    const expectedNonce  = crypto.createHash('sha256')
+      .update(Buffer.isBuffer(authData) ? authData : Buffer.from(authData))
+      .update(clientDataHash)
+      .digest();
+    _verifyAttestNonce(x5c[0], expectedNonce);
+
+    // ── 6. RP ID (bundle ID) hash verification ─────────────────────────
+    const BUNDLE_ID       = process.env.APP_BUNDLE_ID || 'com.brandon.flowcheck';
+    const expectedRPIDHash = crypto.createHash('sha256').update(BUNDLE_ID).digest();
+    const authDataBuf      = Buffer.isBuffer(authData) ? authData : Buffer.from(authData);
+    const rpIDHash         = authDataBuf.slice(0, 32);
+    if (!rpIDHash.equals(expectedRPIDHash)) {
+      throw new Error(`RP ID hash mismatch — expected SHA256("${BUNDLE_ID}")`);
+    }
+
+    // ── 7. Credential ID vs key_id ─────────────────────────────────────
+    // authData layout: [0:32]=rpIDHash [32]=flags [33:37]=signCount
+    //   [37:53]=AAGUID (16B) [53:55]=credIDLen [55:55+credIDLen]=credID
+    const credIDLen = authDataBuf.readUInt16BE(53);
+    const credID    = authDataBuf.slice(55, 55 + credIDLen).toString('base64');
+    if (credID !== key_id) {
+      throw new Error('Credential ID does not match provided key_id');
+    }
+
+    // ── 8. Persist attested key ID ────────────────────────────────────
+    await db.collection('users').doc(req.uid).set({
+      attest_key_id:  key_id,
+      attest_verified: true,
+      attest_at:      admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+
+    console.log(`[AppAttest] ✅ Device attested uid:${req.uid} key:${key_id.slice(0, 8)}…`);
+    res.json({ success: true });
+
+  } catch (err) {
+    console.warn(`[AppAttest] ❌ Verification failed uid:${req.uid} — ${err.message}`);
+    res.status(400).json({ message: 'Attestation verification failed' });
   }
 });
 
