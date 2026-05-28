@@ -377,8 +377,27 @@ app.post('/plaid/exchange-token', requireAuth, _plaidUserLimiter, async (req, re
 
   try {
     const { data } = await plaid.itemPublicTokenExchange({ public_token });
-    const institution     = metadata?.institution?.name || '';
-    const institution_id  = metadata?.institution?.institution_id || '';
+
+    // Derive institution from Plaid (server-authoritative) instead of trusting
+    // client-supplied metadata, which could be spoofed. Fall back to client
+    // metadata only if Plaid lookup fails (e.g. institution_id missing).
+    let institution     = '';
+    let institution_id  = '';
+    try {
+      const item = await plaid.itemGet({ access_token: data.access_token });
+      institution_id = item.data?.item?.institution_id || '';
+      if (institution_id) {
+        const inst = await plaid.institutionsGetById({
+          institution_id,
+          country_codes: ['US'],
+        });
+        institution = inst.data?.institution?.name || '';
+      }
+    } catch (lookupErr) {
+      console.warn('[exchange-token] institution lookup failed, using client metadata:', lookupErr.message);
+    }
+    if (!institution_id) institution_id = metadata?.institution?.institution_id || '';
+    if (!institution)    institution    = metadata?.institution?.name || '';
 
     // Store access_token in user's plaid_items subcollection (keyed by item_id)
     // This allows multiple banks per user — each bank gets its own doc.
@@ -433,7 +452,7 @@ app.get('/plaid/items', requireAuth, async (req, res) => {
     res.json({ items });
   } catch (err) {
     console.error('[plaid/items]', err.message);
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: _safeMsg(err, 'Could not load linked banks') });
   }
 });
 
@@ -1124,7 +1143,7 @@ async function _sendEmail(to, subject, html, uid = null) {
   }
   // RFC 8058 List-Unsubscribe headers — enables one-click unsubscribe in Gmail + Apple Mail
   const headers = uid ? {
-    'List-Unsubscribe':      `<${BACKEND_URL}/unsubscribe?uid=${uid}&type=all>`,
+    'List-Unsubscribe':      `<${_unsubUrl(uid, 'all', BACKEND_URL)}>`,
     'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
   } : {};
   try {
@@ -1195,7 +1214,7 @@ app.post('/email/welcome', requireAuth, async (req, res) => {
           <p style="font-size:12px;color:#9ca3af;margin:0">
             FlowCheck · Your money, clearly.<br>
             <a href="https://getflowcheck.app/privacy" style="color:#9ca3af">Privacy Policy</a> &nbsp;·&nbsp;
-            <a href="https://getflowcheck.app/unsubscribe?uid=${req.uid}" style="color:#9ca3af">Unsubscribe</a>
+            <a href="${_unsubUrl(req.uid, 'all')}" style="color:#9ca3af">Unsubscribe</a>
           </p>
         </div>
       </div>
@@ -1241,7 +1260,7 @@ app.post('/email/test', requireAuth, async (req, res) => {
   } catch (err) {
     console.error('[email/test]', err.message);
     if (res.headersSent) return;
-    res.status(500).json({ message: 'Email test failed: ' + err.message });
+    res.status(500).json({ message: _safeMsg(err, 'Email test failed') });
   }
 });
 
@@ -1349,7 +1368,7 @@ app.post('/notifications/budget-alert', requireAuth, async (req, res) => {
           </div>
           <div style="padding:16px 24px;border-top:1px solid #f3f4f6">
             <p style="font-size:11px;color:#9ca3af;margin:0">
-              FlowCheck · <a href="https://getflowcheck.app/unsubscribe?uid=${req.uid}" style="color:#9ca3af">Unsubscribe from alerts</a>
+              FlowCheck · <a href="${_unsubUrl(req.uid, 'alerts')}" style="color:#9ca3af">Unsubscribe from alerts</a>
             </p>
           </div>
         </div>
@@ -1584,7 +1603,7 @@ async function _sendBillRemindersForUser(uid, userData) {
           </div>
           <div style="padding:16px 32px;border-top:1px solid #f3f4f6;text-align:center">
             <p style="font-size:11px;color:#9ca3af;margin:0">
-              FlowCheck · <a href="https://getflowcheck.app/unsubscribe?uid=${uid}" style="color:#9ca3af">Unsubscribe</a>
+              FlowCheck · <a href="${_unsubUrl(uid, 'alerts')}" style="color:#9ca3af">Unsubscribe</a>
             </p>
           </div>
         </div>
@@ -1678,7 +1697,7 @@ async function _sendWeeklySummaryForUser(uid, userData) {
       <div style="padding:16px 32px;border-top:1px solid #f3f4f6;text-align:center">
         <p style="font-size:11px;color:#9ca3af;margin:0">
           FlowCheck · Your money, clearly<br>
-          <a href="https://getflowcheck.app/unsubscribe?uid=${uid}" style="color:#9ca3af">Unsubscribe from weekly summaries</a>
+          <a href="${_unsubUrl(uid, 'weekly')}" style="color:#9ca3af">Unsubscribe from weekly summaries</a>
         </p>
       </div>
     </div>
@@ -2206,6 +2225,41 @@ function _unsubscribeHtml(success, message) {
 </html>`;
 }
 
+/* ── Signed unsubscribe URL helpers ─────────────────────────────
+ * Unsubscribe links arrive at a public endpoint with no auth, so the link
+ * itself must prove the bearer is allowed to act on this uid. We sign
+ * uid|type|exp with HMAC-SHA256 using UNSUB_SECRET.
+ *
+ * Backward-compat: if a link arrives without `sig`, we still honor it
+ * (legacy emails already in inboxes). New emails always include sig.
+ * Flip ENFORCE_UNSUB_SIG=1 once legacy emails are out of the 30-day window. */
+const UNSUB_SECRET = process.env.UNSUB_SECRET
+  || process.env.FIREBASE_SERVICE_ACCOUNT // deterministic fallback, secret-grade
+  || 'flowcheck-unsub-dev-only-do-not-use-in-prod';
+const ENFORCE_UNSUB_SIG = process.env.ENFORCE_UNSUB_SIG === '1';
+
+function _signUnsub(uid, type, expMs) {
+  return crypto.createHmac('sha256', UNSUB_SECRET)
+    .update(`${uid}|${type}|${expMs}`)
+    .digest('hex');
+}
+function _verifyUnsub(uid, type, exp, sig) {
+  if (!uid || !type || !exp || !sig) return false;
+  const expMs = Number(exp);
+  if (!Number.isFinite(expMs) || expMs < Date.now()) return false;
+  const expected = _signUnsub(uid, type, expMs);
+  try {
+    return sig.length === expected.length
+      && crypto.timingSafeEqual(Buffer.from(sig, 'hex'), Buffer.from(expected, 'hex'));
+  } catch (_) { return false; }
+}
+function _unsubUrl(uid, type = 'all', base = 'https://getflowcheck.app') {
+  // 90-day validity — long enough for delayed reads, short enough to limit reuse
+  const exp = Date.now() + 90 * 24 * 60 * 60 * 1000;
+  const sig = _signUnsub(uid, type, exp);
+  return `${base}/unsubscribe?uid=${encodeURIComponent(uid)}&type=${encodeURIComponent(type)}&exp=${exp}&sig=${sig}`;
+}
+
 async function _handleUnsubscribe(uid, type) {
   if (!uid || typeof uid !== 'string' || uid.length > 128 || !/^[a-zA-Z0-9_-]+$/.test(uid)) {
     throw new Error('invalid_uid');
@@ -2234,7 +2288,16 @@ async function _handleUnsubscribe(uid, type) {
 }
 
 app.get('/unsubscribe', _unsubLimiter, async (req, res) => {
-  const { uid, type = 'all' } = req.query;
+  const { uid, type = 'all', exp, sig } = req.query;
+  const hasSig = Boolean(sig);
+  const validSig = hasSig && _verifyUnsub(uid, type, exp, sig);
+  if (hasSig && !validSig) {
+    return res.status(400).send(_unsubscribeHtml(false, 'This unsubscribe link is invalid or expired'));
+  }
+  if (!hasSig && ENFORCE_UNSUB_SIG) {
+    return res.status(400).send(_unsubscribeHtml(false, 'This unsubscribe link is missing required signature'));
+  }
+  if (!hasSig) console.warn(`[unsubscribe] legacy unsigned link uid:${uid}`);
   try {
     await _handleUnsubscribe(uid, type);
     res.send(_unsubscribeHtml(true, 'You\'ve been unsubscribed'));
@@ -2251,8 +2314,18 @@ app.get('/unsubscribe', _unsubLimiter, async (req, res) => {
 // Add to your emails: List-Unsubscribe-Post: List-Unsubscribe=One-Click
 //                     List-Unsubscribe: <https://...railway.app/unsubscribe?uid=X>
 app.post('/unsubscribe', _unsubLimiter, async (req, res) => {
-  const uid  = req.query.uid || req.body?.uid;
+  const uid  = req.query.uid  || req.body?.uid;
   const type = req.query.type || req.body?.type || 'all';
+  const exp  = req.query.exp  || req.body?.exp;
+  const sig  = req.query.sig  || req.body?.sig;
+  const hasSig = Boolean(sig);
+  const validSig = hasSig && _verifyUnsub(uid, type, exp, sig);
+  if (hasSig && !validSig) {
+    return res.status(400).json({ message: 'Invalid or expired unsubscribe link' });
+  }
+  if (!hasSig && ENFORCE_UNSUB_SIG) {
+    return res.status(400).json({ message: 'Missing signature' });
+  }
   try {
     await _handleUnsubscribe(uid, type);
     res.json({ unsubscribed: true });

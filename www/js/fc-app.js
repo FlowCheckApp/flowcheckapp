@@ -104,18 +104,37 @@ window.FCApp = (function () {
 
   // ── Transaction display-name cleaner ─────────────────────────────
   // Strips raw bank strings like "DEBIT PURCHASE 0523 9264 CENEX" → "Cenex"
+  // Also handles "9264 ANTHROPIC", "SQ *TACO BELL #1234", etc.
   function _cleanTxnName(t) {
-    if (t.customName)   return t.customName;
+    if (t.customName)    return t.customName;
     if (t.merchant_name) return t.merchant_name;
     let name = t.name || 'Transaction';
-    // Strip leading bank noise: "DEBIT PURCHASE 0523 1234 ", "POS DEBIT 0101 ", etc.
-    name = name.replace(/^(?:DEBIT\s+(?:PURCHASE|CARD)\s+|POS\s+(?:PURCHASE|DEBIT)\s+|ACH\s+DEBIT\s+|ONLINE\s+(?:PAYMENT|PURCHASE)\s+|ELECTRONIC\s+)\d{4}\s+\S+\s*/i, '');
-    // Strip trailing ref numbers / noise: " 00", " WA", 9+ digit refs
-    name = name.replace(/\s+\d{9,}.*$/, '').replace(/\s{2,}/g, ' ').trim();
-    // Proper-case if string is all-caps (bank formatting)
-    if (name.length > 2 && name === name.toUpperCase()) {
+
+    // 1. Strip full bank prefix with 4-digit sequence + ref token
+    //    e.g. "DEBIT PURCHASE 0523 9264 CENEX" → "CENEX"
+    name = name.replace(/^(?:DEBIT\s+(?:PURCHASE|CARD)|POS\s+(?:PURCHASE|DEBIT)|ACH\s+DEBIT|ONLINE\s+(?:PAYMENT|PURCHASE)|ELECTRONIC|CHECKCARD|CHECK\s+CARD|VISA\s+(?:PURCHASE|DEBIT)|MASTERCARD\s+DEBIT)\s+\d{4}\s+\S+\s*/i, '');
+
+    // 2. Strip standalone leading 4-digit reference number + any trailing junk
+    //    e.g. "9264 CENEX" → "CENEX"
+    //         "9264&@#anthropic" → "anthropic" → "Anthropic"
+    name = name.replace(/^\d{4}[\s&@#*|_\-!%^()[\]{}]*/, '');
+
+    // 3. Strip Square/Toast/Stripe noise: "SQ *", "TST* ", "SP * "
+    name = name.replace(/^(?:SQ|TST|SP|PP)\s*\*\s*/i, '');
+
+    // 4. Strip trailing location noise: " #1234 SEATTLE WA", " 00", " WA US"
+    name = name.replace(/\s+#\d+\s+\S+\s+\S{2}\s*$/, '');
+    name = name.replace(/\s+\d{9,}.*$/, '');
+    name = name.replace(/\s+\d{2}\s*$/, '');
+
+    // 5. Collapse extra whitespace
+    name = name.replace(/\s{2,}/g, ' ').trim();
+
+    // 6. Proper-case if all-caps OR all-lowercase (raw bank / corrupted format)
+    if (name.length > 2 && (name === name.toUpperCase() || name === name.toLowerCase())) {
       name = name.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
     }
+
     return name || (t.name || 'Transaction');
   }
 
@@ -718,7 +737,7 @@ window.FCApp = (function () {
                     margin-top:1px">${esc(ins.icon)}</div>
         <div style="flex:1;min-width:0">
           <div style="font-size:13px;font-weight:600;color:#fff;line-height:1.35;margin-bottom:2px">
-            ${ins.text}
+            ${esc(ins.text)}
           </div>
           ${ins.sub ? `<div style="font-size:11px;color:rgba(255,255,255,0.4);line-height:1.4;margin-top:3px">${esc(ins.sub)}</div>` : ''}
         </div>
@@ -793,11 +812,10 @@ window.FCApp = (function () {
     }
 
     try {
-      const token = await FCAuth.getIdToken();
       // Backend generates its own title/body from category+spent+limit — send those three.
-      await fetch(FC_CONFIG.notifications.budgetAlertEndpoint, {
+      await FCAuth.authedFetch(FC_CONFIG.notifications.budgetAlertEndpoint, {
         method:  'POST',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ category: 'total', spent: monthSpend, limit: budgetLimit }),
       });
     } catch (_) { /* best-effort */ }
@@ -881,8 +899,10 @@ window.FCApp = (function () {
     state.screen = name;
     document.body.dataset.screen = name;
 
-    // Reset scroll on new screen
-    window.scrollTo({ top: 0, behavior: 'instant' });
+    // Reset scroll on new screen — scroll the specific container, not window,
+    // to avoid a visible jump on WKWebView which doesn't smooth-handle window.scrollTo
+    const screenEl = document.querySelector(`.fc-screen[data-screen="${name}"]`);
+    if (screenEl) screenEl.scrollTop = 0;
 
     // Update greeting dynamically
     if (name === 'app') _updateGreeting();
@@ -931,7 +951,7 @@ window.FCApp = (function () {
       if (addBillBtn) addBillBtn.style.display = 'flex';
       _renderBillsList();
     } else {
-      if (txnsPanel)  txnsPanel.style.display  = 'flex';
+      if (txnsPanel)  txnsPanel.style.display  = 'block';
       if (billsPanel) billsPanel.style.display  = 'none';
       if (segTxns)  { segTxns.classList.add('active');     segTxns.setAttribute('aria-selected','true'); }
       if (segBills) { segBills.classList.remove('active'); segBills.setAttribute('aria-selected','false'); }
@@ -949,7 +969,7 @@ window.FCApp = (function () {
 
     if (!state.bills.length) {
       container.innerHTML = `
-        <div style="text-align:center;padding:48px 24px;color:var(--fc-text-faint)">
+        <div style="width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 24px;color:var(--fc-text-faint);text-align:center">
           <div style="font-size:48px;margin-bottom:12px">🧾</div>
           <div style="font-size:15px;font-weight:500;color:var(--fc-text-muted);margin-bottom:8px">No bills yet</div>
           <div style="font-size:13px;margin-bottom:20px">Track your recurring bills and due dates</div>
@@ -1019,10 +1039,15 @@ window.FCApp = (function () {
       v.classList.remove('active', 'fc-slide-right', 'fc-slide-left');
     });
     const target = document.getElementById('view-' + tabId);
+
+    // Reset scroll BEFORE the slide animation starts so the view enters at
+    // the top — doing it after render causes a visible jump mid-animation.
+    if (target) target.scrollTop = 0;
+
     if (target) {
       target.classList.add('active', slideClass);
-      // Remove animation class after it completes so it doesn't replay
-      setTimeout(() => target.classList.remove('fc-slide-right', 'fc-slide-left'), 300);
+      // Remove animation class after it completes so it doesn't replay (animation is 280ms)
+      setTimeout(() => target.classList.remove('fc-slide-right', 'fc-slide-left'), 290);
     }
 
     // Nav items
@@ -1033,19 +1058,24 @@ window.FCApp = (function () {
       item.setAttribute('tabindex', active ? '0' : '-1');
     });
 
-    // Trigger tab-specific refresh
+    // Trigger tab-specific refresh.
+    // Insights is deferred one rAF so the slide animation starts cleanly
+    // before the heavy synchronous render (health score ring, charts, etc.)
+    // runs — without the deferral the view visibly shakes during the 260ms
+    // slide transition.
     if (tabId === 'home')     _renderHome();
     if (tabId === 'activity') {
       if (_activitySegment === 'bills') _renderBillsList();
       else _renderActivity();
     }
-    if (tabId === 'insights') _renderInsights();
+    // Slide animation is 280ms — deferring one rAF (~16ms) still puts the
+    // heavy render inside the animation window. Defer past the animation so
+    // the slide finishes before any layout-thrashing DOM writes happen.
+    if (tabId === 'insights') setTimeout(_renderInsights, 290);
     if (tabId === 'goals')    _renderGoals();   // legacy — kept in case
     if (tabId === 'wealth')   _renderWealth();
     if (tabId === 'settings') _renderSettings();
 
-    // Reset the view's own scroll — body has overflow:hidden so window never scrolls
-    if (target) target.scrollTop = 0;
     haptic('light');
     fcLog('Tab →', tabId, '(from', prev + ')');
   }
@@ -1377,6 +1407,91 @@ window.FCApp = (function () {
     el.dataset.offerId = offer.id;
   }
 
+  /* ── Pro gate helpers ────────────────────────────────────────────────
+     _isPro()           → true if user has an active Pro entitlement
+     _renderProGate()   → replaces a section with the locked-card UI
+     ─────────────────────────────────────────────────────────────────── */
+  function _isPro() {
+    // OR both sources. The earlier short-circuit (FCPurchases first, fallback
+    // only if missing) lost purchases during the brief window between
+    // purchasePackage() resolving and FCPurchases._proStatus being read by a
+    // render — `state.user.is_pro` set by _refreshAfterPro was never consulted.
+    const rcPro    = !!(window.FCPurchases && typeof FCPurchases.isPro === 'function' && FCPurchases.isPro());
+    const localPro = !!(state.user?.is_pro || state.user?.pro);
+    return rcPro || localPro;
+  }
+
+  /** Wipe every per-user piece of in-memory state. Called from handleSignOut
+   *  AND from the auth observer when Firebase reports no user, so a session
+   *  ended by token expiry or programmatic signOut doesn't leak the previous
+   *  user's accounts/transactions into the next sign-in. */
+  function _wipeUserState() {
+    state.user          = null;
+    state.accounts      = [];
+    state.transactions  = [];
+    state.bills         = [];
+    state.goals         = [];
+    state.budgets       = {};
+    state.notifications = [];
+    state.txnOverrides  = {};
+    state.creditHistory = [];
+    state.searchQuery   = '';
+    _paywallShownThisSession    = false;
+    _streakCheckedThisSession   = false;
+    if (_privacyModeOn) {
+      _privacyModeOn = false;
+      document.body.classList.remove('fc-privacy');
+    }
+    // Wipe per-user localStorage caches (net-worth history, budget alert
+    // flags, debt start, etc.) so they can't leak into the next user.
+    try {
+      Object.keys(localStorage)
+        .filter(k => k.startsWith('fc_'))
+        .forEach(k => localStorage.removeItem(k));
+    } catch (_) { /* localStorage unavailable in strict CSP — safe to ignore */ }
+  }
+
+  /** Re-render every pro-gated surface after a successful purchase/restore.
+   *  Without this the success overlay closes but underlying gates persist
+   *  (e.g. the Financial Health Score card and the settings Upgrade row). */
+  function _refreshAfterPro() {
+    if (state.user) state.user.is_pro = true;
+    try { _renderHome();     } catch (_) {}
+    try { _renderInsights(); } catch (_) {}
+    try { _renderSettings(); } catch (_) {}
+    const settingsProRow = document.getElementById('settings-pro-row');
+    if (settingsProRow) settingsProRow.style.display = 'none';
+  }
+
+  function _renderProGate(section, icon, title, teaser) {
+    if (!section) return;
+    section.style.display = '';
+    // Build three "blurred bars" of varying width to mimic real content
+    const bars = [85, 62, 45, 72].map(w =>
+      `<div class="fc-pro-gate-bar" style="width:${w}%"></div>`
+    ).join('');
+    section.innerHTML = `
+      <div class="fc-pro-gate" onclick="FCApp.showPaywall()">
+        <div class="fc-pro-gate-preview">${bars}</div>
+        <div class="fc-pro-gate-overlay">
+          <div class="fc-pro-gate-badge">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+              <rect x="3" y="11" width="18" height="11" rx="2"/>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+            Pro Feature
+          </div>
+          <div class="fc-pro-gate-icon">${icon}</div>
+          <div class="fc-pro-gate-title">${title}</div>
+          <div class="fc-pro-gate-desc">${teaser}</div>
+          <button class="fc-pro-gate-btn" type="button" onclick="event.stopPropagation();FCApp.showPaywall()">
+            Unlock Pro →
+          </button>
+        </div>
+      </div>`;
+  }
+
   /* ── 50/30/20 Budget Wizard ─────────────────────────────────────────
      Maps this month's spending into Needs / Wants / Savings buckets and
      compares against the classic 50/30/20 rule. Only shown when the user
@@ -1385,6 +1500,11 @@ window.FCApp = (function () {
   function _renderBudgetWizard(monthIncome, monthSpend) {
     const section = document.getElementById('home-budget-wizard-section');
     if (!section) return;
+    if (!_isPro()) {
+      _renderProGate(section, '🎯', '50/30/20 Budget Wizard',
+        'See exactly how your spending splits into needs, wants, and savings — then get a plan to fix it.');
+      return;
+    }
     if (!state.user?.plaid_linked || monthIncome < 50) { section.style.display = 'none'; return; }
 
     // Category → bucket mapping
@@ -1491,6 +1611,11 @@ window.FCApp = (function () {
   function _renderZombieSubscriptions() {
     const section = document.getElementById('home-zombie-subs-section');
     if (!section) return;
+    if (!_isPro()) {
+      _renderProGate(section, '🧟', 'Zombie Subscription Finder',
+        'Find subscriptions you forgot about and cancel them — most users save $40+/mo.');
+      return;
+    }
     if (!state.user?.plaid_linked) { section.style.display = 'none'; return; }
 
     const zombies = _detectSubscriptions().filter(s => !s.tracked);
@@ -1571,6 +1696,11 @@ window.FCApp = (function () {
   function _renderDebtPayoffPlanner() {
     const section = document.getElementById('home-debt-planner-section');
     if (!section) return;
+    if (!_isPro()) {
+      _renderProGate(section, '📉', 'Debt Payoff Planner',
+        'Get a personalized payoff schedule across all your loans and cards — with exact payoff dates.');
+      return;
+    }
     if (!state.user?.plaid_linked) { section.style.display = 'none'; return; }
 
     // Collect debt accounts
@@ -1898,7 +2028,11 @@ window.FCApp = (function () {
     const section = document.getElementById('home-card-recommender-section');
     const el      = document.getElementById('home-card-recommender');
     if (!section || !el) return;
-
+    if (!_isPro()) {
+      _renderProGate(section, '💳', 'Credit Card Optimizer',
+        'Find out which card earns you the most rewards based on where you actually spend.');
+      return;
+    }
     // Only show after a bank is linked
     if (!state.user?.plaid_linked) { section.style.display = 'none'; return; }
 
@@ -2180,7 +2314,11 @@ window.FCApp = (function () {
   function _renderCashFlowForecast() {
     const section = document.getElementById('home-cashflow-section');
     if (!section) return;
-
+    if (!_isPro()) {
+      _renderProGate(section, '📈', '31-Day Cash Flow Forecast',
+        'See if you\'ll run short before your next paycheck — before it happens.');
+      return;
+    }
     // Only show after a bank is linked with real data
     if (!state.user?.plaid_linked || !state.accounts.length) {
       section.style.display = 'none'; return;
@@ -2496,7 +2634,7 @@ window.FCApp = (function () {
     } catch (_) {}
 
     haptic('light');
-    openInAppPage(offer.url, offer.badge + ' · ' + offer.cta);
+    _openUrl(offer.url);
   }
 
   // Called when user taps "Check My Credit Score" — fetches from backend
@@ -2505,7 +2643,6 @@ window.FCApp = (function () {
     if (btn) { btn.disabled = true; btn.textContent = 'Checking…'; }
 
     try {
-      const token       = await FCAuth.getIdToken();
       const creditUrl   = (FC_CONFIG && FC_CONFIG.credit && FC_CONFIG.credit.scoreEndpoint)
                         || 'https://flowcheck-backend-production.up.railway.app/credit/score';
       const abort   = new AbortController();
@@ -2514,11 +2651,10 @@ window.FCApp = (function () {
       // In sandbox the server uses hardcoded test consumer — body fields are optional.
       // In production, populate these from a PII collection screen before calling.
       const creditPii = state.user?.credit_pii || {};
-      const resp  = await fetch(creditUrl, {
+      const resp  = await FCAuth.authedFetch(creditUrl, {
         method:  'POST',
         signal:  abort.signal,
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type':  'application/json',
         },
         body: JSON.stringify({
@@ -2897,6 +3033,223 @@ window.FCApp = (function () {
   }
 
   /* ─────────────────────────────────────────────────────────────
+     TODAY'S FOCUS — single actionable daily insight engine
+     Generates prioritised insights from live user data.
+     ───────────────────────────────────────────────────────────── */
+
+  // Internal state — index cycles when user taps "Next →"
+  let _focusInsights = [];
+  let _focusIdx      = 0;
+
+  // Build an ordered list of insights from current state data
+  function _buildFocusInsights() {
+    const insights = [];
+    const now      = new Date();
+    const txns     = state.transactions || [];
+    const bills    = (state.bills || []).filter(b => b.status !== 'paid');
+    const accounts = state.accounts || [];
+
+    // ── 1. Overdue bills (highest priority) ─────────────────────
+    const overdue = bills.filter(b => {
+      const d = FCData.parseDateLocal(b.due_date);
+      return d < now;
+    });
+    if (overdue.length) {
+      insights.push({
+        type: 'danger',
+        label: 'Action Required',
+        body: `${overdue[0].name} was due ${FCData.daysUntil(overdue[0].due_date) * -1} days ago — don't let it hit your credit.`,
+        action: 'View bill',
+        tap: () => FCApp.switchTab('activity')
+      });
+    }
+
+    // ── 2. Bill due in the next 3 days ───────────────────────────
+    const dueSoon = bills.filter(b => {
+      const days = FCData.daysUntil(b.due_date);
+      return days >= 0 && days <= 3;
+    });
+    if (dueSoon.length && !overdue.length) {
+      const b    = dueSoon[0];
+      const days = FCData.daysUntil(b.due_date);
+      const when = days === 0 ? 'today' : days === 1 ? 'tomorrow' : `in ${days} days`;
+      insights.push({
+        type: 'warn',
+        label: 'Bill Alert',
+        body: `${b.name} (${FCData.formatCurrency(b.amount || 0)}) is due ${when}.`,
+        action: 'Mark as paid',
+        tap: () => FCApp.switchTab('activity')
+      });
+    }
+
+    // ── 3. Budget overspend this month ───────────────────────────
+    const budget = (state.budgets && state.budgets['total'] && state.budgets['total'].limit) || 0;
+    if (budget > 0 && txns.length) {
+      const spent = txns
+        .filter(t => !t.isCredit && _isSpendTxn(t) && FCData.isCurrentMonth(t.date))
+        .reduce((s, t) => s + (t.amount || 0), 0);
+      const pct = spent / budget;
+      if (pct > 0.9) {
+        insights.push({
+          type: pct >= 1 ? 'danger' : 'warn',
+          label: pct >= 1 ? 'Over Budget' : 'Budget Alert',
+          body: pct >= 1
+            ? `You've spent ${FCData.formatCurrency(spent)} — ${FCData.formatCurrency(spent - budget)} over your monthly budget.`
+            : `${Math.round(pct * 100)}% of your monthly budget used with ${30 - now.getDate()} days left.`,
+          action: 'Review spending',
+          tap: () => FCApp.switchTab('insights')
+        });
+      }
+    }
+
+    // ── 4. Unusual large transaction in last 3 days ──────────────
+    const cutoff3d = new Date(now.getTime() - 3 * 86400000);
+    const recent   = txns.filter(t => !t.isCredit && FCData.parseDateLocal(t.date) >= cutoff3d);
+    if (recent.length) {
+      const amounts  = txns.filter(t => !t.isCredit && _isSpendTxn(t)).map(t => t.amount || 0);
+      const avg      = amounts.length ? amounts.reduce((a,b)=>a+b,0)/amounts.length : 0;
+      const outlier  = recent.find(t => (t.amount || 0) > avg * 3 && (t.amount || 0) > 50);
+      if (outlier && avg > 0) {
+        insights.push({
+          type: 'info',
+          label: 'Unusual Spend',
+          body: `${_cleanTxnName(outlier)} (${FCData.formatCurrency(outlier.amount)}) is 3× your average transaction. Recognize it?`,
+          action: 'View transaction',
+          tap: () => FCApp.switchTab('activity')
+        });
+      }
+    }
+
+    // ── 5. Low cash balance warning ──────────────────────────────
+    const cashBal = FCData.calcCash(accounts);
+    if (cashBal < 500 && cashBal >= 0 && accounts.length > 0) {
+      insights.push({
+        type: 'warn',
+        label: 'Low Balance',
+        body: `Your cash balance is ${FCData.formatCurrency(cashBal)} — keep an eye on upcoming bills.`,
+        action: 'View accounts',
+        tap: () => FCApp.switchTab('wealth')
+      });
+    }
+
+    // ── 6. Zombie subscriptions found ───────────────────────────
+    try {
+      const zombies = _detectSubscriptions().filter(s => !s.tracked);
+      if (zombies.length > 0) {
+        const total = zombies.reduce((s,z) => s + (z.amount || 0), 0);
+        insights.push({
+          type: 'info',
+          label: 'Save Money',
+          body: `We found ${zombies.length} unused subscription${zombies.length>1?'s':''} totaling ${FCData.formatCurrency(total)}/mo you might not need.`,
+          action: 'Review subscriptions',
+          tap: () => FCApp.switchTab('insights')
+        });
+      }
+    } catch(_) { /* _detectSubscriptions may not be ready yet */ }
+
+    // ── 7. Positive streak — good week ───────────────────────────
+    if (!insights.length && txns.length > 0) {
+      const weekSpend = txns
+        .filter(t => !t.isCredit && _isSpendTxn(t) && FCData.parseDateLocal(t.date) >= new Date(now.getTime() - 7*86400000))
+        .reduce((s,t) => s + (t.amount||0), 0);
+      const income = txns
+        .filter(t => t.isCredit && FCData.isCurrentMonth(t.date))
+        .reduce((s,t) => s + (t.amount||0), 0);
+      if (income > 0 && weekSpend < income * 0.15) {
+        insights.push({
+          type: 'good',
+          label: 'Great Progress',
+          body: `You spent only ${FCData.formatCurrency(weekSpend)} this week — you're on track to save this month! 🎉`,
+          action: 'See full breakdown',
+          tap: () => FCApp.switchTab('insights')
+        });
+      } else {
+        // Default: net worth update
+        const nw = FCData.calcNetWorth(accounts);
+        insights.push({
+          type: 'info',
+          label: 'Net Worth',
+          body: `Your current net worth is ${FCData.formatCurrency(nw)}. Keep adding accounts for a complete picture.`,
+          action: 'View all accounts',
+          tap: () => FCApp.switchTab('wealth')
+        });
+      }
+    }
+
+    return insights;
+  }
+
+  // Color config per insight type
+  const _FOCUS_COLORS = {
+    danger: { bar: '#ff453a', dot: '#ff453a', label: 'rgba(255,69,58,0.85)',  border: 'rgba(255,69,58,0.28)',  bg: 'rgba(255,69,58,0.08)'  },
+    warn:   { bar: '#ff9f0a', dot: '#ff9f0a', label: 'rgba(255,159,10,0.85)', border: 'rgba(255,159,10,0.28)', bg: 'rgba(255,159,10,0.06)' },
+    info:   { bar: '#2563eb', dot: '#60a5fa', label: 'rgba(96,165,250,0.85)', border: 'rgba(37,99,235,0.28)',  bg: 'rgba(37,99,235,0.06)'  },
+    good:   { bar: '#34c759', dot: '#34c759', label: 'rgba(52,199,89,0.85)',  border: 'rgba(52,199,89,0.28)',  bg: 'rgba(52,199,89,0.06)'  },
+  };
+
+  function _renderTodaysFocus() {
+    const section = document.getElementById('todays-focus-section');
+    if (!section) return;
+
+    // Only show if plaid is linked and we have data
+    if (!state.user?.plaid_linked || (!state.transactions?.length && !state.bills?.length)) {
+      section.style.display = 'none';
+      return;
+    }
+
+    _focusInsights = _buildFocusInsights();
+    if (!_focusInsights.length) { section.style.display = 'none'; return; }
+
+    // Clamp index
+    _focusIdx = Math.min(_focusIdx, _focusInsights.length - 1);
+
+    section.style.display = '';
+    _applyFocusInsight(_focusIdx);
+  }
+
+  function _applyFocusInsight(idx) {
+    const insight     = _focusInsights[idx];
+    if (!insight) return;
+    const c           = _FOCUS_COLORS[insight.type] || _FOCUS_COLORS.info;
+    const card        = document.getElementById('todays-focus-card');
+    const leftBar     = card?.querySelector('.dash-focus-left-bar');
+    const dot         = card?.querySelector('.dash-focus-dot');
+    const labelEl     = card?.querySelector('.dash-focus-label');
+    const bodyEl      = document.getElementById('focus-body');
+    const actionText  = document.getElementById('focus-action-text');
+    const counter     = document.getElementById('focus-counter');
+    const nextBtn     = document.getElementById('todays-focus-next-btn');
+
+    if (card)      { card.style.setProperty('--focus-border', c.border); card.querySelector('.dash-focus-card::before'); }
+    if (leftBar)   leftBar.style.background = `linear-gradient(180deg, ${c.bar} 0%, ${c.bar}99 100%)`;
+    if (dot)       { dot.style.background = c.dot; dot.style.animationName = 'none'; void dot.offsetWidth; dot.style.animationName = 'focusPulse'; }
+    if (labelEl)   { labelEl.textContent = insight.label; labelEl.style.color = c.label; }
+    if (bodyEl)    bodyEl.textContent = insight.body;
+    if (actionText) actionText.style.color = c.label;
+    if (actionText) actionText.textContent = insight.action;
+
+    // Apply card background/border via inline style
+    if (card) {
+      card.style.background = c.bg;
+      card.style.border     = `0.5px solid ${c.border}`;
+    }
+
+    // Counter badge: "2 / 3"
+    if (counter && _focusInsights.length > 1) {
+      counter.textContent = `${idx + 1} / ${_focusInsights.length}`;
+      counter.style.display = '';
+    } else if (counter) {
+      counter.style.display = 'none';
+    }
+
+    // Show "Next →" only when there are multiple insights
+    if (nextBtn) nextBtn.style.display = _focusInsights.length > 1 ? '' : 'none';
+
+    // Store pending tap action on the card element
+    if (card) card._focusTap = insight.tap;
+  }
+
+  /* ─────────────────────────────────────────────────────────────
      RENDER: HOME
      ───────────────────────────────────────────────────────────── */
 
@@ -3155,6 +3508,9 @@ window.FCApp = (function () {
     // ── Net Worth Milestone ───────────────────────────────────────
     _renderNetWorthMilestone(netWorth);
 
+    // ── Today's Focus card ────────────────────────────────────────
+    _renderTodaysFocus();
+
     // ── Recent transactions preview ───────────────────────────────
     _renderRecentTransactions();
 
@@ -3193,7 +3549,7 @@ window.FCApp = (function () {
       const barColor      = isOver             ? 'var(--fc-danger)'
                           : barPct > 85        ? 'var(--fc-danger)'
                           : barPct > 65        ? 'var(--fc-warning)'
-                          : 'linear-gradient(90deg,var(--fc-accent),var(--fc-purple))';
+                          : 'linear-gradient(90deg,var(--fc-accent),var(--fc-electric))';
 
       // Card label flips when over: "Safe to Spend" → "Cash Balance"
       const cardLabelEl = document.getElementById('safe-spend-card-label');
@@ -3356,10 +3712,142 @@ window.FCApp = (function () {
   }
 
   /* ─────────────────────────────────────────────────────────────
+     FINANCIAL HEALTH SCORE
+     Computes 0–100 score from spending discipline, savings rate,
+     and net worth trajectory. Renders the ring + sub-metrics.
+     ───────────────────────────────────────────────────────────── */
+
+  function _renderHealthScore() {
+    const card = document.getElementById('ins-health-card');
+    // Gate: free users see a locked card instead of the score
+    if (!_isPro()) {
+      if (card) {
+        const bars = [75, 50, 85].map(w =>
+          `<div class="fc-pro-gate-bar" style="width:${w}%"></div>`
+        ).join('');
+        card.innerHTML = `
+          <div class="fc-pro-gate" style="margin-bottom:0;border:none;background:transparent" onclick="FCApp.showPaywall()">
+            <div class="fc-pro-gate-preview">${bars}</div>
+            <div class="fc-pro-gate-overlay" style="padding:20px">
+              <div class="fc-pro-gate-badge">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+                  <rect x="3" y="11" width="18" height="11" rx="2"/>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
+                Pro Feature
+              </div>
+              <div class="fc-pro-gate-icon">❤️‍🔥</div>
+              <div class="fc-pro-gate-title">Financial Health Score</div>
+              <div class="fc-pro-gate-desc">Your personalized score across spending, savings, and net worth — with tips to improve it.</div>
+              <button class="fc-pro-gate-btn" type="button" onclick="event.stopPropagation();FCApp.showPaywall()">Unlock Pro →</button>
+            </div>
+          </div>`;
+      }
+      return;
+    }
+    const ring     = document.getElementById('ins-health-ring');
+    const gradeEl  = document.getElementById('ins-health-grade');
+    const scoreEl  = document.getElementById('ins-health-score-num');
+    const tipEl    = document.getElementById('ins-health-tip');
+    if (!ring || !gradeEl) return;
+
+    const accts    = state.accounts || [];
+    const txns     = (state.transactions || []).filter(t => FCData.isCurrentMonth && FCData.isCurrentMonth(t.date));
+    const budget   = state.monthlyBudget || 3000;
+
+    // ── 1. Spending Score (0-34) ──────────────────────────────
+    const spent    = txns.filter(t => !t.isCredit).reduce((s, t) => s + (t.amount || 0), 0);
+    const spendRatio = budget > 0 ? spent / budget : 1;
+    let spendScore = Math.round(34 * Math.max(0, Math.min(1, 1 - (spendRatio - 0.5) * 2)));
+    // Perfect if under 75% of budget, 0 if over 150%
+    if (spendRatio <= 0.75) spendScore = 34;
+    else if (spendRatio >= 1.5) spendScore = 0;
+    else spendScore = Math.round(34 * (1.5 - spendRatio) / 0.75);
+
+    // ── 2. Savings Score (0-33) ───────────────────────────────
+    const income   = txns.filter(t => t.isCredit).reduce((s, t) => s + (t.amount || 0), 0);
+    const savingsRate = income > 0 ? (income - spent) / income : 0;
+    const savingsAccts = accts.filter(a => a.type === 'depository');
+    const totalSavings = savingsAccts.reduce((s, a) => s + (a.balance_current || a.balance || 0), 0);
+    let savingsScore = 0;
+    if (savingsRate >= 0.2) savingsScore = 33;
+    else if (savingsRate > 0) savingsScore = Math.round(33 * (savingsRate / 0.2));
+    // Boost if savings balance > 1 month of income
+    if (totalSavings > income && income > 0) savingsScore = Math.min(33, savingsScore + 8);
+
+    // ── 3. Net Worth Score (0-33) ─────────────────────────────
+    const assets = accts
+      .filter(a => a.type === 'depository' || a.type === 'investment' || a.type === 'brokerage')
+      .reduce((s, a) => s + (a.balance_current || a.balance || 0), 0);
+    const debts  = accts
+      .filter(a => a.type === 'credit' || a.type === 'loan')
+      .reduce((s, a) => s + Math.abs(a.balance_current || a.balance || 0), 0);
+    const nw = assets - debts;
+    let nwScore = 0;
+    if (nw > 50000)      nwScore = 33;
+    else if (nw > 10000) nwScore = Math.round(33 * (nw / 50000));
+    else if (nw > 0)     nwScore = Math.round(20 * (nw / 10000));
+    else if (nw === 0)   nwScore = 10; // no data
+    else                 nwScore = Math.max(0, Math.round(10 + (nw / 5000)));
+
+    // ── Totals ────────────────────────────────────────────────
+    const hasData = accts.length > 0;
+    const total = hasData ? Math.min(100, spendScore + savingsScore + nwScore) : 0;
+
+    // Grade mapping
+    const gradeMap = total >= 90 ? ['A+','Excellent'] : total >= 80 ? ['A','Great'] :
+                     total >= 70 ? ['B','Good']       : total >= 60 ? ['C','Fair'] :
+                     total >= 50 ? ['D','Needs Work'] : ['F','At Risk'];
+
+    // Tips
+    const tips = [];
+    if (spendRatio > 0.9)    tips.push('You\'re close to your monthly budget — ease up on discretionary spending.');
+    if (savingsRate < 0.1)   tips.push('Try saving at least 10% of income. Even small amounts compound over time.');
+    if (nw < 0)              tips.push('Your liabilities exceed your assets. Paying down high-interest debt first will help.');
+    if (!tips.length)        tips.push('You\'re on track! Keep maintaining your current habits to keep your score growing.');
+
+    // Animate ring
+    const circumference = 226;
+    const offset = hasData ? circumference * (1 - total / 100) : circumference;
+    ring.style.strokeDashoffset = offset;
+
+    // Color ring by score
+    ring.style.stroke = total >= 70 ? '#1ac4f0' : total >= 50 ? '#ff9f0a' : '#ff3b30';
+
+    gradeEl.textContent  = hasData ? gradeMap[0] : '—';
+    scoreEl.textContent  = hasData ? total        : 'Score';
+
+    // Sub-metric bars (normalize to 0-100 for display)
+    const setBar = (barId, valId, score, max, color) => {
+      const bar = document.getElementById(barId);
+      const val = document.getElementById(valId);
+      if (bar) { bar.style.width = Math.round(score / max * 100) + '%'; bar.style.background = color; }
+      if (val)   val.textContent = Math.round(score / max * 100);
+    };
+    setBar('ins-bar-spending', 'ins-val-spending', spendScore, 34, spendScore >= 25 ? 'linear-gradient(90deg,#1ac4f0,#2563eb)' : 'linear-gradient(90deg,#ff9f0a,#ff6b00)');
+    setBar('ins-bar-savings',  'ins-val-savings',  savingsScore, 33, 'linear-gradient(90deg,#34c759,#1ac4f0)');
+    setBar('ins-bar-networth', 'ins-val-networth', nwScore, 33, nwScore >= 20 ? 'linear-gradient(90deg,#ff9f0a,#2563eb)' : 'linear-gradient(90deg,#ff3b30,#ff9f0a)');
+
+    // Tip
+    if (tipEl) {
+      tipEl.textContent = tips[0];
+      tipEl.style.display = 'block';
+    }
+
+    // Subtitle
+    const sub = document.getElementById('ins-health-subtitle');
+    if (sub) sub.textContent = hasData ? `${total}/100 — ${gradeMap[1]}` : 'Connect a bank to see your score';
+  }
+
+  /* ─────────────────────────────────────────────────────────────
      RENDER: INSIGHTS
      ───────────────────────────────────────────────────────────── */
 
   function _renderInsights() {
+    // Render health score first (no data dep — uses state directly)
+    _renderHealthScore();
+
     const container = document.getElementById('insights-categories');
     if (!container) return;
 
@@ -3388,7 +3876,7 @@ window.FCApp = (function () {
     // ── Spend delta vs previous period ────────────────────────────
     const spendDeltaEl = document.getElementById('insights-spend-delta');
     if (spendDeltaEl) {
-      if (state.period === 'month' && state.transactions && state.transactions.length) {
+      if (state.period === '1M' && state.transactions && state.transactions.length) {
         const now = new Date();
         const lmStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
         const lmEnd   = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
@@ -3418,7 +3906,7 @@ window.FCApp = (function () {
     const budgetPct    = Math.min(Math.round((periodSpend / budgetLimit) * 100), 100);
     const budgetColor  = budgetPct > 90 ? 'var(--fc-danger)'
                        : budgetPct > 70 ? 'var(--fc-warning)'
-                       : 'linear-gradient(90deg,var(--fc-accent),var(--fc-purple))';
+                       : 'linear-gradient(90deg,var(--fc-accent),var(--fc-electric))';
 
     const pillEl = document.getElementById('insights-budget-pill');
     if (pillEl) {
@@ -3443,7 +3931,7 @@ window.FCApp = (function () {
 
     // ── Spending pace forecast ────────────────────────────────────
     const paceEl = document.getElementById('insights-budget-pace');
-    if (paceEl && state.period === 'month') {
+    if (paceEl && state.period === '1M') {
       const now = new Date();
       const dayOfMonth = now.getDate();
       const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
@@ -3852,9 +4340,9 @@ window.FCApp = (function () {
 
     if (yearLabelEl) yearLabelEl.textContent = year;
 
-    // Aggregate per-month spending for this year
+    // Aggregate per-month spending for this year (spending txns only — no transfers or income)
     const monthlySpend = new Array(12).fill(0);
-    (state.transactions || []).filter(t => !t.isCredit && t.date).forEach(t => {
+    (state.transactions || []).filter(t => !t.isCredit && t.date && _isSpendTxn(t)).forEach(t => {
       const d = FCData.parseDateLocal(t.date);
       if (d.getFullYear() === year) monthlySpend[d.getMonth()] += (t.amount || 0);
     });
@@ -3862,7 +4350,7 @@ window.FCApp = (function () {
     const totalYearSpend = monthlySpend.reduce((s, v) => s + v, 0);
     const annualBudget   = budgetLim * 12;
     const annualPct      = annualBudget > 0 ? Math.min(Math.round((totalYearSpend / annualBudget) * 100), 100) : 0;
-    const annualColor    = annualPct > 100 ? 'var(--fc-danger)' : annualPct > 80 ? 'var(--fc-warning)' : 'linear-gradient(90deg,var(--fc-accent),var(--fc-purple))';
+    const annualColor    = annualPct > 100 ? 'var(--fc-danger)' : annualPct > 80 ? 'var(--fc-warning)' : 'linear-gradient(90deg,var(--fc-accent),var(--fc-electric))';
 
     if (annualSpend)  annualSpend.textContent  = FCData.formatCurrency(totalYearSpend);
     if (annualLimit)  annualLimit.textContent  = `of ${FCData.formatCurrency(annualBudget)}`;
@@ -3962,7 +4450,7 @@ window.FCApp = (function () {
                 return `<div style="font-size:11px;color:var(--fc-accent);margin-top:2px">${FCData.formatCurrency(monthly)}/mo · ${dateLabel}</div>`;
               })()}
               <div class="fc-progress-bar" style="margin-top:8px">
-                <div class="fc-progress-fill" style="width:${pct}%;background:${pct >= 100 ? 'var(--fc-success)' : 'linear-gradient(90deg,var(--fc-accent),var(--fc-purple))'}"></div>
+                <div class="fc-progress-fill" style="width:${pct}%;background:${pct >= 100 ? 'var(--fc-success)' : 'linear-gradient(90deg,var(--fc-accent),var(--fc-electric))'}"></div>
               </div>
             </div>
           </div>`;
@@ -3990,7 +4478,43 @@ window.FCApp = (function () {
     if (seg === 'debt')    _renderDebt();
   }
 
+  function _renderWealthHero() {
+    const accts = state.accounts || [];
+    const assets = accts
+      .filter(a => a.type === 'depository' || a.type === 'investment' || a.type === 'brokerage')
+      .reduce((s, a) => s + (a.balance_current || a.balance || 0), 0);
+    const liabilities = accts
+      .filter(a => a.type === 'credit' || a.type === 'loan')
+      .reduce((s, a) => s + Math.abs(a.balance_current || a.balance || 0), 0);
+    const nw = assets - liabilities;
+
+    const nwEl = document.getElementById('wealth-hero-nw');
+    const asEl = document.getElementById('wealth-hero-assets');
+    const liEl = document.getElementById('wealth-hero-liabilities');
+    const dlEl = document.getElementById('wealth-hero-delta');
+
+    if (nwEl) nwEl.textContent = FCData.formatCurrency(nw);
+    if (asEl) asEl.textContent = FCData.formatCurrency(assets);
+    if (liEl) liEl.textContent = FCData.formatCurrency(liabilities);
+
+    // Delta vs last month NW history if available
+    if (dlEl) {
+      const hist = state.netWorthHistory || [];
+      if (hist.length >= 2) {
+        const prev = hist[hist.length - 2]?.nw ?? 0;
+        const delta = nw - prev;
+        const sign  = delta >= 0 ? '+' : '−';
+        const color = delta >= 0 ? 'rgba(52,199,89,0.15)' : 'rgba(255,69,58,0.12)';
+        const textColor = delta >= 0 ? 'var(--fc-success)' : 'var(--fc-danger)';
+        dlEl.innerHTML = `<span>${sign}${FCData.formatCurrency(Math.abs(delta))}</span><span style="font-weight:500;color:rgba(255,255,255,0.4)">vs last month</span>`;
+        dlEl.style.cssText += `;background:${color};color:${textColor}`;
+        dlEl.style.display = 'inline-flex';
+      }
+    }
+  }
+
   function _renderWealth() {
+    _renderWealthHero();
     if (_wealthSeg === 'savings') _renderSavings();
     if (_wealthSeg === 'goals')   _renderGoals();
     if (_wealthSeg === 'debt')    _renderDebt();
@@ -4146,7 +4670,7 @@ window.FCApp = (function () {
 
   /* Helper called by CTA button after paywall success */
   function renderHomeAfterPro() {
-    _renderHome();
+    _refreshAfterPro();
     setTimeout(() => _tryStartTour(), 1200);
   }
 
@@ -4180,9 +4704,11 @@ window.FCApp = (function () {
     const nameEl  = document.getElementById('settings-name');
     const emailEl = document.getElementById('settings-email');
     const initEl  = document.getElementById('settings-avatar');
-    if (nameEl)  nameEl.textContent  = user.name  || 'User';
-    if (emailEl) emailEl.textContent = user.email || FCAuth.currentUser()?.email || '';
-    if (initEl)  initEl.textContent  = (user.name || 'U').charAt(0).toUpperCase();
+    const displayName = user.name || user.displayName || 'User';
+    const displayEmail = user.email || FCAuth.currentUser()?.email || '';
+    if (nameEl)  nameEl.textContent  = displayName;
+    if (emailEl) emailEl.textContent = displayEmail;
+    if (initEl)  initEl.textContent  = displayName.charAt(0).toUpperCase();
 
     // Biometric toggle
     FCAuth.isBiometricEnabled().then(enabled => {
@@ -4199,25 +4725,43 @@ window.FCApp = (function () {
     if (institutionEl) institutionEl.textContent = _cleanInstitutionName(user.plaid_institution || '') || 'Not connected';
 
     // Streak — minimum Day 1 (new users always get credit for showing up)
-    const streakEl = document.getElementById('settings-streak');
-    if (streakEl) streakEl.textContent = `Day ${Math.max(1, user.streak || 1)} streak`;
+    const streakDays = Math.max(1, user.streak || 1);
+    const streakEl   = document.getElementById('settings-streak');
+    if (streakEl) streakEl.textContent = `Day ${streakDays} streak 🔥`;
+
+    // Pro badge in new profile card
+    const proBadge = document.getElementById('settings-pro-badge');
+    const isPro    = user.is_pro || user.pro;
+    if (proBadge) {
+      proBadge.textContent = isPro ? 'Pro ✓' : 'Free';
+      proBadge.style.cssText = isPro
+        ? 'font-size:10px;padding:4px 10px;background:rgba(26,196,240,0.15);color:#1ac4f0;border:0.5px solid rgba(26,196,240,0.25);border-radius:999px'
+        : 'font-size:10px;padding:4px 10px;background:rgba(255,159,10,0.12);color:#ff9f0a;border:0.5px solid rgba(255,159,10,0.25);border-radius:999px';
+    }
 
     // Pro row — show status + cancel option for Pro users
     const proRow  = document.getElementById('settings-pro-row');
     const proPill = document.getElementById('settings-pro-pill');
-    const isPro   = user.is_pro || user.pro;
     if (proPill) {
-      proPill.textContent = isPro ? 'Pro ✓' : 'Upgrade';
-      proPill.className   = isPro
-        ? 'fc-pill' : 'fc-pill fc-pill--accent';
+      proPill.textContent = isPro ? 'Manage' : 'Upgrade →';
       proPill.style.cssText = isPro
-        ? 'font-size:10px;padding:3px 8px;background:rgba(52,199,89,0.12);color:var(--fc-success);border:1px solid rgba(52,199,89,0.25)'
-        : 'font-size:10px;padding:3px 8px';
+        ? 'font-size:10px;padding:3px 8px;background:rgba(26,196,240,0.12);color:var(--fc-accent);border-radius:999px'
+        : 'font-size:10px;padding:3px 8px;background:rgba(255,159,10,0.12);color:#ff9f0a;border-radius:999px';
     }
     if (proRow) {
-      proRow.onclick = isPro
-        ? () => _openCancelSheet()
-        : () => showPaywall();
+      proRow.onclick = isPro ? () => _openCancelSheet() : () => showPaywall();
+    }
+
+    // Referral badge — uses referral_activations (the count of friends who connected a bank)
+    const refBadge = document.getElementById('settings-referral-badge');
+    if (refBadge) {
+      const activations = user.referral_activations || 0;
+      if (activations > 0) {
+        refBadge.textContent = `${activations} referred`;
+        refBadge.style.display = 'inline-block';
+      } else {
+        refBadge.style.display = 'none';
+      }
     }
 
     // Cancel subscription row — only shown for Pro users
@@ -4315,6 +4859,10 @@ window.FCApp = (function () {
     state.syncing = true;
     let _syncSucceeded = false;
 
+    // Spin + disable the header sync button so the user sees the tap registered
+    const _syncBtn = document.getElementById('header-sync-btn');
+    if (_syncBtn) _syncBtn.classList.add('is-busy');
+
     // Idle text depends on whether a bank is linked
     const _idleText = () => (state.user && state.user.plaid_linked) ? 'All caught up' : 'Connect a bank to start';
 
@@ -4358,6 +4906,7 @@ window.FCApp = (function () {
       if (showToast) toast('Sync failed — check connection', 'error');
     } finally {
       state.syncing = false;
+      if (_syncBtn) _syncBtn.classList.remove('is-busy');
       // After a successful sync the island already says "All caught up" — no reset needed.
       // After a user-triggered failure, give the user a moment to read "Sync failed"
       // then quietly restore the idle state.
@@ -4382,6 +4931,12 @@ window.FCApp = (function () {
 
   async function startPlaidLink() {
     haptic('light');
+    // Free plan: 1 bank only. Show the paywall instead of opening Plaid Link
+    // when a free user tries to add a second bank (bug #9).
+    if (state.user?.plaid_linked && !_isPro()) {
+      showPaywall();
+      return;
+    }
     const btn = document.getElementById('btn-plaid-link');
     if (btn) { btn.disabled = true; btn.textContent = 'Connecting…'; }
 
@@ -4512,11 +5067,9 @@ window.FCApp = (function () {
   /** Non-blocking: tells the backend to credit the referrer and reward this user. */
   async function _applyReferralCode(code) {
     try {
-      const token = await FCAuth.getIdToken();
-      if (!token) return;
-      await fetch(`${FC_CONFIG.app.apiBase}/api/referral/apply`, {
+      await FCAuth.authedFetch(`${FC_CONFIG.app.apiBase}/api/referral/apply`, {
         method:  'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ code: code.toUpperCase() }),
       });
     } catch (_) { /* best-effort — referral apply never blocks signup */ }
@@ -4526,10 +5079,8 @@ window.FCApp = (function () {
   async function _sendWelcomeEmail() {
     try {
       if (!FC_CONFIG.email || !FC_CONFIG.email.welcomeEndpoint) return;
-      const token = await FCAuth.getIdToken();
-      await fetch(FC_CONFIG.email.welcomeEndpoint, {
+      await FCAuth.authedFetch(FC_CONFIG.email.welcomeEndpoint, {
         method:  'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       });
     } catch (_) { /* best-effort — never block signup */ }
   }
@@ -4618,31 +5169,7 @@ window.FCApp = (function () {
 
     FCData.detachAllListeners();
     await FCAuth.signOut();
-
-    // Wipe all fc_* localStorage keys — removes cached user state,
-    // sparkline history, budget alert flags, and any other sensitive state
-    // stored by this session. Capacitor Preferences (biometric tokens) are
-    // handled separately inside FCAuth.signOut().
-    try {
-      Object.keys(localStorage)
-        .filter(k => k.startsWith('fc_'))
-        .forEach(k => localStorage.removeItem(k));
-    } catch (_) { /* localStorage unavailable in strict CSP — safe to ignore */ }
-
-    state.accounts     = [];
-    state.transactions = [];
-    state.bills        = [];
-    state.goals        = [];
-    state.user         = null;
-    // Reset paywall flag so a different user signing in gets a fresh gate check
-    _paywallShownThisSession = false;
-
-    // Turn off privacy mode so it doesn't carry over if someone else logs in
-    if (_privacyModeOn) {
-      _privacyModeOn = false;
-      document.body.classList.remove('fc-privacy');
-    }
-
+    _wipeUserState();
     setScreen('login');
   }
 
@@ -4762,6 +5289,64 @@ window.FCApp = (function () {
   }
 
   /* ─────────────────────────────────────────────────────────────
+     EMAIL VERIFICATION (verify-email screen)
+     ───────────────────────────────────────────────────────────── */
+
+  /** "I've Verified My Email" — reloads the Firebase user and checks emailVerified */
+  async function handleVerifyEmailCheck() {
+    const btn    = document.getElementById('btn-verify-continue');
+    const errEl  = document.getElementById('verify-email-err');
+    if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
+    if (btn) { btn.disabled = true; btn.textContent = 'Checking…'; }
+    try {
+      const freshUser = await FCAuth.reloadUser();
+      if (freshUser && freshUser.emailVerified) {
+        window._fcVerifyEmailPending = false;
+        haptic('success');
+        setScreen('faceid-setup');
+      } else {
+        if (errEl) {
+          errEl.textContent = 'Email not verified yet. Tap the link in your inbox, then try again.';
+          errEl.style.display = '';
+        }
+        haptic('heavy');
+      }
+    } catch (err) {
+      if (errEl) { errEl.textContent = 'Something went wrong. Please try again.'; errEl.style.display = ''; }
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = "I've Verified My Email"; }
+    }
+  }
+
+  /** "Resend Email" button — sends a new verification email with a 60s cooldown */
+  async function resendVerificationEmail() {
+    const btn = document.getElementById('btn-resend-verify');
+    if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+    try {
+      const user = FCAuth.currentUser && FCAuth.currentUser();
+      if (user) await user.sendEmailVerification();
+      toast('Verification email sent!', 'success');
+      let secs = 60;
+      const iv = setInterval(() => {
+        if (!btn) { clearInterval(iv); return; }
+        secs--;
+        if (secs <= 0) { clearInterval(iv); btn.disabled = false; btn.textContent = 'Resend Email'; return; }
+        btn.textContent = 'Resend in ' + secs + 's';
+      }, 1000);
+    } catch (_) {
+      toast('Could not resend. Try again in a moment.', 'error');
+      if (btn) { btn.disabled = false; btn.textContent = 'Resend Email'; }
+    }
+  }
+
+  /** "Skip for now" — proceeds to Face ID setup without requiring verification */
+  function skipEmailVerification() {
+    window._fcVerifyEmailPending = false;
+    haptic('light');
+    setScreen('faceid-setup');
+  }
+
+  /* ─────────────────────────────────────────────────────────────
      TOGGLE CONTROLS (Settings)
      ───────────────────────────────────────────────────────────── */
 
@@ -4804,6 +5389,10 @@ window.FCApp = (function () {
   // Guard: prevent duplicate listener stacks on repeated onAuthStateChanged fires
   // (token refreshes, reconnects). Each duplicate stack = N extra Firestore reads.
   let _listenersAttached = false;
+  // Streak guard — _maybeIncrementStreak() fires each time the Firestore user
+  // listener emits. Writing serverTimestamp() itself triggers another emit
+  // before the value resolves, so without a guard the streak resets every time.
+  let _streakCheckedThisSession = false;
 
   function _attachDataListeners() {
     if (_listenersAttached) {
@@ -4875,6 +5464,12 @@ window.FCApp = (function () {
   }
 
   async function _maybeIncrementStreak(user) {
+    // Only run once per app session — writing serverTimestamp() to Firestore
+    // triggers the listener again before the value resolves, causing re-entrancy
+    // that resets the streak back to 1 on every user-doc update.
+    if (_streakCheckedThisSession) return;
+    _streakCheckedThisSession = true;
+
     const db  = FCAuth.db();
     const uid = FCAuth.currentUser()?.uid;
     if (!db || !uid) return;
@@ -4963,11 +5558,11 @@ window.FCApp = (function () {
         // Requesting immediately on auth interrupts onboarding and feels premature —
         // users should connect their bank first so the value proposition is clear.
 
-        // Clear any stale user state from a previous session so the new
-        // account's data renders cleanly (prevents brief flash of old name/email).
-        state.user = null;
-        // Immediately clear the displayed greeting so the old user's name/email
-        // can't flash before the new user's Firestore doc arrives.
+        // Clear ALL stale user state from a previous session so the new
+        // account's data renders cleanly. Just nulling state.user used to
+        // leak the previous user's transactions/accounts arrays into the
+        // first render after sign-in (bug #6).
+        _wipeUserState();
         _updateGreeting();
 
         // Attach real-time data listeners
@@ -4985,10 +5580,19 @@ window.FCApp = (function () {
         // bypass regardless (backward-compatible).
         const needsOnboarding = userDoc && !userDoc.onboarding_complete && !userDoc.plaid_linked;
         if (needsOnboarding) {
-          // New user just registered — show Face ID setup screen first
+          // New user just registered — show email verification first, then Face ID
           if (window._fcNewUserFaceIdPending) {
             window._fcNewUserFaceIdPending = false;
-            setScreen('faceid-setup');
+            if (!user.emailVerified) {
+              // Email/password signup: verify email before proceeding
+              window._fcVerifyEmailPending = true;
+              setScreen('verify-email');
+              const addrEl = document.getElementById('verify-email-addr');
+              if (addrEl) addrEl.textContent = user.email || '';
+            } else {
+              // Apple Sign In or already verified (edge case)
+              setScreen('faceid-setup');
+            }
           } else {
             setScreen('onboarding');
           }
@@ -5021,6 +5625,7 @@ window.FCApp = (function () {
         fcLog('No user — showing login');
         FCData.detachAllListeners();
         _listenersAttached = false; // allow re-attach on next sign-in
+        _wipeUserState();
         setScreen('login');
         // Show or hide the Face ID button based on whether biometric is
         // available AND a previous session exists (email saved in preferences).
@@ -5193,14 +5798,40 @@ window.FCApp = (function () {
       const items = await FCData.getPlaidItems();
       if (!listEl) return;
 
+      // Legacy fallback: early users had their bank stored only on the user
+      // doc (plaid_institution field) before the plaid_items subcollection
+      // existed. If the API returns empty but plaid_institution is set, treat
+      // that as proof a bank is linked even when plaid_linked is missing/false
+      // (some early accounts have a corrupt plaid_linked flag).
+      if (!items.length && state.user?.plaid_institution) {
+        const legacyName = esc(state.user.plaid_institution);
+        listEl.innerHTML = `
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.06)">
+            <div style="min-width:0;flex:1;margin-right:12px">
+              <div style="font-size:15px;font-weight:600;color:white;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${legacyName}</div>
+              <div style="font-size:12px;color:var(--fc-text-faint);margin-top:3px;display:flex;align-items:center;gap:5px">
+                <span style="width:6px;height:6px;background:var(--fc-success);border-radius:50%;display:inline-block;flex-shrink:0"></span>
+                Connected &amp; syncing
+              </div>
+            </div>
+            <button
+              style="background:rgba(255,69,58,0.12);color:var(--fc-danger);border:1px solid rgba(255,69,58,0.22);border-radius:10px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0;white-space:nowrap"
+              onclick="FCApp.confirmDisconnectItem('','${legacyName}')"
+              type="button">
+              Disconnect
+            </button>
+          </div>`;
+        return;
+      }
+
       if (!items.length) {
         listEl.innerHTML = '<div style="color:var(--fc-text-faint);font-size:13px;padding:10px 0">No banks connected</div>';
         return;
       }
 
       listEl.innerHTML = items.map(item => {
-        const name    = (item.institution || 'Bank Account').replace(/'/g, '&#39;');
-        const itemId  = (item.item_id || item.id).replace(/'/g, '&#39;');
+        const name   = esc(item.institution || 'Bank Account');
+        const itemId = esc(item.item_id || item.id || '');
         return `
           <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.06)">
             <div style="min-width:0;flex:1;margin-right:12px">
@@ -5212,7 +5843,7 @@ window.FCApp = (function () {
             </div>
             <button
               style="background:rgba(255,69,58,0.12);color:var(--fc-danger);border:1px solid rgba(255,69,58,0.22);border-radius:10px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0;white-space:nowrap"
-              onclick="FCApp.confirmDisconnectItem('${itemId}','${name}')"
+              onclick="FCApp.confirmDisconnectItem(${JSON.stringify(itemId)},${JSON.stringify(name)})"
               type="button">
               Disconnect
             </button>
@@ -5514,9 +6145,31 @@ window.FCApp = (function () {
 
   async function showPaywall() {
     _paywallShownThisSession = true;
+
+    // Show X close button only when triggered from inside the app (not from onboarding flow).
+    // During onboarding the user must either buy or tap "Maybe later" — no escape hatch.
+    const canClose = state.screen === 'app';
+    const closeBtn = document.getElementById('pw-close-btn');
+    if (closeBtn) closeBtn.style.display = canClose ? 'flex' : 'none';
+
+    // Reset success overlay in case it was left visible from a previous purchase attempt
+    const successOverlay = document.getElementById('pw-success-overlay');
+    if (successOverlay) successOverlay.classList.remove('visible');
+
     setScreen('paywall');
     haptic('light');
     _loadPaywallOfferings();
+  }
+
+  /** Dismiss the paywall and return to the main app (only available when triggered in-app). */
+  function closePaywall() {
+    const closeBtn = document.getElementById('pw-close-btn');
+    if (closeBtn) closeBtn.style.display = 'none';
+    // Reset success overlay so it doesn't bleed on next open
+    const successOverlay = document.getElementById('pw-success-overlay');
+    if (successOverlay) successOverlay.classList.remove('visible');
+    setScreen('app');
+    _renderHome();
   }
 
   async function _loadPaywallOfferings() {
@@ -5634,13 +6287,15 @@ window.FCApp = (function () {
           void icon.offsetHeight; // force reflow to replay animation
           icon.style.animation  = '';
         }
+        // Refresh every pro-gated surface so the user sees unlocked content
+        // when they dismiss the overlay (bugs #4 + #10).
+        _refreshAfterPro();
         if (overlay) {
           overlay.classList.add('visible');
         } else {
           // Fallback if overlay element missing
           toast('Welcome to FlowCheck Pro! 🎉', 'success', 4000);
           setScreen('app');
-          _renderHome();
         }
       } else {
         // RevenueCat can be slow to reflect the new entitlement — retry once after 3 s
@@ -5652,7 +6307,7 @@ window.FCApp = (function () {
               haptic('medium');
               try { await FCData.updateUserField('is_pro', true); } catch (_) {}
               setScreen('app');
-              _renderHome();
+              _refreshAfterPro();
               setTimeout(() => _tryStartTour(), 1200);
             } else {
               // Still pending — show "Check again" button so user isn't stuck
@@ -5722,7 +6377,7 @@ window.FCApp = (function () {
         toast('Pro access restored!', 'success');
         await FCData.updateUserField('is_pro', true);
         setScreen('app');
-        _renderHome();
+        _refreshAfterPro();
       } else {
         toast('No previous purchase found', 'info');
         if (btn) { btn.disabled = false; btn.textContent = _selectedPlan === 'annual' ? 'Try Free for 7 Days' : 'Start Monthly Plan'; }
@@ -6426,7 +7081,7 @@ window.FCApp = (function () {
     if (!sheet) return;
 
     const code  = _getReferralCode();
-    const count = Math.min(Number(state.user?.referral_count) || 0, 3);
+    const count = Math.min(Number(state.user?.referral_activations) || 0, 3);
     const GOAL  = 3;
 
     // Populate code display
@@ -6568,6 +7223,7 @@ window.FCApp = (function () {
     openOffer,
     // Paywall
     showPaywall,
+    closePaywall,
     skipPaywall,
     selectPlan,
     paywallPurchase,
@@ -6579,6 +7235,9 @@ window.FCApp = (function () {
     // Onboarding
     startTrialFromOnboarding,
     skipOnboarding,
+    handleVerifyEmailCheck,
+    resendVerificationEmail,
+    skipEmailVerification,
     // Wealth tab
     switchWealthSegment,
     // Goals
@@ -6638,7 +7297,7 @@ window.FCApp = (function () {
       const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
       const budgetLim = (state.budgets && state.budgets['total']) ? state.budgets['total'].limit : 3000;
       const txns = (state.transactions || []).filter(t => {
-        if (!t.date || t.isCredit) return false;
+        if (!t.date || t.isCredit || !_isSpendTxn(t)) return false;
         const d = FCData.parseDateLocal(t.date);
         return d.getFullYear() === year && d.getMonth() === monthIdx;
       });
@@ -6657,6 +7316,16 @@ window.FCApp = (function () {
     getTotalBudgetLimit: () => (state.budgets && state.budgets['total'] ? state.budgets['total'].limit : 3000),
     // Dashboard UI
     toggleInsights,
+    // Today's Focus card
+    nextFocusInsight() {
+      if (!_focusInsights.length) return;
+      _focusIdx = (_focusIdx + 1) % _focusInsights.length;
+      _applyFocusInsight(_focusIdx);
+    },
+    _focusCardTap() {
+      const card = document.getElementById('todays-focus-card');
+      if (card && typeof card._focusTap === 'function') card._focusTap();
+    },
     // Referral sheet
     showReferralSheet,
     closeReferralSheet,

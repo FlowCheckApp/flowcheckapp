@@ -28,13 +28,15 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == uid;
     }
 
-    // Fields allowed when CREATING a user doc (complete doc — all fields listed)
+    // Fields allowed when CREATING a user doc (complete doc — all fields listed).
+    // Entitlement fields ('pro','is_pro','pro_expires_at') are intentionally NOT
+    // listed here — only the backend (RevenueCat webhook + referral grant) may
+    // write them. Letting clients seed `is_pro:true` at signup bypasses payment.
     function allowedUserCreateFields() {
       return request.resource.data.keys().hasOnly([
         'uid', 'name', 'email',
         'created_at', 'last_seen', 'last_streak_date',
         'plaid_linked', 'plaid_institution', 'plaid_institution_id', 'plaid_linked_at',
-        'pro', 'is_pro',
         'streak',
         'goals', 'budgets',
         'notifications_enabled', 'biometric_enabled',
@@ -97,6 +99,14 @@ service cloud.firestore {
       allow delete: if false;
 
       // ── Subcollections ──────────────────────────────────────
+      // Plaid items subcollection — server-only, contains access_token.
+      // Default-deny at the bottom of the file would catch this, but make it
+      // explicit so a future permissive rule near here can't accidentally
+      // expose tokens.
+      match /plaid_items/{itemId} {
+        allow read, write: if false;
+      }
+
       // Accounts — Plaid accounts are backend-managed (read-only from client).
       // Manual accounts (manual: true) may be created/updated/deleted by the owner.
       match /accounts/{accountId} {

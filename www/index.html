@@ -47,6 +47,7 @@ body[data-screen="splash"]          .fc-screen[data-screen="splash"]          { 
 body[data-screen="login"]           .fc-screen[data-screen="login"]           { display: flex; }
 body[data-screen="register"]        .fc-screen[data-screen="register"]        { display: flex; }
 body[data-screen="forgot-password"] .fc-screen[data-screen="forgot-password"] { display: flex; }
+body[data-screen="verify-email"]    .fc-screen[data-screen="verify-email"]    { display: flex; }
 body[data-screen="faceid-setup"]    .fc-screen[data-screen="faceid-setup"]    { display: flex; }
 body[data-screen="onboarding"]      .fc-screen[data-screen="onboarding"]      { display: flex; }
 body[data-screen="paywall"]         .fc-screen[data-screen="paywall"]         { display: flex; }
@@ -93,7 +94,7 @@ html, body {
 }
 .fc-splash-logo {
   width: 80px; height: 80px;
-  background: linear-gradient(135deg, var(--fc-accent), var(--fc-purple));
+  background: linear-gradient(135deg, var(--fc-accent), var(--fc-electric));
   border-radius: 26px;
   display: flex; align-items: center; justify-content: center;
   box-shadow: 0 20px 60px rgba(26,196,240,0.35);
@@ -128,15 +129,15 @@ html, body {
 .fc-auth-screen {
   align-items: center;
   justify-content: flex-start;
-  background: radial-gradient(ellipse at 50% -20%, rgba(26,196,240,0.2) 0%, transparent 60%),
+  background: radial-gradient(ellipse at 50% -20%, rgba(26,196,240,0.18) 0%, transparent 60%),
               var(--fc-bg);
-  padding: calc(env(safe-area-inset-top) + 60px) 24px 40px;
+  padding: calc(env(safe-area-inset-top) + 44px) 28px 40px;
   gap: 0;
   overflow-y: auto;
 }
 .fc-auth-logo {
   width: 56px; height: 56px;
-  background: linear-gradient(135deg, var(--fc-accent), var(--fc-purple));
+  background: linear-gradient(135deg, var(--fc-accent), var(--fc-electric));
   border-radius: 18px;
   display: flex; align-items: center; justify-content: center;
   box-shadow: 0 12px 40px rgba(26,196,240,0.3);
@@ -154,7 +155,7 @@ html, body {
   font-size: 14px;
   color: var(--fc-text-faint);
   text-align: center;
-  margin-bottom: 36px;
+  margin-bottom: 24px;
 }
 
 /* Input fields */
@@ -321,23 +322,23 @@ html, body {
   max-height: 100dvh;
   overflow: hidden;
 }
-.fc-view { display: none; flex-direction: column; overflow-x: hidden; }
+.fc-view { display: none; flex-direction: column; overflow-x: hidden; will-change: transform; }
 .fc-view.active { display: flex; flex: 1; min-height: 0; }
 
 /* ── Tab slide transitions ───────────────────────────────── */
 @keyframes fcSlideInFromRight {
-  from { transform: translateX(32px); opacity: 0; }
+  from { transform: translateX(60px); opacity: 0; }
   to   { transform: none; opacity: 1; }
 }
 @keyframes fcSlideInFromLeft {
-  from { transform: translateX(-32px); opacity: 0; }
+  from { transform: translateX(-60px); opacity: 0; }
   to   { transform: none; opacity: 1; }
 }
 .fc-view.active.fc-slide-right {
-  animation: fcSlideInFromRight 0.26s cubic-bezier(0.25,0.46,0.45,0.94) both;
+  animation: fcSlideInFromRight 0.28s cubic-bezier(0.25,0.46,0.45,0.94) both;
 }
 .fc-view.active.fc-slide-left {
-  animation: fcSlideInFromLeft 0.26s cubic-bezier(0.25,0.46,0.45,0.94) both;
+  animation: fcSlideInFromLeft 0.28s cubic-bezier(0.25,0.46,0.45,0.94) both;
 }
 
 /* Dynamic Island */
@@ -357,7 +358,7 @@ html, body {
 .fc-brand { display: flex; align-items: center; gap: 8px; }
 .fc-brand-mark {
   width: 32px; height: 32px;
-  background: linear-gradient(135deg, var(--fc-accent), var(--fc-purple));
+  background: linear-gradient(135deg, var(--fc-accent), var(--fc-electric));
   border-radius: 10px;
   display: flex; align-items: center; justify-content: center;
 }
@@ -366,12 +367,16 @@ html, body {
 /* Icon buttons */
 .fc-iconbtn {
   width: 42px; height: 42px; border-radius: 50%;
-  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.04);
+  background: rgba(255,255,255,0.07); border: 0.5px solid rgba(255,255,255,0.10);
   display: flex; align-items: center; justify-content: center;
-  cursor: pointer; color: white; position: relative;
+  cursor: pointer; color: rgba(255,255,255,0.75); position: relative;
   transition: background 0.15s, transform 0.1s;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.25);
 }
 .fc-iconbtn:active { transform: scale(0.94); }
+.fc-iconbtn.is-busy { pointer-events: none; opacity: 0.55; }
+.fc-iconbtn.is-busy svg { animation: fc-spin 0.9s linear infinite; transform-origin: 50% 50%; }
+@keyframes fc-spin { to { transform: rotate(360deg); } }
 .fc-iconbtn-badge {
   position: absolute; top: 9px; right: 10px;
   width: 9px; height: 9px; background: var(--fc-danger);
@@ -469,7 +474,7 @@ html, body {
 .fc-ai-row { display: flex; align-items: flex-start; gap: 12px; }
 .fc-ai-icon {
   width: 36px; height: 36px; border-radius: 12px;
-  background: linear-gradient(135deg, var(--fc-purple), var(--fc-purple-2));
+  background: linear-gradient(135deg, var(--fc-electric), var(--fc-accent));
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
 .fc-ai-body { flex: 1; }
@@ -699,8 +704,8 @@ label.fc-toggle input[type="checkbox"]:checked ~ .fc-toggle-track::after {
 * { scrollbar-width: none; }
 *::-webkit-scrollbar { display: none; }
 
-/* ── Tab view entrance animation ─────────────────────────── */
-.fc-view.active {
+/* ── Tab view entrance animation (only when NOT doing a directional slide) */
+.fc-view.active:not(.fc-slide-right):not(.fc-slide-left) {
   animation: fcViewIn 0.2s cubic-bezier(0.25, 0.1, 0.25, 1) both;
 }
 @keyframes fcViewIn {
@@ -712,8 +717,10 @@ label.fc-toggle input[type="checkbox"]:checked ~ .fc-toggle-track::after {
 body[data-screen="login"]           .fc-screen[data-screen="login"],
 body[data-screen="register"]        .fc-screen[data-screen="register"],
 body[data-screen="forgot-password"] .fc-screen[data-screen="forgot-password"],
+body[data-screen="verify-email"]    .fc-screen[data-screen="verify-email"],
 body[data-screen="faceid-setup"]    .fc-screen[data-screen="faceid-setup"],
 body[data-screen="onboarding"]      .fc-screen[data-screen="onboarding"],
+body[data-screen="paywall"]         .fc-screen[data-screen="paywall"],
 body[data-screen="app"]             .fc-screen[data-screen="app"] {
   animation: fcScreenIn 0.38s cubic-bezier(0.25, 0.1, 0.25, 1) both;
 }
@@ -866,7 +873,7 @@ body {
 /* App icon */
 .fc-lock-logo {
   width: 72px; height: 72px; border-radius: 22px;
-  background: linear-gradient(145deg, var(--fc-accent), var(--fc-purple));
+  background: linear-gradient(145deg, var(--fc-accent), var(--fc-electric));
   display: flex; align-items: center; justify-content: center;
   box-shadow: 0 20px 60px rgba(26,196,240,0.35), 0 4px 16px rgba(0,0,0,0.4);
   margin-bottom: 22px;
@@ -1172,7 +1179,7 @@ body {
   border-radius: 6px; padding: 2px 7px; display: inline-block; margin-top: 4px;
 }
 .fc-pw-plan-badge {
-  background: linear-gradient(135deg, var(--fc-accent) 0%, var(--fc-purple) 100%);
+  background: linear-gradient(135deg, var(--fc-accent) 0%, var(--fc-electric) 100%);
   color: #fff; font-size: 10px; font-weight: 700; letter-spacing: 0.05em;
   padding: 4px 10px; border-radius: 999px; text-transform: uppercase; white-space: nowrap; flex-shrink: 0;
 }
@@ -1292,10 +1299,10 @@ body {
 
 /* ── PAYWALL SUCCESS OVERLAY ─────────────────────────────────── */
 .fc-pw-success {
-  position:absolute;inset:0;background:var(--fc-bg);
+  position:fixed;inset:0;background:var(--fc-bg);
   display:flex;flex-direction:column;align-items:center;justify-content:center;
   padding:40px 32px calc(env(safe-area-inset-bottom) + 40px);text-align:center;
-  z-index:50;opacity:0;pointer-events:none;transition:opacity 0.35s;
+  z-index:200;opacity:0;pointer-events:none;transition:opacity 0.4s ease;
 }
 .fc-pw-success.visible { opacity:1;pointer-events:all; }
 .fc-pw-success-icon {
@@ -1334,6 +1341,51 @@ body {
   color:white;font-size:17px;font-weight:700;letter-spacing:-0.01em;
   box-shadow:0 8px 24px rgba(52,199,89,0.35);
 }
+
+/* ════════════════════════════════════════════════════════════
+   PRO GATE — locked card shown to free users in place of
+   premium sections. Tap → opens paywall.
+   ════════════════════════════════════════════════════════════ */
+.fc-pro-gate {
+  position:relative;border-radius:20px;overflow:hidden;cursor:pointer;
+  background:linear-gradient(160deg,rgba(10,21,32,0.95),rgba(6,14,24,0.98));
+  border:1px solid rgba(26,196,240,0.18);margin-bottom:16px;
+  -webkit-tap-highlight-color:transparent;
+}
+.fc-pro-gate:active { opacity:0.85; }
+.fc-pro-gate-preview {
+  /* fake blurred content that teases the real feature */
+  position:absolute;inset:0;filter:blur(5px);opacity:0.28;
+  pointer-events:none;padding:18px;display:flex;flex-direction:column;gap:9px;
+}
+.fc-pro-gate-bar {
+  height:9px;border-radius:999px;background:rgba(26,196,240,0.6);
+}
+.fc-pro-gate-overlay {
+  position:relative;display:flex;flex-direction:column;align-items:center;
+  padding:28px 20px 22px;text-align:center;gap:5px;
+}
+.fc-pro-gate-badge {
+  display:inline-flex;align-items:center;gap:5px;margin-bottom:6px;
+  background:rgba(26,196,240,0.10);border:1px solid rgba(26,196,240,0.22);
+  border-radius:999px;padding:3px 10px;
+  font-size:10px;font-weight:700;color:var(--fc-accent);
+  text-transform:uppercase;letter-spacing:0.06em;
+}
+.fc-pro-gate-icon { font-size:30px;margin-bottom:2px; }
+.fc-pro-gate-title {
+  font-size:16px;font-weight:700;color:#fff;letter-spacing:-0.01em;line-height:1.2;
+}
+.fc-pro-gate-desc {
+  font-size:12px;color:var(--fc-text-faint);line-height:1.45;max-width:240px;margin-top:2px;
+}
+.fc-pro-gate-btn {
+  margin-top:12px;padding:11px 28px;border-radius:999px;border:none;
+  background:linear-gradient(135deg,var(--fc-accent),#2563eb);
+  color:#fff;font-size:14px;font-weight:700;cursor:pointer;
+  letter-spacing:-0.01em;box-shadow:0 4px 18px rgba(26,196,240,0.32);
+  font-family:inherit;
+}
 </style>
 </head>
 
@@ -1353,12 +1405,19 @@ body {
 
 <!-- ══════════════════════════════════════ SCREEN: SPLASH -->
 <section class="fc-screen fc-splash" data-screen="splash" aria-label="Loading">
-  <div class="fc-splash-logo">
-    <svg width="40" height="40" viewBox="0 0 24 24" fill="white" aria-hidden="true">
-      <path d="M4 4h16v3H4zm0 6h11v3H4zm0 6h7v3H4z"/>
-    </svg>
+  <!-- Ambient orbs -->
+  <div class="fc-splash-orb fc-splash-orb--cyan" aria-hidden="true"></div>
+  <div class="fc-splash-orb fc-splash-orb--blue" aria-hidden="true"></div>
+  <!-- Spinning conic ring with logo inside -->
+  <div class="fc-splash-ring" aria-hidden="true">
+    <div class="fc-splash-ring-inner">
+      <svg width="36" height="36" viewBox="0 0 24 24" fill="white" aria-hidden="true">
+        <path d="M4 4h16v3H4zm0 6h11v3H4zm0 6h7v3H4z"/>
+      </svg>
+    </div>
   </div>
   <div class="fc-splash-wordmark">FlowCheck</div>
+  <div class="fc-splash-tagline">Your finances, finally clear.</div>
   <div class="fc-splash-loader">
     <div class="fc-splash-dot"></div>
     <div class="fc-splash-dot"></div>
@@ -1369,55 +1428,58 @@ body {
 
 <!-- ══════════════════════════════════════ SCREEN: LOGIN -->
 <section class="fc-screen fc-auth-screen" data-screen="login" aria-label="Sign in">
-  <div class="fc-auth-logo">
-    <div style="width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,rgba(26,196,240,0.25),rgba(37,99,235,0.25));border:1px solid rgba(26,196,240,0.3);display:flex;align-items:center;justify-content:center">
+  <!-- Compact logo header -->
+  <div style="display:flex;flex-direction:column;align-items:center;margin-bottom:28px">
+    <div class="fc-auth-logo" style="margin-bottom:12px">
       <svg width="26" height="26" viewBox="0 0 24 24" fill="white" aria-hidden="true">
         <path d="M4 4h16v3H4zm0 6h11v3H4zm0 6h7v3H4z"/>
       </svg>
     </div>
+    <div style="font-size:22px;font-weight:800;color:#fff;letter-spacing:-0.025em;line-height:1">FlowCheck</div>
   </div>
-  <h1 class="fc-auth-title">Welcome back</h1>
-  <p class="fc-auth-subtitle">Your finances. Always in your hands.</p>
+
+  <h1 class="fc-auth-title" style="margin-bottom:4px">Welcome back</h1>
+  <p class="fc-auth-subtitle">Sign in to your account</p>
 
   <div id="login-error" class="fc-auth-error" role="alert"></div>
 
-  <!-- ── HERO: Face ID — shown only when biometrics are enrolled ── -->
-  <div id="biometric-login-wrap" style="display:none;width:100%">
+  <!-- ── Face ID — shown only when biometrics are enrolled ── -->
+  <div id="biometric-login-wrap" style="display:none;width:100%;margin-bottom:4px">
     <button onclick="FCApp.handleBiometricLogin()" type="button"
-            style="width:100%;min-height:58px;border-radius:16px;
-                   background:linear-gradient(135deg,rgba(26,196,240,0.13),rgba(37,99,235,0.10));
-                   border:1.5px solid rgba(26,196,240,0.30);
-                   display:flex;align-items:center;justify-content:center;gap:14px;
+            style="width:100%;min-height:54px;border-radius:16px;
+                   background:linear-gradient(135deg,rgba(26,196,240,0.12),rgba(37,99,235,0.09));
+                   border:1.5px solid rgba(26,196,240,0.28);
+                   display:flex;align-items:center;justify-content:center;gap:12px;
                    padding:0 20px;cursor:pointer;-webkit-tap-highlight-color:transparent;
-                   box-shadow:0 2px 20px rgba(26,196,240,0.12)">
-      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#1ac4f0" stroke-width="1.4" stroke-linecap="round" aria-hidden="true">
+                   box-shadow:0 2px 18px rgba(26,196,240,0.10)">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#1ac4f0" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
         <path d="M4 8V6a2 2 0 0 1 2-2h2M20 8V6a2 2 0 0 0-2-2h-2M4 16v2a2 2 0 0 0 2 2h2M20 16v2a2 2 0 0 1-2 2h-2"/>
         <line x1="9" y1="10" x2="9" y2="10.01"/><line x1="15" y1="10" x2="15" y2="10.01"/>
         <path d="M9 14.5a4 4 0 0 0 6 0"/>
       </svg>
       <div style="text-align:left;flex:1">
-        <div style="font-size:16px;font-weight:700;color:#fff;line-height:1.2">Sign in with Face ID</div>
-        <div style="font-size:11px;color:rgba(26,196,240,0.85);margin-top:2px;font-weight:500">Instant · Secure · Private</div>
+        <div style="font-size:15px;font-weight:700;color:#fff;line-height:1.2">Sign in with Face ID</div>
+        <div style="font-size:11px;color:rgba(26,196,240,0.80);margin-top:2px;font-weight:500">Instant · Secure · Private</div>
       </div>
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(26,196,240,0.5)" stroke-width="2.5" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
     </button>
-    <div class="fc-auth-divider" style="margin:16px 0"><span>or continue with email</span></div>
+    <div class="fc-auth-divider" style="margin:14px 0 4px"><span>or</span></div>
   </div>
 
   <!-- ── Apple Sign In ─────────────────────────────────────────── -->
   <button onclick="FCApp.handleAppleSignIn()" type="button"
-          style="width:100%;min-height:50px;border-radius:14px;
-                 background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.13);
+          style="width:100%;min-height:52px;border-radius:14px;
+                 background:rgba(255,255,255,0.95);border:none;
                  display:flex;align-items:center;justify-content:center;gap:10px;
-                 cursor:pointer;margin-bottom:4px;-webkit-tap-highlight-color:transparent;
-                 font-size:15px;font-weight:600;color:#fff;font-family:inherit">
-    <svg width="19" height="19" viewBox="0 0 24 24" fill="white" aria-hidden="true">
+                 cursor:pointer;-webkit-tap-highlight-color:transparent;
+                 font-size:15px;font-weight:600;color:#000;font-family:inherit;
+                 box-shadow:0 2px 12px rgba(0,0,0,0.3)">
+    <svg width="19" height="19" viewBox="0 0 24 24" fill="black" aria-hidden="true">
       <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.7 9.05 7.4c1.42.07 2.4.78 3.28.84 1.22-.24 2.4-1.03 3.7-1.02 1.56.02 2.74.74 3.51 1.9-3.19 1.96-2.67 6.28.51 7.54-.64 1.62-1.5 3.23-3 3.62zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
     </svg>
     Continue with Apple
   </button>
 
-  <div class="fc-auth-divider"><span>or sign in with email</span></div>
+  <div class="fc-auth-divider" style="margin:18px 0 14px"><span>or use email</span></div>
 
   <div class="fc-input-group" style="width:100%">
     <div class="fc-input-label">Email</div>
@@ -1459,39 +1521,45 @@ body {
 
 <!-- ══════════════════════════════════════ SCREEN: REGISTER -->
 <section class="fc-screen fc-auth-screen" data-screen="register" aria-label="Create account">
-  <!-- Social proof badge -->
-  <div style="display:inline-flex;align-items:center;gap:6px;background:rgba(52,199,89,0.09);border:1px solid rgba(52,199,89,0.22);border-radius:999px;padding:5px 14px;margin-bottom:6px">
-    <span style="font-size:12px" aria-hidden="true">👥</span>
-    <span style="font-size:11px;font-weight:600;color:rgba(52,199,89,0.9);letter-spacing:0.01em">Join 14,000+ users tracking smarter</span>
+  <!-- Logo — clean, no pill -->
+  <div style="display:flex;flex-direction:column;align-items:center;margin-bottom:24px">
+    <div class="fc-auth-logo" style="margin-bottom:14px;width:64px;height:64px;border-radius:20px;box-shadow:0 0 0 1px rgba(26,196,240,0.2),0 16px 48px rgba(26,196,240,0.25)">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="white" aria-hidden="true">
+        <path d="M4 4h16v3H4zm0 6h11v3H4zm0 6h7v3H4z"/>
+      </svg>
+    </div>
+    <div style="font-size:24px;font-weight:800;color:#fff;letter-spacing:-0.03em;line-height:1">FlowCheck</div>
   </div>
 
-  <h1 class="fc-auth-title" style="margin-top:4px">Create account</h1>
-  <p class="fc-auth-subtitle">7 days free — no credit card required</p>
+  <h1 class="fc-auth-title" style="margin-bottom:4px;font-size:22px">Create your account</h1>
+  <p class="fc-auth-subtitle" style="margin-bottom:20px">7 days free — no credit card required</p>
 
   <div id="register-error" class="fc-auth-error" role="alert"></div>
 
-  <!-- ── Apple Sign In — first, prominent ──────────────────────── -->
+  <!-- Apple Sign In — first, prominent -->
   <button onclick="FCApp.handleAppleSignIn()" type="button"
-          style="width:100%;min-height:50px;border-radius:14px;
-                 background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.13);
+          style="width:100%;min-height:52px;border-radius:14px;
+                 background:rgba(255,255,255,0.95);border:none;
                  display:flex;align-items:center;justify-content:center;gap:10px;
-                 cursor:pointer;margin-bottom:4px;-webkit-tap-highlight-color:transparent;
-                 font-size:15px;font-weight:600;color:#fff;font-family:inherit">
-    <svg width="19" height="19" viewBox="0 0 24 24" fill="white" aria-hidden="true">
+                 cursor:pointer;-webkit-tap-highlight-color:transparent;
+                 font-size:15px;font-weight:600;color:#000;font-family:inherit;
+                 box-shadow:0 2px 12px rgba(0,0,0,0.3)">
+    <svg width="19" height="19" viewBox="0 0 24 24" fill="black" aria-hidden="true">
       <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.7 9.05 7.4c1.42.07 2.4.78 3.28.84 1.22-.24 2.4-1.03 3.7-1.02 1.56.02 2.74.74 3.51 1.9-3.19 1.96-2.67 6.28.51 7.54-.64 1.62-1.5 3.23-3 3.62zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
     </svg>
     Continue with Apple
   </button>
 
-  <div class="fc-auth-divider"><span>or sign up with email</span></div>
+  <div class="fc-auth-divider" style="margin:16px 0 12px"><span>or sign up with email</span></div>
 
-  <div class="fc-input-group" style="width:100%">
-    <div class="fc-input-label">Full name</div>
-    <input id="reg-name" class="fc-input" type="text" autocomplete="name" placeholder="Your name">
-  </div>
+  <!-- Email first — more natural flow -->
   <div class="fc-input-group" style="width:100%">
     <div class="fc-input-label">Email</div>
     <input id="reg-email" class="fc-input" type="email" autocomplete="email" inputmode="email" placeholder="you@example.com">
+  </div>
+  <div class="fc-input-group" style="width:100%">
+    <div class="fc-input-label">Full name</div>
+    <input id="reg-name" class="fc-input" type="text" autocomplete="name" placeholder="Your name">
   </div>
   <div class="fc-input-group" style="width:100%;margin-bottom:6px">
     <div class="fc-input-label">Password</div>
@@ -1505,30 +1573,30 @@ body {
         </svg>
       </button>
     </div>
-    <!-- Password strength indicator -->
+    <!-- Strength bar only — no text label cluttering the layout -->
     <div style="display:flex;gap:4px;margin-top:8px;height:3px" aria-hidden="true">
       <div id="reg-pw-seg-1" style="flex:1;border-radius:999px;background:rgba(255,255,255,0.12);transition:background 0.25s"></div>
       <div id="reg-pw-seg-2" style="flex:1;border-radius:999px;background:rgba(255,255,255,0.12);transition:background 0.25s"></div>
       <div id="reg-pw-seg-3" style="flex:1;border-radius:999px;background:rgba(255,255,255,0.12);transition:background 0.25s"></div>
       <div id="reg-pw-seg-4" style="flex:1;border-radius:999px;background:rgba(255,255,255,0.12);transition:background 0.25s"></div>
     </div>
-    <div id="reg-pw-strength-label" style="font-size:10px;color:rgba(255,255,255,0.32);margin-top:5px;min-height:14px;transition:color 0.25s"></div>
+    <!-- Hidden element kept for JS compatibility — strength label removed from view -->
+    <div id="reg-pw-strength-label" style="display:none"></div>
   </div>
 
-  <!-- Optional referral code — collapsed by default -->
-  <div style="width:100%;margin-bottom:8px">
+  <!-- Referral code — collapsed, unobtrusive -->
+  <div style="width:100%;margin-bottom:12px">
     <button type="button" id="reg-referral-toggle"
-            style="background:none;border:none;color:var(--fc-accent);font-size:13px;font-weight:500;cursor:pointer;padding:4px 0;display:flex;align-items:center;gap:6px"
+            style="background:none;border:none;color:var(--fc-text-faint);font-size:12px;font-weight:500;cursor:pointer;padding:4px 0;display:flex;align-items:center;gap:5px"
             onclick="FCApp.toggleReferralInput()">
-      <svg id="reg-referral-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="transition:transform 0.2s"><path d="M9 6l6 6-6 6"/></svg>
+      <svg id="reg-referral-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="transition:transform 0.2s"><path d="M9 6l6 6-6 6"/></svg>
       Have a referral code?
     </button>
     <div id="reg-referral-wrap" style="display:none;margin-top:8px">
       <div class="fc-input-group" style="width:100%;margin-bottom:0">
-        <div class="fc-input-label">Referral code (optional)</div>
         <input id="reg-referral-code" class="fc-input" type="text"
                autocomplete="off" spellcheck="false"
-               placeholder="FLOW-XXXXX"
+               placeholder="FLOWXXXXXX"
                style="text-transform:uppercase;letter-spacing:1px"
                oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9-]/g,'')">
       </div>
@@ -1541,17 +1609,95 @@ body {
     Start Free Trial
   </button>
 
-  <div class="fc-auth-link">
+  <div class="fc-auth-link" style="margin-top:14px">
     Already have an account?
     <button onclick="FCApp.setScreen('login')">Sign in</button>
   </div>
 
-  <div style="color:var(--fc-text-faint);font-size:11px;text-align:center;margin-top:12px;line-height:1.55">
+  <div style="color:var(--fc-text-faint);font-size:11px;text-align:center;margin-top:10px;line-height:1.5">
     By continuing you agree to our
-    <a href="#" style="color:var(--fc-accent)">Terms of Service</a> and
-    <a href="#" style="color:var(--fc-accent)">Privacy Policy</a>.
-    7-day free trial, then $9.99/mo.
+    <a href="https://flowcheck.app/terms" style="color:var(--fc-accent)">Terms</a> and
+    <a href="https://flowcheck.app/privacy" style="color:var(--fc-accent)">Privacy Policy</a>.
   </div>
+</section>
+
+
+<!-- ══════════════════════════════════ SCREEN: VERIFY EMAIL ══ -->
+<section class="fc-screen fc-auth-screen" data-screen="verify-email" aria-label="Verify your email">
+
+  <!-- Animated envelope glow -->
+  <div style="position:relative;width:92px;height:92px;flex-shrink:0;margin-bottom:20px">
+    <div style="position:absolute;inset:0;border-radius:50%;
+                background:radial-gradient(ellipse,rgba(26,196,240,0.16),transparent 70%);
+                animation:fcRingPulse 3s ease-in-out infinite"></div>
+    <div style="position:absolute;inset:14px;border-radius:50%;
+                background:linear-gradient(135deg,rgba(26,196,240,0.18),rgba(37,99,235,0.14));
+                border:1.5px solid rgba(26,196,240,0.32);
+                display:flex;align-items:center;justify-content:center;
+                box-shadow:0 0 28px rgba(26,196,240,0.20)">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#1ac4f0"
+           stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+        <polyline points="22,6 12,13 2,6"/>
+      </svg>
+    </div>
+  </div>
+
+  <h1 class="fc-auth-title" style="margin-bottom:6px">Check your inbox</h1>
+  <p class="fc-auth-subtitle" style="margin-bottom:4px">We sent a verification link to</p>
+  <p id="verify-email-addr"
+     style="font-size:14px;font-weight:700;color:var(--fc-accent);
+            margin-bottom:22px;word-break:break-all;text-align:center"></p>
+
+  <!-- Instructions card -->
+  <div style="width:100%;background:rgba(26,196,240,0.06);border:1px solid rgba(26,196,240,0.14);
+              border-radius:18px;padding:16px 18px;margin-bottom:20px">
+    <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px">
+      <span style="font-size:18px;flex-shrink:0;margin-top:1px">1️⃣</span>
+      <div style="font-size:13px;color:rgba(255,255,255,0.70);line-height:1.5">Open the FlowCheck email in your inbox</div>
+    </div>
+    <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px">
+      <span style="font-size:18px;flex-shrink:0;margin-top:1px">2️⃣</span>
+      <div style="font-size:13px;color:rgba(255,255,255,0.70);line-height:1.5">Tap <strong style="color:#fff">Verify my email</strong> in the email</div>
+    </div>
+    <div style="display:flex;align-items:flex-start;gap:10px">
+      <span style="font-size:18px;flex-shrink:0;margin-top:1px">3️⃣</span>
+      <div style="font-size:13px;color:rgba(255,255,255,0.70);line-height:1.5">Come back here and tap the button below</div>
+    </div>
+  </div>
+
+  <div id="verify-email-err"
+       style="display:none;width:100%;padding:10px 14px;background:rgba(255,69,58,0.10);
+              border:1px solid rgba(255,69,58,0.22);border-radius:12px;
+              font-size:13px;color:#ff453a;margin-bottom:14px;text-align:center;line-height:1.4"></div>
+
+  <!-- Primary CTA -->
+  <button id="btn-verify-continue" class="fc-btn fc-btn--primary fc-btn--block"
+          onclick="FCApp.handleVerifyEmailCheck()" type="button">
+    I've Verified My Email
+  </button>
+
+  <!-- Resend + Skip row -->
+  <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:14px">
+    <button id="btn-resend-verify" type="button"
+            style="background:none;border:none;color:var(--fc-accent);font-size:13px;
+                   font-weight:600;cursor:pointer;padding:6px 0;-webkit-tap-highlight-color:transparent"
+            onclick="FCApp.resendVerificationEmail()">
+      Resend Email
+    </button>
+    <button type="button"
+            style="background:none;border:none;color:rgba(255,255,255,0.32);font-size:12px;
+                   font-weight:500;cursor:pointer;padding:6px 0;-webkit-tap-highlight-color:transparent"
+            onclick="FCApp.skipEmailVerification()">
+      Skip for now →
+    </button>
+  </div>
+
+  <p style="font-size:11px;color:rgba(255,255,255,0.22);text-align:center;
+            margin-top:18px;line-height:1.6;padding:0 8px">
+    Can't find the email? Check your spam folder.
+    Verification keeps your account secure.
+  </p>
 </section>
 
 
@@ -1701,23 +1847,22 @@ body {
   </div>
 
   <!-- Success state (shown after email sent) -->
-  <div id="fp-success-state" style="display:none;text-align:center;width:100%">
-    <div style="width:64px;height:64px;border-radius:50%;
-                background:linear-gradient(135deg,rgba(26,196,240,0.18),rgba(37,99,235,0.22));
+  <div id="fp-success-state" style="display:none;text-align:center;width:100%;margin-top:32px">
+    <div style="width:72px;height:72px;border-radius:50%;
+                background:linear-gradient(135deg,rgba(26,196,240,0.15),rgba(37,99,235,0.20));
                 border:1.5px solid rgba(26,196,240,0.3);
                 display:flex;align-items:center;justify-content:center;
-                margin:0 auto 20px">
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#1ac4f0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                margin:0 auto 28px;
+                box-shadow:0 0 40px rgba(26,196,240,0.18)">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#1ac4f0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
         <polyline points="22,6 12,13 2,6"/>
       </svg>
     </div>
     <h1 class="fc-auth-title" style="margin-bottom:8px">Check your email</h1>
-    <p class="fc-auth-subtitle" style="margin-bottom:24px">
-      We sent a password reset link to<br>
-      <span id="fp-sent-email" style="color:var(--fc-text-primary);font-weight:600"></span>
-    </p>
-    <p style="color:var(--fc-text-faint);font-size:12px;margin-bottom:28px;line-height:1.5">
+    <p class="fc-auth-subtitle" style="margin-bottom:6px">We sent a password reset link to</p>
+    <p style="font-size:14px;font-weight:700;color:var(--fc-accent);margin-bottom:32px;word-break:break-all" id="fp-sent-email"></p>
+    <p style="color:var(--fc-text-faint);font-size:12px;margin-bottom:32px;line-height:1.6">
       Didn't get it? Check your spam folder or
       <button type="button"
               onclick="FCApp.resetForgotPasswordScreen()"
@@ -1919,6 +2064,85 @@ body {
 }
 .fc-ob-notif-card-title  { font-size:13px;font-weight:600;color:rgba(255,255,255,0.88);line-height:1.3; }
 .fc-ob-notif-card-body   { font-size:11px;color:rgba(255,255,255,0.42);margin-top:2px; }
+
+/* ══ Onboarding v3 — Splash · Auth · Slide enhancements ═══ */
+
+/* SPLASH — spinning conic ring + ambient orbs */
+.fc-splash { position:relative; overflow:hidden; }
+.fc-splash-orb {
+  position:absolute; border-radius:50%; filter:blur(80px);
+  pointer-events:none; z-index:0;
+}
+.fc-splash-orb--cyan {
+  width:480px; height:480px; top:-160px; left:-120px;
+  background:radial-gradient(circle,rgba(26,196,240,0.22),transparent 65%);
+  animation:fcSplashDrift 7s ease-in-out infinite;
+}
+.fc-splash-orb--blue {
+  width:400px; height:400px; bottom:-120px; right:-100px;
+  background:radial-gradient(circle,rgba(37,99,235,0.18),transparent 65%);
+  animation:fcSplashDrift 9s ease-in-out infinite reverse;
+}
+@keyframes fcSplashDrift {
+  0%,100%{transform:translate(0,0);}
+  50%{transform:translate(22px,-16px);}
+}
+.fc-splash-ring {
+  position:relative; z-index:1; flex-shrink:0;
+  width:90px; height:90px; border-radius:50%;
+  padding:2.5px;
+  background:conic-gradient(from 0deg, #1ac4f0 0%, #2563eb 40%, rgba(26,196,240,0.3) 70%, #1ac4f0 100%);
+  box-shadow:0 0 64px rgba(26,196,240,0.32), 0 0 120px rgba(26,196,240,0.10);
+  animation:fcSplashRingSpin 3.5s linear infinite;
+  margin-bottom:22px;
+}
+.fc-splash-ring-inner {
+  width:100%; height:100%; border-radius:50%;
+  background:var(--fc-bg);
+  display:flex; align-items:center; justify-content:center;
+}
+@keyframes fcSplashRingSpin { to { transform:rotate(360deg); } }
+.fc-splash-wordmark { position:relative; z-index:1; }
+.fc-splash-tagline {
+  position:relative; z-index:1;
+  font-size:13px; color:rgba(255,255,255,0.30); font-weight:500;
+  letter-spacing:0.04em; margin-top:2px; margin-bottom:34px;
+}
+.fc-splash-loader { position:relative; z-index:1; }
+
+/* AUTH HERO — branded card above login/register form */
+.fc-auth-hero {
+  display:flex; align-items:center; gap:13px; width:100%; margin-bottom:20px;
+  padding:13px 16px;
+  background:linear-gradient(135deg,rgba(26,196,240,0.08),rgba(37,99,235,0.06));
+  border:1px solid rgba(26,196,240,0.14); border-radius:18px;
+}
+.fc-auth-hero-ring {
+  width:44px; height:44px; border-radius:12px; flex-shrink:0;
+  background:linear-gradient(135deg,rgba(26,196,240,0.22),rgba(37,99,235,0.16));
+  border:1px solid rgba(26,196,240,0.26);
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:0 0 18px rgba(26,196,240,0.16);
+}
+.fc-auth-hero-name { font-size:16px; font-weight:800; color:#fff; letter-spacing:-0.02em; line-height:1.1; }
+.fc-auth-hero-tagline { font-size:11px; color:rgba(255,255,255,0.38); margin-top:3px; font-weight:500; }
+
+/* SLIDE 3 — review pill */
+.fc-ob-review-pill {
+  display:inline-flex; align-items:center; gap:7px; flex-shrink:0;
+  background:rgba(255,176,32,0.09); border:1px solid rgba(255,176,32,0.18);
+  border-radius:999px; padding:5px 14px; margin-bottom:14px;
+}
+.fc-ob-review-stars { color:#ffb020; font-size:12px; line-height:1; letter-spacing:1px; }
+.fc-ob-review-text { font-size:11px; font-weight:600; color:rgba(255,255,255,0.60); }
+
+/* SLIDE 5 — trust strip above paywall headline */
+.fc-ob-user-strip {
+  display:flex; align-items:center; gap:8px; margin-bottom:12px; flex-shrink:0;
+  background:rgba(52,199,89,0.07); border:1px solid rgba(52,199,89,0.16);
+  border-radius:999px; padding:5px 16px;
+}
+.fc-ob-user-strip-text { font-size:11px; font-weight:600; color:rgba(52,199,89,0.85); }
 </style>
 
 <section class="fc-screen fc-ob-screen" data-screen="onboarding" aria-label="Welcome to FlowCheck">
@@ -2095,7 +2319,11 @@ body {
 
         </div>
       </div>
-      <h1 class="fc-ob-title" style="font-size:26px;margin-top:8px">Everything you need.<br><span class="fc-ob-title-grad">Nothing you don't.</span></h1>
+      <div class="fc-ob-review-pill">
+        <span class="fc-ob-review-stars">★★★★★</span>
+        <span class="fc-ob-review-text">4.8 · 2,400+ reviews on the App Store</span>
+      </div>
+      <h1 class="fc-ob-title" style="font-size:26px;margin-top:0">Everything you need.<br><span class="fc-ob-title-grad">Nothing you don't.</span></h1>
       <p class="fc-ob-desc" style="font-size:14px">No spreadsheets. No guessing. FlowCheck connects to your bank and does the heavy lifting automatically.</p>
     </div>
 
@@ -2161,41 +2389,49 @@ body {
     <!-- ── SLIDE 5: Paywall — 7-day free trial ──────────────────── -->
     <div class="fc-ob-slide" id="ob-slide-5" style="justify-content:flex-start;padding-top:8px;overflow-y:auto;-webkit-overflow-scrolling:touch">
 
-      <!-- Hero icon with rings -->
+      <!-- Trust strip — social proof above everything -->
+      <div class="fc-ob-user-strip">
+        <span style="font-size:13px">👥</span>
+        <span class="fc-ob-user-strip-text">14,000+ people trust FlowCheck with their money</span>
+      </div>
+
+      <!-- Hero icon with concentric rings -->
       <div style="position:relative;width:76px;height:76px;margin-bottom:14px;flex-shrink:0">
-        <div style="position:absolute;inset:0;border-radius:50%;border:1px solid rgba(26,196,240,0.18);animation:fcRingPulse 3s ease-in-out infinite"></div>
-        <div style="position:absolute;inset:12px;border-radius:50%;
-                    background:linear-gradient(135deg,rgba(26,196,240,0.18),rgba(37,99,235,0.16));
-                    border:1.5px solid rgba(26,196,240,0.36);
+        <div style="position:absolute;inset:0;border-radius:50%;border:1px solid rgba(26,196,240,0.14);animation:fcRingPulse 3s ease-in-out infinite"></div>
+        <div style="position:absolute;inset:8px;border-radius:50%;border:1px solid rgba(26,196,240,0.22);animation:fcRingPulse 3s ease-in-out infinite 0.5s"></div>
+        <div style="position:absolute;inset:16px;border-radius:50%;
+                    background:linear-gradient(135deg,rgba(26,196,240,0.20),rgba(37,99,235,0.18));
+                    border:1.5px solid rgba(26,196,240,0.40);
                     display:flex;align-items:center;justify-content:center;
-                    box-shadow:0 0 20px rgba(26,196,240,0.18)">
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#1ac4f0" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                    box-shadow:0 0 24px rgba(26,196,240,0.22)">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1ac4f0" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="12" y1="1" x2="12" y2="23"/>
+            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
           </svg>
         </div>
       </div>
 
-      <h1 class="fc-ob-title" style="font-size:23px;margin-bottom:4px;line-height:1.2">
-        7 Days Free.<br><span class="fc-ob-title-grad">Then $9.99/month.</span>
+      <h1 class="fc-ob-title" style="font-size:24px;margin-bottom:4px;line-height:1.2">
+        <span class="fc-ob-title-grad">7 Days Free.</span><br><span id="ob-price-subtitle">Then just $2.91/month.</span>
       </h1>
-      <p class="fc-ob-desc" style="font-size:13px;margin-bottom:14px;color:rgba(255,255,255,0.45)">
+      <p class="fc-ob-desc" style="font-size:13px;margin-bottom:16px;color:rgba(255,255,255,0.45)">
         Cancel any time. No charge until your trial ends.
       </p>
 
-      <!-- Plan selector -->
+      <!-- Plan selector — annual pre-selected (best for conversion) -->
       <div style="width:100%;max-width:320px;display:flex;gap:9px;margin-bottom:14px">
         <button id="ob-plan-monthly" onclick="obSelectPlan('monthly')" type="button"
                 style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;
-                       background:rgba(26,196,240,0.08);border:1.5px solid rgba(26,196,240,0.45);
+                       background:rgba(255,255,255,0.05);border:1.5px solid rgba(255,255,255,0.12);
                        border-radius:16px;padding:13px 8px;cursor:pointer;text-align:center;
                        transition:all 0.2s;-webkit-tap-highlight-color:transparent">
           <div style="font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:rgba(255,255,255,0.38)">Monthly</div>
-          <div style="font-size:21px;font-weight:800;color:#fff;letter-spacing:-0.04em;line-height:1.1;font-variant-numeric:tabular-nums">$9.99</div>
+          <div id="ob-price-monthly" style="font-size:21px;font-weight:800;color:#fff;letter-spacing:-0.04em;line-height:1.1;font-variant-numeric:tabular-nums">$4.99</div>
           <div style="font-size:10px;color:rgba(255,255,255,0.32)">per month</div>
         </button>
         <button id="ob-plan-annual" onclick="obSelectPlan('annual')" type="button"
                 style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;
-                       background:rgba(255,255,255,0.05);border:1.5px solid rgba(255,255,255,0.12);
+                       background:rgba(26,196,240,0.09);border:1.5px solid rgba(26,196,240,0.50);
                        border-radius:16px;padding:13px 8px;cursor:pointer;text-align:center;
                        position:relative;transition:all 0.2s;-webkit-tap-highlight-color:transparent">
           <div style="position:absolute;top:-9px;left:50%;transform:translateX(-50%);
@@ -2203,8 +2439,8 @@ body {
                       padding:2px 10px;font-size:9px;font-weight:800;color:#fff;
                       letter-spacing:0.06em;text-transform:uppercase;white-space:nowrap">BEST VALUE</div>
           <div style="font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:rgba(255,255,255,0.38)">Annual</div>
-          <div style="font-size:21px;font-weight:800;color:#fff;letter-spacing:-0.04em;line-height:1.1;font-variant-numeric:tabular-nums">$79.99</div>
-          <div style="font-size:10px;color:rgba(52,199,89,0.9);font-weight:600">$6.67/mo · Save 33%</div>
+          <div id="ob-price-annual" style="font-size:21px;font-weight:800;color:#fff;letter-spacing:-0.04em;line-height:1.1;font-variant-numeric:tabular-nums">$34.99</div>
+          <div id="ob-price-annual-detail" style="font-size:10px;color:rgba(52,199,89,0.9);font-weight:600">$2.91/mo · Save 41%</div>
         </button>
       </div>
 
@@ -2265,6 +2501,16 @@ body {
 
   </div><!-- /fc-ob-slides -->
 
+  <!-- Step dots — shown below slides, above CTA -->
+  <div class="fc-ob-steps" aria-hidden="true" id="ob-steps-row">
+    <div class="fc-ob-step active" id="ob-step-0"></div>
+    <div class="fc-ob-step" id="ob-step-1"></div>
+    <div class="fc-ob-step" id="ob-step-2"></div>
+    <div class="fc-ob-step" id="ob-step-3"></div>
+    <div class="fc-ob-step" id="ob-step-4"></div>
+    <div class="fc-ob-step" id="ob-step-5"></div>
+  </div>
+
   <div class="fc-ob-cta">
     <button id="ob-next-btn" class="fc-btn fc-btn--primary fc-btn--block"
             onclick="obNext()" type="button" style="font-size:17px;height:56px;margin-bottom:0">
@@ -2285,7 +2531,7 @@ body {
     </button>
     <button class="fc-skip-btn" onclick="FCApp.skipOnboarding()" type="button"
             style="margin-top:12px;padding:8px 0;display:none;opacity:0.45;font-size:13px" id="ob-skip-btn">
-      Skip — explore without trial
+      Maybe later
     </button>
     <p id="ob-legal-note" style="display:none;font-size:10px;color:rgba(255,255,255,0.22);text-align:center;margin-top:10px;line-height:1.6">
       Subscription auto-renews after 7-day trial at the selected price. Cancel any time in iOS Settings before trial ends. By continuing you agree to our <a href="#" onclick="FCApp.openUrl('/legal/terms.html');return false" style="color:rgba(255,255,255,0.35)">Terms</a> and <a href="#" onclick="FCApp.openUrl('/legal/privacy.html');return false" style="color:rgba(255,255,255,0.35)">Privacy Policy</a>.
@@ -2293,6 +2539,44 @@ body {
   </div>
 
 </section>
+
+<script>
+/* ── Onboarding net worth counter animation ───────────────── */
+(function() {
+  var _counterDone = false;
+
+  function _obAnimateCounter() {
+    if (_counterDone) return;
+    _counterDone = true;
+    var el = document.getElementById('ob-counter');
+    if (!el) return;
+    var target   = 47382;
+    var duration = 1800;
+    var start    = null;
+    function easeOut(t) { return 1 - Math.pow(1 - t, 3); }
+    function step(ts) {
+      if (!start) start = ts;
+      var p   = Math.min((ts - start) / duration, 1);
+      var val = Math.round(easeOut(p) * target);
+      el.textContent = '$' + val.toLocaleString('en-US');
+      if (p < 1) requestAnimationFrame(step);
+    }
+    setTimeout(function() { requestAnimationFrame(step); }, 450);
+  }
+
+  /* Watch for body[data-screen="onboarding"] */
+  var _obs = new MutationObserver(function(muts) {
+    muts.forEach(function(m) {
+      if (m.type === 'attributes' && m.attributeName === 'data-screen') {
+        if (document.body.dataset.screen === 'onboarding') {
+          _obAnimateCounter();
+        }
+      }
+    });
+  });
+  _obs.observe(document.body, { attributes: true });
+})();
+</script>
 
 
 
@@ -2304,6 +2588,20 @@ body {
     <div style="position:absolute;top:-80px;left:50%;transform:translateX(-50%);width:340px;height:340px;background:radial-gradient(ellipse at 50% 30%,rgba(37,99,235,0.22),transparent 70%);border-radius:50%"></div>
     <div style="position:absolute;bottom:0;right:-60px;width:260px;height:260px;background:radial-gradient(ellipse,rgba(26,196,240,0.12),transparent 70%);border-radius:50%"></div>
   </div>
+
+  <!-- Close button — shown when paywall is opened from inside the app -->
+  <button id="pw-close-btn" onclick="FCApp.closePaywall()" type="button"
+          style="position:absolute;top:calc(env(safe-area-inset-top) + 12px);right:16px;
+                 z-index:10;width:32px;height:32px;border-radius:50%;
+                 background:rgba(255,255,255,0.10);border:1px solid rgba(255,255,255,0.12);
+                 display:none;align-items:center;justify-content:center;
+                 cursor:pointer;-webkit-tap-highlight-color:transparent"
+          aria-label="Close">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)"
+         stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+    </svg>
+  </button>
 
   <div style="position:relative;z-index:1;padding:calc(env(safe-area-inset-top) + 32px) 22px 0;display:flex;flex-direction:column;align-items:center">
 
@@ -2523,9 +2821,9 @@ body {
     /* ── Greeting header (NO bell — top bar handles that) ───────── */
     .dash-greeting{display:flex;align-items:center;justify-content:space-between;padding:16px 18px 14px}
     .dash-greeting-left{flex:1;min-width:0}
-    .dash-tod{font-size:12px;color:rgba(255,255,255,0.40);font-weight:600;letter-spacing:0.03em;margin-bottom:2px}
-    .dash-name{font-size:32px;font-weight:800;color:#fff;letter-spacing:-0.04em;line-height:1.05;margin:0}
-    .dash-safe{font-size:13px;color:var(--fc-accent);font-weight:500;margin-top:5px}
+    .dash-tod{font-size:12px;color:rgba(255,255,255,0.35);font-weight:600;letter-spacing:0.04em;margin-bottom:2px;text-transform:uppercase;font-size:10px}
+    .dash-name{font-size:34px;font-weight:900;color:#fff;letter-spacing:-0.045em;line-height:1.0;margin:0}
+    .dash-safe{font-size:13px;color:#1ac4f0;font-weight:600;margin-top:6px;letter-spacing:-0.01em}
     .dash-avatar{width:40px;height:40px;border-radius:50%;background:#2563eb;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;color:#fff;flex-shrink:0;letter-spacing:-0.01em}
 
     /* ── Section wrappers ───────────────────────────────────────── */
@@ -2534,23 +2832,23 @@ body {
 
     /* ── Section header row ─────────────────────────────────────── */
     .dash-sec-hdr{display:flex;align-items:center;justify-content:space-between;padding:0 16px;margin-bottom:10px}
-    .dash-sec-title{font-size:11px;font-weight:700;color:rgba(255,255,255,0.38);letter-spacing:0.09em;text-transform:uppercase}
-    .dash-sec-link{font-size:12px;font-weight:700;color:#2563eb;border:none;background:none;cursor:pointer;padding:0;-webkit-tap-highlight-color:transparent}
+    .dash-sec-title{font-size:10px;font-weight:700;color:rgba(255,255,255,0.32);letter-spacing:0.12em;text-transform:uppercase}
+    .dash-sec-link{font-size:12px;font-weight:700;color:var(--fc-accent,#1ac4f0);border:none;background:none;cursor:pointer;padding:0;-webkit-tap-highlight-color:transparent;opacity:.85}
 
     /* ── Base card ──────────────────────────────────────────────── */
-    .dash-card{background:#12121C;border-radius:22px;border:0.5px solid rgba(255,255,255,0.07)}
+    .dash-card{background:linear-gradient(145deg,#0d1b2e,#091422);border-radius:22px;border:0.5px solid rgba(255,255,255,0.09);box-shadow:0 4px 20px rgba(0,0,0,0.35)}
     .dash-card-p{padding:16px}
     .dash-card-tap{cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .15s}
     .dash-card-tap:active{background:rgba(255,255,255,0.04)}
 
     /* ── Net worth hero card ────────────────────────────────────── */
-    .dash-nw-card{margin:4px 16px 18px;background:#12121C;border-radius:22px;border:0.5px solid rgba(37,99,235,0.20);padding:18px 20px 16px;position:relative;overflow:hidden}
+    .dash-nw-card{margin:4px 16px 18px;background:linear-gradient(145deg,#0f1e35 0%,#08131f 100%);border-radius:22px;border:0.5px solid rgba(26,196,240,0.22);padding:18px 20px 16px;position:relative;overflow:hidden;box-shadow:0 0 50px rgba(26,196,240,0.07) inset,0 8px 32px rgba(0,0,0,0.45)}
     .dash-nw-tag{font-size:10px;color:rgba(255,255,255,0.32);font-weight:700;letter-spacing:.10em;margin-bottom:6px;text-transform:uppercase}
     .dash-nw-row{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:2px}
     .dash-nw-amount{font-size:38px;font-weight:900;color:#fff;letter-spacing:-1.5px;line-height:1;font-variant-numeric:tabular-nums}
     .dash-nw-pill{display:inline-flex;align-items:center;gap:3px;background:rgba(52,199,89,0.12);border:0.5px solid rgba(52,199,89,0.28);border-radius:20px;padding:5px 10px;font-size:11px;font-weight:700;color:#34c759;flex-shrink:0;margin-bottom:4px}
     .dash-nw-pill.neg{background:rgba(255,69,58,0.12);border-color:rgba(255,69,58,0.28);color:#ff453a}
-    .dash-nw-footer{display:flex;border-top:0.5px solid rgba(255,255,255,0.07);padding-top:13px;margin-top:10px}
+    .dash-nw-footer{display:flex;border-top:0.5px solid rgba(255,255,255,0.06);padding-top:13px;margin-top:10px}
     .dash-nw-foot{flex:1;display:flex;flex-direction:column;gap:3px;text-align:center}
     .dash-nw-foot:not(:last-child){border-right:0.5px solid rgba(255,255,255,0.07)}
     .dash-nf-lbl{font-size:9px;color:rgba(255,255,255,0.28);font-weight:700;letter-spacing:.10em;text-transform:uppercase}
@@ -2558,14 +2856,14 @@ body {
     .dash-green{color:#34c759}.dash-red{color:#ff453a}
 
     /* ── Period scrubber ────────────────────────────────────────── */
-    .dash-scrubber{background:rgba(255,255,255,0.05);border-radius:10px;padding:3px;display:flex;gap:2px;margin-bottom:12px}
-    .dash-scrub-btn{flex:1;border:none;background:none;color:rgba(255,255,255,0.38);font-size:12px;font-weight:600;padding:5px 0;border-radius:8px;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;transition:background .15s,color .15s}
-    .dash-scrub-btn.active,.dash-scrub-btn[aria-selected="true"]{background:rgba(255,255,255,0.10);color:#fff}
+    .dash-scrubber{background:rgba(255,255,255,0.04);border:0.5px solid rgba(255,255,255,0.07);border-radius:10px;padding:3px;display:flex;gap:2px;margin-bottom:12px}
+    .dash-scrub-btn{flex:1;border:none;background:none;color:rgba(255,255,255,0.35);font-size:12px;font-weight:600;padding:5px 0;border-radius:8px;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;transition:background .15s,color .15s}
+    .dash-scrub-btn.active,.dash-scrub-btn[aria-selected="true"]{background:rgba(26,196,240,0.15);color:#1ac4f0;border:0.5px solid rgba(26,196,240,0.25)}
 
     /* ── Quick-stat strip ───────────────────────────────────────── */
     .dash-stats{display:flex;gap:8px;padding:0 16px;margin-bottom:20px}
-    .dash-stat{flex:1;background:#12121C;border:0.5px solid rgba(255,255,255,0.08);border-radius:16px;padding:12px 13px 11px;display:flex;flex-direction:column;gap:4px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .15s,transform .12s}
-    .dash-stat:active{background:rgba(255,255,255,0.09);transform:scale(0.97)}
+    .dash-stat{flex:1;background:linear-gradient(145deg,#0d1b2e,#091422);border:0.5px solid rgba(255,255,255,0.09);border-radius:16px;padding:12px 13px 11px;display:flex;flex-direction:column;gap:4px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .12s,box-shadow .15s;box-shadow:0 2px 12px rgba(0,0,0,0.3)}
+    .dash-stat:active{transform:scale(0.97);box-shadow:none}
     .dash-sp-lbl{font-size:9px;color:rgba(255,255,255,0.32);font-weight:700;letter-spacing:.10em;text-transform:uppercase}
     .dash-sp-val{font-size:17px;font-weight:800;color:#fff;font-variant-numeric:tabular-nums;line-height:1.1;letter-spacing:-0.03em}
 
@@ -2573,7 +2871,7 @@ body {
     .dash-acct-scroll{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:none;-ms-overflow-style:none;scroll-snap-type:x mandatory;padding-left:16px;margin-bottom:4px}
     .dash-acct-scroll::-webkit-scrollbar{display:none}
     .dash-acct-inner{display:flex;gap:11px;width:max-content;padding:2px 20px 6px 0}
-    .dash-acct-card{flex-shrink:0;scroll-snap-align:start;width:222px;height:144px;background:rgba(255,255,255,0.04);border:0.5px solid rgba(255,255,255,0.10);border-radius:22px;padding:17px 18px;cursor:pointer;transition:transform .18s ease;position:relative;overflow:hidden;-webkit-tap-highlight-color:transparent}
+    .dash-acct-card{flex-shrink:0;scroll-snap-align:start;width:222px;height:144px;background:linear-gradient(145deg,#0e1d30,#091522);border:0.5px solid rgba(255,255,255,0.11);border-radius:22px;padding:17px 18px;cursor:pointer;transition:transform .18s ease;position:relative;overflow:hidden;-webkit-tap-highlight-color:transparent;box-shadow:0 4px 20px rgba(0,0,0,0.35)}
     .dash-acct-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--pill-accent,var(--fc-accent));border-radius:22px 22px 0 0}
     .dash-acct-card:active{transform:scale(0.96)}
     .dash-acct-add{flex-shrink:0;scroll-snap-align:start;width:110px;height:144px;border:1.5px dashed rgba(37,99,235,0.32);background:rgba(37,99,235,0.04);border-radius:22px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:16px 10px;cursor:pointer;transition:background .15s;-webkit-tap-highlight-color:transparent}
@@ -2592,18 +2890,18 @@ body {
     .dash-dot-count{font-size:11px;font-weight:600;color:rgba(255,255,255,0.35);letter-spacing:0.02em}
 
     /* ── Transaction list ───────────────────────────────────────── */
-    .dash-txn-card{margin:0 16px;background:#12121C;border:0.5px solid rgba(255,255,255,0.07);border-radius:20px;overflow:hidden}
-    .dash-txn{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:0.5px solid rgba(255,255,255,0.05);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .12s}
+    .dash-txn-card{margin:0 16px;background:linear-gradient(145deg,#0d1b2e,#091422);border:0.5px solid rgba(255,255,255,0.09);border-radius:20px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.3)}
+    .dash-txn{display:flex;align-items:center;gap:12px;padding:13px 16px;border-bottom:0.5px solid rgba(255,255,255,0.04);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .12s}
     .dash-txn:last-child{border-bottom:none}
-    .dash-txn:active{background:rgba(255,255,255,0.04)}
+    .dash-txn:active{background:rgba(255,255,255,0.05)}
     .dash-txn-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
 
     /* ── Bills card ─────────────────────────────────────────────── */
-    .dash-bills-card{margin:0 16px;background:#12121C;border:0.5px solid rgba(255,255,255,0.07);border-radius:20px;overflow:hidden}
+    .dash-bills-card{margin:0 16px;background:linear-gradient(145deg,#0d1b2e,#091422);border:0.5px solid rgba(255,255,255,0.09);border-radius:20px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.3)}
 
     /* ── Health score row ───────────────────────────────────────── */
-    .dash-health{display:flex;align-items:center;gap:12px;margin:0 16px;background:rgba(37,99,235,0.07);border:0.5px solid rgba(37,99,235,0.18);border-radius:18px;padding:14px 16px;cursor:pointer;-webkit-tap-highlight-color:transparent}
-    .dash-health:active{background:rgba(37,99,235,0.11)}
+    .dash-health{display:flex;align-items:center;gap:12px;margin:0 16px;background:linear-gradient(135deg,rgba(26,196,240,0.07),rgba(37,99,235,0.07));border:0.5px solid rgba(26,196,240,0.18);border-radius:18px;padding:14px 16px;cursor:pointer;-webkit-tap-highlight-color:transparent;box-shadow:0 2px 16px rgba(0,0,0,0.25)}
+    .dash-health:active{opacity:.85}
     .dash-health-score{font-size:28px;font-weight:800;color:#fff;letter-spacing:-0.04em;flex-shrink:0;min-width:44px}
 
     /* ── Smart insights collapsible ─────────────────────────────── */
@@ -2624,10 +2922,38 @@ body {
     .dash-apply-btn:active{background:rgba(255,255,255,0.18)}
 
     /* ── Transaction list rows (rendered by JS) ────────────────── */
-    .fc-home-txn{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:.5px solid rgba(255,255,255,0.05);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .12s}
+    .fc-home-txn{display:flex;align-items:center;gap:12px;padding:13px 16px;border-bottom:.5px solid rgba(255,255,255,0.04);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .12s}
     .fc-home-txn:last-child{border-bottom:none}
-    .fc-home-txn:active{background:rgba(255,255,255,0.04)}
+    .fc-home-txn:active{background:rgba(255,255,255,0.05)}
     .fc-home-txn-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+
+    /* ── Today's Focus card ────────────────────────────────────── */
+    .dash-focus-card{margin:0 16px 20px;border-radius:22px;padding:16px 18px;position:relative;overflow:hidden;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:opacity .15s}
+    .dash-focus-card:active{opacity:.85}
+    .dash-focus-card::before{content:'';position:absolute;inset:0;border-radius:22px;border:0.5px solid rgba(255,159,10,0.28);background:linear-gradient(135deg,rgba(255,159,10,0.09) 0%,rgba(255,159,10,0.04) 100%);pointer-events:none}
+    .dash-focus-left-bar{position:absolute;left:0;top:0;bottom:0;width:3px;background:linear-gradient(180deg,#ff9f0a 0%,#ff6b00 100%);border-radius:22px 0 0 22px}
+    .dash-focus-header{display:flex;align-items:center;gap:7px;margin-bottom:9px}
+    .dash-focus-dot{width:7px;height:7px;border-radius:50%;background:#ff9f0a;flex-shrink:0;animation:focusPulse 2s ease-in-out infinite}
+    @keyframes focusPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,159,10,0.5);opacity:1}50%{box-shadow:0 0 0 5px rgba(255,159,10,0);opacity:.85}}
+    .dash-focus-label{font-size:9px;font-weight:800;letter-spacing:.12em;color:rgba(255,159,10,0.85);text-transform:uppercase}
+    .dash-focus-counter{margin-left:auto;font-size:10px;font-weight:600;color:rgba(255,255,255,0.28)}
+    .dash-focus-body{font-size:15px;font-weight:700;color:#fff;line-height:1.4;margin-bottom:6px;padding-right:4px}
+    .dash-focus-action{font-size:12px;font-weight:600;color:rgba(255,159,10,0.80);display:flex;align-items:center;gap:3px}
+    .dash-focus-empty{text-align:center;padding:12px 0;color:rgba(255,255,255,0.30);font-size:13px}
+
+    /* ── HOME: snapshot-only — analytics live in Insights tab ─── */
+    /* Financial Health score, Smart Insights, Spending chart,     */
+    /* 50/30/20, Cards optimizer, Cashflow, Debt planner,          */
+    /* Zombie subs — all hidden on Home; user finds them in tabs.  */
+    #health-score-card,
+    #health-factors,
+    #smart-insights-section,
+    #spending-chart-section,
+    #home-budget-wizard-section,
+    #home-card-recommender-section,
+    #home-zombie-subs-section,
+    #home-cashflow-section,
+    #home-debt-planner-section { display:none !important }
 
     /* ── Empty states ───────────────────────────────────────────── */
     .dash-empty{text-align:center;padding:20px 0;color:rgba(255,255,255,0.30);font-size:13px;line-height:1.5}
@@ -2637,6 +2963,77 @@ body {
     @keyframes fcSlideInFromLeft{from{transform:translateX(-32px);opacity:0}to{transform:none;opacity:1}}
     .fc-view.active.fc-slide-right{animation:fcSlideInFromRight .26s cubic-bezier(0.25,0.46,0.45,0.94) both}
     .fc-view.active.fc-slide-left{animation:fcSlideInFromLeft .26s cubic-bezier(0.25,0.46,0.45,0.94) both}
+
+    /* ══════════════════════════════════════════════════════════════
+       ACTIVITY TAB v2
+       ══════════════════════════════════════════════════════════════ */
+    #view-activity{overflow-y:scroll;-webkit-overflow-scrolling:touch;padding-bottom:100px;overscroll-behavior:contain}
+    .act-header{display:flex;align-items:center;justify-content:space-between;padding:18px 18px 0}
+    .act-title{font-size:30px;font-weight:800;letter-spacing:-0.030em;color:var(--fc-text);line-height:1.1}
+    .act-chip-row{display:flex;gap:7px;padding:10px 16px 0;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+    .act-chip-row::-webkit-scrollbar{display:none}
+    .act-search-wrap{margin:10px 16px 0}
+    .act-search-wrap .fc-search{background:linear-gradient(145deg,#0d1b2e,#091422);border:0.5px solid rgba(255,255,255,0.09);border-radius:14px;box-shadow:0 2px 10px rgba(0,0,0,0.25);padding:0 14px;height:40px}
+    .act-search-wrap .fc-search input{font-size:14px;background:transparent}
+    .fc-date-label{font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.28);padding:14px 20px 6px;display:flex;align-items:center;gap:8px}
+    .fc-date-label::after{content:'';flex:1;height:0.5px;background:rgba(255,255,255,0.06)}
+    #activity-list .fc-card,#bills-full-list .fc-card{background:linear-gradient(145deg,#0d1b2e,#091422);border:0.5px solid rgba(255,255,255,0.07);box-shadow:0 4px 16px rgba(0,0,0,0.3);margin:0 16px 8px;border-radius:18px}
+    .fc-list-item{padding:12px 0}
+    .fc-list-icon{width:44px;height:44px;border-radius:14px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+    .fc-list-title{font-size:14px;font-weight:600;color:var(--fc-text)}
+    .fc-list-amount{font-size:15px;font-weight:700;letter-spacing:-0.025em}
+
+    /* ══════════════════════════════════════════════════════════════
+       INSIGHTS TAB v2
+       ══════════════════════════════════════════════════════════════ */
+    .ins-health-card{margin:12px 16px;background:linear-gradient(145deg,#0f1e35,#08131f);border-radius:22px;border:0.5px solid rgba(26,196,240,0.18);padding:20px;box-shadow:0 8px 30px rgba(0,0,0,0.4),0 0 40px rgba(26,196,240,0.05) inset}
+    .ins-health-row{display:flex;align-items:center;gap:18px}
+    .ins-health-ring-wrap{position:relative;width:90px;height:90px;flex-shrink:0}
+    .ins-health-grade{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+    .ins-health-grade-letter{font-size:28px;font-weight:900;color:white;letter-spacing:-0.04em;line-height:1}
+    .ins-health-grade-sub{font-size:9px;color:rgba(255,255,255,0.38);font-weight:700;text-transform:uppercase;letter-spacing:0.08em;margin-top:1px}
+    .ins-health-metrics{display:flex;flex-direction:column;gap:9px;flex:1}
+    .ins-health-metric{display:flex;align-items:center;gap:8px}
+    .ins-health-metric-lbl{font-size:11px;color:rgba(255,255,255,0.45);width:60px;flex-shrink:0}
+    .ins-health-bar-wrap{flex:1;height:4px;background:rgba(255,255,255,0.07);border-radius:2px;overflow:hidden}
+    .ins-health-bar{height:100%;border-radius:2px;transition:width 1s cubic-bezier(0.25,0.1,0.25,1)}
+    .ins-health-val{font-size:11px;font-weight:700;color:white;width:26px;text-align:right;flex-shrink:0}
+    #view-insights .fc-card{background:linear-gradient(145deg,#0d1b2e,#091422);border:0.5px solid rgba(255,255,255,0.07);box-shadow:0 4px 20px rgba(0,0,0,0.3)}
+
+    /* ══════════════════════════════════════════════════════════════
+       WEALTH TAB v2
+       ══════════════════════════════════════════════════════════════ */
+    #view-wealth{overflow-y:scroll;-webkit-overflow-scrolling:touch;padding-bottom:100px;overscroll-behavior:contain}
+    .wealth-hero{margin:4px 16px 16px;background:linear-gradient(145deg,#0f1e35,#08131f);border-radius:22px;border:0.5px solid rgba(26,196,240,0.20);padding:20px;box-shadow:0 0 40px rgba(26,196,240,0.06) inset,0 8px 30px rgba(0,0,0,0.4);position:relative;overflow:hidden}
+    .wealth-hero::after{content:'';position:absolute;top:-30px;right:-30px;width:130px;height:130px;background:radial-gradient(circle,rgba(26,196,240,0.08) 0%,transparent 70%);pointer-events:none}
+    .wealth-hero-tag{font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.30);margin-bottom:5px}
+    .wealth-hero-amount{font-size:38px;font-weight:900;letter-spacing:-0.045em;color:#fff;line-height:1;font-variant-numeric:tabular-nums}
+    .wealth-hero-delta{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;margin-top:7px}
+    .wealth-hero-stats{display:grid;grid-template-columns:1fr 1px 1fr;gap:0;margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,0.06)}
+    .wealth-hero-divider{background:rgba(255,255,255,0.08)}
+    .wealth-hero-stat{text-align:center;padding:0 8px}
+    .wealth-hero-stat-lbl{font-size:9px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:rgba(255,255,255,0.32);margin-bottom:3px}
+    .wealth-hero-stat-val{font-size:16px;font-weight:800;color:white;letter-spacing:-0.025em;font-variant-numeric:tabular-nums}
+    .fc-wealth-segs{background:rgba(255,255,255,0.05);border:0.5px solid rgba(255,255,255,0.08);border-radius:12px;padding:3px}
+    .fc-wealth-seg--active{background:linear-gradient(145deg,rgba(26,196,240,0.18),rgba(37,99,235,0.12));color:#1ac4f0;border-radius:9px;border:0.5px solid rgba(26,196,240,0.18)}
+    .fc-acct-card{display:flex;align-items:center;gap:12px;padding:13px 16px;background:linear-gradient(145deg,#0d1b2e,#091422);border-radius:16px;border:0.5px solid rgba(255,255,255,0.07);margin:0 16px 8px;box-shadow:0 2px 12px rgba(0,0,0,0.25)}
+    .fc-acct-icon{width:44px;height:44px;border-radius:13px;background:rgba(26,196,240,0.10);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+    .fc-acct-info{flex:1;min-width:0}
+    .fc-acct-name{font-size:14px;font-weight:600;color:var(--fc-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .fc-acct-bank{font-size:12px;color:var(--fc-text-faint);margin-top:2px}
+    .fc-acct-bal{font-size:16px;font-weight:700;color:white;letter-spacing:-0.025em;font-variant-numeric:tabular-nums}
+    .fc-goal-card{margin:0 16px 10px;padding:16px;background:linear-gradient(145deg,#0d1b2e,#091422);border-radius:18px;border:0.5px solid rgba(255,255,255,0.07);box-shadow:0 4px 20px rgba(0,0,0,0.3)}
+
+    /* ══════════════════════════════════════════════════════════════
+       SETTINGS TAB v2
+       ══════════════════════════════════════════════════════════════ */
+    .settings-section-hdr{font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.26);padding:18px 20px 8px}
+    .settings-profile-card{margin:4px 16px 10px;padding:20px;background:linear-gradient(145deg,#0f1e35,#08131f);border-radius:22px;border:0.5px solid rgba(26,196,240,0.18);box-shadow:0 8px 30px rgba(0,0,0,0.4),0 0 30px rgba(26,196,240,0.05) inset;display:flex;align-items:center;gap:16px}
+    .settings-avatar-ring{width:58px;height:58px;border-radius:50%;background:linear-gradient(135deg,#1ac4f0,#2563eb);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:white;flex-shrink:0;box-shadow:0 0 24px rgba(26,196,240,0.3)}
+    .settings-profile-name{font-size:18px;font-weight:700;color:white;letter-spacing:-0.025em;line-height:1.1}
+    .settings-profile-email{font-size:12px;color:rgba(255,255,255,0.38);margin-top:3px}
+    .settings-profile-streak{font-size:11px;color:#1ac4f0;font-weight:600;margin-top:4px}
+    #view-settings .fc-card{background:linear-gradient(145deg,#0d1b2e,#091422);border:0.5px solid rgba(255,255,255,0.07);box-shadow:0 4px 16px rgba(0,0,0,0.25)}
   </style>
 
   <!-- ── Hidden compat elements — JS targets these IDs ──────────── -->
@@ -2727,8 +3124,8 @@ body {
          preserveAspectRatio="none" style="display:block;margin:8px 0 6px" aria-hidden="true">
       <defs>
         <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%"   stop-color="#2563eb" stop-opacity="0.45"/>
-          <stop offset="100%" stop-color="#2563eb" stop-opacity="0"/>
+          <stop offset="0%"   stop-color="#1ac4f0" stop-opacity="0.35"/>
+          <stop offset="100%" stop-color="#1ac4f0" stop-opacity="0"/>
         </linearGradient>
         <filter id="sparkGlow">
           <feGaussianBlur stdDeviation="2" result="b"/>
@@ -2740,9 +3137,9 @@ body {
             fill="url(#sparkGrad)"/>
       <path id="sparkline-line"
             d="M0,44 C30,42 50,34 80,30 C110,26 140,34 170,20 C200,8 230,18 260,10 C290,2 310,6 320,3"
-            stroke="#60a5fa" stroke-width="2.2" fill="none" stroke-linecap="round" filter="url(#sparkGlow)"/>
-      <circle id="sparkline-dot-bg" cx="320" cy="3" r="6"   fill="#60a5fa" opacity="0.28"/>
-      <circle id="sparkline-dot"    cx="320" cy="3" r="3.5" fill="#60a5fa"/>
+            stroke="#1ac4f0" stroke-width="2.2" fill="none" stroke-linecap="round" filter="url(#sparkGlow)"/>
+      <circle id="sparkline-dot-bg" cx="320" cy="3" r="6"   fill="#1ac4f0" opacity="0.28"/>
+      <circle id="sparkline-dot"    cx="320" cy="3" r="3.5" fill="#1ac4f0"/>
     </svg>
     <!-- Period scrubber -->
     <div class="dash-scrubber" role="tablist" aria-label="Time period">
@@ -2789,6 +3186,31 @@ body {
       <!-- Color class set by JS — no hardcoded red/green here -->
       <span class="dash-sp-val" id="fch-qs-bills">—</span>
     </button>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       TODAY'S FOCUS — single actionable daily insight
+       Driven entirely by JS: FCApp._renderTodaysFocus()
+       ══════════════════════════════════════════════════════════════ -->
+  <div id="todays-focus-section" class="fc-fade-up" style="animation-delay:.063s;display:none">
+    <div class="dash-sec-hdr" style="margin-bottom:8px">
+      <span class="dash-sec-title">Today's Focus</span>
+      <button id="todays-focus-next-btn" class="dash-sec-link" onclick="FCApp.nextFocusInsight()" type="button"
+              style="display:none;font-size:11px;color:rgba(255,255,255,0.35);font-weight:600">Next →</button>
+    </div>
+    <div id="todays-focus-card" class="dash-focus-card" onclick="FCApp._focusCardTap()">
+      <div class="dash-focus-left-bar"></div>
+      <div class="dash-focus-header">
+        <span class="dash-focus-dot"></span>
+        <span class="dash-focus-label">Action Required</span>
+        <span class="dash-focus-counter" id="focus-counter" style="display:none"></span>
+      </div>
+      <div class="dash-focus-body" id="focus-body">Analyzing your finances…</div>
+      <div class="dash-focus-action" id="focus-action">
+        <span id="focus-action-text">View details</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+      </div>
+    </div>
   </div>
 
   <!-- ══════════════════════════════════════════════════════════════
@@ -3081,10 +3503,12 @@ body {
 
   <!-- ────────────────────────────── VIEW: ACTIVITY -->
   <div id="view-activity" class="fc-view" role="tabpanel">
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 16px 0">
-      <div class="fc-view-title" style="margin:0">Activity</div>
+
+    <!-- Header -->
+    <div class="act-header">
+      <h1 class="act-title">Activity</h1>
       <button id="activity-add-bill-btn" class="fc-iconbtn" onclick="FCApp.showBillSheet()" type="button"
-              aria-label="Add bill" style="display:none;width:28px;height:28px;background:rgba(26,196,240,0.12);color:var(--fc-accent);border-radius:8px;font-size:18px;line-height:1">+</button>
+              aria-label="Add bill" style="display:none;width:32px;height:32px;background:rgba(26,196,240,0.12);color:var(--fc-accent);border-radius:10px;font-size:20px;line-height:1;border:0.5px solid rgba(26,196,240,0.22)">+</button>
     </div>
 
     <!-- Segment control: Transactions | Bills -->
@@ -3099,50 +3523,55 @@ body {
 
     <!-- Transactions panel -->
     <div id="activity-txns-panel">
-      <section class="fc-section" style="padding-top:8px">
-        <!-- Activity filter strip -->
-        <div style="display:flex;gap:6px;margin-bottom:10px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none">
-          <button class="fc-chip fc-chip--active" data-activity-period="all"   onclick="FCApp.filterActivity('all')"  >All</button>
-          <button class="fc-chip"                 data-activity-period="today" onclick="FCApp.filterActivity('today')" >Today</button>
-          <button class="fc-chip"                 data-activity-period="week"  onclick="FCApp.filterActivity('week')"  >This week</button>
-          <button class="fc-chip"                 data-activity-period="month" onclick="FCApp.filterActivity('month')" >This month</button>
-          <button class="fc-chip"                 data-activity-period="income" onclick="FCApp.filterActivity('income')">Income</button>
-        </div>
+      <!-- Search bar -->
+      <div class="act-search-wrap">
         <div class="fc-search">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>
           <input id="activity-search" type="search" placeholder="Search transactions…" autocomplete="off">
         </div>
-        <!-- Category filter chips -->
-        <div id="activity-cat-chips" style="display:flex;gap:6px;margin-bottom:10px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none;-webkit-overflow-scrolling:touch">
-          <button class="fc-chip fc-chip--active" data-cat-chip="all"        onclick="FCApp.filterActivityCategory('all')">All</button>
-          <button class="fc-chip"                 data-cat-chip="food"       onclick="FCApp.filterActivityCategory('food')">🍔 Food</button>
-          <button class="fc-chip"                 data-cat-chip="transport"  onclick="FCApp.filterActivityCategory('transport')">🚗 Transport</button>
-          <button class="fc-chip"                 data-cat-chip="shopping"   onclick="FCApp.filterActivityCategory('shopping')">🛍 Shopping</button>
-          <button class="fc-chip"                 data-cat-chip="entertainment" onclick="FCApp.filterActivityCategory('entertainment')">🎬 Entertain</button>
-          <button class="fc-chip"                 data-cat-chip="health"     onclick="FCApp.filterActivityCategory('health')">💊 Health</button>
-          <button class="fc-chip"                 data-cat-chip="income"     onclick="FCApp.filterActivityCategory('income')">💰 Income</button>
+      </div>
+
+      <!-- Period filter chips -->
+      <div class="act-chip-row" role="group" aria-label="Time period filter">
+        <button class="fc-chip fc-chip--active" data-activity-period="all"    onclick="FCApp.filterActivity('all')"   type="button">All</button>
+        <button class="fc-chip"                 data-activity-period="today"  onclick="FCApp.filterActivity('today')" type="button">Today</button>
+        <button class="fc-chip"                 data-activity-period="week"   onclick="FCApp.filterActivity('week')"  type="button">This Week</button>
+        <button class="fc-chip"                 data-activity-period="month"  onclick="FCApp.filterActivity('month')" type="button">This Month</button>
+        <button class="fc-chip"                 data-activity-period="income" onclick="FCApp.filterActivity('income')" type="button">💸 Income</button>
+      </div>
+
+      <!-- Category filter chips -->
+      <div id="activity-cat-chips" class="act-chip-row" style="padding-top:8px" role="group" aria-label="Category filter">
+        <button class="fc-chip fc-chip--active" data-cat-chip="all"           onclick="FCApp.filterActivityCategory('all')"           type="button">All</button>
+        <button class="fc-chip"                 data-cat-chip="food"          onclick="FCApp.filterActivityCategory('food')"          type="button">🍔 Food</button>
+        <button class="fc-chip"                 data-cat-chip="transport"     onclick="FCApp.filterActivityCategory('transport')"     type="button">🚗 Transport</button>
+        <button class="fc-chip"                 data-cat-chip="shopping"      onclick="FCApp.filterActivityCategory('shopping')"      type="button">🛍 Shopping</button>
+        <button class="fc-chip"                 data-cat-chip="entertainment" onclick="FCApp.filterActivityCategory('entertainment')" type="button">🎬 Entertain</button>
+        <button class="fc-chip"                 data-cat-chip="health"        onclick="FCApp.filterActivityCategory('health')"        type="button">💊 Health</button>
+        <button class="fc-chip"                 data-cat-chip="income"        onclick="FCApp.filterActivityCategory('income')"        type="button">💰 Income</button>
+      </div>
+
+      <!-- Transaction list (date-grouped by JS) -->
+      <div id="activity-list" style="padding-top:6px">
+        <div style="text-align:center;padding:56px 24px;color:var(--fc-text-faint)">
+          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom:12px;opacity:0.35" aria-hidden="true"><path d="M3 12h4l3-9 4 18 3-9h4"/></svg>
+          <div style="font-size:15px;font-weight:600;color:var(--fc-text-muted);margin-bottom:4px">No transactions yet</div>
+          <div style="font-size:13px">Connect a bank account to see your activity</div>
         </div>
-        <div id="activity-list">
-          <div style="text-align:center;padding:48px 24px;color:var(--fc-text-faint)">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom:12px;opacity:0.4" aria-hidden="true"><path d="M3 12h4l3-9 4 18 3-9h4"/></svg>
-            <div style="font-size:15px;font-weight:500;color:var(--fc-text-muted);margin-bottom:4px">No transactions yet</div>
-            <div style="font-size:13px">Connect a bank account to see your transactions here</div>
-          </div>
-        </div>
-      </section>
+      </div>
     </div>
 
     <!-- Bills panel (hidden by default) -->
-    <div id="activity-bills-panel" style="display:none">
-      <section class="fc-section" style="padding-top:8px">
-        <div id="bills-full-list">
-          <div style="text-align:center;padding:48px 24px;color:var(--fc-text-faint)">
-            <div style="font-size:15px;font-weight:500;color:var(--fc-text-muted);margin-bottom:8px">No bills yet</div>
-            <div style="font-size:13px;margin-bottom:20px">Tap + to add your first bill</div>
-          </div>
+    <div id="activity-bills-panel" style="display:none;padding-top:8px;flex:1">
+      <div id="bills-full-list" style="width:100%">
+        <div style="width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:340px;padding:40px 24px;text-align:center;color:var(--fc-text-faint)">
+          <div style="font-size:48px;margin-bottom:14px">🧾</div>
+          <div style="font-size:15px;font-weight:600;color:var(--fc-text-muted);margin-bottom:6px">No bills yet</div>
+          <div style="font-size:13px">Tap + to track your recurring bills</div>
         </div>
-      </section>
+      </div>
     </div>
+
   </div><!-- /view-activity -->
 
 
@@ -3151,7 +3580,7 @@ body {
 
     <!-- Header + period scrubber -->
     <div style="padding:0 16px 6px">
-      <div class="fc-view-title" style="margin-bottom:12px">Analytics</div>
+      <div class="fc-view-title" style="margin-bottom:12px">Insights</div>
       <div class="fc-scrubber" role="tablist" aria-label="Time period">
         <button role="tab" data-period="1D" aria-selected="false" onclick="FCApp.switchPeriod('1D')">1D</button>
         <button role="tab" data-period="1W" aria-selected="false" onclick="FCApp.switchPeriod('1W')">1W</button>
@@ -3159,6 +3588,58 @@ body {
         <button role="tab" data-period="3M" aria-selected="false" onclick="FCApp.switchPeriod('3M')">3M</button>
         <button role="tab" data-period="1Y" aria-selected="false" onclick="FCApp.switchPeriod('1Y')">1Y</button>
       </div>
+    </div>
+
+    <!-- ── Financial Health Score ───────────────────────────────── -->
+    <div class="ins-health-card" id="ins-health-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div>
+          <div class="fc-eyebrow" style="margin-bottom:2px">Financial Health</div>
+          <div style="font-size:13px;color:rgba(255,255,255,0.45)" id="ins-health-subtitle">Based on your connected accounts</div>
+        </div>
+        <span id="ins-health-badge" style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:999px;background:rgba(26,196,240,0.12);color:#1ac4f0;border:0.5px solid rgba(26,196,240,0.25)">Live</span>
+      </div>
+      <div class="ins-health-row">
+        <!-- Score ring -->
+        <div class="ins-health-ring-wrap">
+          <svg viewBox="0 0 90 90" width="90" height="90" style="transform:rotate(-90deg);overflow:visible">
+            <circle cx="45" cy="45" r="36" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="8"/>
+            <circle id="ins-health-ring" cx="45" cy="45" r="36" fill="none" stroke="url(#healthGrad)" stroke-width="8"
+                    stroke-linecap="round" stroke-dasharray="226" stroke-dashoffset="226"
+                    style="transition:stroke-dashoffset 1.2s cubic-bezier(0.25,0.1,0.25,1)"/>
+            <defs>
+              <linearGradient id="healthGrad" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stop-color="#1ac4f0"/>
+                <stop offset="100%" stop-color="#2563eb"/>
+              </linearGradient>
+            </defs>
+          </svg>
+          <div class="ins-health-grade">
+            <div class="ins-health-grade-letter" id="ins-health-grade">—</div>
+            <div class="ins-health-grade-sub" id="ins-health-score-num">Score</div>
+          </div>
+        </div>
+        <!-- Sub-metrics -->
+        <div class="ins-health-metrics">
+          <div class="ins-health-metric">
+            <div class="ins-health-metric-lbl">Spending</div>
+            <div class="ins-health-bar-wrap"><div class="ins-health-bar" id="ins-bar-spending" style="width:0%;background:linear-gradient(90deg,#1ac4f0,#2563eb)"></div></div>
+            <div class="ins-health-val" id="ins-val-spending">—</div>
+          </div>
+          <div class="ins-health-metric">
+            <div class="ins-health-metric-lbl">Savings</div>
+            <div class="ins-health-bar-wrap"><div class="ins-health-bar" id="ins-bar-savings" style="width:0%;background:linear-gradient(90deg,#34c759,#1ac4f0)"></div></div>
+            <div class="ins-health-val" id="ins-val-savings">—</div>
+          </div>
+          <div class="ins-health-metric">
+            <div class="ins-health-metric-lbl">Net Worth</div>
+            <div class="ins-health-bar-wrap"><div class="ins-health-bar" id="ins-bar-networth" style="width:0%;background:linear-gradient(90deg,#ff9f0a,#ff6b00)"></div></div>
+            <div class="ins-health-val" id="ins-val-networth">—</div>
+          </div>
+        </div>
+      </div>
+      <!-- Health tip -->
+      <div id="ins-health-tip" style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.06);font-size:12px;color:rgba(255,255,255,0.45);line-height:1.5;display:none"></div>
     </div>
 
     <!-- ── Spending Hero ─────────────────────────────────────────── -->
@@ -3198,7 +3679,7 @@ body {
           <button type="button" onclick="FCApp.openCategoryBudgetSheet('total', FCApp.getTotalBudgetLimit())" style="font-size:10px;font-weight:600;padding:2px 9px;border-radius:99px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);color:var(--fc-text-faint);cursor:pointer;-webkit-tap-highlight-color:transparent">Edit</button>
         </div>
         <div class="fc-progress-bar" style="height:6px;border-radius:99px;background:rgba(255,255,255,0.07)">
-          <div id="insights-budget-fill" style="height:6px;border-radius:99px;width:0%;background:linear-gradient(90deg,var(--fc-accent),var(--fc-purple));transition:width 0.9s cubic-bezier(0.25,0.1,0.25,1)"></div>
+          <div id="insights-budget-fill" style="height:6px;border-radius:99px;width:0%;background:linear-gradient(90deg,var(--fc-accent),var(--fc-electric));transition:width 0.9s cubic-bezier(0.25,0.1,0.25,1)"></div>
         </div>
         <div id="insights-budget-pace" style="font-size:11px;color:var(--fc-text-faint);margin-top:6px;line-height:1.4"></div>
 
@@ -3245,7 +3726,7 @@ body {
             </div>
           </div>
           <div class="fc-progress-bar" style="height:5px;border-radius:99px;margin-top:6px">
-            <div id="budget-annual-fill" class="fc-progress-fill" style="width:0%;background:linear-gradient(90deg,var(--fc-accent),var(--fc-purple));border-radius:99px;transition:width 0.9s cubic-bezier(0.25,0.1,0.25,1)"></div>
+            <div id="budget-annual-fill" class="fc-progress-fill" style="width:0%;background:linear-gradient(90deg,var(--fc-accent),var(--fc-electric));border-radius:99px;transition:width 0.9s cubic-bezier(0.25,0.1,0.25,1)"></div>
           </div>
           <div id="budget-annual-meta" style="font-size:11px;color:var(--fc-text-faint);margin-top:5px"></div>
         </div>
@@ -3353,8 +3834,26 @@ body {
   <div id="view-wealth" class="fc-view" role="tabpanel">
     <div class="fc-view-title">Wealth</div>
 
+    <!-- ── Net Worth Hero ── -->
+    <div class="wealth-hero">
+      <div class="wealth-hero-tag">NET WORTH</div>
+      <div class="wealth-hero-amount fc-amount" id="wealth-hero-nw">$0</div>
+      <div id="wealth-hero-delta" class="wealth-hero-delta" style="display:none"></div>
+      <div class="wealth-hero-stats">
+        <div class="wealth-hero-stat">
+          <div class="wealth-hero-stat-lbl">Assets</div>
+          <div class="wealth-hero-stat-val fc-amount" id="wealth-hero-assets">$0</div>
+        </div>
+        <div class="wealth-hero-divider"></div>
+        <div class="wealth-hero-stat">
+          <div class="wealth-hero-stat-lbl">Liabilities</div>
+          <div class="wealth-hero-stat-val fc-amount" id="wealth-hero-liabilities" style="color:rgba(255,255,255,0.6)">$0</div>
+        </div>
+      </div>
+    </div>
+
     <!-- Segment control -->
-    <div class="fc-wealth-segs">
+    <div class="fc-wealth-segs" style="margin:0 16px 16px">
       <button class="fc-wealth-seg fc-wealth-seg--active" data-seg="savings" onclick="FCApp.switchWealthSegment('savings')">Savings</button>
       <button class="fc-wealth-seg" data-seg="goals" onclick="FCApp.switchWealthSegment('goals')">Goals</button>
       <button class="fc-wealth-seg" data-seg="debt" onclick="FCApp.switchWealthSegment('debt')">Debt</button>
@@ -3363,49 +3862,47 @@ body {
     <!-- ── Savings panel ── -->
     <div class="fc-wealth-panel fc-wealth-panel--active" id="wealth-panel-savings">
       <div id="savings-summary"></div>
-      <section class="fc-section" style="padding-top:8px">
-        <div id="savings-list"></div>
-      </section>
+      <div id="savings-list" style="padding-bottom:8px"></div>
     </div>
 
     <!-- ── Goals panel ── -->
     <div class="fc-wealth-panel" id="wealth-panel-goals">
-      <div style="display:flex;justify-content:flex-end;padding:4px 16px 0">
-        <button class="fc-btn fc-btn--sm" style="background:var(--fc-accent-soft);color:var(--fc-accent);border:1px solid rgba(26,196,240,0.2)"
-                onclick="FCApp.showAddGoalSheet()">+ Add Goal</button>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:0 16px 12px">
+        <div style="font-size:12px;color:rgba(255,255,255,0.35);font-weight:500">Track what you're saving toward</div>
+        <button class="fc-btn fc-btn--sm" style="background:rgba(26,196,240,0.12);color:var(--fc-accent);border:0.5px solid rgba(26,196,240,0.22);padding:6px 14px;font-size:12px"
+                onclick="FCApp.showAddGoalSheet()">+ Goal</button>
       </div>
-      <section class="fc-section" style="padding-top:8px">
-        <div id="goals-list"></div>
-      </section>
+      <div id="goals-list" style="padding-bottom:8px"></div>
     </div>
 
     <!-- ── Debt panel ── -->
     <div class="fc-wealth-panel" id="wealth-panel-debt">
       <div id="debt-summary"></div>
-      <section class="fc-section" style="padding-top:8px">
-        <div id="debt-list"></div>
-      </section>
+      <div id="debt-list" style="padding-bottom:8px"></div>
     </div>
+
   </div><!-- /view-wealth -->
 
 
   <!-- ────────────────────────────── VIEW: SETTINGS -->
   <div id="view-settings" class="fc-view" role="tabpanel" style="overflow-y:scroll;-webkit-overflow-scrolling:touch;padding-bottom:90px">
     <div class="fc-view-title">Settings</div>
-    <section class="fc-section" style="padding-top:8px">
 
-      <!-- Profile card -->
-      <article class="fc-card" style="display:flex;align-items:center;gap:14px;margin-bottom:10px">
-        <div id="settings-avatar" style="width:52px;height:52px;border-radius:999px;background:linear-gradient(135deg,var(--fc-accent),var(--fc-purple));display:grid;place-items:center;font-size:22px;font-weight:700;color:white;flex-shrink:0">B</div>
-        <div class="fc-grow">
-          <div id="settings-name" style="color:var(--fc-text);font-size:16px;font-weight:600">Brandon</div>
-          <div id="settings-email" class="fc-xs">brandon.tminkler01@gmail.com</div>
-          <div id="settings-streak" style="color:var(--fc-accent);font-size:11px;font-weight:600;margin-top:2px">Day 1 streak</div>
-        </div>
-        <span class="fc-pill fc-pill--accent" style="font-size:10px;padding:3px 8px">Pro</span>
-      </article>
+    <!-- Profile card — upgraded -->
+    <div class="settings-profile-card">
+      <div class="settings-avatar-ring" id="settings-avatar">B</div>
+      <div style="flex:1;min-width:0">
+        <div class="settings-profile-name" id="settings-name">Brandon</div>
+        <div class="settings-profile-email" id="settings-email">brandon.tminkler01@gmail.com</div>
+        <div class="settings-profile-streak" id="settings-streak">Day 1 streak 🔥</div>
+      </div>
+      <span class="fc-pill fc-pill--accent" id="settings-pro-badge" style="font-size:10px;padding:4px 10px;flex-shrink:0">Pro</span>
+    </div>
 
-      <!-- Accounts -->
+    <section class="fc-section" style="padding-top:0">
+
+      <!-- Section: Accounts -->
+      <div class="settings-section-hdr">Accounts</div>
       <article class="fc-card" style="padding:4px 16px;margin-bottom:10px">
         <div class="fc-settings-row" id="settings-bank-row"
              onclick="FCApp.showBankSheet && FCApp.showBankSheet()">
@@ -3418,7 +3915,7 @@ body {
         </div>
         <div class="fc-settings-row" onclick="FCApp.showManualAccountSheet && FCApp.showManualAccountSheet()">
           <div class="fc-settings-icon" style="background:rgba(37,99,235,0.15)">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-purple)" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-electric)" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
           </div>
           <div class="fc-settings-label">Add manual account</div>
           <div class="fc-settings-value">Savings, debt…</div>
@@ -3433,7 +3930,8 @@ body {
         </div>
       </article>
 
-      <!-- Security & notifications -->
+      <!-- Section: Security -->
+      <div class="settings-section-hdr">Security &amp; Notifications</div>
       <article class="fc-card" style="padding:4px 16px;margin-bottom:10px">
         <div class="fc-settings-row">
           <div class="fc-settings-icon" style="background:rgba(255,176,32,0.15)">
@@ -3453,18 +3951,19 @@ body {
         </div>
       </article>
 
-      <!-- Privacy & Data -->
+      <!-- Section: Privacy -->
+      <div class="settings-section-hdr">Privacy &amp; Data</div>
       <article class="fc-card" style="padding:4px 16px;margin-bottom:10px">
         <div class="fc-settings-row" onclick="FCApp.openUrl(FC_CONFIG && FC_CONFIG.app.privacyUrl)">
           <div class="fc-settings-icon" style="background:rgba(37,99,235,0.15)">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-purple-2)" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-accent)" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
           </div>
           <div class="fc-settings-label">Privacy Policy</div>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
         </div>
         <div class="fc-settings-row" onclick="FCApp.openUrl(FC_CONFIG && FC_CONFIG.app.termsUrl)">
           <div class="fc-settings-icon" style="background:rgba(37,99,235,0.15)">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-purple-2)" stroke-width="2" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-accent)" stroke-width="2" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
           </div>
           <div class="fc-settings-label">Terms of Service</div>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
@@ -3479,11 +3978,12 @@ body {
         </div>
       </article>
 
-      <!-- App & subscription -->
+      <!-- Section: Subscription & Support -->
+      <div class="settings-section-hdr">Subscription &amp; Support</div>
       <article class="fc-card" style="padding:4px 16px;margin-bottom:10px">
         <div class="fc-settings-row" onclick="FCApp.showPaywall()" id="settings-pro-row">
           <div class="fc-settings-icon" style="background:rgba(96,165,250,0.15)">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-purple-2)" stroke-width="2" aria-hidden="true"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-accent)" stroke-width="2" aria-hidden="true"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
           </div>
           <div class="fc-settings-label">FlowCheck Pro</div>
           <span class="fc-pill fc-pill--accent" id="settings-pro-pill" style="font-size:10px;padding:3px 8px">Manage</span>
@@ -3609,7 +4109,7 @@ body {
         <span id="referral-progress-text" style="color:var(--fc-accent);font-size:12px;font-weight:600">0 / 3</span>
       </div>
       <div style="background:rgba(255,255,255,0.07);border-radius:6px;height:6px;overflow:hidden">
-        <div id="referral-progress-bar" style="background:linear-gradient(90deg,var(--fc-accent),var(--fc-purple));height:100%;border-radius:6px;width:0%;transition:width 0.5s cubic-bezier(0.25,0.1,0.25,1)"></div>
+        <div id="referral-progress-bar" style="background:linear-gradient(90deg,var(--fc-accent),var(--fc-electric));height:100%;border-radius:6px;width:0%;transition:width 0.5s cubic-bezier(0.25,0.1,0.25,1)"></div>
       </div>
       <div id="referral-lifetime-badge" style="display:none;margin-top:10px;text-align:center;background:linear-gradient(135deg,rgba(26,196,240,0.15),rgba(37,99,235,0.15));border:1px solid rgba(26,196,240,0.25);border-radius:10px;padding:8px 12px;color:var(--fc-accent);font-size:13px;font-weight:600">
         🏆 Lifetime Pro unlocked!
@@ -4094,6 +4594,12 @@ function _obUpdateControls() {
   const fill = document.getElementById('ob-progress-fill');
   if (fill) fill.style.width = (((_obStep + 1) / _OB_TOTAL) * 100) + '%';
 
+  // Sync step dots
+  for (let i = 0; i < _OB_TOTAL; i++) {
+    const dot = document.getElementById('ob-step-' + i);
+    if (dot) dot.classList.toggle('active', i === _obStep);
+  }
+
   const label = _obLabels[_obStep];
 
   if (label === 'trial') {
@@ -4103,6 +4609,9 @@ function _obUpdateControls() {
     if (plaidBtn)   plaidBtn.style.display   = 'none';
     if (skipBtn)    skipBtn.style.display    = '';
     if (legalNote)  legalNote.style.display  = '';
+    // Pull live App Store prices so the onboarding slide matches the main
+    // paywall (bug #5 — the two surfaces used to drift apart).
+    _obLoadPrices();
   } else if (label === null) {
     // Question slide → hide all buttons (option tap advances)
     if (nextBtn)    nextBtn.style.display    = 'none';
@@ -4292,8 +4801,45 @@ function obSelectAttribution(el, value) {
   setTimeout(() => obNext(), 460);
 }
 
-/** Track which plan is selected on the onboarding paywall slide */
-let _obSelectedPlan = 'monthly';
+/** Populate the onboarding paywall prices from RevenueCat so they match the
+ *  main paywall ($4.99/$34.99 by default — App Store may localise). Failing
+ *  silently is fine; the hardcoded defaults stay visible. */
+async function _obLoadPrices() {
+  try {
+    if (!window.FCPurchases) return;
+    if (!FCPurchases.isConfigured()) await FCPurchases.configure();
+    const offerings = await FCPurchases.getOfferings();
+    if (!offerings) return;
+    const annual  = offerings.annual  || offerings.availablePackages?.find(p => p.packageType === 'ANNUAL');
+    const monthly = offerings.monthly || offerings.availablePackages?.find(p => p.packageType === 'MONTHLY');
+    if (monthly) {
+      const el = document.getElementById('ob-price-monthly');
+      if (el) el.textContent = monthly.product.priceString;
+    }
+    if (annual) {
+      const annEl = document.getElementById('ob-price-annual');
+      if (annEl) annEl.textContent = annual.product.priceString;
+      const detail = document.getElementById('ob-price-annual-detail');
+      const sub    = document.getElementById('ob-price-subtitle');
+      const raw    = annual.product.price;
+      if (raw) {
+        const monthlyEq = `$${(raw / 12).toFixed(2)}`;
+        if (detail) {
+          let savePct = '';
+          if (monthly?.product?.price) {
+            const pct = Math.round((1 - (raw / 12) / monthly.product.price) * 100);
+            if (pct > 0) savePct = ` · Save ${pct}%`;
+          }
+          detail.textContent = `${monthlyEq}/mo${savePct}`;
+        }
+        if (sub) sub.textContent = `Then just ${monthlyEq}/month.`;
+      }
+    }
+  } catch (_) { /* keep defaults */ }
+}
+
+/** Track which plan is selected on the onboarding paywall slide (annual pre-selected) */
+let _obSelectedPlan = 'annual';
 function obSelectPlan(plan) {
   _obSelectedPlan = plan;
   const monthly = document.getElementById('ob-plan-monthly');
@@ -4491,7 +5037,7 @@ function getIdToken() {
 }
 
 function apiBase() {
-  return (window.FC_CONFIG && window.FC_CONFIG.backend && window.FC_CONFIG.backend.url) || '';
+  return (window.FC_CONFIG && window.FC_CONFIG.app && window.FC_CONFIG.app.apiBase) || '';
 }
 
 async function referralFetch(path, opts) {
