@@ -268,8 +268,20 @@ window.FCAuth = (function () {
 
     await _db.collection('users').doc(user.uid).set(doc);
 
+    // Send Firebase email verification — non-blocking, never delays signup flow
+    if (!user.emailVerified) {
+      try { await user.sendEmailVerification(); } catch (_) { /* best-effort */ }
+    }
+
     haptic('medium');
     return user;
+  }
+
+  /** Reload the current Firebase user to pick up fresh emailVerified status */
+  async function reloadUser() {
+    const user = _auth && _auth.currentUser;
+    if (user) await user.reload();
+    return _auth && _auth.currentUser; // fresh reference post-reload
   }
 
   /* ── Sign in with Apple ──────────────────────────────────── */
@@ -355,8 +367,11 @@ window.FCAuth = (function () {
   /* ── Sign out ────────────────────────────────────────────── */
   async function signOut() {
     if (!_auth) return;
-    // Clear biometric preference
+    // Clear biometric preferences — including the cached email so a different
+    // user on a shared device doesn't see the previous user's address pre-filled
+    // on the lock screen or as the "last user" hint.
     await prefRemove('biometric_enabled');
+    await prefRemove('biometric_email');
     // Sign out of Firebase
     await _auth.signOut();
     _currentUser = null;
@@ -393,6 +408,31 @@ window.FCAuth = (function () {
     const user = currentUser();
     if (!user) throw new Error('Not authenticated');
     return user.getIdToken(forceRefresh);
+  }
+
+  /**
+   * fetch() wrapper that injects a Firebase ID token and retries once on 401
+   * with a force-refreshed token. Use this for ALL backend calls — protects
+   * against silent failures when a cached token expires mid-session.
+   */
+  async function authedFetch(url, opts = {}) {
+    const user = currentUser();
+    if (!user) throw new Error('Not authenticated');
+    const send = async (forceRefresh) => {
+      const token = await user.getIdToken(forceRefresh);
+      const headers = Object.assign({}, opts.headers || {}, {
+        Authorization: `Bearer ${token}`,
+      });
+      if (opts.body && !headers['Content-Type'] && typeof opts.body === 'string') {
+        headers['Content-Type'] = 'application/json';
+      }
+      return fetch(url, Object.assign({}, opts, { headers }));
+    };
+    let resp = await send(false);
+    if (resp.status === 401) {
+      resp = await send(true);
+    }
+    return resp;
   }
 
   /* ── Jailbreak / root detection (best-effort) ───────────── */
@@ -450,6 +490,8 @@ window.FCAuth = (function () {
     promptBiometric,
     getUserDoc,
     getIdToken,
+    authedFetch,
     checkJailbreak,
+    reloadUser,
   };
 })();
