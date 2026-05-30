@@ -93,11 +93,12 @@ body.fc-theme {
   padding-bottom: calc(env(safe-area-inset-bottom) + 80px);
   min-height: 100vh;
   overscroll-behavior-y: none;
-  /* Subtle ambient glow — makes the dark bg feel alive, not flat */
+  /* Ambient depth — strong enough to feel premium, not garish */
   background-image:
-    radial-gradient(ellipse 60% 40% at 15% 0%, rgba(26,196,240,0.10) 0%, transparent 70%),
-    radial-gradient(ellipse 50% 35% at 85% 10%, rgba(37,99,235,0.09) 0%, transparent 65%),
-    radial-gradient(ellipse 40% 50% at 50% 100%, rgba(26,196,240,0.06) 0%, transparent 60%);
+    radial-gradient(ellipse 70% 45% at 10% 0%,   rgba(26,196,240,0.16) 0%, transparent 65%),
+    radial-gradient(ellipse 55% 40% at 90% 8%,   rgba(37,99,235,0.13) 0%, transparent 60%),
+    radial-gradient(ellipse 45% 55% at 50% 105%, rgba(26,196,240,0.09) 0%, transparent 55%),
+    radial-gradient(ellipse 30% 30% at 75% 55%,  rgba(37,99,235,0.05) 0%, transparent 50%);
 }
 
 /* ============================================================
@@ -426,6 +427,12 @@ body.fc-theme {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   z-index: 50;
+  /* GPU composite layer — prevents scroll repaint jitter on iOS */
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  will-change: transform;
+  /* Ensure it always sits above scroll content */
+  isolation: isolate;
 }
 .fc-nav-item {
   position: relative;           /* ← required for ::before indicator */

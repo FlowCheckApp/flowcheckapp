@@ -98,26 +98,33 @@ module.exports = function makeReferralRouter(admin, db) {
     const userRef = db.collection('users').doc(uid);
 
     try {
-      // Return existing code if already generated
+      // Return existing code if already generated.
+      // Use get() first — cheap read, avoids unnecessary writes.
       const userSnap = await userRef.get();
-      if (!userSnap.exists) return res.status(404).json({ error: 'User not found' });
 
-      const existing = userSnap.data().referral_code;
-      if (existing) return res.json({ code: existing });
+      if (userSnap.exists) {
+        const existing = userSnap.data().referral_code;
+        if (existing) return res.json({ code: existing });
+      }
+      // User doc may not exist yet during fresh signup — there's a race between
+      // the client calling /generate and the client-side user-doc create committing.
+      // We upsert with merge:true so we don't clobber any fields that DID commit.
 
       // Derive deterministic code from uid — same algorithm as the client
       const code = generateCode(uid);
       const now  = admin.firestore.FieldValue.serverTimestamp();
 
-      // Atomic write: index doc in referrals/ + persist code on user
+      // Atomic write: index doc in referrals/ + upsert code on user
       const batch = db.batch();
       batch.set(db.collection('referrals').doc(code), {
         uid,
         created_at:   now,
         activations:  0,
         lifetime_pro: false,
-      });
-      batch.update(userRef, { referral_code: code });
+      }, { merge: true }); // idempotent — safe to call twice
+      // Use set+merge instead of update so this succeeds even if user doc
+      // hasn't been created yet (race during fresh signup).
+      batch.set(userRef, { referral_code: code }, { merge: true });
 
       await batch.commit();
 
@@ -229,23 +236,45 @@ module.exports = function makeReferralRouter(admin, db) {
       const referralRef   = db.collection('referrals').doc(code);
       const referrerRef   = db.collection('users').doc(referrerUid);
 
-      // Run in a transaction for atomicity
+      // Run in a transaction for atomicity.
+      // IMPORTANT: Firestore requires ALL reads to happen before ANY writes.
+      // We front-load every trx.get() call, then perform all trx.update() calls.
       await db.runTransaction(async (trx) => {
+        // ── Phase 1: ALL reads ─────────────────────────────────
         const referralSnap = await trx.get(referralRef);
         if (!referralSnap.exists) return; // referral doc was deleted, skip
 
+        const userSnapTrx     = await trx.get(userRef);
+        const referrerSnapTrx = await trx.get(referrerRef);
+
+        // ── Phase 2: compute, then ALL writes ─────────────────
         const newActivations = (referralSnap.data().activations || 0) + 1;
         const lifetimePro    = newActivations >= 3;
 
-        // 1. Mark the referred user's referral as activated + grant 1 Pro month
+        // 1. Mark the referred user as activated
         trx.update(userRef, { referral_activated: true });
-        await grantProMonths(trx, uid, 1);
 
-        // 2. Grant the referrer: 1 Pro month (or lifetime if threshold hit)
+        // 1b. Grant 1 Pro month to the referred user (inline — avoids extra read)
+        if (userSnapTrx.exists) {
+          const data = userSnapTrx.data();
+          const now  = new Date();
+          const currentExpiry = data.pro_expires_at
+            ? (data.pro_expires_at.toDate ? data.pro_expires_at.toDate() : new Date(data.pro_expires_at))
+            : now;
+          const base = currentExpiry > now ? currentExpiry : now;
+          const newExpiry = new Date(base);
+          newExpiry.setMonth(newExpiry.getMonth() + 1);
+          trx.update(userRef, {
+            pro: true,
+            is_pro: true,
+            pro_expires_at: admin.firestore.Timestamp.fromDate(newExpiry),
+            referral_pro_months_earned: admin.firestore.FieldValue.increment(1),
+          });
+        }
+
+        // 2. Grant the referrer: lifetime Pro or 1 additional month
         if (lifetimePro && !referralSnap.data().lifetime_pro) {
-          // Lifetime Pro: set pro_expires_at far in the future (100 years)
-          const referrerSnap = await trx.get(referrerRef);
-          if (referrerSnap.exists) {
+          if (referrerSnapTrx.exists) {
             const forever = new Date();
             forever.setFullYear(forever.getFullYear() + 100);
             trx.update(referrerRef, {
@@ -255,19 +284,26 @@ module.exports = function makeReferralRouter(admin, db) {
               referral_lifetime_pro: true,
             });
           }
-          trx.update(referralRef, {
-            activations: newActivations,
-            lifetime_pro: true,
-          });
+          trx.update(referralRef, { activations: newActivations, lifetime_pro: true });
         } else {
-          await grantProMonths(trx, referrerUid, 1);
+          // 1 additional month stacked on referrer's existing expiry
+          if (referrerSnapTrx.exists) {
+            const rData = referrerSnapTrx.data();
+            const now   = new Date();
+            const curExp = rData.pro_expires_at
+              ? (rData.pro_expires_at.toDate ? rData.pro_expires_at.toDate() : new Date(rData.pro_expires_at))
+              : now;
+            const base = curExp > now ? curExp : now;
+            const newExp = new Date(base);
+            newExp.setMonth(newExp.getMonth() + 1);
+            trx.update(referrerRef, {
+              pro: true,
+              is_pro: true,
+              pro_expires_at: admin.firestore.Timestamp.fromDate(newExp),
+              referral_pro_months_earned: admin.firestore.FieldValue.increment(1),
+            });
+          }
           trx.update(referralRef, { activations: newActivations });
-        }
-
-        // 3. Queue push notification to referrer
-        const referrerSnap2 = await trx.get(referrerRef);
-        if (referrerSnap2.exists && referrerSnap2.data().fcm_token) {
-          // Notification is sent outside the transaction (below)
         }
       });
 
