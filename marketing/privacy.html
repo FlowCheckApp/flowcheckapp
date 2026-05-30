@@ -11,7 +11,7 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --navy: #0a1520; --navy-2: #0f1e2e; --cyan: #1ac4f0; --purple: #6b3fe0;
+      --navy: #0a1520; --navy-2: #0f1e2e; --cyan: #1ac4f0; --purple: #2563eb;
       --white: #ffffff; --gray-1: #e8edf2; --gray-2: #9aaabb; --gray-3: #4a6077;
     }
     html { scroll-behavior: smooth; }
@@ -97,7 +97,7 @@
 <div class="page-hero">
   <div class="page-badge">Legal</div>
   <h1>Privacy Policy</h1>
-  <p class="page-meta">Last updated: May 15, 2025 · Effective: May 15, 2025</p>
+  <p class="page-meta">Last updated: May 30, 2026 · Effective: May 30, 2026</p>
 </div>
 
 <div class="doc-layout">
@@ -110,6 +110,7 @@
       <li><a href="#experian">Credit Score (Experian)</a></li>
       <li><a href="#firebase">Firebase</a></li>
       <li><a href="#revenuecat">RevenueCat</a></li>
+      <li><a href="#posthog">Analytics (PostHog)</a></li>
       <li><a href="#how-we-use">How We Use Data</a></li>
       <li><a href="#sharing">Data Sharing</a></li>
       <li><a href="#security">Security</a></li>
@@ -209,7 +210,20 @@
     </ul>
     <p>RevenueCat does not receive your financial data. Their privacy policy is at <a href="https://www.revenuecat.com/privacy" target="_blank">revenuecat.com/privacy</a>. All payment processing is handled by Apple — FlowCheck never touches your payment card information.</p>
 
-    <h2 id="how-we-use">7. How We Use Your Information</h2>
+    <h2 id="posthog">7. PostHog — Analytics</h2>
+    <p>FlowCheck uses <strong>PostHog</strong> to collect anonymous app usage analytics. This helps us understand how the app is being used so we can fix bugs and improve the experience.</p>
+    <p>PostHog receives:</p>
+    <ul>
+      <li>A random anonymous user ID (your Firebase UID — not your email or name)</li>
+      <li>App interaction events such as which screens are viewed and which tabs are visited</li>
+      <li>Non-financial app events such as paywall views and feature engagement</li>
+      <li>Device type and app version</li>
+    </ul>
+    <p><strong>PostHog does not receive any of the following:</strong> your name, email address, bank account data, transaction history, balances, or any other financial information. We have explicitly disabled automatic data capture and only send carefully selected non-sensitive events.</p>
+    <p>PostHog data is stored on PostHog's US-based infrastructure. Their privacy policy is at <a href="https://posthog.com/privacy" target="_blank">posthog.com/privacy</a>.</p>
+
+    <h2 id="how-we-use">8. How We Use Your Information</h2>
+
     <p>We use the information we collect to:</p>
     <ul>
       <li>Provide, operate, and improve the FlowCheck app and services</li>
@@ -222,15 +236,15 @@
     </ul>
     <p>We do <strong>not</strong> use your data for advertising, behavioral profiling, or selling to third parties.</p>
 
-    <h2 id="sharing">8. Data Sharing & Disclosure</h2>
+    <h2 id="sharing">9. Data Sharing & Disclosure</h2>
     <p>We do not sell, rent, or trade your personal information. We share data only in the following limited circumstances:</p>
     <ul>
-      <li><strong>Service Providers:</strong> We share data with Plaid, Experian, Firebase (Google), and RevenueCat solely to operate the features described in this policy. Each provider is bound by data processing agreements and their own privacy policies.</li>
+      <li><strong>Service Providers:</strong> We share data with Plaid, Experian, Firebase (Google), RevenueCat, and PostHog solely to operate the features described in this policy. Each provider is bound by data processing agreements and their own privacy policies.</li>
       <li><strong>Legal Requirements:</strong> We may disclose information if required by law, court order, or to protect the rights, safety, or property of FlowCheck, our users, or the public.</li>
       <li><strong>Business Transfer:</strong> If FlowCheck is acquired or merges with another company, your data may be transferred. We will notify you and give you the opportunity to delete your account before any such transfer is finalized.</li>
     </ul>
 
-    <h2 id="security">9. Security</h2>
+    <h2 id="security">10. Security</h2>
     <p>We implement industry-standard security measures to protect your data:</p>
     <ul>
       <li>All data in transit is encrypted using TLS 1.2 or higher (HTTPS)</li>
@@ -243,7 +257,7 @@
     </ul>
     <p>While we take strong precautions, no system is completely secure. If you become aware of any security issue, please contact us immediately at <a href="mailto:security@getflowcheck.app">security@getflowcheck.app</a>.</p>
 
-    <h2 id="retention">10. Data Retention</h2>
+    <h2 id="retention">11. Data Retention</h2>
     <p>We retain your data for as long as your account is active or as needed to provide the Service. When you delete your account:</p>
     <ul>
       <li>Your Plaid connection is immediately revoked and all synced financial data is deleted</li>
@@ -255,7 +269,7 @@
 
     <hr class="section-divider" />
 
-    <h2 id="ccpa">11. Your Rights Under CCPA (California Residents)</h2>
+    <h2 id="ccpa">12. Your Rights Under CCPA (California Residents)</h2>
     <p>If you are a California resident, the California Consumer Privacy Act (CCPA) grants you specific rights regarding your personal information:</p>
     <ul>
       <li><strong>Right to Know:</strong> You may request information about the categories and specific pieces of personal data we have collected about you.</li>
@@ -265,7 +279,7 @@
     </ul>
     <p>To exercise your CCPA rights, contact us at <a href="mailto:privacy@getflowcheck.app">privacy@getflowcheck.app</a> or via our <a href="support.html">Support page</a>. We will respond to verified requests within 45 days.</p>
 
-    <h2 id="gdpr">12. Your Rights Under GDPR (EU/EEA Residents)</h2>
+    <h2 id="gdpr">13. Your Rights Under GDPR (EU/EEA Residents)</h2>
     <p>If you are located in the European Union or European Economic Area, you have the following rights under the General Data Protection Regulation (GDPR):</p>
     <ul>
       <li><strong>Right of Access:</strong> Request a copy of the personal data we hold about you.</li>
@@ -279,10 +293,10 @@
     <p>The lawful bases for our data processing are: <strong>contract performance</strong> (providing the app features you've signed up for), <strong>legitimate interests</strong> (security, fraud prevention, and service improvement), and <strong>legal obligation</strong> (compliance with applicable laws).</p>
     <p>To exercise GDPR rights, contact: <a href="mailto:privacy@getflowcheck.app">privacy@getflowcheck.app</a>. You also have the right to lodge a complaint with your local Data Protection Authority.</p>
 
-    <h2 id="children">13. Children's Privacy</h2>
+    <h2 id="children">14. Children's Privacy</h2>
     <p>FlowCheck is not directed to children under the age of 13 (or under 16 in the EU). We do not knowingly collect personal information from children. If you believe a child has provided us with personal information, please contact us immediately at <a href="mailto:privacy@getflowcheck.app">privacy@getflowcheck.app</a> and we will delete such information promptly.</p>
 
-    <h2 id="changes">14. Changes to This Privacy Policy</h2>
+    <h2 id="changes">15. Changes to This Privacy Policy</h2>
     <p>We may update this Privacy Policy from time to time to reflect changes in our practices, technology, legal requirements, or other factors. When we make material changes, we will:</p>
     <ul>
       <li>Update the "Last Updated" date at the top of this policy</li>
@@ -291,7 +305,7 @@
     </ul>
     <p>Your continued use of FlowCheck after any changes constitutes acceptance of the updated policy.</p>
 
-    <h2 id="contact">15. Contact Us</h2>
+    <h2 id="contact">16. Contact Us</h2>
     <p>If you have questions, concerns, or requests regarding this Privacy Policy or our data practices, please reach out:</p>
     <ul>
       <li><strong>Email:</strong> <a href="mailto:privacy@getflowcheck.app">privacy@getflowcheck.app</a></li>
@@ -304,7 +318,7 @@
 </div>
 
 <footer>
-  <p>© 2025 FlowCheck · <a href="index.html">Home</a> · <a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a> · <a href="support.html">Support</a></p>
+  <p>© 2026 FlowCheck · <a href="index.html">Home</a> · <a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a> · <a href="support.html">Support</a></p>
 </footer>
 
 </body>
