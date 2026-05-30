@@ -904,6 +904,9 @@ window.FCApp = (function () {
     const screenEl = document.querySelector(`.fc-screen[data-screen="${name}"]`);
     if (screenEl) screenEl.scrollTop = 0;
 
+    // Analytics
+    if (typeof FCAnalytics !== 'undefined') FCAnalytics.screen(name);
+
     // Update greeting dynamically
     if (name === 'app') _updateGreeting();
 
@@ -1077,6 +1080,7 @@ window.FCApp = (function () {
     if (tabId === 'settings') _renderSettings();
 
     haptic('light');
+    if (typeof FCAnalytics !== 'undefined') FCAnalytics.screen('tab_' + tabId);
     fcLog('Tab →', tabId, '(from', prev + ')');
   }
 
@@ -5168,7 +5172,9 @@ window.FCApp = (function () {
     clearTimeout(_idleTimer);
 
     FCData.detachAllListeners();
+    if (typeof FCAnalytics !== 'undefined') FCAnalytics.track('signed_out');
     await FCAuth.signOut();
+    if (typeof FCAnalytics !== 'undefined') FCAnalytics.reset();
     _wipeUserState();
     setScreen('login');
   }
@@ -5605,6 +5611,14 @@ window.FCApp = (function () {
           _renderHome();
           setTimeout(() => _doSync(false), 900);
           if (biometricEnabled) showLockScreen();
+          // Identify user in analytics (no PII — uid only + non-sensitive properties)
+          if (typeof FCAnalytics !== 'undefined') {
+            FCAnalytics.identify(user.uid, {
+              is_pro:          !!(userDoc?.is_pro),
+              has_bank:        !!(userDoc?.plaid_linked),
+              onboarding_done: !!(userDoc?.onboarding_complete),
+            });
+          }
           // Gate non-pro users who have already connected a bank.
           // Don't show the paywall to brand-new users mid-onboarding — wait until
           // they've linked an account and seen real value first.
@@ -6145,6 +6159,7 @@ window.FCApp = (function () {
 
   async function showPaywall() {
     _paywallShownThisSession = true;
+    if (typeof FCAnalytics !== 'undefined') FCAnalytics.track('paywall_viewed', { source: state.screen });
 
     // Show X close button only when triggered from inside the app (not from onboarding flow).
     // During onboarding the user must either buy or tap "Maybe later" — no escape hatch.
@@ -6290,6 +6305,7 @@ window.FCApp = (function () {
         // Refresh every pro-gated surface so the user sees unlocked content
         // when they dismiss the overlay (bugs #4 + #10).
         _refreshAfterPro();
+        if (typeof FCAnalytics !== 'undefined') FCAnalytics.track('purchase_completed', { plan: 'pro' });
         if (overlay) {
           overlay.classList.add('visible');
         } else {
