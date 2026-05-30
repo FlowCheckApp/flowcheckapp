@@ -288,8 +288,11 @@ window.FCData = (function () {
   }
 
   function calcCash(accounts) {
+    // Plaid types: 'depository' covers checking, savings, money market, cd, etc.
+    // 'checking' and 'savings' are subtypes, NOT types — filtering by them on .type
+    // would always return 0. Only 'depository' (and possibly 'investment' cash) applies.
     return accounts
-      .filter(a => ['depository', 'checking', 'savings'].includes(a.type))
+      .filter(a => a.type === 'depository')
       .reduce((sum, a) => sum + (a.balance_current || a.balance || 0), 0);
   }
 
@@ -614,6 +617,14 @@ window.FCData = (function () {
     const db   = FCAuth.db();
     if (!user || !db) return;
     await db.collection('users').doc(user.uid).collection('bills').doc(billId).delete();
+  }
+
+  // Returns true if the transaction date string falls in the current calendar month
+  function isCurrentMonth(dateStr) {
+    if (!dateStr) return false;
+    const d   = parseDateLocal(dateStr);
+    const now = new Date();
+    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
   }
 
   function daysUntil(dateStr) {
@@ -965,6 +976,7 @@ window.FCData = (function () {
     categoryInitial,
     categoryEmoji,
     daysUntil,
+    isCurrentMonth,
     billDueLabelAndColor,
     formatCurrency,
     warmBackend,
