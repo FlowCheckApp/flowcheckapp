@@ -146,6 +146,11 @@ window.FCData = (function () {
               });
               // Backend (exchange-token) already writes plaid_linked, plaid_institution,
               // plaid_institution_id, plaid_linked_at via Admin SDK — no client write needed.
+              if (typeof FCAnalytics !== 'undefined') {
+                FCAnalytics.track('bank_connected', {
+                  institution_name: metadata.institution?.name || 'unknown',
+                });
+              }
               resolve({ institution: metadata.institution, ...result });
             } catch (err) {
               reject(err);

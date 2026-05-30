@@ -13,7 +13,8 @@
            script-src 'self' 'unsafe-inline' 'unsafe-eval'
              https://cdn.plaid.com
              https://www.gstatic.com
-             https://cdn.jsdelivr.net;
+             https://cdn.jsdelivr.net
+             https://us-assets.i.posthog.com;
            connect-src 'self'
              https://flowcheck-backend-production.up.railway.app
              https://*.googleapis.com
@@ -21,7 +22,9 @@
              https://*.firestore.googleapis.com
              wss://*.firebaseio.com
              https://api.plaid.com
-             https://cdn.plaid.com;
+             https://cdn.plaid.com
+             https://us.i.posthog.com
+             https://us-assets.i.posthog.com;
            img-src 'self' data: https: blob:;
            font-src 'self' data: https:;
            style-src 'self' 'unsafe-inline' https:;
@@ -31,6 +34,23 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="stylesheet" href="css/flowcheck-design-system.css">
+<script>
+  // PostHog — loaded inline so it's available before any app JS runs
+  !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+" (stub)"},o="init capture register register_once register_for_session unregister unregister_for_session getFeatureFlag getFeatureFlagPayload isFeatureEnabled reloadFeatureFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSessionId getSurveys getActiveMatchingSurveys renderSurvey canRenderSurvey getNextSurveyStep identify alias setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset get_distinct_id getGroups get_session_id get_session_replay_url createPersonProfile opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing clear_opt_in_out_capturing debug".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+  posthog.init('phc_xkcNUAp6N56636ExfBGVKwxHF5t5h7EL5aqeAbm68AVN', {
+    api_host: 'https://us.i.posthog.com',
+    person_profiles: 'identified_only',  // only create profiles after identify() — CCPA friendly
+    autocapture: false,                  // off — we capture explicitly so no PII leaks
+    capture_pageview: false,             // SPA — we handle this manually
+    capture_pageleave: false,
+    disable_session_recording: true,     // off until you review privacy implications
+    loaded: function(ph) {
+      if (window.FC_CONFIG && window.FC_CONFIG.app && window.FC_CONFIG.app.env !== 'production') {
+        ph.debug();
+      }
+    }
+  });
+</script>
 
 <style>
 /* ════════════════════════════════════════════════════════════
@@ -4529,6 +4549,7 @@ body {
 
 <!-- FlowCheck modules (order matters) -->
 <script src="js/fc-config.js"></script>
+<script src="js/fc-analytics.js"></script>
 <script src="js/fc-debug.js"></script>
 <script src="js/fc-auth.js"></script>
 <script src="js/fc-data.js"></script>
