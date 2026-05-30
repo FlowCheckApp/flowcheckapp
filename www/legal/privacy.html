@@ -11,7 +11,7 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --navy: #0a1520; --navy-2: #0f1e2e; --cyan: #1ac4f0; --purple: #6b3fe0;
+      --navy: #0a1520; --navy-2: #0f1e2e; --cyan: #1ac4f0; --purple: #2563eb;
       --white: #ffffff; --gray-1: #e8edf2; --gray-2: #9aaabb; --gray-3: #4a6077;
     }
     html { scroll-behavior: smooth; }
@@ -98,7 +98,7 @@
 <div class="page-hero">
   <div class="page-badge">Legal</div>
   <h1>Privacy Policy</h1>
-  <p class="page-meta">Last updated: May 17, 2025 · Effective: May 17, 2025</p>
+  <p class="page-meta">Last updated: May 30, 2026 · Effective: May 30, 2026</p>
 </div>
 
 <div class="doc-layout">
@@ -223,7 +223,19 @@
     </ul>
     <p>RevenueCat does not receive your financial data. Their privacy policy is at <a href="https://www.revenuecat.com/privacy" target="_blank">revenuecat.com/privacy</a>. All payment processing is handled by Apple — FlowCheck never touches your payment card information.</p>
 
-    <h2 id="how-we-use">7. How We Use Your Information</h2>
+    <h2 id="posthog">7. PostHog — Analytics</h2>
+    <p>FlowCheck uses <strong>PostHog</strong> to collect anonymous app usage analytics. This helps us understand how the app is being used so we can fix bugs and improve the experience.</p>
+    <p>PostHog receives:</p>
+    <ul>
+      <li>A random anonymous user ID (your Firebase UID — not your email or name)</li>
+      <li>App interaction events such as which screens are viewed and which tabs are visited</li>
+      <li>Non-financial app events such as paywall views and feature engagement</li>
+      <li>Device type and app version</li>
+    </ul>
+    <p><strong>PostHog does not receive any of the following:</strong> your name, email address, bank account data, transaction history, balances, or any other financial information. We have explicitly disabled automatic data capture and only send carefully selected non-sensitive events.</p>
+    <p>PostHog data is stored on PostHog's US-based infrastructure. Their privacy policy is at <a href="https://posthog.com/privacy" target="_blank">posthog.com/privacy</a>.</p>
+
+    <h2 id="how-we-use">8. How We Use Your Information</h2>
     <p>We use the information we collect to:</p>
     <ul>
       <li>Provide, operate, and improve the FlowCheck app and services</li>
@@ -236,10 +248,10 @@
     </ul>
     <p>We do <strong>not</strong> use your data for advertising, behavioral profiling, or selling to third parties.</p>
 
-    <h2 id="sharing">8. Data Sharing & Disclosure</h2>
+    <h2 id="sharing">9. Data Sharing & Disclosure</h2>
     <p>We do not sell, rent, or trade your personal information. We share data only in the following limited circumstances:</p>
     <ul>
-      <li><strong>Service Providers:</strong> We share data with Plaid, Experian, Firebase (Google), and RevenueCat solely to operate the features described in this policy. Each provider is bound by data processing agreements and their own privacy policies.</li>
+      <li><strong>Service Providers:</strong> We share data with Plaid, Experian, Firebase (Google), RevenueCat, and PostHog solely to operate the features described in this policy. Each provider is bound by data processing agreements and their own privacy policies.</li>
       <li><strong>Legal Requirements:</strong> We may disclose information if required by law, court order, or to protect the rights, safety, or property of FlowCheck, our users, or the public.</li>
       <li><strong>Business Transfer:</strong> If FlowCheck is acquired or merges with another company, your data may be transferred. We will notify you and give you the opportunity to delete your account before any such transfer is finalized.</li>
     </ul>
