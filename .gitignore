@@ -51,3 +51,5 @@ Thumbs.db
 # ── Lock files (keep package-lock.json, ignore yarn.lock if npm is primary) ──
 yarn.lock
 .vercel
+node_modules/
+ios/App/App/public/
