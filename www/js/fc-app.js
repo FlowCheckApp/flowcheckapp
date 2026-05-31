@@ -5173,6 +5173,7 @@ window.FCApp = (function () {
 
     FCData.detachAllListeners();
     if (typeof FCAnalytics !== 'undefined') FCAnalytics.track('signed_out');
+    if (window.Sentry) Sentry.setUser(null);
     await FCAuth.signOut();
     if (typeof FCAnalytics !== 'undefined') FCAnalytics.reset();
     _wipeUserState();
@@ -5611,6 +5612,8 @@ window.FCApp = (function () {
           _renderHome();
           setTimeout(() => _doSync(false), 900);
           if (biometricEnabled) showLockScreen();
+          // Tag Sentry errors with the user's UID (no email or name)
+          if (window.Sentry) Sentry.setUser({ id: user.uid });
           // Identify user in analytics (no PII — uid only + non-sensitive properties)
           if (typeof FCAnalytics !== 'undefined') {
             FCAnalytics.identify(user.uid, {
