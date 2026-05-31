@@ -515,10 +515,12 @@ app.get('/plaid/sync', requireAuth, perUserLimiter(30), async (req, res) => {
         type:              a.type,
         subtype:           a.subtype        || null,
         balance_current:   a.balances.current   ?? 0,
-        balance_available: a.balances.available ?? null,
+        balance_limit:     a.balances.limit      ?? null,
+        balance_available: a.balances.available  ?? null,
         currency:          a.balances.iso_currency_code || 'USD',
         mask:              a.mask           || null,
         item_id:           itemData.item_id || itemDoc.id,
+        institution_name:  itemData.institution || '',
       }));
 
       let batch = db.batch();
@@ -1935,10 +1937,12 @@ async function _webhookSyncItem(itemId, retryCount = 0) {
       type:              a.type,
       subtype:           a.subtype        || null,
       balance_current:   a.balances.current   ?? 0,
+      balance_limit:     a.balances.limit     ?? null,
       balance_available: a.balances.available ?? null,
       currency:          a.balances.iso_currency_code || 'USD',
       mask:              a.mask           || null,
       item_id:           itemId,
+      institution_name:  itemData.institution || '',
     }));
 
     let batch = db.batch();

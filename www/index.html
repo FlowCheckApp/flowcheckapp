@@ -394,23 +394,26 @@ html, body {
   max-height: 100dvh;
   overflow: hidden;
 }
-.fc-view { display: none; flex-direction: column; overflow-x: hidden; will-change: transform; }
+.fc-view { display: none; flex-direction: column; overflow-x: hidden; }
+/* Only promote to GPU layer during active animation — not all 5 views permanently */
 .fc-view.active { display: flex; flex: 1; min-height: 0; }
+.fc-view.fc-slide-right,
+.fc-view.fc-slide-left { will-change: transform, opacity; }
 
-/* ── Tab slide transitions ───────────────────────────────── */
+/* ── Tab slide transitions — single authoritative definition ── */
 @keyframes fcSlideInFromRight {
-  from { transform: translateX(60px); opacity: 0; }
-  to   { transform: none; opacity: 1; }
+  from { transform: translateX(28px); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
 }
 @keyframes fcSlideInFromLeft {
-  from { transform: translateX(-60px); opacity: 0; }
-  to   { transform: none; opacity: 1; }
+  from { transform: translateX(-28px); opacity: 0; }
+  to   { transform: translateX(0);     opacity: 1; }
 }
 .fc-view.active.fc-slide-right {
-  animation: fcSlideInFromRight 0.28s cubic-bezier(0.25,0.46,0.45,0.94) both;
+  animation: fcSlideInFromRight 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 .fc-view.active.fc-slide-left {
-  animation: fcSlideInFromLeft 0.28s cubic-bezier(0.25,0.46,0.45,0.94) both;
+  animation: fcSlideInFromLeft 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 /* Dynamic Island */
@@ -776,29 +779,59 @@ label.fc-toggle input[type="checkbox"]:checked ~ .fc-toggle-track::after {
 * { scrollbar-width: none; }
 *::-webkit-scrollbar { display: none; }
 
-/* ── Tab view entrance animation (only when NOT doing a directional slide) */
-.fc-view.active:not(.fc-slide-right):not(.fc-slide-left) {
-  animation: fcViewIn 0.2s cubic-bezier(0.25, 0.1, 0.25, 1) both;
+/* ══════════════════════════════════════════════════════════════
+   MAIN SCREEN TRANSITIONS
+   Directional push — forward slides right-to-left, back slides
+   left-to-right. Both the outgoing AND incoming screens animate
+   simultaneously for a native-feeling push transition.
+   ══════════════════════════════════════════════════════════════ */
+
+/* Incoming screens */
+@keyframes fcPushInFromRight {
+  from { transform: translateX(40px); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
 }
-@keyframes fcViewIn {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
+@keyframes fcPushInFromLeft {
+  from { transform: translateX(-40px); opacity: 0; }
+  to   { transform: translateX(0);     opacity: 1; }
+}
+/* Outgoing screens — overlaid via inline style while animating out */
+@keyframes fcPushOutToLeft {
+  from { transform: translateX(0);     opacity: 1; }
+  to   { transform: translateX(-30px); opacity: 0; }
+}
+@keyframes fcPushOutToRight {
+  from { transform: translateX(0);    opacity: 1; }
+  to   { transform: translateX(30px); opacity: 0; }
 }
 
-/* ── Screen entrance animation ───────────────────────────── */
-body[data-screen="login"]           .fc-screen[data-screen="login"],
-body[data-screen="register"]        .fc-screen[data-screen="register"],
-body[data-screen="forgot-password"] .fc-screen[data-screen="forgot-password"],
-body[data-screen="verify-email"]    .fc-screen[data-screen="verify-email"],
-body[data-screen="faceid-setup"]    .fc-screen[data-screen="faceid-setup"],
-body[data-screen="onboarding"]      .fc-screen[data-screen="onboarding"],
-body[data-screen="paywall"]         .fc-screen[data-screen="paywall"],
-body[data-screen="app"]             .fc-screen[data-screen="app"] {
-  animation: fcScreenIn 0.38s cubic-bezier(0.25, 0.1, 0.25, 1) both;
+.fc-screen--enter-right {
+  animation: fcPushInFromRight 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+  will-change: opacity, transform;
 }
-@keyframes fcScreenIn {
-  from { opacity: 0; transform: translateY(18px) scale(0.98); }
+.fc-screen--enter-left {
+  animation: fcPushInFromLeft 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+  will-change: opacity, transform;
+}
+.fc-screen--exit-left {
+  animation: fcPushOutToLeft 0.22s cubic-bezier(0.4, 0, 1, 1) both;
+  pointer-events: none;
+  will-change: opacity, transform;
+}
+.fc-screen--exit-right {
+  animation: fcPushOutToRight 0.22s cubic-bezier(0.4, 0, 1, 1) both;
+  pointer-events: none;
+  will-change: opacity, transform;
+}
+
+/* Special — splash fade-out, app zoom-in on first launch */
+@keyframes fcAppReveal {
+  from { opacity: 0; transform: scale(0.97); }
   to   { opacity: 1; transform: none; }
+}
+.fc-screen--reveal {
+  animation: fcAppReveal 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+  will-change: opacity, transform;
 }
 
 /* ── Nav item tap highlight suppression (transition defined in design system) ── */
@@ -3031,7 +3064,6 @@ body {
     #smart-insights-section,
     #spending-chart-section,
     #home-budget-wizard-section,
-    #home-card-recommender-section,
     #home-zombie-subs-section,
     #home-cashflow-section,
     #home-debt-planner-section { display:none !important }
@@ -3040,82 +3072,239 @@ body {
     .dash-empty{text-align:center;padding:28px 20px;color:rgba(255,255,255,.35);font-size:13px;line-height:1.6;font-weight:500;letter-spacing:.01em}
     .dash-empty::before{content:'';display:block;width:32px;height:32px;border-radius:50%;background:rgba(26,196,240,0.08);border:1px solid rgba(26,196,240,0.15);margin:0 auto 12px;background-image:radial-gradient(circle at 50% 50%,rgba(26,196,240,0.18),transparent 70%)}
 
-    /* ── Slide-in tab transitions ───────────────────────────────── */
-    @keyframes fcSlideInFromRight{from{transform:translateX(32px);opacity:0}to{transform:none;opacity:1}}
-    @keyframes fcSlideInFromLeft{from{transform:translateX(-32px);opacity:0}to{transform:none;opacity:1}}
-    .fc-view.active.fc-slide-right{animation:fcSlideInFromRight .26s cubic-bezier(0.25,0.46,0.45,0.94) both}
-    .fc-view.active.fc-slide-left{animation:fcSlideInFromLeft .26s cubic-bezier(0.25,0.46,0.45,0.94) both}
+    /* ── Slide-in tab transitions defined globally above — no override here ── */
 
     /* ══════════════════════════════════════════════════════════════
-       ACTIVITY TAB v2
+       SHARED — view title with accent underline
+       ══════════════════════════════════════════════════════════════ */
+    .fc-view-title{padding:18px 20px 0;font-size:32px;font-weight:900;letter-spacing:-0.035em;color:#fff;line-height:1.05;position:relative;display:inline-block}
+
+    /* ══════════════════════════════════════════════════════════════
+       ACTIVITY TAB
        ══════════════════════════════════════════════════════════════ */
     #view-activity{overflow-y:scroll;-webkit-overflow-scrolling:touch;padding-bottom:100px;overscroll-behavior:contain}
-    .act-header{display:flex;align-items:center;justify-content:space-between;padding:18px 18px 0}
-    .act-title{font-size:30px;font-weight:800;letter-spacing:-0.030em;color:var(--fc-text);line-height:1.1}
-    .act-chip-row{display:flex;gap:7px;padding:10px 16px 0;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+    .act-header{display:flex;align-items:flex-end;justify-content:space-between;padding:18px 18px 0}
+    .act-title{font-size:32px;font-weight:900;letter-spacing:-0.035em;color:#fff;line-height:1.05}
+
+    /* Single scrollable chip row — no wrapping */
+    .act-chip-row{display:flex;gap:7px;padding:12px 16px 0;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;flex-wrap:nowrap}
     .act-chip-row::-webkit-scrollbar{display:none}
+
+    /* Chips — more solid, pill-shaped */
+    .act-chip-row .fc-chip{
+      padding:7px 14px;border-radius:999px;
+      background:rgba(255,255,255,0.06);border:0.5px solid rgba(255,255,255,0.10);
+      color:rgba(255,255,255,0.55);font-size:12px;font-weight:600;
+      white-space:nowrap;flex-shrink:0;
+      transition:background .15s,color .15s,border-color .15s;
+    }
+    .act-chip-row .fc-chip--active{
+      background:rgba(26,196,240,0.14);border-color:rgba(26,196,240,0.35);color:#1ac4f0;
+    }
+
+    /* Search — glass treatment */
     .act-search-wrap{margin:10px 16px 0}
-    .act-search-wrap .fc-search{background:linear-gradient(145deg,#0d1b2e,#091422);border:0.5px solid rgba(255,255,255,0.09);border-radius:14px;box-shadow:0 2px 10px rgba(0,0,0,0.25);padding:0 14px;height:40px}
-    .act-search-wrap .fc-search input{font-size:14px;background:transparent}
-    .fc-date-label{font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.28);padding:14px 20px 6px;display:flex;align-items:center;gap:8px}
-    .fc-date-label::after{content:'';flex:1;height:0.5px;background:rgba(255,255,255,0.06)}
-    #activity-list .fc-card,#bills-full-list .fc-card{background:linear-gradient(145deg,#0d1b2e,#091422);border:0.5px solid rgba(255,255,255,0.07);box-shadow:0 4px 16px rgba(0,0,0,0.3);margin:0 16px 8px;border-radius:18px}
-    .fc-list-item{padding:12px 0}
-    .fc-list-icon{width:44px;height:44px;border-radius:14px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
-    .fc-list-title{font-size:14px;font-weight:600;color:var(--fc-text)}
-    .fc-list-amount{font-size:15px;font-weight:700;letter-spacing:-0.025em}
+    .act-search-wrap .fc-search{
+      background:rgba(255,255,255,0.05);border:0.5px solid rgba(255,255,255,0.09);
+      border-radius:14px;box-shadow:inset 0 1px 0 rgba(255,255,255,0.04),0 2px 10px rgba(0,0,0,0.2);
+      padding:0 14px;height:42px;
+    }
+    .act-search-wrap .fc-search input{font-size:14px;background:transparent;color:white}
+
+    /* Date separators */
+    .fc-date-label{
+      font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;
+      color:rgba(255,255,255,0.25);padding:16px 20px 6px;
+      display:flex;align-items:center;gap:10px;
+    }
+    .fc-date-label::after{content:'';flex:1;height:0.5px;background:rgba(255,255,255,0.05)}
+
+    /* Transaction cards */
+    #activity-list .fc-card,#bills-full-list .fc-card{
+      background:linear-gradient(145deg,#0d1b2e,#091422);
+      border:0.5px solid rgba(255,255,255,0.07);
+      box-shadow:0 4px 16px rgba(0,0,0,0.3);
+      margin:0 16px 8px;border-radius:20px;
+    }
+    .fc-list-item{padding:13px 0;border-bottom:0.5px solid rgba(255,255,255,0.035)}
+    .fc-list-item:last-child{border-bottom:none}
+    .fc-list-icon{width:44px;height:44px;border-radius:14px;flex-shrink:0;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(0,0,0,0.25)}
+    .fc-list-title{font-size:14px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .fc-list-meta{font-size:12px;color:rgba(255,255,255,0.38);margin-top:2px}
+    .fc-list-amount{font-size:15px;font-weight:800;letter-spacing:-0.03em;font-variant-numeric:tabular-nums}
+
+    /* Activity empty state */
+    .act-empty{
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      padding:64px 32px;gap:12px;text-align:center;
+    }
+    .act-empty-icon{
+      width:56px;height:56px;border-radius:18px;
+      background:linear-gradient(145deg,rgba(26,196,240,0.12),rgba(37,99,235,0.08));
+      border:0.5px solid rgba(26,196,240,0.18);
+      display:flex;align-items:center;justify-content:center;
+      margin-bottom:4px;box-shadow:0 8px 24px rgba(0,0,0,0.3);
+    }
+    .act-empty-title{font-size:16px;font-weight:700;color:#fff;letter-spacing:-0.02em}
+    .act-empty-sub{font-size:13px;color:rgba(255,255,255,0.38);line-height:1.5;max-width:220px}
 
     /* ══════════════════════════════════════════════════════════════
-       INSIGHTS TAB v2
+       INSIGHTS TAB
        ══════════════════════════════════════════════════════════════ */
-    .ins-health-card{margin:12px 16px;background:linear-gradient(145deg,#0f1e35,#08131f);border-radius:22px;border:0.5px solid rgba(26,196,240,0.18);padding:20px;box-shadow:0 8px 30px rgba(0,0,0,0.4),0 0 40px rgba(26,196,240,0.05) inset}
-    .ins-health-row{display:flex;align-items:center;gap:18px}
-    .ins-health-ring-wrap{position:relative;width:90px;height:90px;flex-shrink:0}
+    #view-insights{overflow-y:scroll;-webkit-overflow-scrolling:touch;padding-bottom:100px;overscroll-behavior:contain}
+
+    /* Health score card — deeper glass */
+    .ins-health-card{
+      margin:12px 16px;
+      background:linear-gradient(145deg,rgba(15,30,53,0.95),rgba(8,19,31,0.98));
+      border-radius:24px;border:0.5px solid rgba(26,196,240,0.20);
+      padding:22px;
+      box-shadow:0 12px 40px rgba(0,0,0,0.5),0 0 50px rgba(26,196,240,0.05) inset,
+                 inset 0 1px 0 rgba(255,255,255,0.06);
+    }
+    .ins-health-row{display:flex;align-items:center;gap:20px}
+    .ins-health-ring-wrap{position:relative;width:92px;height:92px;flex-shrink:0}
     .ins-health-grade{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
-    .ins-health-grade-letter{font-size:28px;font-weight:900;color:white;letter-spacing:-0.04em;line-height:1}
-    .ins-health-grade-sub{font-size:9px;color:rgba(255,255,255,0.38);font-weight:700;text-transform:uppercase;letter-spacing:0.08em;margin-top:1px}
-    .ins-health-metrics{display:flex;flex-direction:column;gap:9px;flex:1}
+    .ins-health-grade-letter{font-size:30px;font-weight:900;color:white;letter-spacing:-0.04em;line-height:1}
+    .ins-health-grade-sub{font-size:9px;color:rgba(255,255,255,0.35);font-weight:700;text-transform:uppercase;letter-spacing:0.08em;margin-top:2px}
+    .ins-health-metrics{display:flex;flex-direction:column;gap:10px;flex:1}
     .ins-health-metric{display:flex;align-items:center;gap:8px}
-    .ins-health-metric-lbl{font-size:11px;color:rgba(255,255,255,0.45);width:60px;flex-shrink:0}
-    .ins-health-bar-wrap{flex:1;height:4px;background:rgba(255,255,255,0.07);border-radius:2px;overflow:hidden}
-    .ins-health-bar{height:100%;border-radius:2px;transition:width 1s cubic-bezier(0.25,0.1,0.25,1)}
-    .ins-health-val{font-size:11px;font-weight:700;color:white;width:26px;text-align:right;flex-shrink:0}
-    #view-insights .fc-card{background:linear-gradient(145deg,#0d1b2e,#091422);border:0.5px solid rgba(255,255,255,0.07);box-shadow:0 4px 20px rgba(0,0,0,0.3)}
+    .ins-health-metric-lbl{font-size:11px;color:rgba(255,255,255,0.42);width:64px;flex-shrink:0;font-weight:500}
+    .ins-health-bar-wrap{flex:1;height:5px;background:rgba(255,255,255,0.06);border-radius:999px;overflow:hidden}
+    .ins-health-bar{height:100%;border-radius:999px;transition:width 1.1s cubic-bezier(0.22,1,0.36,1)}
+    .ins-health-val{font-size:11px;font-weight:800;color:white;width:28px;text-align:right;flex-shrink:0}
+
+    /* All fc-cards inside insights */
+    #view-insights .fc-card{
+      background:linear-gradient(145deg,#0d1b2e,#091422);
+      border:0.5px solid rgba(255,255,255,0.07);
+      box-shadow:0 6px 24px rgba(0,0,0,0.35),inset 0 1px 0 rgba(255,255,255,0.05);
+      border-radius:22px;
+    }
+
+    /* Category rows — slightly more breathing room */
+    .fc-category-row{padding:11px 0;border-bottom:0.5px solid rgba(255,255,255,0.04)}
+    .fc-category-row:last-child{border-bottom:none}
+    .fc-category-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+    .fc-category-label{flex:1;font-size:14px;font-weight:500;color:#fff}
+    .fc-category-amount{font-size:14px;font-weight:700;letter-spacing:-0.02em}
+    .fc-category-pct{font-size:11px;color:rgba(255,255,255,0.35);margin-left:5px}
+    .fc-category-bar{height:3px;background:rgba(255,255,255,0.05);border-radius:999px;margin:-3px 0 8px}
 
     /* ══════════════════════════════════════════════════════════════
-       WEALTH TAB v2
+       WEALTH TAB
        ══════════════════════════════════════════════════════════════ */
     #view-wealth{overflow-y:scroll;-webkit-overflow-scrolling:touch;padding-bottom:100px;overscroll-behavior:contain}
-    .wealth-hero{margin:4px 16px 16px;background:linear-gradient(145deg,#0f1e35,#08131f);border-radius:22px;border:0.5px solid rgba(26,196,240,0.20);padding:20px;box-shadow:0 0 40px rgba(26,196,240,0.06) inset,0 8px 30px rgba(0,0,0,0.4);position:relative;overflow:hidden}
-    .wealth-hero::after{content:'';position:absolute;top:-30px;right:-30px;width:130px;height:130px;background:radial-gradient(circle,rgba(26,196,240,0.08) 0%,transparent 70%);pointer-events:none}
-    .wealth-hero-tag{font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.30);margin-bottom:5px}
-    .wealth-hero-amount{font-size:38px;font-weight:900;letter-spacing:-0.045em;color:#fff;line-height:1;font-variant-numeric:tabular-nums}
-    .wealth-hero-delta{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;margin-top:7px}
-    .wealth-hero-stats{display:grid;grid-template-columns:1fr 1px 1fr;gap:0;margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,0.06)}
+
+    /* Hero net worth card */
+    .wealth-hero{
+      margin:4px 16px 16px;
+      background:linear-gradient(145deg,rgba(15,30,53,0.95),rgba(8,19,31,0.98));
+      border-radius:24px;border:0.5px solid rgba(26,196,240,0.20);
+      padding:22px;
+      box-shadow:0 0 50px rgba(26,196,240,0.06) inset,0 12px 40px rgba(0,0,0,0.5),
+                 inset 0 1px 0 rgba(255,255,255,0.07);
+      position:relative;overflow:hidden;
+    }
+    .wealth-hero::before{
+      content:'';position:absolute;top:-40px;right:-40px;
+      width:160px;height:160px;
+      background:radial-gradient(circle,rgba(26,196,240,0.10) 0%,transparent 70%);
+      pointer-events:none;
+    }
+    .wealth-hero-tag{font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.28);margin-bottom:6px}
+    .wealth-hero-amount{font-size:42px;font-weight:900;letter-spacing:-0.045em;color:#fff;line-height:1;font-variant-numeric:tabular-nums}
+    .wealth-hero-delta{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:4px 11px;border-radius:999px;margin-top:8px}
+    .wealth-hero-stats{display:grid;grid-template-columns:1fr 0.5px 1fr;gap:0;margin-top:18px;padding-top:16px;border-top:0.5px solid rgba(255,255,255,0.07)}
     .wealth-hero-divider{background:rgba(255,255,255,0.08)}
     .wealth-hero-stat{text-align:center;padding:0 8px}
-    .wealth-hero-stat-lbl{font-size:9px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:rgba(255,255,255,0.32);margin-bottom:3px}
-    .wealth-hero-stat-val{font-size:16px;font-weight:800;color:white;letter-spacing:-0.025em;font-variant-numeric:tabular-nums}
-    .fc-wealth-segs{background:rgba(255,255,255,0.05);border:0.5px solid rgba(255,255,255,0.08);border-radius:12px;padding:3px}
-    .fc-wealth-seg--active{background:linear-gradient(145deg,rgba(26,196,240,0.18),rgba(37,99,235,0.12));color:#1ac4f0;border-radius:9px;border:0.5px solid rgba(26,196,240,0.18)}
-    .fc-acct-card{display:flex;align-items:center;gap:12px;padding:13px 16px;background:linear-gradient(145deg,#0d1b2e,#091422);border-radius:16px;border:0.5px solid rgba(255,255,255,0.07);margin:0 16px 8px;box-shadow:0 2px 12px rgba(0,0,0,0.25)}
-    .fc-acct-icon{width:44px;height:44px;border-radius:13px;background:rgba(26,196,240,0.10);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+    .wealth-hero-stat-lbl{font-size:9px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:rgba(255,255,255,0.28);margin-bottom:4px}
+    .wealth-hero-stat-val{font-size:17px;font-weight:900;color:white;letter-spacing:-0.03em;font-variant-numeric:tabular-nums}
+
+    /* Segment control */
+    .fc-wealth-segs{background:rgba(255,255,255,0.05);border:0.5px solid rgba(255,255,255,0.08);border-radius:13px;padding:3px}
+    .fc-wealth-seg{flex:1;padding:8px 0;border:none;background:transparent;color:rgba(255,255,255,0.42);font-size:13px;font-weight:600;border-radius:10px;cursor:pointer;transition:all .18s;-webkit-tap-highlight-color:transparent}
+    .fc-wealth-seg--active{background:linear-gradient(145deg,rgba(26,196,240,0.18),rgba(37,99,235,0.12));color:#1ac4f0;border-radius:10px;border:0.5px solid rgba(26,196,240,0.18)}
+
+    /* Account cards */
+    .fc-acct-card{
+      display:flex;align-items:center;gap:13px;padding:14px 16px;
+      background:linear-gradient(145deg,#0d1b2e,#091422);
+      border-radius:18px;border:0.5px solid rgba(255,255,255,0.07);
+      margin:0 16px 9px;
+      box-shadow:0 4px 16px rgba(0,0,0,0.28),inset 0 1px 0 rgba(255,255,255,0.04);
+    }
+    .fc-acct-icon{width:46px;height:46px;border-radius:14px;background:rgba(26,196,240,0.10);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;box-shadow:0 3px 10px rgba(0,0,0,0.2)}
     .fc-acct-info{flex:1;min-width:0}
-    .fc-acct-name{font-size:14px;font-weight:600;color:var(--fc-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .fc-acct-bank{font-size:12px;color:var(--fc-text-faint);margin-top:2px}
-    .fc-acct-bal{font-size:16px;font-weight:700;color:white;letter-spacing:-0.025em;font-variant-numeric:tabular-nums}
-    .fc-goal-card{margin:0 16px 10px;padding:16px;background:linear-gradient(145deg,#0d1b2e,#091422);border-radius:18px;border:0.5px solid rgba(255,255,255,0.07);box-shadow:0 4px 20px rgba(0,0,0,0.3)}
+    .fc-acct-name{font-size:14px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .fc-acct-bank{font-size:12px;color:rgba(255,255,255,0.35);margin-top:2px}
+    .fc-acct-bal{font-size:17px;font-weight:800;color:white;letter-spacing:-0.03em;font-variant-numeric:tabular-nums;white-space:nowrap}
+
+    /* Goal cards */
+    .fc-goal-card{margin:0 16px 10px;padding:18px;background:linear-gradient(145deg,#0d1b2e,#091422);border-radius:20px;border:0.5px solid rgba(255,255,255,0.07);box-shadow:0 6px 24px rgba(0,0,0,0.32),inset 0 1px 0 rgba(255,255,255,0.04)}
+
+    /* Wealth empty state */
+    .wealth-empty{
+      display:flex;flex-direction:column;align-items:center;padding:48px 24px;
+      gap:10px;text-align:center;
+    }
+    .wealth-empty-icon{
+      width:52px;height:52px;border-radius:16px;margin-bottom:4px;
+      background:linear-gradient(145deg,rgba(26,196,240,0.10),rgba(37,99,235,0.06));
+      border:0.5px solid rgba(26,196,240,0.15);
+      display:flex;align-items:center;justify-content:center;
+      box-shadow:0 6px 20px rgba(0,0,0,0.28);
+    }
+    .wealth-empty-title{font-size:15px;font-weight:700;color:#fff;letter-spacing:-0.02em}
+    .wealth-empty-sub{font-size:13px;color:rgba(255,255,255,0.35);line-height:1.5;max-width:200px}
 
     /* ══════════════════════════════════════════════════════════════
-       SETTINGS TAB v2
+       SETTINGS TAB
        ══════════════════════════════════════════════════════════════ */
-    .settings-section-hdr{font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.26);padding:18px 20px 8px}
-    .settings-profile-card{margin:4px 16px 10px;padding:20px;background:linear-gradient(145deg,#0f1e35,#08131f);border-radius:22px;border:0.5px solid rgba(26,196,240,0.18);box-shadow:0 8px 30px rgba(0,0,0,0.4),0 0 30px rgba(26,196,240,0.05) inset;display:flex;align-items:center;gap:16px}
-    .settings-avatar-ring{width:58px;height:58px;border-radius:50%;background:linear-gradient(135deg,#1ac4f0,#2563eb);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:white;flex-shrink:0;box-shadow:0 0 24px rgba(26,196,240,0.3)}
-    .settings-profile-name{font-size:18px;font-weight:700;color:white;letter-spacing:-0.025em;line-height:1.1}
-    .settings-profile-email{font-size:12px;color:rgba(255,255,255,0.38);margin-top:3px}
-    .settings-profile-streak{font-size:11px;color:#1ac4f0;font-weight:600;margin-top:4px}
-    #view-settings .fc-card{background:linear-gradient(145deg,#0d1b2e,#091422);border:0.5px solid rgba(255,255,255,0.07);box-shadow:0 4px 16px rgba(0,0,0,0.25)}
+    #view-settings{overflow-y:scroll;-webkit-overflow-scrolling:touch;padding-bottom:100px;overscroll-behavior:contain}
+
+    .settings-section-hdr{
+      font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;
+      color:rgba(255,255,255,0.24);padding:20px 20px 8px;
+    }
+
+    /* Profile card — hero treatment */
+    .settings-profile-card{
+      margin:4px 16px 10px;padding:20px;
+      background:linear-gradient(145deg,rgba(15,30,53,0.95),rgba(8,19,31,0.98));
+      border-radius:24px;border:0.5px solid rgba(26,196,240,0.18);
+      box-shadow:0 12px 40px rgba(0,0,0,0.45),0 0 40px rgba(26,196,240,0.05) inset,
+                 inset 0 1px 0 rgba(255,255,255,0.07);
+      display:flex;align-items:center;gap:16px;
+    }
+    .settings-avatar-ring{
+      width:60px;height:60px;border-radius:50%;
+      background:linear-gradient(135deg,#1ac4f0,#2563eb);
+      display:flex;align-items:center;justify-content:center;
+      font-size:26px;font-weight:900;color:white;flex-shrink:0;
+      box-shadow:0 0 0 3px rgba(26,196,240,0.2),0 8px 24px rgba(26,196,240,0.35);
+    }
+    .settings-profile-name{font-size:18px;font-weight:800;color:white;letter-spacing:-0.028em;line-height:1.1}
+    .settings-profile-email{font-size:12px;color:rgba(255,255,255,0.35);margin-top:3px}
+    .settings-profile-streak{font-size:11px;color:#1ac4f0;font-weight:700;margin-top:5px;display:flex;align-items:center;gap:4px}
+
+    /* Settings grouped cards */
+    #view-settings .fc-card{
+      background:linear-gradient(145deg,#0d1b2e,#091422);
+      border:0.5px solid rgba(255,255,255,0.07);
+      box-shadow:0 4px 16px rgba(0,0,0,0.28),inset 0 1px 0 rgba(255,255,255,0.04);
+      border-radius:20px;margin:0 16px 10px;padding:0;overflow:hidden;
+    }
+    .fc-settings-row{
+      display:flex;align-items:center;gap:14px;padding:15px 16px;
+      border-bottom:0.5px solid rgba(255,255,255,0.045);cursor:pointer;
+      transition:background .12s;
+    }
+    .fc-settings-row:last-child{border-bottom:none}
+    .fc-settings-row:active{background:rgba(255,255,255,0.04)}
+    .fc-settings-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+    .fc-settings-label{flex:1;color:#fff;font-size:15px;font-weight:500}
+    .fc-settings-value{color:rgba(255,255,255,0.35);font-size:13px}
   </style>
 
   <!-- ── Hidden compat elements — JS targets these IDs ──────────── -->
@@ -3492,9 +3681,7 @@ body {
   <!-- ══════════════════════════════════════════════════════════════
        AFFILIATE OFFER CARD
        ══════════════════════════════════════════════════════════════ -->
-  <section class="dash-section fc-fade-up" style="animation-delay:.17s">
-    <div id="home-offer-card" style="display:none;margin:0 16px;background:linear-gradient(135deg,rgba(26,196,240,0.07),rgba(37,99,235,0.07));border:1px solid rgba(255,255,255,0.08);border-radius:20px;padding:18px 18px 14px"></div>
-  </section>
+  <div id="home-offer-card" style="display:none"></div>
 
   <!-- ══════════════════════════════════════════════════════════════
        DEBT PAYOFF PLANNER
@@ -3516,21 +3703,8 @@ body {
   </section>
 
   <!-- ══════════════════════════════════════════════════════════════
-       CREDIT CARD OPTIMIZER
-       ══════════════════════════════════════════════════════════════ -->
-  <section id="home-card-recommender-section" class="dash-section fc-fade-up" style="animation-delay:.185s;display:none">
-    <div class="dash-sec-hdr" style="margin-bottom:12px">
-      <div>
-        <div style="font-size:15px;font-weight:700;color:#fff;margin-bottom:2px">Cards For Your Spending</div>
-        <div id="card-rec-subtitle" style="font-size:12px;color:rgba(255,255,255,0.40)">Based on your top categories</div>
-      </div>
-      <span style="font-size:10px;font-weight:700;letter-spacing:.07em;color:#FFB020;text-transform:uppercase;background:rgba(255,176,32,0.12);padding:3px 8px;border-radius:20px">Rewards</span>
-    </div>
-    <div id="home-card-recommender"
-         style="display:flex;gap:12px;overflow-x:auto;overflow-y:hidden;margin:0 -16px;padding:2px 16px 8px;
-                scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;-ms-overflow-style:none"></div>
-    <style>#home-card-recommender::-webkit-scrollbar{display:none}</style>
-  </section>
+  <div id="home-card-recommender-section" style="display:none"></div>
+  <div id="home-card-recommender" style="display:none"></div>
 
   <!-- ══════════════════════════════════════════════════════════════
        GOALS
@@ -3944,7 +4118,20 @@ body {
     <!-- ── Savings panel ── -->
     <div class="fc-wealth-panel fc-wealth-panel--active" id="wealth-panel-savings">
       <div id="savings-summary"></div>
-      <div id="savings-list" style="padding-bottom:8px"></div>
+      <div id="savings-list" style="padding-bottom:8px">
+        <!-- Default empty state — replaced by _renderWealth() when data loads -->
+        <div class="wealth-empty" id="savings-empty-default">
+          <div class="wealth-empty-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(26,196,240,0.7)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="3"/><path d="M2 10h20"/></svg>
+          </div>
+          <div class="wealth-empty-title">No accounts yet</div>
+          <div class="wealth-empty-sub">Connect a bank to track your savings and investments</div>
+          <button onclick="FCApp.showBankSheet && FCApp.showBankSheet()" type="button"
+            style="margin-top:8px;padding:10px 22px;border-radius:999px;border:none;background:rgba(26,196,240,0.14);border:0.5px solid rgba(26,196,240,0.3);color:#1ac4f0;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer">
+            Connect Bank
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- ── Goals panel ── -->
@@ -3954,13 +4141,29 @@ body {
         <button class="fc-btn fc-btn--sm" style="background:rgba(26,196,240,0.12);color:var(--fc-accent);border:0.5px solid rgba(26,196,240,0.22);padding:6px 14px;font-size:12px"
                 onclick="FCApp.showAddGoalSheet()">+ Goal</button>
       </div>
-      <div id="goals-list" style="padding-bottom:8px"></div>
+      <div id="goals-list" style="padding-bottom:8px">
+        <div class="wealth-empty" id="goals-empty-default">
+          <div class="wealth-empty-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(26,196,240,0.7)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+          </div>
+          <div class="wealth-empty-title">No goals yet</div>
+          <div class="wealth-empty-sub">Set a savings target — emergency fund, vacation, anything</div>
+        </div>
+      </div>
     </div>
 
     <!-- ── Debt panel ── -->
     <div class="fc-wealth-panel" id="wealth-panel-debt">
       <div id="debt-summary"></div>
-      <div id="debt-list" style="padding-bottom:8px"></div>
+      <div id="debt-list" style="padding-bottom:8px">
+        <div class="wealth-empty" id="debt-empty-default">
+          <div class="wealth-empty-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(26,196,240,0.7)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          </div>
+          <div class="wealth-empty-title">No debts tracked</div>
+          <div class="wealth-empty-sub">Connect a credit card or loan to track your payoff progress</div>
+        </div>
+      </div>
     </div>
 
   </div><!-- /view-wealth -->

@@ -93,13 +93,19 @@ window.FCApp = (function () {
   }
 
   // ── Shared income-transaction filter ─────────────────────────────
-  // Only real income credits (payroll, direct deposits) — excludes transfers
-  // between accounts, refunds, and credit card payments so income isn't inflated.
+  // Plaid stores payroll/direct-deposit as TRANSFER_IN (primary category) which
+  // normalizePlaidCategory maps to 'Transfer' — that would be excluded by the old
+  // includes('transfer') guard.  Whitelist Plaid's income primaries first so
+  // paychecks are never silently dropped from the income total.
+  const _INCOME_RAW = new Set(['INCOME', 'TRANSFER_IN', 'Income', 'Transfer In']);
   function _isIncomeTxn(t) {
     if (!t.isCredit || !t.date) return false;
-    const raw  = (t.category && t.category[0]) || t.category || '';
+    const raw = (t.category && t.category[0]) || t.category || '';
+    // Explicitly include known Plaid income categories regardless of norm
+    if (_INCOME_RAW.has(raw) || _INCOME_RAW.has(raw.toUpperCase().replace(/ /g,'_'))) return true;
     const norm = FCData.normalizePlaidCategory(raw).toLowerCase();
-    return !_XFER_SKIP.has(norm) && !norm.includes('transfer') && !norm.includes('payment');
+    // Exclude only explicit non-income credits (internal xfers, CC payments)
+    return !_XFER_SKIP.has(norm) && !norm.includes('payment');
   }
 
   // ── Transaction display-name cleaner ─────────────────────────────
@@ -894,30 +900,80 @@ window.FCApp = (function () {
      SCREEN MANAGEMENT
      ───────────────────────────────────────────────────────────── */
 
+  // Navigation depth — determines push direction.
+  // Forward (higher) = incoming slides from right; Back (lower) = from left.
+  const _SCREEN_ORDER = {
+    splash: 0, login: 1, register: 2, 'forgot-password': 1.5,
+    'verify-email': 3, 'faceid-setup': 4, onboarding: 5, paywall: 6, app: 7,
+  };
+
+  let _screenTransitioning = false;
+
   function setScreen(name) {
     if (state.screen === name) return;
+
+    // Abort any in-flight transition cleanly
+    if (_screenTransitioning) {
+      document.querySelectorAll(
+        '.fc-screen--enter-right,.fc-screen--enter-left,.fc-screen--exit-left,.fc-screen--exit-right,.fc-screen--reveal'
+      ).forEach(el => {
+        el.classList.remove(
+          'fc-screen--enter-right','fc-screen--enter-left',
+          'fc-screen--exit-left','fc-screen--exit-right','fc-screen--reveal'
+        );
+        el.style.cssText = '';
+      });
+      _screenTransitioning = false;
+    }
+
+    const prev    = state.screen;
+    const prevIdx = _SCREEN_ORDER[prev]  ?? 0;
+    const nextIdx = _SCREEN_ORDER[name]  ?? 0;
+    const forward = nextIdx >= prevIdx;
+    _screenTransitioning = true;
+
+    // Pin outgoing screen so it stays visible during its exit animation
+    const outEl = prev && prev !== 'splash'
+      ? document.querySelector(`.fc-screen[data-screen="${prev}"]`)
+      : null;
+    if (outEl) {
+      outEl.style.display  = 'flex';
+      outEl.style.position = 'absolute';
+      outEl.style.inset    = '0';
+      outEl.style.zIndex   = '10';
+      outEl.classList.add(forward ? 'fc-screen--exit-left' : 'fc-screen--exit-right');
+    }
+
+    // Switch body attribute — incoming screen becomes visible
     state.screen = name;
     document.body.dataset.screen = name;
 
-    // Reset scroll on new screen — scroll the specific container, not window,
-    // to avoid a visible jump on WKWebView which doesn't smooth-handle window.scrollTo
-    const screenEl = document.querySelector(`.fc-screen[data-screen="${name}"]`);
-    if (screenEl) screenEl.scrollTop = 0;
-
-    // Analytics
-    if (typeof FCAnalytics !== 'undefined') FCAnalytics.screen(name);
-
-    // Update greeting dynamically
-    if (name === 'app') _updateGreeting();
-
-    // Clear login/register errors when navigating away so stale errors don't persist
-    if (name === 'login') {
-      _clearError('login-error');
-      resetForgotPasswordScreen();
+    // Animate incoming screen
+    const inEl = document.querySelector(`.fc-screen[data-screen="${name}"]`);
+    if (inEl) {
+      inEl.scrollTop = 0;
+      if (name !== 'splash') {
+        const cls = (prev === 'splash' || name === 'app')
+          ? 'fc-screen--reveal'
+          : (forward ? 'fc-screen--enter-right' : 'fc-screen--enter-left');
+        inEl.classList.add(cls);
+        inEl.addEventListener('animationend', () => inEl.classList.remove(cls), { once: true });
+      }
     }
-    if (name === 'register') _clearError('register-error');
 
-    fcLog('Screen →', name);
+    // Clean up outgoing after exit animation completes (220ms)
+    setTimeout(() => {
+      if (outEl) {
+        outEl.classList.remove('fc-screen--exit-left', 'fc-screen--exit-right');
+        outEl.style.cssText = '';
+      }
+      if (name === 'app') _updateGreeting();
+      if (name === 'login') { _clearError('login-error'); resetForgotPasswordScreen(); }
+      if (name === 'register') _clearError('register-error');
+      if (typeof FCAnalytics !== 'undefined') FCAnalytics.screen(name);
+      fcLog('Screen →', name);
+      _screenTransitioning = false;
+    }, 240);
   }
 
   /* ─────────────────────────────────────────────────────────────
@@ -1032,28 +1088,30 @@ window.FCApp = (function () {
     const prev = state.tab;
     state.tab  = tabId;
 
-    // Determine slide direction
+    // Slide direction based on tab order
     const prevIdx = _TAB_ORDER.indexOf(prev);
     const nextIdx = _TAB_ORDER.indexOf(tabId);
     const slideClass = nextIdx > prevIdx ? 'fc-slide-right' : 'fc-slide-left';
 
-    // Views
-    document.querySelectorAll('.fc-view').forEach(v => {
-      v.classList.remove('active', 'fc-slide-right', 'fc-slide-left');
-    });
-    const target = document.getElementById('view-' + tabId);
+    const target  = document.getElementById('view-' + tabId);
+    const outgoing = prev ? document.getElementById('view-' + prev) : null;
 
-    // Reset scroll BEFORE the slide animation starts so the view enters at
-    // the top — doing it after render causes a visible jump mid-animation.
+    // ── Activate target FIRST (no flash between deactivate+activate) ──────
+    // Reset scroll before it becomes visible so it enters at top.
     if (target) target.scrollTop = 0;
+    if (target) target.classList.add('active', slideClass);
 
-    if (target) {
-      target.classList.add('active', slideClass);
-      // Remove animation class after it completes so it doesn't replay (animation is 280ms)
-      setTimeout(() => target.classList.remove('fc-slide-right', 'fc-slide-left'), 290);
+    // Deactivate outgoing AFTER target is active — avoids single-frame blank
+    if (outgoing) {
+      outgoing.classList.remove('active', 'fc-slide-right', 'fc-slide-left');
     }
 
-    // Nav items
+    // Clean up animation class once the slide completes (240ms + 10ms buffer)
+    if (target) {
+      setTimeout(() => target.classList.remove('fc-slide-right', 'fc-slide-left'), 260);
+    }
+
+    // ── Nav items ──────────────────────────────────────────────────────────
     document.querySelectorAll('.fc-nav-item').forEach(item => {
       const active = item.dataset.view === tabId;
       item.classList.toggle('active', active);
@@ -1061,13 +1119,10 @@ window.FCApp = (function () {
       item.setAttribute('tabindex', active ? '0' : '-1');
     });
 
-    // Defer ALL heavy renders past the 280ms slide animation.
-    // Running innerHTML writes synchronously while the CSS slide composites
-    // causes layout thrash and dropped frames on WKWebView — the browser is
-    // forced to interleave style recalculations with GPU compositing.
-    // 290ms clears the animation window; insights was already deferred, now
-    // all tabs follow the same pattern for consistent smoothness.
-    const ANIM_MS = 290;
+    // ── Defer heavy renders past the 240ms slide animation ────────────────
+    // Keeping innerHTML writes away from the CSS animation window prevents
+    // layout thrash and dropped frames on WKWebView.
+    const ANIM_MS = 250;
     if (tabId === 'home') {
       setTimeout(_renderHome, ANIM_MS);
     } else if (tabId === 'activity') {
@@ -3503,14 +3558,8 @@ window.FCApp = (function () {
     // ── Zombie Subscription Finder ────────────────────────────────
     _renderZombieSubscriptions();
 
-    // ── Affiliate offer card ──────────────────────────────────────
-    _renderOfferCard(monthIncome, monthSpend);
-
     // ── Debt Payoff Planner ───────────────────────────────────────
     _renderDebtPayoffPlanner();
-
-    // ── Credit Card Optimizer ─────────────────────────────────────
-    _renderCardRecommendations();
 
     // ── Cash Flow Forecast ────────────────────────────────────────
     _renderCashFlowForecast();
@@ -4841,32 +4890,47 @@ window.FCApp = (function () {
   }
 
   async function _doSync(showToast = false) {
-    if (state.syncing) return;
-    if (state.screen !== 'app') return;  // only sync inside the main app
+    // Safety: auto-clear stuck syncing flag after 30s so button never stays locked
+    if (state.syncing) {
+      if (state._syncStartedAt && (Date.now() - state._syncStartedAt) > 30000) {
+        state.syncing = false;
+        const stuck = document.getElementById('header-sync-btn');
+        if (stuck) stuck.classList.remove('is-busy');
+      } else {
+        if (showToast) toast('Sync already running…', 'info', 2000);
+        return;
+      }
+    }
+    if (state.screen !== 'app') return;
 
-    // If backend isn't wired up yet, skip silently — no toast
     if (!FC_CONFIG.app.backendConfigured) {
       fcLog('Sync skipped — backendConfigured is false');
       return;
     }
 
-    // Don't hit the backend if no bank is linked — the endpoint returns 404,
-    // which would show a misleading "Sync failed" error to the user.
     if (!state.user || !state.user.plaid_linked) {
       fcLog('Sync skipped — no bank linked');
       _setIslandText('Connect a bank to start');
+      if (showToast) toast('Connect a bank first', 'info', 2500);
       return;
     }
 
-    // Rate-limit background syncs — skip if last sync was < 5 minutes ago.
-    // User-triggered syncs (showToast=true) and post-link syncs always go through.
+    // Rate-limit background syncs — 5 min cooldown.
+    // Manual syncs (showToast=true) bypass the cooldown but show a friendly message
+    // if synced very recently (< 30s) so the button doesn't feel broken.
     const MIN_SYNC_INTERVAL_MS = 5 * 60 * 1000;
-    if (!showToast && state.lastSyncAt && (Date.now() - state.lastSyncAt) < MIN_SYNC_INTERVAL_MS) {
-      fcLog('Sync skipped — rate limited (last sync was < 5 min ago)');
+    const timeSinceLast = state.lastSyncAt ? Date.now() - state.lastSyncAt : Infinity;
+    if (!showToast && timeSinceLast < MIN_SYNC_INTERVAL_MS) {
+      fcLog('Sync skipped — rate limited');
+      return;
+    }
+    if (showToast && timeSinceLast < 30000) {
+      toast('Already up to date', 'success', 2000);
       return;
     }
 
     state.syncing = true;
+    state._syncStartedAt = Date.now();
     let _syncSucceeded = false;
 
     // Spin + disable the header sync button so the user sees the tap registered
@@ -4963,7 +5027,7 @@ window.FCApp = (function () {
       // Poll for accounts/transactions to appear (backend writes async after sync)
       let pollCount = 0;
       const pollInterval = setInterval(() => {
-        if (state.accounts.length > 0 && state.transactions.length > 0) {
+        if ((state.accounts || []).length > 0 && (state.transactions || []).length > 0) {
           clearInterval(pollInterval);
           _renderHome();
           return;
@@ -5429,7 +5493,7 @@ window.FCApp = (function () {
       _snapshotNetWorth(FCData.calcNetWorth(accounts));
     });
 
-    FCData.listenToTransactions(100, transactions => {
+    FCData.listenToTransactions(500, transactions => {
       state.transactions = transactions;
       // Re-render home so "Recent Activity" and "Safe to Spend" update immediately
       if (state.tab === 'home')     _renderHome();
@@ -7079,10 +7143,13 @@ window.FCApp = (function () {
     state.period = p;
     haptic('light');
 
-    // Update active button styling on ALL scrubbers (home + insights share data-period)
-    document.querySelectorAll('.fc-scrubber button[data-period]').forEach(btn => {
+    // Update active button styling on ALL scrubbers (home uses .dash-scrubber,
+    // insights uses .fc-scrubber — both have [data-period] buttons)
+    document.querySelectorAll('[data-period]').forEach(btn => {
+      if (btn.tagName !== 'BUTTON') return;
       const active = btn.dataset.period === p;
       btn.classList.toggle('active', active);
+      // dash-scrub-btn uses aria-selected; fc-scrubber buttons also do
       btn.setAttribute('aria-selected', active ? 'true' : 'false');
     });
 
@@ -7117,13 +7184,25 @@ window.FCApp = (function () {
     const sheet = document.getElementById('fc-referral-sheet');
     if (!sheet) return;
 
-    const code  = _getReferralCode();
     const count = Math.min(Number(state.user?.referral_activations) || 0, 3);
     const GOAL  = 3;
 
-    // Populate code display
+    // _getReferralCode() returns null on first call (fires async backend request).
+    // Re-poll so the display updates once the code arrives via Firestore listener.
     const codeEl = document.getElementById('referral-code-display');
-    if (codeEl) codeEl.textContent = code || '———————';
+    const _updateCodeEl = () => {
+      const c = state.user?.referral_code || null;
+      if (codeEl) codeEl.textContent = c || '———————';
+      return !!c;
+    };
+    if (!_updateCodeEl()) {
+      _getReferralCode(); // fire the backend call
+      const pollCode = setInterval(() => {
+        if (_updateCodeEl() || !document.getElementById('fc-referral-sheet')?.classList.contains('open')) {
+          clearInterval(pollCode);
+        }
+      }, 800);
+    }
 
     // Populate progress
     const progText = document.getElementById('referral-progress-text');
@@ -7243,6 +7322,7 @@ window.FCApp = (function () {
     disconnectBank,
     deleteAccount,
     // Auth flows
+    handleAppleSignIn: () => FCAuth.signInWithApple(),
     handleLogin,
     handleBiometricLogin,
     handleRegister,
@@ -7353,6 +7433,12 @@ window.FCApp = (function () {
     getTotalBudgetLimit: () => (state.budgets && state.budgets['total'] ? state.budgets['total'].limit : 3000),
     // Dashboard UI
     toggleInsights,
+    // Alert banner tap — routes to the most relevant tab based on alert type
+    _alertBannerTap() {
+      const banner = document.getElementById('home-alert-inner');
+      const tab    = banner?.dataset?.alertTab || 'activity';
+      switchTab(tab);
+    },
     // Today's Focus card
     nextFocusInsight() {
       if (!_focusInsights.length) return;
