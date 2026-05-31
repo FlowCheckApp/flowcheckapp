@@ -58,6 +58,7 @@
       environment: _FC_ENV,
       // Tag each release so you can filter errors by app version
       release: 'flowcheck@1.0.0', // bump this when you ship
+      sendDefaultPii: false,       // don't auto-collect IP address or other PII
       // Sample 100% of errors (it's a finance app — we want to know about everything)
       sampleRate: 1.0,
       // No performance tracing — keeps it lightweight and privacy-safe
