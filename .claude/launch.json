@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "flowcheck",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", "-p", "4321", "www"],
+      "port": 4321
+    }
+  ]
+}
