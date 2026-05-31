@@ -44,12 +44,22 @@
   crossorigin="anonymous"
 ></script>
 <script>
+  // Detect environment before FC_CONFIG loads (which comes later).
+  // Capacitor sets window.Capacitor.isNative; localhost = dev.
+  var _FC_ENV = (function() {
+    if (window.location && window.location.hostname === 'localhost') return 'development';
+    if (window.Capacitor && window.Capacitor.isNative) return 'production';
+    return 'production';
+  })();
+
   if (window.Sentry) {
     Sentry.init({
       dsn: 'https://07094d98e074d8342836afae89064009@o4511482277789696.ingest.us.sentry.io/4511485601972224',
-      // Only send errors in production — suppresses noise during development
-      enabled: true,
-      environment: (window.FC_CONFIG && window.FC_CONFIG.app && window.FC_CONFIG.app.env) || 'production',
+      // Suppress noise during local development
+      enabled: _FC_ENV !== 'development',
+      environment: _FC_ENV,
+      // Tag each release so you can filter errors by app version
+      release: 'flowcheck@1.0.0', // bump this when you ship
       // Sample 100% of errors (it's a finance app — we want to know about everything)
       sampleRate: 1.0,
       // No performance tracing — keeps it lightweight and privacy-safe

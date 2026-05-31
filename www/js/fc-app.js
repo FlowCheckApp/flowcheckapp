@@ -5511,6 +5511,8 @@ window.FCApp = (function () {
 
   async function boot() {
     fcLog('App booting…');
+    // TODO: remove after Sentry confirms first event received
+    if (window.Sentry) Sentry.captureMessage('Sentry frontend verification', 'info');
     FCAuth.init();
     _initPullToRefresh();
 

@@ -17,6 +17,33 @@
 'use strict';
 require('dotenv').config();
 
+/* ── Sentry — must be initialized before anything else ──────── */
+const Sentry = require('@sentry/node');
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV || 'production',
+    release: process.env.RAILWAY_GIT_COMMIT_SHA || undefined,
+    tracesSampleRate: 0,        // no perf tracing — keeps it lightweight
+    // Never send financial data or PII in error payloads
+    beforeSend(event) {
+      if (event.request) {
+        delete event.request.cookies;
+        if (event.request.headers) {
+          delete event.request.headers['authorization'];
+          delete event.request.headers['cookie'];
+        }
+        // Don't log request bodies — may contain SSN, DOB, account data
+        delete event.request.data;
+      }
+      return event;
+    },
+  });
+  console.log('[Sentry] Initialized — backend error tracking active');
+} else {
+  console.warn('[Sentry] SENTRY_DSN not set — error tracking disabled');
+}
+
 const express      = require('express');
 const cors         = require('cors');
 const helmet       = require('helmet');
@@ -2638,6 +2665,12 @@ app.post('/attest/verify', requireAuth, _attestLimiter, async (req, res) => {
   }
 });
 
+/* ── Sentry error handler — must come BEFORE the generic error handler ── */
+// Captures unhandled errors and passes them to Sentry before responding.
+if (process.env.SENTRY_DSN) {
+  Sentry.setupExpressErrorHandler(app);
+}
+
 /* ── Global Express error handler ──────────────────────────────── */
 // Catches any error passed to next(err) or thrown in async routes
 // that isn't caught by their own try/catch.
@@ -2659,12 +2692,12 @@ app.use((err, req, res, next) => {
    ─────────────────────────────────────────────────────────────── */
 process.on('unhandledRejection', (reason, promise) => {
   console.error('[Process] Unhandled promise rejection:', reason);
-  // Don't crash — Railway will restart on exit code 1.
-  // Logging is sufficient; the individual request paths have their own error handling.
+  if (process.env.SENTRY_DSN) Sentry.captureException(reason);
 });
 
 process.on('uncaughtException', (err) => {
   console.error('[Process] Uncaught exception:', err);
+  if (process.env.SENTRY_DSN) Sentry.captureException(err);
   // For truly unexpected errors, exit cleanly so Railway restarts the process.
   process.exit(1);
 });
