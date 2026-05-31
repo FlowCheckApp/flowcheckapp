@@ -440,19 +440,29 @@ body.fc-theme {
   flex-direction: column;
   align-items: center;
   gap: 4px;
+  padding-top: 8px;             /* fixed — no layout shift on tab switch */
   color: var(--fc-text-faint);
   text-decoration: none;
   font-size: 10px;
   font-weight: 500;
-  transition: color 0.2s var(--fc-ease-out), transform 0.15s var(--fc-ease-spring);
+  /* Single consolidated transition — color, icon lift, press scale */
+  transition: color 0.18s var(--fc-ease-out),
+              transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1),
+              opacity 0.1s;
+  will-change: transform;
   cursor: pointer;
   user-select: none;
   -webkit-user-select: none;
 }
-.fc-nav-item.active { color: var(--fc-accent); padding-top: 14px; }
-.fc-nav-item:not(.active) { padding-top: 8px; }
+.fc-nav-item.active { color: var(--fc-accent); }
+/* Lift icon on active using GPU-composited transform — no layout cost */
+.fc-nav-item.active svg { transform: translateY(-3px); }
+.fc-nav-item svg {
+  width: 22px; height: 22px;
+  transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
+  will-change: transform;
+}
 .fc-nav-item:active { transform: scale(0.90); }
-.fc-nav-item svg { width: 22px; height: 22px; }
 .fc-nav-item.active svg {
   filter: drop-shadow(0 0 6px rgba(26,196,240,0.5));
 }

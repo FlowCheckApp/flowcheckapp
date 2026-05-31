@@ -1061,23 +1061,29 @@ window.FCApp = (function () {
       item.setAttribute('tabindex', active ? '0' : '-1');
     });
 
-    // Trigger tab-specific refresh.
-    // Insights is deferred one rAF so the slide animation starts cleanly
-    // before the heavy synchronous render (health score ring, charts, etc.)
-    // runs — without the deferral the view visibly shakes during the 260ms
-    // slide transition.
-    if (tabId === 'home')     _renderHome();
-    if (tabId === 'activity') {
-      if (_activitySegment === 'bills') _renderBillsList();
-      else _renderActivity();
+    // Defer ALL heavy renders past the 280ms slide animation.
+    // Running innerHTML writes synchronously while the CSS slide composites
+    // causes layout thrash and dropped frames on WKWebView — the browser is
+    // forced to interleave style recalculations with GPU compositing.
+    // 290ms clears the animation window; insights was already deferred, now
+    // all tabs follow the same pattern for consistent smoothness.
+    const ANIM_MS = 290;
+    if (tabId === 'home') {
+      setTimeout(_renderHome, ANIM_MS);
+    } else if (tabId === 'activity') {
+      setTimeout(() => {
+        if (_activitySegment === 'bills') _renderBillsList();
+        else _renderActivity();
+      }, ANIM_MS);
+    } else if (tabId === 'insights') {
+      setTimeout(_renderInsights, ANIM_MS);
+    } else if (tabId === 'goals') {
+      setTimeout(_renderGoals, ANIM_MS);
+    } else if (tabId === 'wealth') {
+      setTimeout(_renderWealth, ANIM_MS);
+    } else if (tabId === 'settings') {
+      setTimeout(_renderSettings, ANIM_MS);
     }
-    // Slide animation is 280ms — deferring one rAF (~16ms) still puts the
-    // heavy render inside the animation window. Defer past the animation so
-    // the slide finishes before any layout-thrashing DOM writes happen.
-    if (tabId === 'insights') setTimeout(_renderInsights, 290);
-    if (tabId === 'goals')    _renderGoals();   // legacy — kept in case
-    if (tabId === 'wealth')   _renderWealth();
-    if (tabId === 'settings') _renderSettings();
 
     haptic('light');
     if (typeof FCAnalytics !== 'undefined') FCAnalytics.screen('tab_' + tabId);
@@ -5790,7 +5796,8 @@ window.FCApp = (function () {
     };
     const tab = routeMap[type] || 'home';
     closeNotificationCenter();
-    setTimeout(() => switchTab(tab), 200);
+    // Switch tab after notification center close animation (~200ms)
+    setTimeout(() => switchTab(tab), 220);
     haptic('light');
   }
 
@@ -5891,7 +5898,9 @@ window.FCApp = (function () {
 
   function closeBankSheet() {
     const sheet = document.getElementById('fc-bank-sheet');
-    if (sheet) sheet.style.display = 'none';
+    if (!sheet) return;
+    sheet.classList.add('fc-sheet--closing');
+    setTimeout(() => { sheet.style.display = 'none'; sheet.classList.remove('fc-sheet--closing'); }, 280);
   }
 
   function showDisconnectConfirm() {
@@ -5911,7 +5920,9 @@ window.FCApp = (function () {
 
   function closeDisconnectSheet() {
     const sheet = document.getElementById('fc-disconnect-sheet');
-    if (sheet) sheet.style.display = 'none';
+    if (!sheet) return;
+    sheet.classList.add('fc-sheet--closing');
+    setTimeout(() => { sheet.style.display = 'none'; sheet.classList.remove('fc-sheet--closing'); }, 280);
   }
 
   function showDeleteSheet() {
@@ -5925,7 +5936,9 @@ window.FCApp = (function () {
 
   function closeDeleteSheet() {
     const sheet = document.getElementById('fc-delete-sheet');
-    if (sheet) sheet.style.display = 'none';
+    if (!sheet) return;
+    sheet.classList.add('fc-sheet--closing');
+    setTimeout(() => { sheet.style.display = 'none'; sheet.classList.remove('fc-sheet--closing'); }, 280);
   }
 
   /* ─────────────────────────────────────────────────────────────
@@ -6046,8 +6059,8 @@ window.FCApp = (function () {
     });
 
     if (autoTrigger) {
-      // Small delay so the lock screen is visible before the OS dialog appears
-      setTimeout(() => triggerBiometricUnlock(), 450);
+      // Trigger Face ID as soon as the 200ms fade-in completes — feels instant
+      setTimeout(() => triggerBiometricUnlock(), 210);
     }
   }
 
@@ -6472,8 +6485,9 @@ window.FCApp = (function () {
 
   function closeGoalSheet() {
     const sheet = document.getElementById('fc-goal-sheet');
-    if (sheet) sheet.style.display = 'none';
-    _editingGoalId = null;
+    if (!sheet) return;
+    sheet.classList.add('fc-sheet--closing');
+    setTimeout(() => { sheet.style.display = 'none'; sheet.classList.remove('fc-sheet--closing'); _editingGoalId = null; }, 280);
   }
 
   async function saveGoal() {
@@ -6543,7 +6557,9 @@ window.FCApp = (function () {
 
   function closeManualAccountSheet() {
     const sheet = document.getElementById('fc-manual-account-sheet');
-    if (sheet) sheet.style.display = 'none';
+    if (!sheet) return;
+    sheet.classList.add('fc-sheet--closing');
+    setTimeout(() => { sheet.style.display = 'none'; sheet.classList.remove('fc-sheet--closing'); }, 280);
   }
 
   async function saveManualAccount() {
@@ -6630,8 +6646,9 @@ window.FCApp = (function () {
 
   function closeBillSheet() {
     const sheet = document.getElementById('fc-bill-sheet');
-    if (sheet) sheet.style.display = 'none';
-    _editingBillId = null;
+    if (!sheet) return;
+    sheet.classList.add('fc-sheet--closing');
+    setTimeout(() => { sheet.style.display = 'none'; sheet.classList.remove('fc-sheet--closing'); _editingBillId = null; }, 280);
   }
 
   async function saveBill() {
@@ -6744,8 +6761,9 @@ window.FCApp = (function () {
 
   function closeTransactionSheet() {
     const sheet = document.getElementById('fc-txn-sheet');
-    if (sheet) sheet.style.display = 'none';
-    _editingTxnId = null;
+    if (!sheet) return;
+    sheet.classList.add('fc-sheet--closing');
+    setTimeout(() => { sheet.style.display = 'none'; sheet.classList.remove('fc-sheet--closing'); _editingTxnId = null; }, 280);
   }
 
   async function saveTransactionEdit() {
@@ -6898,8 +6916,9 @@ window.FCApp = (function () {
 
   function closeCategoryBudgetSheet() {
     const sheet = document.getElementById('fc-budget-sheet');
-    if (sheet) sheet.style.display = 'none';
-    _editingBudgetCategory = null;
+    if (!sheet) return;
+    sheet.classList.add('fc-sheet--closing');
+    setTimeout(() => { sheet.style.display = 'none'; sheet.classList.remove('fc-sheet--closing'); _editingBudgetCategory = null; }, 280);
   }
 
   async function saveCategoryBudget() {
