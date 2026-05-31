@@ -1209,7 +1209,7 @@ window.FCApp = (function () {
     return Math.min(Math.round(score), 850);
   }
 
-  function _renderHealthScore(score, monthIncome, monthSpend, unpaidBills, overdueCount) {
+  function _renderHomeHealthScore(score, monthIncome, monthSpend, unpaidBills, overdueCount) {
     const numEl   = document.getElementById('health-score-num');
     const ringEl  = document.getElementById('health-score-ring');
     const labelEl = document.getElementById('health-score-label');
@@ -3492,7 +3492,7 @@ window.FCApp = (function () {
 
     // ── Financial Health Score ────────────────────────────────────
     const healthScore = _calcHealthScore(monthIncome, monthSpend, unpaidBillsTotal, overdueCount);
-    _renderHealthScore(healthScore, monthIncome, monthSpend, unpaidBillsTotal, overdueCount);
+    _renderHomeHealthScore(healthScore, monthIncome, monthSpend, unpaidBillsTotal, overdueCount);
 
     // ── Credit Score card ────────────────────────────────────────
     _renderCreditScore();
@@ -6054,13 +6054,14 @@ window.FCApp = (function () {
     screen.classList.remove('hidden');
     screen.style.opacity = '0';
     requestAnimationFrame(() => {
-      screen.style.transition = 'opacity 0.2s ease';
+      screen.style.transition = 'opacity 0.15s ease';
       screen.style.opacity    = '1';
     });
 
     if (autoTrigger) {
-      // Trigger Face ID as soon as the 200ms fade-in completes — feels instant
-      setTimeout(() => triggerBiometricUnlock(), 210);
+      // Trigger Face ID on the next frame — lock screen appears simultaneously
+      // with the OS biometric dialog, making the experience feel instant.
+      requestAnimationFrame(() => triggerBiometricUnlock());
     }
   }
 
@@ -7096,22 +7097,20 @@ window.FCApp = (function () {
      ───────────────────────────────────────────────────────────── */
 
   /**
-   * Generate a deterministic referral code from the user's UID.
-   * Format: "FLOW" + first 6 chars of UID, uppercased (e.g. "FLOWABC123")
-   * Stored in Firestore so it persists across devices.
+   * Returns the user's referral code, generating one via the backend if needed.
+   * Uses the cached Firestore value when available; calls /api/referral/generate
+   * for atomicity and abuse-prevention on first generation.
    */
   function _getReferralCode() {
     const user = state.user;
     if (!user) return null;
-    // Use stored code if available
     if (user.referral_code) return user.referral_code;
-    // Generate deterministically from UID
-    const uid = FCAuth.currentUser()?.uid || user.uid || '';
-    if (!uid) return null;
-    const code = 'FLOW' + uid.replace(/[^A-Za-z0-9]/g, '').slice(0, 6).toUpperCase();
-    // Persist so it's consistent across sessions
-    try { FCData.updateUserField('referral_code', code); } catch (_) { /* best-effort */ }
-    return code;
+    // Generate via backend (atomic, abuse-resistant) then cache locally
+    FCAuth.authedFetch(`${FC_CONFIG.app.apiBase}/api/referral/generate`, { method: 'POST' })
+      .then(r => r.json())
+      .then(({ code }) => { if (code && state.user) state.user.referral_code = code; })
+      .catch(() => {});
+    return null; // caller re-reads once Firestore listener updates state.user.referral_code
   }
 
   function showReferralSheet() {
