@@ -1023,8 +1023,9 @@ window.FCApp = (function () {
     const container = document.getElementById('bills-full-list');
     if (!container) return;
 
-    const unpaid = state.bills.filter(b => b.status !== 'paid');
-    const paid   = state.bills.filter(b => b.status === 'paid');
+    const byDue  = (a, b) => (FCData.daysUntil(a.due_date) ?? 999) - (FCData.daysUntil(b.due_date) ?? 999);
+    const unpaid = state.bills.filter(b => b.status !== 'paid').sort(byDue);
+    const paid   = state.bills.filter(b => b.status === 'paid').sort(byDue);
 
     if (!state.bills.length) {
       container.innerHTML = `
@@ -1050,11 +1051,11 @@ window.FCApp = (function () {
       return `
         <div class="fc-list-item" style="cursor:pointer" onclick="FCApp.editBill('${b.id}')" role="button">
           <div class="fc-list-icon" style="background:${bg};color:white;font-weight:700;font-size:16px">
-            ${b.icon || b.name.charAt(0)}
+            ${esc(b.icon || b.name.charAt(0))}
           </div>
           <div class="fc-list-body">
-            <div class="fc-list-title">${b.name}</div>
-            <div class="fc-list-meta">${b.category || 'Bill'} · ${b.frequency || 'monthly'}</div>
+            <div class="fc-list-title">${esc(b.name)}</div>
+            <div class="fc-list-meta">${esc(b.category || 'Bill')} · ${esc(b.frequency || 'monthly')}</div>
           </div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">
             <div class="fc-list-amount">${FCData.formatCurrency(b.amount)}</div>
@@ -1085,6 +1086,7 @@ window.FCApp = (function () {
 
   function switchTab(tabId) {
     if (state.tab === tabId) return;
+    haptic('light');
     const prev = state.tab;
     state.tab  = tabId;
 
@@ -1173,6 +1175,12 @@ window.FCApp = (function () {
     prefix   = prefix  || '';
     suffix   = suffix  || '';
     duration = duration || 1000;
+
+    // Skip re-animation if value hasn't changed — prevents count-up replay on
+    // every Firestore listener tick that rebuilds the same DOM node.
+    const prevTarget = parseFloat(element.dataset.animTarget ?? 'NaN');
+    if (!isNaN(prevTarget) && Math.abs(prevTarget - target) < 0.005) return;
+    element.dataset.animTarget = target;
 
     const startValue = parseFloat(element.dataset.animVal || '0');
     const startTime  = performance.now();
@@ -1525,9 +1533,10 @@ window.FCApp = (function () {
    *  (e.g. the Financial Health Score card and the settings Upgrade row). */
   function _refreshAfterPro() {
     if (state.user) state.user.is_pro = true;
-    try { _renderHome();     } catch (_) {}
-    try { _renderInsights(); } catch (_) {}
-    try { _renderSettings(); } catch (_) {}
+    try { _renderHome();       } catch (_) {}
+    try { _renderActivity();   } catch (_) {}
+    try { _renderInsights();   } catch (_) {}
+    try { _renderSettings();   } catch (_) {}
     const settingsProRow = document.getElementById('settings-pro-row');
     if (settingsProRow) settingsProRow.style.display = 'none';
   }
@@ -2846,16 +2855,21 @@ window.FCApp = (function () {
   };
 
   function _renderAccountPills() {
-    const wrap  = document.getElementById('home-account-pills');
-    const inner = document.getElementById('home-account-pills-inner');
-    const dots  = document.getElementById('acct-dots');
+    const wrap     = document.getElementById('home-account-pills');
+    const inner    = document.getElementById('home-account-pills-inner');
+    const dots     = document.getElementById('acct-dots');
+    const skeleton = document.getElementById('home-acct-skeleton');
     if (!wrap || !inner) return;
 
     if (!state.accounts.length) {
+      // Show skeleton while bank is linked and data is in-flight; hide otherwise
+      const loading = !!(state.user?.plaid_linked && state.syncing);
+      if (skeleton) skeleton.style.display = loading ? '' : 'none';
       wrap.style.display = 'none';
       if (dots) dots.style.display = 'none';
       return;
     }
+    if (skeleton) skeleton.style.display = 'none';
 
     wrap.style.display = '';
 
@@ -3067,11 +3081,19 @@ window.FCApp = (function () {
       .sort((a, b) => FCData.parseDateLocal(b.date) - FCData.parseDateLocal(a.date))
       .slice(0, 5);
 
+    const skeleton = document.getElementById('home-txn-skeleton');
     if (!recent.length) {
       if (section) section.style.display = state.user?.plaid_linked ? '' : 'none';
+      // Show shimmer skeleton while syncing, plain empty state otherwise
+      if (state.user?.plaid_linked && state.syncing) {
+        if (skeleton) skeleton.style.display = '';
+        return;
+      }
+      if (skeleton) skeleton.style.display = 'none';
       container.innerHTML = '<div style="color:var(--fc-text-faint);font-size:13px;padding:14px 0;text-align:center">No transactions yet</div>';
       return;
     }
+    if (skeleton) skeleton.style.display = 'none';
     if (section) section.style.display = '';
 
     const now       = new Date(); now.setHours(0,0,0,0);
@@ -3090,13 +3112,16 @@ window.FCApp = (function () {
       const amt      = t.amount || 0;
       const isCredit = t.isCredit;
       return `
-        <div class="fc-home-txn" onclick="FCApp.switchTab('activity')" role="button" tabindex="0">
+        <div class="fc-home-txn" onclick="FCApp.openTransactionDetail('${esc(t.id)}')" role="button" tabindex="0">
           <div class="fc-home-txn-icon" style="background:${esc(color)}22">${esc(emoji)}</div>
           <div style="flex:1;min-width:0">
             <div style="font-size:13.5px;font-weight:500;color:white;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(name)}</div>
             <div style="font-size:11px;color:var(--fc-text-faint);margin-top:1px">${esc(cat)} · ${esc(dateStr)}</div>
           </div>
-          <div style="font-size:14px;font-weight:700;flex-shrink:0;color:${isCredit ? 'var(--fc-success)' : 'rgba(255,255,255,0.85)'};font-variant-numeric:tabular-nums">${isCredit ? '+' : '−'}${FCData.formatCurrency(amt)}</div>
+          <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+            <div style="font-size:14px;font-weight:700;color:${isCredit ? 'var(--fc-success)' : 'rgba(255,255,255,0.85)'};font-variant-numeric:tabular-nums">${isCredit ? '+' : '−'}${FCData.formatCurrency(amt)}</div>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+          </div>
         </div>`;
     }).join('');
   }
@@ -3127,7 +3152,7 @@ window.FCApp = (function () {
       insights.push({
         type: 'danger',
         label: 'Action Required',
-        body: `${overdue[0].name} was due ${FCData.daysUntil(overdue[0].due_date) * -1} days ago — don't let it hit your credit.`,
+        body: `${overdue[0].name} was due ${Math.abs(FCData.daysUntil(overdue[0].due_date) ?? 0)} days ago — don't let it hit your credit.`,
         action: 'View bill',
         tap: () => FCApp.switchTab('activity')
       });
@@ -3164,7 +3189,7 @@ window.FCApp = (function () {
           label: pct >= 1 ? 'Over Budget' : 'Budget Alert',
           body: pct >= 1
             ? `You've spent ${FCData.formatCurrency(spent)} — ${FCData.formatCurrency(spent - budget)} over your monthly budget.`
-            : `${Math.round(pct * 100)}% of your monthly budget used with ${30 - now.getDate()} days left.`,
+            : `${Math.round(pct * 100)}% of your monthly budget used with ${new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() - now.getDate()} days left.`,
           action: 'Review spending',
           tap: () => FCApp.switchTab('insights')
         });
@@ -3381,6 +3406,7 @@ window.FCApp = (function () {
     if (billsEl) {
       const upcoming = state.bills
         .filter(b => b.status !== 'paid')
+        .sort((a, b) => (FCData.daysUntil(a.due_date) ?? 999) - (FCData.daysUntil(b.due_date) ?? 999))
         .slice(0, 3);
 
       if (!upcoming.length) {
@@ -3495,9 +3521,15 @@ window.FCApp = (function () {
     const incomePeriodEl = document.getElementById('stat-income-period');
     if (incomePeriodEl) incomePeriodEl.textContent = _PERIOD_LABELS[state.period] || 'this month';
 
-    // Quick-stat strip: income (period-aware)
-    const qsIncome = document.getElementById('fch-qs-income');
-    if (qsIncome) qsIncome.textContent = _fmtCompact(periodIncome);
+    // Quick-stat strip: spent (period-aware, red when over 80% of income)
+    const qsSpent = document.getElementById('fch-qs-spent');
+    if (qsSpent) {
+      qsSpent.textContent = _fmtCompact(periodSpend);
+      qsSpent.className = 'dash-sp-val ' + (
+        periodIncome > 0 && periodSpend / periodIncome > 0.9 ? 'dash-red' :
+        periodIncome > 0 && periodSpend / periodIncome > 0.7 ? '' : 'dash-green'
+      );
+    }
 
     // Savings rate → NW footer
     const srEl = document.getElementById('fch-savings-rate');
@@ -3720,7 +3752,15 @@ window.FCApp = (function () {
     }
 
     const filtered = state.searchQuery
-      ? base.filter(t => t.name && t.name.toLowerCase().includes(state.searchQuery.toLowerCase()))
+      ? (() => {
+          const q = state.searchQuery.toLowerCase();
+          return base.filter(t => {
+            const raw      = (t.name || '').toLowerCase();
+            const merchant = (t.merchant_name || '').toLowerCase();
+            const display  = _cleanTxnName(t).toLowerCase();
+            return raw.includes(q) || merchant.includes(q) || display.includes(q);
+          });
+        })()
       : base;
 
     const filterLabel = { all: 'transactions', today: 'transactions today', week: 'transactions this week', month: 'transactions this month', income: 'income transactions' }[_activityFilter] || 'transactions';
@@ -4020,7 +4060,11 @@ window.FCApp = (function () {
       const catBudgets = Object.entries(state.budgets).filter(([k]) => k !== 'total');
       if (catBudgets.length > 0) {
         const onTrack = catBudgets.filter(([cat, b]) => {
-          const spent = periodSpendTxns.filter(t => ((t.category && t.category[0]) || '') === cat).reduce((s, t) => s + t.amount, 0);
+          // Match against the display category (FCData.txnCategory normalises Plaid
+          // raw keys to the same labels the user sees when setting budgets).
+          const spent = periodSpendTxns
+            .filter(t => (FCData.txnCategory ? FCData.txnCategory(t) : (t.category && t.category[0]) || '') === cat)
+            .reduce((s, t) => s + t.amount, 0);
           return spent <= (b.limit || 0);
         }).length;
         const healthPct = Math.round((onTrack / catBudgets.length) * 100);
@@ -6509,6 +6553,7 @@ window.FCApp = (function () {
 
   /** Called from goal card tap — looks up goal by ID then opens edit sheet */
   function editGoal(goalId) {
+    haptic('light');
     const goal = state.goals.find(g => g.id === goalId);
     showAddGoalSheet(goal || null);
   }
@@ -6779,6 +6824,7 @@ window.FCApp = (function () {
   }
 
   function editBill(billId) {
+    haptic('light');
     const bill = state.bills.find(b => b.id === billId);
     showBillSheet(bill || null);
   }
@@ -6803,6 +6849,7 @@ window.FCApp = (function () {
   ];
 
   function openTransactionDetail(txnId) {
+    haptic('light');
     _editingTxnId = txnId;
     const txn = state.transactions.find(t => t.id === txnId);
     if (!txn) return;

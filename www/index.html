@@ -3515,9 +3515,9 @@ body {
       <span class="dash-sp-lbl">Cash</span>
       <span class="dash-sp-val" id="fch-qs-cash">—</span>
     </button>
-    <button class="dash-stat" onclick="FCApp.switchTab('insights')" aria-label="Monthly income">
-      <span class="dash-sp-lbl">Income</span>
-      <span class="dash-sp-val dash-green" id="fch-qs-income">—</span>
+    <button class="dash-stat" onclick="FCApp.switchTab('insights')" aria-label="Monthly spending">
+      <span class="dash-sp-lbl">Spent</span>
+      <span class="dash-sp-val" id="fch-qs-spent">—</span>
     </button>
     <button class="dash-stat"
             onclick="FCApp.switchTab('activity');FCApp.switchActivitySegment&&FCApp.switchActivitySegment('bills')"
@@ -3554,6 +3554,38 @@ body {
   </div>
 
   <!-- ══════════════════════════════════════════════════════════════
+       SKELETON SHIMMER — shown while accounts/transactions load
+       ══════════════════════════════════════════════════════════════ -->
+  <style>
+    @keyframes fcShimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
+    .fc-skel{
+      background:linear-gradient(90deg,rgba(255,255,255,0.05) 25%,rgba(255,255,255,0.10) 50%,rgba(255,255,255,0.05) 75%);
+      background-size:800px 100%;
+      animation:fcShimmer 1.6s ease-in-out infinite;
+      border-radius:8px;
+    }
+    .fc-skel-acct{
+      flex-shrink:0;width:222px;height:144px;border-radius:22px;
+    }
+    .fc-skel-txn{
+      display:flex;align-items:center;gap:12px;padding:13px 16px;
+      border-bottom:0.5px solid rgba(255,255,255,0.04);
+    }
+    .fc-skel-txn:last-child{border-bottom:none}
+  </style>
+  <div id="home-acct-skeleton" class="dash-section fc-fade-up" style="animation-delay:.07s;display:none">
+    <div class="dash-sec-hdr" style="margin-bottom:10px">
+      <span class="dash-sec-title">Accounts</span>
+    </div>
+    <div style="overflow:hidden;padding-left:16px">
+      <div style="display:flex;gap:11px;padding:2px 20px 6px 0">
+        <div class="fc-skel fc-skel-acct"></div>
+        <div class="fc-skel fc-skel-acct" style="opacity:.6"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════
        ACCOUNTS CAROUSEL
        ══════════════════════════════════════════════════════════════ -->
   <div class="dash-section fc-fade-up" style="animation-delay:.07s">
@@ -3578,7 +3610,33 @@ body {
     </div>
     <div class="dash-txn-card">
       <div id="home-recent-txns">
-        <div class="dash-empty">Connect a bank to see transactions</div>
+        <!-- Skeleton rows shown until transactions arrive -->
+        <div id="home-txn-skeleton">
+          <div class="fc-skel-txn">
+            <div class="fc-skel" style="width:36px;height:36px;border-radius:10px;flex-shrink:0"></div>
+            <div style="flex:1;display:flex;flex-direction:column;gap:6px">
+              <div class="fc-skel" style="height:13px;width:55%"></div>
+              <div class="fc-skel" style="height:10px;width:35%;opacity:.6"></div>
+            </div>
+            <div class="fc-skel" style="width:52px;height:14px"></div>
+          </div>
+          <div class="fc-skel-txn">
+            <div class="fc-skel" style="width:36px;height:36px;border-radius:10px;flex-shrink:0;opacity:.8"></div>
+            <div style="flex:1;display:flex;flex-direction:column;gap:6px">
+              <div class="fc-skel" style="height:13px;width:65%;opacity:.8"></div>
+              <div class="fc-skel" style="height:10px;width:40%;opacity:.5"></div>
+            </div>
+            <div class="fc-skel" style="width:44px;height:14px;opacity:.8"></div>
+          </div>
+          <div class="fc-skel-txn">
+            <div class="fc-skel" style="width:36px;height:36px;border-radius:10px;flex-shrink:0;opacity:.6"></div>
+            <div style="flex:1;display:flex;flex-direction:column;gap:6px">
+              <div class="fc-skel" style="height:13px;width:45%;opacity:.6"></div>
+              <div class="fc-skel" style="height:10px;width:30%;opacity:.4"></div>
+            </div>
+            <div class="fc-skel" style="width:48px;height:14px;opacity:.6"></div>
+          </div>
+        </div>
       </div>
     </div>
   </section>
