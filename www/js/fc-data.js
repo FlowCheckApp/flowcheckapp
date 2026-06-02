@@ -134,6 +134,24 @@ window.FCData = (function () {
           method: 'POST',
         });
 
+        // Inject safe-area fix for Plaid Link on notched iPhones.
+        // Plaid's overlay renders at top:0 without accounting for the status bar,
+        // making the X button unreachable. Push it below the safe area.
+        let _plaidSafeAreaStyle = document.getElementById('_plaid-safe-area-fix');
+        if (!_plaidSafeAreaStyle) {
+          _plaidSafeAreaStyle = document.createElement('style');
+          _plaidSafeAreaStyle.id = '_plaid-safe-area-fix';
+          _plaidSafeAreaStyle.textContent = `
+            iframe[id^="plaid-link"],
+            div[id^="plaid-link"] > iframe,
+            div[class*="plaid"] > iframe {
+              padding-top: env(safe-area-inset-top) !important;
+              top: env(safe-area-inset-top) !important;
+            }
+          `;
+          document.head.appendChild(_plaidSafeAreaStyle);
+        }
+
         // 2. Initialise Plaid Link
         _plaidHandler = window.Plaid.create({
           token: link_token,

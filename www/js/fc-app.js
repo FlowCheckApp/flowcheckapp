@@ -1448,23 +1448,24 @@ window.FCApp = (function () {
     }
 
     el.style.display = '';
+    // Escape all offer string fields to prevent XSS if offers come from external config
     el.innerHTML = `
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
-            <span style="font-size:14px">${offer.icon}</span>
-            <span style="font-size:11px;font-weight:700;color:${offer.color};text-transform:uppercase;letter-spacing:0.06em">${offer.badge}</span>
+            <span style="font-size:14px">${esc(offer.icon)}</span>
+            <span style="font-size:11px;font-weight:700;color:${esc(offer.color)};text-transform:uppercase;letter-spacing:0.06em">${esc(offer.badge)}</span>
             <span style="font-size:10px;color:rgba(255,255,255,0.3);margin-left:auto;font-weight:500">Partner</span>
           </div>
-          <div style="font-size:17px;font-weight:700;color:white;line-height:1.3;margin-bottom:6px">${headline}</div>
-          <div style="font-size:13px;color:rgba(255,255,255,0.5);line-height:1.4;margin-bottom:14px">${offer.sub}</div>
-          <button onclick="FCApp.openOffer('${offer.id}')"
-            style="background:${offer.color};color:white;border:none;border-radius:10px;padding:10px 20px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:6px">
-            ${offer.cta}
+          <div style="font-size:17px;font-weight:700;color:white;line-height:1.3;margin-bottom:6px">${esc(headline)}</div>
+          <div style="font-size:13px;color:rgba(255,255,255,0.5);line-height:1.4;margin-bottom:14px">${esc(offer.sub)}</div>
+          <button onclick="FCApp.openOffer('${esc(offer.id)}')"
+            style="background:${esc(offer.color)};color:white;border:none;border-radius:10px;padding:10px 20px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:6px">
+            ${esc(offer.cta)}
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
           </button>
         </div>
-        <div style="width:44px;height:44px;border-radius:12px;background:${offer.color}22;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">${offer.icon}</div>
+        <div style="width:44px;height:44px;border-radius:12px;background:${esc(offer.color)}22;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">${esc(offer.icon)}</div>
       </div>
       <p style="margin:12px 0 0;font-size:11px;color:rgba(255,255,255,0.2);line-height:1.4">
         FlowCheck may earn a commission if you open an account. This doesn't affect our recommendations or your costs.
@@ -1491,6 +1492,9 @@ window.FCApp = (function () {
    *  ended by token expiry or programmatic signOut doesn't leak the previous
    *  user's accounts/transactions into the next sign-in. */
   function _wipeUserState() {
+    // Detach all Firestore listeners first — prevents stale data firing
+    // for a signed-out user when onAuthStateChanged triggers wipe.
+    try { if (typeof FCData !== 'undefined') FCData.detachAllListeners(); } catch (_) {}
     state.user          = null;
     state.accounts      = [];
     state.transactions  = [];
@@ -4774,15 +4778,16 @@ window.FCApp = (function () {
     if (emailEl) emailEl.textContent = displayEmail;
     if (initEl)  initEl.textContent  = displayName.charAt(0).toUpperCase();
 
-    // Biometric toggle
+    // Biometric toggle — set both class and aria-checked correctly
     FCAuth.isBiometricEnabled().then(enabled => {
       const toggle = document.getElementById('toggle-biometric');
-      if (toggle) toggle.classList.toggle('on', enabled);
+      if (toggle) { toggle.classList.toggle('on', enabled); toggle.setAttribute('aria-checked', enabled); }
     });
 
     // Notification toggle
     const notifToggle = document.getElementById('toggle-notifications');
-    if (notifToggle) notifToggle.classList.toggle('on', user.notifications_enabled !== false);
+    const notifsOn = user.notifications_enabled !== false;
+    if (notifToggle) { notifToggle.classList.toggle('on', notifsOn); notifToggle.setAttribute('aria-checked', notifsOn); }
 
     // Institution
     const institutionEl = document.getElementById('settings-institution');
@@ -5019,6 +5024,10 @@ window.FCApp = (function () {
     const btn = document.getElementById('btn-plaid-link');
     if (btn) { btn.disabled = true; btn.textContent = 'Connecting…'; }
 
+    // Suspend idle/lock timer while Plaid Link is open — SMS verification
+    // can take several minutes and we don't want the lock screen covering Plaid's UI.
+    clearTimeout(_idleTimer);
+
     try {
       await FCData.openPlaidLink();
       toast('Bank connected! Syncing your accounts…', 'success', 4000);
@@ -5064,6 +5073,8 @@ window.FCApp = (function () {
       }
     } finally {
       if (btn) { btn.disabled = false; btn.textContent = 'Connect Bank Account'; }
+      // Re-arm idle timer now that Plaid Link is closed
+      _resetIdleTimer();
     }
   }
 
@@ -5935,9 +5946,9 @@ window.FCApp = (function () {
     sheet.style.display = 'flex';
     haptic('light');
 
-    // Warm the backend before fetching — Railway cold-starts can take 10–15s.
-    // 20s timeout gives it enough time to wake before /plaid/items fires.
-    try { await fetch(`${FC_CONFIG.app.apiBase}/health`, { signal: AbortSignal.timeout(20_000) }); } catch (_) {}
+    // Fetch banks — fire health ping in parallel (not sequentially) so cold-start
+    // warm-up doesn't add 20s of latency before the actual request.
+    const warmPing = fetch(`${FC_CONFIG.app.apiBase}/health`, { signal: AbortSignal.timeout(20_000) }).catch(() => {});
 
     // Fetch all linked banks from Firestore
     try {
