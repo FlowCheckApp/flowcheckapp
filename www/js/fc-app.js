@@ -771,19 +771,19 @@ window.FCApp = (function () {
   // Flags are backed by localStorage so app restarts don't re-trigger alerts
   // within the same calendar month.
   function _getBudgetAlerted(level) {
-    const key = `fc_budget_alerted_${level}_${new Date().getMonth()}`;
+    const d = new Date();
+    // Include year so alerts reset each January (not stuck across calendar years)
+    const key = `fc_budget_alerted_${level}_${d.getFullYear()}_${d.getMonth()}`;
     return localStorage.getItem(key) === '1';
   }
   function _setBudgetAlerted(level) {
-    const key = `fc_budget_alerted_${level}_${new Date().getMonth()}`;
+    const d = new Date();
+    const key = `fc_budget_alerted_${level}_${d.getFullYear()}_${d.getMonth()}`;
     localStorage.setItem(key, '1');
-    // Clean up old months (keep only current)
-    for (let m = 0; m < 12; m++) {
-      if (m !== new Date().getMonth()) {
-        localStorage.removeItem(`fc_budget_alerted_80_${m}`);
-        localStorage.removeItem(`fc_budget_alerted_100_${m}`);
-      }
-    }
+    // Clean up keys from other months/years
+    Object.keys(localStorage)
+      .filter(k => k.startsWith('fc_budget_alerted_') && k !== key)
+      .forEach(k => localStorage.removeItem(k));
   }
 
   async function _checkBudgetAlert() {

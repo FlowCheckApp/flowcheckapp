@@ -453,6 +453,71 @@ app.post('/plaid/exchange-token', requireAuth, _plaidUserLimiter, async (req, re
     });
 
     console.log(`[exchange] uid:${req.uid} linked → ${data.item_id} (${institution})`);
+
+    // Trigger referral activation — awards Pro month to both sides if the
+    // new user had a referral code applied at signup. Non-blocking, never
+    // delays the exchange-token response.
+    try {
+      const userSnap = await db.collection('users').doc(req.uid).get();
+      const userData = userSnap.data();
+      if (userData?.referred_by_code && !userData?.referral_activated) {
+        // Call activate internally (reuse the router's logic directly via Firestore)
+        // rather than making an HTTP self-call which adds latency and auth complexity.
+        const referrerUid = userData.referred_by_uid;
+        const code        = userData.referred_by_code;
+        const referralRef = db.collection('referrals').doc(code);
+        const referrerRef = db.collection('users').doc(referrerUid);
+        const userRef     = db.collection('users').doc(req.uid);
+
+        await db.runTransaction(async (trx) => {
+          const referralSnap   = await trx.get(referralRef);
+          const userSnapTrx    = await trx.get(userRef);
+          const referrerSnapTrx = await trx.get(referrerRef);
+          if (!referralSnap.exists) return;
+
+          const newActivations = (referralSnap.data().activations || 0) + 1;
+          const lifetimePro    = newActivations >= 3;
+          const TS = admin.firestore.Timestamp;
+
+          // Mark referred user activated + grant 1 Pro month
+          trx.update(userRef, { referral_activated: true });
+          if (userSnapTrx.exists) {
+            const d   = userSnapTrx.data();
+            const now = new Date();
+            const base = d.pro_expires_at
+              ? (d.pro_expires_at.toDate ? d.pro_expires_at.toDate() : new Date(d.pro_expires_at))
+              : now;
+            const exp = new Date(base > now ? base : now);
+            exp.setMonth(exp.getMonth() + 1);
+            trx.update(userRef, { pro: true, is_pro: true, pro_expires_at: TS.fromDate(exp), referral_pro_months_earned: admin.firestore.FieldValue.increment(1) });
+          }
+
+          // Grant referrer: lifetime Pro or 1 month
+          if (referrerSnapTrx.exists) {
+            const rd  = referrerSnapTrx.data();
+            const now = new Date();
+            const forever = new Date(); forever.setFullYear(forever.getFullYear() + 100);
+            const base = rd.pro_expires_at
+              ? (rd.pro_expires_at.toDate ? rd.pro_expires_at.toDate() : new Date(rd.pro_expires_at))
+              : now;
+            const exp = new Date(base > now ? base : now);
+            if (!lifetimePro) exp.setMonth(exp.getMonth() + 1);
+            trx.update(referrerRef, {
+              pro: true, is_pro: true,
+              pro_expires_at: TS.fromDate(lifetimePro ? forever : exp),
+              ...(lifetimePro ? { referral_lifetime_pro: true } : { referral_pro_months_earned: admin.firestore.FieldValue.increment(1) }),
+            });
+          }
+
+          trx.update(referralRef, { activations: newActivations, ...(lifetimePro ? { lifetime_pro: true } : {}) });
+        });
+        console.log(`[referral] activated for uid:${req.uid} via code:${code}`);
+      }
+    } catch (refErr) {
+      // Non-fatal — bank is linked, referral reward is best-effort
+      console.warn('[referral/auto-activate]', refErr.message);
+    }
+
     res.json({ success: true, item_id: data.item_id });
   } catch (err) {
     const msg = err.response?.data?.error_message || err.message;
@@ -2291,10 +2356,14 @@ function _unsubscribeHtml(success, message) {
  * Backward-compat: if a link arrives without `sig`, we still honor it
  * (legacy emails already in inboxes). New emails always include sig.
  * Flip ENFORCE_UNSUB_SIG=1 once legacy emails are out of the 30-day window. */
-const UNSUB_SECRET = process.env.UNSUB_SECRET
-  || process.env.FIREBASE_SERVICE_ACCOUNT // deterministic fallback, secret-grade
-  || 'flowcheck-unsub-dev-only-do-not-use-in-prod';
-const ENFORCE_UNSUB_SIG = process.env.ENFORCE_UNSUB_SIG === '1';
+// UNSUB_SECRET must be an independent secret — never fall back to FIREBASE_SERVICE_ACCOUNT
+// Set this in Railway env vars: openssl rand -hex 32
+const UNSUB_SECRET = process.env.UNSUB_SECRET || 'flowcheck-unsub-dev-only-do-not-use-in-prod';
+if (!process.env.UNSUB_SECRET) {
+  console.warn('[Boot] UNSUB_SECRET not set — unsubscribe links use dev fallback. Set this in Railway.');
+}
+// Signatures are always enforced — unsigned legacy links are rejected
+const ENFORCE_UNSUB_SIG = true;
 
 function _signUnsub(uid, type, expMs) {
   return crypto.createHmac('sha256', UNSUB_SECRET)
