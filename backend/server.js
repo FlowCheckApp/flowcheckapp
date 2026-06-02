@@ -1555,6 +1555,19 @@ async function _sendFCM(uid, fcmToken, { title, body, type, data = {}, channelId
     Object.entries({ type: String(type || 'general'), ...data }).map(([k, v]) => [k, String(v)])
   );
   try {
+    // Save to Firestore first so the badge count includes this new notification
+    if (uid) await _saveNotification(uid, { title, body, type, data: stringData });
+
+    // Count unread notifications for an accurate badge number
+    let badgeCount = 1;
+    if (uid) {
+      try {
+        const unreadSnap = await db.collection('users').doc(uid)
+          .collection('notifications').where('read', '==', false).get();
+        badgeCount = unreadSnap.size;
+      } catch (_) {}
+    }
+
     await admin.messaging().send({
       token:        fcmToken,
       notification: { title, body },
@@ -1568,7 +1581,7 @@ async function _sendFCM(uid, fcmToken, { title, body, type, data = {}, channelId
           aps: {
             alert:             { title, body },
             sound:             'default',
-            badge:             1,
+            badge:             badgeCount,
             'content-available': 1,
           },
         },
@@ -1578,8 +1591,6 @@ async function _sendFCM(uid, fcmToken, { title, body, type, data = {}, channelId
         notification: { title, body, sound: 'default', channelId },
       },
     });
-    // Persist to Firestore so the in-app notification center picks it up
-    if (uid) await _saveNotification(uid, { title, body, type, data: stringData });
     return true;
   } catch (err) {
     if (err.code === 'messaging/registration-token-not-registered' ||

@@ -1,6 +1,7 @@
 import UIKit
 import Capacitor
 import WebKit
+import UserNotifications
 
 // ─────────────────────────────────────────────────────────────────────────────
 // AppDelegate — FlowCheck iOS application lifecycle
@@ -9,22 +10,29 @@ import WebKit
 //   1. Jailbreak detection    → SecurityChecker.isJailbroken() on launch
 //   2. WKWebView cache wipe   → ensures fresh JS/CSS on every launch
 //   3. Privacy overlay        → UIVisualEffectView blur on resign-active
-//                               (OS-level; protects task-switcher screenshots
-//                                even if the web layer is not yet loaded)
-//   4. App Attest             → attests this device to the backend after auth
-//                               (via AppAttestManager.shared.attestIfNeeded)
+//                               (OS-level; fires before task-switcher screenshot)
+//   4. Native lock screen     → NativeLockScreenViewController on become-active
+//                               (Face ID via LAContext; no web layer involved)
+//   5. App Attest             → attests device to backend after auth
+//
+// Lock screen key in Capacitor Preferences (UserDefaults):
+//   "CapacitorStorage.biometric_enabled" = "true" | "false"
 //
 // ─────────────────────────────────────────────────────────────────────────────
 
 @UIApplicationMain
-class AppDelegate: UIResponder, UIApplicationDelegate {
+class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
 
     var window: UIWindow?
 
-    /// Full-screen blur overlay shown when app is backgrounded.
-    /// UIVisualEffectView works at the UIKit compositing level, so it
-    /// intercepts iOS task-switcher screenshots before they hit the web layer.
+    /// Full-screen blur overlay shown immediately on resign-active.
+    /// Fires before the OS takes its task-switcher screenshot.
     private var privacyOverlay: UIView?
+
+    /// Timestamp of the last successful biometric unlock.
+    /// Prevents re-locking when the OS dismisses the Face ID dialog
+    /// (which briefly backgrounds and re-foregrounds the app).
+    private let lastUnlockKey = "fc_native_last_unlock"
 
     // MARK: - Launch
 
@@ -33,11 +41,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
 
-        // ── 1. Jailbreak detection ───────────────────────────────────────────
-        // Run before any user data is loaded. On jailbroken devices we show a
-        // warning alert. The app continues (Apple guideline: don't hard-block)
-        // but the Capacitor JS layer also runs its own check and can restrict
-        // sensitive functionality.
+        // ── 1. UNUserNotificationCenter delegate ────────────────────────────
+        // Must be set before the app finishes launching so we receive the
+        // willPresent callback for foreground pushes.
+        UNUserNotificationCenter.current().delegate = self
+
+        // ── 2. Jailbreak detection ───────────────────────────────────────────
         if SecurityChecker.isJailbroken() {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in
                 self?.showJailbreakAlert()
@@ -45,13 +54,18 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         }
 
         // ── 2. WKWebView cache wipe ─────────────────────────────────────────
-        // Clears disk + memory cache on every launch so updated JS/CSS assets
-        // are always served fresh from the app bundle. Preserves cookies and
-        // localStorage so auth sessions remain intact across launches.
         WKWebsiteDataStore.default().removeData(
             ofTypes: [WKWebsiteDataTypeDiskCache, WKWebsiteDataTypeMemoryCache],
             modifiedSince: Date(timeIntervalSince1970: 0)
         ) { }
+
+        // ── 3. Idle-lock listener (posted by BiometricPlugin.lock()) ────────
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleShowLockScreen),
+            name: Notification.Name("FCShowNativeLockScreen"),
+            object: nil
+        )
 
         return true
     }
@@ -59,95 +73,207 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     // MARK: - Foreground / Background transitions
 
     func applicationWillResignActive(_ application: UIApplication) {
-        // Fired immediately when the app moves toward background (incoming call,
-        // app switcher swipe, Home button). Show the blur NOW — before the
-        // system takes its task-switcher screenshot — so financial data is
-        // never captured in the screenshot cache.
+        // Show the blur NOW — before the OS takes its task-switcher screenshot.
+        // This fires on: Home button, app switcher swipe, incoming call overlay.
         showPrivacyOverlay()
     }
 
     func applicationDidEnterBackground(_ application: UIApplication) {
-        // Privacy overlay is already visible from willResignActive.
-        // Nothing additional needed here.
+        // Blur is already visible from willResignActive — nothing extra needed.
     }
 
     func applicationWillEnterForeground(_ application: UIApplication) {
-        // Keep the blur visible until the app is fully active.
-        // Removed in applicationDidBecomeActive to avoid a flash.
+        // Keep blur visible until didBecomeActive — avoids a flash.
     }
 
     func applicationDidBecomeActive(_ application: UIApplication) {
-        // App is fully foreground and interactive. Remove the blur now.
-        // Small delay (0.15s) prevents a jarring flash when the system
-        // transition animation is still playing.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
-            self?.removePrivacyOverlay()
+        // Decide: show native lock screen OR just lift the blur.
+        let biometricEnabled = isBiometricEnabled()
+        let justUnlocked     = Date().timeIntervalSince1970 -
+                               UserDefaults.standard.double(forKey: lastUnlockKey) < 8.0
+
+        // Clear delivered notifications + badge when app comes to foreground.
+        // Resets the red badge dot and removes stale banners from Notification Center.
+        clearBadgeAndDelivered()
+
+        if biometricEnabled && !justUnlocked {
+            // Present the native lock screen. It sits on top of the blur so the
+            // transition is seamless — user sees blur → lock screen → Face ID.
+            presentNativeLockScreen()
+        } else {
+            // No lock needed — just lift the blur with a short delay so the
+            // system transition animation has finished first.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self] in
+                self?.removePrivacyOverlay()
+            }
         }
     }
 
     func applicationWillTerminate(_ application: UIApplication) { }
+
+    // MARK: - Native Lock Screen
+
+    @objc private func handleShowLockScreen() {
+        // Fired by the JS idle timer via BiometricPlugin.lock()
+        guard isBiometricEnabled() else { return }
+        showPrivacyOverlay()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+            self?.presentNativeLockScreen()
+        }
+    }
+
+    private func presentNativeLockScreen() {
+        guard let rootVC = window?.rootViewController else { return }
+
+        // Don't stack lock screens if one is already on screen
+        if rootVC.presentedViewController is NativeLockScreenViewController { return }
+        // Walk the presented chain in case something else is on top
+        var top: UIViewController = rootVC
+        while let presented = top.presentedViewController { top = presented }
+        if top is NativeLockScreenViewController { return }
+
+        let lockVC = NativeLockScreenViewController()
+        lockVC.modalPresentationStyle = .overFullScreen
+        lockVC.modalTransitionStyle   = .crossDissolve  // instant — blur is already covering
+
+        lockVC.onUnlocked = { [weak self] in
+            // Record unlock time so the next appStateChange (Face ID dialog dismiss)
+            // doesn't re-lock within 8 seconds.
+            UserDefaults.standard.set(Date().timeIntervalSince1970,
+                                      forKey: self?.lastUnlockKey ?? "fc_native_last_unlock")
+            self?.removePrivacyOverlay()
+        }
+
+        lockVC.onSignOut = {
+            // Tell the Capacitor / JS layer to sign out.
+            // The JS listener in fc-app.js calls FCAuth.signOut() on this event.
+            NotificationCenter.default.post(
+                name: Notification.Name("FCSignOutRequested"),
+                object: nil
+            )
+        }
+
+        // Present instantly (blur is covering — no visual gap).
+        // Remove the blur once the lock VC is fully on screen.
+        top.present(lockVC, animated: false) { [weak self] in
+            self?.removePrivacyOverlay()
+        }
+    }
+
+    // MARK: - UNUserNotificationCenterDelegate
+
+    /// Called when a push arrives while the app is in the foreground.
+    /// Without this, iOS silences foreground pushes entirely.
+    /// We show the banner + play sound so the user sees it even in-app.
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        // Show banner + sound + badge update in foreground (iOS 14+)
+        if #available(iOS 14.0, *) {
+            completionHandler([.banner, .sound, .badge])
+        } else {
+            completionHandler([.alert, .sound, .badge])
+        }
+    }
+
+    /// Called when the user taps a notification (foreground or background).
+    /// Forwards to Capacitor so the JS pushNotificationActionPerformed listener fires.
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        // Let Capacitor handle routing — its PushNotifications plugin
+        // listens for this and fires pushNotificationActionPerformed in JS.
+        NotificationCenter.default.post(
+            name: Notification.Name(CAPNotifications.didReceiveNotification.name()),
+            object: response.notification
+        )
+        completionHandler()
+    }
+
+    // MARK: - Badge Management
+
+    /// Clears the app icon badge and removes all delivered notifications
+    /// from Notification Center. Called on every foreground transition.
+    private func clearBadgeAndDelivered() {
+        UNUserNotificationCenter.current().removeAllDeliveredNotifications()
+        // Setting applicationIconBadgeNumber to 0 clears the red dot.
+        // Deprecated in iOS 17 but still required for backward compat.
+        UIApplication.shared.applicationIconBadgeNumber = 0
+        if #available(iOS 16.0, *) {
+            UNUserNotificationCenter.current().setBadgeCount(0) { _ in }
+        }
+    }
 
     // MARK: - Privacy Overlay
 
     private func showPrivacyOverlay() {
         guard privacyOverlay == nil, let window = window else { return }
 
-        // Dark blur effect — matches FlowCheck's navy theme
         let blurEffect = UIBlurEffect(style: .systemMaterialDark)
         let blurView   = UIVisualEffectView(effect: blurEffect)
-        blurView.frame = window.bounds
+        blurView.frame            = window.bounds
         blurView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        blurView.alpha = 0
+        blurView.alpha            = 0
 
-        // Lock icon
-        let lockLabel = UILabel()
-        lockLabel.text       = "🔒"
-        lockLabel.font       = UIFont.systemFont(ofSize: 36)
-        lockLabel.translatesAutoresizingMaskIntoConstraints = false
+        // Subtle lock + wordmark centered in the blur
+        let lockCfg  = UIImage.SymbolConfiguration(pointSize: 28, weight: .light)
+        let lockImg  = UIImage(systemName: "lock.fill", withConfiguration: lockCfg)
+        let lockView = UIImageView(image: lockImg)
+        lockView.tintColor = UIColor.white.withAlphaComponent(0.20)
+        lockView.translatesAutoresizingMaskIntoConstraints = false
 
-        // App name label
         let nameLabel       = UILabel()
         nameLabel.text      = "FlowCheck"
-        nameLabel.textColor = UIColor.white.withAlphaComponent(0.28)
-        nameLabel.font      = UIFont.systemFont(ofSize: 16, weight: .semibold)
+        nameLabel.textColor = UIColor.white.withAlphaComponent(0.20)
+        nameLabel.font      = UIFont.systemFont(ofSize: 15, weight: .semibold)
         nameLabel.translatesAutoresizingMaskIntoConstraints = false
 
-        blurView.contentView.addSubview(lockLabel)
+        blurView.contentView.addSubview(lockView)
         blurView.contentView.addSubview(nameLabel)
 
         NSLayoutConstraint.activate([
-            lockLabel.centerXAnchor.constraint(equalTo: blurView.contentView.centerXAnchor),
-            lockLabel.centerYAnchor.constraint(equalTo: blurView.contentView.centerYAnchor,
-                                               constant: -14),
+            lockView.centerXAnchor.constraint(equalTo: blurView.contentView.centerXAnchor),
+            lockView.centerYAnchor.constraint(equalTo: blurView.contentView.centerYAnchor,
+                                              constant: -14),
             nameLabel.centerXAnchor.constraint(equalTo: blurView.contentView.centerXAnchor),
-            nameLabel.topAnchor.constraint(equalTo: lockLabel.bottomAnchor, constant: 8)
+            nameLabel.topAnchor.constraint(equalTo: lockView.bottomAnchor, constant: 8),
         ])
 
-        // Place above all other views including the web view
         window.addSubview(blurView)
         privacyOverlay = blurView
 
-        // Fade in quickly so it's definitely visible before the screenshot
-        UIView.animate(withDuration: 0.12) { blurView.alpha = 1.0 }
+        UIView.animate(withDuration: 0.10) { blurView.alpha = 1.0 }
     }
 
     private func removePrivacyOverlay() {
         guard let overlay = privacyOverlay else { return }
-        UIView.animate(withDuration: 0.2, animations: {
+        privacyOverlay = nil  // nil before animation so re-entrant calls are no-ops
+        UIView.animate(withDuration: 0.18, animations: {
             overlay.alpha = 0
         }, completion: { _ in
             overlay.removeFromSuperview()
-            self.privacyOverlay = nil
         })
+    }
+
+    // MARK: - Helpers
+
+    /// Reads the biometric preference written by Capacitor Preferences JS.
+    /// Capacitor stores values as JSON strings under "CapacitorStorage.<key>".
+    private func isBiometricEnabled() -> Bool {
+        let raw = UserDefaults.standard.string(forKey: "CapacitorStorage.biometric_enabled")
+        return raw == "true"
     }
 
     // MARK: - Jailbreak Alert
 
     private func showJailbreakAlert() {
         guard let rootVC = window?.rootViewController else { return }
-
         let alert = UIAlertController(
-            title: "Security Warning",
+            title:   "Security Warning",
             message: "FlowCheck has detected that this device may be jailbroken. " +
                      "Your financial data could be at risk. Some features may be " +
                      "restricted to protect your account.",
@@ -155,15 +281,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         )
         alert.addAction(UIAlertAction(title: "I Understand", style: .default))
         rootVC.present(alert, animated: true)
-
-        // Notify the Capacitor/JS layer so it can log the event or restrict features
-        NotificationCenter.default.post(
-            name: Notification.Name("FCJailbreakDetected"),
-            object: nil
-        )
+        NotificationCenter.default.post(name: Notification.Name("FCJailbreakDetected"), object: nil)
     }
 
-    // MARK: - Capacitor / URL handling (unchanged)
+    // MARK: - Capacitor / URL handling
 
     func application(
         _ app: UIApplication,

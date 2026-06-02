@@ -5650,12 +5650,12 @@ window.FCApp = (function () {
     // Configure RevenueCat early so offerings are cached by the time paywall shows
     FCPurchases.configure().catch(() => {});
 
-    // Wire up app-resume lock (runs once — the listener persists)
-    _initAppResumeLock();
-    // Wire up idle auto-lock (5-min inactivity → lock screen)
+    // Native layer owns privacy blur + lock screen on iOS.
+    // JS only drives the idle timer — when it fires it calls BiometricAuth.lock()
+    // which tells AppDelegate to show the native lock screen.
     _initIdleLock();
-    // Wire up background privacy blur (task-switcher screenshot protection)
-    _initPrivacyBlur();
+    // Listen for the native lock screen "Use Password Instead" tap
+    _initSignOutListener();
 
     // Observe Firebase auth state
     FCAuth.onAuthStateChanged(async user => {
@@ -5716,7 +5716,7 @@ window.FCApp = (function () {
           setScreen('app');
           _renderHome();
           setTimeout(() => _doSync(false), 900);
-          if (biometricEnabled) showLockScreen();
+          // Native lock screen is handled by AppDelegate on applicationDidBecomeActive
           // Tag Sentry errors with the user's UID (no email or name)
           if (window.Sentry) Sentry.setUser({ id: user.uid });
           // Identify user in analytics (no PII — uid only + non-sensitive properties)
@@ -5769,14 +5769,30 @@ window.FCApp = (function () {
      ───────────────────────────────────────────────────────────── */
 
   function _updateNotifBadge(notifs) {
-    const badge     = document.getElementById('notif-badge');
+    const badge      = document.getElementById('notif-badge');
     const markAllBtn = document.getElementById('notif-mark-all-btn');
-    const unread    = (notifs || []).filter(n => !n.read).length;
+    const unread     = (notifs || []).filter(n => !n.read).length;
     if (badge) {
       badge.textContent = unread > 9 ? '9+' : String(unread);
       badge.style.display = unread > 0 ? 'flex' : 'none';
     }
     if (markAllBtn) markAllBtn.style.display = unread > 0 ? '' : 'none';
+
+    // Sync the native iOS app icon badge number to match in-app unread count.
+    // AppDelegate clears it to 0 on foreground; this keeps it accurate when
+    // the user has unread items and then re-backgrounds.
+    try {
+      const Push = window.Capacitor?.Plugins?.PushNotifications;
+      if (Push && typeof Push.setBadgeNumber === 'function') {
+        Push.setBadgeNumber({ badgeNumber: unread }).catch(() => {});
+      } else if (Push && typeof Push.checkPermissions === 'function') {
+        // Fallback: use LocalNotifications badge API
+        const Local = window.Capacitor?.Plugins?.LocalNotifications;
+        if (Local && typeof Local.setBadge === 'function') {
+          Local.setBadge({ count: unread }).catch(() => {});
+        }
+      }
+    } catch (_) {}
   }
 
   function _renderNotifList(notifs) {
@@ -6156,162 +6172,69 @@ window.FCApp = (function () {
      against physical access to a signed-in device.
      ─────────────────────────────────────────────────────────────
 
-     Lifecycle:
-       showLockScreen()  → shows the overlay, auto-triggers biometric
-       triggerBiometricUnlock() → prompts Face ID
-         success → hideLockScreen()
-         fail    → shows error state, re-prompts after delay
-       unlockWithPassword() → signs out, navigates to login
+     Lifecycle (native):
+       AppDelegate.applicationWillResignActive → UIVisualEffectView blur
+       AppDelegate.applicationDidBecomeActive  → NativeLockScreenViewController
+         Face ID via LAContext → success: scale+fade dismiss
+         "Use Password Instead" → FCSignOutRequested notification → JS signs out
+       JS idle timer → BiometricAuth.lock() plugin → AppDelegate shows lock screen
      ───────────────────────────────────────────────────────────── */
 
-  let _lockActive     = false;
-  let _lastUnlockTime = 0;   // timestamp of last successful unlock
-  let _biometricInFlight = false; // true while the OS Face ID dialog is open
-
   // ── Idle auto-lock ───────────────────────────────────────────
-  const _IDLE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes of inactivity
+  const _IDLE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
   let _idleTimer = null;
 
   // ── Privacy mode (balance masking) ──────────────────────────
   let _privacyModeOn = false;
 
-  // instant=true: no fade-in animation (screen was already covered by privacy overlay)
-  function showLockScreen(autoTrigger = true, instant = false) {
-    if (_lockActive) return;
-    _lockActive = true;
-    clearTimeout(_idleTimer);
-
-    const screen = document.getElementById('fc-lock-screen');
-    if (!screen) { _lockActive = false; return; }
-
-    const btn    = document.getElementById('fc-lock-btn');
-    const status = document.getElementById('lock-status');
-    const sub    = document.getElementById('lock-sub');
-    if (btn)    { btn.classList.remove('fc-lock-success', 'fc-lock-fail'); btn.disabled = false; }
-    if (status) { status.textContent = ''; status.className = 'fc-lock-status'; }
-    if (sub)    sub.textContent = 'Your finances are locked';
-
-    // Strip any leftover animation classes from a previous show/dismiss
-    screen.classList.remove('hidden', 'fc-lock-dismissing', 'fc-lock-fading-in', 'fc-lock-instant');
-
-    if (instant) {
-      // Already covered — show immediately with no entrance animation so
-      // the lock screen is visible the moment the privacy overlay lifts.
-      screen.classList.add('fc-lock-instant');
-    } else {
-      screen.classList.add('fc-lock-fading-in');
-    }
-
-    if (autoTrigger) {
-      // Small pause so the lock screen fully renders before the OS dialog
-      // appears — eliminates the "Face ID pops up from nowhere" jank.
-      setTimeout(() => triggerBiometricUnlock(), 120);
-    }
-  }
-
-  function hideLockScreen() {
-    const screen = document.getElementById('fc-lock-screen');
-    if (!screen) { _lockActive = false; return; }
-
-    // Premium scale-up + fade dismiss
-    screen.classList.remove('fc-lock-fading-in', 'fc-lock-instant');
-    screen.classList.add('fc-lock-dismissing');
-    setTimeout(() => {
-      screen.classList.add('hidden');
-      screen.classList.remove('fc-lock-dismissing');
-      _lockActive = false;
-      _resetIdleTimer();
-    }, 330);
-  }
-
-  async function triggerBiometricUnlock() {
-    const btn    = document.getElementById('fc-lock-btn');
-    const status = document.getElementById('lock-status');
-    const sub    = document.getElementById('lock-sub');
-
-    if (btn)    { btn.disabled = true; btn.classList.remove('fc-lock-success', 'fc-lock-fail'); }
-    if (status) { status.textContent = ''; status.className = 'fc-lock-status'; }
-    if (sub)    sub.textContent = 'Scanning…';
-
-    _biometricInFlight = true; // block appStateChange from re-triggering lock
-
-    try {
-      await FCAuth.promptBiometric('Unlock FlowCheck');
-
-      // Success
-      _biometricInFlight = false;
-      _lastUnlockTime    = Date.now(); // cooldown — ignore next appStateChange
-      haptic('medium');
-      if (btn) btn.classList.add('fc-lock-success');
-      if (sub) sub.textContent = '';
-      if (status) { status.textContent = '✓ Unlocked'; status.className = 'fc-lock-status success'; }
-
-      setTimeout(() => hideLockScreen(), 520);
-
-    } catch (err) {
-      _biometricInFlight = false;
-      haptic('heavy');
-
-      const cancelled = err.message && (
-        err.message.toLowerCase().includes('cancel') ||
-        err.message.toLowerCase().includes('dismiss') ||
-        err.message.toLowerCase().includes('user cancel')
-      );
-
-      if (btn) {
-        btn.disabled = false;
-        if (!cancelled) btn.classList.add('fc-lock-fail');
-      }
-      if (sub) sub.textContent = 'Your finances are locked';
-
-      if (!cancelled) {
-        if (status) { status.textContent = 'Try again'; status.className = 'fc-lock-status error'; }
-        setTimeout(() => {
-          if (!_lockActive) return;
-          if (btn) btn.classList.remove('fc-lock-fail');
-          if (status) { status.textContent = ''; status.className = 'fc-lock-status'; }
-        }, 1400);
-      } else {
-        if (btn) btn.disabled = false;
-      }
-    }
-  }
-
-  /**
-   * Signs the user out and shows the login screen.
-   * Used when Face ID is unavailable or the user prefers a password.
-   * The existing Firebase session is cleared so they must re-authenticate.
-   */
-  async function unlockWithPassword() {
-    // Dismiss lock screen first so the transition feels smooth
-    hideLockScreen();
-    FCData.detachAllListeners();
-    try { await FCAuth.signOut(); } catch (_) {}
-    // Auth state observer will route to login screen
-  }
-
-  /**
-   * Check whether the lock screen should be shown and do so.
-   * Called after authentication and on app resume.
-   */
-  async function _checkAndLock() {
-    if (_biometricInFlight) return;
-    if (Date.now() - _lastUnlockTime < 8000) return;
-    const user = FCAuth.currentUser();
-    if (!user) return;
-    const enabled = await FCAuth.isBiometricEnabled();
+  /** Called by idle timer — delegates to native AppDelegate via Capacitor plugin. */
+  async function _triggerNativeLock() {
+    if (!FCAuth.currentUser()) return;
+    const enabled = await FCAuth.isBiometricEnabled().catch(() => false);
     if (!enabled) return;
+    try {
+      const BiometricAuth = window.Capacitor?.Plugins?.BiometricAuth;
+      if (BiometricAuth) await BiometricAuth.lock();
+    } catch (_) {}
+  }
 
-    const lockScreen = document.getElementById('fc-lock-screen');
-    const alreadyCovered = lockScreen && !lockScreen.classList.contains('hidden');
-    if (alreadyCovered) {
-      // _initPrivacyBlur already showed the lock screen instantly on background —
-      // just fire Face ID, don't re-show the screen.
-      if (!_biometricInFlight) setTimeout(() => triggerBiometricUnlock(), 120);
-    } else {
-      // Idle timer fired or first-launch — show with a gentle fade-in.
-      showLockScreen(true, false);
-    }
+  /** Listen for the native "Use Password Instead" tap posted by AppDelegate. */
+  function _initSignOutListener() {
+    try {
+      const AppPlugin = window.Capacitor?.Plugins?.App;
+      if (!AppPlugin) return;
+      // Capacitor App plugin forwards NSNotification names as custom events
+      AppPlugin.addListener('FCSignOutRequested', async () => {
+        FCData.detachAllListeners();
+        try { await FCAuth.signOut(); } catch (_) {}
+      });
+    } catch (_) {}
+
+    // Also wire up token-revocation check + delivered notification clear on every resume
+    try {
+      const AppPlugin = window.Capacitor?.Plugins?.App;
+      if (!AppPlugin) return;
+      AppPlugin.addListener('appStateChange', async ({ isActive }) => {
+        if (!isActive) return;
+        // Clear any delivered push banners and badge — AppDelegate does this
+        // natively but calling here catches the JS-only path (simulator/web).
+        if (typeof FCPush !== 'undefined') FCPush.clearDeliveredAndBadge();
+        const user = FCAuth.currentUser();
+        if (!user || typeof user.getIdToken !== 'function') return;
+        try {
+          await user.getIdToken(true);
+        } catch (err) {
+          console.warn('[FCApp] Token revoked on resume — signing out:', err.code || err.message);
+          try { FCData.detachAllListeners(); } catch (_) {}
+          try { await FCAuth.signOut(); } catch (_) {}
+          try {
+            Object.keys(localStorage).filter(k => k.startsWith('fc_'))
+              .forEach(k => localStorage.removeItem(k));
+          } catch (_) {}
+          setScreen('login');
+        }
+      });
+    } catch (_) {}
   }
 
   /* ─────────────────────────────────────────────────────────────
@@ -7095,148 +7018,21 @@ window.FCApp = (function () {
     }
   }
 
-  /**
-   * Register a Capacitor App state listener so the lock screen
-   * appears whenever the app returns from the background.
-   */
-  function _initAppResumeLock() {
-    try {
-      const AppPlugin = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App;
-      if (!AppPlugin) return;
-
-      AppPlugin.addListener('appStateChange', async ({ isActive }) => {
-        if (!isActive) return;
-
-        // ── 1. Show lock screen if the session has been idle ─────────────
-        _checkAndLock();
-
-        // ── 2. Token revocation check ────────────────────────────────────
-        // Firebase tokens are valid for 1 hour but can be revoked server-side
-        // at any time (e.g. password change, admin action, account deletion).
-        // getIdToken(true) forces a fresh token fetch — if the session has
-        // been revoked Firebase throws an error, which we catch here and
-        // immediately sign the user out.
-        //
-        // This runs async in the background so it never delays the lock-screen
-        // transition. A revoked user sees the lock screen first, then gets
-        // redirected to login once the token check resolves.
-        const user = FCAuth.currentUser();
-        if (user && typeof user.getIdToken === 'function') {
-          try {
-            await user.getIdToken(/* forceRefresh */ true);
-          } catch (err) {
-            // Token revoked or user deleted — force sign-out
-            console.warn('[FCApp] Token revoked on resume — signing out:', err.code || err.message);
-            try { if (typeof FCData !== 'undefined') FCData.detachAllListeners(); } catch (_) {}
-            try { await FCAuth.signOut(); } catch (_) {}
-            // Clear any sensitive state that might linger
-            try {
-              Object.keys(localStorage)
-                .filter(k => k.startsWith('fc_'))
-                .forEach(k => localStorage.removeItem(k));
-            } catch (_) {}
-            setScreen('login');
-          }
-        }
-      });
-    } catch (_) {}
-  }
-
-  /**
-   * Reset the idle auto-lock countdown.
-   * Called on every user interaction event (touch, scroll, key).
-   * Starts a fresh 5-minute timer; when it fires and the user is
-   * authenticated, the lock screen is shown.
-   */
+  /** Reset the idle auto-lock countdown on every user interaction. */
   function _resetIdleTimer() {
-    if (!FCAuth.currentUser()) return; // Only arm when someone is logged in
-    if (_lockActive) return;           // Already locked — don't start a new timer
+    if (!FCAuth.currentUser()) return;
     clearTimeout(_idleTimer);
     _idleTimer = setTimeout(() => {
-      if (FCAuth.currentUser() && !_lockActive) {
-        _checkAndLock();
-      }
+      if (FCAuth.currentUser()) _triggerNativeLock();
     }, _IDLE_TIMEOUT_MS);
   }
 
-  /**
-   * Attach document-level event listeners that reset the idle timer.
-   * Uses capture-phase passive listeners so they fire even inside
-   * scrollable containers and can't be accidentally suppressed.
-   */
+  /** Attach passive capture-phase listeners to reset the idle timer. */
   function _initIdleLock() {
-    const RESET_EVENTS = ['touchstart', 'touchmove', 'mousedown', 'mousemove', 'keydown', 'scroll', 'click'];
-    RESET_EVENTS.forEach(ev => {
+    ['touchstart', 'touchmove', 'mousedown', 'keydown', 'scroll', 'click'].forEach(ev => {
       document.addEventListener(ev, _resetIdleTimer, { passive: true, capture: true });
     });
-    _resetIdleTimer(); // Arm the timer immediately on boot
-  }
-
-  /**
-   * Show a privacy overlay whenever the app is backgrounded so iOS
-   * task-switcher screenshots don't capture financial data.
-   *
-   * Uses both `visibilitychange` (fires on all browsers/Capacitor) and
-   * `pagehide` (iOS-specific additional coverage).
-   */
-  function _initPrivacyBlur() {
-    // When going to background: show the lock screen instantly so iOS
-    // task-switcher screenshots are covered AND the lock is already in place
-    // when the user returns — no double-overlay flash.
-    const _showPrivacyCover = () => {
-      const lockScreen = document.getElementById('fc-lock-screen');
-      if (!lockScreen) return;
-      if (_lockActive) return; // already locked — nothing to do
-      if (!FCAuth.currentUser()) return; // not logged in — no lock needed
-
-      // Show lock instantly (no entrance animation) as the privacy shield
-      _lockActive = true;
-      clearTimeout(_idleTimer);
-      const btn    = document.getElementById('fc-lock-btn');
-      const status = document.getElementById('lock-status');
-      const sub    = document.getElementById('lock-sub');
-      if (btn)    { btn.classList.remove('fc-lock-success', 'fc-lock-fail'); btn.disabled = false; }
-      if (status) { status.textContent = ''; status.className = 'fc-lock-status'; }
-      if (sub)    sub.textContent = 'Your finances are locked';
-      lockScreen.classList.remove('hidden', 'fc-lock-dismissing', 'fc-lock-fading-in');
-      lockScreen.classList.add('fc-lock-instant');
-    };
-
-    // When returning: if biometric is enabled the lock screen is already
-    // showing — just fire Face ID. If not enabled, remove the cover.
-    const _handleResume = () => {
-      const lockScreen = document.getElementById('fc-lock-screen');
-      if (!lockScreen || lockScreen.classList.contains('hidden')) return;
-      if (_biometricInFlight) return;
-
-      FCAuth.isBiometricEnabled().then(enabled => {
-        if (enabled && FCAuth.currentUser()) {
-          // Lock screen is already visible — trigger Face ID after a short
-          // pause so the screen settles before the system dialog appears.
-          setTimeout(() => triggerBiometricUnlock(), 120);
-        } else {
-          // Biometric not set up — just clear the cover
-          lockScreen.classList.add('hidden');
-          lockScreen.classList.remove('fc-lock-instant');
-          _lockActive = false;
-          _resetIdleTimer();
-        }
-      }).catch(() => {
-        lockScreen.classList.add('hidden');
-        lockScreen.classList.remove('fc-lock-instant');
-        _lockActive = false;
-      });
-    };
-
-    document.addEventListener('visibilitychange', () => {
-      if (document.hidden) {
-        _showPrivacyCover();
-      } else {
-        _handleResume();
-      }
-    });
-
-    window.addEventListener('pagehide', _showPrivacyCover);
+    _resetIdleTimer();
   }
 
   /**
@@ -7513,11 +7309,6 @@ window.FCApp = (function () {
     // Settings toggles
     toggleBiometric,
     toggleNotifications,
-    // Face ID lock screen
-    showLockScreen,
-    hideLockScreen,
-    triggerBiometricUnlock,
-    unlockWithPassword,
     // Privacy mode (balance masking)
     togglePrivacyMode,
     // Period selector

@@ -13,7 +13,19 @@ public class BiometricAuthNative: CAPPlugin, CAPBridgedPlugin {
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "checkBiometry",  returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "authenticate",   returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "lock",           returnType: CAPPluginReturnPromise),
     ]
+
+    /// Called by the JS idle timer (5-min inactivity) to show the native lock screen.
+    @objc func lock(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(
+                name: Notification.Name("FCShowNativeLockScreen"),
+                object: nil
+            )
+            call.resolve()
+        }
+    }
 
     /// Check whether biometrics are enrolled and available on this device.
     @objc func checkBiometry(_ call: CAPPluginCall) {

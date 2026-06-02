@@ -185,6 +185,18 @@ window.FCPush = (function () {
     } catch (_) {}
   }
 
+  /* ── Clear delivered notifications on foreground ─────────── */
+  // AppDelegate also does this natively, but calling from JS ensures
+  // it runs even on simulators / web where the native layer isn't active.
+  function clearDeliveredAndBadge() {
+    try {
+      const push = Push();
+      if (push && typeof push.removeAllDeliveredNotifications === 'function') {
+        push.removeAllDeliveredNotifications().catch(() => {});
+      }
+    } catch (_) {}
+  }
+
   /* ── Getters ──────────────────────────────────────────────── */
   function getFcmToken() { return _fcmToken; }
 
@@ -195,6 +207,7 @@ window.FCPush = (function () {
     scheduleBillReminder,
     scheduleAllBillReminders,
     cancelAllBillReminders,
+    clearDeliveredAndBadge,
     getFcmToken,
   };
 })();
