@@ -1,38 +1,94 @@
 #!/bin/bash
-# FlowCheck — One-command deploy
-# Usage: ./deploy.sh "your commit message"
-#
-# What this does:
-#   1. Copies www/ files into the iOS Xcode project (no hanging cap sync)
-#   2. Commits and pushes everything to GitHub (Railway auto-deploys from this)
-#   3. Deploys Firestore rules
-#   4. Opens Xcode so you can hit ⌘R
+# FlowCheck — deploy
+# Usage:
+#   ./deploy.sh                     # deploy with auto timestamp message
+#   ./deploy.sh "my commit message"
+#   ./deploy.sh --skip-firebase     # skip Firestore rules deploy
+#   ./deploy.sh "msg" --skip-firebase
 
-set -e
+set -euo pipefail
 
-MSG="${1:-deploy $(date '+%Y-%m-%d %H:%M')}"
-ROOT=~/Desktop/FlowCheck
+ROOT="$(cd "$(dirname "$0")" && pwd)"
+SKIP_FIREBASE=false
+MSG=""
 
-echo "📂 Copying web files to iOS project..."
-cp -r "$ROOT/www/css"        "$ROOT/ios/App/App/public/"
-cp -r "$ROOT/www/js"         "$ROOT/ios/App/App/public/"
-cp -r "$ROOT/www/legal"      "$ROOT/ios/App/App/public/" 2>/dev/null || true
-cp    "$ROOT/www/index.html" "$ROOT/ios/App/App/public/index.html"
-echo "   ✓ Web files copied"
+# Parse args
+for arg in "$@"; do
+  case "$arg" in
+    --skip-firebase) SKIP_FIREBASE=true ;;
+    *)               MSG="$arg" ;;
+  esac
+done
 
-echo "📦 Committing and pushing to GitHub..."
+[[ -z "$MSG" ]] && MSG="deploy $(date '+%Y-%m-%d %H:%M')"
+
+# Colors
+GRN='\033[0;32m'; CYN='\033[0;36m'; RED='\033[0;31m'; DIM='\033[2m'; RST='\033[0m'
+step() { echo -e "\n${CYN}▶ $1${RST}"; }
+ok()   { echo -e "${GRN}  ✓ $1${RST}"; }
+warn() { echo -e "${RED}  ✗ $1${RST}"; }
+
+echo -e "\n${CYN}━━━ FlowCheck Deploy ━━━━━━━━━━━━━━━━━━━━━━━━${RST}"
+echo -e "${DIM}  $MSG${RST}"
+
+# ── 1. Copy web files into iOS bundle ───────────────────────────
+# Bypasses `npx cap sync ios` which hangs due to SPM resolution.
+# cap sync just copies www/ to ios/App/App/public/ — we do it directly.
+step "Copying web files → iOS bundle"
+PUBLIC="$ROOT/ios/App/App/public"
+
+cp -r "$ROOT/www/css"        "$PUBLIC/"
+cp -r "$ROOT/www/js"         "$PUBLIC/"
+cp    "$ROOT/www/index.html" "$PUBLIC/index.html"
+# Optional dirs — skip silently if absent
+[[ -d "$ROOT/www/legal"  ]] && cp -r "$ROOT/www/legal"  "$PUBLIC/" || true
+[[ -d "$ROOT/www/assets" ]] && cp -r "$ROOT/www/assets" "$PUBLIC/" || true
+[[ -d "$ROOT/www/fonts"  ]] && cp -r "$ROOT/www/fonts"  "$PUBLIC/" || true
+
+ok "Web files synced"
+
+# ── 2. Git commit + push ─────────────────────────────────────────
+step "Git commit & push"
 cd "$ROOT"
+
 git add -A
-git commit -m "$MSG" || echo "   Nothing to commit"
+
+if git diff --cached --quiet; then
+  echo -e "${DIM}  (nothing to commit — pushing anyway)${RST}"
+else
+  git commit -m "$MSG"
+  ok "Committed"
+fi
+
 git push
-echo "   ✓ Pushed — Railway will auto-deploy the backend"
+ok "Pushed — Railway will auto-deploy backend"
 
-echo "🔥 Deploying Firestore rules..."
-cd "$ROOT"
-firebase use flowcheck-46570 --non-interactive
-firebase deploy --only firestore:rules
-echo "   ✓ Firestore rules deployed"
+# ── 3. Firestore rules ───────────────────────────────────────────
+if [[ "$SKIP_FIREBASE" == false ]]; then
+  step "Deploying Firestore rules"
+  if command -v firebase &>/dev/null; then
+    cd "$ROOT"
+    firebase use flowcheck-46570 --non-interactive 2>/dev/null || true
+    firebase deploy --only firestore:rules
+    ok "Firestore rules deployed"
+  else
+    warn "firebase CLI not found — skipping rules (run: npm install -g firebase-tools)"
+  fi
+else
+  echo -e "${DIM}  (skipping Firestore — --skip-firebase passed)${RST}"
+fi
 
-echo ""
-echo "✅ Done! Opening Xcode — hit ⌘R to build to device."
-open "$ROOT/ios/App/App.xcodeproj"
+# ── 4. Open Xcode ───────────────────────────────────────────────
+step "Opening Xcode"
+# Prefer .xcworkspace (CocoaPods) if present, fall back to .xcodeproj (SPM)
+XCODE_FILE=""
+if [[ -d "$ROOT/ios/App/App.xcworkspace" ]]; then
+  XCODE_FILE="$ROOT/ios/App/App.xcworkspace"
+else
+  XCODE_FILE="$ROOT/ios/App/App.xcodeproj"
+fi
+
+open "$XCODE_FILE"
+ok "Opened $(basename "$XCODE_FILE")"
+
+echo -e "\n${GRN}━━━ Done — hit ⌘R in Xcode to build to device ━━━${RST}\n"
