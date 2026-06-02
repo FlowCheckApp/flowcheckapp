@@ -4800,7 +4800,7 @@ window.FCApp = (function () {
 
     // Pro badge in new profile card
     const proBadge = document.getElementById('settings-pro-badge');
-    const isPro    = user.is_pro || user.pro;
+    const isPro    = !!(user.is_pro || user.pro || (window.FCPurchases && FCPurchases.isPro()));
     if (proBadge) {
       proBadge.textContent = isPro ? 'Pro ✓' : 'Free';
       proBadge.style.cssText = isPro
@@ -4820,6 +4820,9 @@ window.FCApp = (function () {
     if (proRow) {
       proRow.onclick = isPro ? () => _openCancelSheet() : () => showPaywall();
     }
+    // Cancel row visibility also needs the live RC check
+    const cancelRow = document.getElementById('settings-cancel-sub-row');
+    if (cancelRow) cancelRow.style.display = isPro ? 'flex' : 'none';
 
     // Referral badge — uses referral_activations (the count of friends who connected a bank)
     const refBadge = document.getElementById('settings-referral-badge');
@@ -4833,9 +4836,6 @@ window.FCApp = (function () {
       }
     }
 
-    // Cancel subscription row — only shown for Pro users
-    const cancelRow = document.getElementById('settings-cancel-sub-row');
-    if (cancelRow) cancelRow.style.display = isPro ? 'flex' : 'none';
   }
 
   function _openCancelSheet() {
@@ -6523,7 +6523,7 @@ window.FCApp = (function () {
             haptic('medium');
             try { await FCData.updateUserField('is_pro', true); } catch (_) {}
             setScreen('app');
-            _renderHome();
+            _refreshAfterPro();
             setTimeout(() => _tryStartTour(), 1200);
           } else {
             toast('Not activated yet — try restoring purchases below', 'info', 5000);
