@@ -5750,10 +5750,12 @@ window.FCApp = (function () {
 
     if (!notifs || !notifs.length) {
       listEl.innerHTML = `
-        <div style="text-align:center;padding:40px 20px">
-          <div style="font-size:32px;margin-bottom:10px">🔔</div>
-          <div style="font-size:14px;color:var(--fc-text-faint)">No notifications yet</div>
-          <div style="font-size:12px;color:rgba(255,255,255,0.2);margin-top:4px">We'll alert you about bills, budgets, and more</div>
+        <div style="display:flex;flex-direction:column;align-items:center;padding:48px 24px;gap:10px;text-align:center">
+          <div style="width:56px;height:56px;border-radius:18px;background:linear-gradient(145deg,rgba(26,196,240,0.10),rgba(37,99,235,0.06));border:0.5px solid rgba(26,196,240,0.18);display:flex;align-items:center;justify-content:center;margin-bottom:4px;box-shadow:0 6px 20px rgba(0,0,0,0.28)">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="rgba(26,196,240,0.7)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          </div>
+          <div style="font-size:15px;font-weight:700;color:white;letter-spacing:-0.02em">You're all caught up</div>
+          <div style="font-size:13px;color:rgba(255,255,255,0.35);line-height:1.5;max-width:220px">We'll notify you about bills, budget alerts, and account activity</div>
         </div>`;
       return;
     }
@@ -5769,11 +5771,14 @@ window.FCApp = (function () {
     };
 
     const _typeIcon = (type) => {
-      const icons = {
-        bill_due:     '💳', budget_alert: '⚠️', goal_reached: '🎯',
-        sync_done:    '✅', general:      '🔔',
+      const map = {
+        bill_due:     { icon: '💳', bg: 'rgba(255,69,58,0.14)',   border: 'rgba(255,69,58,0.25)'   },
+        budget_alert: { icon: '⚡', bg: 'rgba(255,159,10,0.14)',  border: 'rgba(255,159,10,0.25)'  },
+        goal_reached: { icon: '🎯', bg: 'rgba(52,199,89,0.14)',   border: 'rgba(52,199,89,0.25)'   },
+        sync_done:    { icon: '✓',  bg: 'rgba(26,196,240,0.12)',  border: 'rgba(26,196,240,0.22)'  },
+        general:      { icon: '🔔', bg: 'rgba(255,255,255,0.07)', border: 'rgba(255,255,255,0.10)' },
       };
-      return icons[type] || '🔔';
+      return map[type] || map.general;
     };
 
     // Deduplicate: show only the most recent notification per type per day.
@@ -5787,18 +5792,36 @@ window.FCApp = (function () {
       return true;
     });
 
-    listEl.innerHTML = deduped.map(n => `
+    listEl.innerHTML = deduped.map(n => {
+      const meta = _typeIcon(n.type);
+      return `
       <div onclick="FCApp._notifTap('${esc(n.id)}','${esc(n.type || 'general')}')"
-           style="display:flex;align-items:flex-start;gap:12px;padding:14px 20px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.04);${n.read ? '' : 'background:rgba(26,196,240,0.04)'}">
-        <div style="width:36px;height:36px;border-radius:10px;background:rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0">${_typeIcon(n.type)}</div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:14px;font-weight:${n.read ? 500 : 600};color:${n.read ? 'rgba(255,255,255,0.6)' : 'white'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(n.title || '')}</div>
-          <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-top:2px;line-height:1.4">${esc(n.body || '')}</div>
-          <div style="font-size:11px;color:rgba(255,255,255,0.25);margin-top:4px">${_timeAgo(n.created_at)}</div>
+           style="display:flex;align-items:flex-start;gap:13px;padding:14px 20px;cursor:pointer;
+                  border-bottom:0.5px solid rgba(255,255,255,0.045);
+                  background:${n.read ? 'transparent' : 'rgba(26,196,240,0.035)'};
+                  transition:background .12s">
+        <div style="width:40px;height:40px;border-radius:13px;
+                    background:${meta.bg};border:0.5px solid ${meta.border};
+                    display:flex;align-items:center;justify-content:center;
+                    font-size:18px;flex-shrink:0;box-shadow:0 3px 10px rgba(0,0,0,0.2)">
+          ${meta.icon}
         </div>
-        ${n.read ? '' : '<div style="width:7px;height:7px;background:var(--fc-accent);border-radius:50%;flex-shrink:0;margin-top:4px"></div>'}
-      </div>`
-    ).join('');
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;font-weight:${n.read ? 500 : 700};
+                      color:${n.read ? 'rgba(255,255,255,0.55)' : 'white'};
+                      letter-spacing:-0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+            ${esc(n.title || '')}
+          </div>
+          <div style="font-size:12px;color:rgba(255,255,255,0.38);margin-top:3px;line-height:1.45">
+            ${esc(n.body || '')}
+          </div>
+          <div style="font-size:10px;font-weight:600;color:rgba(255,255,255,0.22);margin-top:5px;letter-spacing:0.02em">
+            ${_timeAgo(n.created_at)}
+          </div>
+        </div>
+        ${n.read ? '' : '<div style="width:7px;height:7px;background:var(--fc-accent);border-radius:50%;flex-shrink:0;margin-top:5px;box-shadow:0 0 6px rgba(26,196,240,0.6)"></div>'}
+      </div>`;
+    }).join('');
   }
 
   function toggleNotificationCenter() {
@@ -5819,11 +5842,12 @@ window.FCApp = (function () {
     if (!center) return;
 
     _renderNotifList(state.notifications);
-    center.style.display  = 'block';
+    center.style.display       = 'block';
     center.style.pointerEvents = 'auto';
+    // Next frame: animate in as a bottom sheet
     requestAnimationFrame(() => {
-      if (backdrop) backdrop.style.opacity = '1';
-      if (panel) panel.style.transform = 'translateY(0)';
+      if (backdrop) backdrop.style.opacity    = '1';
+      if (panel)    panel.style.transform     = 'translateY(0)';
     });
     haptic('light');
   }
@@ -5833,11 +5857,12 @@ window.FCApp = (function () {
     const backdrop = document.getElementById('fc-notif-backdrop');
     const panel    = document.getElementById('fc-notif-panel');
     if (!center) return;
-    if (backdrop) backdrop.style.opacity = '0';
-    if (panel) panel.style.transform = 'translateY(-100%)';
+    if (backdrop) backdrop.style.opacity  = '0';
+    if (panel)    panel.style.transform   = 'translateY(100%)';  // slide back DOWN
     setTimeout(() => {
-      center.style.display = 'none';
-    }, 300);
+      center.style.display       = 'none';
+      center.style.pointerEvents = 'none';
+    }, 340);
   }
 
   async function markAllNotifsRead() {
@@ -7143,14 +7168,18 @@ window.FCApp = (function () {
     state.period = p;
     haptic('light');
 
-    // Update active button styling on ALL scrubbers (home uses .dash-scrubber,
-    // insights uses .fc-scrubber — both have [data-period] buttons)
+    // Update active button styling on ALL scrubbers (home, insights, any tab)
     document.querySelectorAll('[data-period]').forEach(btn => {
       if (btn.tagName !== 'BUTTON') return;
       const active = btn.dataset.period === p;
       btn.classList.toggle('active', active);
-      // dash-scrub-btn uses aria-selected; fc-scrubber buttons also do
       btn.setAttribute('aria-selected', active ? 'true' : 'false');
+      // For inline-styled scrubber buttons (insights tab), update style directly
+      if (!btn.classList.contains('dash-scrub-btn') && !btn.closest('.fc-scrubber')) {
+        btn.style.background   = active ? 'rgba(26,196,240,0.16)' : 'none';
+        btn.style.color        = active ? '#1ac4f0' : 'rgba(255,255,255,0.38)';
+        btn.style.border       = active ? '0.5px solid rgba(26,196,240,0.28)' : 'none';
+      }
     });
 
     // Re-render home with new period data (chart + insights update inside _renderHome)

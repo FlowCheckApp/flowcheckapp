@@ -438,12 +438,18 @@ app.post('/plaid/exchange-token', requireAuth, _plaidUserLimiter, async (req, re
         linked_at:      admin.firestore.FieldValue.serverTimestamp(),
       });
 
-    // Also maintain the top-level user doc fields for UI display
+    // Maintain top-level user doc — only set plaid_institution on FIRST bank connect
+    // so it doesn't overwrite the name when a second/third bank is added.
+    const userSnap = await db.collection('users').doc(req.uid).get();
+    const alreadyLinked = userSnap.data()?.plaid_institution;
     await db.collection('users').doc(req.uid).update({
-      plaid_linked:         true,
-      plaid_institution:    institution,
-      plaid_institution_id: institution_id,
-      plaid_linked_at:      admin.firestore.FieldValue.serverTimestamp(),
+      plaid_linked:     true,
+      plaid_linked_at:  admin.firestore.FieldValue.serverTimestamp(),
+      // Only write institution fields if this is the first bank linked
+      ...(!alreadyLinked ? {
+        plaid_institution:    institution,
+        plaid_institution_id: institution_id,
+      } : {}),
     });
 
     console.log(`[exchange] uid:${req.uid} linked → ${data.item_id} (${institution})`);
@@ -501,98 +507,119 @@ app.get('/plaid/sync', requireAuth, perUserLimiter(30), async (req, res) => {
     const TS = admin.firestore.FieldValue.serverTimestamp;
     let totalAccounts = 0, totalAdded = 0, totalModified = 0, totalRemoved = 0;
 
+    const itemErrors = [];
+
     for (const itemDoc of itemSnaps) {
-      const itemData = itemDoc.data();
-      const { access_token } = itemData;
-      if (!access_token) continue;
+      // Per-item try/catch — one failing bank doesn't abort sync for all others.
+      // Common failure: ITEM_LOGIN_REQUIRED (user changed bank password).
+      try {
+        const itemData = itemDoc.data();
+        const { access_token } = itemData;
+        if (!access_token) continue;
 
-      /* ── Accounts (always fresh — small write, critical for balance accuracy) ── */
-      const { data: acctData } = await plaid.accountsGet({ access_token });
-      const accounts = acctData.accounts.map(a => ({
-        id:                a.account_id,
-        name:              a.name,
-        official_name:     a.official_name  || null,
-        type:              a.type,
-        subtype:           a.subtype        || null,
-        balance_current:   a.balances.current   ?? 0,
-        balance_limit:     a.balances.limit      ?? null,
-        balance_available: a.balances.available  ?? null,
-        currency:          a.balances.iso_currency_code || 'USD',
-        mask:              a.mask           || null,
-        item_id:           itemData.item_id || itemDoc.id,
-        institution_name:  itemData.institution || '',
-      }));
+        /* ── Accounts (always fresh — small write, critical for balance accuracy) ── */
+        const { data: acctData } = await plaid.accountsGet({ access_token });
+        const accounts = acctData.accounts.map(a => ({
+          id:                a.account_id,
+          name:              a.name,
+          official_name:     a.official_name  || null,
+          type:              a.type,
+          subtype:           a.subtype        || null,
+          balance_current:   a.balances.current   ?? 0,
+          balance_limit:     a.balances.limit      ?? null,
+          balance_available: a.balances.available  ?? null,
+          currency:          a.balances.iso_currency_code || 'USD',
+          mask:              a.mask           || null,
+          item_id:           itemData.item_id || itemDoc.id,
+          institution_name:  itemData.institution || '',
+        }));
 
-      let batch = db.batch();
-      accounts.forEach(a => {
-        batch.set(userRef.collection('accounts').doc(a.id), { ...a, updated_at: TS() }, { merge: true });
-      });
-      await batch.commit();
-
-      /* ── Transactions — cursor-based (only writes the delta, not all history) ── */
-      // After first sync the cursor is stored, so subsequent syncs only write
-      // new/modified/removed transactions — dramatically fewer Firestore writes.
-      let cursor = itemData.plaid_cursor || undefined;
-      let added = [], modified = [], removed = [];
-      let hasMore = true;
-
-      while (hasMore) {
-        const reqBody = { access_token, count: 500 };
-        if (cursor) reqBody.cursor = cursor;
-        const { data } = await plaid.transactionsSync(reqBody);
-        added    = added.concat(data.added);
-        modified = modified.concat(data.modified);
-        removed  = removed.concat(data.removed);
-        hasMore  = data.has_more;
-        cursor   = data.next_cursor;
-      }
-
-      // Persist new cursor so next sync is a true delta
-      await itemDoc.ref.update({ plaid_cursor: cursor });
-
-      /* Write added + modified transactions */
-      const upserts = [...added, ...modified];
-      for (let i = 0; i < upserts.length; i += 400) {
-        batch = db.batch();
-        upserts.slice(i, i + 400).forEach(t => {
-          batch.set(userRef.collection('transactions').doc(t.transaction_id), {
-            id:              t.transaction_id,
-            account_id:      t.account_id,
-            name:            t.name,
-            amount:          Math.abs(t.amount),
-            isCredit:        t.amount < 0,
-            date:            t.date,
-            category:        t.personal_finance_category?.primary
-                               ? [t.personal_finance_category.primary]
-                               : (t.category || []),
-            pending:         t.pending,
-            merchant_name:   t.merchant_name    || null,
-            logo_url:        t.logo_url         || null,
-            payment_channel: t.payment_channel  || null,
-            updated_at:      TS(),
-          }, { merge: true });
+        let batch = db.batch();
+        accounts.forEach(a => {
+          batch.set(userRef.collection('accounts').doc(a.id), { ...a, updated_at: TS() }, { merge: true });
         });
         await batch.commit();
-      }
 
-      /* Delete removed transactions */
-      for (let i = 0; i < removed.length; i += 400) {
-        batch = db.batch();
-        removed.slice(i, i + 400).forEach(r => {
-          batch.delete(userRef.collection('transactions').doc(r.transaction_id));
-        });
-        await batch.commit();
-      }
+        /* ── Transactions — cursor-based (only writes the delta, not all history) ── */
+        let cursor = itemData.plaid_cursor || undefined;
+        let added = [], modified = [], removed = [];
+        let hasMore = true;
 
-      totalAccounts  += accounts.length;
-      totalAdded     += added.length;
-      totalModified  += modified.length;
-      totalRemoved   += removed.length;
-      console.log(`[sync] uid:${req.uid} item:${itemDoc.id} → ${accounts.length} accounts, +${added.length}~${modified.length}-${removed.length} txns`);
+        while (hasMore) {
+          const reqBody = { access_token, count: 500 };
+          if (cursor) reqBody.cursor = cursor;
+          const { data } = await plaid.transactionsSync(reqBody);
+          added    = added.concat(data.added);
+          modified = modified.concat(data.modified);
+          removed  = removed.concat(data.removed);
+          hasMore  = data.has_more;
+          cursor   = data.next_cursor;
+        }
+
+        // Persist new cursor so next sync is a true delta
+        await itemDoc.ref.update({ plaid_cursor: cursor, needs_reauth: false });
+
+        /* Write added + modified transactions */
+        const upserts = [...added, ...modified];
+        for (let i = 0; i < upserts.length; i += 400) {
+          batch = db.batch();
+          upserts.slice(i, i + 400).forEach(t => {
+            batch.set(userRef.collection('transactions').doc(t.transaction_id), {
+              id:              t.transaction_id,
+              account_id:      t.account_id,
+              name:            t.name,
+              amount:          Math.abs(t.amount),
+              isCredit:        t.amount < 0,
+              date:            t.date,
+              category:        t.personal_finance_category?.primary
+                                 ? [t.personal_finance_category.primary]
+                                 : (t.category || []),
+              pending:         t.pending,
+              merchant_name:   t.merchant_name    || null,
+              logo_url:        t.logo_url         || null,
+              payment_channel: t.payment_channel  || null,
+              updated_at:      TS(),
+            }, { merge: true });
+          });
+          await batch.commit();
+        }
+
+        /* Delete removed transactions */
+        for (let i = 0; i < removed.length; i += 400) {
+          batch = db.batch();
+          removed.slice(i, i + 400).forEach(r => {
+            batch.delete(userRef.collection('transactions').doc(r.transaction_id));
+          });
+          await batch.commit();
+        }
+
+        totalAccounts  += accounts.length;
+        totalAdded     += added.length;
+        totalModified  += modified.length;
+        totalRemoved   += removed.length;
+        console.log(`[sync] uid:${req.uid} item:${itemDoc.id} → ${accounts.length} accounts, +${added.length}~${modified.length}-${removed.length} txns`);
+
+      } catch (itemErr) {
+        const plaidCode = itemErr.response?.data?.error_code;
+        const plaidMsg  = itemErr.response?.data?.error_message || itemErr.message;
+        console.error(`[sync] item ${itemDoc.id} failed: ${plaidCode || plaidMsg}`);
+        itemErrors.push({ item_id: itemDoc.id, error_code: plaidCode, message: plaidMsg });
+        // Flag item for re-auth in Firestore so the client can surface a reconnect prompt
+        if (plaidCode === 'ITEM_LOGIN_REQUIRED' || plaidCode === 'ITEM_NOT_FOUND') {
+          await itemDoc.ref.update({ needs_reauth: true }).catch(() => {});
+        }
+        // Continue to next item — one bad bank doesn't fail the whole sync
+      }
     }
 
     await userRef.update({ last_synced: TS() });
-    res.json({ accounts: totalAccounts, added: totalAdded, modified: totalModified, removed: totalRemoved });
+
+    // Return 200 if any items succeeded, 207 if mixed, 500 only if ALL failed
+    const statusCode = totalAccounts > 0 ? 200 : (itemErrors.length === itemSnaps.length ? 500 : 207);
+    res.status(statusCode).json({
+      accounts: totalAccounts, added: totalAdded, modified: totalModified, removed: totalRemoved,
+      ...(itemErrors.length ? { item_errors: itemErrors } : {}),
+    });
   } catch (err) {
     const msg = err.response?.data?.error_message || err.message;
     console.error('[sync]', msg);

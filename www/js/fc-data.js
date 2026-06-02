@@ -65,9 +65,11 @@ window.FCData = (function () {
 
     const idToken = await user.getIdToken();
 
-    // Hard 15-second timeout — Railway cold-starts can be slow but shouldn't hang forever
+    // 30-second timeout — sync across multiple banks can take longer than 15s
+    // especially on first sync or Railway cold-start
+    const isSyncEndpoint = url.includes('/plaid/sync');
     const controller = new AbortController();
-    const timeoutId  = setTimeout(() => controller.abort(), 15_000);
+    const timeoutId  = setTimeout(() => controller.abort(), isSyncEndpoint ? 30_000 : 15_000);
 
     let res;
     try {
@@ -213,13 +215,11 @@ window.FCData = (function () {
    * Returns array of { id, item_id, institution, institution_id, linked_at, … }
    */
   async function getPlaidItems() {
-    try {
-      const result = await _authedFetch(`${FC_CONFIG.app.apiBase}/plaid/items`);
-      return result.items || [];
-    } catch (err) {
-      console.error('[getPlaidItems]', err.message);
-      return [];
-    }
+    // Let errors propagate — showBankSheet has its own catch that surfaces a
+    // "Could not load banks" error instead of silently falling back to a single
+    // legacy plaid_institution string and showing only one bank.
+    const result = await _authedFetch(`${FC_CONFIG.app.apiBase}/plaid/items`);
+    return result.items || [];
   }
 
   /**

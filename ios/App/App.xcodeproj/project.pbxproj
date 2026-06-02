@@ -16,10 +16,9 @@
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
 		CA0DA07D2FBEA4CF00FCDFF9 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = CA0DA07C2FBEA4CF00FCDFF9 /* GoogleService-Info.plist */; };
-		CA4CC5F42FB55A7000C05D2D /* BiometricPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA4CC5F32FB55A7000C05D2D /* BiometricPlugin.swift */; };
-		FCPRV0012FC00001000FCPRV /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = FCPRV0011FC00001000FCPRV /* PrivacyInfo.xcprivacy */; };
 		FC001B02FC00001001FCSEC /* SecurityChecker.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC001B01FC00001001FCSEC /* SecurityChecker.swift */; };
 		FC001B04FC00001001FCATT /* AppAttestManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC001B03FC00001001FCATT /* AppAttestManager.swift */; };
+		FCPRV0012FC00001000FCPRV /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = FCPRV0011FC00001000FCPRV /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -34,11 +33,10 @@
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
 		CA0DA07C2FBEA4CF00FCDFF9 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
-		FCPRV0011FC00001000FCPRV /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		CA51EE6B2FBCB24900C17D00 /* App.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.entitlements; sourceTree = "<group>"; };
 		FC001B01FC00001001FCSEC /* SecurityChecker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecurityChecker.swift; sourceTree = "<group>"; };
 		FC001B03FC00001001FCATT /* AppAttestManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppAttestManager.swift; sourceTree = "<group>"; };
-		CA4CC5F32FB55A7000C05D2D /* BiometricPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BiometricPlugin.swift; sourceTree = "<group>"; };
-		CA51EE6B2FBCB24900C17D00 /* App.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.entitlements; sourceTree = "<group>"; };
+		FCPRV0011FC00001000FCPRV /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -56,7 +54,6 @@
 		504EC2FB1FED79650016851F = {
 			isa = PBXGroup;
 			children = (
-				CA4CC5F32FB55A7000C05D2D /* BiometricPlugin.swift */,
 				958DCC722DB07C7200EA8C5F /* debug.xcconfig */,
 				504EC3061FED79650016851F /* App */,
 				504EC3051FED79650016851F /* Products */,
@@ -176,7 +173,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
-				CA4CC5F42FB55A7000C05D2D /* BiometricPlugin.swift in Sources */,
 				FC001B02FC00001001FCSEC /* SecurityChecker.swift in Sources */,
 				FC001B04FC00001001FCATT /* AppAttestManager.swift in Sources */,
 			);
