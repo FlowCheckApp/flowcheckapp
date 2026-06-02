@@ -962,7 +962,7 @@ body {
    FACE ID LOCK SCREEN — Premium
    ════════════════════════════════════════════════════════════ */
 #fc-lock-screen {
-  position: fixed; inset: 0; z-index: 500;
+  position: fixed; inset: 0; z-index: 99999;
   background: #050e18;
   background-image:
     radial-gradient(ellipse 80% 50% at 50% 40%, rgba(26,196,240,0.10) 0%, transparent 65%),
@@ -973,6 +973,34 @@ body {
            calc(env(safe-area-inset-bottom) + 32px);
 }
 #fc-lock-screen.hidden { display: none; }
+
+/* Smooth fade-in when shown from inside the app */
+#fc-lock-screen.fc-lock-fading-in {
+  animation: fcLockFadeIn 0.18s ease both;
+}
+@keyframes fcLockFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Premium scale-up + fade dismiss on successful unlock */
+#fc-lock-screen.fc-lock-dismissing {
+  animation: fcLockDismiss 0.32s cubic-bezier(0.4, 0, 0.2, 1) both;
+  pointer-events: none;
+}
+@keyframes fcLockDismiss {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(1.04); }
+}
+
+/* Suppress entrance stagger animations when showing instantly from background */
+#fc-lock-screen.fc-lock-instant .fc-lock-logo,
+#fc-lock-screen.fc-lock-instant .fc-lock-app-name,
+#fc-lock-screen.fc-lock-instant .fc-lock-tagline,
+#fc-lock-screen.fc-lock-instant .fc-lock-ring,
+#fc-lock-screen.fc-lock-instant .fc-lock-status {
+  animation: none;
+}
 
 /* Ambient radial glow behind button */
 #fc-lock-screen::before {
@@ -1049,7 +1077,7 @@ body {
   background: rgba(52,199,89,0.15);
   border-color: rgba(52,199,89,0.5);
   box-shadow: 0 0 40px rgba(52,199,89,0.2);
-  animation: fcLockSuccess 0.5s var(--fc-ease-spring) both;
+  animation: fcLockSuccess 0.4s var(--fc-ease-spring) both;
 }
 .fc-lock-btn.fc-lock-fail {
   background: rgba(255,69,58,0.12);
@@ -1058,8 +1086,8 @@ body {
 }
 @keyframes fcLockSuccess {
   0%   { transform: scale(1); }
-  35%  { transform: scale(1.2); }
-  65%  { transform: scale(0.95); }
+  35%  { transform: scale(1.18); }
+  65%  { transform: scale(0.96); }
   100% { transform: scale(1); }
 }
 @keyframes fcShake {

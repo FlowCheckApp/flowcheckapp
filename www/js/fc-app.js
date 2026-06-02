@@ -6175,16 +6175,15 @@ window.FCApp = (function () {
   // ── Privacy mode (balance masking) ──────────────────────────
   let _privacyModeOn = false;
 
-  function showLockScreen(autoTrigger = true) {
+  // instant=true: no fade-in animation (screen was already covered by privacy overlay)
+  function showLockScreen(autoTrigger = true, instant = false) {
     if (_lockActive) return;
     _lockActive = true;
-    // Suspend idle timer while lock screen is showing
     clearTimeout(_idleTimer);
 
     const screen = document.getElementById('fc-lock-screen');
     if (!screen) { _lockActive = false; return; }
 
-    // Reset state
     const btn    = document.getElementById('fc-lock-btn');
     const status = document.getElementById('lock-status');
     const sub    = document.getElementById('lock-sub');
@@ -6192,17 +6191,21 @@ window.FCApp = (function () {
     if (status) { status.textContent = ''; status.className = 'fc-lock-status'; }
     if (sub)    sub.textContent = 'Your finances are locked';
 
-    screen.classList.remove('hidden');
-    screen.style.opacity = '0';
-    requestAnimationFrame(() => {
-      screen.style.transition = 'opacity 0.15s ease';
-      screen.style.opacity    = '1';
-    });
+    // Strip any leftover animation classes from a previous show/dismiss
+    screen.classList.remove('hidden', 'fc-lock-dismissing', 'fc-lock-fading-in', 'fc-lock-instant');
+
+    if (instant) {
+      // Already covered — show immediately with no entrance animation so
+      // the lock screen is visible the moment the privacy overlay lifts.
+      screen.classList.add('fc-lock-instant');
+    } else {
+      screen.classList.add('fc-lock-fading-in');
+    }
 
     if (autoTrigger) {
-      // Trigger Face ID on the next frame — lock screen appears simultaneously
-      // with the OS biometric dialog, making the experience feel instant.
-      requestAnimationFrame(() => triggerBiometricUnlock());
+      // Small pause so the lock screen fully renders before the OS dialog
+      // appears — eliminates the "Face ID pops up from nowhere" jank.
+      setTimeout(() => triggerBiometricUnlock(), 120);
     }
   }
 
@@ -6210,16 +6213,15 @@ window.FCApp = (function () {
     const screen = document.getElementById('fc-lock-screen');
     if (!screen) { _lockActive = false; return; }
 
-    screen.style.transition = 'opacity 0.3s ease';
-    screen.style.opacity    = '0';
+    // Premium scale-up + fade dismiss
+    screen.classList.remove('fc-lock-fading-in', 'fc-lock-instant');
+    screen.classList.add('fc-lock-dismissing');
     setTimeout(() => {
       screen.classList.add('hidden');
-      screen.style.opacity    = '';
-      screen.style.transition = '';
+      screen.classList.remove('fc-lock-dismissing');
       _lockActive = false;
-      // Restart idle timer after successful unlock
       _resetIdleTimer();
-    }, 310);
+    }, 330);
   }
 
   async function triggerBiometricUnlock() {
@@ -6293,16 +6295,23 @@ window.FCApp = (function () {
    * Called after authentication and on app resume.
    */
   async function _checkAndLock() {
-    // Skip if Face ID is actively being shown (prevents loop when
-    // the iOS system dialog backgrounds then re-foregrounds the app)
     if (_biometricInFlight) return;
-    // Skip if we just unlocked — the Face ID dialog dismiss itself
-    // triggers another appStateChange within a second or two
     if (Date.now() - _lastUnlockTime < 8000) return;
     const user = FCAuth.currentUser();
     if (!user) return;
     const enabled = await FCAuth.isBiometricEnabled();
-    if (enabled) showLockScreen();
+    if (!enabled) return;
+
+    const lockScreen = document.getElementById('fc-lock-screen');
+    const alreadyCovered = lockScreen && !lockScreen.classList.contains('hidden');
+    if (alreadyCovered) {
+      // _initPrivacyBlur already showed the lock screen instantly on background —
+      // just fire Face ID, don't re-show the screen.
+      if (!_biometricInFlight) setTimeout(() => triggerBiometricUnlock(), 120);
+    } else {
+      // Idle timer fired or first-launch — show with a gentle fade-in.
+      showLockScreen(true, false);
+    }
   }
 
   /* ─────────────────────────────────────────────────────────────
@@ -7171,24 +7180,63 @@ window.FCApp = (function () {
    * `pagehide` (iOS-specific additional coverage).
    */
   function _initPrivacyBlur() {
-    const getOverlay = () => document.getElementById('fc-privacy-blur');
+    // When going to background: show the lock screen instantly so iOS
+    // task-switcher screenshots are covered AND the lock is already in place
+    // when the user returns — no double-overlay flash.
+    const _showPrivacyCover = () => {
+      const lockScreen = document.getElementById('fc-lock-screen');
+      if (!lockScreen) return;
+      if (_lockActive) return; // already locked — nothing to do
+      if (!FCAuth.currentUser()) return; // not logged in — no lock needed
+
+      // Show lock instantly (no entrance animation) as the privacy shield
+      _lockActive = true;
+      clearTimeout(_idleTimer);
+      const btn    = document.getElementById('fc-lock-btn');
+      const status = document.getElementById('lock-status');
+      const sub    = document.getElementById('lock-sub');
+      if (btn)    { btn.classList.remove('fc-lock-success', 'fc-lock-fail'); btn.disabled = false; }
+      if (status) { status.textContent = ''; status.className = 'fc-lock-status'; }
+      if (sub)    sub.textContent = 'Your finances are locked';
+      lockScreen.classList.remove('hidden', 'fc-lock-dismissing', 'fc-lock-fading-in');
+      lockScreen.classList.add('fc-lock-instant');
+    };
+
+    // When returning: if biometric is enabled the lock screen is already
+    // showing — just fire Face ID. If not enabled, remove the cover.
+    const _handleResume = () => {
+      const lockScreen = document.getElementById('fc-lock-screen');
+      if (!lockScreen || lockScreen.classList.contains('hidden')) return;
+      if (_biometricInFlight) return;
+
+      FCAuth.isBiometricEnabled().then(enabled => {
+        if (enabled && FCAuth.currentUser()) {
+          // Lock screen is already visible — trigger Face ID after a short
+          // pause so the screen settles before the system dialog appears.
+          setTimeout(() => triggerBiometricUnlock(), 120);
+        } else {
+          // Biometric not set up — just clear the cover
+          lockScreen.classList.add('hidden');
+          lockScreen.classList.remove('fc-lock-instant');
+          _lockActive = false;
+          _resetIdleTimer();
+        }
+      }).catch(() => {
+        lockScreen.classList.add('hidden');
+        lockScreen.classList.remove('fc-lock-instant');
+        _lockActive = false;
+      });
+    };
 
     document.addEventListener('visibilitychange', () => {
-      const overlay = getOverlay();
-      if (!overlay) return;
       if (document.hidden) {
-        overlay.style.display = 'flex';
+        _showPrivacyCover();
       } else {
-        // Small delay prevents a flash when quickly switching back
-        setTimeout(() => { overlay.style.display = 'none'; }, 350);
+        _handleResume();
       }
     });
 
-    // Additional iOS coverage
-    window.addEventListener('pagehide', () => {
-      const overlay = getOverlay();
-      if (overlay) overlay.style.display = 'flex';
-    });
+    window.addEventListener('pagehide', _showPrivacyCover);
   }
 
   /**
