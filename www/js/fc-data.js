@@ -65,11 +65,10 @@ window.FCData = (function () {
 
     const idToken = await user.getIdToken();
 
-    // 30-second timeout — sync across multiple banks can take longer than 15s
-    // especially on first sync or Railway cold-start
-    const isSyncEndpoint = url.includes('/plaid/sync');
+    // 30-second timeout for heavy endpoints — Railway cold-starts can be slow
+    const isLongEndpoint = url.includes('/plaid/sync') || url.includes('/plaid/items');
     const controller = new AbortController();
-    const timeoutId  = setTimeout(() => controller.abort(), isSyncEndpoint ? 30_000 : 15_000);
+    const timeoutId  = setTimeout(() => controller.abort(), isLongEndpoint ? 30_000 : 15_000);
 
     let res;
     try {

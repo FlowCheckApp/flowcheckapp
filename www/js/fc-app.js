@@ -5429,12 +5429,27 @@ window.FCApp = (function () {
 
   async function toggleBiometric(enable) {
     try {
+      if (enable) {
+        // Verify Face ID is actually available on this device before enabling
+        const available = await FCAuth.checkBiometricAvailable();
+        if (!available) {
+          toast('Face ID not available — check iOS Settings → Face ID & Passcode', 'error');
+          // Snap the toggle back to off
+          const toggleEl = document.getElementById('toggle-biometric');
+          if (toggleEl) toggleEl.checked = false;
+          return;
+        }
+      }
       await FCAuth.setBiometricEnabled(enable);
       await FCData.updateUserField('biometric_enabled', enable);
+      toast(enable ? 'Face ID enabled' : 'Face ID disabled', 'success');
     } catch (err) {
       console.error('[toggleBiometric]', err.message);
+      toast('Could not update Face ID setting', 'error');
+      // Snap toggle back on error
+      const toggleEl = document.getElementById('toggle-biometric');
+      if (toggleEl) toggleEl.checked = !enable;
     }
-    toast(enable ? 'Face ID enabled' : 'Face ID disabled', 'success');
   }
 
   async function toggleNotifications(enable) {
@@ -5965,7 +5980,15 @@ window.FCApp = (function () {
     } catch (err) {
       console.error('[showBankSheet]', err);
       if (listEl) {
-        listEl.innerHTML = '<div style="color:var(--fc-danger);font-size:13px;padding:10px 0">Could not load banks</div>';
+        const isTimeout = err.message && (err.message.includes('timed out') || err.message.includes('reach'));
+        listEl.innerHTML = `
+          <div style="color:var(--fc-danger);font-size:13px;padding:10px 0">
+            ${isTimeout ? 'Connection timed out — server may be waking up' : 'Could not load banks'}
+          </div>
+          <button onclick="FCApp.showBankSheet()" type="button"
+            style="margin-top:8px;padding:8px 16px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);border-radius:10px;color:var(--fc-text);font-size:13px;cursor:pointer">
+            Try Again
+          </button>`;
       }
     }
   }

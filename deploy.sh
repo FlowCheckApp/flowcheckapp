@@ -35,4 +35,4 @@ echo "   ✓ Firestore rules deployed"
 
 echo ""
 echo "✅ Done! Opening Xcode — hit ⌘R to build to device."
-open "$ROOT/ios/App/App.xcworkspace"
+open "$ROOT/ios/App/App.xcodeproj"

@@ -385,14 +385,19 @@ window.FCAuth = (function () {
   function auth()         { return _auth; }
 
   async function isBiometricEnabled() {
-    if (!_biometricAvailable) {
-      _biometricAvailable = await checkBiometricAvailable();
-    }
-    const setting = await prefGet('biometric_enabled');
-    return _biometricAvailable && setting !== false;
+    // Always re-check hardware availability — don't use cached value.
+    // The cache caused the toggle to be a no-op when _biometricAvailable
+    // was set to false on the first call (e.g. plugin not ready yet).
+    const available = await checkBiometricAvailable();
+    const setting   = await prefGet('biometric_enabled');
+    // Require explicit opt-in (setting === true), not just non-false.
+    // This prevents Face ID from appearing "enabled" on a fresh install
+    // before the user has ever touched the toggle.
+    return available && setting === true;
   }
 
   async function setBiometricEnabled(enabled) {
+    _biometricAvailable = false; // force re-check on next isBiometricEnabled() call
     await prefSet('biometric_enabled', enabled);
   }
 
