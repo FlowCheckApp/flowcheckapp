@@ -99,7 +99,7 @@ window.FC_CONFIG = {
   app: {
     version:    '2.0.0',
     name:       'FlowCheck',
-    apiBase:    'https://flowcheck-backend-production.up.railway.app',
+    apiBase:    'https://getflowcheck.app',
     // Local pages bundled inside the app — works offline, no external dependency.
     // Capacitor serves these from capacitor://localhost/legal/
     supportUrl: '/legal/support.html',
