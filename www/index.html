@@ -3330,7 +3330,7 @@ body {
     /* ══════════════════════════════════════════════════════════════
        SETTINGS TAB
        ══════════════════════════════════════════════════════════════ */
-    #view-settings{overflow-y:scroll;-webkit-overflow-scrolling:touch;padding-bottom:100px;overscroll-behavior:contain}
+    #view-settings{overflow-y:scroll;-webkit-overflow-scrolling:touch;padding-bottom:calc(env(safe-area-inset-bottom) + 110px);overscroll-behavior:contain}
 
     .settings-section-hdr{
       font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;
@@ -4302,7 +4302,7 @@ body {
 
 
   <!-- ────────────────────────────── VIEW: SETTINGS -->
-  <div id="view-settings" class="fc-view" role="tabpanel" style="overflow-y:scroll;-webkit-overflow-scrolling:touch;padding-bottom:90px">
+  <div id="view-settings" class="fc-view" role="tabpanel" style="overflow-y:scroll;-webkit-overflow-scrolling:touch;padding-bottom:calc(env(safe-area-inset-bottom) + 110px)">
     <div class="fc-view-title">Settings</div>
 
     <!-- Profile card — upgraded -->

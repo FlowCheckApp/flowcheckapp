@@ -4828,10 +4828,28 @@ window.FCApp = (function () {
       if (toggle) { toggle.classList.toggle('on', enabled); toggle.setAttribute('aria-checked', enabled); }
     });
 
-    // Notification toggle
+    // Notification toggle — reflect both Firestore preference AND actual OS permission
     const notifToggle = document.getElementById('toggle-notifications');
-    const notifsOn = user.notifications_enabled !== false;
-    if (notifToggle) { notifToggle.classList.toggle('on', notifsOn); notifToggle.setAttribute('aria-checked', notifsOn); }
+    if (notifToggle) {
+      const firestoreOn = user.notifications_enabled !== false;
+      // Check real OS permission; if denied at OS level, show as off regardless of Firestore
+      (typeof FCPush !== 'undefined' ? FCPush.checkPermissions() : Promise.resolve('unavailable'))
+        .then(osStatus => {
+          const osBlocked = osStatus === 'denied';
+          const notifsOn  = firestoreOn && !osBlocked;
+          notifToggle.classList.toggle('on', notifsOn);
+          notifToggle.setAttribute('aria-checked', String(notifsOn));
+          // If Firestore says on but OS blocked, silently sync Firestore to off
+          if (firestoreOn && osBlocked) {
+            FCData.updateUserField('notifications_enabled', false).catch(() => {});
+          }
+        })
+        .catch(() => {
+          const notifsOn = firestoreOn;
+          notifToggle.classList.toggle('on', notifsOn);
+          notifToggle.setAttribute('aria-checked', String(notifsOn));
+        });
+    }
 
     // Institution
     const institutionEl = document.getElementById('settings-institution');
@@ -5520,12 +5538,19 @@ window.FCApp = (function () {
     if (enable) {
       const granted = await FCPush.requestAndRegister();
       if (!granted) {
-        toast('Notifications blocked — enable in iOS Settings', 'info');
-        // Deep-link to iOS Settings so user can enable manually
-        try {
-          const App = window.Capacitor?.Plugins?.App;
-          if (App) await App.openUrl({ url: 'app-settings:' });
-        } catch (_) {}
+        // Double-check OS permission — requestAndRegister may fail for reasons
+        // other than "user denied" (e.g. simulator, plugin not ready). Only show
+        // the "blocked" message if the OS actually denied permission.
+        const osStatus = await FCPush.checkPermissions().catch(() => 'unavailable');
+        if (osStatus === 'denied') {
+          toast('Notifications blocked — enable in iOS Settings', 'info');
+          try {
+            const App = window.Capacitor?.Plugins?.App;
+            if (App) await App.openUrl({ url: 'app-settings:' });
+          } catch (_) {}
+        } else {
+          toast('Could not enable notifications — try again', 'error');
+        }
         return false;
       }
     }

@@ -469,25 +469,21 @@ body.fc-theme {
   isolation: isolate;
 }
 
-/* Content fade — dissolves scrolling content into the nav bar.
-   Confirmed working via ::before on position:fixed. */
+/* Content fade — dissolves scrolling content into the nav bar. */
 .fc-nav::before {
   content: '';
   position: absolute;
   bottom: 100%;
   left: 0; right: 0;
-  /* 100px covers roughly 2.5 list rows — deep enough to feel intentional */
-  height: 100px;
+  height: 64px;
   background: linear-gradient(
     to bottom,
     transparent            0%,
-    rgba(6, 14, 24, 0.30) 25%,
-    rgba(6, 14, 24, 0.72) 55%,
-    rgba(5, 10, 20, 0.93) 78%,
-    rgba(4,  9, 18, 1.00) 100%
+    rgba(6, 14, 24, 0.18) 35%,
+    rgba(5, 10, 20, 0.55) 70%,
+    rgba(4,  9, 18, 0.82) 100%
   );
   pointer-events: none;
-  /* Must be above scroll content */
   z-index: 1;
 }
 .fc-nav-item {

@@ -116,6 +116,16 @@ window.FCPush = (function () {
     });
   }
 
+  /* ── Check current OS permission status (no prompt) ─────── */
+  async function checkPermissions() {
+    const push = Push();
+    if (!push) return 'unavailable';
+    try {
+      const result = await push.checkPermissions();
+      return result.receive; // 'granted' | 'denied' | 'prompt'
+    } catch (_) { return 'unavailable'; }
+  }
+
   /* ── Request local notification permission ───────────────── */
   async function requestLocalPermission() {
     const local = Local();
@@ -203,6 +213,7 @@ window.FCPush = (function () {
   /* ── Public API ──────────────────────────────────────────── */
   return {
     requestAndRegister,
+    checkPermissions,
     requestLocalPermission,
     scheduleBillReminder,
     scheduleAllBillReminders,
