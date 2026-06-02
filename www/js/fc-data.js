@@ -45,11 +45,12 @@ window.FCData = (function () {
   let _backendWarmed = false;
   function warmBackend() {
     if (_backendWarmed) return;
-    _backendWarmed = true;
+    // Don't set _backendWarmed = true until the ping succeeds —
+    // a failed warm-up should allow a retry on the next call.
     const base = (window.FC_CONFIG && FC_CONFIG.app.apiBase) || 'https://flowcheck-backend-production.up.railway.app';
     fetch(`${base}/health`, { method: 'GET', signal: AbortSignal.timeout(20_000) })
-      .then(() => fcLog('[FCData] Backend warmed'))
-      .catch(() => fcLog('[FCData] Backend warm-up failed — will retry on first real request'));
+      .then(() => { _backendWarmed = true; fcLog('[FCData] Backend warmed'); })
+      .catch(() => fcLog('[FCData] Backend warm-up failed — will retry on next request'));
   }
 
   /* ── Authenticated fetch helper ───────────────────────────── */

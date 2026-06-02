@@ -5925,9 +5925,9 @@ window.FCApp = (function () {
     sheet.style.display = 'flex';
     haptic('light');
 
-    // Warm the backend before fetching — Railway may be cold-starting.
-    // Fire a /health ping first so the server is ready by the time /plaid/items hits.
-    try { await fetch(`${FC_CONFIG.app.apiBase}/health`, { signal: AbortSignal.timeout(5000) }); } catch (_) {}
+    // Warm the backend before fetching — Railway cold-starts can take 10–15s.
+    // 20s timeout gives it enough time to wake before /plaid/items fires.
+    try { await fetch(`${FC_CONFIG.app.apiBase}/health`, { signal: AbortSignal.timeout(20_000) }); } catch (_) {}
 
     // Fetch all linked banks from Firestore
     try {
