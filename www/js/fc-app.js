@@ -5132,6 +5132,7 @@ window.FCApp = (function () {
     } catch (err) {
       if (err.message !== 'cancelled') {
         toast('Could not connect bank: ' + err.message, 'error');
+        if (window.Sentry) Sentry.captureException(err, { tags: { flow: 'plaid_link' } });
       }
     } finally {
       if (btn) { btn.disabled = false; btn.textContent = 'Connect Bank Account'; }
@@ -5149,9 +5150,11 @@ window.FCApp = (function () {
     _clearError('login-error');
     try {
       await FCAuth.signIn(email, password);
+      if (typeof FCAnalytics !== 'undefined') FCAnalytics.track('login_success', { method: 'email' });
       // Auth observer will handle screen transition
     } catch (err) {
       _showError('login-error', _friendlyAuthError(err));
+      if (window.Sentry) Sentry.captureException(err, { tags: { flow: 'login' } });
       haptic('heavy');
     } finally {
       _setLoading('btn-login', false, 'Sign In');
@@ -5164,6 +5167,7 @@ window.FCApp = (function () {
 
     try {
       await FCAuth.signInWithBiometric();
+      if (typeof FCAnalytics !== 'undefined') FCAnalytics.track('login_success', { method: 'face_id' });
       // Auth observer handles screen transition on success
     } catch (err) {
       const msg = (err.message || '').toLowerCase();
@@ -5206,10 +5210,12 @@ window.FCApp = (function () {
       _sendWelcomeEmail().catch(() => {});
       // Apply referral code on the backend — non-blocking, never delays onboarding
       if ((referralCode || '').trim()) _applyReferralCode(referralCode.trim()).catch(() => {});
+      if (typeof FCAnalytics !== 'undefined') FCAnalytics.track('signed_up', { has_referral: !!referralCode });
       // Auth observer will route to faceid-setup → onboarding
     } catch (err) {
       window._fcNewUserFaceIdPending = false; // clear on error
       _showError('register-error', _friendlyAuthError(err));
+      if (window.Sentry) Sentry.captureException(err, { tags: { flow: 'register' } });
       haptic('heavy');
     } finally {
       _setLoading('btn-register', false, 'Start Free Trial');
@@ -5369,7 +5375,7 @@ window.FCApp = (function () {
   }
 
   /** Mark onboarding as complete in Firestore (called on skip or bank connect) */
-  async function _markOnboardingComplete() {
+  async function _markOnboardingComplete(skipped = false) {
     try {
       const uid = FCAuth.currentUser && FCAuth.currentUser()?.uid;
       const db  = FCAuth.db && FCAuth.db();
@@ -5377,6 +5383,9 @@ window.FCApp = (function () {
         await db.collection('users').doc(uid).update({ onboarding_complete: true });
       }
     } catch (_) {}
+    if (typeof FCAnalytics !== 'undefined') {
+      FCAnalytics.track(skipped ? 'onboarding_skipped' : 'onboarding_completed');
+    }
   }
 
   /**
@@ -5421,7 +5430,7 @@ window.FCApp = (function () {
     haptic('light');
 
     // Mark onboarding complete (best-effort — never block navigation on this)
-    _markOnboardingComplete().catch(() => {});
+    _markOnboardingComplete(true).catch(() => {});
 
     // Show paywall immediately — don't await any RevenueCat calls here because
     // configure() can hang on a cold-start device and trap the user.

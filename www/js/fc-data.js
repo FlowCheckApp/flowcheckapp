@@ -173,6 +173,7 @@ window.FCData = (function () {
               }
               resolve({ institution: metadata.institution, ...result });
             } catch (err) {
+              if (window.Sentry) Sentry.captureException(err, { tags: { flow: 'plaid_exchange' } });
               reject(err);
             }
           },
@@ -180,6 +181,7 @@ window.FCData = (function () {
           onExit: (err, metadata) => {
             if (err) {
               console.error('[FCData] Plaid Link exit with error:', err);
+              if (window.Sentry) Sentry.captureException(new Error(err.display_message || 'Plaid Link exit error'), { tags: { flow: 'plaid_link_exit' } });
               reject(new Error(err.display_message || 'Plaid Link closed'));
             } else {
               reject(new Error('cancelled'));
