@@ -2709,7 +2709,7 @@ window.FCApp = (function () {
 
     try {
       const creditUrl   = (FC_CONFIG && FC_CONFIG.credit && FC_CONFIG.credit.scoreEndpoint)
-                        || 'https://flowcheck-backend-production.up.railway.app/credit/score';
+                        || 'https://getflowcheck.app/credit/score';
       const abort   = new AbortController();
       const timeout = setTimeout(() => abort.abort(), 12_000); // 12s frontend timeout
       // POST so the body is available server-side for production PII lookup.

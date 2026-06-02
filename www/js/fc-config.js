@@ -34,10 +34,10 @@ window.FC_CONFIG = {
      DELETE disconnectEndpoint  → revokes item, wipes financial data (Plaid ToS + CCPA)
      ─────────────────────────────────────────────────────────── */
   plaid: {
-    linkTokenEndpoint:     'https://flowcheck-backend-production.up.railway.app/plaid/link-token',
-    exchangeTokenEndpoint: 'https://flowcheck-backend-production.up.railway.app/plaid/exchange-token',
-    syncEndpoint:          'https://flowcheck-backend-production.up.railway.app/plaid/sync',
-    disconnectEndpoint:    'https://flowcheck-backend-production.up.railway.app/plaid/disconnect',
+    linkTokenEndpoint:     'https://getflowcheck.app/plaid/link-token',
+    exchangeTokenEndpoint: 'https://getflowcheck.app/plaid/exchange-token',
+    syncEndpoint:          'https://getflowcheck.app/plaid/sync',
+    disconnectEndpoint:    'https://getflowcheck.app/plaid/disconnect',
   },
 
   /* ── User / Account management ──────────────────────────────
@@ -45,7 +45,7 @@ window.FC_CONFIG = {
      Removes: Plaid item, all Firestore data, Firebase Auth user.
      ─────────────────────────────────────────────────────────── */
   user: {
-    deleteEndpoint: 'https://flowcheck-backend-production.up.railway.app/user/account',
+    deleteEndpoint: 'https://getflowcheck.app/user/account',
   },
 
   /* ── Credit ─────────────────────────────────────────────────
@@ -53,8 +53,8 @@ window.FC_CONFIG = {
      only once to YOUR backend and never stored on-device.
      ─────────────────────────────────────────────────────────── */
   credit: {
-    scoreEndpoint:  'https://flowcheck-backend-production.up.railway.app/credit/score',
-    manualEndpoint: 'https://flowcheck-backend-production.up.railway.app/credit/manual',
+    scoreEndpoint:  'https://getflowcheck.app/credit/score',
+    manualEndpoint: 'https://getflowcheck.app/credit/manual',
   },
 
   /* ── RevenueCat ─────────────────────────────────────────────
@@ -76,10 +76,10 @@ window.FC_CONFIG = {
      Server-side FCM push endpoints. Auth token required.
      ─────────────────────────────────────────────────────────── */
   notifications: {
-    sendEndpoint:        'https://flowcheck-backend-production.up.railway.app/notifications/send',
-    budgetAlertEndpoint: 'https://flowcheck-backend-production.up.railway.app/notifications/budget-alert',
-    registerEndpoint:    'https://flowcheck-backend-production.up.railway.app/notifications/register',
-    markAllReadEndpoint: 'https://flowcheck-backend-production.up.railway.app/notifications/mark-all-read',
+    sendEndpoint:        'https://getflowcheck.app/notifications/send',
+    budgetAlertEndpoint: 'https://getflowcheck.app/notifications/budget-alert',
+    registerEndpoint:    'https://getflowcheck.app/notifications/register',
+    markAllReadEndpoint: 'https://getflowcheck.app/notifications/mark-all-read',
   },
 
   /* ── Email ──────────────────────────────────────────────────
@@ -88,7 +88,7 @@ window.FC_CONFIG = {
      EMAIL_PASS (SendGrid API key), EMAIL_FROM
      ─────────────────────────────────────────────────────────── */
   email: {
-    welcomeEndpoint: 'https://flowcheck-backend-production.up.railway.app/email/welcome',
+    welcomeEndpoint: 'https://getflowcheck.app/email/welcome',
   },
 
   /* affiliate offers removed — add back when real links are ready */

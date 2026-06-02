@@ -103,9 +103,9 @@ console.log(`[Boot] FlowCheck API | Firebase: ${process.env.FIREBASE_PROJECT_ID}
 
 /* ── Backend base URL (used for Plaid webhook + OAuth redirect) ─ */
 // Set BACKEND_URL in Railway env vars, e.g.:
-//   https://flowcheck-backend-production.up.railway.app
+//   https://getflowcheck.app
 // Falls back to the hard-coded value so existing deploys keep working.
-const BACKEND_URL = (process.env.BACKEND_URL || 'https://flowcheck-backend-production.up.railway.app').replace(/\/$/, '');
+const BACKEND_URL = (process.env.BACKEND_URL || 'https://getflowcheck.app').replace(/\/$/, '');
 
 /* ── Safe error messages — never leak internals to clients ─────── */
 // Returns a safe, user-friendly error string.
@@ -195,7 +195,7 @@ const ALLOWED_ORIGINS = new Set([
   'ionic://localhost',
   'http://localhost',
   'http://localhost:3000',
-  'https://flowcheck-backend-production.up.railway.app',
+  'https://getflowcheck.app',
 ]);
 app.use(cors({
   origin: (origin, cb) => {
@@ -1898,7 +1898,7 @@ if (cron) {
        (not required; JWT verification is the primary auth)
 
    In Plaid Dashboard → Webhooks, set URL to:
-     https://flowcheck-backend-production.up.railway.app/plaid/webhook
+     https://getflowcheck.app/plaid/webhook
    ─────────────────────────────────────────────────────────────── */
 
 // Cache Plaid JWK keys in memory (keyed by key_id).

@@ -63,7 +63,7 @@ window.FCPush = (function () {
           // Also register with backend (keeps server-side token in sync)
           const idToken      = await user.getIdToken();
           const registerUrl  = (window.FC_CONFIG && FC_CONFIG.notifications && FC_CONFIG.notifications.registerEndpoint)
-                             || 'https://flowcheck-backend-production.up.railway.app/notifications/register';
+                             || 'https://getflowcheck.app/notifications/register';
           fetch(registerUrl, {
             method:  'POST',
             headers: { 'Authorization': `Bearer ${idToken}`, 'Content-Type': 'application/json' },
