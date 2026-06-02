@@ -1767,8 +1767,8 @@ body {
 
   <div style="color:var(--fc-text-faint);font-size:11px;text-align:center;margin-top:10px;line-height:1.5">
     By continuing you agree to our
-    <a href="https://flowcheck.app/terms" style="color:var(--fc-accent)">Terms</a> and
-    <a href="https://flowcheck.app/privacy" style="color:var(--fc-accent)">Privacy Policy</a>.
+    <a href="#" onclick="FCApp.openUrl('/legal/terms.html');return false" style="color:var(--fc-accent)">Terms</a> and
+    <a href="#" onclick="FCApp.openUrl('/legal/privacy.html');return false" style="color:var(--fc-accent)">Privacy Policy</a>.
   </div>
 </section>
 
@@ -5023,6 +5023,7 @@ async function _obApplyPermissions() {
 
 async function obNext() {
   if (_obStep >= _OB_TOTAL - 1) return;
+  if (window.FCApp && FCApp.haptic) FCApp.haptic('light');
 
   // Slide 0 — persist consent on first advance (micro-copy acceptance)
   if (_obStep === 0) {
@@ -5075,6 +5076,7 @@ function _obUpdateOrbs(step) {
 }
 
 function obSelectGridOption(el, field, value) {
+  if (window.FCApp && FCApp.haptic) FCApp.haptic('light');
   // Deselect siblings in grid, select tapped card
   const siblings = el.closest('.fc-ob-grid').querySelectorAll('.fc-ob-grid-option');
   siblings.forEach(o => o.classList.remove('selected'));
@@ -5116,6 +5118,7 @@ function obSelectOption(el, field, value) {
 }
 
 function obSelectAttribution(el, value) {
+  if (window.FCApp && FCApp.haptic) FCApp.haptic('light');
   const siblings = el.closest('.fc-ob-grid').querySelectorAll('.fc-ob-grid-option');
   siblings.forEach(o => o.classList.remove('selected'));
   el.classList.add('selected');
@@ -5173,8 +5176,9 @@ async function _obLoadPrices() {
 }
 
 /** Track which plan is selected on the onboarding paywall slide (annual pre-selected) */
-let _obSelectedPlan = 'annual';
+var _obSelectedPlan = 'annual';
 function obSelectPlan(plan) {
+  if (window.FCApp && FCApp.haptic) FCApp.haptic('light');
   _obSelectedPlan = plan;
   const monthly = document.getElementById('ob-plan-monthly');
   const annual  = document.getElementById('ob-plan-annual');

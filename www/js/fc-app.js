@@ -7235,6 +7235,7 @@ window.FCApp = (function () {
     setScreen,
     switchTab,
     toast,
+    haptic,
     manualSync,
     // Bank sheets
     showBankSheet,

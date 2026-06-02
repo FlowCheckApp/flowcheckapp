@@ -53,11 +53,18 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             }
         }
 
-        // ── 2. WKWebView cache wipe ─────────────────────────────────────────
-        WKWebsiteDataStore.default().removeData(
-            ofTypes: [WKWebsiteDataTypeDiskCache, WKWebsiteDataTypeMemoryCache],
-            modifiedSince: Date(timeIntervalSince1970: 0)
-        ) { }
+        // ── 2. WKWebView cache wipe (on version upgrade only) ───────────────
+        // Wiping on every launch forces Firebase/CDN scripts to re-download,
+        // making the splash screen linger. Only wipe when the app version changes.
+        let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
+        let lastVersion    = UserDefaults.standard.string(forKey: "fc_last_launch_version") ?? ""
+        if currentVersion != lastVersion {
+            WKWebsiteDataStore.default().removeData(
+                ofTypes: [WKWebsiteDataTypeDiskCache, WKWebsiteDataTypeMemoryCache],
+                modifiedSince: Date(timeIntervalSince1970: 0)
+            ) { }
+            UserDefaults.standard.set(currentVersion, forKey: "fc_last_launch_version")
+        }
 
         // ── 3. Idle-lock listener (posted by BiometricPlugin.lock()) ────────
         NotificationCenter.default.addObserver(
