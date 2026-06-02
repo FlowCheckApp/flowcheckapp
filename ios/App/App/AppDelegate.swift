@@ -179,18 +179,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     }
 
     /// Called when the user taps a notification (foreground or background).
-    /// Forwards to Capacitor so the JS pushNotificationActionPerformed listener fires.
+    /// Capacitor's ApplicationDelegateProxy automatically forwards this to the
+    /// PushNotifications plugin, which fires pushNotificationActionPerformed in JS.
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
-        // Let Capacitor handle routing — its PushNotifications plugin
-        // listens for this and fires pushNotificationActionPerformed in JS.
-        NotificationCenter.default.post(
-            name: Notification.Name(CAPNotifications.didReceiveNotification.name()),
-            object: response.notification
-        )
         completionHandler()
     }
 
