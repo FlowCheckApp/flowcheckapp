@@ -5428,15 +5428,21 @@ window.FCApp = (function () {
      ───────────────────────────────────────────────────────────── */
 
   async function toggleBiometric(enable) {
+    const toggleEl = document.getElementById('toggle-biometric');
+    function snapBack() {
+      // Toggle uses .on class, not a checkbox
+      if (toggleEl) {
+        toggleEl.classList.toggle('on', !enable);
+        toggleEl.setAttribute('aria-checked', !enable);
+      }
+    }
     try {
       if (enable) {
-        // Verify Face ID is actually available on this device before enabling
+        // Verify Face ID is actually enrolled on this device before enabling
         const available = await FCAuth.checkBiometricAvailable();
         if (!available) {
-          toast('Face ID not available — check iOS Settings → Face ID & Passcode', 'error');
-          // Snap the toggle back to off
-          const toggleEl = document.getElementById('toggle-biometric');
-          if (toggleEl) toggleEl.checked = false;
+          toast('Face ID not set up — go to iOS Settings → Face ID & Passcode', 'error');
+          snapBack();
           return;
         }
       }
@@ -5446,9 +5452,7 @@ window.FCApp = (function () {
     } catch (err) {
       console.error('[toggleBiometric]', err.message);
       toast('Could not update Face ID setting', 'error');
-      // Snap toggle back on error
-      const toggleEl = document.getElementById('toggle-biometric');
-      if (toggleEl) toggleEl.checked = !enable;
+      snapBack();
     }
   }
 
@@ -5920,6 +5924,10 @@ window.FCApp = (function () {
     }
     sheet.style.display = 'flex';
     haptic('light');
+
+    // Warm the backend before fetching — Railway may be cold-starting.
+    // Fire a /health ping first so the server is ready by the time /plaid/items hits.
+    try { await fetch(`${FC_CONFIG.app.apiBase}/health`, { signal: AbortSignal.timeout(5000) }); } catch (_) {}
 
     // Fetch all linked banks from Firestore
     try {
