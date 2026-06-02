@@ -1403,7 +1403,7 @@ window.FCApp = (function () {
     // Compute user signals
     const savings      = state.accounts
       .filter(a => a.type === 'depository')
-      .reduce((s, a) => s + (a.balances?.current || 0), 0);
+      .reduce((s, a) => s + (a.balance_current || a.balance || 0), 0);
     const hasInvestments = state.accounts.some(a => a.type === 'investment');
 
     // Score each offer — higher = more relevant
@@ -1768,10 +1768,10 @@ window.FCApp = (function () {
     }
     if (!state.user?.plaid_linked) { section.style.display = 'none'; return; }
 
-    // Collect debt accounts
+    // Collect debt accounts — use balance_current (Firestore flat field, not Plaid nested)
     const debtAccts = state.accounts.filter(a =>
       (a.type === 'loan' || a.type === 'credit') &&
-      (a.balances?.current || 0) > 50
+      (a.balance_current || a.balance || 0) > 50
     );
     if (!debtAccts.length) { section.style.display = 'none'; return; }
 
@@ -1789,7 +1789,7 @@ window.FCApp = (function () {
 
     // Build debt objects
     const debts = debtAccts.map(a => {
-      const balance = a.balances?.current || 0;
+      const balance = a.balance_current || a.balance || 0;
       const apr     = estimateAPR(a);
       const monthly = apr / 12;
       // Minimum payment: 1% of balance for credit cards, fixed ~$50 for loans, min $25
@@ -2392,7 +2392,7 @@ window.FCApp = (function () {
     // ── 1. Current cash balance ────────────────────────────────────
     const cashNow = state.accounts
       .filter(a => a.type === 'depository')
-      .reduce((s, a) => s + (a.balances?.current || 0), 0);
+      .reduce((s, a) => s + (a.balance_current || a.balance || 0), 0);
 
     if (cashNow <= 0) { section.style.display = 'none'; return; }
 
@@ -3354,7 +3354,7 @@ window.FCApp = (function () {
         .reduce((s, a) => s + (a.balance_current || a.balance || 0), 0);
       const liabs = state.accounts
         .filter(a => ['credit','loan','mortgage'].includes(a.type))
-        .reduce((s, a) => s + Math.abs(a.balance_current || a.balance || 0), 0);
+        .reduce((s, a) => s + Math.max(0, a.balance_current || a.balance || 0), 0);
       if (assetsEl) assetsEl.textContent = FCData.formatCurrency(assets);
       if (liabsEl)  liabsEl.textContent  = FCData.formatCurrency(liabs);
     }
@@ -3500,7 +3500,8 @@ window.FCApp = (function () {
     if (srEl) {
       if (monthIncome > 0) {
         const sr = Math.round(((monthIncome - monthSpend) / monthIncome) * 100);
-        srEl.textContent = Math.max(0, sr) + '%';
+        // Show negative savings rate — hiding it masks overspending
+        srEl.textContent = (sr < 0 ? '-' : '') + Math.abs(sr) + '%';
         srEl.style.color = sr >= 20 ? '#34c759' : sr >= 10 ? '#ff9f0a' : '#ff453a';
       } else {
         srEl.textContent = '—';
@@ -3598,8 +3599,9 @@ window.FCApp = (function () {
 
       // ── Greeting with safe-to-spend context ─────────────────
       _renderGreeting(safeToSpend);
-      // Use raw spend (includes transfers/loan payments) for committed-vs-cash
-      const committed     = monthSpendRaw + unpaidBillsTotal;
+      // Bug fix: don't double-count unpaidBills — they may already be in monthSpendRaw
+      // if the ACH debit has cleared. Use only monthSpendRaw for committed spend.
+      const committed     = monthSpendRaw;
       // isOver: month spending has blown past the current cash balance
       const isOver        = cash > 0 && committed >= cash;
 
@@ -3812,11 +3814,13 @@ window.FCApp = (function () {
     if (!ring || !gradeEl) return;
 
     const accts    = state.accounts || [];
-    const txns     = (state.transactions || []).filter(t => FCData.isCurrentMonth && FCData.isCurrentMonth(t.date));
-    const budget   = state.monthlyBudget || 3000;
+    const txns     = (state.transactions || []).filter(t => FCData.isCurrentMonth(t.date));
+    // Bug fix: use actual user budget, not nonexistent state.monthlyBudget
+    const budget   = (state.budgets?.['total']?.limit) || 3000;
 
     // ── 1. Spending Score (0-34) ──────────────────────────────
-    const spent    = txns.filter(t => !t.isCredit).reduce((s, t) => s + (t.amount || 0), 0);
+    // Bug fix: exclude transfers/payments from spend (use _isSpendTxn)
+    const spent    = txns.filter(t => !t.isCredit && _isSpendTxn(t)).reduce((s, t) => s + (t.amount || 0), 0);
     const spendRatio = budget > 0 ? spent / budget : 1;
     let spendScore = Math.round(34 * Math.max(0, Math.min(1, 1 - (spendRatio - 0.5) * 2)));
     // Perfect if under 75% of budget, 0 if over 150%
@@ -3825,7 +3829,8 @@ window.FCApp = (function () {
     else spendScore = Math.round(34 * (1.5 - spendRatio) / 0.75);
 
     // ── 2. Savings Score (0-33) ───────────────────────────────
-    const income   = txns.filter(t => t.isCredit).reduce((s, t) => s + (t.amount || 0), 0);
+    // Bug fix: use _isIncomeTxn to exclude transfers/refunds from income
+    const income   = txns.filter(_isIncomeTxn).reduce((s, t) => s + (t.amount || 0), 0);
     const savingsRate = income > 0 ? (income - spent) / income : 0;
     const savingsAccts = accts.filter(a => a.type === 'depository');
     const totalSavings = savingsAccts.reduce((s, a) => s + (a.balance_current || a.balance || 0), 0);
@@ -3841,7 +3846,7 @@ window.FCApp = (function () {
       .reduce((s, a) => s + (a.balance_current || a.balance || 0), 0);
     const debts  = accts
       .filter(a => a.type === 'credit' || a.type === 'loan')
-      .reduce((s, a) => s + Math.abs(a.balance_current || a.balance || 0), 0);
+      .reduce((s, a) => s + Math.max(0, a.balance_current || a.balance || 0), 0);
     const nw = assets - debts;
     let nwScore = 0;
     if (nw > 50000)      nwScore = 33;
@@ -4544,7 +4549,7 @@ window.FCApp = (function () {
       .reduce((s, a) => s + (a.balance_current || a.balance || 0), 0);
     const liabilities = accts
       .filter(a => a.type === 'credit' || a.type === 'loan')
-      .reduce((s, a) => s + Math.abs(a.balance_current || a.balance || 0), 0);
+      .reduce((s, a) => s + Math.max(0, a.balance_current || a.balance || 0), 0);
     const nw = assets - liabilities;
 
     const nwEl = document.getElementById('wealth-hero-nw');
@@ -4668,10 +4673,10 @@ window.FCApp = (function () {
              ['credit card', 'line of credit', 'mortgage', 'auto', 'student', 'home equity'].includes(sub);
     });
 
-    const totalDebt = debtAccts.reduce((s, a) => s + Math.abs(a.balance_current || a.balance || 0), 0);
+    const totalDebt = debtAccts.reduce((s, a) => s + Math.max(0, a.balance_current || a.balance || 0), 0);
     const creditCards = debtAccts.filter(a => a.type === 'credit' || (a.subtype || '').toLowerCase() === 'credit card');
     const totalLimit  = creditCards.reduce((s, a) => s + (a.balance_limit || a.balances?.limit || 0), 0);
-    const totalUsed   = creditCards.reduce((s, a) => s + Math.abs(a.balance_current || a.balance || 0), 0);
+    const totalUsed   = creditCards.reduce((s, a) => s + Math.max(0, a.balance_current || a.balance || 0), 0);
     const utilPct     = totalLimit > 0 ? Math.round((totalUsed / totalLimit) * 100) : 0;
 
     const summaryEl = document.getElementById('debt-summary');
@@ -5791,11 +5796,16 @@ window.FCApp = (function () {
 
     const _typeIcon = (type) => {
       const map = {
-        bill_due:     { icon: '💳', bg: 'rgba(255,69,58,0.14)',   border: 'rgba(255,69,58,0.25)'   },
-        budget_alert: { icon: '⚡', bg: 'rgba(255,159,10,0.14)',  border: 'rgba(255,159,10,0.25)'  },
-        goal_reached: { icon: '🎯', bg: 'rgba(52,199,89,0.14)',   border: 'rgba(52,199,89,0.25)'   },
-        sync_done:    { icon: '✓',  bg: 'rgba(26,196,240,0.12)',  border: 'rgba(26,196,240,0.22)'  },
-        general:      { icon: '🔔', bg: 'rgba(255,255,255,0.07)', border: 'rgba(255,255,255,0.10)' },
+        bill_due:       { icon: '💳', bg: 'rgba(255,69,58,0.14)',   border: 'rgba(255,69,58,0.25)'   },
+        budget_alert:   { icon: '⚡', bg: 'rgba(255,159,10,0.14)',  border: 'rgba(255,159,10,0.25)'  },
+        goal_reached:   { icon: '🎯', bg: 'rgba(52,199,89,0.14)',   border: 'rgba(52,199,89,0.25)'   },
+        sync_done:      { icon: '✓',  bg: 'rgba(26,196,240,0.12)',  border: 'rgba(26,196,240,0.22)'  },
+        payday:         { icon: '🎉', bg: 'rgba(52,199,89,0.14)',   border: 'rgba(52,199,89,0.25)'   },
+        large_txn:      { icon: '💸', bg: 'rgba(255,159,10,0.14)',  border: 'rgba(255,159,10,0.25)'  },
+        low_balance:    { icon: '⚠️', bg: 'rgba(255,69,58,0.14)',   border: 'rgba(255,69,58,0.25)'   },
+        unusual_spend:  { icon: '📊', bg: 'rgba(255,159,10,0.14)',  border: 'rgba(255,159,10,0.25)'  },
+        new_sub:        { icon: '🔄', bg: 'rgba(26,196,240,0.12)',  border: 'rgba(26,196,240,0.22)'  },
+        general:        { icon: '🔔', bg: 'rgba(255,255,255,0.07)', border: 'rgba(255,255,255,0.10)' },
       };
       return map[type] || map.general;
     };

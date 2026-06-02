@@ -1514,15 +1514,31 @@ app.post('/notifications/budget-alert', requireAuth, async (req, res) => {
  */
 async function _saveNotification(uid, { title, body, type, data = {} }) {
   try {
-    await db.collection('users').doc(uid)
-      .collection('notifications').add({
-        title,
-        body,
-        type:       type || 'general',
-        data:       data,
-        read:       false,
-        created_at: admin.firestore.FieldValue.serverTimestamp(),
-      });
+    const notifRef = db.collection('users').doc(uid).collection('notifications');
+    // Dedup: skip if same type + category already exists in the last 24 hours
+    const dedupKey = `${type}:${data.category || data.bill_id || ''}`;
+    const since    = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const existing = await notifRef
+      .where('type', '==', type || 'general')
+      .where('created_at', '>=', admin.firestore.Timestamp.fromDate(since))
+      .limit(1).get();
+    // Check if any existing notification has the same dedup key
+    const isDup = existing.docs.some(d => {
+      const d2 = d.data();
+      return `${d2.type}:${d2.data?.category || d2.data?.bill_id || ''}` === dedupKey;
+    });
+    if (isDup) {
+      console.log(`[saveNotification] skipped duplicate: ${dedupKey}`);
+      return;
+    }
+    await notifRef.add({
+      title,
+      body,
+      type:       type || 'general',
+      data:       data,
+      read:       false,
+      created_at: admin.firestore.FieldValue.serverTimestamp(),
+    });
   } catch (err) {
     console.error('[saveNotification]', err.message);
   }
@@ -2147,6 +2163,35 @@ async function _webhookSyncItem(itemId, retryCount = 0) {
           }).catch(err => console.error('[fcm payday]', err.message));
 
           break; // one payday alert per sync batch is enough
+        }
+
+        // ── 1b. Large transaction alert ──────────────────────────────
+        const LARGE_TXN_THRESHOLD = 100; // alert on any single expense > $100
+        const LARGE_SKIP_RE = /\b(mortgage|rent|loan payment|insurance|transfer|payroll)\b/i;
+        for (const t of added) {
+          if (t.amount <= 0) continue; // skip credits
+          if (t.amount < LARGE_TXN_THRESHOLD) continue;
+          if (LARGE_SKIP_RE.test(t.name || '')) continue;
+          const name  = t.merchant_name || t.name || 'A merchant';
+          const title = `💳 Large Purchase: ${_fmt(t.amount)}`;
+          const body  = `${name} charged ${_fmt(t.amount)} to your account.`;
+          await _saveNotification(uid, { title, body, type: 'large_txn', data: { amount: String(t.amount), merchant: name } });
+          if (fcmToken) _sendFCM(uid, fcmToken, { title, body, type: 'large_txn', data: { amount: String(t.amount) }, channelId: 'flowcheck_alerts' }).catch(() => {});
+          break; // one per sync batch
+        }
+
+        // ── 1c. Low balance warning ───────────────────────────────────
+        const LOW_BALANCE_THRESHOLD = 200;
+        for (const acct of accounts) {
+          const bal = acct.balances?.available ?? acct.balances?.current ?? 0;
+          if (acct.type !== 'depository') continue;
+          if (bal > LOW_BALANCE_THRESHOLD) continue;
+          const acctName = acct.name || 'Your account';
+          const title    = '⚠️ Low Balance Alert';
+          const body     = `${acctName} has only ${_fmt(bal)} remaining.`;
+          await _saveNotification(uid, { title, body, type: 'low_balance', data: { account_id: acct.account_id, balance: String(bal) } });
+          if (fcmToken) _sendFCM(uid, fcmToken, { title, body, type: 'low_balance', data: { balance: String(bal) }, channelId: 'flowcheck_alerts' }).catch(() => {});
+          break;
         }
 
         // ── 2. Budget overage detection ───────────────────────────────

@@ -453,9 +453,13 @@ html, body {
 .fc-iconbtn.is-busy svg { animation: fc-spin 0.9s linear infinite; transform-origin: 50% 50%; }
 @keyframes fc-spin { to { transform: rotate(360deg); } }
 .fc-iconbtn-badge {
-  position: absolute; top: 9px; right: 10px;
-  width: 9px; height: 9px; background: var(--fc-danger);
-  border-radius: 50%; border: 2px solid var(--fc-bg);
+  position: absolute; top: 4px; right: 4px;
+  min-width: 16px; height: 16px; padding: 0 4px;
+  background: var(--fc-danger); border-radius: 99px;
+  border: 2px solid var(--fc-bg);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; font-weight: 800; color: #fff; line-height: 1;
+  pointer-events: none;
 }
 
 /* Hero card */
