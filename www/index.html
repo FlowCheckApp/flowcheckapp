@@ -263,10 +263,9 @@ html, body {
   animation: fcAuthOrbDrift 13s 2s ease-in-out infinite reverse;
 }
 
-/* Auth screens — height follows dynamic viewport so keyboard shrinks it cleanly */
+/* Auth screens — fixed height, keyboard handled by JS avoidance */
 .fc-auth-screen {
-  min-height: 100dvh;
-  height: 100dvh;
+  min-height: 100svh;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   justify-content: flex-start;
@@ -2366,11 +2365,13 @@ body {
   position: absolute; inset: 0; display: flex; flex-direction: column;
   align-items: center; justify-content: flex-start;
   padding: 0 28px; text-align: center; opacity: 0; pointer-events: none;
-  transform: translateX(44px) scale(0.97);
-  transition: opacity 0.36s ease, transform 0.36s cubic-bezier(0.25,0.1,0.25,1);
+  transform: translate3d(36px, 0, 0) scale(0.98);
+  transition: opacity 0.30s cubic-bezier(0.25,0.46,0.45,0.94),
+              transform 0.30s cubic-bezier(0.25,0.46,0.45,0.94);
+  will-change: transform, opacity;
 }
-.fc-ob-slide.active { opacity: 1; pointer-events: all; transform: none; }
-.fc-ob-slide.exit   { opacity: 0; transform: translateX(-44px) scale(0.97); pointer-events: none; }
+.fc-ob-slide.active { opacity: 1; pointer-events: all; transform: translate3d(0,0,0) scale(1); }
+.fc-ob-slide.exit   { opacity: 0; transform: translate3d(-36px,0,0) scale(0.98); pointer-events: none; }
 .fc-ob-slide.fc-ob-question { justify-content: center; gap: 0; }
 .fc-ob-art {
   width: 100%; height: 216px; position: relative;
@@ -2453,9 +2454,19 @@ body {
   display:flex;flex-direction:column;align-items:center;gap:9px;line-height:1.3;
 }
 .fc-ob-grid-option:active { transform:scale(0.95); }
-.fc-ob-grid-option.selected { background:rgba(26,196,240,0.13);border-color:var(--fc-accent);color:var(--fc-accent); }
-.fc-ob-grid-icon { font-size:32px;line-height:1;transition:transform 0.25s cubic-bezier(0.34,1.56,0.64,1); }
-.fc-ob-grid-option.selected .fc-ob-grid-icon { transform:scale(1.18); }
+.fc-ob-grid-option.selected { background:rgba(26,196,240,0.14);border-color:var(--fc-accent);color:var(--fc-accent);box-shadow:0 0 0 1px rgba(26,196,240,0.18),0 8px 24px rgba(26,196,240,0.12); }
+.fc-ob-grid-icon { font-size:32px;line-height:1;transition:transform 0.28s cubic-bezier(0.34,1.56,0.64,1); }
+.fc-ob-grid-option.selected .fc-ob-grid-icon { transform:scale(1.22); }
+.fc-ob-goal-continue {
+  width:100%;margin-top:18px;height:54px;border-radius:16px;
+  background:linear-gradient(135deg,var(--fc-accent),var(--fc-electric));
+  border:none;color:#fff;font-size:16px;font-weight:700;font-family:inherit;
+  cursor:pointer;letter-spacing:-0.01em;
+  opacity:0;transform:translateY(10px);pointer-events:none;
+  transition:opacity 0.22s ease,transform 0.22s cubic-bezier(0.34,1.56,0.64,1);
+  -webkit-tap-highlight-color:transparent;
+}
+.fc-ob-goal-continue.visible { opacity:1;transform:translateY(0);pointer-events:all; }
 .fc-ob-options { width:100%;display:flex;flex-direction:column;gap:10px;margin-top:20px; }
 .fc-ob-option {
   width:100%;padding:15px 18px;background:rgba(255,255,255,0.05);
@@ -2687,19 +2698,20 @@ body {
       <h1 class="fc-ob-title fc-ob-title--lg" style="margin-bottom:6px">What's your #1<br>money goal?</h1>
       <p class="fc-ob-desc" style="margin-bottom:0;font-size:14px">We'll personalize FlowCheck around what matters to you.</p>
       <div class="fc-ob-grid" style="margin-top:22px">
-        <button class="fc-ob-grid-option" onclick="obSelectGridOption(this,'goal','save_more')" type="button">
+        <button class="fc-ob-grid-option" onclick="obSelectGoal(this,'save_more')" type="button">
           <span class="fc-ob-grid-icon">💰</span>Save more
         </button>
-        <button class="fc-ob-grid-option" onclick="obSelectGridOption(this,'goal','pay_debt')" type="button">
+        <button class="fc-ob-grid-option" onclick="obSelectGoal(this,'pay_debt')" type="button">
           <span class="fc-ob-grid-icon">💳</span>Pay off debt
         </button>
-        <button class="fc-ob-grid-option" onclick="obSelectGridOption(this,'goal','track_spending')" type="button">
+        <button class="fc-ob-grid-option" onclick="obSelectGoal(this,'track_spending')" type="button">
           <span class="fc-ob-grid-icon">📊</span>Track spending
         </button>
-        <button class="fc-ob-grid-option" onclick="obSelectGridOption(this,'goal','build_wealth')" type="button">
+        <button class="fc-ob-grid-option" onclick="obSelectGoal(this,'build_wealth')" type="button">
           <span class="fc-ob-grid-icon">📈</span>Build wealth
         </button>
       </div>
+      <button class="fc-ob-goal-continue" id="ob-goal-continue" onclick="obNext()" type="button">Continue</button>
     </div>
 
     <!-- ── SLIDE 2: Security & privacy — builds trust before paywall ── -->
@@ -2789,7 +2801,7 @@ body {
       </div>
       <div class="fc-ob-review-pill">
         <span class="fc-ob-review-stars">★★★★★</span>
-        <span class="fc-ob-review-text">4.8 · 2,400+ reviews on the App Store</span>
+        <span class="fc-ob-review-text">Loved by users across 50+ countries</span>
       </div>
       <h1 class="fc-ob-title" style="font-size:26px;margin-top:0">Everything you need.<br><span class="fc-ob-title-grad">Nothing you don't.</span></h1>
       <p class="fc-ob-desc" style="font-size:14px">No spreadsheets. No guessing. FlowCheck connects to your bank and does the heavy lifting automatically.</p>
@@ -5420,19 +5432,49 @@ async function obNext() {
   const current = document.getElementById('ob-slide-' + _obStep);
   const next    = document.getElementById('ob-slide-' + (_obStep + 1));
 
+  // Reset goal continue button when leaving slide 1
+  if (_obStep === 1) {
+    const btn = document.getElementById('ob-goal-continue');
+    if (btn) btn.classList.remove('visible');
+  }
+
   if (current) {
     current.classList.remove('active');
     current.classList.add('exit');
-    setTimeout(() => current.classList.remove('exit'), 380);
+    setTimeout(() => current.classList.remove('exit'), 320);
   }
   if (next) next.classList.add('active');
 
   _obStep++;
 
-  // Ambient orb shift per slide
   _obUpdateOrbs(_obStep);
   _obUpdateControls();
 }
+
+/* ── Swipe gesture support on onboarding slides ── */
+(function() {
+  let _touchStartX = 0, _touchStartY = 0;
+  function _onTouchStart(e) {
+    _touchStartX = e.touches[0].clientX;
+    _touchStartY = e.touches[0].clientY;
+  }
+  function _onTouchEnd(e) {
+    const dx = e.changedTouches[0].clientX - _touchStartX;
+    const dy = e.changedTouches[0].clientY - _touchStartY;
+    if (Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    if (dx < 0 && _obStep < _OB_TOTAL - 1) {
+      // Swipe left = next (only if not a question slide that needs selection)
+      const label = _obLabels[_obStep];
+      if (label !== null) obNext();
+    }
+  }
+  document.addEventListener('DOMContentLoaded', () => {
+    const slides = document.querySelector('.fc-ob-slides');
+    if (!slides) return;
+    slides.addEventListener('touchstart', _onTouchStart, { passive: true });
+    slides.addEventListener('touchend', _onTouchEnd, { passive: true });
+  });
+})();
 
 function _obUpdateOrbs(step) {
   const cyan   = document.getElementById('ob-orb-cyan');
@@ -5454,26 +5496,33 @@ function _obUpdateOrbs(step) {
   green.style.opacity  = cfg.g;
 }
 
-function obSelectGridOption(el, field, value) {
+function obSelectGoal(el, value) {
   if (window.FCApp && FCApp.haptic) FCApp.haptic('light');
-  // Deselect siblings in grid, select tapped card
   const siblings = el.closest('.fc-ob-grid').querySelectorAll('.fc-ob-grid-option');
   siblings.forEach(o => o.classList.remove('selected'));
   el.classList.add('selected');
-
-  _obAnswers[field] = value;
-
+  _obAnswers.goal = value;
   try {
     const user = FCAuth.currentUser && FCAuth.currentUser();
     const db   = FCAuth.db && FCAuth.db();
-    if (user && db) {
-      db.collection('users').doc(user.uid)
-        .update({ ['onboarding_' + field]: value })
-        .catch(() => {});
-    }
+    if (user && db) db.collection('users').doc(user.uid).update({ onboarding_goal: value }).catch(() => {});
   } catch (_) {}
+  const btn = document.getElementById('ob-goal-continue');
+  if (btn) btn.classList.add('visible');
+}
 
-  setTimeout(() => obNext(), 460);
+function obSelectGridOption(el, field, value) {
+  if (window.FCApp && FCApp.haptic) FCApp.haptic('light');
+  const siblings = el.closest('.fc-ob-grid').querySelectorAll('.fc-ob-grid-option');
+  siblings.forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+  _obAnswers[field] = value;
+  try {
+    const user = FCAuth.currentUser && FCAuth.currentUser();
+    const db   = FCAuth.db && FCAuth.db();
+    if (user && db) db.collection('users').doc(user.uid).update({ ['onboarding_' + field]: value }).catch(() => {});
+  } catch (_) {}
+  setTimeout(() => obNext(), 420);
 }
 
 function obSelectOption(el, field, value) {
