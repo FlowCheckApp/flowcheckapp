@@ -111,8 +111,12 @@
   flex-direction: column;
   min-height: 100dvh;
   padding-bottom: env(safe-area-inset-bottom);
-  overflow: hidden; /* clip all absolute orbs/glows to screen bounds */
+  overflow: hidden;
   position: relative;
+  /* Force GPU compositing layer — makes overflow:hidden clip filter:blur()
+     children in iOS Safari/WKWebView (known WebKit bug workaround) */
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
 }
 
 body[data-screen="splash"]          .fc-screen[data-screen="splash"]          { display: flex; }
@@ -164,7 +168,7 @@ html, body {
 .fc-splash { align-items:center; justify-content:center; background:var(--fc-bg); gap:20px; overflow:hidden; position:relative; }
 .fc-splash-orb { position:absolute; border-radius:50%; pointer-events:none; filter:blur(60px); }
 .fc-splash-orb--cyan { width:340px;height:340px;top:35%;left:50%;transform:translate(-50%,-50%);background:radial-gradient(circle,rgba(26,196,240,0.24) 0%,transparent 70%);animation:orbBreath 5s ease-in-out infinite alternate; }
-.fc-splash-orb--blue { width:280px;height:280px;bottom:5%;right:-8%;background:radial-gradient(circle,rgba(37,99,235,0.20) 0%,transparent 70%);animation:orbBreath2 7s 1s ease-in-out infinite alternate; }
+.fc-splash-orb--blue { width:280px;height:280px;bottom:5%;right:0;background:radial-gradient(circle,rgba(37,99,235,0.18) 0%,transparent 65%);animation:orbBreath2 7s 1s ease-in-out infinite alternate; }
 @keyframes orbBreath  { from{opacity:.6;transform:translate(-50%,-50%) scale(.9)} to{opacity:1;transform:translate(-50%,-50%) scale(1.1)} }
 @keyframes orbBreath2 { from{opacity:.5;transform:scale(.9)} to{opacity:.9;transform:scale(1.1)} }
 .fc-splash-ring { width:96px;height:96px;border-radius:50%;position:relative;display:flex;align-items:center;justify-content:center;animation:fcLogoIn 0.7s var(--fc-ease-spring) both; }
@@ -1398,9 +1402,8 @@ body {
   content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
   background:
     radial-gradient(ellipse 100% 60% at 50% -8%,  rgba(37,99,235,0.40) 0%, transparent 65%),
-    radial-gradient(ellipse 60% 40% at 90% 92%,   rgba(26,196,240,0.20) 0%, transparent 55%),
-    radial-gradient(ellipse 45% 32% at  5% 65%,   rgba(37,99,235,0.14) 0%, transparent 52%),
-    radial-gradient(ellipse 35% 25% at 85% 30%,   rgba(26,196,240,0.08) 0%, transparent 50%);
+    radial-gradient(ellipse 45% 32% at  5% 55%,   rgba(37,99,235,0.12) 0%, transparent 52%),
+    radial-gradient(ellipse 35% 25% at 85% 30%,   rgba(26,196,240,0.07) 0%, transparent 50%);
 }
 
 /* ── APP TOUR ──────────────────────────────────────────────── */
@@ -1831,10 +1834,8 @@ body {
 <!-- ══════════════════════════════════════ SCREEN: LOGIN -->
 <section class="fc-screen fc-auth-screen" data-screen="login" aria-label="Sign in">
 
-  <!-- Ambient depth orbs -->
+  <!-- Ambient depth — top only, never bottom -->
   <div class="fc-auth-orb fc-auth-orb--top"></div>
-  <div class="fc-auth-orb fc-auth-orb--br"></div>
-  <div class="fc-auth-orb fc-auth-orb--bl"></div>
 
   <div class="fc-auth-body fc-stagger">
 
@@ -1940,9 +1941,8 @@ body {
 <!-- ══════════════════════════════════════ SCREEN: REGISTER -->
 <section class="fc-screen fc-auth-screen" data-screen="register" aria-label="Create account">
 
-  <!-- Ambient depth orbs -->
+  <!-- Ambient depth — top only, never bottom -->
   <div class="fc-auth-orb fc-auth-orb--top"></div>
-  <div class="fc-auth-orb fc-auth-orb--br"></div>
 
   <div class="fc-auth-body">
 
@@ -2598,8 +2598,8 @@ body {
 
   <!-- Ambient orbs -->
   <div id="ob-orb-cyan"   class="fc-ob-orb" style="width:420px;height:420px;top:-120px;left:-100px;background:radial-gradient(circle,rgba(26,196,240,0.28),transparent 68%);opacity:1;transition:opacity 0.8s ease"></div>
-  <div id="ob-orb-purple" class="fc-ob-orb" style="width:340px;height:340px;bottom:60px;right:-110px;background:radial-gradient(circle,rgba(37,99,235,0.24),transparent 68%);opacity:0.4;transition:opacity 0.8s ease"></div>
-  <div id="ob-orb-green"  class="fc-ob-orb" style="width:300px;height:300px;bottom:30px;left:-80px;background:radial-gradient(circle,rgba(52,199,89,0.22),transparent 68%);opacity:0;transition:opacity 0.8s ease"></div>
+  <div id="ob-orb-purple" class="fc-ob-orb" style="width:300px;height:300px;bottom:40px;right:0;background:radial-gradient(circle,rgba(37,99,235,0.18),transparent 60%);opacity:0.4;transition:opacity 0.8s ease"></div>
+  <div id="ob-orb-green"  class="fc-ob-orb" style="width:260px;height:260px;bottom:20px;left:0;background:radial-gradient(circle,rgba(52,199,89,0.16),transparent 60%);opacity:0;transition:opacity 0.8s ease"></div>
 
   <!-- Linear progress bar — tracks slide position -->
   <div aria-hidden="true"
@@ -3044,7 +3044,7 @@ body {
   <!-- Ambient glow orbs -->
   <div style="pointer-events:none;position:absolute;inset:0;overflow:hidden;z-index:0">
     <div style="position:absolute;top:-80px;left:50%;transform:translateX(-50%);width:340px;height:340px;background:radial-gradient(ellipse at 50% 30%,rgba(37,99,235,0.22),transparent 70%);border-radius:50%"></div>
-    <div style="position:absolute;bottom:0;right:-60px;width:260px;height:260px;background:radial-gradient(ellipse,rgba(26,196,240,0.12),transparent 70%);border-radius:50%"></div>
+    <div style="position:absolute;bottom:0;right:0;width:220px;height:220px;background:radial-gradient(ellipse,rgba(26,196,240,0.09),transparent 60%);border-radius:50%"></div>
   </div>
 
   <!-- Close button — shown when paywall is opened from inside the app -->

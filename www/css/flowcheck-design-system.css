@@ -98,13 +98,12 @@ body.fc-theme {
   padding-bottom: calc(env(safe-area-inset-bottom) + 80px);
   min-height: 100vh;
   overscroll-behavior-y: none;
-  /* Rich layered ambient depth — directional, not centered */
+  /* Rich layered ambient depth — top-biased only, nothing near bottom */
   background-image:
     radial-gradient(ellipse 80% 50% at 15% -5%,   rgba(26,196,240,0.18) 0%, transparent 60%),
     radial-gradient(ellipse 60% 45% at 88% 6%,    rgba(37,99,235,0.16) 0%, transparent 55%),
-    radial-gradient(ellipse 50% 60% at 50% 110%,  rgba(26,196,240,0.10) 0%, transparent 55%),
-    radial-gradient(ellipse 35% 35% at 78% 52%,   rgba(37,99,235,0.07) 0%, transparent 50%),
-    radial-gradient(ellipse 25% 25% at 5%  85%,   rgba(26,196,240,0.06) 0%, transparent 50%);
+    radial-gradient(ellipse 35% 35% at 78% 42%,   rgba(37,99,235,0.06) 0%, transparent 50%),
+    radial-gradient(ellipse 25% 25% at 5%  55%,   rgba(26,196,240,0.05) 0%, transparent 50%);
 }
 
 /* ============================================================
