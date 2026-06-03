@@ -182,83 +182,333 @@ html, body {
 @keyframes fcLogoIn{from{opacity:0;transform:scale(.65) translateY(24px)}to{opacity:1;transform:none}}
 
 /* ════════════════════════════════════════════════════════════
-   AUTH SCREENS (login + register)
+   ELITE AUTH SYSTEM v3 — world-class onboarding
    ════════════════════════════════════════════════════════════ */
+
+/* ── Ambient orb breathing animation ── */
+@keyframes fcAuthOrbDrift {
+  0%,100% { transform: translate(0,0) scale(1); }
+  33%     { transform: translate(14px,-18px) scale(1.06); }
+  66%     { transform: translate(-10px,8px) scale(0.96); }
+}
+@keyframes fcAuthOrbDrift2 {
+  0%,100% { transform: translate(0,0) scale(1); }
+  40%     { transform: translate(-16px,12px) scale(1.08); }
+  75%     { transform: translate(12px,-8px) scale(0.94); }
+}
+
+/* ── Field entry stagger ── */
+@keyframes fcFieldSlideUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fc-auth-field-enter { animation: fcFieldSlideUp 0.42s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.fc-auth-field-enter:nth-child(1) { animation-delay: 0.05s; }
+.fc-auth-field-enter:nth-child(2) { animation-delay: 0.10s; }
+.fc-auth-field-enter:nth-child(3) { animation-delay: 0.15s; }
+.fc-auth-field-enter:nth-child(4) { animation-delay: 0.20s; }
+.fc-auth-field-enter:nth-child(5) { animation-delay: 0.25s; }
+.fc-auth-field-enter:nth-child(6) { animation-delay: 0.30s; }
+.fc-auth-field-enter:nth-child(7) { animation-delay: 0.34s; }
+.fc-auth-field-enter:nth-child(8) { animation-delay: 0.38s; }
+
+/* ── Auth screen base ── */
 .fc-auth-screen {
   align-items: center;
   justify-content: flex-start;
-  background:
-    radial-gradient(ellipse 100% 55% at 50% -10%, rgba(26,196,240,0.22) 0%, transparent 65%),
-    radial-gradient(ellipse 60% 40% at 90% 90%, rgba(37,99,235,0.14) 0%, transparent 60%),
-    var(--fc-bg);
-  padding: calc(env(safe-area-inset-top) + 36px) 24px 40px;
+  background: var(--fc-bg);
+  padding: calc(env(safe-area-inset-top, 44px) + 28px) 24px calc(env(safe-area-inset-bottom, 20px) + 24px);
   gap: 0;
   overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: none;
+  position: relative;
+  -webkit-overflow-scrolling: touch;
 }
+
+/* Ambient orb layers — contained, no overflow bleed */
+.fc-auth-orb {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+  will-change: transform;
+}
+.fc-auth-orb--top {
+  width: 420px; height: 420px;
+  top: -180px; left: 50%; transform: translateX(-50%);
+  background: radial-gradient(circle, rgba(26,196,240,0.20) 0%, transparent 65%);
+  filter: blur(50px);
+  animation: fcAuthOrbDrift 9s ease-in-out infinite;
+}
+.fc-auth-orb--br {
+  width: 280px; height: 280px;
+  bottom: -60px; right: -60px;
+  background: radial-gradient(circle, rgba(37,99,235,0.16) 0%, transparent 65%);
+  filter: blur(45px);
+  animation: fcAuthOrbDrift2 11s ease-in-out infinite;
+}
+/* Login only — extra left orb for depth */
+.fc-auth-orb--bl {
+  width: 200px; height: 200px;
+  bottom: 80px; left: -60px;
+  background: radial-gradient(circle, rgba(26,196,240,0.08) 0%, transparent 65%);
+  filter: blur(40px);
+  animation: fcAuthOrbDrift 13s 2s ease-in-out infinite reverse;
+}
+
+/* Content wrapper sits above orbs */
+.fc-auth-body {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* ── Logo mark ── */
 .fc-auth-logo {
-  width: 60px; height: 60px;
-  background: linear-gradient(135deg, var(--fc-accent), var(--fc-electric));
-  border-radius: 20px;
+  width: 56px; height: 56px;
+  background: linear-gradient(145deg, #1ee8ff, var(--fc-electric));
+  border-radius: 18px;
   display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 0 0 1px rgba(26,196,240,0.3), 0 16px 48px rgba(26,196,240,0.4), 0 4px 16px rgba(0,0,0,0.5);
-  margin-bottom: 22px;
-  animation: fcLogoIn 0.6s var(--fc-ease-spring) both;
+  box-shadow:
+    0 0 0 1px rgba(26,196,240,0.28),
+    0 0 0 4px rgba(26,196,240,0.07),
+    0 12px 40px rgba(26,196,240,0.38),
+    0 4px 12px rgba(0,0,0,0.55);
+  flex-shrink: 0;
+  animation: fcLogoIn 0.65s var(--fc-ease-spring) both;
 }
+@keyframes fcAuthLogoBreath {
+  0%,100% { box-shadow: 0 0 0 1px rgba(26,196,240,0.28), 0 0 0 4px rgba(26,196,240,0.07), 0 12px 40px rgba(26,196,240,0.38), 0 4px 12px rgba(0,0,0,0.55); }
+  50%     { box-shadow: 0 0 0 1px rgba(26,196,240,0.35), 0 0 0 8px rgba(26,196,240,0.09), 0 16px 52px rgba(26,196,240,0.48), 0 4px 12px rgba(0,0,0,0.55); }
+}
+.fc-auth-logo { animation: fcLogoIn 0.65s var(--fc-ease-spring) both, fcAuthLogoBreath 4s 1s ease-in-out infinite; }
+
+/* ── Headlines ── */
 .fc-auth-title {
-  font-size: 28px;
+  font-size: 30px;
   font-weight: 800;
-  letter-spacing: -0.028em;
+  letter-spacing: -0.032em;
   color: white;
-  margin-bottom: 5px;
+  margin: 0 0 6px;
   text-align: center;
+  line-height: 1.12;
 }
 .fc-auth-subtitle {
   font-size: 14px;
-  color: rgba(255,255,255,0.42);
+  color: rgba(255,255,255,0.44);
   text-align: center;
-  margin-bottom: 28px;
+  margin: 0 0 26px;
   font-weight: 400;
+  line-height: 1.5;
+}
+.fc-auth-subtitle strong {
+  color: rgba(255,255,255,0.72);
+  font-weight: 600;
 }
 
-/* Input fields — premium glass */
-.fc-input-group { width: 100%; margin-bottom: 14px; }
+/* ── Apple Sign In — HIG compliant ── */
+.fc-auth-apple-btn {
+  width: 100%;
+  height: 54px;
+  border-radius: 16px;
+  background: #fff;
+  border: none;
+  display: flex; align-items: center; justify-content: center; gap: 9px;
+  cursor: pointer;
+  font-size: 16px; font-weight: 600; color: #000; font-family: inherit;
+  letter-spacing: -0.01em;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.36), 0 1px 3px rgba(0,0,0,0.22);
+  transition: transform 0.12s var(--fc-ease-spring), box-shadow 0.12s;
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
+}
+.fc-auth-apple-btn:active {
+  transform: scale(0.97);
+  box-shadow: 0 1px 8px rgba(0,0,0,0.28);
+}
+
+/* ── Divider ── */
+.fc-auth-divider {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; flex-shrink: 0;
+}
+.fc-auth-divider::before,
+.fc-auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(255,255,255,0.08);
+}
+.fc-auth-divider span {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.28);
+  white-space: nowrap;
+}
+
+/* ── Input fields — elite glass ── */
+.fc-input-group { width: 100%; margin-bottom: 13px; flex-shrink: 0; }
 .fc-input-label {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  color: rgba(255,255,255,0.38);
-  margin-bottom: 7px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: rgba(255,255,255,0.46);
+  margin-bottom: 8px;
   display: block;
 }
 .fc-input {
   width: 100%;
-  height: 54px;
-  background: rgba(255,255,255,0.055);
+  height: 52px;
+  background: rgba(255,255,255,0.058);
   border: 1px solid rgba(255,255,255,0.10);
-  border-radius: 16px;
+  border-radius: 14px;
   color: white;
   font-size: 16px;
   font-family: inherit;
   padding: 0 18px;
-  transition: border-color 0.18s, background 0.18s, box-shadow 0.18s;
   box-sizing: border-box;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), inset 0 -1px 0 rgba(0,0,0,0.12);
+  transition: border-color 0.22s, background 0.22s, box-shadow 0.22s;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.05),
+    inset 0 -1px 0 rgba(0,0,0,0.15),
+    0 2px 8px rgba(0,0,0,0.15);
+  -webkit-appearance: none;
+  appearance: none;
 }
 .fc-input:focus {
   outline: none;
-  border-color: var(--fc-accent);
-  background: rgba(26,196,240,0.07);
-  box-shadow: 0 0 0 3px rgba(26,196,240,0.12), inset 0 1px 0 rgba(255,255,255,0.06);
+  border-color: rgba(26,196,240,0.70);
+  background: rgba(26,196,240,0.072);
+  box-shadow:
+    0 0 0 3.5px rgba(26,196,240,0.14),
+    inset 0 1px 0 rgba(255,255,255,0.07),
+    0 2px 8px rgba(0,0,0,0.15);
 }
-.fc-input::placeholder { color: rgba(255,255,255,0.25); }
+.fc-input::placeholder { color: rgba(255,255,255,0.22); }
 .fc-input-wrap { position: relative; }
 .fc-input-eye {
-  position: absolute; right: 16px; top: 50%; transform: translateY(-50%);
-  background: none; border: none; color: rgba(255,255,255,0.35); cursor: pointer;
-  padding: 4px; display: flex; opacity: .8;
+  position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; color: rgba(255,255,255,0.32); cursor: pointer;
+  padding: 6px; display: flex; opacity: .9; border-radius: 8px;
+  transition: color 0.15s, opacity 0.15s;
 }
-.fc-input-eye:active { opacity: 1; }
+.fc-input-eye:active { color: rgba(255,255,255,0.7); }
+
+/* ── Password strength bar — upgraded ── */
+.fc-pw-bar-track {
+  display: flex; gap: 4px; margin-top: 9px; height: 4px;
+}
+.fc-pw-bar-seg {
+  flex: 1; border-radius: 999px;
+  background: rgba(255,255,255,0.10);
+  transition: background 0.3s cubic-bezier(0.34,1.2,0.64,1), transform 0.25s cubic-bezier(0.34,1.56,0.64,1);
+}
+.fc-pw-bar-seg.lit-1 { background: #ff453a; transform: scaleY(1.3); transform-origin: center; }
+.fc-pw-bar-seg.lit-2 { background: #ff9f0a; transform: scaleY(1.3); transform-origin: center; }
+.fc-pw-bar-seg.lit-3 { background: #30d158; transform: scaleY(1.3); transform-origin: center; }
+.fc-pw-bar-seg.lit-4 { background: #1ac4f0; transform: scaleY(1.35); transform-origin: center; }
+
+/* ── Primary CTA button — elite ── */
+.fc-btn--primary {
+  background: linear-gradient(135deg, #1ac4f0 0%, #2563eb 100%);
+  color: white;
+  border: none;
+  height: 54px;
+  border-radius: 16px;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  font-family: inherit;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  box-shadow:
+    0 4px 28px rgba(26,196,240,0.32),
+    0 1px 3px rgba(0,0,0,0.22),
+    inset 0 1px 0 rgba(255,255,255,0.18);
+  transition: transform 0.14s var(--fc-ease-spring), box-shadow 0.18s, opacity 0.18s;
+  -webkit-tap-highlight-color: transparent;
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.fc-btn--primary::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.12) 0%, transparent 60%);
+  border-radius: inherit;
+  pointer-events: none;
+}
+.fc-btn--primary:active {
+  transform: scale(0.97);
+  box-shadow: 0 2px 14px rgba(26,196,240,0.22), 0 1px 3px rgba(0,0,0,0.22);
+}
+.fc-btn--primary:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+/* Shimmer sweep on loading */
+@keyframes fcBtnShimmer {
+  from { transform: translateX(-100%) skewX(-12deg); }
+  to   { transform: translateX(200%) skewX(-12deg); }
+}
+.fc-btn--loading::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent);
+  animation: fcBtnShimmer 1.1s ease-in-out infinite;
+}
+/* Spinner inside button */
+@keyframes fcBtnSpin {
+  to { transform: rotate(360deg); }
+}
+.fc-btn-spinner {
+  width: 18px; height: 18px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: fcBtnSpin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+/* ── Ghost / skip button ── */
+.fc-auth-skip {
+  background: none; border: none;
+  color: rgba(255,255,255,0.36);
+  font-size: 14px; font-weight: 500; font-family: inherit;
+  cursor: pointer; padding: 10px 0;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.15s;
+}
+.fc-auth-skip:active { color: rgba(255,255,255,0.58); }
+
+/* ── Forgot / link ── */
+.fc-forgot-btn {
+  background: none; border: none;
+  color: var(--fc-accent);
+  font-size: 13px; font-weight: 500; font-family: inherit;
+  cursor: pointer; padding: 6px 0; margin: 2px 0 10px; align-self: flex-end;
+  -webkit-tap-highlight-color: transparent;
+}
+.fc-auth-link {
+  font-size: 14px;
+  color: rgba(255,255,255,0.40);
+  text-align: center;
+  margin-top: 16px;
+  flex-shrink: 0;
+}
+.fc-auth-link button {
+  background: none; border: none;
+  color: var(--fc-accent);
+  font-size: 14px; font-weight: 600; font-family: inherit;
+  cursor: pointer; padding: 0 2px;
+  -webkit-tap-highlight-color: transparent;
+}
 
 /* Auth error */
 .fc-auth-error {
@@ -293,16 +543,7 @@ html, body {
 }
 .fc-biometric-btn:active { transform: scale(0.97); background: rgba(255,255,255,0.08); }
 
-/* Auth divider */
-.fc-auth-divider {
-  display: flex; align-items: center; gap: 12px;
-  width: 100%; margin: 22px 0;
-}
-.fc-auth-divider::before, .fc-auth-divider::after {
-  content: ''; flex: 1; height: 1px;
-  background: linear-gradient(to right, transparent, rgba(255,255,255,0.08), transparent);
-}
-.fc-auth-divider span { color: rgba(255,255,255,0.3); font-size: 12px; font-weight: 500; }
+/* Auth divider — see elite auth system above */
 
 /* Auth link */
 .fc-auth-link {
@@ -796,40 +1037,40 @@ label.fc-toggle input[type="checkbox"]:checked ~ .fc-toggle-track::after {
    simultaneously for a native-feeling push transition.
    ══════════════════════════════════════════════════════════════ */
 
-/* Incoming screens */
+/* Incoming screens — cinematic spring push */
 @keyframes fcPushInFromRight {
-  from { transform: translateX(40px); opacity: 0; }
-  to   { transform: translateX(0);    opacity: 1; }
+  from { transform: translateX(52px) scale(0.975); opacity: 0; }
+  to   { transform: translateX(0)    scale(1);     opacity: 1; }
 }
 @keyframes fcPushInFromLeft {
-  from { transform: translateX(-40px); opacity: 0; }
-  to   { transform: translateX(0);     opacity: 1; }
+  from { transform: translateX(-52px) scale(0.975); opacity: 0; }
+  to   { transform: translateX(0)     scale(1);     opacity: 1; }
 }
-/* Outgoing screens — overlaid via inline style while animating out */
+/* Outgoing screens */
 @keyframes fcPushOutToLeft {
   from { transform: translateX(0);     opacity: 1; }
-  to   { transform: translateX(-30px); opacity: 0; }
+  to   { transform: translateX(-44px) scale(0.975); opacity: 0; }
 }
 @keyframes fcPushOutToRight {
   from { transform: translateX(0);    opacity: 1; }
-  to   { transform: translateX(30px); opacity: 0; }
+  to   { transform: translateX(44px) scale(0.975); opacity: 0; }
 }
 
 .fc-screen--enter-right {
-  animation: fcPushInFromRight 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: fcPushInFromRight 0.38s cubic-bezier(0.22, 1, 0.36, 1) both;
   will-change: opacity, transform;
 }
 .fc-screen--enter-left {
-  animation: fcPushInFromLeft 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: fcPushInFromLeft 0.38s cubic-bezier(0.22, 1, 0.36, 1) both;
   will-change: opacity, transform;
 }
 .fc-screen--exit-left {
-  animation: fcPushOutToLeft 0.22s cubic-bezier(0.4, 0, 1, 1) both;
+  animation: fcPushOutToLeft 0.26s cubic-bezier(0.55, 0, 1, 0.45) both;
   pointer-events: none;
   will-change: opacity, transform;
 }
 .fc-screen--exit-right {
-  animation: fcPushOutToRight 0.22s cubic-bezier(0.4, 0, 1, 1) both;
+  animation: fcPushOutToRight 0.26s cubic-bezier(0.55, 0, 1, 0.45) both;
   pointer-events: none;
   will-change: opacity, transform;
 }
@@ -1584,373 +1825,414 @@ body {
 
 <!-- ══════════════════════════════════════ SCREEN: LOGIN -->
 <section class="fc-screen fc-auth-screen" data-screen="login" aria-label="Sign in">
-  <!-- Compact logo header -->
-  <div style="display:flex;flex-direction:column;align-items:center;margin-bottom:28px">
-    <div class="fc-auth-logo" style="margin-bottom:12px">
-      <svg width="26" height="26" viewBox="0 0 24 24" fill="white" aria-hidden="true">
-        <path d="M4 4h16v3H4zm0 6h11v3H4zm0 6h7v3H4z"/>
-      </svg>
-    </div>
-    <div style="font-size:22px;font-weight:800;color:#fff;letter-spacing:-0.025em;line-height:1">FlowCheck</div>
-  </div>
 
-  <h1 class="fc-auth-title" style="margin-bottom:4px">Welcome back</h1>
-  <p class="fc-auth-subtitle">Sign in to your account</p>
+  <!-- Ambient depth orbs -->
+  <div class="fc-auth-orb fc-auth-orb--top"></div>
+  <div class="fc-auth-orb fc-auth-orb--br"></div>
+  <div class="fc-auth-orb fc-auth-orb--bl"></div>
 
-  <div id="login-error" class="fc-auth-error" role="alert"></div>
+  <div class="fc-auth-body fc-stagger">
 
-  <!-- ── Face ID — shown only when biometrics are enrolled ── -->
-  <div id="biometric-login-wrap" style="display:none;width:100%;margin-bottom:4px">
-    <button onclick="FCApp.handleBiometricLogin()" type="button"
-            style="width:100%;min-height:54px;border-radius:16px;
-                   background:linear-gradient(135deg,rgba(26,196,240,0.12),rgba(37,99,235,0.09));
-                   border:1.5px solid rgba(26,196,240,0.28);
-                   display:flex;align-items:center;justify-content:center;gap:12px;
-                   padding:0 20px;cursor:pointer;-webkit-tap-highlight-color:transparent;
-                   box-shadow:0 2px 18px rgba(26,196,240,0.10)">
-      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#1ac4f0" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
-        <path d="M4 8V6a2 2 0 0 1 2-2h2M20 8V6a2 2 0 0 0-2-2h-2M4 16v2a2 2 0 0 0 2 2h2M20 16v2a2 2 0 0 1-2 2h-2"/>
-        <line x1="9" y1="10" x2="9" y2="10.01"/><line x1="15" y1="10" x2="15" y2="10.01"/>
-        <path d="M9 14.5a4 4 0 0 0 6 0"/>
-      </svg>
-      <div style="text-align:left;flex:1">
-        <div style="font-size:15px;font-weight:700;color:#fff;line-height:1.2">Sign in with Face ID</div>
-        <div style="font-size:11px;color:rgba(26,196,240,0.80);margin-top:2px;font-weight:500">Instant · Secure · Private</div>
-      </div>
-    </button>
-    <div class="fc-auth-divider" style="margin:14px 0 4px"><span>or</span></div>
-  </div>
-
-  <!-- ── Apple Sign In ─────────────────────────────────────────── -->
-  <button onclick="FCApp.handleAppleSignIn()" type="button"
-          style="width:100%;min-height:52px;border-radius:14px;
-                 background:rgba(255,255,255,0.95);border:none;
-                 display:flex;align-items:center;justify-content:center;gap:10px;
-                 cursor:pointer;-webkit-tap-highlight-color:transparent;
-                 font-size:15px;font-weight:600;color:#000;font-family:inherit;
-                 box-shadow:0 2px 12px rgba(0,0,0,0.3)">
-    <svg width="19" height="19" viewBox="0 0 24 24" fill="black" aria-hidden="true">
-      <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.7 9.05 7.4c1.42.07 2.4.78 3.28.84 1.22-.24 2.4-1.03 3.7-1.02 1.56.02 2.74.74 3.51 1.9-3.19 1.96-2.67 6.28.51 7.54-.64 1.62-1.5 3.23-3 3.62zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
-    </svg>
-    Continue with Apple
-  </button>
-
-  <div class="fc-auth-divider" style="margin:18px 0 14px"><span>or use email</span></div>
-
-  <div class="fc-input-group" style="width:100%">
-    <div class="fc-input-label">Email</div>
-    <input id="login-email" class="fc-input" type="email" autocomplete="email"
-           placeholder="you@example.com" inputmode="email">
-  </div>
-
-  <div class="fc-input-group" style="width:100%">
-    <div class="fc-input-label">Password</div>
-    <div class="fc-input-wrap">
-      <input id="login-password" class="fc-input" type="password"
-             autocomplete="current-password" placeholder="••••••••"
-             style="padding-right:48px"
-             onkeydown="if(event.key==='Enter'){document.getElementById('btn-login').click()}">
-      <button class="fc-input-eye" onclick="togglePasswordVisibility('login-password',this)" type="button" aria-label="Show password">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+    <!-- Logo + wordmark -->
+    <div class="fc-auth-field-enter" style="display:flex;flex-direction:column;align-items:center;margin-bottom:26px">
+      <div class="fc-auth-logo" style="margin-bottom:13px">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="white" aria-hidden="true">
+          <path d="M4 4h16v3H4zm0 6h11v3H4zm0 6h7v3H4z"/>
         </svg>
+      </div>
+      <div style="font-size:13px;font-weight:600;color:rgba(255,255,255,0.36);letter-spacing:0.06em;text-transform:uppercase">FlowCheck</div>
+    </div>
+
+    <!-- Headline -->
+    <div class="fc-auth-field-enter" style="text-align:center;margin-bottom:28px">
+      <h1 class="fc-auth-title">Welcome back</h1>
+      <p class="fc-auth-subtitle">Your money is waiting for you</p>
+    </div>
+
+    <div id="login-error" class="fc-auth-error fc-auth-field-enter" role="alert"></div>
+
+    <!-- Face ID — shown only when enrolled -->
+    <div id="biometric-login-wrap" class="fc-auth-field-enter" style="display:none;width:100%;margin-bottom:6px">
+      <button onclick="FCApp.handleBiometricLogin()" type="button"
+              style="width:100%;height:56px;border-radius:16px;
+                     background:linear-gradient(135deg,rgba(26,196,240,0.13),rgba(37,99,235,0.10));
+                     border:1.5px solid rgba(26,196,240,0.32);
+                     display:flex;align-items:center;justify-content:center;gap:13px;
+                     padding:0 20px;cursor:pointer;-webkit-tap-highlight-color:transparent;
+                     box-shadow:0 4px 22px rgba(26,196,240,0.14),inset 0 1px 0 rgba(255,255,255,0.07);
+                     transition:transform 0.14s var(--fc-ease-spring),box-shadow 0.18s">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1ac4f0" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
+          <path d="M4 8V6a2 2 0 0 1 2-2h2M20 8V6a2 2 0 0 0-2-2h-2M4 16v2a2 2 0 0 0 2 2h2M20 16v2a2 2 0 0 1-2 2h-2"/>
+          <line x1="9" y1="10" x2="9" y2="10.01"/><line x1="15" y1="10" x2="15" y2="10.01"/>
+          <path d="M9 14.5a4 4 0 0 0 6 0"/>
+        </svg>
+        <div style="text-align:left;flex:1">
+          <div style="font-size:15px;font-weight:700;color:#fff;line-height:1.2;letter-spacing:-0.01em">Sign in with Face ID</div>
+          <div style="font-size:11px;color:rgba(26,196,240,0.75);margin-top:2px;font-weight:500;letter-spacing:0.02em">Instant · Secure · Private</div>
+        </div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.28)" stroke-width="2.5" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+      </button>
+      <div class="fc-auth-divider" style="margin:16px 0 6px"><span>or sign in with email</span></div>
+    </div>
+
+    <!-- Apple Sign In -->
+    <button class="fc-auth-apple-btn fc-auth-field-enter" onclick="FCApp.handleAppleSignIn()" type="button">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="black" aria-hidden="true">
+        <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.7 9.05 7.4c1.42.07 2.4.78 3.28.84 1.22-.24 2.4-1.03 3.7-1.02 1.56.02 2.74.74 3.51 1.9-3.19 1.96-2.67 6.28.51 7.54-.64 1.62-1.5 3.23-3 3.62zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
+      </svg>
+      Continue with Apple
+    </button>
+
+    <div class="fc-auth-divider fc-auth-field-enter" style="margin:16px 0 14px"><span>or use email</span></div>
+
+    <!-- Email field -->
+    <div class="fc-input-group fc-auth-field-enter" style="width:100%">
+      <div class="fc-input-label">Email</div>
+      <input id="login-email" class="fc-input" type="email" autocomplete="email"
+             placeholder="you@example.com" inputmode="email">
+    </div>
+
+    <!-- Password field -->
+    <div class="fc-input-group fc-auth-field-enter" style="width:100%;margin-bottom:4px">
+      <div class="fc-input-label">Password</div>
+      <div class="fc-input-wrap">
+        <input id="login-password" class="fc-input" type="password"
+               autocomplete="current-password" placeholder="••••••••"
+               style="padding-right:50px"
+               onkeydown="if(event.key==='Enter'){document.getElementById('btn-login').click()}">
+        <button class="fc-input-eye" onclick="togglePasswordVisibility('login-password',this)" type="button" aria-label="Show password">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Forgot password -->
+    <div class="fc-auth-field-enter" style="width:100%;display:flex;justify-content:flex-end;margin-bottom:18px">
+      <button class="fc-forgot-btn" onclick="FCApp.goToForgotPassword()" type="button" style="margin:0;padding:6px 0">
+        Forgot password?
       </button>
     </div>
-  </div>
 
-  <button class="fc-forgot-btn" onclick="FCApp.goToForgotPassword()" type="button">
-    Forgot password?
-  </button>
+    <!-- Sign In CTA -->
+    <button id="btn-login" class="fc-btn fc-btn--primary fc-btn--block fc-auth-field-enter"
+            onclick="FCApp.handleLogin(document.getElementById('login-email').value, document.getElementById('login-password').value)"
+            type="button">
+      Sign In
+    </button>
 
-  <button id="btn-login" class="fc-btn fc-btn--primary fc-btn--block"
-          onclick="FCApp.handleLogin(document.getElementById('login-email').value, document.getElementById('login-password').value)"
-          type="button">
-    Sign In
-  </button>
+    <!-- Create account link -->
+    <div class="fc-auth-link fc-auth-field-enter">
+      New to FlowCheck?
+      <button onclick="FCApp.setScreen('register')">Create free account</button>
+    </div>
 
-  <div class="fc-auth-link">
-    New to FlowCheck?
-    <button onclick="FCApp.setScreen('register')">Create free account</button>
   </div>
 </section>
 
 
 <!-- ══════════════════════════════════════ SCREEN: REGISTER -->
 <section class="fc-screen fc-auth-screen" data-screen="register" aria-label="Create account">
-  <!-- Logo — clean, no pill -->
-  <div style="display:flex;flex-direction:column;align-items:center;margin-bottom:24px">
-    <div class="fc-auth-logo" style="margin-bottom:14px;width:64px;height:64px;border-radius:20px;box-shadow:0 0 0 1px rgba(26,196,240,0.2),0 16px 48px rgba(26,196,240,0.25)">
-      <svg width="30" height="30" viewBox="0 0 24 24" fill="white" aria-hidden="true">
-        <path d="M4 4h16v3H4zm0 6h11v3H4zm0 6h7v3H4z"/>
-      </svg>
-    </div>
-    <div style="font-size:24px;font-weight:800;color:#fff;letter-spacing:-0.03em;line-height:1">FlowCheck</div>
-  </div>
 
-  <h1 class="fc-auth-title" style="margin-bottom:4px;font-size:22px">Create your account</h1>
-  <p class="fc-auth-subtitle" style="margin-bottom:20px">7 days free — no credit card required</p>
+  <!-- Ambient depth orbs -->
+  <div class="fc-auth-orb fc-auth-orb--top"></div>
+  <div class="fc-auth-orb fc-auth-orb--br"></div>
 
-  <div id="register-error" class="fc-auth-error" role="alert"></div>
+  <div class="fc-auth-body">
 
-  <!-- Apple Sign In — first, prominent -->
-  <button onclick="FCApp.handleAppleSignIn()" type="button"
-          style="width:100%;min-height:52px;border-radius:14px;
-                 background:rgba(255,255,255,0.95);border:none;
-                 display:flex;align-items:center;justify-content:center;gap:10px;
-                 cursor:pointer;-webkit-tap-highlight-color:transparent;
-                 font-size:15px;font-weight:600;color:#000;font-family:inherit;
-                 box-shadow:0 2px 12px rgba(0,0,0,0.3)">
-    <svg width="19" height="19" viewBox="0 0 24 24" fill="black" aria-hidden="true">
-      <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.7 9.05 7.4c1.42.07 2.4.78 3.28.84 1.22-.24 2.4-1.03 3.7-1.02 1.56.02 2.74.74 3.51 1.9-3.19 1.96-2.67 6.28.51 7.54-.64 1.62-1.5 3.23-3 3.62zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
-    </svg>
-    Continue with Apple
-  </button>
-
-  <div class="fc-auth-divider" style="margin:16px 0 12px"><span>or sign up with email</span></div>
-
-  <!-- Email first — more natural flow -->
-  <div class="fc-input-group" style="width:100%">
-    <div class="fc-input-label">Email</div>
-    <input id="reg-email" class="fc-input" type="email" autocomplete="email" inputmode="email" placeholder="you@example.com">
-  </div>
-  <div class="fc-input-group" style="width:100%">
-    <div class="fc-input-label">Full name</div>
-    <input id="reg-name" class="fc-input" type="text" autocomplete="name" placeholder="Your name">
-  </div>
-  <div class="fc-input-group" style="width:100%;margin-bottom:6px">
-    <div class="fc-input-label">Password</div>
-    <div class="fc-input-wrap">
-      <input id="reg-password" class="fc-input" type="password" autocomplete="new-password"
-             placeholder="At least 8 characters" style="padding-right:48px"
-             oninput="_updatePasswordStrength(this.value)">
-      <button class="fc-input-eye" onclick="togglePasswordVisibility('reg-password',this)" type="button" aria-label="Show password">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+    <!-- Logo + trust signal -->
+    <div class="fc-auth-field-enter" style="display:flex;flex-direction:column;align-items:center;margin-bottom:20px">
+      <div class="fc-auth-logo" style="margin-bottom:13px;width:60px;height:60px;border-radius:20px">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="white" aria-hidden="true">
+          <path d="M4 4h16v3H4zm0 6h11v3H4zm0 6h7v3H4z"/>
         </svg>
-      </button>
+      </div>
+      <!-- Trust badge row -->
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="display:flex;align-items:center;gap:4px">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#30d158" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+          <span style="font-size:11px;font-weight:500;color:rgba(255,255,255,0.38)">Bank-grade security</span>
+        </div>
+        <span style="width:3px;height:3px;border-radius:50%;background:rgba(255,255,255,0.18);flex-shrink:0"></span>
+        <div style="display:flex;align-items:center;gap:4px">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#30d158" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+          <span style="font-size:11px;font-weight:500;color:rgba(255,255,255,0.38)">No credit card</span>
+        </div>
+      </div>
     </div>
-    <!-- Strength bar only — no text label cluttering the layout -->
-    <div style="display:flex;gap:4px;margin-top:8px;height:3px" aria-hidden="true">
-      <div id="reg-pw-seg-1" style="flex:1;border-radius:999px;background:rgba(255,255,255,0.12);transition:background 0.25s"></div>
-      <div id="reg-pw-seg-2" style="flex:1;border-radius:999px;background:rgba(255,255,255,0.12);transition:background 0.25s"></div>
-      <div id="reg-pw-seg-3" style="flex:1;border-radius:999px;background:rgba(255,255,255,0.12);transition:background 0.25s"></div>
-      <div id="reg-pw-seg-4" style="flex:1;border-radius:999px;background:rgba(255,255,255,0.12);transition:background 0.25s"></div>
-    </div>
-    <!-- Hidden element kept for JS compatibility — strength label removed from view -->
-    <div id="reg-pw-strength-label" style="display:none"></div>
-  </div>
 
-  <!-- Referral code — collapsed, unobtrusive -->
-  <div style="width:100%;margin-bottom:12px">
-    <button type="button" id="reg-referral-toggle"
-            style="background:none;border:none;color:var(--fc-text-faint);font-size:12px;font-weight:500;cursor:pointer;padding:4px 0;display:flex;align-items:center;gap:5px"
-            onclick="FCApp.toggleReferralInput()">
-      <svg id="reg-referral-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="transition:transform 0.2s"><path d="M9 6l6 6-6 6"/></svg>
-      Have a referral code?
+    <!-- Headline -->
+    <div class="fc-auth-field-enter" style="text-align:center;margin-bottom:22px">
+      <h1 class="fc-auth-title">Create your account</h1>
+      <p class="fc-auth-subtitle"><strong>7 days free</strong> — cancel anytime</p>
+    </div>
+
+    <div id="register-error" class="fc-auth-error fc-auth-field-enter" role="alert"></div>
+
+    <!-- Apple Sign In — primary action -->
+    <button class="fc-auth-apple-btn fc-auth-field-enter" onclick="FCApp.handleAppleSignIn()" type="button">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="black" aria-hidden="true">
+        <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.7 9.05 7.4c1.42.07 2.4.78 3.28.84 1.22-.24 2.4-1.03 3.7-1.02 1.56.02 2.74.74 3.51 1.9-3.19 1.96-2.67 6.28.51 7.54-.64 1.62-1.5 3.23-3 3.62zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
+      </svg>
+      Continue with Apple
     </button>
-    <div id="reg-referral-wrap" style="display:none;margin-top:8px">
-      <div class="fc-input-group" style="width:100%;margin-bottom:0">
+
+    <div class="fc-auth-divider fc-auth-field-enter" style="margin:16px 0 14px"><span>or sign up with email</span></div>
+
+    <!-- Email -->
+    <div class="fc-input-group fc-auth-field-enter" style="width:100%">
+      <div class="fc-input-label">Email</div>
+      <input id="reg-email" class="fc-input" type="email" autocomplete="email" inputmode="email" placeholder="you@example.com">
+    </div>
+
+    <!-- Full name -->
+    <div class="fc-input-group fc-auth-field-enter" style="width:100%">
+      <div class="fc-input-label">Full name</div>
+      <input id="reg-name" class="fc-input" type="text" autocomplete="name" placeholder="Your name">
+    </div>
+
+    <!-- Password + strength -->
+    <div class="fc-input-group fc-auth-field-enter" style="width:100%;margin-bottom:8px">
+      <div class="fc-input-label">Password</div>
+      <div class="fc-input-wrap">
+        <input id="reg-password" class="fc-input" type="password" autocomplete="new-password"
+               placeholder="At least 8 characters" style="padding-right:50px"
+               oninput="_updatePasswordStrength(this.value)">
+        <button class="fc-input-eye" onclick="togglePasswordVisibility('reg-password',this)" type="button" aria-label="Show password">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+          </svg>
+        </button>
+      </div>
+      <!-- Premium strength bar -->
+      <div class="fc-pw-bar-track" aria-hidden="true">
+        <div id="reg-pw-seg-1" class="fc-pw-bar-seg"></div>
+        <div id="reg-pw-seg-2" class="fc-pw-bar-seg"></div>
+        <div id="reg-pw-seg-3" class="fc-pw-bar-seg"></div>
+        <div id="reg-pw-seg-4" class="fc-pw-bar-seg"></div>
+      </div>
+      <div id="reg-pw-strength-label" style="display:none"></div>
+    </div>
+
+    <!-- Referral code — minimal -->
+    <div class="fc-auth-field-enter" style="width:100%;margin-bottom:14px">
+      <button type="button" id="reg-referral-toggle"
+              style="background:none;border:none;color:rgba(255,255,255,0.30);font-size:12px;font-weight:500;cursor:pointer;padding:4px 0;display:flex;align-items:center;gap:5px;-webkit-tap-highlight-color:transparent"
+              onclick="FCApp.toggleReferralInput()">
+        <svg id="reg-referral-chevron" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="transition:transform 0.22s var(--fc-ease-spring)"><path d="M9 6l6 6-6 6"/></svg>
+        Have a referral code?
+      </button>
+      <div id="reg-referral-wrap" style="display:none;margin-top:8px">
         <input id="reg-referral-code" class="fc-input" type="text"
                autocomplete="off" spellcheck="false"
                placeholder="FLOWXXXXXX"
-               style="text-transform:uppercase;letter-spacing:1px"
+               style="text-transform:uppercase;letter-spacing:2px;font-size:15px"
                oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9-]/g,'')">
       </div>
     </div>
-  </div>
 
-  <button id="btn-register" class="fc-btn fc-btn--primary fc-btn--block"
-          onclick="FCApp.handleRegister(document.getElementById('reg-name').value, document.getElementById('reg-email').value, document.getElementById('reg-password').value, (document.getElementById('reg-referral-code')?.value||'').trim())"
-          type="button">
-    Start Free Trial
-  </button>
+    <!-- CTA -->
+    <button id="btn-register" class="fc-btn fc-btn--primary fc-btn--block fc-auth-field-enter"
+            onclick="FCApp.handleRegister(document.getElementById('reg-name').value, document.getElementById('reg-email').value, document.getElementById('reg-password').value, (document.getElementById('reg-referral-code')?.value||'').trim())"
+            type="button">
+      Start Free Trial
+    </button>
 
-  <div class="fc-auth-link" style="margin-top:14px">
-    Already have an account?
-    <button onclick="FCApp.setScreen('login')">Sign in</button>
-  </div>
+    <!-- Sign in link -->
+    <div class="fc-auth-link fc-auth-field-enter" style="margin-top:16px">
+      Already have an account?
+      <button onclick="FCApp.setScreen('login')">Sign in</button>
+    </div>
 
-  <div style="color:var(--fc-text-faint);font-size:11px;text-align:center;margin-top:10px;line-height:1.5">
-    By continuing you agree to our
-    <a href="#" onclick="FCApp.openUrl('/legal/terms.html');return false" style="color:var(--fc-accent)">Terms</a> and
-    <a href="#" onclick="FCApp.openUrl('/legal/privacy.html');return false" style="color:var(--fc-accent)">Privacy Policy</a>.
+    <!-- Legal micro-copy -->
+    <p class="fc-auth-field-enter" style="color:rgba(255,255,255,0.24);font-size:11px;text-align:center;margin-top:12px;line-height:1.6;padding:0 4px">
+      By continuing you agree to our
+      <a href="#" onclick="FCApp.openUrl('/legal/terms.html');return false" style="color:rgba(255,255,255,0.44);text-decoration:underline">Terms</a>
+      and
+      <a href="#" onclick="FCApp.openUrl('/legal/privacy.html');return false" style="color:rgba(255,255,255,0.44);text-decoration:underline">Privacy Policy</a>.
+    </p>
+
   </div>
 </section>
 
 
 <!-- ══════════════════════════════════ SCREEN: VERIFY EMAIL ══ -->
 <section class="fc-screen fc-auth-screen" data-screen="verify-email" aria-label="Verify your email"
-         style="background:radial-gradient(ellipse 100% 55% at 50% -10%, rgba(26,196,240,0.18) 0%, transparent 65%), var(--fc-bg)">
+         style="background:radial-gradient(ellipse 90% 50% at 50% -8%, rgba(26,196,240,0.16) 0%, transparent 62%), var(--fc-bg);justify-content:center">
 
-  <!-- Animated envelope glow -->
-  <div style="position:relative;width:92px;height:92px;flex-shrink:0;margin-bottom:20px">
-    <div style="position:absolute;inset:0;border-radius:50%;
-                background:radial-gradient(ellipse,rgba(26,196,240,0.16),transparent 70%);
-                animation:fcRingPulse 3s ease-in-out infinite"></div>
-    <div style="position:absolute;inset:14px;border-radius:50%;
-                background:linear-gradient(135deg,rgba(26,196,240,0.18),rgba(37,99,235,0.14));
-                border:1.5px solid rgba(26,196,240,0.32);
-                display:flex;align-items:center;justify-content:center;
-                box-shadow:0 0 28px rgba(26,196,240,0.20)">
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#1ac4f0"
-           stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-        <polyline points="22,6 12,13 2,6"/>
-      </svg>
+  <div class="fc-auth-body fc-stagger" style="align-items:center;max-width:340px">
+
+    <!-- Animated icon -->
+    <div class="fc-auth-field-enter" style="position:relative;width:100px;height:100px;flex-shrink:0;margin-bottom:24px">
+      <!-- Outer pulse ring -->
+      <div style="position:absolute;inset:-10px;border-radius:50%;
+                  border:1px solid rgba(26,196,240,0.14);
+                  animation:fcRingPulse 3s ease-in-out infinite"></div>
+      <div style="position:absolute;inset:0;border-radius:50%;
+                  border:1px solid rgba(26,196,240,0.22);
+                  animation:fcRingPulse 3s 0.5s ease-in-out infinite"></div>
+      <!-- Icon container -->
+      <div style="position:absolute;inset:10px;border-radius:50%;
+                  background:linear-gradient(145deg,rgba(26,196,240,0.16),rgba(37,99,235,0.12));
+                  border:1.5px solid rgba(26,196,240,0.36);
+                  display:flex;align-items:center;justify-content:center;
+                  box-shadow:0 0 32px rgba(26,196,240,0.22),inset 0 1px 0 rgba(255,255,255,0.08)">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#1ac4f0"
+             stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+          <polyline points="22,6 12,13 2,6"/>
+        </svg>
+      </div>
     </div>
-  </div>
 
-  <h1 class="fc-auth-title" style="margin-bottom:6px">Check your inbox</h1>
-  <p class="fc-auth-subtitle" style="margin-bottom:4px">We sent a verification link to</p>
-  <p id="verify-email-addr"
-     style="font-size:14px;font-weight:700;color:var(--fc-accent);
-            margin-bottom:22px;word-break:break-all;text-align:center"></p>
+    <!-- Headline -->
+    <h1 class="fc-auth-title fc-auth-field-enter" style="margin-bottom:7px">Check your inbox</h1>
+    <p class="fc-auth-subtitle fc-auth-field-enter" style="margin-bottom:4px">We sent a verification link to</p>
+    <p id="verify-email-addr" class="fc-auth-field-enter"
+       style="font-size:14px;font-weight:700;color:var(--fc-accent);
+              margin-bottom:24px;word-break:break-all;text-align:center;letter-spacing:-0.01em"></p>
 
-  <!-- Instructions card -->
-  <div style="width:100%;background:rgba(26,196,240,0.06);border:1px solid rgba(26,196,240,0.14);
-              border-radius:18px;padding:16px 18px;margin-bottom:20px">
-    <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px">
-      <span style="font-size:18px;flex-shrink:0;margin-top:1px">1️⃣</span>
-      <div style="font-size:13px;color:rgba(255,255,255,0.70);line-height:1.5">Open the FlowCheck email in your inbox</div>
+    <!-- Steps — clean numbered list, no emoji -->
+    <div class="fc-auth-field-enter" style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:18px;padding:18px 18px 14px;margin-bottom:20px">
+      <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:14px">
+        <div style="width:22px;height:22px;border-radius:50%;background:rgba(26,196,240,0.15);border:1px solid rgba(26,196,240,0.28);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">
+          <span style="font-size:11px;font-weight:700;color:#1ac4f0;line-height:1">1</span>
+        </div>
+        <p style="font-size:13.5px;color:rgba(255,255,255,0.66);line-height:1.5;margin:2px 0 0">Open the FlowCheck email in your inbox</p>
+      </div>
+      <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:14px">
+        <div style="width:22px;height:22px;border-radius:50%;background:rgba(26,196,240,0.15);border:1px solid rgba(26,196,240,0.28);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">
+          <span style="font-size:11px;font-weight:700;color:#1ac4f0;line-height:1">2</span>
+        </div>
+        <p style="font-size:13.5px;color:rgba(255,255,255,0.66);line-height:1.5;margin:2px 0 0">Tap <strong style="color:rgba(255,255,255,0.88);font-weight:600">Verify my email</strong> in the email</p>
+      </div>
+      <div style="display:flex;align-items:flex-start;gap:12px">
+        <div style="width:22px;height:22px;border-radius:50%;background:rgba(26,196,240,0.15);border:1px solid rgba(26,196,240,0.28);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">
+          <span style="font-size:11px;font-weight:700;color:#1ac4f0;line-height:1">3</span>
+        </div>
+        <p style="font-size:13.5px;color:rgba(255,255,255,0.66);line-height:1.5;margin:2px 0 0">Come back here and tap the button below</p>
+      </div>
     </div>
-    <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px">
-      <span style="font-size:18px;flex-shrink:0;margin-top:1px">2️⃣</span>
-      <div style="font-size:13px;color:rgba(255,255,255,0.70);line-height:1.5">Tap <strong style="color:#fff">Verify my email</strong> in the email</div>
-    </div>
-    <div style="display:flex;align-items:flex-start;gap:10px">
-      <span style="font-size:18px;flex-shrink:0;margin-top:1px">3️⃣</span>
-      <div style="font-size:13px;color:rgba(255,255,255,0.70);line-height:1.5">Come back here and tap the button below</div>
-    </div>
-  </div>
 
-  <div id="verify-email-err"
-       style="display:none;width:100%;padding:10px 14px;background:rgba(255,69,58,0.10);
-              border:1px solid rgba(255,69,58,0.22);border-radius:12px;
-              font-size:13px;color:#ff453a;margin-bottom:14px;text-align:center;line-height:1.4"></div>
+    <div id="verify-email-err"
+         style="display:none;width:100%;padding:11px 14px;background:rgba(255,69,58,0.10);
+                border:1px solid rgba(255,69,58,0.22);border-radius:12px;
+                font-size:13px;color:#ff453a;margin-bottom:14px;text-align:center;line-height:1.4"></div>
 
-  <!-- Primary CTA -->
-  <button id="btn-verify-continue" class="fc-btn fc-btn--primary fc-btn--block"
-          onclick="FCApp.handleVerifyEmailCheck()" type="button">
-    I've Verified My Email
-  </button>
-
-  <!-- Resend + Skip row -->
-  <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:14px">
-    <button id="btn-resend-verify" type="button"
-            style="background:none;border:none;color:var(--fc-accent);font-size:13px;
-                   font-weight:600;cursor:pointer;padding:6px 0;-webkit-tap-highlight-color:transparent"
-            onclick="FCApp.resendVerificationEmail()">
-      Resend Email
+    <!-- CTA -->
+    <button id="btn-verify-continue" class="fc-btn fc-btn--primary fc-btn--block fc-auth-field-enter"
+            onclick="FCApp.handleVerifyEmailCheck()" type="button">
+      I've Verified My Email
     </button>
-    <button type="button"
-            style="background:none;border:none;color:rgba(255,255,255,0.32);font-size:12px;
-                   font-weight:500;cursor:pointer;padding:6px 0;-webkit-tap-highlight-color:transparent"
-            onclick="FCApp.skipEmailVerification()">
-      Skip for now →
-    </button>
-  </div>
 
-  <p style="font-size:11px;color:rgba(255,255,255,0.22);text-align:center;
-            margin-top:18px;line-height:1.6;padding:0 8px">
-    Can't find the email? Check your spam folder.
-    Verification keeps your account secure.
-  </p>
+    <!-- Resend + Skip -->
+    <div class="fc-auth-field-enter" style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:16px">
+      <button id="btn-resend-verify" type="button"
+              style="background:none;border:none;color:var(--fc-accent);font-size:13.5px;
+                     font-weight:600;cursor:pointer;padding:6px 0;-webkit-tap-highlight-color:transparent"
+              onclick="FCApp.resendVerificationEmail()">
+        Resend Email
+      </button>
+      <button type="button"
+              style="background:none;border:none;color:rgba(255,255,255,0.28);font-size:12.5px;
+                     font-weight:500;cursor:pointer;padding:6px 0;-webkit-tap-highlight-color:transparent"
+              onclick="FCApp.skipEmailVerification()">
+        Skip for now →
+      </button>
+    </div>
+
+    <p class="fc-auth-field-enter" style="font-size:11px;color:rgba(255,255,255,0.20);text-align:center;margin-top:16px;line-height:1.65;padding:0 8px">
+      Can't find it? Check your spam folder. Verification keeps your account secure.
+    </p>
+
+  </div>
 </section>
 
 
 <!-- ══════════════════════════════════════ SCREEN: FACE ID SETUP -->
+<style>
+@keyframes fcFidRing {
+  0%,100% { opacity:0.45; transform:scale(1); }
+  50%     { opacity:1;    transform:scale(1.06); }
+}
+@keyframes fcFidCoreScan {
+  0%,100% { box-shadow:0 0 24px rgba(26,196,240,0.22),inset 0 1px 0 rgba(255,255,255,0.08); }
+  50%     { box-shadow:0 0 44px rgba(26,196,240,0.44),0 0 80px rgba(26,196,240,0.12),inset 0 1px 0 rgba(255,255,255,0.08); }
+}
+</style>
 <section class="fc-screen" data-screen="faceid-setup" aria-label="Set up Face ID"
          style="flex-direction:column;align-items:center;justify-content:center;
-                padding:40px 28px calc(env(safe-area-inset-bottom,0px) + 32px);
-                padding-top:calc(env(safe-area-inset-top,0px) + 40px);
+                padding:calc(env(safe-area-inset-top,44px)+32px) 28px calc(env(safe-area-inset-bottom,20px)+28px);
                 text-align:center;background:var(--fc-bg);overflow:hidden;position:relative">
 
-  <!-- Ambient glow background -->
-  <div style="position:absolute;top:-80px;left:50%;transform:translateX(-50%);
-              width:480px;height:480px;pointer-events:none;z-index:0;
-              background:radial-gradient(circle,rgba(26,196,240,0.13),transparent 60%)"></div>
+  <!-- Ambient glow -->
+  <div style="position:absolute;top:-100px;left:50%;transform:translateX(-50%);
+              width:500px;height:500px;pointer-events:none;
+              background:radial-gradient(circle,rgba(26,196,240,0.11),transparent 60%);
+              filter:blur(40px)"></div>
   <div style="position:absolute;bottom:0;right:0;
-              width:240px;height:240px;pointer-events:none;z-index:0;
-              background:radial-gradient(circle,rgba(37,99,235,0.09),transparent 60%)"></div>
+              width:240px;height:240px;pointer-events:none;
+              background:radial-gradient(circle,rgba(37,99,235,0.09),transparent 60%);
+              filter:blur(36px)"></div>
 
   <!-- Concentric pulse rings + icon -->
-  <div style="position:relative;width:164px;height:164px;margin-bottom:36px;flex-shrink:0;z-index:1">
-    <div style="position:absolute;inset:0;border-radius:50%;
-                border:1px solid rgba(26,196,240,0.14);
-                animation:fcFidRing 3.6s ease-in-out infinite"></div>
-    <div style="position:absolute;inset:18px;border-radius:50%;
-                border:1px solid rgba(26,196,240,0.22);
-                animation:fcFidRing 3.6s ease-in-out 0.4s infinite"></div>
-    <div style="position:absolute;inset:36px;border-radius:50%;
-                border:1.5px solid rgba(26,196,240,0.34);
-                animation:fcFidRing 3.6s ease-in-out 0.8s infinite"></div>
-    <!-- Core icon circle -->
-    <div style="position:absolute;inset:50px;border-radius:50%;
-                background:linear-gradient(135deg,rgba(26,196,240,0.20),rgba(37,99,235,0.16));
-                border:1.5px solid rgba(26,196,240,0.44);
+  <div class="fc-stagger" style="position:relative;width:172px;height:172px;margin-bottom:32px;flex-shrink:0;z-index:1">
+    <div style="position:absolute;inset:0;border-radius:50%;border:1px solid rgba(26,196,240,0.12);animation:fcFidRing 3.8s ease-in-out infinite"></div>
+    <div style="position:absolute;inset:18px;border-radius:50%;border:1px solid rgba(26,196,240,0.20);animation:fcFidRing 3.8s 0.45s ease-in-out infinite"></div>
+    <div style="position:absolute;inset:36px;border-radius:50%;border:1.5px solid rgba(26,196,240,0.32);animation:fcFidRing 3.8s 0.9s ease-in-out infinite"></div>
+    <div style="position:absolute;inset:52px;border-radius:50%;
+                background:linear-gradient(145deg,rgba(26,196,240,0.18),rgba(37,99,235,0.14));
+                border:1.5px solid rgba(26,196,240,0.48);
                 display:flex;align-items:center;justify-content:center;
-                box-shadow:0 0 24px rgba(26,196,240,0.2)">
-      <!-- Face ID scanner SVG -->
-      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#1ac4f0" stroke-width="1.35" stroke-linecap="round" aria-hidden="true">
+                animation:fcFidCoreScan 2.8s ease-in-out infinite">
+      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#1ac4f0" stroke-width="1.4" stroke-linecap="round" aria-hidden="true">
         <path d="M4 8V6a2 2 0 0 1 2-2h2M20 8V6a2 2 0 0 0-2-2h-2M4 16v2a2 2 0 0 0 2 2h2M20 16v2a2 2 0 0 1-2 2h-2"/>
-        <line x1="9" y1="10" x2="9" y2="10.01"/>
-        <line x1="15" y1="10" x2="15" y2="10.01"/>
+        <line x1="9" y1="10" x2="9" y2="10.01"/><line x1="15" y1="10" x2="15" y2="10.01"/>
         <path d="M9 14.5a4 4 0 0 0 6 0"/>
       </svg>
     </div>
   </div>
 
-  <div style="position:relative;z-index:1;width:100%;max-width:320px">
-    <h1 style="font-size:26px;font-weight:800;color:#fff;letter-spacing:-0.04em;margin:0 0 10px;line-height:1.15">
+  <div style="position:relative;z-index:1;width:100%;max-width:320px" class="fc-stagger">
+
+    <h1 style="font-size:27px;font-weight:800;color:#fff;letter-spacing:-0.038em;margin:0 0 11px;line-height:1.14">
       Enable Face ID
     </h1>
-    <p style="font-size:14.5px;color:rgba(255,255,255,0.52);line-height:1.65;margin:0 0 28px">
+    <p style="font-size:14px;color:rgba(255,255,255,0.48);line-height:1.68;margin:0 0 26px;max-width:280px;margin-left:auto;margin-right:auto">
       Unlock FlowCheck in one glance. Your biometric data
-      <strong style="color:rgba(255,255,255,0.76);font-weight:600">stays on this device</strong>
+      <strong style="color:rgba(255,255,255,0.78);font-weight:600">stays on this device</strong>
       — never uploaded, ever.
     </p>
 
-    <!-- Trust badges -->
-    <div style="display:flex;flex-wrap:wrap;gap:7px;justify-content:center;margin-bottom:36px">
-      <div style="display:flex;align-items:center;gap:5px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.09);border-radius:999px;padding:6px 12px">
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#34c759" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
-        <span style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.58)">On-Device Only</span>
+    <!-- Trust badges — accented, not gray -->
+    <div style="display:flex;flex-wrap:wrap;gap:7px;justify-content:center;margin-bottom:32px">
+      <div style="display:flex;align-items:center;gap:5px;background:rgba(48,209,88,0.08);border:1px solid rgba(48,209,88,0.22);border-radius:999px;padding:6px 13px">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#30d158" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+        <span style="font-size:11px;font-weight:600;color:rgba(48,209,88,0.88)">On-Device Only</span>
       </div>
-      <div style="display:flex;align-items:center;gap:5px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.09);border-radius:999px;padding:6px 12px">
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#34c759" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
-        <span style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.58)">iOS Secure Enclave</span>
+      <div style="display:flex;align-items:center;gap:5px;background:rgba(26,196,240,0.08);border:1px solid rgba(26,196,240,0.20);border-radius:999px;padding:6px 13px">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#1ac4f0" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+        <span style="font-size:11px;font-weight:600;color:rgba(26,196,240,0.88)">Secure Enclave</span>
       </div>
-      <div style="display:flex;align-items:center;gap:5px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.09);border-radius:999px;padding:6px 12px">
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#34c759" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
-        <span style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.58)">Zero-Knowledge</span>
+      <div style="display:flex;align-items:center;gap:5px;background:rgba(48,209,88,0.08);border:1px solid rgba(48,209,88,0.22);border-radius:999px;padding:6px 13px">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#30d158" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+        <span style="font-size:11px;font-weight:600;color:rgba(48,209,88,0.88)">Zero-Knowledge</span>
       </div>
     </div>
 
-    <!-- CTA buttons -->
+    <!-- CTA -->
     <button onclick="FCApp.handleBiometricSetup()" type="button"
-            style="width:100%;height:54px;border-radius:16px;
-                   background:linear-gradient(135deg,#1ac4f0,#2563eb);
-                   border:none;font-size:17px;font-weight:700;color:#fff;
-                   cursor:pointer;font-family:inherit;letter-spacing:-0.01em;
-                   box-shadow:0 4px 24px rgba(26,196,240,0.28);
-                   -webkit-tap-highlight-color:transparent">
+            class="fc-btn fc-btn--primary fc-btn--block"
+            style="font-size:17px;height:56px;border-radius:17px">
       Enable Face ID
     </button>
     <button onclick="FCApp.skipFaceIdSetup()" type="button"
-            style="width:100%;height:46px;background:none;border:none;
-                   font-size:14px;font-weight:500;color:rgba(255,255,255,0.36);
-                   cursor:pointer;margin-top:6px;font-family:inherit;
-                   -webkit-tap-highlight-color:transparent">
+            class="fc-auth-skip" style="width:100%;margin-top:4px;font-size:14px">
       Not now — skip
     </button>
-  </div>
 
-  <style>
-    @keyframes fcFidRing {
-      0%, 100% { opacity: 0.55; transform: scale(1); }
-      50%       { opacity: 1;    transform: scale(1.05); }
-    }
-  </style>
+  </div>
 </section>
 
 
@@ -2057,10 +2339,14 @@ body {
   padding: 8px 0 14px; flex-shrink: 0; position: relative; z-index: 2;
 }
 .fc-ob-step {
-  width: 6px; height: 6px; border-radius: 999px; background: rgba(255,255,255,0.15);
-  transition: width 0.35s cubic-bezier(0.34,1.56,0.64,1), background 0.3s;
+  width: 7px; height: 7px; border-radius: 999px; background: rgba(255,255,255,0.14);
+  transition: width 0.38s cubic-bezier(0.34,1.56,0.64,1), background 0.3s, box-shadow 0.3s;
 }
-.fc-ob-step.active { width: 22px; background: var(--fc-accent); }
+.fc-ob-step.active {
+  width: 26px;
+  background: var(--fc-accent);
+  box-shadow: 0 0 10px rgba(26,196,240,0.55);
+}
 .fc-ob-slides { flex: 1; position: relative; overflow: hidden; z-index: 2; }
 .fc-ob-slide {
   position: absolute; inset: 0; display: flex; flex-direction: column;
@@ -2092,7 +2378,7 @@ body {
 .fc-ob-hero-label { font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.36);margin-bottom:5px; }
 .fc-ob-hero-score {
   font-size:44px;font-weight:800;letter-spacing:-0.04em;line-height:1;margin-bottom:8px;
-  background:linear-gradient(135deg,#1ac4f0,#9b6ef8);
+  background:linear-gradient(135deg,#1ac4f0,#2563eb);
   -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
 }
 .fc-ob-hero-badge {
@@ -2125,7 +2411,7 @@ body {
 .fc-ob-ring-num {
   position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
   font-size:38px;font-weight:800;letter-spacing:-0.04em;
-  background:linear-gradient(135deg,#1ac4f0,#9b6ef8);
+  background:linear-gradient(135deg,#1ac4f0,#2563eb);
   -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
 }
 .fc-ob-ring-label { font-size:11px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:rgba(255,255,255,0.38);margin-top:6px; }
@@ -2402,37 +2688,47 @@ body {
       </div>
     </div>
 
-    <!-- ── SLIDE 2: Attribution — where did you find us? ───────── -->
-    <div class="fc-ob-slide fc-ob-question" id="ob-slide-2">
-      <div class="fc-ob-q-icon" style="font-size:48px;margin-bottom:14px">👋</div>
-      <h1 class="fc-ob-title fc-ob-title--lg" style="margin-bottom:6px">Where did you<br>find us?</h1>
-      <p class="fc-ob-desc" style="margin-bottom:0;font-size:14px">Helps us know where to spread the word.</p>
-      <div class="fc-ob-grid" style="margin-top:22px">
-        <button class="fc-ob-grid-option" onclick="obSelectAttribution(this,'tiktok')" type="button">
-          <span class="fc-ob-grid-icon">📱</span>TikTok
-        </button>
-        <button class="fc-ob-grid-option" onclick="obSelectAttribution(this,'instagram')" type="button">
-          <span class="fc-ob-grid-icon">📸</span>Instagram
-        </button>
-        <button class="fc-ob-grid-option" onclick="obSelectAttribution(this,'youtube')" type="button">
-          <span class="fc-ob-grid-icon">📺</span>YouTube
-        </button>
-        <button class="fc-ob-grid-option" onclick="obSelectAttribution(this,'google')" type="button">
-          <span class="fc-ob-grid-icon">🔍</span>Google
-        </button>
-        <button class="fc-ob-grid-option" onclick="obSelectAttribution(this,'app_store')" type="button">
-          <span class="fc-ob-grid-icon">🍎</span>App Store
-        </button>
-        <button class="fc-ob-grid-option" onclick="obSelectAttribution(this,'friend')" type="button">
-          <span class="fc-ob-grid-icon">👥</span>Friend / Family
-        </button>
-        <button class="fc-ob-grid-option" onclick="obSelectAttribution(this,'reddit')" type="button">
-          <span class="fc-ob-grid-icon">👾</span>Reddit
-        </button>
-        <button class="fc-ob-grid-option" onclick="obSelectAttribution(this,'other')" type="button">
-          <span class="fc-ob-grid-icon">✨</span>Other
-        </button>
+    <!-- ── SLIDE 2: Security & privacy — builds trust before paywall ── -->
+    <div class="fc-ob-slide" id="ob-slide-2" style="justify-content:center;padding-top:12px">
+      <div class="fc-ob-art" style="height:210px">
+        <div class="fc-ob-glow" style="background:radial-gradient(ellipse at 50% 60%,rgba(48,209,88,0.26),transparent 65%)"></div>
+        <div style="position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:10px;width:100%;max-width:300px">
+          <!-- Shield icon -->
+          <div style="width:80px;height:80px;border-radius:50%;
+                      background:radial-gradient(ellipse at 50% 30%,rgba(48,209,88,0.20),rgba(48,209,88,0.06));
+                      border:1.5px solid rgba(48,209,88,0.28);
+                      display:flex;align-items:center;justify-content:center;
+                      box-shadow:0 0 48px rgba(48,209,88,0.20),0 0 90px rgba(48,209,88,0.07);
+                      margin-bottom:4px;flex-shrink:0">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#30d158" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              <polyline points="9 12 11 14 15 10"/>
+            </svg>
+          </div>
+          <!-- Security stat cards -->
+          <div style="display:flex;gap:8px;width:100%">
+            <div style="flex:1;background:rgba(48,209,88,0.08);border:1px solid rgba(48,209,88,0.18);border-radius:14px;padding:12px 10px;text-align:center">
+              <div style="font-size:18px;font-weight:800;color:#30d158;letter-spacing:-0.02em">256-bit</div>
+              <div style="font-size:9.5px;font-weight:600;color:rgba(255,255,255,0.36);text-transform:uppercase;letter-spacing:0.06em;margin-top:3px">Encryption</div>
+            </div>
+            <div style="flex:1;background:rgba(26,196,240,0.08);border:1px solid rgba(26,196,240,0.18);border-radius:14px;padding:12px 10px;text-align:center">
+              <div style="font-size:18px;font-weight:800;color:#1ac4f0;letter-spacing:-0.02em">SOC 2</div>
+              <div style="font-size:9.5px;font-weight:600;color:rgba(255,255,255,0.36);text-transform:uppercase;letter-spacing:0.06em;margin-top:3px">Certified</div>
+            </div>
+            <div style="flex:1;background:rgba(48,209,88,0.08);border:1px solid rgba(48,209,88,0.18);border-radius:14px;padding:12px 10px;text-align:center">
+              <div style="font-size:18px;font-weight:800;color:#30d158;letter-spacing:-0.02em">$0</div>
+              <div style="font-size:9.5px;font-weight:600;color:rgba(255,255,255,0.36);text-transform:uppercase;letter-spacing:0.06em;margin-top:3px">Liability</div>
+            </div>
+          </div>
+          <!-- Plaid trust bar -->
+          <div style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:11px 14px;display:flex;align-items:center;gap:10px">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <span style="font-size:12px;color:rgba(255,255,255,0.46);line-height:1.4">Bank connections powered by <strong style="color:rgba(255,255,255,0.66);font-weight:600">Plaid</strong> — read-only, never write access</span>
+          </div>
+        </div>
       </div>
+      <h1 class="fc-ob-title" style="margin-top:8px">Your data stays<br><span class="fc-ob-title-grad">yours. Always.</span></h1>
+      <p class="fc-ob-desc">Bank-grade encryption. Read-only access. We can never move your money — ever.</p>
     </div>
 
     <!-- ── SLIDE 3: Feature showcase + social proof ──────────────── -->
@@ -2671,15 +2967,14 @@ body {
 
   <div class="fc-ob-cta">
     <button id="ob-next-btn" class="fc-btn fc-btn--primary fc-btn--block"
-            onclick="obNext()" type="button" style="font-size:17px;height:56px;margin-bottom:0">
+            onclick="obNext()" type="button"
+            style="font-size:17px;height:56px;margin-bottom:0;letter-spacing:-0.01em;border-radius:17px">
       Try Free for 7 Days
     </button>
     <!-- Trial CTA — shown on slide 5 (paywall) instead of next button -->
     <button id="ob-trial-btn" class="fc-btn fc-btn--primary fc-btn--block"
             onclick="FCApp.startTrialFromOnboarding()" type="button"
-            style="font-size:17px;height:56px;display:none;margin-bottom:0;
-                   background:linear-gradient(135deg,#1ac4f0,#2563eb);
-                   box-shadow:0 4px 20px rgba(26,196,240,0.28)">
+            style="font-size:17px;height:56px;display:none;margin-bottom:0;border-radius:17px;letter-spacing:-0.01em">
       Start 7-Day Free Trial
     </button>
     <button id="btn-plaid-link" class="fc-btn fc-btn--primary fc-btn--block"
@@ -4984,7 +5279,8 @@ let _obStep = 0;
 const _OB_TOTAL   = 6;
 const _obAnswers  = {};
 // Labels per step — null = slide auto-advances; 'trial' = last slide shows trial CTA
-const _obLabels = ['Try Free for 7 Days', null, null, 'Continue', 'Continue', 'trial'];
+// Slide 2 is now security/trust — uses Continue (not auto-advance)
+const _obLabels = ['Try Free for 7 Days', null, 'Continue', 'Continue', 'Continue', 'trial'];
 
 function _obUpdateControls() {
   const nextBtn  = document.getElementById('ob-next-btn');
@@ -5265,28 +5561,114 @@ function obSelectPlan(plan) {
   }
 }
 
-/** Live password strength meter — drives the 4-segment bar on the register screen */
+/** Live password strength meter — drives premium 4-segment bar */
 function _updatePasswordStrength(pw) {
   let score = 0;
-  if (pw.length >= 8)                          score++;
-  if (pw.length >= 12)                         score++;
-  if (/[A-Z]/.test(pw) && /[a-z]/.test(pw))   score++;
+  if (pw.length >= 8)                               score++;
+  if (pw.length >= 12)                              score++;
+  if (/[A-Z]/.test(pw) && /[a-z]/.test(pw))        score++;
   if (/[0-9]/.test(pw) || /[^A-Za-z0-9]/.test(pw)) score++;
 
-  const colors  = ['', '#ff453a', '#ffb020', '#1ac4f0', '#34c759'];
-  const labels  = ['', 'Weak', 'Fair', 'Good', 'Strong'];
-  const fill    = colors[score] || 'rgba(255,255,255,0.12)';
+  const litClasses = ['lit-1', 'lit-2', 'lit-3', 'lit-4'];
 
   for (let i = 1; i <= 4; i++) {
     const seg = document.getElementById('reg-pw-seg-' + i);
-    if (seg) seg.style.background = i <= score ? fill : 'rgba(255,255,255,0.12)';
+    if (!seg) continue;
+    seg.classList.remove('lit-1', 'lit-2', 'lit-3', 'lit-4');
+    if (i <= score) seg.classList.add(litClasses[score - 1]);
   }
   const lbl = document.getElementById('reg-pw-strength-label');
-  if (lbl) {
-    lbl.textContent = pw.length > 0 ? labels[score] || '' : '';
-    lbl.style.color = fill;
+  if (lbl) lbl.textContent = '';
+}
+
+/* ── Premium button loading state ── */
+function _btnLoad(btn, loading) {
+  if (!btn) return;
+  if (loading) {
+    btn._origHTML = btn.innerHTML;
+    btn.innerHTML = '<div class="fc-btn-spinner"></div>';
+    btn.classList.add('fc-btn--loading');
+    btn.disabled = true;
+  } else {
+    if (btn._origHTML) btn.innerHTML = btn._origHTML;
+    btn.classList.remove('fc-btn--loading');
+    btn.disabled = false;
   }
 }
+window._btnLoad = _btnLoad;
+
+/* ── Keyboard avoidance — moves auth form up when keyboard opens ── */
+(function() {
+  if (!window.visualViewport) return;
+  let _kbTimer;
+  function _onViewportResize() {
+    clearTimeout(_kbTimer);
+    _kbTimer = setTimeout(() => {
+      const vv = window.visualViewport;
+      const kbHeight = window.innerHeight - vv.height - vv.offsetTop;
+      // Apply only on pre-app screens
+      const screen = document.body.dataset.screen;
+      const preApp = ['login','register','forgot-password','verify-email'].includes(screen);
+      if (!preApp) return;
+
+      const el = document.querySelector(`.fc-screen[data-screen="${screen}"]`);
+      if (!el) return;
+
+      if (kbHeight > 80) {
+        // Keyboard is open — nudge scroll to keep active field visible
+        const active = document.activeElement;
+        if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {
+          requestAnimationFrame(() => {
+            const rect   = active.getBoundingClientRect();
+            const bottom = rect.bottom + 16; // 16px breathing room
+            const gap    = bottom - (window.innerHeight - kbHeight);
+            if (gap > 0) el.scrollTop += gap;
+          });
+        }
+      }
+    }, 60);
+  }
+  window.visualViewport.addEventListener('resize', _onViewportResize);
+  window.visualViewport.addEventListener('scroll', _onViewportResize);
+})();
+
+/* ── Wire btn-login and btn-register to use premium loading state ── */
+(function() {
+  function _patchAuthBtn(id, origFn) {
+    const btn = document.getElementById(id);
+    if (!btn || !origFn) return;
+    const prevClick = btn.onclick;
+    btn.onclick = async function(e) {
+      _btnLoad(btn, true);
+      try {
+        await origFn.call(this, e);
+      } catch(_) {}
+      // Loading state cleared by the handler (success navigates away; error re-enables via _btnLoad)
+      // Safety fallback — re-enable after 8s if not already navigated
+      setTimeout(() => _btnLoad(btn, false), 8000);
+    };
+  }
+
+  // Patch after FCApp is ready
+  document.addEventListener('DOMContentLoaded', () => {
+    // Login
+    const loginBtn = document.getElementById('btn-login');
+    if (loginBtn) {
+      loginBtn.addEventListener('click', function() {
+        _btnLoad(loginBtn, true);
+        setTimeout(() => _btnLoad(loginBtn, false), 8000);
+      }, { once: false });
+    }
+    // Register
+    const regBtn = document.getElementById('btn-register');
+    if (regBtn) {
+      regBtn.addEventListener('click', function() {
+        _btnLoad(regBtn, true);
+        setTimeout(() => _btnLoad(regBtn, false), 8000);
+      }, { once: false });
+    }
+  });
+})();
 </script>
 
 <!-- ════════════ IN-APP PAGE VIEWER (legal, help) ══════════════ -->
