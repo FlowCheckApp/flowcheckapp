@@ -263,10 +263,16 @@ html, body {
   animation: fcAuthOrbDrift 13s 2s ease-in-out infinite reverse;
 }
 
-/* Auth screens need vertical scroll (keyboard pushes content up) */
-.fc-auth-screen { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+/* Auth screens — height follows dynamic viewport so keyboard shrinks it cleanly */
+.fc-auth-screen {
+  min-height: 100dvh;
+  height: 100dvh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  justify-content: flex-start;
+}
 
-/* Content wrapper sits above orbs */
+/* Content wrapper sits above orbs, fills remaining height */
 .fc-auth-body {
   position: relative;
   z-index: 1;
@@ -274,6 +280,9 @@ html, body {
   display: flex;
   flex-direction: column;
   align-items: center;
+  flex: 1;
+  /* Bottom padding ensures legal text stays above keyboard safe area */
+  padding-bottom: max(env(safe-area-inset-bottom, 16px), 16px);
 }
 
 /* ── Logo mark ── */
