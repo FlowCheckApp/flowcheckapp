@@ -3707,106 +3707,196 @@ body {
 
   <style>
     /* ══════════════════════════════════════════════════════════════
-       HOME DASHBOARD v4 — complete clean build
-       All classes use dash- prefix. No legacy fch- overrides.
+       HOME DASHBOARD v5 — elite redesign
        ══════════════════════════════════════════════════════════════ */
 
     /* ── Scroll container ───────────────────────────────────────── */
     #view-home{overflow-y:scroll;-webkit-overflow-scrolling:touch;padding-bottom:100px;overscroll-behavior:contain}
 
-    /* ── Greeting header (NO bell — top bar handles that) ───────── */
-    .dash-greeting{display:flex;align-items:center;justify-content:space-between;padding:16px 18px 14px}
+    /* ── Greeting header ────────────────────────────────────────── */
+    .dash-greeting{display:flex;align-items:center;justify-content:space-between;padding:18px 18px 12px}
     .dash-greeting-left{flex:1;min-width:0}
-    .dash-tod{font-size:12px;color:rgba(255,255,255,0.35);font-weight:600;letter-spacing:0.04em;margin-bottom:2px;text-transform:uppercase;font-size:10px}
-    .dash-name{font-size:34px;font-weight:900;color:#fff;letter-spacing:-0.045em;line-height:1.0;margin:0}
-    .dash-safe{font-size:13px;color:#1ac4f0;font-weight:600;margin-top:6px;letter-spacing:-0.01em}
-    .dash-avatar{width:40px;height:40px;border-radius:50%;background:#2563eb;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;color:#fff;flex-shrink:0;letter-spacing:-0.01em}
+    .dash-tod{font-size:11px;color:rgba(255,255,255,0.38);font-weight:600;letter-spacing:0.06em;margin-bottom:3px;text-transform:uppercase}
+    .dash-name{font-size:36px;font-weight:900;color:#fff;letter-spacing:-0.05em;line-height:1.0;margin:0}
+    .dash-safe{font-size:13px;color:#1ac4f0;font-weight:600;margin-top:6px;letter-spacing:-0.01em;display:flex;align-items:center;gap:5px}
+    .dash-safe::before{content:'';width:6px;height:6px;border-radius:50%;background:#1ac4f0;box-shadow:0 0 8px rgba(26,196,240,0.8);flex-shrink:0}
+    /* Avatar — gradient ring */
+    .dash-avatar{
+      width:42px;height:42px;border-radius:50%;
+      background:linear-gradient(135deg,#1ac4f0,#2563eb);
+      display:flex;align-items:center;justify-content:center;
+      font-size:17px;font-weight:900;color:#fff;flex-shrink:0;
+      box-shadow:0 0 0 2px rgba(26,196,240,0.25),0 4px 16px rgba(37,99,235,0.4);
+    }
 
     /* ── Section wrappers ───────────────────────────────────────── */
-    .dash-section{margin-bottom:20px}
+    .dash-section{margin-bottom:24px}
     .dash-section-inner{margin:0 16px}
 
     /* ── Section header row ─────────────────────────────────────── */
-    .dash-sec-hdr{display:flex;align-items:center;justify-content:space-between;padding:0 16px;margin-bottom:10px}
-    .dash-sec-title{font-size:10px;font-weight:700;color:rgba(255,255,255,0.32);letter-spacing:0.12em;text-transform:uppercase}
-    .dash-sec-link{font-size:12px;font-weight:700;color:var(--fc-accent,#1ac4f0);border:none;background:none;cursor:pointer;padding:0;-webkit-tap-highlight-color:transparent;opacity:.85}
+    .dash-sec-hdr{display:flex;align-items:center;justify-content:space-between;padding:0 18px;margin-bottom:12px}
+    .dash-sec-title{font-size:13px;font-weight:700;color:rgba(255,255,255,0.70);letter-spacing:-0.01em}
+    .dash-sec-link{font-size:12px;font-weight:600;color:rgba(26,196,240,0.85);border:none;background:none;cursor:pointer;padding:0;-webkit-tap-highlight-color:transparent}
 
     /* ── Base card ──────────────────────────────────────────────── */
-    .dash-card{background:linear-gradient(145deg,#0d1b2e,#091422);border-radius:22px;border:0.5px solid rgba(255,255,255,0.09);box-shadow:0 4px 20px rgba(0,0,0,0.35)}
-    .dash-card-p{padding:16px}
-    .dash-card-tap{cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .15s}
-    .dash-card-tap:active{background:rgba(255,255,255,0.04)}
+    .dash-card{
+      background:linear-gradient(160deg,rgba(15,28,48,0.98) 0%,rgba(8,17,28,0.98) 100%);
+      border-radius:22px;border:0.5px solid rgba(255,255,255,0.08);
+      box-shadow:0 2px 16px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,255,255,0.05);
+    }
+    .dash-card-p{padding:18px}
+    .dash-card-tap{cursor:pointer;-webkit-tap-highlight-color:transparent;transition:opacity .15s,transform .15s}
+    .dash-card-tap:active{opacity:.88;transform:scale(0.988)}
 
-    /* ── Net worth hero card ────────────────────────────────────── */
-    .dash-nw-card{margin:4px 16px 18px;background:linear-gradient(145deg,#0f1e35 0%,#08131f 100%);border-radius:22px;border:0.5px solid rgba(26,196,240,0.22);padding:18px 20px 16px;position:relative;overflow:hidden;box-shadow:0 0 50px rgba(26,196,240,0.07) inset,0 8px 32px rgba(0,0,0,0.45)}
-    .dash-nw-tag{font-size:10px;color:rgba(255,255,255,0.32);font-weight:700;letter-spacing:.10em;margin-bottom:6px;text-transform:uppercase}
-    .dash-nw-row{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:2px}
-    .dash-nw-amount{font-size:38px;font-weight:900;color:#fff;letter-spacing:-1.5px;line-height:1;font-variant-numeric:tabular-nums}
-    .dash-nw-pill{display:inline-flex;align-items:center;gap:3px;background:rgba(52,199,89,0.12);border:0.5px solid rgba(52,199,89,0.28);border-radius:20px;padding:5px 10px;font-size:11px;font-weight:700;color:#34c759;flex-shrink:0;margin-bottom:4px}
+    /* ── Net worth hero card — SIGNATURE MOMENT ─────────────────── */
+    .dash-nw-card{
+      margin:4px 16px 20px;
+      background:linear-gradient(160deg,#0d1f38 0%,#071420 100%);
+      border-radius:24px;
+      border:0.5px solid rgba(26,196,240,0.24);
+      padding:20px 20px 18px;
+      position:relative;overflow:hidden;
+      box-shadow:
+        0 0 0 0.5px rgba(26,196,240,0.10),
+        0 12px 40px rgba(0,0,0,0.55),
+        inset 0 1px 0 rgba(255,255,255,0.07);
+    }
+    /* Aurora glow — top-left cyan bloom */
+    .dash-nw-card::before{
+      content:'';position:absolute;
+      top:-60px;left:-40px;
+      width:240px;height:200px;
+      background:radial-gradient(ellipse at 40% 40%,rgba(26,196,240,0.22) 0%,transparent 68%);
+      pointer-events:none;
+    }
+    /* Aurora glow — bottom-right blue accent */
+    .dash-nw-card::after{
+      content:'';position:absolute;
+      bottom:-50px;right:-30px;
+      width:180px;height:160px;
+      background:radial-gradient(ellipse at 60% 60%,rgba(37,99,235,0.18) 0%,transparent 65%);
+      pointer-events:none;
+    }
+    .dash-nw-tag{font-size:10px;color:rgba(255,255,255,0.35);font-weight:700;letter-spacing:.12em;margin-bottom:8px;text-transform:uppercase;position:relative;z-index:1}
+    .dash-nw-row{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:4px;position:relative;z-index:1}
+    .dash-nw-amount{font-size:44px;font-weight:900;color:#fff;letter-spacing:-2px;line-height:1;font-variant-numeric:tabular-nums}
+    .dash-nw-pill{display:inline-flex;align-items:center;gap:3px;background:rgba(52,199,89,0.12);border:0.5px solid rgba(52,199,89,0.28);border-radius:20px;padding:5px 10px;font-size:11px;font-weight:700;color:#34c759;flex-shrink:0;margin-bottom:6px}
     .dash-nw-pill.neg{background:rgba(255,69,58,0.12);border-color:rgba(255,69,58,0.28);color:#ff453a}
-    .dash-nw-footer{display:flex;border-top:0.5px solid rgba(255,255,255,0.06);padding-top:13px;margin-top:10px}
-    .dash-nw-foot{flex:1;display:flex;flex-direction:column;gap:3px;text-align:center}
+    .dash-nw-footer{display:flex;border-top:0.5px solid rgba(255,255,255,0.07);padding-top:14px;margin-top:4px;position:relative;z-index:1}
+    .dash-nw-foot{flex:1;display:flex;flex-direction:column;gap:4px;text-align:center}
     .dash-nw-foot:not(:last-child){border-right:0.5px solid rgba(255,255,255,0.07)}
-    .dash-nf-lbl{font-size:9px;color:rgba(255,255,255,0.28);font-weight:700;letter-spacing:.10em;text-transform:uppercase}
-    .dash-nf-val{font-size:15px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-0.02em}
+    .dash-nf-lbl{font-size:9px;color:rgba(255,255,255,0.30);font-weight:700;letter-spacing:.10em;text-transform:uppercase}
+    .dash-nf-val{font-size:16px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-0.03em}
     .dash-green{color:#34c759}.dash-red{color:#ff453a}
 
     /* ── Period scrubber ────────────────────────────────────────── */
-    .dash-scrubber{background:rgba(255,255,255,0.04);border:0.5px solid rgba(255,255,255,0.07);border-radius:10px;padding:3px;display:flex;gap:2px;margin-bottom:12px}
-    .dash-scrub-btn{flex:1;border:none;background:none;color:rgba(255,255,255,0.35);font-size:12px;font-weight:600;padding:5px 0;border-radius:8px;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;transition:background .15s,color .15s}
-    .dash-scrub-btn.active,.dash-scrub-btn[aria-selected="true"]{background:rgba(26,196,240,0.15);color:#1ac4f0;border:0.5px solid rgba(26,196,240,0.25)}
+    .dash-scrubber{
+      background:rgba(255,255,255,0.04);border:0.5px solid rgba(255,255,255,0.08);
+      border-radius:12px;padding:3px;display:flex;gap:2px;margin-bottom:14px;
+      position:relative;z-index:1;
+    }
+    .dash-scrub-btn{flex:1;border:none;background:none;color:rgba(255,255,255,0.38);font-size:12px;font-weight:600;padding:6px 0;border-radius:9px;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;transition:background .18s,color .18s}
+    .dash-scrub-btn.active,.dash-scrub-btn[aria-selected="true"]{background:rgba(26,196,240,0.18);color:#1ac4f0;box-shadow:inset 0 0.5px 0 rgba(26,196,240,0.3)}
 
-    /* ── Quick-stat strip ───────────────────────────────────────── */
-    .dash-stats{display:flex;gap:8px;padding:0 16px;margin-bottom:20px}
-    .dash-stat{flex:1;background:linear-gradient(145deg,#0d1b2e,#091422);border:0.5px solid rgba(255,255,255,0.09);border-radius:16px;padding:12px 13px 11px;display:flex;flex-direction:column;gap:4px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .12s,box-shadow .15s;box-shadow:0 2px 12px rgba(0,0,0,0.3)}
-    .dash-stat:active{transform:scale(0.97);box-shadow:none}
-    .dash-sp-lbl{font-size:9px;color:rgba(255,255,255,0.32);font-weight:700;letter-spacing:.10em;text-transform:uppercase}
-    .dash-sp-val{font-size:17px;font-weight:800;color:#fff;font-variant-numeric:tabular-nums;line-height:1.1;letter-spacing:-0.03em}
+    /* ── Quick-stat strip — 3 premium cards ─────────────────────── */
+    .dash-stats{display:flex;gap:10px;padding:0 16px;margin-bottom:24px}
+    .dash-stat{
+      flex:1;
+      background:linear-gradient(160deg,rgba(15,28,48,0.98) 0%,rgba(8,17,28,0.98) 100%);
+      border:0.5px solid rgba(255,255,255,0.08);
+      border-radius:18px;
+      padding:14px 14px 12px;
+      display:flex;flex-direction:column;gap:5px;
+      cursor:pointer;-webkit-tap-highlight-color:transparent;
+      transition:transform .14s,opacity .1s;
+      box-shadow:0 2px 16px rgba(0,0,0,0.35),inset 0 1px 0 rgba(255,255,255,0.04);
+      position:relative;overflow:hidden;
+    }
+    /* Colored top accent bar on each stat card */
+    .dash-stat::before{
+      content:'';position:absolute;top:0;left:0;right:0;height:2px;border-radius:18px 18px 0 0;
+    }
+    .dash-stat:nth-child(1)::before{background:linear-gradient(90deg,#1ac4f0,rgba(26,196,240,0.3))}
+    .dash-stat:nth-child(2)::before{background:linear-gradient(90deg,#ff9f0a,rgba(255,159,10,0.3))}
+    .dash-stat:nth-child(3)::before{background:linear-gradient(90deg,#ff453a,rgba(255,69,58,0.3))}
+    .dash-stat:active{transform:scale(0.96);opacity:.88}
+    .dash-sp-lbl{font-size:9px;color:rgba(255,255,255,0.38);font-weight:700;letter-spacing:.10em;text-transform:uppercase}
+    .dash-sp-val{font-size:18px;font-weight:800;color:#fff;font-variant-numeric:tabular-nums;line-height:1.1;letter-spacing:-0.03em}
 
     /* ── Account carousel ───────────────────────────────────────── */
     .dash-acct-scroll{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:none;-ms-overflow-style:none;scroll-snap-type:x mandatory;padding-left:16px;margin-bottom:4px}
     .dash-acct-scroll::-webkit-scrollbar{display:none}
     .dash-acct-inner{display:flex;gap:11px;width:max-content;padding:2px 20px 6px 0}
-    .dash-acct-card{flex-shrink:0;scroll-snap-align:start;width:222px;height:144px;background:linear-gradient(145deg,#0e1d30,#091522);border:0.5px solid rgba(255,255,255,0.11);border-radius:22px;padding:17px 18px;cursor:pointer;transition:transform .18s ease;position:relative;overflow:hidden;-webkit-tap-highlight-color:transparent;box-shadow:0 4px 20px rgba(0,0,0,0.35)}
+    .dash-acct-card{
+      flex-shrink:0;scroll-snap-align:start;width:228px;height:148px;
+      background:linear-gradient(160deg,#0e1e32,#071420);
+      border:0.5px solid rgba(255,255,255,0.11);border-radius:22px;
+      padding:17px 18px;cursor:pointer;
+      transition:transform .18s cubic-bezier(0.34,1.56,0.64,1);
+      position:relative;overflow:hidden;-webkit-tap-highlight-color:transparent;
+      box-shadow:0 6px 24px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,255,255,0.06);
+    }
     .dash-acct-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--pill-accent,var(--fc-accent));border-radius:22px 22px 0 0}
-    .dash-acct-card:active{transform:scale(0.96)}
-    .dash-acct-add{flex-shrink:0;scroll-snap-align:start;width:110px;height:144px;border:1.5px dashed rgba(37,99,235,0.32);background:rgba(37,99,235,0.04);border-radius:22px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:16px 10px;cursor:pointer;transition:background .15s;-webkit-tap-highlight-color:transparent}
-    .dash-acct-add:active{background:rgba(37,99,235,0.09)}
+    .dash-acct-card:active{transform:scale(0.955)}
+    .dash-acct-add{flex-shrink:0;scroll-snap-align:start;width:110px;height:148px;border:1.5px dashed rgba(37,99,235,0.35);background:rgba(37,99,235,0.04);border-radius:22px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:16px 10px;cursor:pointer;transition:background .15s;-webkit-tap-highlight-color:transparent}
+    .dash-acct-add:active{background:rgba(37,99,235,0.10)}
     .dash-acct-bank{font-size:8px;font-weight:700;color:rgba(255,255,255,0.28);letter-spacing:0.14em;text-transform:uppercase;margin-bottom:3px}
-    .dash-acct-name{font-size:13px;font-weight:700;color:rgba(255,255,255,0.88);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:152px}
+    .dash-acct-name{font-size:13px;font-weight:700;color:rgba(255,255,255,0.90);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:152px}
     .dash-acct-mask{font-size:9px;color:rgba(255,255,255,0.22);letter-spacing:0.12em;font-weight:600;margin-top:16px;margin-bottom:4px}
-    .dash-acct-bal{font-size:26px;font-weight:800;color:#fff;letter-spacing:-0.035em;line-height:1;font-variant-numeric:tabular-nums}
-    .dash-acct-cents{font-size:16px;font-weight:600;color:rgba(255,255,255,0.50)}
-    .dash-acct-icon{position:absolute;top:17px;right:18px;width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.08);border:0.5px solid rgba(255,255,255,0.12);color:var(--pill-accent,var(--fc-accent));font-size:15px}
+    .dash-acct-bal{font-size:27px;font-weight:800;color:#fff;letter-spacing:-0.04em;line-height:1;font-variant-numeric:tabular-nums}
+    .dash-acct-cents{font-size:16px;font-weight:600;color:rgba(255,255,255,0.48)}
+    .dash-acct-icon{position:absolute;top:17px;right:18px;width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.07);border:0.5px solid rgba(255,255,255,0.12);color:var(--pill-accent,var(--fc-accent));font-size:15px}
 
-    /* Carousel dots — capped at 5; shows count badge when more */
+    /* Carousel dots */
     .dash-dots{display:flex;justify-content:center;align-items:center;gap:5px;margin-top:8px;padding-bottom:2px;min-height:14px}
-    .dash-dot{height:4px;border-radius:2px;transition:all .25s ease;background:rgba(255,255,255,0.18);width:6px}
-    .dash-dot.active{background:#2563eb;width:20px}
+    .dash-dot{height:4px;border-radius:2px;transition:all .28s cubic-bezier(0.34,1.56,0.64,1);background:rgba(255,255,255,0.16);width:6px}
+    .dash-dot.active{background:#2563eb;width:22px}
     .dash-dot-count{font-size:11px;font-weight:600;color:rgba(255,255,255,0.35);letter-spacing:0.02em}
 
     /* ── Transaction list ───────────────────────────────────────── */
-    .dash-txn-card{margin:0 16px;background:linear-gradient(145deg,#0d1b2e,#091422);border:0.5px solid rgba(255,255,255,0.09);border-radius:20px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.3)}
-    .dash-txn{display:flex;align-items:center;gap:12px;padding:13px 16px;border-bottom:0.5px solid rgba(255,255,255,0.04);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .12s}
+    .dash-txn-card{
+      margin:0 16px;
+      background:linear-gradient(160deg,rgba(15,28,48,0.98),rgba(8,17,28,0.98));
+      border:0.5px solid rgba(255,255,255,0.08);border-radius:22px;overflow:hidden;
+      box-shadow:0 4px 20px rgba(0,0,0,0.35),inset 0 1px 0 rgba(255,255,255,0.04);
+    }
+    .dash-txn{display:flex;align-items:center;gap:13px;padding:14px 16px;border-bottom:0.5px solid rgba(255,255,255,0.045);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .12s}
     .dash-txn:last-child{border-bottom:none}
-    .dash-txn:active{background:rgba(255,255,255,0.05)}
-    .dash-txn-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+    .dash-txn:active{background:rgba(255,255,255,0.04)}
+    .dash-txn-icon{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0}
 
     /* ── Bills card ─────────────────────────────────────────────── */
-    .dash-bills-card{margin:0 16px;background:linear-gradient(145deg,#0d1b2e,#091422);border:0.5px solid rgba(255,255,255,0.09);border-radius:20px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.3)}
+    .dash-bills-card{
+      margin:0 16px;
+      background:linear-gradient(160deg,rgba(15,28,48,0.98),rgba(8,17,28,0.98));
+      border:0.5px solid rgba(255,255,255,0.08);border-radius:22px;overflow:hidden;
+      box-shadow:0 4px 20px rgba(0,0,0,0.35),inset 0 1px 0 rgba(255,255,255,0.04);
+    }
 
     /* ── Health score row ───────────────────────────────────────── */
-    .dash-health{display:flex;align-items:center;gap:12px;margin:0 16px;background:linear-gradient(135deg,rgba(26,196,240,0.07),rgba(37,99,235,0.07));border:0.5px solid rgba(26,196,240,0.18);border-radius:18px;padding:14px 16px;cursor:pointer;-webkit-tap-highlight-color:transparent;box-shadow:0 2px 16px rgba(0,0,0,0.25)}
-    .dash-health:active{opacity:.85}
+    .dash-health{
+      display:flex;align-items:center;gap:14px;margin:0 16px;
+      background:linear-gradient(135deg,rgba(26,196,240,0.09) 0%,rgba(37,99,235,0.06) 100%);
+      border:0.5px solid rgba(26,196,240,0.22);border-radius:20px;padding:16px 16px;
+      cursor:pointer;-webkit-tap-highlight-color:transparent;
+      box-shadow:0 4px 20px rgba(0,0,0,0.3),0 0 30px rgba(26,196,240,0.04) inset;
+      transition:opacity .15s,transform .15s;
+    }
+    .dash-health:active{opacity:.85;transform:scale(0.988)}
     .dash-health-score{font-size:28px;font-weight:800;color:#fff;letter-spacing:-0.04em;flex-shrink:0;min-width:44px}
 
     /* ── Smart insights collapsible ─────────────────────────────── */
-    .dash-ins{margin:0 16px;background:#12121C;border:0.5px solid rgba(255,255,255,0.07);border-radius:20px;overflow:hidden}
-    .dash-ins-toggle{display:flex;align-items:center;justify-content:space-between;padding:15px 16px;cursor:pointer;-webkit-tap-highlight-color:transparent}
-    .dash-ins-toggle:active{background:rgba(255,255,255,0.04)}
-    .dash-ins-body{padding:0 16px 14px;display:none}
+    .dash-ins{
+      margin:0 16px;
+      background:linear-gradient(160deg,rgba(15,28,48,0.98),rgba(8,17,28,0.98));
+      border:0.5px solid rgba(255,255,255,0.08);border-radius:22px;overflow:hidden;
+      box-shadow:0 4px 20px rgba(0,0,0,0.3),inset 0 1px 0 rgba(255,255,255,0.04);
+    }
+    .dash-ins-toggle{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .12s}
+    .dash-ins-toggle:active{background:rgba(255,255,255,0.03)}
+    .dash-ins-body{padding:0 18px 16px;display:none}
     .dash-ins-body.open{display:block}
-    .dash-ins-chevron{font-size:11px;color:rgba(255,255,255,0.28);transition:transform .2s}
+    .dash-ins-chevron{font-size:11px;color:rgba(255,255,255,0.28);transition:transform .22s}
     .dash-ins-chevron.open{transform:rotate(180deg)}
 
     /* ── Progress bars (budget wizard) — iOS-safe clipping ─────── */
@@ -3824,18 +3914,17 @@ body {
     .fc-home-txn-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
 
     /* ── Today's Focus card ────────────────────────────────────── */
-    /* Today's Focus — premium card */
     .dash-focus-card{
       margin:0 16px 20px;border-radius:22px;
-      padding:17px 18px 15px 20px;
+      padding:18px 18px 16px 20px;
       position:relative;overflow:hidden;cursor:pointer;
       -webkit-tap-highlight-color:transparent;
-      background:linear-gradient(145deg,#0d1b2e,#091422);
+      background:linear-gradient(160deg,rgba(15,28,48,0.98),rgba(8,17,28,0.98));
       border:0.5px solid rgba(255,255,255,0.09);
-      box-shadow:0 4px 20px rgba(0,0,0,0.3),inset 0 1px 0 rgba(255,255,255,0.04);
-      transition:transform .14s var(--fc-ease-spring),opacity .1s;
+      box-shadow:0 6px 28px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,255,255,0.05);
+      transition:transform .16s cubic-bezier(0.34,1.56,0.64,1),opacity .12s;
     }
-    .dash-focus-card:active{transform:scale(0.984);opacity:.9}
+    .dash-focus-card:active{transform:scale(0.978);opacity:.88}
     /* Coloured left accent bar — width 4px, rounded left corners only */
     .dash-focus-left-bar{
       position:absolute;left:0;top:0;bottom:0;width:4px;
@@ -3886,8 +3975,17 @@ body {
     #home-debt-planner-section { display:none !important }
 
     /* ── Empty states ───────────────────────────────────────────── */
-    .dash-empty{text-align:center;padding:28px 20px;color:rgba(255,255,255,.35);font-size:13px;line-height:1.6;font-weight:500;letter-spacing:.01em}
-    .dash-empty::before{content:'';display:block;width:32px;height:32px;border-radius:50%;background:rgba(26,196,240,0.08);border:1px solid rgba(26,196,240,0.15);margin:0 auto 12px;background-image:radial-gradient(circle at 50% 50%,rgba(26,196,240,0.18),transparent 70%)}
+    .dash-empty{
+      text-align:center;padding:32px 20px;
+      color:rgba(255,255,255,.42);font-size:13px;line-height:1.6;font-weight:500;letter-spacing:.01em;
+    }
+    .dash-empty::before{
+      content:'';display:block;width:36px;height:36px;border-radius:50%;
+      background:radial-gradient(circle at 50% 50%,rgba(26,196,240,0.16),transparent 70%);
+      border:1px solid rgba(26,196,240,0.18);
+      box-shadow:0 0 16px rgba(26,196,240,0.10);
+      margin:0 auto 14px;
+    }
 
     /* ── Slide-in tab transitions defined globally above — no override here ── */
 
