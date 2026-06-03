@@ -4955,6 +4955,11 @@ window.FCApp = (function () {
     if (emailEl) emailEl.textContent = displayEmail;
     if (initEl)  initEl.textContent  = displayName.charAt(0).toUpperCase();
 
+    // Appearance picker — highlight saved preference
+    if (window._FCSetAppearance && window._FCGetAppearance) {
+      window._FCSetAppearance(window._FCGetAppearance());
+    }
+
     // Biometric toggle — set both class and aria-checked correctly
     FCAuth.isBiometricEnabled().then(enabled => {
       const toggle = document.getElementById('toggle-biometric');
@@ -7818,7 +7823,52 @@ window.FCApp = (function () {
     showEditProfileSheet,
     closeEditProfileSheet,
     saveProfileChanges,
+    // Appearance / theme
+    setAppearance: (pref) => window._FCSetAppearance && window._FCSetAppearance(pref),
   };
+})();
+
+/* ── Theme engine — light / dark / system ────────────────────── */
+(function() {
+  const STORAGE_KEY = 'fc_appearance';
+  const mq = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)');
+
+  function _apply(pref) {
+    const isDark = pref === 'dark' || (pref === 'system' && mq && !mq.matches);
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+
+    // Update native WKWebView background to match instantly
+    const bg = isDark ? '#060e18' : '#f2f4f8';
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', bg);
+    document.documentElement.style.backgroundColor = bg;
+    document.body && (document.body.style.backgroundColor = bg);
+
+    // Highlight the active picker button
+    document.querySelectorAll('#appearance-picker button').forEach(btn => {
+      const isActive = btn.dataset.themeVal === pref;
+      btn.style.background  = isActive ? (isDark ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.95)') : 'transparent';
+      btn.style.color       = isActive ? (isDark ? '#f0f6ff' : '#0d1b2e') : '';
+      btn.style.boxShadow   = isActive ? (isDark ? '0 1px 4px rgba(0,0,0,0.3)' : '0 1px 6px rgba(13,27,46,0.12)') : '';
+    });
+  }
+
+  function _load() {
+    return localStorage.getItem(STORAGE_KEY) || 'dark';
+  }
+
+  // Apply immediately on load (before anything renders)
+  _apply(_load());
+
+  // React to system preference changes when set to 'system'
+  if (mq) mq.addEventListener('change', () => { if (_load() === 'system') _apply('system'); });
+
+  // Public: called by settings picker buttons
+  window._FCSetAppearance = function(pref) {
+    localStorage.setItem(STORAGE_KEY, pref);
+    _apply(pref);
+  };
+  window._FCGetAppearance = _load;
 })();
 
 /* ── Boot on DOM ready ───────────────────────────────────────── */

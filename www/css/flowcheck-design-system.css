@@ -76,6 +76,120 @@
 }
 
 /* ============================================================
+   LIGHT MODE — [data-theme="light"] on <html>
+   Premium warm-white aesthetic: Monarch Money / Apple Wallet quality
+   ============================================================ */
+[data-theme="light"] {
+  /* --- Surfaces --- */
+  --fc-bg:              #f2f4f8;
+  --fc-bg-elevated:     #ffffff;
+  --fc-bg-elevated-2:   #eef0f5;
+  --fc-card-bg:         rgba(255, 255, 255, 0.90);
+  --fc-card-bg-hover:   rgba(255, 255, 255, 1);
+  --fc-glass:           rgba(242, 244, 248, 0.92);
+
+  /* --- Accents — slightly deeper for light-bg contrast --- */
+  --fc-accent:          #0dadd4;
+  --fc-accent-soft:     rgba(13, 173, 212, 0.10);
+  --fc-accent-glow:     rgba(13, 173, 212, 0.22);
+  --fc-accent-hover:    #0e9fbe;
+  --fc-accent-ink:      #ffffff;
+
+  --fc-electric:        #1d4ed8;
+  --fc-electric-soft:   rgba(29, 78, 216, 0.10);
+  --fc-electric-glow:   rgba(29, 78, 216, 0.22);
+
+  /* --- Status — slightly richer on white --- */
+  --fc-success:         #17a34a;
+  --fc-success-soft:    rgba(23, 163, 74, 0.10);
+  --fc-warning:         #d97706;
+  --fc-warning-soft:    rgba(217, 119, 6, 0.10);
+  --fc-danger:          #dc2626;
+  --fc-danger-soft:     rgba(220, 38, 38, 0.10);
+
+  /* --- Text --- */
+  --fc-text:            #0d1b2e;
+  --fc-text-muted:      rgba(13, 27, 46, 0.55);
+  --fc-text-faint:      rgba(13, 27, 46, 0.36);
+  --fc-text-disabled:   rgba(13, 27, 46, 0.22);
+
+  /* --- Borders --- */
+  --fc-border:          rgba(13, 27, 46, 0.08);
+  --fc-border-strong:   rgba(13, 27, 46, 0.14);
+  --fc-border-accent:   rgba(13, 173, 212, 0.20);
+
+  /* --- Shadows — more visible on light --- */
+  --fc-shadow-sm:       0 1px 4px rgba(13, 27, 46, 0.08), 0 2px 10px rgba(13, 27, 46, 0.06);
+  --fc-shadow-md:       0 4px 16px rgba(13, 27, 46, 0.10), 0 1px 4px rgba(13, 27, 46, 0.06);
+  --fc-shadow-lg:       0 12px 40px rgba(13, 27, 46, 0.14), 0 4px 12px rgba(13, 27, 46, 0.08);
+  --fc-shadow-glow:     0 0 24px rgba(13, 173, 212, 0.14);
+}
+
+/* Light mode body — replace dark gradient with soft warm glow */
+[data-theme="light"] body.fc-theme {
+  background: var(--fc-bg);
+  background-image:
+    radial-gradient(ellipse 80% 50% at 15% -5%,   rgba(13,173,212,0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 45% at 88% 6%,    rgba(29,78,216,0.06) 0%, transparent 55%);
+}
+
+[data-theme="light"] html {
+  background: var(--fc-bg);
+  background-color: var(--fc-bg);
+}
+
+/* Light mode nav tab bar — white glass */
+[data-theme="light"] .fc-nav {
+  background: rgba(242, 244, 248, 0.94);
+  border-top-color: rgba(13, 27, 46, 0.08);
+}
+
+/* Light mode cards — white with soft shadow */
+[data-theme="light"] .fc-card {
+  background: var(--fc-card-bg);
+  box-shadow: var(--fc-shadow-sm);
+  border-color: var(--fc-border);
+}
+
+/* Light mode inputs */
+[data-theme="light"] .fc-input {
+  background: rgba(13, 27, 46, 0.05);
+  border-color: rgba(13, 27, 46, 0.12);
+  color: var(--fc-text);
+}
+[data-theme="light"] .fc-input:focus {
+  background: rgba(13, 173, 212, 0.06);
+  border-color: rgba(13, 173, 212, 0.55);
+}
+[data-theme="light"] .fc-input::placeholder {
+  color: rgba(13, 27, 46, 0.30);
+}
+
+/* Light mode auth screens */
+[data-theme="light"] .fc-auth-screen {
+  background: var(--fc-bg) !important;
+}
+[data-theme="light"] .fc-hero-screen {
+  background: var(--fc-bg) !important;
+}
+
+/* Light mode OTP boxes */
+[data-theme="light"] .fc-otp-box {
+  background: rgba(13, 27, 46, 0.06);
+  border-color: rgba(13, 27, 46, 0.14);
+  color: var(--fc-text);
+}
+[data-theme="light"] .fc-otp-box:focus {
+  background: rgba(13, 173, 212, 0.07);
+  border-color: rgba(13, 173, 212, 0.60);
+}
+
+/* Light mode splash */
+[data-theme="light"] .fc-splash {
+  background: var(--fc-bg) !important;
+}
+
+/* ============================================================
    Reset / base
    ============================================================ */
 * {
