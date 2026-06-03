@@ -301,13 +301,10 @@ html, body {
   align-items: center;
   justify-content: flex-start;
   background: var(--fc-bg);
-  padding: calc(env(safe-area-inset-top, 44px) + 28px) 24px calc(env(safe-area-inset-bottom, 20px) + 24px);
+  padding: calc(env(safe-area-inset-top, 44px) + 20px) 24px calc(env(safe-area-inset-bottom, 20px) + 16px);
   gap: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  overscroll-behavior: none;
+  overflow: hidden;
   position: relative;
-  -webkit-overflow-scrolling: touch;
 }
 
 /* Ambient orb layers — contained, no overflow bleed */
@@ -341,11 +338,10 @@ html, body {
   animation: fcAuthOrbDrift 13s 2s ease-in-out infinite reverse;
 }
 
-/* Auth screens — fixed height, keyboard handled by JS avoidance */
+/* Auth screens — fixed height, no scroll */
 .fc-auth-screen {
-  min-height: 100svh;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+  height: 100dvh;
+  max-height: 100dvh;
   justify-content: flex-start;
 }
 
@@ -1345,7 +1341,7 @@ label.fc-toggle input[type="checkbox"]:checked ~ .fc-toggle-track::after {
 #islandText.fc-fade { opacity: 0; }
 
 /* ── Momentum scroll on all scroll views ─────────────────── */
-.fc-view, .fc-auth-screen {
+.fc-view {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
   overflow-x: hidden;        /* prevent negative-margin carousel bleed from making page swipeable */
@@ -1621,8 +1617,7 @@ body {
    PAYWALL SCREEN  (fc-pw-*)
    ════════════════════════════════════════════════════════════ */
 .fc-paywall {
-  background: var(--fc-bg); overflow-y: auto;
-  -webkit-overflow-scrolling: touch; overscroll-behavior: contain; position: relative;
+  background: var(--fc-bg); overflow: hidden; position: relative;
 }
 .fc-paywall::before {
   content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
@@ -1737,18 +1732,18 @@ body {
 
 /* Title */
 .fc-pw-title {
-  font-size: 30px; font-weight: 800; letter-spacing: -0.8px;
-  color: var(--fc-text); text-align: center; margin: 0 0 8px; line-height: 1.12;
+  font-size: 26px; font-weight: 800; letter-spacing: -0.6px;
+  color: var(--fc-text); text-align: center; margin: 0 0 14px; line-height: 1.12;
 }
 
-/* Feature list — 4 rows, staggered entrance */
+/* Feature list — 3 rows, staggered entrance */
 .fc-pw-features {
-  list-style: none; margin: 0 0 18px; padding: 0; display: flex; flex-direction: column; gap: 0;
+  list-style: none; margin: 0 0 14px; padding: 0; display: flex; flex-direction: column; gap: 0;
   width: 100%; border-radius: 18px; overflow: hidden;
   background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07);
 }
 .fc-pw-feature {
-  display: flex; align-items: center; gap: 14px; padding: 14px 16px;
+  display: flex; align-items: center; gap: 14px; padding: 11px 16px;
   border-bottom: 1px solid rgba(255,255,255,0.05);
   animation: pw-feature-in 0.5s cubic-bezier(0.25,0.1,0.25,1) both;
 }
@@ -1771,11 +1766,11 @@ body {
 .fc-pw-feature-check { color: var(--fc-success); font-size: 17px; flex-shrink: 0; font-weight: 700; }
 
 /* Plan selector */
-.fc-pw-plans { display: flex; flex-direction: column; gap: 10px; margin-bottom: 6px; width: 100%; }
+.fc-pw-plans { display: flex; flex-direction: column; gap: 8px; margin-bottom: 6px; width: 100%; }
 .fc-pw-plan {
   display: flex; align-items: center; gap: 14px;
   background: rgba(255,255,255,0.05); border: 1.5px solid rgba(255,255,255,0.1);
-  border-radius: 18px; padding: 16px;
+  border-radius: 18px; padding: 12px 16px;
   cursor: pointer; transition: border-color 0.2s, background 0.2s, transform 0.12s;
   -webkit-tap-highlight-color: transparent; position: relative;
 }
@@ -1850,7 +1845,7 @@ body {
 /* Risk-erasure trust strip */
 .fc-pw-trust {
   display: flex; align-items: center; justify-content: center; gap: 16px;
-  margin: 0 0 14px; flex-wrap: wrap;
+  margin: 0 0 8px; flex-wrap: wrap;
 }
 .fc-pw-trust-item {
   display: flex; align-items: center; gap: 4px;
@@ -1859,7 +1854,7 @@ body {
 
 /* Legal text */
 .fc-pw-terms {
-  font-size: 11px; color: rgba(255,255,255,0.32); text-align: center; margin: 0 0 16px; line-height: 1.6;
+  font-size: 10px; color: rgba(255,255,255,0.28); text-align: center; margin: 0 0 8px; line-height: 1.5;
 }
 
 /* Footer links */
@@ -2084,10 +2079,6 @@ body {
       <h1 class="fc-hero-headline">Your financial life.<br><span class="fc-hero-headline-grad">Finally organized.</span></h1>
       <p class="fc-hero-sub">AI-powered insights, subscriptions, budgeting, and wealth tracking — all in one place.</p>
     </div>
-    <div class="fc-hero-proof">
-      <span class="fc-hero-proof-stars">★★★★★</span>
-      <span class="fc-hero-proof-text">14,000+ people trust FlowCheck</span>
-    </div>
   </div>
   <div class="fc-hero-cta">
     <button class="fc-btn fc-btn--primary fc-btn--block fc-hero-btn-get-started"
@@ -2226,31 +2217,21 @@ body {
 
   <div class="fc-auth-orb fc-auth-orb--top"></div>
 
-  <div class="fc-auth-body">
+  <div class="fc-auth-body fc-stagger">
 
     <!-- Logo -->
-    <div class="fc-auth-field-enter" style="display:flex;flex-direction:column;align-items:center;margin-bottom:18px">
-      <div class="fc-auth-logo" style="margin-bottom:11px;width:60px;height:60px;border-radius:20px">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="white" aria-hidden="true">
+    <div class="fc-auth-field-enter" style="display:flex;flex-direction:column;align-items:center;margin-bottom:14px">
+      <div class="fc-auth-logo" style="margin-bottom:10px">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="white" aria-hidden="true">
           <path d="M4 4h16v3H4zm0 6h11v3H4zm0 6h7v3H4z"/>
         </svg>
       </div>
-      <div style="display:flex;align-items:center;gap:10px">
-        <div style="display:flex;align-items:center;gap:4px">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#30d158" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
-          <span style="font-size:11px;font-weight:500;color:rgba(255,255,255,0.38)">Bank-grade security</span>
-        </div>
-        <span style="width:3px;height:3px;border-radius:50%;background:rgba(255,255,255,0.18);flex-shrink:0"></span>
-        <div style="display:flex;align-items:center;gap:4px">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#30d158" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
-          <span style="font-size:11px;font-weight:500;color:rgba(255,255,255,0.38)">No credit card</span>
-        </div>
-      </div>
+      <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,0.32);letter-spacing:0.07em;text-transform:uppercase">FlowCheck</div>
     </div>
 
-    <div class="fc-auth-field-enter" style="text-align:center;margin-bottom:20px">
+    <div class="fc-auth-field-enter" style="text-align:center;margin-bottom:18px">
       <h1 class="fc-auth-title">Create your account</h1>
-      <p class="fc-auth-subtitle"><strong>7 days free</strong> — cancel anytime</p>
+      <p class="fc-auth-subtitle">Free to start — no credit card needed</p>
     </div>
 
     <div id="register-error" class="fc-auth-error fc-auth-field-enter" role="alert"></div>
@@ -2277,70 +2258,43 @@ body {
       Continue with Apple
     </button>
 
-    <div class="fc-auth-divider fc-auth-field-enter" style="margin:16px 0 14px"><span>or sign up with email</span></div>
+    <div class="fc-auth-divider fc-auth-field-enter" style="margin:14px 0 12px"><span>or sign up with email</span></div>
 
     <div class="fc-input-group fc-auth-field-enter" style="width:100%">
       <div class="fc-input-label">Email</div>
       <input id="reg-email" class="fc-input" type="email" autocomplete="email" inputmode="email" placeholder="you@example.com">
     </div>
 
-    <div class="fc-input-group fc-auth-field-enter" style="width:100%">
-      <div class="fc-input-label">Full name</div>
-      <input id="reg-name" class="fc-input" type="text" autocomplete="name" placeholder="Your name">
-    </div>
-
-    <div class="fc-input-group fc-auth-field-enter" style="width:100%;margin-bottom:8px">
+    <div class="fc-input-group fc-auth-field-enter" style="width:100%;margin-bottom:14px">
       <div class="fc-input-label">Password</div>
       <div class="fc-input-wrap">
         <input id="reg-password" class="fc-input" type="password" autocomplete="new-password"
                placeholder="At least 8 characters" style="padding-right:50px"
-               oninput="_updatePasswordStrength(this.value)">
+               onkeydown="if(event.key==='Enter'){document.getElementById('btn-register').click()}">
         <button class="fc-input-eye" onclick="togglePasswordVisibility('reg-password',this)" type="button" aria-label="Show password">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
           </svg>
         </button>
       </div>
-      <div class="fc-pw-bar-track" aria-hidden="true">
-        <div id="reg-pw-seg-1" class="fc-pw-bar-seg"></div>
-        <div id="reg-pw-seg-2" class="fc-pw-bar-seg"></div>
-        <div id="reg-pw-seg-3" class="fc-pw-bar-seg"></div>
-        <div id="reg-pw-seg-4" class="fc-pw-bar-seg"></div>
-      </div>
-      <div id="reg-pw-strength-label" style="display:none"></div>
-    </div>
-
-    <div class="fc-auth-field-enter" style="width:100%;margin-bottom:14px">
-      <button type="button" id="reg-referral-toggle"
-              style="background:none;border:none;color:rgba(255,255,255,0.30);font-size:12px;font-weight:500;cursor:pointer;padding:4px 0;display:flex;align-items:center;gap:5px;-webkit-tap-highlight-color:transparent"
-              onclick="FCApp.toggleReferralInput()">
-        <svg id="reg-referral-chevron" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="transition:transform 0.22s var(--fc-ease-spring)"><path d="M9 6l6 6-6 6"/></svg>
-        Have a referral code?
-      </button>
-      <div id="reg-referral-wrap" style="display:none;margin-top:8px">
-        <input id="reg-referral-code" class="fc-input" type="text"
-               autocomplete="off" spellcheck="false" placeholder="FLOWXXXXXX"
-               style="text-transform:uppercase;letter-spacing:2px;font-size:15px"
-               oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9-]/g,'')">
-      </div>
     </div>
 
     <button id="btn-register" class="fc-btn fc-btn--primary fc-btn--block fc-auth-field-enter"
-            onclick="FCApp.handleRegister(document.getElementById('reg-name').value, document.getElementById('reg-email').value, document.getElementById('reg-password').value, (document.getElementById('reg-referral-code')?.value||'').trim())"
+            onclick="FCApp.handleRegister('', document.getElementById('reg-email').value, document.getElementById('reg-password').value, '')"
             type="button">
-      Start Free Trial
+      Create Account
     </button>
 
-    <div class="fc-auth-link fc-auth-field-enter" style="margin-top:16px">
+    <div class="fc-auth-link fc-auth-field-enter" style="margin-top:14px">
       Already have an account?
       <button onclick="FCApp.setScreen('login')">Sign in</button>
     </div>
 
-    <p class="fc-auth-field-enter" style="color:rgba(255,255,255,0.24);font-size:11px;text-align:center;margin-top:12px;line-height:1.6;padding:0 4px">
+    <p class="fc-auth-field-enter" style="color:rgba(255,255,255,0.22);font-size:10px;text-align:center;margin-top:10px;line-height:1.6;padding:0 4px">
       By continuing you agree to our
-      <a href="#" onclick="FCApp.openUrl('/legal/terms.html');return false" style="color:rgba(255,255,255,0.44);text-decoration:underline">Terms</a>
-      and
-      <a href="#" onclick="FCApp.openUrl('/legal/privacy.html');return false" style="color:rgba(255,255,255,0.44);text-decoration:underline">Privacy Policy</a>.
+      <a href="#" onclick="FCApp.openUrl('/legal/terms.html');return false" style="color:rgba(255,255,255,0.40);text-decoration:underline">Terms</a>
+      &amp;
+      <a href="#" onclick="FCApp.openUrl('/legal/privacy.html');return false" style="color:rgba(255,255,255,0.40);text-decoration:underline">Privacy Policy</a>.
     </p>
 
   </div>
@@ -3575,40 +3529,26 @@ body {
     </svg>
   </button>
 
-  <div style="position:relative;z-index:1;padding:calc(env(safe-area-inset-top) + 32px) 22px 0;display:flex;flex-direction:column;align-items:center">
+  <div style="position:relative;z-index:1;padding:calc(env(safe-area-inset-top) + 20px) 22px 0;display:flex;flex-direction:column;align-items:center">
 
-    <!-- Hero icon — spinning conic ring with dollar mark -->
-    <div aria-hidden="true" style="position:relative;width:96px;height:96px;display:flex;align-items:center;justify-content:center;animation:pw-icon-pulse 3.2s ease-in-out infinite">
-      <!-- Spinning conic ring -->
-      <div style="position:absolute;inset:-3px;border-radius:50%;background:conic-gradient(from 0deg,#1ac4f0,#2563eb,#60a5fa,#1ac4f0);animation:spinRing 4s linear infinite;opacity:.85"></div>
-      <!-- Glow blur layer -->
-      <div style="position:absolute;inset:-3px;border-radius:50%;background:conic-gradient(from 0deg,#1ac4f0,#2563eb,#1ac4f0);animation:spinRing 4s linear infinite;filter:blur(10px);opacity:.45"></div>
-      <!-- Inner circle -->
-      <div style="position:relative;z-index:1;width:84px;height:84px;border-radius:50%;background:linear-gradient(145deg,#0f2040,#071422);display:flex;align-items:center;justify-content:center">
-        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="url(#pw-icon-grad2)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <defs><linearGradient id="pw-icon-grad2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#1ac4f0"/><stop offset="100%" stop-color="#60a5fa"/></linearGradient></defs>
-          <line x1="12" y1="1" x2="12" y2="23"/>
-          <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+    <!-- Logo -->
+    <div style="display:flex;flex-direction:column;align-items:center;gap:8px;margin-bottom:4px">
+      <div style="width:64px;height:64px;border-radius:20px;
+                  background:linear-gradient(145deg,#1ee8ff,#2563eb);
+                  display:flex;align-items:center;justify-content:center;
+                  box-shadow:0 0 0 1px rgba(26,196,240,0.28),0 0 0 4px rgba(26,196,240,0.07),0 12px 40px rgba(26,196,240,0.38),0 4px 12px rgba(0,0,0,0.55)">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="white" aria-hidden="true">
+          <path d="M4 4h16v3H4zm0 6h11v3H4zm0 6h7v3H4z"/>
         </svg>
       </div>
+      <div style="font-size:13px;font-weight:700;color:rgba(255,255,255,0.32);letter-spacing:0.07em;text-transform:uppercase">FlowCheck Pro</div>
+    </div>
     </div>
 
-    <!-- Pro badge -->
-    <div class="fc-pw-badge" style="margin-top:16px">
-      <svg width="10" height="10" viewBox="0 0 24 24" fill="#c4a8ff" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-      FlowCheck Pro
-    </div>
+    <!-- Headline -->
+    <h1 class="fc-pw-title" style="margin-top:14px">Your money,<br>finally under control.</h1>
 
-    <!-- Headline — punchy, personal, active -->
-    <h1 class="fc-pw-title" style="margin-top:10px">Your money,<br>finally under control.</h1>
-
-    <!-- Social proof pill -->
-    <div class="fc-pw-social" aria-label="4.8 stars, trusted by over 10,000 users">
-      <span class="fc-pw-stars" aria-hidden="true">★★★★★</span>
-      <span class="fc-pw-social-text">4.8 · Trusted by 10,000+ users</span>
-    </div>
-
-    <!-- 4 features with staggered entrance animation -->
+    <!-- 3 features -->
     <ul class="fc-pw-features" aria-label="Included with Pro">
       <li class="fc-pw-feature">
         <div class="fc-pw-feature-icon" style="background:rgba(26,196,240,0.14)" aria-hidden="true">
@@ -3631,22 +3571,12 @@ body {
         <div class="fc-pw-feature-check" aria-hidden="true">✓</div>
       </li>
       <li class="fc-pw-feature">
-        <div class="fc-pw-feature-icon" style="background:rgba(52,199,89,0.14)" aria-hidden="true">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#34c759" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-        </div>
-        <div class="fc-pw-feature-text">
-          <div class="fc-pw-feature-name">Smart Debt Payoff Planner</div>
-          <div class="fc-pw-feature-desc">Avalanche vs. Snowball — we show which saves you more</div>
-        </div>
-        <div class="fc-pw-feature-check" aria-hidden="true">✓</div>
-      </li>
-      <li class="fc-pw-feature">
         <div class="fc-pw-feature-icon" style="background:rgba(37,99,235,0.14)" aria-hidden="true">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
         </div>
         <div class="fc-pw-feature-text">
           <div class="fc-pw-feature-name">Financial Health Score</div>
-          <div class="fc-pw-feature-desc">Live score + AI insights that spot what's draining you</div>
+          <div class="fc-pw-feature-desc">AI insights that spot exactly what's draining you</div>
         </div>
         <div class="fc-pw-feature-check" aria-hidden="true">✓</div>
       </li>
@@ -3718,9 +3648,7 @@ body {
       <a href="#" onclick="FCApp.openUrl(FC_CONFIG && FC_CONFIG.app.privacyUrl); return false">Privacy</a>
     </div>
 
-    <!-- No skip — subscription required to access FlowCheck -->
-
-    <div style="height:calc(env(safe-area-inset-bottom) + 20px)"></div>
+    <div style="height:calc(env(safe-area-inset-bottom) + 4px)"></div>
   </div>
 
   <!-- ── Purchase success overlay ── -->
