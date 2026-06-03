@@ -55,7 +55,7 @@ service cloud.firestore {
     // not what the document already contains.
     function allowedUserUpdateFields() {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-        'name', 'phone',
+        'name', 'email', 'phone',
         'last_seen', 'last_streak_date',
         'streak',
         'goals', 'budgets',
