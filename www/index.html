@@ -5660,43 +5660,63 @@ function _btnLoad(btn, loading) {
 }
 window._btnLoad = _btnLoad;
 
-/* ── Keyboard avoidance — moves auth form up when keyboard opens ── */
+/* ── Keyboard avoidance — scrolls focused input above keyboard ── */
 (function() {
   if (!window.visualViewport) return;
   let _kbTimer;
+  let _kbOpen = false;
+
+  function _scrollToActive(el) {
+    const active = document.activeElement;
+    if (!active || (active.tagName !== 'INPUT' && active.tagName !== 'TEXTAREA')) return;
+    const vv       = window.visualViewport;
+    const kbHeight = window.innerHeight - vv.height - vv.offsetTop;
+    const rect     = active.getBoundingClientRect();
+    const visibleBottom = window.innerHeight - kbHeight - 20; // 20px breathing room
+    if (rect.bottom > visibleBottom) {
+      el.scrollTop += rect.bottom - visibleBottom;
+    }
+  }
+
   function _onViewportResize() {
     clearTimeout(_kbTimer);
-    _kbTimer = setTimeout(() => {
-      const vv = window.visualViewport;
-      const kbHeight = window.innerHeight - vv.height - vv.offsetTop;
-      // Apply only on pre-app screens
-      const screen = document.body.dataset.screen;
-      const preApp = ['login','register','forgot-password','verify-email'].includes(screen);
-      if (!preApp) return;
+    const vv       = window.visualViewport;
+    const kbHeight = window.innerHeight - vv.height - vv.offsetTop;
+    const screen   = document.body.dataset.screen;
+    const preApp   = ['login','register','forgot-password','verify-email'].includes(screen);
+    if (!preApp) return;
 
-      const el = document.querySelector(`.fc-screen[data-screen="${screen}"]`);
-      if (!el) return;
+    const el = document.querySelector(`.fc-screen[data-screen="${screen}"]`);
+    if (!el) return;
 
-      if (kbHeight > 80) {
-        // Keyboard is open — nudge scroll to keep active field visible
-        const active = document.activeElement;
-        if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {
-          requestAnimationFrame(() => {
-            const rect   = active.getBoundingClientRect();
-            const bottom = rect.bottom + 16; // 16px breathing room
-            const gap    = bottom - (window.innerHeight - kbHeight);
-            if (gap > 0) el.scrollTop += gap;
-          });
-        }
-      } else {
-        // Keyboard closed — reset any scroll shift so it doesn't bleed to other screens
+    if (kbHeight > 80) {
+      _kbOpen = true;
+      // Fire immediately — no delay avoids the visible bounce
+      requestAnimationFrame(() => _scrollToActive(el));
+    } else if (_kbOpen) {
+      _kbOpen = false;
+      // Small delay so iOS finishes its own scroll-back before we reset
+      _kbTimer = setTimeout(() => {
         el.scrollTop = 0;
         window.scrollTo(0, 0);
-      }
-    }, 60);
+      }, 80);
+    }
   }
-  window.visualViewport.addEventListener('resize', _onViewportResize);
-  window.visualViewport.addEventListener('scroll', _onViewportResize);
+
+  // Focus event fires before keyboard opens — pre-position on next frame
+  document.addEventListener('focusin', (e) => {
+    if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') return;
+    const screen = document.body.dataset.screen;
+    const preApp = ['login','register','forgot-password','verify-email'].includes(screen);
+    if (!preApp) return;
+    const el = document.querySelector(`.fc-screen[data-screen="${screen}"]`);
+    if (!el) return;
+    // Wait for keyboard to actually open (iOS takes ~350ms), then scroll
+    setTimeout(() => _scrollToActive(el), 360);
+  }, { passive: true });
+
+  window.visualViewport.addEventListener('resize', _onViewportResize, { passive: true });
+  window.visualViewport.addEventListener('scroll', _onViewportResize, { passive: true });
 })();
 
 /* ── Wire btn-login and btn-register to use premium loading state ── */
