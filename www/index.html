@@ -111,6 +111,8 @@
   flex-direction: column;
   min-height: 100dvh;
   padding-bottom: env(safe-area-inset-bottom);
+  overflow: hidden; /* clip all absolute orbs/glows to screen bounds */
+  position: relative;
 }
 
 body[data-screen="splash"]          .fc-screen[data-screen="splash"]          { display: flex; }
@@ -242,20 +244,23 @@ html, body {
   animation: fcAuthOrbDrift 9s ease-in-out infinite;
 }
 .fc-auth-orb--br {
-  width: 280px; height: 280px;
-  bottom: -60px; right: -60px;
-  background: radial-gradient(circle, rgba(37,99,235,0.16) 0%, transparent 65%);
-  filter: blur(45px);
+  width: 260px; height: 260px;
+  bottom: 0; right: 0;
+  background: radial-gradient(circle, rgba(37,99,235,0.14) 0%, transparent 60%);
+  filter: blur(50px);
   animation: fcAuthOrbDrift2 11s ease-in-out infinite;
 }
 /* Login only — extra left orb for depth */
 .fc-auth-orb--bl {
-  width: 200px; height: 200px;
-  bottom: 80px; left: -60px;
-  background: radial-gradient(circle, rgba(26,196,240,0.08) 0%, transparent 65%);
-  filter: blur(40px);
+  width: 180px; height: 180px;
+  bottom: 80px; left: 0;
+  background: radial-gradient(circle, rgba(26,196,240,0.07) 0%, transparent 60%);
+  filter: blur(44px);
   animation: fcAuthOrbDrift 13s 2s ease-in-out infinite reverse;
 }
+
+/* Auth screens need vertical scroll (keyboard pushes content up) */
+.fc-auth-screen { overflow-y: auto; -webkit-overflow-scrolling: touch; }
 
 /* Content wrapper sits above orbs */
 .fc-auth-body {
