@@ -88,6 +88,13 @@ html, body {
   padding: 0;
 }
 
+html {
+  background: var(--fc-bg);
+  /* Ensures the WKWebView safe-area and overscroll regions
+     never expose a bare/white background on any screen */
+  background-color: var(--fc-bg);
+}
+
 body.fc-theme {
   background: var(--fc-bg);
   color: var(--fc-text);

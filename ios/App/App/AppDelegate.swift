@@ -46,6 +46,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // willPresent callback for foreground pushes.
         UNUserNotificationCenter.current().delegate = self
 
+        // ── 1b. Window background — matches --fc-bg (#060e18) so the native
+        //        UIWindow never bleeds white/light into the safe-area edges.
+        window?.backgroundColor = UIColor(red: 6/255, green: 14/255, blue: 24/255, alpha: 1)
+
         // ── 2. Jailbreak detection ───────────────────────────────────────────
         if SecurityChecker.isJailbroken() {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in
