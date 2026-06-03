@@ -80,13 +80,13 @@
    Premium warm-white aesthetic: Monarch Money / Apple Wallet quality
    ============================================================ */
 [data-theme="light"] {
-  /* --- Surfaces --- */
-  --fc-bg:              #f2f4f8;
+  /* --- Surfaces — Monarch-quality: clean warm white --- */
+  --fc-bg:              #f0f3f7;
   --fc-bg-elevated:     #ffffff;
-  --fc-bg-elevated-2:   #eef0f5;
-  --fc-card-bg:         rgba(255, 255, 255, 0.90);
-  --fc-card-bg-hover:   rgba(255, 255, 255, 1);
-  --fc-glass:           rgba(242, 244, 248, 0.92);
+  --fc-bg-elevated-2:   #eaecf2;
+  --fc-card-bg:         #ffffff;
+  --fc-card-bg-hover:   #f8f9fc;
+  --fc-glass:           rgba(240, 243, 247, 0.96);
 
   /* --- Accents — slightly deeper for light-bg contrast --- */
   --fc-accent:          #0dadd4;
@@ -125,12 +125,10 @@
   --fc-shadow-glow:     0 0 24px rgba(13, 173, 212, 0.14);
 }
 
-/* Light mode body — replace dark gradient with soft warm glow */
+/* Light mode body — clean minimal gradient, no color blobs */
 [data-theme="light"] body.fc-theme {
   background: var(--fc-bg);
-  background-image:
-    radial-gradient(ellipse 80% 50% at 15% -5%,   rgba(13,173,212,0.08) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 45% at 88% 6%,    rgba(29,78,216,0.06) 0%, transparent 55%);
+  background-image: none;
 }
 
 [data-theme="light"] html {
@@ -138,10 +136,28 @@
   background-color: var(--fc-bg);
 }
 
-/* Light mode nav tab bar — white glass */
+/* Light mode nav — frosted white glass */
 [data-theme="light"] .fc-nav {
-  background: rgba(242, 244, 248, 0.94);
-  border-top-color: rgba(13, 27, 46, 0.08);
+  background: rgba(240, 243, 247, 0.95);
+  border-top-color: rgba(13, 27, 46, 0.09);
+  box-shadow: 0 -1px 0 rgba(13,27,46,0.06), 0 -8px 24px rgba(13,27,46,0.04);
+}
+/* Light mode nav active tab — deeper accent */
+[data-theme="light"] .fc-nav-item.active { color: var(--fc-accent); }
+[data-theme="light"] .fc-nav-item.active svg {
+  filter: drop-shadow(0 0 5px rgba(13,173,212,0.4));
+}
+[data-theme="light"] .fc-nav-item.active::before {
+  background: linear-gradient(90deg, var(--fc-accent), #60a5fa);
+  box-shadow: 0 0 8px rgba(13,173,212,0.45);
+}
+
+/* Light mode header */
+[data-theme="light"] .fc-header {
+  background: rgba(240, 243, 247, 0.95);
+  border-bottom: 0.5px solid rgba(13,27,46,0.08);
+  -webkit-backdrop-filter: saturate(180%) blur(24px);
+  backdrop-filter: saturate(180%) blur(24px);
 }
 
 /* Light mode cards — white with soft shadow */
@@ -892,13 +908,444 @@ body.fc-theme {
   box-shadow: var(--fc-shadow-md);
 }
 
-/* Light mode: nav glass stays bright */
-[data-theme="light"] .fc-nav {
-  box-shadow: 0 -1px 0 rgba(13,27,46,0.08), 0 -8px 24px rgba(13,27,46,0.04);
-  border-top-color: rgba(13,27,46,0.10);
+/* ============================================================
+   MONARCH-QUALITY LIGHT MODE — full view override layer
+   Overrides all hardcoded dark card gradients, text colors,
+   and border colors used in the view-specific inline styles.
+   ============================================================ */
+
+/* ── Card reset — all dark glass → clean white ────────────── */
+[data-theme="light"] .dash-nw-card,
+[data-theme="light"] .dash-stat,
+[data-theme="light"] .dash-card,
+[data-theme="light"] .dash-txn-card,
+[data-theme="light"] .dash-bills-card,
+[data-theme="light"] .dash-ins,
+[data-theme="light"] .dash-focus-card,
+[data-theme="light"] .dash-health,
+[data-theme="light"] .ins-health-card,
+[data-theme="light"] .wealth-hero,
+[data-theme="light"] .settings-profile-card,
+[data-theme="light"] #view-settings .fc-card,
+[data-theme="light"] .fc-acct-card,
+[data-theme="light"] .fc-goal-card,
+[data-theme="light"] #activity-list .fc-card,
+[data-theme="light"] #bills-full-list .fc-card,
+[data-theme="light"] #view-insights .fc-card,
+[data-theme="light"] .fc-card {
+  background: #ffffff !important;
+  border: 1px solid rgba(13,27,46,0.09) !important;
+  box-shadow: 0 1px 3px rgba(13,27,46,0.07), 0 6px 20px rgba(13,27,46,0.06) !important;
 }
-[data-theme="light"] body.fc-theme {
-  background-image:
-    radial-gradient(ellipse 80% 50% at 15% -5%,   rgba(13,173,212,0.10) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 45% at 88% 6%,    rgba(29,78,216,0.08) 0%, transparent 55%);
+
+/* ── Account carousel — soft tinted cards ─────────────────── */
+[data-theme="light"] .dash-acct-card {
+  background: linear-gradient(155deg, #f5f8ff, #eef2fb) !important;
+  border: 1px solid rgba(13,27,46,0.10) !important;
+  box-shadow: 0 2px 8px rgba(13,27,46,0.08), 0 8px 24px rgba(13,27,46,0.05) !important;
+}
+[data-theme="light"] .dash-acct-bank { color: rgba(13,27,46,0.40) !important; }
+[data-theme="light"] .dash-acct-name { color: rgba(13,27,46,0.88) !important; }
+[data-theme="light"] .dash-acct-mask { color: rgba(13,27,46,0.32) !important; }
+[data-theme="light"] .dash-acct-bal  { color: #0a1520 !important; }
+[data-theme="light"] .dash-acct-cents{ color: rgba(10,21,32,0.55) !important; }
+[data-theme="light"] .dash-acct-icon {
+  background: rgba(13,27,46,0.07) !important;
+  border-color: rgba(13,27,46,0.10) !important;
+}
+[data-theme="light"] .dash-acct-add {
+  border-color: rgba(13,27,46,0.18) !important;
+  background: rgba(13,27,46,0.03) !important;
+}
+
+/* ── Hero card net worth ──────────────────────────────────── */
+[data-theme="light"] .dash-nw-card {
+  border-color: rgba(13,173,212,0.22) !important;
+  box-shadow: 0 1px 3px rgba(13,27,46,0.07), 0 8px 28px rgba(13,27,46,0.07), 0 0 0 0.5px rgba(13,173,212,0.12) !important;
+}
+[data-theme="light"] .dash-nw-card::before,
+[data-theme="light"] .dash-nw-card::after { display: none; }
+[data-theme="light"] .dash-nw-tag    { color: rgba(13,27,46,0.40) !important; }
+[data-theme="light"] .dash-nw-amount { color: #0a1520 !important; }
+[data-theme="light"] .dash-nw-pill   { background: rgba(23,163,74,0.10) !important; border-color: rgba(23,163,74,0.25) !important; }
+[data-theme="light"] .dash-nw-pill.neg { background: rgba(220,38,38,0.09) !important; border-color: rgba(220,38,38,0.22) !important; }
+[data-theme="light"] .dash-nf-lbl   { color: rgba(13,27,46,0.38) !important; }
+[data-theme="light"] .dash-nf-val   { color: #0a1520 !important; }
+[data-theme="light"] .dash-nw-footer{ border-top-color: rgba(13,27,46,0.08) !important; }
+[data-theme="light"] .dash-nw-foot:not(:last-child) { border-right-color: rgba(13,27,46,0.08) !important; }
+
+/* Scrubber */
+[data-theme="light"] .dash-scrubber {
+  background: rgba(13,27,46,0.05) !important;
+  border-color: rgba(13,27,46,0.10) !important;
+}
+[data-theme="light"] .dash-scrub-btn { color: rgba(13,27,46,0.45) !important; }
+[data-theme="light"] .dash-scrub-btn.active {
+  background: rgba(13,173,212,0.14) !important;
+  color: var(--fc-accent) !important;
+  box-shadow: inset 0 0 0 0.5px rgba(13,173,212,0.20) !important;
+}
+
+/* ── Greeting ────────────────────────────────────────────── */
+[data-theme="light"] .dash-tod  { color: rgba(13,27,46,0.42) !important; }
+[data-theme="light"] .dash-name { color: #0a1520 !important; }
+[data-theme="light"] .dash-safe { color: var(--fc-accent) !important; }
+[data-theme="light"] .dash-safe::before { background: var(--fc-accent) !important; box-shadow: 0 0 6px rgba(13,173,212,0.7) !important; }
+
+/* ── Quick stats ─────────────────────────────────────────── */
+[data-theme="light"] .dash-stat {
+  background: #ffffff !important;
+  border-color: rgba(13,27,46,0.09) !important;
+  box-shadow: 0 1px 3px rgba(13,27,46,0.07), 0 4px 14px rgba(13,27,46,0.06) !important;
+}
+[data-theme="light"] .dash-sp-lbl { color: rgba(13,27,46,0.42) !important; }
+[data-theme="light"] .dash-sp-val { color: #0a1520 !important; }
+
+/* ── Section headers ─────────────────────────────────────── */
+[data-theme="light"] .dash-sec-title { color: rgba(13,27,46,0.75) !important; }
+[data-theme="light"] .dash-sec-link  { color: var(--fc-accent) !important; }
+
+/* ── Transaction / list rows ─────────────────────────────── */
+[data-theme="light"] .fc-list-title  { color: #0a1520 !important; }
+[data-theme="light"] .fc-list-meta   { color: rgba(13,27,46,0.42) !important; }
+[data-theme="light"] .fc-list-item   { border-bottom-color: rgba(13,27,46,0.06) !important; }
+[data-theme="light"] .fc-home-txn    { border-bottom-color: rgba(13,27,46,0.06) !important; }
+[data-theme="light"] .fc-home-txn:active { background: rgba(13,27,46,0.03) !important; }
+[data-theme="light"] .dash-txn { border-bottom-color: rgba(13,27,46,0.06) !important; }
+[data-theme="light"] .dash-txn:active { background: rgba(13,27,46,0.03) !important; }
+
+/* ── Health row ──────────────────────────────────────────── */
+[data-theme="light"] .dash-health {
+  background: linear-gradient(135deg, rgba(13,173,212,0.07), rgba(29,78,216,0.05)) !important;
+  border-color: rgba(13,173,212,0.20) !important;
+  box-shadow: 0 2px 10px rgba(13,27,46,0.06) !important;
+}
+[data-theme="light"] .dash-health-score { color: #0a1520 !important; }
+
+/* ── Today's Focus ───────────────────────────────────────── */
+[data-theme="light"] .dash-focus-body   { color: #0a1520 !important; }
+[data-theme="light"] .dash-focus-label  { color: rgba(13,27,46,0.50) !important; }
+[data-theme="light"] .dash-focus-counter{ color: rgba(13,27,46,0.40) !important; background: rgba(13,27,46,0.06) !important; }
+
+/* ── Smart insights ──────────────────────────────────────── */
+[data-theme="light"] .dash-ins-toggle:active { background: rgba(13,27,46,0.03) !important; }
+[data-theme="light"] .dash-ins-chevron { color: rgba(13,27,46,0.32) !important; }
+
+/* ── Activity view ───────────────────────────────────────── */
+[data-theme="light"] .act-title { color: #0a1520 !important; }
+[data-theme="light"] .fc-date-label { color: rgba(13,27,46,0.40) !important; }
+[data-theme="light"] .fc-date-label::after { background: rgba(13,27,46,0.08) !important; }
+
+/* Activity chips */
+[data-theme="light"] .act-chip-row .fc-chip {
+  background: rgba(13,27,46,0.05) !important;
+  border-color: rgba(13,27,46,0.11) !important;
+  color: rgba(13,27,46,0.60) !important;
+}
+[data-theme="light"] .act-chip-row .fc-chip--active {
+  background: rgba(13,173,212,0.10) !important;
+  border-color: rgba(13,173,212,0.28) !important;
+  color: var(--fc-accent) !important;
+}
+
+/* Activity search */
+[data-theme="light"] .act-search-wrap .fc-search {
+  background: rgba(13,27,46,0.05) !important;
+  border-color: rgba(13,27,46,0.11) !important;
+}
+[data-theme="light"] .fc-search input { color: #0a1520 !important; }
+
+/* Segment control */
+[data-theme="light"] .fc-segment {
+  background: rgba(13,27,46,0.06) !important;
+}
+[data-theme="light"] .fc-segment-btn { color: rgba(13,27,46,0.45) !important; }
+[data-theme="light"] .fc-segment-btn.active {
+  background: #ffffff !important;
+  color: #0a1520 !important;
+  box-shadow: 0 1px 4px rgba(13,27,46,0.12) !important;
+}
+
+/* ── Insights view ───────────────────────────────────────── */
+[data-theme="light"] .ins-health-card {
+  border-color: rgba(13,173,212,0.18) !important;
+  box-shadow: 0 2px 8px rgba(13,27,46,0.07), 0 12px 32px rgba(13,27,46,0.06) !important;
+}
+[data-theme="light"] .ins-health-grade-letter  { color: #0a1520 !important; }
+[data-theme="light"] .ins-health-grade-sub     { color: rgba(13,27,46,0.40) !important; }
+[data-theme="light"] .ins-health-metric-lbl    { color: rgba(13,27,46,0.50) !important; }
+[data-theme="light"] .ins-health-val           { color: #0a1520 !important; }
+[data-theme="light"] .ins-health-bar-wrap      { background: rgba(13,27,46,0.07) !important; }
+
+/* Insights period switcher */
+[data-theme="light"] #view-insights [role="tab"] {
+  color: rgba(13,27,46,0.45) !important;
+}
+[data-theme="light"] #view-insights [role="tab"].active,
+[data-theme="light"] #view-insights [role="tab"][aria-selected="true"] {
+  background: rgba(13,173,212,0.12) !important;
+  color: var(--fc-accent) !important;
+  border-color: rgba(13,173,212,0.24) !important;
+}
+[data-theme="light"] #view-insights [style*="background:rgba(255,255,255,0.05)"] {
+  background: rgba(13,27,46,0.05) !important;
+  border-color: rgba(13,27,46,0.10) !important;
+}
+
+/* Category rows */
+[data-theme="light"] .fc-category-label  { color: #0a1520 !important; }
+[data-theme="light"] .fc-category-row    { border-bottom-color: rgba(13,27,46,0.06) !important; }
+[data-theme="light"] .fc-category-bar    { background: rgba(13,27,46,0.06) !important; }
+
+/* ── Wealth view ─────────────────────────────────────────── */
+[data-theme="light"] .wealth-hero {
+  border-color: rgba(13,173,212,0.20) !important;
+  box-shadow: 0 2px 8px rgba(13,27,46,0.07), 0 12px 32px rgba(13,27,46,0.07), 0 0 0 0.5px rgba(13,173,212,0.10) !important;
+}
+[data-theme="light"] .wealth-hero::before,
+[data-theme="light"] .wealth-hero::after { display: none; }
+[data-theme="light"] .wealth-hero-tag      { color: rgba(13,27,46,0.40) !important; }
+[data-theme="light"] .wealth-hero-amount   { color: #0a1520 !important; }
+[data-theme="light"] .wealth-hero-stat-lbl { color: rgba(13,27,46,0.38) !important; }
+[data-theme="light"] .wealth-hero-stat-val { color: #0a1520 !important; }
+[data-theme="light"] .wealth-hero-stats    { border-top-color: rgba(13,27,46,0.08) !important; }
+[data-theme="light"] .wealth-hero-divider  { background: rgba(13,27,46,0.09) !important; }
+
+/* Wealth segment */
+[data-theme="light"] .fc-wealth-segs {
+  background: rgba(13,27,46,0.06) !important;
+  border-color: rgba(13,27,46,0.10) !important;
+}
+[data-theme="light"] .fc-wealth-seg { color: rgba(13,27,46,0.45) !important; }
+[data-theme="light"] .fc-wealth-seg--active {
+  background: #ffffff !important;
+  color: var(--fc-accent) !important;
+  border-color: rgba(13,173,212,0.20) !important;
+  box-shadow: 0 1px 4px rgba(13,27,46,0.10), inset 0 1px 0 rgba(255,255,255,0.8) !important;
+}
+
+/* Account cards in wealth */
+[data-theme="light"] .fc-acct-card {
+  background: #ffffff !important;
+  border-color: rgba(13,27,46,0.09) !important;
+}
+[data-theme="light"] .fc-acct-icon { background: rgba(13,173,212,0.08) !important; }
+[data-theme="light"] .fc-acct-name { color: #0a1520 !important; }
+[data-theme="light"] .fc-acct-bank { color: rgba(13,27,46,0.40) !important; }
+[data-theme="light"] .fc-acct-bal  { color: #0a1520 !important; }
+
+/* ── Settings view ───────────────────────────────────────── */
+[data-theme="light"] .settings-section-hdr { color: rgba(13,27,46,0.48) !important; }
+
+[data-theme="light"] .settings-profile-card {
+  border-color: rgba(13,173,212,0.18) !important;
+  box-shadow: 0 2px 8px rgba(13,27,46,0.07), 0 12px 32px rgba(13,27,46,0.07) !important;
+}
+[data-theme="light"] .settings-profile-name   { color: #0a1520 !important; }
+[data-theme="light"] .settings-profile-email  { color: rgba(13,27,46,0.45) !important; }
+[data-theme="light"] .settings-profile-streak { color: var(--fc-accent) !important; }
+
+[data-theme="light"] .fc-settings-row   { border-bottom-color: rgba(13,27,46,0.07) !important; }
+[data-theme="light"] .fc-settings-row:active { background: rgba(13,27,46,0.03) !important; }
+[data-theme="light"] .fc-settings-label { color: #0a1520 !important; }
+[data-theme="light"] .fc-settings-value { color: rgba(13,27,46,0.42) !important; }
+
+/* ── Sheets and overlays ────────────────────────────────── */
+[data-theme="light"] .fc-sheet {
+  background: linear-gradient(180deg, #f8f9fc 0%, #f0f3f7 100%);
+  border-color: rgba(13,27,46,0.09);
+}
+[data-theme="light"] .fc-sheet-handle { background: rgba(13,27,46,0.18); }
+[data-theme="light"] .fc-sheet-bank-name,
+[data-theme="light"] .fc-sheet-heading { color: #0a1520; }
+[data-theme="light"] .fc-sheet-body { color: rgba(13,27,46,0.50); }
+[data-theme="light"] .fc-sheet-title { color: rgba(13,27,46,0.42); }
+
+/* ── Global fc-card in light ────────────────────────────── */
+[data-theme="light"] .fc-card {
+  box-shadow: 0 1px 3px rgba(13,27,46,0.07), 0 4px 14px rgba(13,27,46,0.05);
+}
+[data-theme="light"] .fc-card[role="button"]:active,
+[data-theme="light"] .fc-card.fc-card--clickable:active {
+  background: #f8f9fc !important;
+}
+
+/* ── Eyebrow labels ─────────────────────────────────────── */
+[data-theme="light"] .fc-eyebrow { color: rgba(13,27,46,0.38) !important; }
+
+/* ── Toast ──────────────────────────────────────────────── */
+[data-theme="light"] .fc-toast {
+  background: rgba(240,243,247,0.96);
+  border-color: rgba(13,27,46,0.12);
+  color: #0a1520;
+  box-shadow: 0 4px 20px rgba(13,27,46,0.15);
+}
+
+/* ── View titles ─────────────────────────────────────────── */
+[data-theme="light"] .fc-view-title { color: #0a1520 !important; }
+[data-theme="light"] .act-title     { color: #0a1520 !important; }
+
+/* ── Carousel dots ──────────────────────────────────────── */
+[data-theme="light"] .dash-dot { background: rgba(13,27,46,0.18) !important; }
+[data-theme="light"] .dash-dot.active { background: var(--fc-accent) !important; }
+
+/* ── Empty states ───────────────────────────────────────── */
+[data-theme="light"] .dash-empty { color: rgba(13,27,46,0.44) !important; }
+[data-theme="light"] .dash-empty::before { border-color: rgba(13,173,212,0.22) !important; }
+[data-theme="light"] .wealth-empty-title { color: #0a1520 !important; }
+[data-theme="light"] .wealth-empty-sub   { color: rgba(13,27,46,0.42) !important; }
+[data-theme="light"] .act-empty-title    { color: #0a1520 !important; }
+[data-theme="light"] .act-empty-sub      { color: rgba(13,27,46,0.42) !important; }
+
+/* ── Dynamic island ─────────────────────────────────────── */
+[data-theme="light"] .fc-island-pill {
+  background: rgba(13,27,46,0.08);
+}
+[data-theme="light"] .fc-island-text { color: #0a1520; }
+
+/* ── Iconbtns in light ──────────────────────────────────── */
+[data-theme="light"] .fc-iconbtn {
+  background: rgba(13,27,46,0.06);
+  border-color: rgba(13,27,46,0.10);
+  color: rgba(13,27,46,0.65);
+}
+[data-theme="light"] .fc-iconbtn:active { background: rgba(13,27,46,0.10) !important; }
+
+/* ── Brand mark ──────────────────────────────────────────── */
+[data-theme="light"] .fc-brand-name { color: #0a1520; }
+
+/* ── Auth screens ────────────────────────────────────────── */
+[data-theme="light"] .fc-auth-title    { color: #0a1520 !important; }
+[data-theme="light"] .fc-auth-subtitle { color: rgba(10,21,32,0.50) !important; }
+[data-theme="light"] .fc-auth-subtitle strong { color: rgba(10,21,32,0.75) !important; }
+
+/* Orbs are much more subtle on light */
+[data-theme="light"] .fc-auth-orb--top {
+  background: radial-gradient(circle, rgba(13,173,212,0.10) 0%, transparent 65%) !important;
+}
+[data-theme="light"] .fc-auth-orb--br {
+  background: radial-gradient(circle, rgba(29,78,216,0.07) 0%, transparent 60%) !important;
+}
+[data-theme="light"] .fc-auth-orb--bl {
+  background: radial-gradient(circle, rgba(13,173,212,0.04) 0%, transparent 60%) !important;
+}
+
+/* Inputs — light glass */
+[data-theme="light"] .fc-input-label { color: rgba(10,21,32,0.55) !important; }
+[data-theme="light"] .fc-auth-divider::before,
+[data-theme="light"] .fc-auth-divider::after { background: rgba(10,21,32,0.10) !important; }
+[data-theme="light"] .fc-auth-divider span { color: rgba(10,21,32,0.35) !important; }
+[data-theme="light"] .fc-forgot-btn { color: var(--fc-accent) !important; }
+[data-theme="light"] .fc-auth-skip  { color: rgba(10,21,32,0.38) !important; }
+
+/* Auth link */
+[data-theme="light"] .fc-auth-link   { color: rgba(10,21,32,0.45) !important; }
+[data-theme="light"] .fc-auth-link button { color: var(--fc-accent) !important; }
+
+/* Google button — visible but adapted for light */
+[data-theme="light"] .fc-auth-google-btn {
+  background: rgba(10,21,32,0.06) !important;
+  border-color: rgba(10,21,32,0.12) !important;
+  color: #0a1520 !important;
+  box-shadow: 0 1px 4px rgba(10,21,32,0.08) !important;
+}
+
+/* ── Biometric button in light ──────────────────────────── */
+[data-theme="light"] .fc-biometric-btn {
+  background: rgba(10,21,32,0.05) !important;
+  border-color: rgba(10,21,32,0.10) !important;
+  color: rgba(10,21,32,0.60) !important;
+}
+
+/* ── Hero / onboarding screen in light ──────────────────── */
+[data-theme="light"] .fc-hero-headline { color: #0a1520 !important; }
+[data-theme="light"] .fc-hero-sub      { color: rgba(10,21,32,0.48) !important; }
+[data-theme="light"] .fc-hero-wordmark { color: rgba(10,21,32,0.65) !important; }
+[data-theme="light"] .fc-hero-signin-link { color: rgba(10,21,32,0.45) !important; }
+[data-theme="light"] .fc-hero-legal    { color: rgba(10,21,32,0.28) !important; }
+[data-theme="light"] .fc-hero-legal a  { color: rgba(10,21,32,0.45) !important; }
+
+/* ── Paywall in light ────────────────────────────────────── */
+[data-theme="light"] .fc-paywall::before { opacity: 0.3; }
+[data-theme="light"] .fc-pw-title        { color: #0a1520 !important; }
+[data-theme="light"] .fc-pw-feature-name { color: #0a1520 !important; }
+[data-theme="light"] .fc-pw-features {
+  background: rgba(10,21,32,0.04) !important;
+  border-color: rgba(10,21,32,0.09) !important;
+}
+[data-theme="light"] .fc-pw-feature { border-bottom-color: rgba(10,21,32,0.07) !important; }
+[data-theme="light"] .fc-pw-plan {
+  background: rgba(10,21,32,0.04) !important;
+  border-color: rgba(10,21,32,0.12) !important;
+}
+[data-theme="light"] .fc-pw-plan-name { color: #0a1520 !important; }
+
+/* ── Phone frame shadow in light ─────────────────────────── */
+[data-theme="light"] .phone-frame {
+  box-shadow: 0 8px 40px rgba(10,21,32,0.14), 0 0 0 1px rgba(10,21,32,0.08);
+}
+
+/* ── Inline color:white overrides — Insights numbers ─────── */
+/* These elements have inline style="...color:white" which needs !important */
+[data-theme="light"] #insights-total-spend,
+[data-theme="light"] #insights-nw-value,
+[data-theme="light"] #insights-donut-center-amt { color: #0a1520 !important; }
+
+[data-theme="light"] #chart-total { color: #0a1520 !important; }
+[data-theme="light"] #cashflow-stat-now,
+[data-theme="light"] #cashflow-stat-end { color: #0a1520 !important; }
+
+/* Insights card internal text */
+[data-theme="light"] #view-insights .fc-h3,
+[data-theme="light"] #view-insights h2 { color: #0a1520 !important; }
+[data-theme="light"] #view-insights [style*="color:white"],
+[data-theme="light"] #view-insights [style*="color:#fff"] { color: #0a1520 !important; }
+
+/* Dashboard inline white text */
+[data-theme="light"] #view-home [style*="color:#fff"],
+[data-theme="light"] #view-home [style*="color:white"],
+[data-theme="light"] #view-home [style*="color: white"] { color: #0a1520 !important; }
+
+/* Wealth inline white */
+[data-theme="light"] #view-wealth [style*="color:#fff"],
+[data-theme="light"] #view-wealth [style*="color:white"] { color: #0a1520 !important; }
+
+/* Settings inline white */
+[data-theme="light"] #view-settings [style*="color:#fff"],
+[data-theme="light"] #view-settings [style*="color:white"] { color: #0a1520 !important; }
+
+/* Keep intentionally colored elements (success/danger) unchanged */
+[data-theme="light"] .dash-green { color: var(--fc-success) !important; }
+[data-theme="light"] .dash-red   { color: var(--fc-danger)  !important; }
+[data-theme="light"] [style*="color:#34c759"] { color: var(--fc-success) !important; }
+[data-theme="light"] [style*="color:#ff453a"] { color: var(--fc-danger)  !important; }
+[data-theme="light"] [style*="color:#1ac4f0"],
+[data-theme="light"] [style*="color:var(--fc-accent)"] { color: var(--fc-accent) !important; }
+
+/* ── Inline backgrounds (card sections) in light ──────────── */
+/* The budget calendar month cards and other inline-styled cards */
+[data-theme="light"] [style*="background:rgba(255,255,255,0.04)"] {
+  background: rgba(10,21,32,0.04) !important;
+}
+[data-theme="light"] [style*="background:rgba(255,255,255,0.05)"] {
+  background: rgba(10,21,32,0.05) !important;
+}
+[data-theme="light"] [style*="background:rgba(255,255,255,0.06)"] {
+  background: rgba(10,21,32,0.06) !important;
+}
+[data-theme="light"] [style*="background:rgba(255,255,255,0.07)"] {
+  background: rgba(10,21,32,0.05) !important;
+}
+[data-theme="light"] [style*="background:rgba(255,255,255,0.08)"] {
+  background: rgba(10,21,32,0.06) !important;
+}
+
+/* ── Inline border colors in light ──────────────────────── */
+[data-theme="light"] [style*="border-bottom:1px solid rgba(255,255,255,0.07)"],
+[data-theme="light"] [style*="border-top:1px solid rgba(255,255,255,0.07)"],
+[data-theme="light"] [style*="border-bottom:1px solid rgba(255,255,255,0.06)"] {
+  border-color: rgba(10,21,32,0.08) !important;
+}
+[data-theme="light"] [style*="background:rgba(0,0,0,0.3)"] {
+  background: rgba(10,21,32,0.06) !important;
 }

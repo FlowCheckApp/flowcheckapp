@@ -5960,6 +5960,43 @@ window.FCApp = (function () {
       item.addEventListener('click', () => switchTab(item.dataset.view));
     });
 
+    // ── Keyboard scroll fix ───────────────────────────────────────
+    // On iOS WKWebView the keyboard can cover input fields because the
+    // viewport doesn't auto-scroll. visualViewport.resize fires when
+    // the keyboard appears/disappears — scroll the focused field to center.
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', () => {
+        const focused = document.activeElement;
+        if (focused && (focused.tagName === 'INPUT' || focused.tagName === 'TEXTAREA')) {
+          setTimeout(() => {
+            focused.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }, 80);
+        }
+      });
+    }
+    // Fallback: also scroll on focus (covers cases where keyboard was
+    // already open when switching between fields)
+    document.addEventListener('focusin', e => {
+      const el = e.target;
+      if (el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA') return;
+      setTimeout(() => {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 300);
+    }, { passive: true });
+
+    // ── Hide Google Sign In on native when plugin is not installed ──
+    // The GoogleAuth Capacitor plugin requires a separate Xcode config.
+    // If it's absent on native we just remove the button so users don't
+    // see a confusing error banner.
+    const _isNativePlatform = window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform();
+    const _hasGooglePlugin  = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.GoogleAuth;
+    if (_isNativePlatform && !_hasGooglePlugin) {
+      ['btn-login-google', 'btn-register-google'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+      });
+    }
+
     // Period scrubber buttons have onclick="FCApp.switchPeriod(...)" — no extra wiring needed here.
 
     // Activity search
