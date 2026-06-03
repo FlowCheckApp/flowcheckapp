@@ -144,22 +144,46 @@ window.FCApp = (function () {
     return name || (t.name || 'Transaction');
   }
 
-  // Detect monthly-recurring subscription transactions (shared by stat + hunter)
-  // Exclusion list: bank fees, interest charges, loan payments, transfers — these
-  // recur regularly but are NOT subscriptions.
-  const _SUB_EXCLUDE_RE = /\b(interest charge|interest|finance charge|late fee|annual fee|over.?limit fee|returned payment|overdraft|service charge|maintenance fee|wire transfer|ach|zelle|venmo|cashapp|paypal|transfer|loan payment|mortgage payment|auto pay|autopay|direct deposit|payroll|salary|refund)\b/i;
+  // Hard exclusions: things that recur but are NOT subscriptions
+  const _SUB_EXCLUDE_RE = /\b(interest charge|finance charge|late fee|over.?limit fee|returned payment|overdraft|wire transfer|ach deposit|zelle|venmo|cashapp|paypal transfer|loan payment|mortgage payment|auto pay|autopay|direct deposit|payroll|salary|refund|atm withdrawal|cash withdrawal|insurance premium|rent payment|utility payment|electric|water bill|gas bill|internet bill|phone bill)\b/i;
 
-  // Normalise a merchant name to a stable grouping key.
-  // Strips common suffixes (INC, LLC, .COM, *XXXX charge codes) so that
-  // "NETFLIX.COM", "Netflix Inc", and "NETFLIX* STREAMING" all map to "netflix".
+  // Categories that represent actual digital/recurring subscriptions
+  const _SUB_GOOD_CATS = new Set([
+    'entertainment', 'subscription', 'streaming',
+    'telecommunications', 'software', 'saas',
+    'general services', 'services',
+  ]);
+
+  // Well-known subscription merchants — always include these regardless of category
+  const _SUB_KNOWN_RE = /\b(netflix|spotify|hulu|disney|apple.*sub|apple tv|apple music|apple one|amazon prime|youtube premium|youtube music|hbo|max|peacock|paramount|starz|showtime|sling|fubo|discovery|espn|nba league|nfl sunday|mlb tv|twitch|crunchyroll|funimation|mubi|criterion|plex|adobe|creative cloud|dropbox|box\.com|icloud|google one|google storage|microsoft 365|office 365|xbox|playstation|nintendo|steam|humble|duolingo|babbel|masterclass|skillshare|linkedin premium|chatgpt|openai|claude|notion|evernote|lastpass|1password|nordvpn|expressvpn|dashlane|canva|figma|grammarly|audible|kindle unlimited|amazon music|deezer|tidal|pandora|sirius|calm|headspace|noom|peloton|myfitnesspal|weight watchers|ww app|planet fitness|gold's gym|la fitness|anytime fitness|crunch|equinox|classpass|strava|garmin connect|whoop|nytimes|new york times|washington post|wsj|wall street journal|economist|bloomberg|medium|substack|patreon)\b/i;
+
+  // Normalise merchant name to a stable grouping key.
   function _subGroupKey(name) {
     return name
       .toLowerCase()
       .replace(/\s*\*\s*.*$/, '')        // strip charge codes after *
-      .replace(/\.(com|net|org|io)\b/g, '')
-      .replace(/\b(inc|llc|ltd|co|corp|subscription|billing|payment|charge|recurring|monthly|weekly|annual)\b/g, '')
+      .replace(/\.(com|net|org|io|app)\b/g, '')
+      .replace(/\b(inc|llc|ltd|co|corp|subscription|billing|payment|charge|recurring|monthly|weekly|annual|us|usa|int|intl)\b/g, '')
       .replace(/[^a-z0-9]/g, '')
-      .substring(0, 16);
+      .substring(0, 20);
+  }
+
+  // Clean a raw bank transaction name into a readable merchant display name
+  function _cleanSubName(t) {
+    // Prefer Plaid-provided merchant_name — it's already clean
+    if (t.merchant_name) return t.merchant_name;
+    let n = (t.name || '').trim();
+    // Strip charge codes: "NETFLIX.COM *1234", "SQ *GOLD'S GYM", "AMZN*PRIME"
+    n = n.replace(/\s*[\*#]\s*\S+$/, '').replace(/\s*[\*#]\s*.*$/, '');
+    // Strip TLD suffixes
+    n = n.replace(/\.(com|net|org|io|app|co)\b/gi, '');
+    // Remove all-caps to title case
+    if (n === n.toUpperCase()) {
+      n = n.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+    }
+    // Strip trailing noise: numbers, dashes, INC, LLC
+    n = n.replace(/\s+(inc\.?|llc\.?|ltd\.?|corp\.?|\d{4,})$/i, '').trim();
+    return n || t.name;
   }
 
   function _detectSubscriptions() {
@@ -167,21 +191,34 @@ window.FCApp = (function () {
     for (const t of state.transactions) {
       if (t.isCredit || !t.date || !t.name) continue;
       if (_SUB_EXCLUDE_RE.test(t.name)) continue;
+
       const rawCat  = (t.category && t.category[0]) || '';
       const normCat = FCData.normalizePlaidCategory(rawCat).toLowerCase();
-      if (normCat.includes('transfer') || normCat === 'loan' || normCat === 'bank fees') continue;
 
-      const key = _subGroupKey(t.name);
+      // Hard-exclude transfers, loans, grocery, gas, restaurants — they recur but aren't subscriptions
+      const hardExcludeCats = new Set(['transfer', 'loan', 'bank fees', 'grocery', 'groceries',
+        'gas stations', 'restaurants', 'coffee shop', 'auto and transport', 'healthcare', 'medical']);
+      if (hardExcludeCats.has(normCat) || normCat.includes('transfer')) continue;
+
+      // Require either a subscription-category OR a known subscription merchant name
+      const isKnownMerchant = _SUB_KNOWN_RE.test(t.name) || _SUB_KNOWN_RE.test(t.merchant_name || '');
+      const isSubCategory   = _SUB_GOOD_CATS.has(normCat);
+      if (!isKnownMerchant && !isSubCategory) continue;
+
+      const key = _subGroupKey(t.merchant_name || t.name);
       if (!key) continue;
-      if (!map[key]) map[key] = { name: t.name, entries: [] };
-      // Keep the display name from the most recent transaction
+      if (!map[key]) map[key] = { name: t.merchant_name || t.name, rawT: t, entries: [] };
+      // Always prefer the most recent merchant_name for display
+      if (t.merchant_name) map[key].name = t.merchant_name;
+      map[key].rawT = t;
       map[key].entries.push({
         amount: t.amount || 0,
         ts:     FCData.parseDateLocal(t.date).getTime(),
         date:   t.date,
-        name:   t.name,
+        name:   t.merchant_name || t.name,
       });
     }
+
     const detected = [];
     for (const [, data] of Object.entries(map)) {
       if (data.entries.length < 2) continue;
@@ -192,36 +229,43 @@ window.FCApp = (function () {
         gaps.push((data.entries[i].ts - data.entries[i - 1].ts) / 86400000);
       const avgGap = gaps.reduce((a, b) => a + b, 0) / gaps.length;
 
-      // Use median amount to resist outliers (e.g. an annual charge mixed in)
-      const sorted  = [...data.entries].sort((a, b) => a.amount - b.amount);
-      const mid     = Math.floor(sorted.length / 2);
-      const medAmt  = sorted.length % 2 === 0
+      // Monthly: 21–40 day gap | Weekly: 5–9 days | Bi-monthly: 55–65 days | Annual: 330–370 days
+      const isMonthly   = avgGap >= 21  && avgGap <= 40;
+      const isWeekly    = avgGap >= 5   && avgGap <= 9;
+      const isBiMonthly = avgGap >= 55  && avgGap <= 65;
+      const isAnnual    = avgGap >= 330 && avgGap <= 370;
+      const freq = isMonthly ? 'mo' : isWeekly ? 'wk' : isBiMonthly ? '2mo' : isAnnual ? 'yr' : null;
+      if (!freq) continue;
+
+      // Median amount — resistant to one-off anomalies
+      const sorted = [...data.entries].sort((a, b) => a.amount - b.amount);
+      const mid    = Math.floor(sorted.length / 2);
+      const medAmt = sorted.length % 2 === 0
         ? (sorted[mid - 1].amount + sorted[mid].amount) / 2
         : sorted[mid].amount;
 
-      // Monthly: 21–40 day gap (catches end-of-month variance + billing cycles)
-      // Weekly: 5–9 day gap
-      // Bi-monthly: 55–65 day gap (every other month)
-      const isMonthly  = avgGap >= 21 && avgGap <= 40;
-      const isWeekly   = avgGap >= 5  && avgGap <= 9;
-      const isBiMonthly = avgGap >= 55 && avgGap <= 65;
-      const freq = isMonthly ? 'mo' : isWeekly ? 'wk' : isBiMonthly ? '2mo' : null;
-      if (!freq || medAmt < 0.50) continue;
+      // Reject implausibly large "subscriptions" (>$500/mo) and micro-amounts
+      if (medAmt < 0.99 || medAmt > 500) continue;
+
+      // Require amount consistency: std dev < 20% of median (not a variable-spend merchant)
+      const variance = data.entries.reduce((s, e) => s + Math.pow(e.amount - medAmt, 2), 0) / data.entries.length;
+      const stdDev   = Math.sqrt(variance);
+      if (stdDev / medAmt > 0.25) continue; // >25% variance = not a subscription
 
       const mostRecent = data.entries[data.entries.length - 1];
+      const displayName = _cleanSubName(data.rawT);
       const alreadyTracked = state.bills.some(b =>
-        _subGroupKey(b.name).substring(0, 8) === _subGroupKey(data.name).substring(0, 8));
+        _subGroupKey(b.name).substring(0, 10) === _subGroupKey(displayName).substring(0, 10));
 
       detected.push({
-        name:       mostRecent.name,   // most recent display name
-        amount:     medAmt,
+        name:     displayName,
+        amount:   medAmt,
         freq,
-        tracked:    alreadyTracked,
-        entries:    data.entries,      // full history for detail view
-        lastDate:   mostRecent.date,
+        tracked:  alreadyTracked,
+        entries:  data.entries,
+        lastDate: mostRecent.date,
       });
     }
-    // Sort by amount descending (biggest spend first)
     return detected.sort((a, b) => b.amount - a.amount);
   }
 
@@ -326,27 +370,93 @@ window.FCApp = (function () {
   function _subCancelUrl(name) {
     const n = name.toLowerCase();
     const MAP = [
-      ['netflix',   'https://www.netflix.com/cancelplan'],
-      ['spotify',   'https://www.spotify.com/account/subscription/'],
-      ['hulu',      'https://secure.hulu.com/account/cancel'],
-      ['amazon',    'https://www.amazon.com/mc/pipelines/cancellation'],
-      ['apple',     'https://apps.apple.com/account/subscriptions'],
-      ['disney',    'https://www.disneyplus.com/account'],
-      ['youtube',   'https://www.youtube.com/paid_memberships'],
-      ['max',       'https://www.max.com/account/subscription'],
-      ['hbo',       'https://www.max.com/account/subscription'],
-      ['paramount', 'https://www.paramountplus.com/account/'],
-      ['peacock',   'https://www.peacocktv.com/account/subscription'],
-      ['peloton',   'https://members.onepeloton.com/profile/preferences'],
-      ['adobe',     'https://account.adobe.com/plans'],
-      ['dropbox',   'https://www.dropbox.com/account/plan'],
-      ['microsoft', 'https://account.microsoft.com/services'],
-      ['google',    'https://myaccount.google.com/payments-and-subscriptions'],
+      // Streaming video
+      ['netflix',      'https://www.netflix.com/cancelplan'],
+      ['hulu',         'https://secure.hulu.com/account/cancel'],
+      ['disney',       'https://www.disneyplus.com/account'],
+      ['max',          'https://www.max.com/account/subscription'],
+      ['hbo',          'https://www.max.com/account/subscription'],
+      ['paramount',    'https://www.paramountplus.com/account/'],
+      ['peacock',      'https://www.peacocktv.com/account/subscription'],
+      ['starz',        'https://www.starz.com/us/en/account'],
+      ['showtime',     'https://www.sho.com/account'],
+      ['discovery',    'https://www.discoveryplus.com/account'],
+      ['sling',        'https://www.sling.com/account'],
+      ['fubo',         'https://www.fubo.tv/account'],
+      ['espn',         'https://www.espnplus.com/account'],
+      ['crunchyroll',  'https://www.crunchyroll.com/acct/membership'],
+      ['mubi',         'https://mubi.com/account/manage'],
+      ['plex',         'https://www.plex.tv/plex-pass/'],
+      // Music & audio
+      ['spotify',      'https://www.spotify.com/account/subscription/'],
+      ['apple music',  'https://apps.apple.com/account/subscriptions'],
+      ['apple one',    'https://apps.apple.com/account/subscriptions'],
+      ['youtube music','https://music.youtube.com/paid_memberships'],
+      ['youtube premium','https://www.youtube.com/paid_memberships'],
+      ['youtube',      'https://www.youtube.com/paid_memberships'],
+      ['tidal',        'https://account.tidal.com/subscription'],
+      ['deezer',       'https://www.deezer.com/en/offers'],
+      ['pandora',      'https://www.pandora.com/account/subscription'],
+      ['audible',      'https://www.audible.com/account/memberships'],
+      ['sirius',       'https://www.siriusxm.com/myaccount'],
+      ['amazon music', 'https://music.amazon.com/settings'],
+      // Amazon & Apple
+      ['amazon prime', 'https://www.amazon.com/mc/pipelines/cancellation'],
+      ['amazon',       'https://www.amazon.com/mc/pipelines/cancellation'],
+      ['apple tv',     'https://apps.apple.com/account/subscriptions'],
+      ['apple',        'https://apps.apple.com/account/subscriptions'],
+      // Gaming
+      ['xbox',         'https://account.microsoft.com/services'],
+      ['playstation',  'https://www.playstation.com/en-us/account/subscriptions/'],
+      ['nintendo',     'https://accounts.nintendo.com/profile/subscriptions'],
+      ['steam',        'https://store.steampowered.com/'],
+      // Fitness & wellness
+      ['peloton',      'https://members.onepeloton.com/profile/preferences'],
+      ['classpass',    'https://classpass.com/account/billing'],
+      ['noom',         'https://www.noom.com/account/'],
+      ['myfitnesspal', 'https://www.myfitnesspal.com/account/subscription'],
+      ['weight watchers','https://www.weightwatchers.com/us/account'],
+      ['calm',         'https://www.calm.com/account'],
+      ['headspace',    'https://www.headspace.com/account'],
+      ['strava',       'https://www.strava.com/settings/subscription'],
+      ['whoop',        'https://app.whoop.com/settings/membership'],
+      ['planet fitness','https://www.planetfitness.com/member-portal'],
+      // Software & productivity
+      ['adobe',        'https://account.adobe.com/plans'],
+      ['microsoft',    'https://account.microsoft.com/services'],
+      ['office 365',   'https://account.microsoft.com/services'],
+      ['dropbox',      'https://www.dropbox.com/account/plan'],
+      ['google one',   'https://one.google.com/storage'],
+      ['google',       'https://myaccount.google.com/payments-and-subscriptions'],
+      ['notion',       'https://www.notion.so/profile/settings'],
+      ['evernote',     'https://www.evernote.com/client/settings'],
+      ['grammarly',    'https://account.grammarly.com/subscription'],
+      ['canva',        'https://www.canva.com/settings/billing'],
+      ['chatgpt',      'https://chat.openai.com/account/billing'],
+      ['openai',       'https://platform.openai.com/account/billing'],
+      ['1password',    'https://my.1password.com/billing'],
+      ['lastpass',     'https://lastpass.com/my.php'],
+      ['dashlane',     'https://app.dashlane.com/settings/subscription'],
+      ['nordvpn',      'https://my.nordaccount.com/subscriptions/'],
+      ['expressvpn',   'https://www.expressvpn.com/vpn-software/'],
+      // Learning
+      ['duolingo',     'https://www.duolingo.com/settings/subscription'],
+      ['babbel',       'https://my.babbel.com/account'],
+      ['masterclass',  'https://www.masterclass.com/settings/billing'],
+      ['skillshare',   'https://www.skillshare.com/en/account/billing'],
+      ['linkedin',     'https://www.linkedin.com/premium/manage'],
+      // News & media
+      ['nytimes',      'https://www.nytimes.com/account/manage-your-account'],
+      ['new york times','https://www.nytimes.com/account/manage-your-account'],
+      ['washington post','https://subscribe.washingtonpost.com/manage'],
+      ['wsj',          'https://customercenter.wsj.com/'],
+      ['bloomberg',    'https://www.bloomberg.com/account/'],
+      ['economist',    'https://www.economist.com/api/auth/subscription'],
     ];
     for (const [key, url] of MAP) {
       if (n.includes(key)) return url;
     }
-    // Generic — iOS subscriptions page for anything unrecognised
+    // Fallback: iOS subscription management (catches App Store subscriptions)
     return 'https://apps.apple.com/account/subscriptions';
   }
 
@@ -3107,12 +3217,60 @@ window.FCApp = (function () {
     '#1ac4f0','#2563eb','#34c759','#ff9f0a',
     '#ff453a','#bf5af2','#00c7be','#ffd60a',
   ];
+
+  // Maps the output of FCData.normalizePlaidCategory() → clean display label
+  function _prettyCategory(normalized) {
+    const map = {
+      'Food and Drink':    'Dining',
+      'Restaurants':       'Dining',
+      'Coffee Shop':       'Coffee',
+      'Grocery':           'Groceries',
+      'Auto and Transport':'Transport',
+      'Gas Stations':      'Gas',
+      'General Merchandise':'Shopping',
+      'Shopping':          'Shopping',
+      'Rent and Utilities':'Utilities',
+      'Utilities':         'Utilities',
+      'Healthcare':        'Healthcare',
+      'Medical':           'Healthcare',
+      'Personal Care':     'Personal Care',
+      'Entertainment':     'Entertainment',
+      'Services':          'Services',
+      'Home Improvement':  'Home',
+      'Education':         'Education',
+      'Travel':            'Travel',
+      'Bank Fees':         'Bank Fees',
+      'Transfer':          'Transfer',
+      'Loan':              'Loans',
+      'Government':        'Government',
+      'Investments':       'Investments',
+      'Income':            'Income',
+    };
+    return map[normalized] || normalized;
+  }
+
+  // Icons keyed on the OUTPUT of _prettyCategory()
   const _DONUT_CAT_ICONS = {
-    Food:'🍔', Dining:'🍔', Restaurants:'🍔', Groceries:'🛒',
-    Transport:'🚗', Transportation:'🚗', 'Gas & Fuel':'⛽',
-    Shopping:'🛍️', Entertainment:'🎬', Health:'💊', Medical:'💊',
-    Travel:'✈️', Utilities:'💡', Bills:'📄', Subscription:'📱',
-    Personal:'💇', Education:'📚', Fitness:'💪',
+    'Dining':        '🍔',
+    'Coffee':        '☕',
+    'Groceries':     '🛒',
+    'Transport':     '🚗',
+    'Gas':           '⛽',
+    'Shopping':      '🛍️',
+    'Entertainment': '🎬',
+    'Healthcare':    '💊',
+    'Travel':        '✈️',
+    'Utilities':     '💡',
+    'Personal Care': '💇',
+    'Services':      '🔧',
+    'Home':          '🏠',
+    'Education':     '📚',
+    'Fitness':       '💪',
+    'Bank Fees':     '🏦',
+    'Loans':         '💰',
+    'Investments':   '📈',
+    'Government':    '🏛️',
+    'Income':        '💵',
   };
 
   function _renderCategoryDonut() {
@@ -3136,28 +3294,28 @@ window.FCApp = (function () {
     });
     if (!monthTxns.length) { section.style.display = 'none'; return; }
 
-    // Aggregate by normalized category
+    // Aggregate by pretty category (merge Restaurants + Food and Drink → Dining, etc.)
     const catMap = {};
     for (const t of monthTxns) {
       const rawCat = (t.category && t.category[0]) || t.category || 'Other';
-      const cat = FCData.normalizePlaidCategory(rawCat);
+      const cat = _prettyCategory(FCData.normalizePlaidCategory(rawCat));
       catMap[cat] = (catMap[cat] || 0) + (t.amount || 0);
     }
     let cats = Object.entries(catMap)
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 5); // top 5 + Other
+      .slice(0, 6);
     const totalSpend = cats.reduce((s, [, v]) => s + v, 0);
     if (totalSpend <= 0) { section.style.display = 'none'; return; }
 
     section.style.display = '';
     if (total) total.textContent = FCData.formatCurrency(totalSpend);
 
-    // Build donut SVG — conic segments using SVG arcs
+    // Build donut SVG
     const cx = 50, cy = 50, r = 38, inner = 24;
     const circumference = 2 * Math.PI * r;
     let svgHTML = '';
     let offset = 0;
-    cats.forEach(([cat, amt], i) => {
+    cats.forEach(([, amt], i) => {
       const pct    = amt / totalSpend;
       const dash   = pct * circumference;
       const gap    = circumference - dash;
@@ -3172,7 +3330,6 @@ window.FCApp = (function () {
       />`;
       offset += dash;
     });
-    // Centre hole fill
     svgHTML += `<circle cx="${cx}" cy="${cy}" r="${inner}" fill="var(--fc-card-bg,#141f2a)"/>`;
     svg.innerHTML = svgHTML;
 
@@ -3918,7 +4075,7 @@ window.FCApp = (function () {
 
       html += txns.map(t => {
         const rawCat = (t.category && t.category[0]) || t.category || 'Other';
-        const cat    = FCData.normalizePlaidCategory(rawCat);
+        const cat    = _prettyCategory(FCData.normalizePlaidCategory(rawCat));
         const emoji  = FCData.categoryEmoji(rawCat, t.name);
         const isEmojiIcon = emoji.length <= 2 && isNaN(emoji);
         const color  = t.isCredit ? 'var(--fc-success)' : 'var(--fc-danger)';
@@ -6768,6 +6925,12 @@ window.FCApp = (function () {
         // when they dismiss the overlay (bugs #4 + #10).
         _refreshAfterPro();
         if (typeof FCAnalytics !== 'undefined') FCAnalytics.track('purchase_completed', { plan: 'pro' });
+        // Non-blocking pro upgrade email — best-effort, never delays the success flow
+        FCAuth.authedFetch(`${FC_CONFIG.app.apiBase}/email/pro-upgrade`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ plan: _selectedPlan || 'monthly' }),
+        }).catch(() => {});
         if (overlay) {
           overlay.classList.add('visible');
         } else {

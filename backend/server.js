@@ -513,11 +513,89 @@ app.post('/plaid/exchange-token', requireAuth, _plaidUserLimiter, async (req, re
           trx.update(referralRef, { activations: newActivations, ...(lifetimePro ? { lifetime_pro: true } : {}) });
         });
         console.log(`[referral] activated for uid:${req.uid} via code:${code}`);
+
+        // Email both sides about their reward — best-effort, never blocks
+        try {
+          const [referrerRecord, referredRecord] = await Promise.all([
+            admin.auth().getUser(referrerUid).catch(() => null),
+            admin.auth().getUser(req.uid).catch(() => null),
+          ]);
+
+          // Notify referrer: you earned Pro
+          if (referrerRecord?.email) {
+            const referrerName = _htmlEscape((referrerRecord.displayName || 'there').split(' ')[0]);
+            const referredName = _htmlEscape((referredRecord?.displayName || 'Someone').split(' ')[0]);
+            const rewardLabel  = lifetimePro ? 'Lifetime Pro 🏆' : '1 month of Pro free';
+            _sendEmail(referrerRecord.email, `${referredName} joined FlowCheck — you earned ${rewardLabel}! 🎉`, `
+              <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+              <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
+                <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:36px 32px;text-align:center">
+                  <div style="font-size:48px;margin-bottom:12px">${lifetimePro ? '🏆' : '🎉'}</div>
+                  <h1 style="color:#fff;font-size:22px;font-weight:700;margin:0 0 6px">Your referral just paid off, ${referrerName}!</h1>
+                  <p style="color:rgba(255,255,255,0.6);font-size:14px;margin:0">${referredName} connected their bank</p>
+                </div>
+                <div style="padding:28px 32px">
+                  <div style="background:#f0fffe;border-radius:12px;padding:20px;text-align:center;margin-bottom:20px">
+                    <div style="font-size:13px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">Your Reward</div>
+                    <div style="font-size:24px;font-weight:800;color:#0a1520">${rewardLabel}</div>
+                    ${lifetimePro ? '<div style="font-size:13px;color:#6b7280;margin-top:4px">3 referrals — you unlocked lifetime access</div>' : ''}
+                  </div>
+                  <p style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 20px">
+                    ${lifetimePro
+                      ? 'You\'ve referred 3 people to FlowCheck — that earns you lifetime Pro access. Thank you for spreading the word.'
+                      : 'Your Pro subscription has been extended by one month. Keep sharing and you can earn even more — 3 referrals unlocks lifetime access.'}
+                  </p>
+                  <a href="https://getflowcheck.app" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
+                    Open FlowCheck →
+                  </a>
+                </div>
+                <div style="padding:16px 32px;border-top:1px solid #f3f4f6;text-align:center">
+                  <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · <a href="${_unsubUrl(referrerUid, 'all', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe</a></p>
+                </div>
+              </div></body></html>
+            `, referrerUid).catch(() => {});
+          }
+
+          // Notify referred user: you also earned 1 month Pro
+          if (referredRecord?.email) {
+            const referredName = _htmlEscape((referredRecord.displayName || 'there').split(' ')[0]);
+            _sendEmail(referredRecord.email, `You got 1 month of FlowCheck Pro — welcome gift! 🎁`, `
+              <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+              <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
+                <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:36px 32px;text-align:center">
+                  <div style="font-size:48px;margin-bottom:12px">🎁</div>
+                  <h1 style="color:#fff;font-size:22px;font-weight:700;margin:0 0 6px">You've got 1 month Pro free, ${referredName}!</h1>
+                  <p style="color:rgba(255,255,255,0.6);font-size:14px;margin:0">A welcome gift for joining via referral</p>
+                </div>
+                <div style="padding:28px 32px">
+                  <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 20px">
+                    Because you joined FlowCheck through a referral, you've been given one free month of Pro — no credit card required. Here's what you have access to:
+                  </p>
+                  <div style="background:#f0fffe;border-left:3px solid #1ac4f0;border-radius:8px;padding:14px 18px;margin-bottom:24px">
+                    <p style="font-size:13px;color:#4b5563;margin:4px 0">✦ Unlimited bank accounts</p>
+                    <p style="font-size:13px;color:#4b5563;margin:4px 0">✦ Financial Health Score</p>
+                    <p style="font-size:13px;color:#4b5563;margin:4px 0">✦ AI spending insights</p>
+                    <p style="font-size:13px;color:#4b5563;margin:4px 0">✦ Bill tracking &amp; reminders</p>
+                  </div>
+                  <a href="https://getflowcheck.app" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
+                    Explore Pro Features →
+                  </a>
+                </div>
+                <div style="padding:16px 32px;border-top:1px solid #f3f4f6;text-align:center">
+                  <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · <a href="${_unsubUrl(req.uid, 'all', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe</a></p>
+                </div>
+              </div></body></html>
+            `, req.uid).catch(() => {});
+          }
+        } catch (_) {} // email errors never affect the referral grant
       }
     } catch (refErr) {
       // Non-fatal — bank is linked, referral reward is best-effort
       console.warn('[referral/auto-activate]', refErr.message);
     }
+
+    // Non-blocking confirmation email — never delays the response
+    _sendBankConnectedEmail(req.uid, institution).catch(() => {});
 
     res.json({ success: true, item_id: data.item_id });
   } catch (err) {
@@ -1387,6 +1465,62 @@ app.post('/email/test', requireAuth, async (req, res) => {
 });
 
 /* ─────────────────────────────────────────────────────────────
+   POST /email/pro-upgrade
+   Sends a "Welcome to Pro" email after a successful purchase.
+   Called by the client immediately after purchasePackage() resolves.
+   ───────────────────────────────────────────────────────────── */
+app.post('/email/pro-upgrade', requireAuth, async (req, res) => {
+  try {
+    const userRecord = await admin.auth().getUser(req.uid);
+    const email = userRecord.email;
+    const name  = _htmlEscape((userRecord.displayName || 'there').split(' ')[0]);
+    const plan  = req.body?.plan === 'annual' ? 'annual' : 'monthly';
+
+    if (!email) return res.json({ ok: true, skipped: 'no_email' });
+
+    await _sendEmail(email, 'Welcome to FlowCheck Pro 🚀', `
+      <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+      <div style="max-width:520px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
+        <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:40px 32px;text-align:center">
+          <div style="font-size:48px;margin-bottom:16px">🚀</div>
+          <h1 style="color:#ffffff;font-size:26px;font-weight:700;margin:0 0 8px;letter-spacing:-0.02em">You're now Pro, ${name}!</h1>
+          <p style="color:rgba(255,255,255,0.6);font-size:15px;margin:0">${plan === 'annual' ? 'Annual plan · thanks for the commitment' : 'Monthly plan · cancel anytime'}</p>
+        </div>
+        <div style="padding:32px">
+          <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 24px">
+            Your Pro subscription is active. Here's everything you've unlocked:
+          </p>
+          <div style="background:#f0fffe;border-left:3px solid #1ac4f0;border-radius:8px;padding:16px 20px;margin-bottom:28px">
+            <p style="font-size:14px;color:#4b5563;margin:5px 0">✦ Unlimited bank accounts</p>
+            <p style="font-size:14px;color:#4b5563;margin:5px 0">✦ Financial Health Score</p>
+            <p style="font-size:14px;color:#4b5563;margin:5px 0">✦ AI-powered spending insights</p>
+            <p style="font-size:14px;color:#4b5563;margin:5px 0">✦ Bill tracking &amp; reminders</p>
+            <p style="font-size:14px;color:#4b5563;margin:5px 0">✦ Net worth tracking &amp; milestones</p>
+            <p style="font-size:14px;color:#4b5563;margin:5px 0">✦ Weekly financial summaries</p>
+          </div>
+          <a href="https://getflowcheck.app" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#ffffff;font-weight:700;font-size:16px;padding:15px 28px;border-radius:10px;text-decoration:none;text-align:center;letter-spacing:-0.01em">
+            Explore FlowCheck Pro →
+          </a>
+        </div>
+        <div style="padding:20px 32px;border-top:1px solid #f3f4f6;text-align:center">
+          <p style="font-size:12px;color:#9ca3af;margin:0">
+            FlowCheck · Your money, clearly.<br>
+            Manage your subscription in the App Store.<br>
+            <a href="https://getflowcheck.app/privacy" style="color:#9ca3af">Privacy Policy</a>
+          </p>
+        </div>
+      </div>
+      </body></html>
+    `);
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('[email/pro-upgrade]', err.message);
+    if (res.headersSent) return;
+    res.json({ ok: true, error: 'email_failed' });
+  }
+});
+
+/* ─────────────────────────────────────────────────────────────
    POST /notifications/send
    Sends an FCM push notification to the authenticated user's
    registered device via Firebase Admin Messaging.
@@ -1678,6 +1812,53 @@ try { cron = require('node-cron'); } catch (_) {
 const _fmt = (n) => '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 /**
+ * Given a bill's stored due_date (YYYY-MM-DD) and frequency, return the
+ * next effective due date string from today forward.
+ * Without this, monthly bills only fire a reminder in the month their
+ * due_date was originally set — never again.
+ */
+function _effectiveDueDate(dueDateStr, frequency) {
+  const parts = (dueDateStr || '').split('-').map(Number);
+  if (parts.length < 3 || !parts[2]) return dueDateStr;
+  const [storedY, storedM, storedD] = parts;
+  const now = new Date(); now.setHours(0, 0, 0, 0);
+
+  switch ((frequency || 'monthly').toLowerCase()) {
+    case 'weekly': {
+      const storedDate = new Date(storedY, storedM - 1, storedD);
+      const dow  = storedDate.getDay();
+      const diff = (dow - now.getDay() + 7) % 7;
+      const next = new Date(now);
+      next.setDate(now.getDate() + (diff === 0 ? 7 : diff));
+      return next.toISOString().slice(0, 10);
+    }
+    case 'yearly':
+    case 'annual': {
+      let next = new Date(now.getFullYear(), storedM - 1, storedD);
+      if (next < now) next = new Date(now.getFullYear() + 1, storedM - 1, storedD);
+      return next.toISOString().slice(0, 10);
+    }
+    case 'monthly':
+    default: {
+      let next = new Date(now.getFullYear(), now.getMonth(), storedD);
+      if (next < now) next = new Date(now.getFullYear(), now.getMonth() + 1, storedD);
+      return next.toISOString().slice(0, 10);
+    }
+  }
+}
+
+/** Categories that represent transfers/payments, not real spending */
+const _XFER_CATS = new Set([
+  'transfer', 'loan', 'loan payments', 'loan payment',
+  'credit card payment', 'transfer in', 'transfer out',
+]);
+function _isXferTxn(t) {
+  const raw  = (t.category && t.category[0]) || t.category || '';
+  const norm = String(raw).toLowerCase();
+  return _XFER_CATS.has(norm) || norm.includes('transfer');
+}
+
+/**
  * Send bill-due reminders for a single user.
  * Checks all bills due in the next 1-2 days and sends push + email.
  */
@@ -1708,10 +1889,11 @@ async function _sendBillRemindersForUser(uid, userData) {
   for (const doc of billsSnap.docs) {
     const bill = doc.data();
     if (!bill.due_date || !bill.name) continue;
-    const due = bill.due_date.slice(0, 10);
-    if (due !== tomorrowStr && due !== dayAfterStr) continue;
+    const due         = bill.due_date.slice(0, 10);
+    const effectiveDue = _effectiveDueDate(due, bill.frequency);
+    if (effectiveDue !== tomorrowStr && effectiveDue !== dayAfterStr) continue;
 
-    const daysUntil  = due === tomorrowStr ? 1 : 2;
+    const daysUntil  = effectiveDue === tomorrowStr ? 1 : 2;
     const dayLabel   = daysUntil === 1 ? 'tomorrow' : 'in 2 days';
     const safeBill   = _htmlEscape(bill.name);
     const title      = `💳 ${safeBill} due ${dayLabel}`;
@@ -1728,6 +1910,37 @@ async function _sendBillRemindersForUser(uid, userData) {
     } else if (uid) {
       // No FCM token but save to notification center anyway
       await _saveNotification(uid, { title, body, type: 'bill_due', data: { bill_id: doc.id } });
+    }
+
+    // Overdue bills: if bill is 1–7 days past due, send a "still unpaid" nudge
+    const overdueDays = Math.round((new Date() - new Date(effectiveDue)) / 86400000);
+    if (overdueDays > 0 && overdueDays <= 7) {
+      const overdueTitle = `⚠️ ${safeBill} is ${overdueDays} day${overdueDays > 1 ? 's' : ''} overdue`;
+      const overdueBody  = `${_fmt(bill.amount || 0)} was due ${overdueDays} day${overdueDays > 1 ? 's' : ''} ago. Mark it paid or update the due date.`;
+      if (fcmToken) {
+        await _sendFCM(uid, fcmToken, { title: overdueTitle, body: overdueBody, type: 'bill_overdue', data: { bill_id: doc.id }, channelId: 'flowcheck_bills' });
+      } else {
+        await _saveNotification(uid, { title: overdueTitle, body: overdueBody, type: 'bill_overdue', data: { bill_id: doc.id } });
+      }
+      if (email && _resendApiKey && alertsOn) {
+        _sendEmail(email, overdueTitle, `
+          <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+          <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
+            <div style="background:#fee2e2;border-left:4px solid #dc2626;padding:20px 28px">
+              <h2 style="font-size:18px;font-weight:700;color:#991b1b;margin:0 0 6px">⚠️ ${safeBill} is overdue</h2>
+              <p style="font-size:15px;color:#7f1d1d;margin:0">${_fmt(bill.amount || 0)} was due ${overdueDays} day${overdueDays > 1 ? 's' : ''} ago.</p>
+            </div>
+            <div style="padding:24px 28px">
+              <p style="font-size:14px;color:#6b7280;margin:0 0 20px">Late payments can affect your credit score. Open FlowCheck to mark it paid or update the due date.</p>
+              <a href="https://getflowcheck.app" style="display:inline-block;background:#dc2626;color:#ffffff;font-weight:700;font-size:14px;padding:12px 24px;border-radius:8px;text-decoration:none">Mark as Paid →</a>
+            </div>
+            <div style="padding:14px 28px;border-top:1px solid #f3f4f6">
+              <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · <a href="${_unsubUrl(uid, 'alerts', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe from bill alerts</a></p>
+            </div>
+          </div></body></html>
+        `, uid).catch(e => console.error('[email bill-overdue]', e.message));
+      }
+      continue; // don't double-send an upcoming reminder for overdue bills
     }
 
     // Email — only if alerts not unsubscribed
@@ -1792,8 +2005,9 @@ async function _sendWeeklySummaryForUser(uid, userData) {
   const categories = {};
   txnSnap.docs.forEach(d => {
     const t = d.data();
-    // isCredit=false means expense. Amount is always stored positive (Math.abs) after the fix.
-    if (!t.isCredit) {
+    // isCredit=false means expense. Exclude transfers/loan payments so they
+    // don't inflate the weekly spending total shown to the user.
+    if (!t.isCredit && !_isXferTxn(t)) {
       totalSpent += t.amount;
       const cat = (t.category && t.category[0]) || 'Other';
       categories[cat] = (categories[cat] || 0) + t.amount;
@@ -1852,6 +2066,155 @@ async function _sendWeeklySummaryForUser(uid, userData) {
     </div>
     </body></html>
   `, uid).catch(e => console.error('[email weekly]', e.message));
+}
+
+/**
+ * Send a "bank connected" confirmation email.
+ * Called from exchange-token after Plaid link succeeds.
+ */
+async function _sendBankConnectedEmail(uid, institutionName) {
+  try {
+    const userRecord = await admin.auth().getUser(uid);
+    const email = userRecord.email;
+    if (!email || !_resendApiKey) return;
+    const name = _htmlEscape((userRecord.displayName || 'there').split(' ')[0]);
+    const safe = _htmlEscape(institutionName || 'your bank');
+    await _sendEmail(email, `${institutionName || 'Your bank'} is connected to FlowCheck ✅`, `
+      <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+      <div style="max-width:520px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
+        <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:36px 32px;text-align:center">
+          <div style="font-size:48px;margin-bottom:12px">🏦</div>
+          <h1 style="color:#ffffff;font-size:22px;font-weight:700;margin:0 0 6px">${safe} connected!</h1>
+          <p style="color:rgba(255,255,255,0.6);font-size:14px;margin:0">Your account is syncing now</p>
+        </div>
+        <div style="padding:28px 32px">
+          <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 20px">
+            Hey ${name} — <strong>${safe}</strong> is now linked to FlowCheck. Your transactions will sync automatically so you always have a clear picture of your money.
+          </p>
+          <div style="background:#f0fffe;border-left:3px solid #1ac4f0;border-radius:8px;padding:14px 18px;margin-bottom:24px">
+            <p style="font-size:13px;font-weight:600;color:#0a1520;margin:0 0 8px">What's next:</p>
+            <p style="font-size:13px;color:#4b5563;margin:4px 0">→ Set a budget to track spending by category</p>
+            <p style="font-size:13px;color:#4b5563;margin:4px 0">→ Add recurring bills so you never miss a payment</p>
+            <p style="font-size:13px;color:#4b5563;margin:4px 0">→ Check your Financial Health Score</p>
+          </div>
+          <a href="https://getflowcheck.app" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#ffffff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
+            View My Dashboard →
+          </a>
+        </div>
+        <div style="padding:16px 32px;border-top:1px solid #f3f4f6;text-align:center">
+          <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · Your money, clearly.<br>
+            <a href="${_unsubUrl(uid, 'all', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe</a></p>
+        </div>
+      </div>
+      </body></html>
+    `, uid);
+  } catch (err) {
+    console.error('[email/bank-connected]', err.message);
+  }
+}
+
+/**
+ * Send monthly financial summary for a single user.
+ * Called by the 1st-of-month cron with the previous month's date range.
+ */
+async function _sendMonthlySummaryForUser(uid, userData, cutoffStr, monthLabel) {
+  const email = userData.email;
+  if (!email || !_resendApiKey) return;
+
+  const name = _htmlEscape((userData.display_name || userData.name || 'there').split(' ')[0]);
+
+  // Last day of the previous month = day before cutoffStr's month rolled over
+  const endDate = new Date(cutoffStr); endDate.setMonth(endDate.getMonth() + 1); endDate.setDate(0);
+  const endStr  = endDate.toISOString().slice(0, 10);
+
+  let txnSnap;
+  try {
+    txnSnap = await db.collection('users').doc(uid)
+      .collection('transactions')
+      .where('date', '>=', cutoffStr)
+      .where('date', '<=', endStr)
+      .where('pending', '==', false)
+      .get();
+  } catch (_) { return; }
+
+  if (txnSnap.empty) return;
+
+  let totalSpent = 0, totalIncome = 0;
+  const categories = {};
+  txnSnap.docs.forEach(d => {
+    const t = d.data();
+    if (t.isCredit) {
+      totalIncome += t.amount;
+    } else if (!_isXferTxn(t)) {
+      totalSpent += t.amount;
+      const cat = (t.category && t.category[0]) || 'Other';
+      categories[cat] = (categories[cat] || 0) + t.amount;
+    }
+  });
+
+  const topCats = Object.entries(categories)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([cat, amt]) =>
+      `<tr>
+        <td style="padding:7px 0;color:#374151;font-size:14px">${_htmlEscape(cat)}</td>
+        <td style="padding:7px 0;text-align:right;font-weight:600;color:#111827;font-size:14px">${_fmt(amt)}</td>
+      </tr>`
+    ).join('');
+
+  const savedAmt = totalIncome - totalSpent;
+  const savedColor = savedAmt >= 0 ? '#059669' : '#dc2626';
+  const savedLabel = savedAmt >= 0 ? `Saved ${_fmt(savedAmt)}` : `Overspent ${_fmt(Math.abs(savedAmt))}`;
+
+  if (userData.fcm_token) {
+    _sendFCM(uid, userData.fcm_token, {
+      title: `📅 Your ${monthLabel} Summary`,
+      body:  `You spent ${_fmt(totalSpent)} and ${savedAmt >= 0 ? 'saved' : 'overspent'} ${_fmt(Math.abs(savedAmt))}.`,
+      type:  'monthly_summary',
+    }).catch(() => {});
+  }
+
+  await _sendEmail(email, `Your ${monthLabel} financial summary 📅`, `
+    <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+    <div style="max-width:520px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
+      <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:36px 32px;text-align:center">
+        <div style="font-size:40px;margin-bottom:12px">📅</div>
+        <h1 style="color:#ffffff;font-size:22px;font-weight:700;margin:0 0 6px">${_htmlEscape(monthLabel)} Recap, ${name}!</h1>
+        <p style="color:rgba(255,255,255,0.6);font-size:14px;margin:0">Here's how your money moved last month</p>
+      </div>
+      <div style="padding:28px 32px">
+        <div style="display:flex;gap:12px;margin-bottom:24px">
+          <div style="flex:1;background:#f0fffe;border-radius:12px;padding:16px;text-align:center">
+            <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">Spent</div>
+            <div style="font-size:22px;font-weight:800;color:#0a1520">${_fmt(totalSpent)}</div>
+          </div>
+          <div style="flex:1;background:#f0fff4;border-radius:12px;padding:16px;text-align:center">
+            <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">Income</div>
+            <div style="font-size:22px;font-weight:800;color:#0a1520">${_fmt(totalIncome)}</div>
+          </div>
+        </div>
+        <div style="background:#f9fafb;border-radius:10px;padding:14px 16px;text-align:center;margin-bottom:24px">
+          <span style="font-size:15px;font-weight:700;color:${savedColor}">${savedLabel}</span>
+          <span style="font-size:13px;color:#9ca3af"> last month</span>
+        </div>
+        ${topCats ? `
+        <div style="margin-bottom:24px">
+          <div style="font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px">Top Spending Categories</div>
+          <table style="width:100%;border-collapse:collapse">${topCats}</table>
+        </div>` : ''}
+        <a href="https://getflowcheck.app" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#ffffff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
+          View Full Breakdown →
+        </a>
+      </div>
+      <div style="padding:16px 32px;border-top:1px solid #f3f4f6;text-align:center">
+        <p style="font-size:11px;color:#9ca3af;margin:0">
+          FlowCheck · Your money, clearly<br>
+          <a href="${_unsubUrl(uid, 'weekly')}" style="color:#9ca3af">Unsubscribe from monthly summaries</a>
+        </p>
+      </div>
+    </div>
+    </body></html>
+  `, uid);
 }
 
 // ── Cron: daily bill reminders at 09:00 UTC ─────────────────
@@ -1914,6 +2277,44 @@ if (cron) {
   console.log('[Boot] Cron: weekly summary scheduled (Sunday 07:00 UTC)');
 }
 
+// ── Cron: monthly summary on 1st of month at 08:00 UTC ──────
+if (cron) {
+  cron.schedule('0 8 1 * *', async () => {
+    console.log('[Cron] Running monthly summary job…');
+    try {
+      let lastDoc = null;
+      let sent = 0;
+      const PAGE = 200;
+      const now = new Date();
+      const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const cutoffStr = prevMonth.toISOString().slice(0, 10); // first day of last month
+      const monthLabel = prevMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+      do {
+        let q = db.collection('users').orderBy('__name__').limit(PAGE);
+        if (lastDoc) q = q.startAfter(lastDoc);
+        const page = await q.get();
+        if (page.empty) break;
+        lastDoc = page.docs[page.docs.length - 1];
+        for (const userDoc of page.docs) {
+          const data = userDoc.data();
+          if (!data.plaid_linked || !data.email) continue;
+          if (data.notifications_enabled === false) continue;
+          if (data.email_weekly_enabled === false) continue; // reuse weekly opt-out flag
+          await _sendMonthlySummaryForUser(userDoc.id, data, cutoffStr, monthLabel).catch(err =>
+            console.error(`[cron/monthly] uid:${userDoc.id}:`, err.message)
+          );
+          sent++;
+        }
+      } while (true);
+      console.log(`[Cron] Monthly summaries: processed ${sent} users`);
+    } catch (err) {
+      console.error('[Cron] Monthly summary job failed:', err.message);
+    }
+  }, { timezone: 'UTC' });
+  console.log('[Boot] Cron: monthly summary scheduled (1st of month 08:00 UTC)');
+}
+
 /* ─────────────────────────────────────────────────────────────
    PLAID WEBHOOK — real-time transaction updates
    ─────────────────────────────────────────────────────────────
@@ -1952,6 +2353,374 @@ async function _getPlaidWebhookKey(keyId) {
  */
 function _b64url(str) {
   return Buffer.from(str.replace(/-/g, '+').replace(/_/g, '/'), 'base64');
+}
+
+// ── Cron: onboarding drip — daily 11:00 UTC ─────────────────
+// Four timed emails keyed to how long ago the user signed up
+// and what they've done. Each fires at most once per user.
+if (cron) {
+  cron.schedule('0 11 * * *', async () => {
+    if (!_resendApiKey) return;
+    console.log('[Cron] Running onboarding drip job…');
+    try {
+      let lastDoc = null; let sent = 0; const PAGE = 200;
+      do {
+        let q = db.collection('users').orderBy('__name__').limit(PAGE);
+        if (lastDoc) q = q.startAfter(lastDoc);
+        const page = await q.get();
+        if (page.empty) break;
+        lastDoc = page.docs[page.docs.length - 1];
+        for (const userDoc of page.docs) {
+          const d = userDoc.data();
+          if (!d.email) continue;
+          const drip = d.onboarding_drip || {};
+          const createdAt = d.created_at?.toDate ? d.created_at.toDate() : (d.created_at ? new Date(d.created_at) : null);
+          if (!createdAt) continue;
+          const ageDays = (Date.now() - createdAt.getTime()) / 86400000;
+          await _runOnboardingDrip(userDoc.id, d, drip, ageDays).catch(err =>
+            console.error(`[cron/drip] uid:${userDoc.id}:`, err.message)
+          );
+          sent++;
+        }
+      } while (true);
+      console.log(`[Cron] Onboarding drip: processed ${sent} users`);
+    } catch (err) { console.error('[Cron] Onboarding drip failed:', err.message); }
+  }, { timezone: 'UTC' });
+  console.log('[Boot] Cron: onboarding drip scheduled (daily 11:00 UTC)');
+}
+
+async function _runOnboardingDrip(uid, d, drip, ageDays) {
+  const email  = d.email;
+  const name   = _htmlEscape((d.name || 'there').split(' ')[0]);
+  const linked = !!d.plaid_linked;
+  const updates = {};
+
+  // ── Email 1: +24h, no bank connected ──────────────────────
+  if (!drip.day1 && ageDays >= 1 && ageDays < 7 && !linked) {
+    await _sendEmail(email, "Still getting started on FlowCheck? 🏦", `
+      <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+      <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
+        <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:36px 32px;text-align:center">
+          <div style="font-size:48px;margin-bottom:12px">🏦</div>
+          <h1 style="color:#fff;font-size:22px;font-weight:700;margin:0 0 6px">Connect your bank, ${name}</h1>
+          <p style="color:rgba(255,255,255,0.6);font-size:14px;margin:0">It takes about 60 seconds</p>
+        </div>
+        <div style="padding:28px 32px">
+          <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 20px">
+            You signed up but haven't connected a bank yet. Without it, FlowCheck can't show you where your money is going — which is the whole point.
+          </p>
+          <div style="background:#f0fffe;border-left:3px solid #1ac4f0;border-radius:8px;padding:14px 18px;margin-bottom:24px">
+            <p style="font-size:13px;color:#4b5563;margin:4px 0">✓ 256-bit encryption via Plaid (same as your bank's app)</p>
+            <p style="font-size:13px;color:#4b5563;margin:4px 0">✓ Read-only — FlowCheck can never move your money</p>
+            <p style="font-size:13px;color:#4b5563;margin:4px 0">✓ Disconnect any time in Settings</p>
+          </div>
+          <a href="https://getflowcheck.app" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
+            Connect My Bank →
+          </a>
+        </div>
+        <div style="padding:16px 32px;border-top:1px solid #f3f4f6;text-align:center">
+          <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · <a href="${_unsubUrl(uid, 'all', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe</a></p>
+        </div>
+      </div></body></html>
+    `, uid);
+    updates['onboarding_drip.day1'] = true;
+  }
+
+  // ── Email 2: +3 days, bank connected, no budget yet ────────
+  if (!drip.day3 && ageDays >= 3 && ageDays < 14 && linked) {
+    const budgetSnap = await db.collection('users').doc(uid).collection('budgets').limit(1).get();
+    if (budgetSnap.empty) {
+      await _sendEmail(email, `Set your first budget — it takes 30 seconds ⚡`, `
+        <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+        <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
+          <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:36px 32px;text-align:center">
+            <div style="font-size:48px;margin-bottom:12px">🎯</div>
+            <h1 style="color:#fff;font-size:22px;font-weight:700;margin:0 0 6px">Your bank is connected, ${name}</h1>
+            <p style="color:rgba(255,255,255,0.6);font-size:14px;margin:0">One more step to get the most out of FlowCheck</p>
+          </div>
+          <div style="padding:28px 32px">
+            <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 20px">
+              You've connected your bank — great start. The next step is setting a budget. People who set a budget in FlowCheck spend an average of 14% less within the first month.
+            </p>
+            <div style="background:#f0fffe;border-left:3px solid #1ac4f0;border-radius:8px;padding:14px 18px;margin-bottom:24px">
+              <p style="font-size:13px;font-weight:600;color:#0a1520;margin:0 0 8px">How to set your first budget:</p>
+              <p style="font-size:13px;color:#4b5563;margin:4px 0">1. Open FlowCheck → tap Insights tab</p>
+              <p style="font-size:13px;color:#4b5563;margin:4px 0">2. Tap "Set Budget" next to any category</p>
+              <p style="font-size:13px;color:#4b5563;margin:4px 0">3. Enter your monthly limit — done</p>
+            </div>
+            <a href="https://getflowcheck.app" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
+              Set My First Budget →
+            </a>
+          </div>
+          <div style="padding:16px 32px;border-top:1px solid #f3f4f6;text-align:center">
+            <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · <a href="${_unsubUrl(uid, 'all', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe</a></p>
+          </div>
+        </div></body></html>
+      `, uid);
+      updates['onboarding_drip.day3'] = true;
+    }
+  }
+
+  // ── Email 3: +7 days, bank connected — personalized insight ─
+  if (!drip.day7 && ageDays >= 7 && ageDays < 21 && linked) {
+    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 7);
+    const cutoffStr = cutoff.toISOString().slice(0, 10);
+    let txnSnap;
+    try {
+      txnSnap = await db.collection('users').doc(uid).collection('transactions')
+        .where('date', '>=', cutoffStr).where('pending', '==', false).get();
+    } catch (_) { txnSnap = { empty: true }; }
+
+    if (!txnSnap.empty) {
+      let totalSpent = 0;
+      const cats = {};
+      txnSnap.docs.forEach(d => {
+        const t = d.data();
+        if (!t.isCredit && !_isXferTxn(t)) {
+          totalSpent += t.amount;
+          const cat = (t.category && t.category[0]) || 'Other';
+          cats[cat] = (cats[cat] || 0) + t.amount;
+        }
+      });
+      const topCat = Object.entries(cats).sort((a, b) => b[1] - a[1])[0];
+      const topCatLabel = topCat
+        ? topCat[0].charAt(0) + topCat[0].slice(1).toLowerCase().replace(/_/g, ' ')
+        : null;
+
+      await _sendEmail(email, `Here's what FlowCheck found in your first week 👀`, `
+        <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+        <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
+          <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:36px 32px;text-align:center">
+            <div style="font-size:48px;margin-bottom:12px">👀</div>
+            <h1 style="color:#fff;font-size:22px;font-weight:700;margin:0 0 6px">Your first week on FlowCheck</h1>
+            <p style="color:rgba(255,255,255,0.6);font-size:14px;margin:0">Here's what we found, ${name}</p>
+          </div>
+          <div style="padding:28px 32px">
+            <div style="background:#f0fffe;border-radius:12px;padding:20px;text-align:center;margin-bottom:20px">
+              <div style="font-size:13px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">Spent This Week</div>
+              <div style="font-size:32px;font-weight:800;color:#0a1520">${_fmt(totalSpent)}</div>
+              ${topCatLabel ? `<div style="font-size:13px;color:#6b7280;margin-top:4px">Mostly on <strong style="color:#0a1520">${_htmlEscape(topCatLabel)}</strong></div>` : ''}
+            </div>
+            <p style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 20px">
+              That's your money in motion. Open FlowCheck to see the full breakdown — every transaction categorized, your Financial Health Score, and where you could be saving.
+            </p>
+            <a href="https://getflowcheck.app" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
+              See My Full Breakdown →
+            </a>
+          </div>
+          <div style="padding:16px 32px;border-top:1px solid #f3f4f6;text-align:center">
+            <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · <a href="${_unsubUrl(uid, 'all', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe</a></p>
+          </div>
+        </div></body></html>
+      `, uid);
+      updates['onboarding_drip.day7'] = true;
+    }
+  }
+
+  // ── Email 4: +14 days, bank connected, no bills added ───────
+  if (!drip.day14 && ageDays >= 14 && ageDays < 30 && linked) {
+    const billsSnap = await db.collection('users').doc(uid).collection('bills').limit(1).get();
+    if (billsSnap.empty) {
+      await _sendEmail(email, `Are you tracking your recurring bills? 📋`, `
+        <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+        <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
+          <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:36px 32px;text-align:center">
+            <div style="font-size:48px;margin-bottom:12px">📋</div>
+            <h1 style="color:#fff;font-size:22px;font-weight:700;margin:0 0 6px">Never miss a bill, ${name}</h1>
+            <p style="color:rgba(255,255,255,0.6);font-size:14px;margin:0">One late payment can cost you in fees and credit score</p>
+          </div>
+          <div style="padding:28px 32px">
+            <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 20px">
+              You haven't added any bills to FlowCheck yet. Add your recurring payments — rent, Netflix, phone, utilities — and we'll remind you 2 days before each one is due.
+            </p>
+            <div style="background:#f0fffe;border-left:3px solid #1ac4f0;border-radius:8px;padding:14px 18px;margin-bottom:24px">
+              <p style="font-size:13px;color:#4b5563;margin:4px 0">✓ Push notification 2 days before due</p>
+              <p style="font-size:13px;color:#4b5563;margin:4px 0">✓ Email reminder if you miss the push</p>
+              <p style="font-size:13px;color:#4b5563;margin:4px 0">✓ Overdue alerts so nothing slips through</p>
+            </div>
+            <a href="https://getflowcheck.app" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
+              Add My First Bill →
+            </a>
+          </div>
+          <div style="padding:16px 32px;border-top:1px solid #f3f4f6;text-align:center">
+            <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · <a href="${_unsubUrl(uid, 'all', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe</a></p>
+          </div>
+        </div></body></html>
+      `, uid);
+      updates['onboarding_drip.day14'] = true;
+    }
+  }
+
+  // Persist which drip emails fired (merge so other fields stay intact)
+  if (Object.keys(updates).length > 0) {
+    await db.collection('users').doc(uid).update(updates).catch(() => {});
+  }
+}
+
+// ── Cron: re-engagement email — Wednesday 10:00 UTC ─────────
+// Targets users who haven't opened the app in 14–30 days.
+if (cron) {
+  cron.schedule('0 10 * * 3', async () => {
+    if (!_resendApiKey) return;
+    console.log('[Cron] Running re-engagement job…');
+    try {
+      const cutoff14  = new Date(Date.now() - 14 * 86400000);
+      const cutoff30  = new Date(Date.now() - 30 * 86400000);
+      let lastDoc = null; let sent = 0; const PAGE = 200;
+      do {
+        let q = db.collection('users').orderBy('__name__').limit(PAGE);
+        if (lastDoc) q = q.startAfter(lastDoc);
+        const page = await q.get();
+        if (page.empty) break;
+        lastDoc = page.docs[page.docs.length - 1];
+        for (const userDoc of page.docs) {
+          const d = userDoc.data();
+          if (!d.email || !d.plaid_linked) continue;
+          if (d.notifications_enabled === false) continue;
+          const lastSeen = d.last_seen?.toDate ? d.last_seen.toDate() : (d.last_seen ? new Date(d.last_seen) : null);
+          if (!lastSeen || lastSeen > cutoff14 || lastSeen < cutoff30) continue; // only 14–30 days inactive
+          const name = _htmlEscape((d.name || 'there').split(' ')[0]);
+          await _sendEmail(d.email, `${d.name?.split(' ')[0] || 'Hey'} — your finances are waiting 👀`, `
+            <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+            <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
+              <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:36px 32px;text-align:center">
+                <div style="font-size:48px;margin-bottom:12px">👀</div>
+                <h1 style="color:#fff;font-size:22px;font-weight:700;margin:0 0 6px">You haven't checked in lately, ${name}</h1>
+                <p style="color:rgba(255,255,255,0.6);font-size:14px;margin:0">Your money keeps moving even when you don't</p>
+              </div>
+              <div style="padding:28px 32px">
+                <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 20px">
+                  It's been a couple of weeks. New transactions have come in, your balances may have changed, and there might be bills coming up. A quick check-in keeps you on top of it all.
+                </p>
+                <div style="background:#f0fffe;border-left:3px solid #1ac4f0;border-radius:8px;padding:14px 18px;margin-bottom:24px">
+                  <p style="font-size:13px;color:#4b5563;margin:4px 0">→ See what you've spent since you were last here</p>
+                  <p style="font-size:13px;color:#4b5563;margin:4px 0">→ Check for any bills coming due</p>
+                  <p style="font-size:13px;color:#4b5563;margin:4px 0">→ Review your financial health score</p>
+                </div>
+                <a href="https://getflowcheck.app" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
+                  Check In Now →
+                </a>
+              </div>
+              <div style="padding:16px 32px;border-top:1px solid #f3f4f6;text-align:center">
+                <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · <a href="${_unsubUrl(userDoc.id, 'all', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe</a></p>
+              </div>
+            </div></body></html>
+          `, userDoc.id).catch(() => {});
+          sent++;
+        }
+      } while (true);
+      console.log(`[Cron] Re-engagement: sent ${sent} emails`);
+    } catch (err) { console.error('[Cron] Re-engagement failed:', err.message); }
+  }, { timezone: 'UTC' });
+  console.log('[Boot] Cron: re-engagement scheduled (Wednesday 10:00 UTC)');
+}
+
+// ── Cron: year-in-review on Jan 1 at 09:00 UTC ──────────────
+if (cron) {
+  cron.schedule('0 9 1 1 *', async () => {
+    if (!_resendApiKey) return;
+    console.log('[Cron] Running year-in-review job…');
+    const year = new Date().getFullYear() - 1;
+    const yearStart = `${year}-01-01`;
+    const yearEnd   = `${year}-12-31`;
+    try {
+      let lastDoc = null; let sent = 0; const PAGE = 200;
+      do {
+        let q = db.collection('users').orderBy('__name__').limit(PAGE);
+        if (lastDoc) q = q.startAfter(lastDoc);
+        const page = await q.get();
+        if (page.empty) break;
+        lastDoc = page.docs[page.docs.length - 1];
+        for (const userDoc of page.docs) {
+          const d = userDoc.data();
+          if (!d.email || !d.plaid_linked) continue;
+          if (d.notifications_enabled === false) continue;
+          await _sendYearInReviewForUser(userDoc.id, d, year, yearStart, yearEnd).catch(err =>
+            console.error(`[cron/year] uid:${userDoc.id}:`, err.message)
+          );
+          sent++;
+        }
+      } while (true);
+      console.log(`[Cron] Year-in-review: processed ${sent} users`);
+    } catch (err) { console.error('[Cron] Year-in-review failed:', err.message); }
+  }, { timezone: 'UTC' });
+  console.log('[Boot] Cron: year-in-review scheduled (Jan 1 09:00 UTC)');
+}
+
+async function _sendYearInReviewForUser(uid, userData, year, yearStart, yearEnd) {
+  const email = userData.email;
+  if (!email || !_resendApiKey) return;
+  const name = _htmlEscape((userData.name || 'there').split(' ')[0]);
+
+  let txnSnap;
+  try {
+    txnSnap = await db.collection('users').doc(uid)
+      .collection('transactions')
+      .where('date', '>=', yearStart)
+      .where('date', '<=', yearEnd)
+      .where('pending', '==', false)
+      .get();
+  } catch (_) { return; }
+  if (txnSnap.empty) return;
+
+  let totalSpent = 0, totalIncome = 0, txnCount = 0;
+  const categories = {};
+  txnSnap.docs.forEach(d => {
+    const t = d.data();
+    if (t.isCredit) { totalIncome += t.amount; }
+    else if (!_isXferTxn(t)) {
+      totalSpent += t.amount; txnCount++;
+      const cat = (t.category && t.category[0]) || 'Other';
+      categories[cat] = (categories[cat] || 0) + t.amount;
+    }
+  });
+
+  const topCats = Object.entries(categories).sort((a, b) => b[1] - a[1]).slice(0, 5)
+    .map(([cat, amt]) =>
+      `<tr><td style="padding:7px 0;color:#374151;font-size:14px">${_htmlEscape(cat)}</td>
+       <td style="padding:7px 0;text-align:right;font-weight:600;color:#111827;font-size:14px">${_fmt(amt)}</td></tr>`
+    ).join('');
+
+  const saved = totalIncome - totalSpent;
+  const savedColor = saved >= 0 ? '#059669' : '#dc2626';
+
+  await _sendEmail(email, `Your ${year} Year in Review 🎉`, `
+    <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+    <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
+      <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:40px 32px;text-align:center">
+        <div style="font-size:48px;margin-bottom:12px">🎉</div>
+        <h1 style="color:#fff;font-size:26px;font-weight:700;margin:0 0 6px">${year} Year in Review</h1>
+        <p style="color:rgba(255,255,255,0.6);font-size:14px;margin:0">Here's what your financial year looked like, ${name}</p>
+      </div>
+      <div style="padding:28px 32px">
+        <div style="display:flex;gap:12px;margin-bottom:20px">
+          <div style="flex:1;background:#f0fffe;border-radius:12px;padding:16px;text-align:center">
+            <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">Total Spent</div>
+            <div style="font-size:20px;font-weight:800;color:#0a1520">${_fmt(totalSpent)}</div>
+          </div>
+          <div style="flex:1;background:#f0fff4;border-radius:12px;padding:16px;text-align:center">
+            <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">Total Income</div>
+            <div style="font-size:20px;font-weight:800;color:#0a1520">${_fmt(totalIncome)}</div>
+          </div>
+        </div>
+        <div style="background:#f9fafb;border-radius:10px;padding:14px 16px;text-align:center;margin-bottom:20px">
+          <span style="font-size:15px;font-weight:700;color:${savedColor}">${saved >= 0 ? 'Saved' : 'Overspent'} ${_fmt(Math.abs(saved))}</span>
+          <span style="font-size:13px;color:#9ca3af"> across ${txnCount.toLocaleString()} transactions</span>
+        </div>
+        ${topCats ? `
+        <div style="margin-bottom:24px">
+          <div style="font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px">Where Your Money Went</div>
+          <table style="width:100%;border-collapse:collapse">${topCats}</table>
+        </div>` : ''}
+        <a href="https://getflowcheck.app" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
+          Start ${year + 1} Strong →
+        </a>
+      </div>
+      <div style="padding:16px 32px;border-top:1px solid #f3f4f6;text-align:center">
+        <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · <a href="${_unsubUrl(uid, 'weekly', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe</a></p>
+      </div>
+    </div></body></html>
+  `, uid);
 }
 
 /**
@@ -2178,31 +2947,72 @@ async function _webhookSyncItem(itemId, retryCount = 0) {
         }
 
         // ── 1b. Large transaction alert ──────────────────────────────
-        const LARGE_TXN_THRESHOLD = 100; // alert on any single expense > $100
+        const LARGE_TXN_THRESHOLD = 100;
         const LARGE_SKIP_RE = /\b(mortgage|rent|loan payment|insurance|transfer|payroll)\b/i;
         for (const t of added) {
-          if (t.amount <= 0) continue; // skip credits
+          if (t.amount <= 0) continue;
           if (t.amount < LARGE_TXN_THRESHOLD) continue;
           if (LARGE_SKIP_RE.test(t.name || '')) continue;
-          const name  = t.merchant_name || t.name || 'A merchant';
+          const merchant  = t.merchant_name || t.name || 'A merchant';
+          const safeMerch = _htmlEscape(merchant);
           const title = `💳 Large Purchase: ${_fmt(t.amount)}`;
-          const body  = `${name} charged ${_fmt(t.amount)} to your account.`;
-          await _saveNotification(uid, { title, body, type: 'large_txn', data: { amount: String(t.amount), merchant: name } });
+          const body  = `${merchant} charged ${_fmt(t.amount)} to your account.`;
+          await _saveNotification(uid, { title, body, type: 'large_txn', data: { amount: String(t.amount), merchant } });
           if (fcmToken) _sendFCM(uid, fcmToken, { title, body, type: 'large_txn', data: { amount: String(t.amount) }, channelId: 'flowcheck_alerts' }).catch(() => {});
-          break; // one per sync batch
+          // Email for large transactions
+          if (userData.email && userData.email_alerts_enabled !== false) {
+            _sendEmail(userData.email, `💳 Large purchase detected: ${_fmt(t.amount)}`, `
+              <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+              <div style="max-width:480px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.08)">
+                <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:24px 28px;text-align:center">
+                  <div style="font-size:36px;margin-bottom:8px">💳</div>
+                  <h2 style="color:#fff;font-size:20px;font-weight:700;margin:0">${_fmt(t.amount)} purchase</h2>
+                  <p style="color:rgba(255,255,255,0.6);font-size:13px;margin:4px 0 0">${safeMerch}</p>
+                </div>
+                <div style="padding:24px">
+                  <p style="font-size:14px;color:#374151;margin:0 0 20px">A charge of <strong>${_fmt(t.amount)}</strong> from <strong>${safeMerch}</strong> just appeared on your account. If you don't recognize this, check your card immediately.</p>
+                  <a href="https://getflowcheck.app" style="display:inline-block;background:#1ac4f0;color:#0a1520;font-weight:700;font-size:14px;padding:12px 24px;border-radius:8px;text-decoration:none">Review Transaction →</a>
+                </div>
+                <div style="padding:14px 24px;border-top:1px solid #f3f4f6">
+                  <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · <a href="${_unsubUrl(uid, 'alerts', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe from alerts</a></p>
+                </div>
+              </div></body></html>
+            `, uid).catch(e => console.error('[email large-txn]', e.message));
+          }
+          break;
         }
 
         // ── 1c. Low balance warning ───────────────────────────────────
         const LOW_BALANCE_THRESHOLD = 200;
         for (const acct of accounts) {
-          const bal = acct.balances?.available ?? acct.balances?.current ?? 0;
+          // Use balance_available (mapped field) not acct.balances (unmapped Plaid object)
+          const bal = acct.balance_available ?? acct.balance_current ?? 0;
           if (acct.type !== 'depository') continue;
           if (bal > LOW_BALANCE_THRESHOLD) continue;
-          const acctName = acct.name || 'Your account';
+          const acctName = _htmlEscape(acct.name || 'Your account');
           const title    = '⚠️ Low Balance Alert';
-          const body     = `${acctName} has only ${_fmt(bal)} remaining.`;
-          await _saveNotification(uid, { title, body, type: 'low_balance', data: { account_id: acct.account_id, balance: String(bal) } });
+          const body     = `${acct.name || 'Your account'} has only ${_fmt(bal)} remaining.`;
+          await _saveNotification(uid, { title, body, type: 'low_balance', data: { account_id: acct.id, balance: String(bal) } });
           if (fcmToken) _sendFCM(uid, fcmToken, { title, body, type: 'low_balance', data: { balance: String(bal) }, channelId: 'flowcheck_alerts' }).catch(() => {});
+          // Email alert for low balance
+          if (userData.email && userData.email_alerts_enabled !== false) {
+            _sendEmail(userData.email, `⚠️ Low Balance: ${acct.name || 'Your account'}`, `
+              <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+              <div style="max-width:480px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.08)">
+                <div style="background:#fff3cd;border-left:4px solid #ffb020;padding:20px 24px">
+                  <h2 style="font-size:18px;font-weight:700;color:#92400e;margin:0 0 6px">⚠️ Low Balance Alert</h2>
+                  <p style="font-size:15px;color:#78350f;margin:0">${acctName} has only <strong>${_fmt(bal)}</strong> available.</p>
+                </div>
+                <div style="padding:24px">
+                  <p style="font-size:14px;color:#6b7280;margin:0 0 20px">You may want to transfer funds or hold off on purchases to avoid overdraft fees.</p>
+                  <a href="https://getflowcheck.app" style="display:inline-block;background:#1ac4f0;color:#0a1520;font-weight:700;font-size:14px;padding:12px 24px;border-radius:8px;text-decoration:none">View Accounts →</a>
+                </div>
+                <div style="padding:14px 24px;border-top:1px solid #f3f4f6">
+                  <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · <a href="${_unsubUrl(uid, 'alerts', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe from alerts</a></p>
+                </div>
+              </div></body></html>
+            `, uid).catch(e => console.error('[email low-balance]', e.message));
+          }
           break;
         }
 
