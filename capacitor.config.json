@@ -19,7 +19,7 @@
   },
   "ios": {
     "contentInset": "always",
-    "backgroundColor": "#0a1520",
+    "backgroundColor": "#04090e",
     "packageClassList": ["BiometricAuthNative"]
   }
 }

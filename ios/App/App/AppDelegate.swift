@@ -132,12 +132,19 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     private func presentNativeLockScreen() {
         guard let rootVC = window?.rootViewController else { return }
 
-        // Don't stack lock screens if one is already on screen
-        if rootVC.presentedViewController is NativeLockScreenViewController { return }
+        // Don't stack lock screens if one is already on screen.
+        // Still remove the privacy overlay — the lock VC underneath handles auth.
+        if rootVC.presentedViewController is NativeLockScreenViewController {
+            removePrivacyOverlay()
+            return
+        }
         // Walk the presented chain in case something else is on top
         var top: UIViewController = rootVC
         while let presented = top.presentedViewController { top = presented }
-        if top is NativeLockScreenViewController { return }
+        if top is NativeLockScreenViewController {
+            removePrivacyOverlay()
+            return
+        }
 
         let lockVC = NativeLockScreenViewController()
         lockVC.modalPresentationStyle = .overFullScreen

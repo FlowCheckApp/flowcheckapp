@@ -212,9 +212,9 @@ final class NativeLockScreenViewController: UIViewController {
     }
 
     private func setupPasswordButton() {
-        passwordBtn.setTitle("Use Password Instead", for: .normal)
+        passwordBtn.setTitle("Sign in with account password", for: .normal)
         passwordBtn.titleLabel?.font = UIFont.systemFont(ofSize: 14, weight: .medium)
-        passwordBtn.setTitleColor(UIColor.white.withAlphaComponent(0.35), for: .normal)
+        passwordBtn.setTitleColor(UIColor.white.withAlphaComponent(0.30), for: .normal)
         passwordBtn.setTitleColor(fcAccent, for: .highlighted)
         passwordBtn.translatesAutoresizingMaskIntoConstraints = false
         passwordBtn.addTarget(self, action: #selector(passwordTapped), for: .touchUpInside)
@@ -277,7 +277,8 @@ final class NativeLockScreenViewController: UIViewController {
         subtitleLabel.text  = "Scanning…"
 
         let context = LAContext()
-        context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics,
+        context.localizedFallbackTitle = "Enter Account Password"
+        context.evaluatePolicy(.deviceOwnerAuthentication,
                                localizedReason: "Unlock FlowCheck") { [weak self] success, error in
             DispatchQueue.main.async {
                 self?.isAuthenticating = false
@@ -328,12 +329,17 @@ final class NativeLockScreenViewController: UIViewController {
                         error?.code == .appCancel   ||
                         error?.code == .systemCancel
 
-        if !cancelled {
+        if cancelled {
+            // User dismissed the prompt — show a clear tap-to-retry state
+            subtitleLabel.text    = "Tap to try again"
+            statusLabel.text      = ""
+            faceIDButton.isEnabled = true
+        } else {
             UIView.animate(withDuration: 0.2) {
                 self.faceIDButton.backgroundColor = self.fcDanger.withAlphaComponent(0.12)
                 self.faceIDButton.layer.borderColor = self.fcDanger.withAlphaComponent(0.40).cgColor
             }
-            statusLabel.text      = "Try again"
+            statusLabel.text      = "Didn't recognize you"
             statusLabel.textColor = fcDanger
             shakeButton()
 
@@ -343,13 +349,12 @@ final class NativeLockScreenViewController: UIViewController {
                     self.faceIDButton.backgroundColor = self.fcAccent.withAlphaComponent(0.08)
                     self.faceIDButton.layer.borderColor = self.fcAccent.withAlphaComponent(0.35).cgColor
                 }
-                self.statusLabel.text      = ""
+                self.statusLabel.text      = "Tap to try again"
                 self.statusLabel.textColor = UIColor.white.withAlphaComponent(0.45)
             }
+            subtitleLabel.text     = "Your finances are locked"
+            faceIDButton.isEnabled = true
         }
-
-        subtitleLabel.text     = "Your finances are locked"
-        faceIDButton.isEnabled = true
     }
 
     private func shakeButton() {
