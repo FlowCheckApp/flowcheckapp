@@ -314,6 +314,7 @@ app.use('/notifications/register',      generalLimiter);
 app.use('/notifications/mark-all-read', generalLimiter);
 app.use('/notifications/',              generalLimiter); // covers /notifications/:id/read
 app.use('/email/',                      strictLimiter);  // covers welcome, test, etc.
+app.use('/auth/otp',                    strictLimiter);  // OTP send + verify
 app.use('/api/referral',                generalLimiter); // referral generate/apply/activate/stats
 // /unsubscribe uses its own _unsubLimiter defined inline (no auth — uid in URL)
 
@@ -1255,7 +1256,7 @@ if (_resendApiKey) {
   console.warn('[Boot] RESEND_API_KEY not set — email endpoints are no-ops');
 }
 
-const EMAIL_FROM = process.env.EMAIL_FROM || 'FlowCheck <noreply@flowcheck.app>';
+const EMAIL_FROM = process.env.EMAIL_FROM || 'FlowCheck <noreply@getflowcheck.app>';
 
 async function _sendEmail(to, subject, html, uid = null) {
   if (!_resendApiKey) {
@@ -1310,8 +1311,8 @@ app.post('/email/welcome', requireAuth, async (req, res) => {
       <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
       <div style="max-width:520px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
         <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:40px 32px;text-align:center">
-          <div style="width:64px;height:64px;background:linear-gradient(135deg,#1ac4f0,#6b3fe0);border-radius:16px;margin:0 auto 20px;display:flex;align-items:center;justify-content:center">
-            <span style="font-size:28px">💧</span>
+          <div style="width:64px;height:64px;background:linear-gradient(135deg,#1ac4f0,#2563eb);border-radius:16px;margin:0 auto 20px;display:flex;align-items:center;justify-content:center">
+            <span style="font-size:28px">&#x2713;</span>
           </div>
           <h1 style="color:#ffffff;font-size:26px;font-weight:700;margin:0 0 8px;letter-spacing:-0.02em">Welcome to FlowCheck, ${_htmlEscape(name)}!</h1>
           <p style="color:rgba(255,255,255,0.6);font-size:15px;margin:0">Your money, clearly.</p>
@@ -2839,6 +2840,197 @@ app.use((err, req, res, next) => {
     message: _safeMsg(err, 'An unexpected error occurred — please try again'),
   });
 });
+
+/* ─────────────────────────────────────────────────────────────
+   OTP EMAIL VERIFICATION
+   POST /auth/otp/send   — generate & email a 6-digit code
+   POST /auth/otp/verify — verify the code, set emailVerified
+   ─────────────────────────────────────────────────────────────
+   Codes stored in Firestore: otp_codes/{uid}
+   TTL: 10 minutes. Max 5 attempts per code.
+   ─────────────────────────────────────────────────────────────── */
+
+app.post('/auth/otp/send', requireAuth, async (req, res) => {
+  try {
+    const userRecord = await admin.auth().getUser(req.uid);
+    const email = userRecord.email;
+    if (!email) return res.status(400).json({ message: 'No email address on this account' });
+
+    // Throttle: max 1 send per 60 seconds
+    const existingDoc = await db.collection('otp_codes').doc(req.uid).get();
+    if (existingDoc.exists) {
+      const data = existingDoc.data();
+      const secondsAgo = (Date.now() - data.sent_at) / 1000;
+      if (secondsAgo < 60) {
+        return res.status(429).json({ message: `Please wait ${Math.ceil(60 - secondsAgo)}s before requesting a new code` });
+      }
+    }
+
+    const code       = String(Math.floor(100000 + Math.random() * 900000));
+    const expires_at = Date.now() + 10 * 60 * 1000;
+
+    await db.collection('otp_codes').doc(req.uid).set({
+      code, email, expires_at, sent_at: Date.now(), attempts: 0,
+    });
+
+    const name = (userRecord.displayName || 'there').split(' ')[0];
+    await _sendEmail(email, `${code} is your FlowCheck verification code`, `
+      <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+      <div style="max-width:480px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
+        <div style="background:linear-gradient(135deg,#060e18,#0d2035);padding:36px 32px;text-align:center">
+          <div style="width:60px;height:60px;background:linear-gradient(135deg,#1ac4f0,#2563eb);border-radius:14px;margin:0 auto 18px;display:flex;align-items:center;justify-content:center">
+            <span style="font-size:26px">&#x2709;&#xFE0F;</span>
+          </div>
+          <h1 style="color:#ffffff;font-size:22px;font-weight:700;margin:0;letter-spacing:-0.02em">Verify your email</h1>
+        </div>
+        <div style="padding:32px;text-align:center">
+          <p style="font-size:15px;color:#374151;margin:0 0 28px">Hi ${_htmlEscape(name)}, enter this code in FlowCheck to verify your email.</p>
+          <div style="background:#f0fffe;border:2px solid #1ac4f0;border-radius:14px;padding:24px 32px;margin-bottom:28px;display:inline-block">
+            <span style="font-size:40px;font-weight:800;letter-spacing:0.18em;color:#060e18;font-variant-numeric:tabular-nums">${code}</span>
+          </div>
+          <p style="font-size:13px;color:#9ca3af;margin:0">Expires in 10 minutes. If you didn't request this, ignore this email.</p>
+        </div>
+        <div style="padding:16px 32px;border-top:1px solid #f3f4f6;text-align:center">
+          <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck &middot; Your money, clearly.</p>
+        </div>
+      </div></body></html>
+    `);
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[auth/otp/send]', err.message);
+    res.status(500).json({ message: _safeMsg(err) });
+  }
+});
+
+app.post('/auth/otp/verify', requireAuth, async (req, res) => {
+  const { code } = req.body || {};
+  if (!code || !/^\d{6}$/.test(String(code))) {
+    return res.status(400).json({ message: 'Enter the 6-digit code from your email' });
+  }
+  try {
+    const docRef = db.collection('otp_codes').doc(req.uid);
+    const snap   = await docRef.get();
+
+    if (!snap.exists) {
+      return res.status(400).json({ message: 'No verification code found — tap Resend', expired: true });
+    }
+
+    const data = snap.data();
+    if (Date.now() > data.expires_at) {
+      await docRef.delete();
+      return res.status(400).json({ message: 'Code expired — tap Resend for a new one', expired: true });
+    }
+    if (data.attempts >= 5) {
+      await docRef.delete();
+      return res.status(400).json({ message: 'Too many attempts — tap Resend for a new code', expired: true });
+    }
+    if (String(data.code) !== String(code)) {
+      await docRef.update({ attempts: admin.firestore.FieldValue.increment(1) });
+      const left = 4 - data.attempts;
+      return res.status(400).json({ message: `Incorrect code — ${left} attempt${left !== 1 ? 's' : ''} left` });
+    }
+
+    // Correct — mark email verified and clean up
+    await Promise.all([
+      admin.auth().updateUser(req.uid, { emailVerified: true }),
+      docRef.delete(),
+    ]);
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[auth/otp/verify]', err.message);
+    res.status(500).json({ message: _safeMsg(err) });
+  }
+});
+
+/* ─────────────────────────────────────────────────────────────
+   ABANDONED SIGNUP FOLLOW-UP EMAILS
+   POST /email/signup-followup/schedule  — called after registration
+   POST /email/signup-followup/complete  — called when bank connected
+   Background job fires every 5 min to send due emails.
+   ─────────────────────────────────────────────────────────────── */
+
+app.post('/email/signup-followup/schedule', requireAuth, async (req, res) => {
+  try {
+    const userRecord = await admin.auth().getUser(req.uid);
+    const email = userRecord.email;
+    if (!email) return res.json({ ok: true, skipped: 'no_email' });
+    await db.collection('signup_followups').doc(req.uid).set({
+      email, uid: req.uid,
+      followup_at: Date.now() + 60 * 60 * 1000, // 1 hour
+      completed: false, sent: false, created_at: Date.now(),
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[email/signup-followup/schedule]', err.message);
+    res.json({ ok: true }); // never block the app
+  }
+});
+
+app.post('/email/signup-followup/complete', requireAuth, async (req, res) => {
+  try {
+    await db.collection('signup_followups').doc(req.uid)
+      .set({ completed: true }, { merge: true });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[email/signup-followup/complete]', err.message);
+    res.json({ ok: true });
+  }
+});
+
+// Background job: check every 5 min for abandoned signups to email
+setInterval(async () => {
+  if (!_resendApiKey) return;
+  try {
+    const now  = Date.now();
+    const snap = await db.collection('signup_followups')
+      .where('completed', '==', false)
+      .where('sent',      '==', false)
+      .where('followup_at', '<=', now)
+      .limit(20).get();
+
+    for (const doc of snap.docs) {
+      const { email, uid } = doc.data();
+      try {
+        await _sendEmail(email, "You're almost set up on FlowCheck 👋", `
+          <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+          <div style="max-width:520px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
+            <div style="background:linear-gradient(135deg,#060e18,#0d2035);padding:36px 32px;text-align:center">
+              <div style="width:60px;height:60px;background:linear-gradient(135deg,#1ac4f0,#2563eb);border-radius:14px;margin:0 auto 16px">
+                <span style="font-size:26px;line-height:60px">&#x1F4B3;</span>
+              </div>
+              <h1 style="color:#ffffff;font-size:22px;font-weight:700;margin:0;letter-spacing:-0.02em">Your account is waiting</h1>
+            </div>
+            <div style="padding:32px">
+              <p style="font-size:16px;color:#374151;line-height:1.6;margin:0 0 20px">
+                You created a FlowCheck account but haven't connected your bank yet. It only takes 60 seconds &mdash; and once you do, you'll instantly see:
+              </p>
+              <div style="background:#f0fffe;border-left:3px solid #1ac4f0;border-radius:8px;padding:16px 20px;margin-bottom:28px">
+                <p style="font-size:14px;color:#4b5563;margin:5px 0">&#x2713; Where your money is actually going</p>
+                <p style="font-size:14px;color:#4b5563;margin:5px 0">&#x2713; Subscriptions you may have forgotten</p>
+                <p style="font-size:14px;color:#4b5563;margin:5px 0">&#x2713; Your financial health score</p>
+                <p style="font-size:14px;color:#4b5563;margin:5px 0">&#x2713; AI-powered savings opportunities</p>
+              </div>
+              <a href="https://getflowcheck.app" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#ffffff;font-weight:700;font-size:16px;padding:15px 28px;border-radius:10px;text-decoration:none;text-align:center">
+                Finish Setup &rarr;
+              </a>
+            </div>
+            <div style="padding:20px 32px;border-top:1px solid #f3f4f6;text-align:center">
+              <p style="font-size:12px;color:#9ca3af;margin:0">FlowCheck &middot; Your money, clearly.<br>
+                <a href="${_unsubUrl(uid, 'all', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe</a></p>
+            </div>
+          </div></body></html>
+        `, uid);
+        await doc.ref.update({ sent: true, sent_at: now });
+      } catch (e) {
+        console.error('[signup-followup] Failed for', email, e.message);
+      }
+    }
+  } catch (err) {
+    console.error('[signup-followup] Background job error:', err.message);
+  }
+}, 5 * 60 * 1000);
 
 /* ─────────────────────────────────────────────────────────────
    PROCESS-LEVEL ERROR GUARDS

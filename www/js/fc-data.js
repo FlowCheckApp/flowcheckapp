@@ -171,6 +171,14 @@ window.FCData = (function () {
                   institution_name: metadata.institution?.name || 'unknown',
                 });
               }
+              // Cancel abandoned-signup follow-up now that bank is connected
+              try {
+                const token = await FCAuth.getIdToken();
+                fetch(`${FC_CONFIG.app.apiBase}/email/signup-followup/complete`, {
+                  method: 'POST',
+                  headers: { 'Authorization': `Bearer ${token}` },
+                }).catch(() => {});
+              } catch (_) {}
               resolve({ institution: metadata.institution, ...result });
             } catch (err) {
               if (window.Sentry) Sentry.captureException(err, { tags: { flow: 'plaid_exchange' } });

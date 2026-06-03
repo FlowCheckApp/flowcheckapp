@@ -430,6 +430,41 @@ body.fc-theme {
     0 2px 8px rgba(0,0,0,0.15);
 }
 .fc-input::placeholder { color: rgba(255,255,255,0.22); }
+/* OTP digit boxes */
+.fc-otp-box {
+  width: 46px; height: 56px;
+  background: rgba(255,255,255,0.06);
+  border: 1.5px solid rgba(255,255,255,0.12);
+  border-radius: 14px;
+  color: var(--fc-text);
+  font-size: 24px; font-weight: 700;
+  text-align: center;
+  caret-color: var(--fc-accent);
+  -webkit-appearance: none; appearance: none;
+  transition: border-color 0.18s, background 0.18s, box-shadow 0.18s;
+}
+.fc-otp-box:focus {
+  outline: none;
+  border-color: rgba(26,196,240,0.70);
+  background: rgba(26,196,240,0.08);
+  box-shadow: 0 0 0 3px rgba(26,196,240,0.18);
+}
+.fc-otp-box.filled {
+  border-color: rgba(26,196,240,0.45);
+  background: rgba(26,196,240,0.06);
+}
+.fc-otp-box.error {
+  border-color: rgba(255,69,58,0.60);
+  background: rgba(255,69,58,0.08);
+  animation: fcShake 0.35s ease;
+}
+@keyframes fcShake {
+  0%,100%{ transform:translateX(0) }
+  20%{ transform:translateX(-5px) }
+  40%{ transform:translateX(5px) }
+  60%{ transform:translateX(-4px) }
+  80%{ transform:translateX(4px) }
+}
 .fc-input-wrap { position: relative; }
 .fc-input-eye {
   position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
@@ -2243,23 +2278,16 @@ body {
 
   <div class="fc-auth-body fc-stagger" style="align-items:center;max-width:340px">
 
-    <!-- Animated icon -->
-    <div class="fc-auth-field-enter" style="position:relative;width:100px;height:100px;flex-shrink:0;margin-bottom:24px">
-      <!-- Outer pulse ring -->
-      <div style="position:absolute;inset:-10px;border-radius:50%;
-                  border:1px solid rgba(26,196,240,0.14);
-                  animation:fcRingPulse 3s ease-in-out infinite"></div>
-      <div style="position:absolute;inset:0;border-radius:50%;
-                  border:1px solid rgba(26,196,240,0.22);
-                  animation:fcRingPulse 3s 0.5s ease-in-out infinite"></div>
-      <!-- Icon container -->
+    <!-- Icon -->
+    <div class="fc-auth-field-enter" style="position:relative;width:88px;height:88px;flex-shrink:0;margin-bottom:20px">
+      <div style="position:absolute;inset:-10px;border-radius:50%;border:1px solid rgba(26,196,240,0.14);animation:fcRingPulse 3s ease-in-out infinite"></div>
+      <div style="position:absolute;inset:0;border-radius:50%;border:1px solid rgba(26,196,240,0.22);animation:fcRingPulse 3s 0.5s ease-in-out infinite"></div>
       <div style="position:absolute;inset:10px;border-radius:50%;
                   background:linear-gradient(145deg,rgba(26,196,240,0.16),rgba(37,99,235,0.12));
                   border:1.5px solid rgba(26,196,240,0.36);
                   display:flex;align-items:center;justify-content:center;
-                  box-shadow:0 0 32px rgba(26,196,240,0.22),inset 0 1px 0 rgba(255,255,255,0.08)">
-        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#1ac4f0"
-             stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  box-shadow:0 0 32px rgba(26,196,240,0.22)">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#1ac4f0" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
           <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
           <polyline points="22,6 12,13 2,6"/>
         </svg>
@@ -2267,32 +2295,29 @@ body {
     </div>
 
     <!-- Headline -->
-    <h1 class="fc-auth-title fc-auth-field-enter" style="margin-bottom:7px">Check your inbox</h1>
-    <p class="fc-auth-subtitle fc-auth-field-enter" style="margin-bottom:4px">We sent a verification link to</p>
+    <h1 class="fc-auth-title fc-auth-field-enter" style="margin-bottom:6px;text-align:center">Check your email</h1>
+    <p class="fc-auth-subtitle fc-auth-field-enter" style="margin-bottom:4px;text-align:center">We sent a 6-digit code to</p>
     <p id="verify-email-addr" class="fc-auth-field-enter"
-       style="font-size:14px;font-weight:700;color:var(--fc-accent);
-              margin-bottom:24px;word-break:break-all;text-align:center;letter-spacing:-0.01em"></p>
+       style="font-size:14px;font-weight:700;color:var(--fc-accent);margin-bottom:28px;
+              word-break:break-all;text-align:center;letter-spacing:-0.01em"></p>
 
-    <!-- Steps — clean numbered list, no emoji -->
-    <div class="fc-auth-field-enter" style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:18px;padding:18px 18px 14px;margin-bottom:20px">
-      <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:14px">
-        <div style="width:22px;height:22px;border-radius:50%;background:rgba(26,196,240,0.15);border:1px solid rgba(26,196,240,0.28);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">
-          <span style="font-size:11px;font-weight:700;color:#1ac4f0;line-height:1">1</span>
-        </div>
-        <p style="font-size:13.5px;color:rgba(255,255,255,0.66);line-height:1.5;margin:2px 0 0">Open the FlowCheck email in your inbox</p>
-      </div>
-      <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:14px">
-        <div style="width:22px;height:22px;border-radius:50%;background:rgba(26,196,240,0.15);border:1px solid rgba(26,196,240,0.28);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">
-          <span style="font-size:11px;font-weight:700;color:#1ac4f0;line-height:1">2</span>
-        </div>
-        <p style="font-size:13.5px;color:rgba(255,255,255,0.66);line-height:1.5;margin:2px 0 0">Tap <strong style="color:rgba(255,255,255,0.88);font-weight:600">Verify my email</strong> in the email</p>
-      </div>
-      <div style="display:flex;align-items:flex-start;gap:12px">
-        <div style="width:22px;height:22px;border-radius:50%;background:rgba(26,196,240,0.15);border:1px solid rgba(26,196,240,0.28);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">
-          <span style="font-size:11px;font-weight:700;color:#1ac4f0;line-height:1">3</span>
-        </div>
-        <p style="font-size:13.5px;color:rgba(255,255,255,0.66);line-height:1.5;margin:2px 0 0">Come back here and tap the button below</p>
-      </div>
+    <!-- 6-digit OTP boxes -->
+    <div id="otp-boxes" class="fc-auth-field-enter"
+         style="display:flex;gap:10px;justify-content:center;width:100%;margin-bottom:20px"
+         onpaste="FCApp.handleOtpPaste(event)">
+      <input class="fc-otp-box" type="tel" inputmode="numeric" maxlength="1" pattern="[0-9]"
+             autocomplete="one-time-code" data-index="0"
+             oninput="FCApp.otpBoxInput(this)" onkeydown="FCApp.otpBoxKeydown(event,this)">
+      <input class="fc-otp-box" type="tel" inputmode="numeric" maxlength="1" pattern="[0-9]"
+             data-index="1" oninput="FCApp.otpBoxInput(this)" onkeydown="FCApp.otpBoxKeydown(event,this)">
+      <input class="fc-otp-box" type="tel" inputmode="numeric" maxlength="1" pattern="[0-9]"
+             data-index="2" oninput="FCApp.otpBoxInput(this)" onkeydown="FCApp.otpBoxKeydown(event,this)">
+      <input class="fc-otp-box" type="tel" inputmode="numeric" maxlength="1" pattern="[0-9]"
+             data-index="3" oninput="FCApp.otpBoxInput(this)" onkeydown="FCApp.otpBoxKeydown(event,this)">
+      <input class="fc-otp-box" type="tel" inputmode="numeric" maxlength="1" pattern="[0-9]"
+             data-index="4" oninput="FCApp.otpBoxInput(this)" onkeydown="FCApp.otpBoxKeydown(event,this)">
+      <input class="fc-otp-box" type="tel" inputmode="numeric" maxlength="1" pattern="[0-9]"
+             data-index="5" oninput="FCApp.otpBoxInput(this)" onkeydown="FCApp.otpBoxKeydown(event,this)">
     </div>
 
     <div id="verify-email-err"
@@ -2300,29 +2325,23 @@ body {
                 border:1px solid rgba(255,69,58,0.22);border-radius:12px;
                 font-size:13px;color:#ff453a;margin-bottom:14px;text-align:center;line-height:1.4"></div>
 
-    <!-- CTA -->
+    <!-- Verify CTA -->
     <button id="btn-verify-continue" class="fc-btn fc-btn--primary fc-btn--block fc-auth-field-enter"
             onclick="FCApp.handleVerifyEmailCheck()" type="button">
-      I've Verified My Email
+      Verify Email
     </button>
 
-    <!-- Resend + Skip -->
-    <div class="fc-auth-field-enter" style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:16px">
+    <!-- Resend -->
+    <div class="fc-auth-field-enter" style="display:flex;align-items:center;justify-content:center;width:100%;margin-top:16px">
       <button id="btn-resend-verify" type="button"
               style="background:none;border:none;color:var(--fc-accent);font-size:13.5px;
                      font-weight:600;cursor:pointer;padding:6px 0;-webkit-tap-highlight-color:transparent"
               onclick="FCApp.resendVerificationEmail()">
-        Resend Email
-      </button>
-      <button type="button"
-              style="background:none;border:none;color:rgba(255,255,255,0.28);font-size:12.5px;
-                     font-weight:500;cursor:pointer;padding:6px 0;-webkit-tap-highlight-color:transparent"
-              onclick="FCApp.skipEmailVerification()">
-        Skip for now →
+        Resend Code
       </button>
     </div>
 
-    <p class="fc-auth-field-enter" style="font-size:11px;color:rgba(255,255,255,0.20);text-align:center;margin-top:16px;line-height:1.65;padding:0 8px">
+    <p class="fc-auth-field-enter" style="font-size:11px;color:rgba(255,255,255,0.20);text-align:center;margin-top:14px;line-height:1.65;padding:0 8px">
       Can't find it? Check your spam folder. Verification keeps your account secure.
     </p>
 
@@ -3151,12 +3170,7 @@ body {
                    box-shadow:0 8px 30px rgba(26,196,240,0.35),0 2px 8px rgba(0,0,0,0.25)">
       Start 7-Day Free Trial
     </button>
-    <!-- Skip link -->
-    <button class="fc-skip-btn" onclick="FCApp.skipOnboarding()" type="button"
-            style="margin-top:13px;padding:8px 0;display:none;opacity:0.38;font-size:13px;
-                   font-weight:500;letter-spacing:0.01em" id="ob-skip-btn">
-      Maybe later
-    </button>
+    <!-- Skip removed: trial is required to proceed -->
     <!-- Legal note (slide 4) -->
     <p id="ob-legal-note" style="display:none;font-size:10px;color:rgba(255,255,255,0.20);text-align:center;
                                   margin-top:10px;line-height:1.65;padding:0 6px">
@@ -6099,7 +6113,12 @@ window._btnLoad = _btnLoad;
     const kbHeight     = window.innerHeight - vv.height - vv.offsetTop;
     if (kbHeight < 80) return;
     const rect         = active.getBoundingClientRect();
-    const visibleBottom = window.innerHeight - kbHeight - 20;
+    // On auth screens, use 100px padding so the next field (e.g. password)
+    // stays visible above the keyboard — not just the currently focused field.
+    const screen = document.body.dataset.screen;
+    const isAuth = ['login','register','forgot-password','verify-email'].includes(screen);
+    const padding = isAuth ? 100 : 24;
+    const visibleBottom = window.innerHeight - kbHeight - padding;
     if (rect.bottom > visibleBottom) {
       const container = _scrollableParent(active);
       if (container) container.scrollTop += rect.bottom - visibleBottom;
@@ -6136,7 +6155,7 @@ window._btnLoad = _btnLoad;
   // Focus fires before keyboard opens — wait for iOS keyboard animation (~350ms)
   document.addEventListener('focusin', (e) => {
     if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') return;
-    setTimeout(_scrollToActive, 360);
+    setTimeout(_scrollToActive, 420);
   }, { passive: true });
 
   window.visualViewport.addEventListener('resize', _onViewportResize, { passive: true });

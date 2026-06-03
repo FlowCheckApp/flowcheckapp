@@ -5612,60 +5612,134 @@ window.FCApp = (function () {
   }
 
   /* ─────────────────────────────────────────────────────────────
-     EMAIL VERIFICATION (verify-email screen)
+     OTP EMAIL VERIFICATION (verify-email screen)
      ───────────────────────────────────────────────────────────── */
 
-  /** "I've Verified My Email" — reloads the Firebase user and checks emailVerified */
-  async function handleVerifyEmailCheck() {
-    const btn    = document.getElementById('btn-verify-continue');
-    const errEl  = document.getElementById('verify-email-err');
-    if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
-    if (btn) { btn.disabled = true; btn.textContent = 'Checking…'; }
-    try {
-      const freshUser = await FCAuth.reloadUser();
-      if (freshUser && freshUser.emailVerified) {
-        window._fcVerifyEmailPending = false;
-        haptic('success');
-        setScreen('faceid-setup');
-      } else {
-        if (errEl) {
-          errEl.textContent = 'Email not verified yet. Tap the link in your inbox, then try again.';
-          errEl.style.display = '';
-        }
-        haptic('heavy');
-      }
-    } catch (err) {
-      if (errEl) { errEl.textContent = 'Something went wrong. Please try again.'; errEl.style.display = ''; }
-    } finally {
-      if (btn) { btn.disabled = false; btn.textContent = "I've Verified My Email"; }
+  /** Reads the 6 OTP box values into a string */
+  function _getOtpValue() {
+    return Array.from(document.querySelectorAll('.fc-otp-box'))
+      .map(b => b.value.trim()).join('');
+  }
+
+  /** Clears all OTP boxes and removes error state */
+  function _clearOtpBoxes(focusFirst) {
+    const boxes = document.querySelectorAll('.fc-otp-box');
+    boxes.forEach(b => { b.value = ''; b.classList.remove('filled', 'error'); });
+    if (focusFirst && boxes[0]) boxes[0].focus();
+  }
+
+  /** Auto-advance to next box on digit entry, mark filled */
+  function otpBoxInput(el) {
+    const val = el.value.replace(/\D/g, '');
+    el.value = val ? val[val.length - 1] : '';
+    el.classList.toggle('filled', !!el.value);
+    el.classList.remove('error');
+    if (el.value) {
+      const next = document.querySelector(`.fc-otp-box[data-index="${+el.dataset.index + 1}"]`);
+      if (next) next.focus();
+      else el.blur();
+    }
+    // Auto-submit when all 6 filled
+    if (_getOtpValue().length === 6) handleVerifyEmailCheck();
+  }
+
+  /** Backspace moves to previous box */
+  function otpBoxKeydown(e, el) {
+    if (e.key === 'Backspace' && !el.value) {
+      const prev = document.querySelector(`.fc-otp-box[data-index="${+el.dataset.index - 1}"]`);
+      if (prev) { prev.value = ''; prev.classList.remove('filled'); prev.focus(); }
     }
   }
 
-  /** "Resend Email" button — sends a new verification email with a 60s cooldown */
+  /** Handle paste of full code into any box */
+  function handleOtpPaste(e) {
+    const text = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '');
+    if (text.length < 6) return;
+    e.preventDefault();
+    const boxes = document.querySelectorAll('.fc-otp-box');
+    boxes.forEach((b, i) => {
+      b.value = text[i] || '';
+      b.classList.toggle('filled', !!b.value);
+    });
+    if (text.length >= 6) handleVerifyEmailCheck();
+  }
+
+  /** Verify button — submits OTP to backend */
+  async function handleVerifyEmailCheck() {
+    const btn   = document.getElementById('btn-verify-continue');
+    const errEl = document.getElementById('verify-email-err');
+    const code  = _getOtpValue();
+    if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
+    if (code.length < 6) {
+      if (errEl) { errEl.textContent = 'Enter the full 6-digit code from your email.'; errEl.style.display = ''; }
+      return;
+    }
+    if (btn) { btn.disabled = true; btn.textContent = 'Verifying…'; }
+    try {
+      const token = await FCAuth.getIdToken();
+      const resp  = await fetch(`${FC_CONFIG.app.apiBase}/auth/otp/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ code }),
+      });
+      const data = await resp.json();
+      if (resp.ok && data.ok) {
+        window._fcVerifyEmailPending = false;
+        haptic('success');
+        // Reload Firebase user so emailVerified is true
+        await FCAuth.reloadUser();
+        setScreen('faceid-setup');
+      } else {
+        if (errEl) { errEl.textContent = data.message || 'Incorrect code — try again.'; errEl.style.display = ''; }
+        haptic('heavy');
+        // Shake boxes on error
+        document.querySelectorAll('.fc-otp-box').forEach(b => {
+          b.classList.add('error');
+          setTimeout(() => b.classList.remove('error'), 400);
+        });
+        if (data.expired) _clearOtpBoxes(true);
+      }
+    } catch (err) {
+      if (errEl) { errEl.textContent = 'Something went wrong — please try again.'; errEl.style.display = ''; }
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = 'Verify Email'; }
+    }
+  }
+
+  /** Resend Code button — 60s cooldown */
   async function resendVerificationEmail() {
     const btn = document.getElementById('btn-resend-verify');
     if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
     try {
-      const user = FCAuth.currentUser && FCAuth.currentUser();
-      if (user) await user.sendEmailVerification();
-      toast('Verification email sent!', 'success');
-      let secs = 60;
-      const iv = setInterval(() => {
-        if (!btn) { clearInterval(iv); return; }
-        secs--;
-        if (secs <= 0) { clearInterval(iv); btn.disabled = false; btn.textContent = 'Resend Email'; return; }
-        btn.textContent = 'Resend in ' + secs + 's';
-      }, 1000);
+      const token = await FCAuth.getIdToken();
+      const resp  = await fetch(`${FC_CONFIG.app.apiBase}/auth/otp/send`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      const data = await resp.json();
+      if (resp.ok) {
+        toast('New code sent — check your inbox!', 'success');
+        _clearOtpBoxes(true);
+        let secs = 60;
+        const iv = setInterval(() => {
+          if (!btn) { clearInterval(iv); return; }
+          secs--;
+          if (secs <= 0) { clearInterval(iv); btn.disabled = false; btn.textContent = 'Resend Code'; return; }
+          btn.textContent = `Resend in ${secs}s`;
+        }, 1000);
+      } else {
+        toast(data.message || 'Could not resend — try again.', 'error');
+        if (btn) { btn.disabled = false; btn.textContent = 'Resend Code'; }
+      }
     } catch (_) {
       toast('Could not resend. Try again in a moment.', 'error');
-      if (btn) { btn.disabled = false; btn.textContent = 'Resend Email'; }
+      if (btn) { btn.disabled = false; btn.textContent = 'Resend Code'; }
     }
   }
 
-  /** "Skip for now" — proceeds to Face ID setup without requiring verification */
+  /** No-op — skip removed, trial required */
   function skipEmailVerification() {
     window._fcVerifyEmailPending = false;
-    haptic('light');
     setScreen('faceid-setup');
   }
 
@@ -5938,11 +6012,23 @@ window.FCApp = (function () {
           if (window._fcNewUserFaceIdPending) {
             window._fcNewUserFaceIdPending = false;
             if (!user.emailVerified) {
-              // Email/password signup: verify email before proceeding
+              // Email/password signup: send OTP and show verification screen
               window._fcVerifyEmailPending = true;
               setScreen('verify-email');
               const addrEl = document.getElementById('verify-email-addr');
               if (addrEl) addrEl.textContent = user.email || '';
+              // Send OTP code via backend (non-blocking — screen is already shown)
+              FCAuth.getIdToken().then(token => {
+                fetch(`${FC_CONFIG.app.apiBase}/auth/otp/send`, {
+                  method: 'POST',
+                  headers: { 'Authorization': `Bearer ${token}` },
+                }).catch(() => {});
+                // Schedule abandoned-signup follow-up email (1 hr)
+                fetch(`${FC_CONFIG.app.apiBase}/email/signup-followup/schedule`, {
+                  method: 'POST',
+                  headers: { 'Authorization': `Bearer ${token}` },
+                }).catch(() => {});
+              }).catch(() => {});
             } else {
               // Apple Sign In or already verified (edge case)
               setScreen('faceid-setup');
@@ -7627,6 +7713,9 @@ window.FCApp = (function () {
     handleVerifyEmailCheck,
     resendVerificationEmail,
     skipEmailVerification,
+    otpBoxInput,
+    otpBoxKeydown,
+    handleOtpPaste,
     // Wealth tab
     switchWealthSegment,
     // Goals
