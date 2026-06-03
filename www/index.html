@@ -3636,13 +3636,18 @@ body {
     /* ── Scroll container ───────────────────────────────────────── */
     #view-home{overflow-y:scroll;-webkit-overflow-scrolling:touch;padding-bottom:100px;overscroll-behavior:contain}
 
+    /* ── Aurora keyframes for hero card glows ────────────────── */
+    @keyframes dashAurora1{0%,100%{opacity:.78;transform:scale(1)}50%{opacity:1;transform:scale(1.14)}}
+    @keyframes dashAurora2{0%,100%{opacity:.58;transform:scale(1)}60%{opacity:.95;transform:scale(1.10)}}
+    @keyframes dashNWIn{from{opacity:0;transform:translateY(10px) scale(.97)}to{opacity:1;transform:none}}
+
     /* ── Greeting header ────────────────────────────────────────── */
-    .dash-greeting{display:flex;align-items:center;justify-content:space-between;padding:18px 18px 12px}
+    .dash-greeting{display:flex;align-items:center;justify-content:space-between;padding:20px 20px 14px}
     .dash-greeting-left{flex:1;min-width:0}
-    .dash-tod{font-size:11px;color:rgba(255,255,255,0.38);font-weight:600;letter-spacing:0.06em;margin-bottom:3px;text-transform:uppercase}
+    .dash-tod{font-size:11px;color:rgba(255,255,255,0.40);font-weight:600;letter-spacing:0.07em;margin-bottom:4px;text-transform:uppercase}
     .dash-name{font-size:36px;font-weight:900;color:#fff;letter-spacing:-0.05em;line-height:1.0;margin:0}
-    .dash-safe{font-size:13px;color:#1ac4f0;font-weight:600;margin-top:6px;letter-spacing:-0.01em;display:flex;align-items:center;gap:5px}
-    .dash-safe::before{content:'';width:6px;height:6px;border-radius:50%;background:#1ac4f0;box-shadow:0 0 8px rgba(26,196,240,0.8);flex-shrink:0}
+    .dash-safe{font-size:12.5px;color:#1ac4f0;font-weight:600;margin-top:7px;letter-spacing:-0.01em;display:flex;align-items:center;gap:6px}
+    .dash-safe::before{content:'';width:6px;height:6px;border-radius:50%;background:#1ac4f0;box-shadow:0 0 8px rgba(26,196,240,0.8);flex-shrink:0;animation:fcSyncDotPulse 2.5s ease-in-out infinite}
     /* Avatar — gradient ring */
     .dash-avatar{
       width:42px;height:42px;border-radius:50%;
@@ -3658,8 +3663,9 @@ body {
 
     /* ── Section header row ─────────────────────────────────────── */
     .dash-sec-hdr{display:flex;align-items:center;justify-content:space-between;padding:0 18px;margin-bottom:12px}
-    .dash-sec-title{font-size:13px;font-weight:700;color:rgba(255,255,255,0.70);letter-spacing:-0.01em}
-    .dash-sec-link{font-size:12px;font-weight:600;color:rgba(26,196,240,0.85);border:none;background:none;cursor:pointer;padding:0;-webkit-tap-highlight-color:transparent}
+    .dash-sec-title{font-size:14px;font-weight:700;color:rgba(255,255,255,0.82);letter-spacing:-0.018em}
+    .dash-sec-link{font-size:12px;font-weight:600;color:rgba(26,196,240,0.9);border:none;background:none;cursor:pointer;padding:4px 0;-webkit-tap-highlight-color:transparent;transition:opacity .15s}
+    .dash-sec-link:active{opacity:.65}
 
     /* ── Base card ──────────────────────────────────────────────── */
     .dash-card{
@@ -3674,35 +3680,38 @@ body {
     /* ── Net worth hero card — SIGNATURE MOMENT ─────────────────── */
     .dash-nw-card{
       margin:4px 16px 20px;
-      background:linear-gradient(160deg,#0d1f38 0%,#071420 100%);
-      border-radius:24px;
-      border:0.5px solid rgba(26,196,240,0.24);
-      padding:20px 20px 18px;
+      background:linear-gradient(155deg,rgba(11,25,46,0.99) 0%,rgba(6,13,24,1) 100%);
+      border-radius:26px;
+      border:0.5px solid rgba(26,196,240,0.26);
+      padding:22px 22px 18px;
       position:relative;overflow:hidden;
       box-shadow:
-        0 0 0 0.5px rgba(26,196,240,0.10),
-        0 12px 40px rgba(0,0,0,0.55),
-        inset 0 1px 0 rgba(255,255,255,0.07);
+        0 0 0 0.5px rgba(26,196,240,0.12),
+        0 16px 48px rgba(0,0,0,0.60),
+        inset 0 1px 0 rgba(255,255,255,0.08),
+        inset 0 -1px 0 rgba(0,0,0,0.22);
     }
     /* Aurora glow — top-left cyan bloom */
     .dash-nw-card::before{
       content:'';position:absolute;
       top:-60px;left:-40px;
-      width:240px;height:200px;
-      background:radial-gradient(ellipse at 40% 40%,rgba(26,196,240,0.22) 0%,transparent 68%);
+      width:260px;height:220px;
+      background:radial-gradient(ellipse at 40% 40%,rgba(26,196,240,0.28) 0%,transparent 68%);
       pointer-events:none;
+      animation:dashAurora1 7s ease-in-out infinite;
     }
     /* Aurora glow — bottom-right blue accent */
     .dash-nw-card::after{
       content:'';position:absolute;
       bottom:-50px;right:-30px;
-      width:180px;height:160px;
-      background:radial-gradient(ellipse at 60% 60%,rgba(37,99,235,0.18) 0%,transparent 65%);
+      width:200px;height:180px;
+      background:radial-gradient(ellipse at 60% 60%,rgba(37,99,235,0.22) 0%,transparent 65%);
       pointer-events:none;
+      animation:dashAurora2 9s 2s ease-in-out infinite;
     }
     .dash-nw-tag{font-size:10px;color:rgba(255,255,255,0.35);font-weight:700;letter-spacing:.12em;margin-bottom:8px;text-transform:uppercase;position:relative;z-index:1}
     .dash-nw-row{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:4px;position:relative;z-index:1}
-    .dash-nw-amount{font-size:44px;font-weight:900;color:#fff;letter-spacing:-2px;line-height:1;font-variant-numeric:tabular-nums}
+    .dash-nw-amount{font-size:50px;font-weight:900;color:#fff;letter-spacing:-2.8px;line-height:1;font-variant-numeric:tabular-nums;animation:dashNWIn .55s cubic-bezier(.22,1,.36,1) both}
     .dash-nw-pill{display:inline-flex;align-items:center;gap:3px;background:rgba(52,199,89,0.12);border:0.5px solid rgba(52,199,89,0.28);border-radius:20px;padding:5px 10px;font-size:11px;font-weight:700;color:#34c759;flex-shrink:0;margin-bottom:6px}
     .dash-nw-pill.neg{background:rgba(255,69,58,0.12);border-color:rgba(255,69,58,0.28);color:#ff453a}
     .dash-nw-footer{display:flex;border-top:0.5px solid rgba(255,255,255,0.07);padding-top:14px;margin-top:4px;position:relative;z-index:1}
@@ -3714,53 +3723,54 @@ body {
 
     /* ── Period scrubber ────────────────────────────────────────── */
     .dash-scrubber{
-      background:rgba(255,255,255,0.04);border:0.5px solid rgba(255,255,255,0.08);
-      border-radius:12px;padding:3px;display:flex;gap:2px;margin-bottom:14px;
-      position:relative;z-index:1;
+      background:rgba(255,255,255,0.04);border:0.5px solid rgba(255,255,255,0.09);
+      border-radius:13px;padding:3px;display:flex;gap:2px;margin-bottom:14px;
+      position:relative;z-index:1;box-shadow:inset 0 1px 0 rgba(0,0,0,0.12);
     }
-    .dash-scrub-btn{flex:1;border:none;background:none;color:rgba(255,255,255,0.38);font-size:12px;font-weight:600;padding:6px 0;border-radius:9px;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;transition:background .18s,color .18s}
-    .dash-scrub-btn.active,.dash-scrub-btn[aria-selected="true"]{background:rgba(26,196,240,0.18);color:#1ac4f0;box-shadow:inset 0 0.5px 0 rgba(26,196,240,0.3)}
+    .dash-scrub-btn{flex:1;border:none;background:none;color:rgba(255,255,255,0.40);font-size:12px;font-weight:600;padding:7px 0;border-radius:10px;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;transition:background .18s,color .18s;min-height:32px}
+    .dash-scrub-btn:active{opacity:.65}
+    .dash-scrub-btn.active,.dash-scrub-btn[aria-selected="true"]{background:rgba(26,196,240,0.20);color:#1ac4f0;box-shadow:0 1px 6px rgba(26,196,240,0.14),inset 0 0.5px 0 rgba(26,196,240,0.25)}
 
     /* ── Quick-stat strip — 3 premium cards ─────────────────────── */
     .dash-stats{display:flex;gap:10px;padding:0 16px;margin-bottom:24px}
     .dash-stat{
       flex:1;
-      background:linear-gradient(160deg,rgba(15,28,48,0.98) 0%,rgba(8,17,28,0.98) 100%);
-      border:0.5px solid rgba(255,255,255,0.08);
+      background:linear-gradient(160deg,rgba(13,26,46,0.98) 0%,rgba(7,15,26,0.99) 100%);
+      border:0.5px solid rgba(255,255,255,0.09);
       border-radius:18px;
-      padding:14px 14px 12px;
-      display:flex;flex-direction:column;gap:5px;
+      padding:16px 14px 14px;
+      display:flex;flex-direction:column;gap:6px;
       cursor:pointer;-webkit-tap-highlight-color:transparent;
-      transition:transform .14s,opacity .1s;
-      box-shadow:0 2px 16px rgba(0,0,0,0.35),inset 0 1px 0 rgba(255,255,255,0.04);
+      transition:transform .14s cubic-bezier(.34,1.56,.64,1),opacity .10s;
+      box-shadow:0 4px 20px rgba(0,0,0,0.42),inset 0 1px 0 rgba(255,255,255,0.05),inset 0 -1px 0 rgba(0,0,0,0.18);
       position:relative;overflow:hidden;
     }
     /* Colored top accent bar on each stat card */
     .dash-stat::before{
-      content:'';position:absolute;top:0;left:0;right:0;height:2px;border-radius:18px 18px 0 0;
+      content:'';position:absolute;top:0;left:0;right:0;height:2.5px;border-radius:18px 18px 0 0;
     }
-    .dash-stat:nth-child(1)::before{background:linear-gradient(90deg,#1ac4f0,rgba(26,196,240,0.3))}
-    .dash-stat:nth-child(2)::before{background:linear-gradient(90deg,#ff9f0a,rgba(255,159,10,0.3))}
-    .dash-stat:nth-child(3)::before{background:linear-gradient(90deg,#ff453a,rgba(255,69,58,0.3))}
-    .dash-stat:active{transform:scale(0.96);opacity:.88}
-    .dash-sp-lbl{font-size:9px;color:rgba(255,255,255,0.38);font-weight:700;letter-spacing:.10em;text-transform:uppercase}
-    .dash-sp-val{font-size:18px;font-weight:800;color:#fff;font-variant-numeric:tabular-nums;line-height:1.1;letter-spacing:-0.03em}
+    .dash-stat:nth-child(1)::before{background:linear-gradient(90deg,#1ac4f0,rgba(26,196,240,0.2))}
+    .dash-stat:nth-child(2)::before{background:linear-gradient(90deg,#ff9f0a,rgba(255,159,10,0.2))}
+    .dash-stat:nth-child(3)::before{background:linear-gradient(90deg,#ff453a,rgba(255,69,58,0.2))}
+    .dash-stat:active{transform:scale(0.95);opacity:.85}
+    .dash-sp-lbl{font-size:9px;color:rgba(255,255,255,0.40);font-weight:700;letter-spacing:.10em;text-transform:uppercase}
+    .dash-sp-val{font-size:20px;font-weight:800;color:#fff;font-variant-numeric:tabular-nums;line-height:1.1;letter-spacing:-0.038em}
 
     /* ── Account carousel ───────────────────────────────────────── */
     .dash-acct-scroll{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:none;-ms-overflow-style:none;scroll-snap-type:x mandatory;padding-left:16px;margin-bottom:4px}
     .dash-acct-scroll::-webkit-scrollbar{display:none}
     .dash-acct-inner{display:flex;gap:11px;width:max-content;padding:2px 20px 6px 0}
     .dash-acct-card{
-      flex-shrink:0;scroll-snap-align:start;width:228px;height:148px;
-      background:linear-gradient(160deg,#0e1e32,#071420);
-      border:0.5px solid rgba(255,255,255,0.11);border-radius:22px;
-      padding:17px 18px;cursor:pointer;
-      transition:transform .18s cubic-bezier(0.34,1.56,0.64,1);
+      flex-shrink:0;scroll-snap-align:start;width:232px;height:152px;
+      background:linear-gradient(155deg,rgba(14,30,50,0.98),rgba(7,16,28,0.99));
+      border:0.5px solid rgba(255,255,255,0.12);border-radius:24px;
+      padding:18px 19px;cursor:pointer;
+      transition:transform .20s cubic-bezier(0.34,1.56,0.64,1),box-shadow .20s;
       position:relative;overflow:hidden;-webkit-tap-highlight-color:transparent;
-      box-shadow:0 6px 24px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,255,255,0.06);
+      box-shadow:0 8px 28px rgba(0,0,0,0.48),inset 0 1px 0 rgba(255,255,255,0.07),inset 0 -1px 0 rgba(0,0,0,0.20);
     }
-    .dash-acct-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--pill-accent,var(--fc-accent));border-radius:22px 22px 0 0}
-    .dash-acct-card:active{transform:scale(0.955)}
+    .dash-acct-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--pill-accent,var(--fc-accent));border-radius:24px 24px 0 0;opacity:.9}
+    .dash-acct-card:active{transform:scale(0.950);box-shadow:0 4px 14px rgba(0,0,0,0.5)}
     .dash-acct-add{flex-shrink:0;scroll-snap-align:start;width:110px;height:148px;border:1.5px dashed rgba(37,99,235,0.35);background:rgba(37,99,235,0.04);border-radius:22px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:16px 10px;cursor:pointer;transition:background .15s;-webkit-tap-highlight-color:transparent}
     .dash-acct-add:active{background:rgba(37,99,235,0.10)}
     .dash-acct-bank{font-size:8px;font-weight:700;color:rgba(255,255,255,0.28);letter-spacing:0.14em;text-transform:uppercase;margin-bottom:3px}
@@ -3779,41 +3789,41 @@ body {
     /* ── Transaction list ───────────────────────────────────────── */
     .dash-txn-card{
       margin:0 16px;
-      background:linear-gradient(160deg,rgba(15,28,48,0.98),rgba(8,17,28,0.98));
-      border:0.5px solid rgba(255,255,255,0.08);border-radius:22px;overflow:hidden;
-      box-shadow:0 4px 20px rgba(0,0,0,0.35),inset 0 1px 0 rgba(255,255,255,0.04);
+      background:linear-gradient(155deg,rgba(12,24,44,0.98),rgba(7,14,24,0.99));
+      border:0.5px solid rgba(255,255,255,0.09);border-radius:22px;overflow:hidden;
+      box-shadow:0 6px 24px rgba(0,0,0,0.42),inset 0 1px 0 rgba(255,255,255,0.055),inset 0 -1px 0 rgba(0,0,0,0.18);
     }
-    .dash-txn{display:flex;align-items:center;gap:13px;padding:14px 16px;border-bottom:0.5px solid rgba(255,255,255,0.045);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .12s}
+    .dash-txn{display:flex;align-items:center;gap:13px;padding:14px 17px;border-bottom:0.5px solid rgba(255,255,255,0.048);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .12s}
     .dash-txn:last-child{border-bottom:none}
-    .dash-txn:active{background:rgba(255,255,255,0.04)}
-    .dash-txn-icon{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0}
+    .dash-txn:active{background:rgba(255,255,255,0.045)}
+    .dash-txn-icon{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,0.22)}
 
     /* ── Bills card ─────────────────────────────────────────────── */
     .dash-bills-card{
       margin:0 16px;
-      background:linear-gradient(160deg,rgba(15,28,48,0.98),rgba(8,17,28,0.98));
-      border:0.5px solid rgba(255,255,255,0.08);border-radius:22px;overflow:hidden;
-      box-shadow:0 4px 20px rgba(0,0,0,0.35),inset 0 1px 0 rgba(255,255,255,0.04);
+      background:linear-gradient(155deg,rgba(12,24,44,0.98),rgba(7,14,24,0.99));
+      border:0.5px solid rgba(255,255,255,0.09);border-radius:22px;overflow:hidden;
+      box-shadow:0 6px 24px rgba(0,0,0,0.42),inset 0 1px 0 rgba(255,255,255,0.055),inset 0 -1px 0 rgba(0,0,0,0.18);
     }
 
     /* ── Health score row ───────────────────────────────────────── */
     .dash-health{
       display:flex;align-items:center;gap:14px;margin:0 16px;
-      background:linear-gradient(135deg,rgba(26,196,240,0.09) 0%,rgba(37,99,235,0.06) 100%);
-      border:0.5px solid rgba(26,196,240,0.22);border-radius:20px;padding:16px 16px;
+      background:linear-gradient(135deg,rgba(26,196,240,0.10) 0%,rgba(37,99,235,0.07) 100%);
+      border:0.5px solid rgba(26,196,240,0.24);border-radius:22px;padding:17px 17px;
       cursor:pointer;-webkit-tap-highlight-color:transparent;
-      box-shadow:0 4px 20px rgba(0,0,0,0.3),0 0 30px rgba(26,196,240,0.04) inset;
-      transition:opacity .15s,transform .15s;
+      box-shadow:0 6px 24px rgba(0,0,0,0.35),0 0 40px rgba(26,196,240,0.05) inset,inset 0 1px 0 rgba(26,196,240,0.08);
+      transition:opacity .15s,transform .16s cubic-bezier(.34,1.56,.64,1);
     }
-    .dash-health:active{opacity:.85;transform:scale(0.988)}
-    .dash-health-score{font-size:28px;font-weight:800;color:#fff;letter-spacing:-0.04em;flex-shrink:0;min-width:44px}
+    .dash-health:active{opacity:.84;transform:scale(0.986)}
+    .dash-health-score{font-size:30px;font-weight:900;color:#fff;letter-spacing:-0.045em;flex-shrink:0;min-width:46px}
 
     /* ── Smart insights collapsible ─────────────────────────────── */
     .dash-ins{
       margin:0 16px;
-      background:linear-gradient(160deg,rgba(15,28,48,0.98),rgba(8,17,28,0.98));
-      border:0.5px solid rgba(255,255,255,0.08);border-radius:22px;overflow:hidden;
-      box-shadow:0 4px 20px rgba(0,0,0,0.3),inset 0 1px 0 rgba(255,255,255,0.04);
+      background:linear-gradient(155deg,rgba(12,24,44,0.98),rgba(7,14,24,0.99));
+      border:0.5px solid rgba(255,255,255,0.09);border-radius:22px;overflow:hidden;
+      box-shadow:0 6px 24px rgba(0,0,0,0.42),inset 0 1px 0 rgba(255,255,255,0.055),inset 0 -1px 0 rgba(0,0,0,0.18);
     }
     .dash-ins-toggle{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .12s}
     .dash-ins-toggle:active{background:rgba(255,255,255,0.03)}
@@ -3842,12 +3852,12 @@ body {
       padding:18px 18px 16px 20px;
       position:relative;overflow:hidden;cursor:pointer;
       -webkit-tap-highlight-color:transparent;
-      background:linear-gradient(160deg,rgba(15,28,48,0.98),rgba(8,17,28,0.98));
-      border:0.5px solid rgba(255,255,255,0.09);
-      box-shadow:0 6px 28px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,255,255,0.05);
-      transition:transform .16s cubic-bezier(0.34,1.56,0.64,1),opacity .12s;
+      background:linear-gradient(155deg,rgba(12,24,44,0.98),rgba(7,14,24,0.99));
+      border:0.5px solid rgba(255,255,255,0.10);
+      box-shadow:0 8px 32px rgba(0,0,0,0.46),inset 0 1px 0 rgba(255,255,255,0.06),inset 0 -1px 0 rgba(0,0,0,0.18);
+      transition:transform .18s cubic-bezier(0.34,1.56,0.64,1),opacity .12s;
     }
-    .dash-focus-card:active{transform:scale(0.978);opacity:.88}
+    .dash-focus-card:active{transform:scale(0.976);opacity:.86}
     /* Coloured left accent bar — width 4px, rounded left corners only */
     .dash-focus-left-bar{
       position:absolute;left:0;top:0;bottom:0;width:4px;
@@ -3928,16 +3938,19 @@ body {
     .act-chip-row{display:flex;gap:7px;padding:12px 16px 0;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;flex-wrap:nowrap}
     .act-chip-row::-webkit-scrollbar{display:none}
 
-    /* Chips — more solid, pill-shaped */
+    /* Chips — premium pill style */
     .act-chip-row .fc-chip{
-      padding:7px 14px;border-radius:999px;
-      background:rgba(255,255,255,0.06);border:0.5px solid rgba(255,255,255,0.10);
-      color:rgba(255,255,255,0.55);font-size:12px;font-weight:600;
+      padding:8px 16px;border-radius:999px;min-height:34px;
+      background:rgba(255,255,255,0.055);border:0.5px solid rgba(255,255,255,0.09);
+      color:rgba(255,255,255,0.58);font-size:12px;font-weight:600;
       white-space:nowrap;flex-shrink:0;
-      transition:background .15s,color .15s,border-color .15s;
+      transition:background .15s,color .15s,border-color .15s,transform .12s;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);
     }
+    .act-chip-row .fc-chip:active{transform:scale(0.94);opacity:.75}
     .act-chip-row .fc-chip--active{
-      background:rgba(26,196,240,0.14);border-color:rgba(26,196,240,0.35);color:#1ac4f0;
+      background:rgba(26,196,240,0.14);border-color:rgba(26,196,240,0.32);color:#1ac4f0;
+      box-shadow:inset 0 0 0 0.5px rgba(26,196,240,0.15);
     }
 
     /* Search — glass treatment */
@@ -3951,11 +3964,11 @@ body {
 
     /* Date separators */
     .fc-date-label{
-      font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;
-      color:rgba(255,255,255,0.25);padding:16px 20px 6px;
+      font-size:10px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;
+      color:rgba(255,255,255,0.32);padding:18px 20px 7px;
       display:flex;align-items:center;gap:10px;
     }
-    .fc-date-label::after{content:'';flex:1;height:0.5px;background:rgba(255,255,255,0.05)}
+    .fc-date-label::after{content:'';flex:1;height:0.5px;background:rgba(255,255,255,0.07)}
 
     /* Transaction cards */
     #activity-list .fc-card,#bills-full-list .fc-card{
@@ -3991,26 +4004,26 @@ body {
        ══════════════════════════════════════════════════════════════ */
     #view-insights{overflow-y:scroll;-webkit-overflow-scrolling:touch;padding-bottom:100px;overscroll-behavior:contain}
 
-    /* Health score card — deeper glass */
+    /* Health score card — premium glass */
     .ins-health-card{
       margin:12px 16px;
-      background:linear-gradient(145deg,rgba(15,30,53,0.95),rgba(8,19,31,0.98));
-      border-radius:24px;border:0.5px solid rgba(26,196,240,0.20);
-      padding:22px;
-      box-shadow:0 12px 40px rgba(0,0,0,0.5),0 0 50px rgba(26,196,240,0.05) inset,
-                 inset 0 1px 0 rgba(255,255,255,0.06);
+      background:linear-gradient(145deg,rgba(13,28,52,0.96),rgba(7,16,28,0.99));
+      border-radius:24px;border:0.5px solid rgba(26,196,240,0.22);
+      padding:22px 22px 20px;
+      box-shadow:0 16px 48px rgba(0,0,0,0.55),0 0 60px rgba(26,196,240,0.06) inset,
+                 inset 0 1px 0 rgba(255,255,255,0.07),inset 0 -1px 0 rgba(0,0,0,0.20);
     }
-    .ins-health-row{display:flex;align-items:center;gap:20px}
-    .ins-health-ring-wrap{position:relative;width:92px;height:92px;flex-shrink:0}
+    .ins-health-row{display:flex;align-items:center;gap:22px}
+    .ins-health-ring-wrap{position:relative;width:96px;height:96px;flex-shrink:0}
     .ins-health-grade{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
-    .ins-health-grade-letter{font-size:30px;font-weight:900;color:white;letter-spacing:-0.04em;line-height:1}
-    .ins-health-grade-sub{font-size:9px;color:rgba(255,255,255,0.35);font-weight:700;text-transform:uppercase;letter-spacing:0.08em;margin-top:2px}
-    .ins-health-metrics{display:flex;flex-direction:column;gap:10px;flex:1}
-    .ins-health-metric{display:flex;align-items:center;gap:8px}
-    .ins-health-metric-lbl{font-size:11px;color:rgba(255,255,255,0.42);width:64px;flex-shrink:0;font-weight:500}
-    .ins-health-bar-wrap{flex:1;height:5px;background:rgba(255,255,255,0.06);border-radius:999px;overflow:hidden}
-    .ins-health-bar{height:100%;border-radius:999px;transition:width 1.1s cubic-bezier(0.22,1,0.36,1)}
-    .ins-health-val{font-size:11px;font-weight:800;color:white;width:28px;text-align:right;flex-shrink:0}
+    .ins-health-grade-letter{font-size:32px;font-weight:900;color:white;letter-spacing:-0.04em;line-height:1}
+    .ins-health-grade-sub{font-size:9px;color:rgba(255,255,255,0.38);font-weight:700;text-transform:uppercase;letter-spacing:0.09em;margin-top:3px}
+    .ins-health-metrics{display:flex;flex-direction:column;gap:11px;flex:1}
+    .ins-health-metric{display:flex;align-items:center;gap:9px}
+    .ins-health-metric-lbl{font-size:11px;color:rgba(255,255,255,0.45);width:66px;flex-shrink:0;font-weight:500}
+    .ins-health-bar-wrap{flex:1;height:5px;background:rgba(255,255,255,0.07);border-radius:999px;overflow:hidden}
+    .ins-health-bar{height:100%;border-radius:999px;transition:width 1.2s cubic-bezier(0.22,1,0.36,1)}
+    .ins-health-val{font-size:12px;font-weight:800;color:white;width:28px;text-align:right;flex-shrink:0}
 
     /* All fc-cards inside insights */
     #view-insights .fc-card{
@@ -4036,33 +4049,42 @@ body {
 
     /* Hero net worth card */
     .wealth-hero{
-      margin:4px 16px 16px;
-      background:linear-gradient(145deg,rgba(15,30,53,0.95),rgba(8,19,31,0.98));
-      border-radius:24px;border:0.5px solid rgba(26,196,240,0.20);
-      padding:22px;
-      box-shadow:0 0 50px rgba(26,196,240,0.06) inset,0 12px 40px rgba(0,0,0,0.5),
-                 inset 0 1px 0 rgba(255,255,255,0.07);
+      margin:4px 16px 18px;
+      background:linear-gradient(145deg,rgba(13,28,52,0.97),rgba(7,16,28,0.99));
+      border-radius:24px;border:0.5px solid rgba(26,196,240,0.22);
+      padding:24px 22px 20px;
+      box-shadow:0 0 60px rgba(26,196,240,0.07) inset,0 16px 48px rgba(0,0,0,0.55),
+                 inset 0 1px 0 rgba(255,255,255,0.08),inset 0 -1px 0 rgba(0,0,0,0.20);
       position:relative;overflow:hidden;
     }
     .wealth-hero::before{
-      content:'';position:absolute;top:-40px;right:-40px;
-      width:160px;height:160px;
-      background:radial-gradient(circle,rgba(26,196,240,0.10) 0%,transparent 70%);
+      content:'';position:absolute;top:-50px;right:-50px;
+      width:200px;height:200px;
+      background:radial-gradient(circle,rgba(26,196,240,0.14) 0%,transparent 68%);
       pointer-events:none;
+      animation:dashAurora1 8s ease-in-out infinite;
     }
-    .wealth-hero-tag{font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.28);margin-bottom:6px}
-    .wealth-hero-amount{font-size:42px;font-weight:900;letter-spacing:-0.045em;color:#fff;line-height:1;font-variant-numeric:tabular-nums}
-    .wealth-hero-delta{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:4px 11px;border-radius:999px;margin-top:8px}
-    .wealth-hero-stats{display:grid;grid-template-columns:1fr 0.5px 1fr;gap:0;margin-top:18px;padding-top:16px;border-top:0.5px solid rgba(255,255,255,0.07)}
-    .wealth-hero-divider{background:rgba(255,255,255,0.08)}
-    .wealth-hero-stat{text-align:center;padding:0 8px}
-    .wealth-hero-stat-lbl{font-size:9px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:rgba(255,255,255,0.28);margin-bottom:4px}
-    .wealth-hero-stat-val{font-size:17px;font-weight:900;color:white;letter-spacing:-0.03em;font-variant-numeric:tabular-nums}
+    .wealth-hero::after{
+      content:'';position:absolute;bottom:-40px;left:-30px;
+      width:160px;height:160px;
+      background:radial-gradient(circle,rgba(37,99,235,0.12) 0%,transparent 65%);
+      pointer-events:none;
+      animation:dashAurora2 10s 3s ease-in-out infinite;
+    }
+    .wealth-hero-tag{font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.32);margin-bottom:8px;position:relative;z-index:1}
+    .wealth-hero-amount{font-size:46px;font-weight:900;letter-spacing:-0.048em;color:#fff;line-height:1;font-variant-numeric:tabular-nums;position:relative;z-index:1}
+    .wealth-hero-delta{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:5px 12px;border-radius:999px;margin-top:10px;position:relative;z-index:1}
+    .wealth-hero-stats{display:grid;grid-template-columns:1fr 0.5px 1fr;gap:0;margin-top:20px;padding-top:18px;border-top:0.5px solid rgba(255,255,255,0.08);position:relative;z-index:1}
+    .wealth-hero-divider{background:rgba(255,255,255,0.09)}
+    .wealth-hero-stat{text-align:center;padding:0 10px}
+    .wealth-hero-stat-lbl{font-size:9px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:rgba(255,255,255,0.30);margin-bottom:5px}
+    .wealth-hero-stat-val{font-size:19px;font-weight:900;color:white;letter-spacing:-0.035em;font-variant-numeric:tabular-nums}
 
     /* Segment control */
-    .fc-wealth-segs{background:rgba(255,255,255,0.05);border:0.5px solid rgba(255,255,255,0.08);border-radius:13px;padding:3px}
-    .fc-wealth-seg{flex:1;padding:8px 0;border:none;background:transparent;color:rgba(255,255,255,0.42);font-size:13px;font-weight:600;border-radius:10px;cursor:pointer;transition:all .18s;-webkit-tap-highlight-color:transparent}
-    .fc-wealth-seg--active{background:linear-gradient(145deg,rgba(26,196,240,0.18),rgba(37,99,235,0.12));color:#1ac4f0;border-radius:10px;border:0.5px solid rgba(26,196,240,0.18)}
+    .fc-wealth-segs{display:flex;background:rgba(255,255,255,0.05);border:0.5px solid rgba(255,255,255,0.09);border-radius:14px;padding:3px;box-shadow:inset 0 1px 0 rgba(0,0,0,0.15)}
+    .fc-wealth-seg{flex:1;padding:9px 0;border:none;background:transparent;color:rgba(255,255,255,0.45);font-size:13px;font-weight:600;border-radius:11px;cursor:pointer;transition:all .18s cubic-bezier(.34,1.56,.64,1);-webkit-tap-highlight-color:transparent;font-family:inherit}
+    .fc-wealth-seg:active{opacity:.7}
+    .fc-wealth-seg--active{background:linear-gradient(145deg,rgba(26,196,240,0.20),rgba(37,99,235,0.14));color:#1ac4f0;border:0.5px solid rgba(26,196,240,0.22);box-shadow:0 2px 8px rgba(26,196,240,0.12),inset 0 1px 0 rgba(255,255,255,0.06)}
 
     /* Account cards */
     .fc-acct-card{
@@ -4102,47 +4124,50 @@ body {
     #view-settings{overflow-y:scroll;-webkit-overflow-scrolling:touch;padding-bottom:calc(env(safe-area-inset-bottom) + 110px);overscroll-behavior:contain}
 
     .settings-section-hdr{
-      font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;
-      color:rgba(255,255,255,0.24);padding:20px 20px 8px;
+      font-size:11px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;
+      color:rgba(255,255,255,0.44);padding:22px 20px 9px;
     }
 
     /* Profile card — hero treatment */
     .settings-profile-card{
-      margin:4px 16px 10px;padding:20px;
-      background:linear-gradient(145deg,rgba(15,30,53,0.95),rgba(8,19,31,0.98));
-      border-radius:24px;border:0.5px solid rgba(26,196,240,0.18);
-      box-shadow:0 12px 40px rgba(0,0,0,0.45),0 0 40px rgba(26,196,240,0.05) inset,
-                 inset 0 1px 0 rgba(255,255,255,0.07);
+      margin:4px 16px 12px;padding:22px 20px;
+      background:linear-gradient(145deg,rgba(13,28,52,0.97),rgba(7,16,28,0.99));
+      border-radius:24px;border:0.5px solid rgba(26,196,240,0.20);
+      box-shadow:0 16px 48px rgba(0,0,0,0.50),0 0 50px rgba(26,196,240,0.06) inset,
+                 inset 0 1px 0 rgba(255,255,255,0.08),inset 0 -1px 0 rgba(0,0,0,0.18);
       display:flex;align-items:center;gap:16px;
+      transition:opacity .15s,transform .15s;
     }
+    .settings-profile-card:active{opacity:.88;transform:scale(0.985)}
     .settings-avatar-ring{
-      width:60px;height:60px;border-radius:50%;
+      width:62px;height:62px;border-radius:50%;
       background:linear-gradient(135deg,#1ac4f0,#2563eb);
       display:flex;align-items:center;justify-content:center;
-      font-size:26px;font-weight:900;color:white;flex-shrink:0;
-      box-shadow:0 0 0 3px rgba(26,196,240,0.2),0 8px 24px rgba(26,196,240,0.35);
+      font-size:27px;font-weight:900;color:white;flex-shrink:0;
+      box-shadow:0 0 0 3px rgba(26,196,240,0.22),0 0 0 6px rgba(26,196,240,0.07),0 10px 28px rgba(26,196,240,0.38);
     }
-    .settings-profile-name{font-size:18px;font-weight:800;color:white;letter-spacing:-0.028em;line-height:1.1}
-    .settings-profile-email{font-size:12px;color:rgba(255,255,255,0.35);margin-top:3px}
-    .settings-profile-streak{font-size:11px;color:#1ac4f0;font-weight:700;margin-top:5px;display:flex;align-items:center;gap:4px}
+    .settings-profile-name{font-size:19px;font-weight:800;color:white;letter-spacing:-0.030em;line-height:1.1}
+    .settings-profile-email{font-size:12px;color:rgba(255,255,255,0.38);margin-top:3px;letter-spacing:-0.005em}
+    .settings-profile-streak{font-size:11px;color:#1ac4f0;font-weight:700;margin-top:6px;display:flex;align-items:center;gap:5px}
 
     /* Settings grouped cards */
     #view-settings .fc-card{
-      background:linear-gradient(145deg,#0d1b2e,#091422);
-      border:0.5px solid rgba(255,255,255,0.07);
-      box-shadow:0 4px 16px rgba(0,0,0,0.28),inset 0 1px 0 rgba(255,255,255,0.04);
-      border-radius:20px;margin:0 16px 10px;padding:0;overflow:hidden;
+      background:linear-gradient(145deg,rgba(12,26,46,0.98),rgba(7,15,26,0.99));
+      border:0.5px solid rgba(255,255,255,0.08);
+      box-shadow:0 6px 22px rgba(0,0,0,0.38),inset 0 1px 0 rgba(255,255,255,0.05),inset 0 -1px 0 rgba(0,0,0,0.15);
+      border-radius:22px;margin:0 16px 10px;padding:0;overflow:hidden;
     }
     .fc-settings-row{
-      display:flex;align-items:center;gap:14px;padding:15px 16px;
-      border-bottom:0.5px solid rgba(255,255,255,0.045);cursor:pointer;
+      display:flex;align-items:center;gap:14px;padding:15px 17px;
+      border-bottom:0.5px solid rgba(255,255,255,0.055);cursor:pointer;
       transition:background .12s;
+      -webkit-tap-highlight-color:transparent;
     }
     .fc-settings-row:last-child{border-bottom:none}
-    .fc-settings-row:active{background:rgba(255,255,255,0.04)}
-    .fc-settings-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-    .fc-settings-label{flex:1;color:#fff;font-size:15px;font-weight:500}
-    .fc-settings-value{color:rgba(255,255,255,0.35);font-size:13px}
+    .fc-settings-row:active{background:rgba(255,255,255,0.045)}
+    .fc-settings-icon{width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 2px 6px rgba(0,0,0,0.18)}
+    .fc-settings-label{flex:1;color:rgba(255,255,255,0.92);font-size:15px;font-weight:500;letter-spacing:-0.01em}
+    .fc-settings-value{color:rgba(255,255,255,0.38);font-size:13px;font-weight:400}
   </style>
 
   <!-- ── Hidden compat elements — JS targets these IDs ──────────── -->
@@ -4810,7 +4835,7 @@ body {
         </div>
 
         <!-- Big spend number -->
-        <div id="insights-total-spend" data-anim-val="0" style="font-size:46px;font-weight:800;letter-spacing:-0.045em;color:white;line-height:1;margin-bottom:16px;font-variant-numeric:tabular-nums">$0</div>
+        <div id="insights-total-spend" data-anim-val="0" style="font-size:50px;font-weight:900;letter-spacing:-0.048em;color:white;line-height:1;margin-bottom:16px;font-variant-numeric:tabular-nums">$0</div>
 
         <!-- 3-column quick stats -->
         <div style="display:grid;grid-template-columns:1fr 1px 1fr 1px 1fr;margin-bottom:16px;padding:12px 0;border-top:1px solid rgba(255,255,255,0.07);border-bottom:1px solid rgba(255,255,255,0.07)">

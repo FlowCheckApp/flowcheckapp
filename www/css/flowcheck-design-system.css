@@ -719,3 +719,186 @@ body.fc-theme {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ============================================================
+   PREMIUM ENHANCEMENT LAYER v2
+   Animations, refined motion, upgraded components
+   ============================================================ */
+
+/* ── Richer ambient depth on the canvas ─────────────────────── */
+body.fc-theme {
+  background-image:
+    radial-gradient(ellipse 90% 55% at 15% -5%,   rgba(26,196,240,0.22) 0%, transparent 60%),
+    radial-gradient(ellipse 70% 52% at 88% 6%,    rgba(37,99,235,0.20) 0%, transparent 55%),
+    radial-gradient(ellipse 42% 40% at 78% 42%,   rgba(37,99,235,0.08) 0%, transparent 50%),
+    radial-gradient(ellipse 30% 30% at 5%  55%,   rgba(26,196,240,0.07) 0%, transparent 50%);
+}
+
+/* ── Aurora breath — for hero card pseudo-elements ───────────── */
+@keyframes fcAuroraBreath1 {
+  0%, 100% { opacity: 0.78; transform: scale(1)    translateZ(0); }
+  50%       { opacity: 1.00; transform: scale(1.14) translateZ(0); }
+}
+@keyframes fcAuroraBreath2 {
+  0%, 100% { opacity: 0.58; transform: scale(1)    translateZ(0); }
+  60%       { opacity: 0.95; transform: scale(1.10) translateZ(0); }
+}
+
+/* ── Hero card living glow ───────────────────────────────────── */
+@keyframes fcHeroCardPulse {
+  0%, 100% {
+    box-shadow:
+      inset 0 1px 0 rgba(26,196,240,0.10),
+      inset 0 -1px 0 rgba(0,0,0,0.20),
+      0 0 44px rgba(26,196,240,0.07),
+      0 12px 32px rgba(0,0,0,0.36);
+  }
+  50% {
+    box-shadow:
+      inset 0 1px 0 rgba(26,196,240,0.18),
+      inset 0 -1px 0 rgba(0,0,0,0.20),
+      0 0 72px rgba(26,196,240,0.14),
+      0 18px 44px rgba(0,0,0,0.44);
+  }
+}
+.fc-card--hero {
+  animation: fcHeroCardPulse 5s ease-in-out infinite;
+}
+
+/* ── Sync status dot — living pulse ─────────────────────────── */
+@keyframes fcSyncDotPulse {
+  0%, 100% { box-shadow: 0 0 0 0   rgba(26,196,240,0.55); }
+  50%       { box-shadow: 0 0 0 5px rgba(26,196,240,0.00); }
+}
+
+/* ── View title — entrance ───────────────────────────────────── */
+.fc-view-title {
+  animation: fcFadeUp 0.42s cubic-bezier(0,0,0.2,1) both;
+}
+
+/* ── Premium section label ───────────────────────────────────── */
+.fc-section-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--fc-text-faint);
+  padding: 20px 20px 8px;
+}
+
+/* ── Numbers: always tabular, never jump ─────────────────────── */
+.fc-num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* ── Amount enter animation ──────────────────────────────────── */
+@keyframes fcAmountIn {
+  from { opacity: 0; transform: translateY(7px) scale(0.97); }
+  to   { opacity: 1; transform: none; }
+}
+.fc-amount-enter {
+  animation: fcAmountIn 0.4s cubic-bezier(0.22,1,0.36,1) both;
+}
+
+/* ── Card tap — unified press depth ─────────────────────────── */
+.fc-tap {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.14s var(--fc-ease-spring), opacity 0.10s;
+}
+.fc-tap:active { transform: scale(0.975); opacity: 0.88; }
+
+/* ── Scroll fade ─────────────────────────────────────────────── */
+.fc-scroll-fade-bottom {
+  position: sticky;
+  bottom: 0;
+  left: 0; right: 0;
+  height: 56px;
+  background: linear-gradient(to bottom, transparent, var(--fc-bg) 90%);
+  pointer-events: none;
+  flex-shrink: 0;
+  z-index: 4;
+}
+
+/* ── Glass pill chip ─────────────────────────────────────────── */
+.fc-chip-glass {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 13px;
+  background: rgba(255,255,255,0.06);
+  border: 0.5px solid rgba(255,255,255,0.10);
+  border-radius: var(--fc-r-pill);
+  color: var(--fc-text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
+}
+.fc-chip-glass:active { opacity: 0.72; }
+.fc-chip-glass--active {
+  background: rgba(26,196,240,0.14);
+  border-color: rgba(26,196,240,0.32);
+  color: var(--fc-accent);
+}
+
+/* ── Row separator — thinner, more elegant ──────────────────── */
+.fc-row-sep {
+  border: none;
+  border-bottom: 0.5px solid rgba(255,255,255,0.055);
+  margin: 0;
+}
+
+/* ── Stat value — premium financial number ───────────────────── */
+.fc-stat-display {
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: var(--fc-text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Bottom nav — stronger glass seam ───────────────────────── */
+.fc-nav {
+  border-top: 0.5px solid rgba(26,196,240,0.15);
+  box-shadow: 0 -1px 0 rgba(0,0,0,0.25), 0 -16px 32px rgba(0,0,0,0.18);
+}
+
+/* ── Header — stronger glass ─────────────────────────────────── */
+.fc-header {
+  background: rgba(6,14,24,0.78);
+  -webkit-backdrop-filter: saturate(200%) blur(28px);
+  backdrop-filter: saturate(200%) blur(28px);
+  border-bottom: 0.5px solid rgba(255,255,255,0.07);
+}
+
+/* ── Skeleton — brighter shimmer ─────────────────────────────── */
+.fc-skeleton {
+  background: linear-gradient(90deg,
+    rgba(255,255,255,0.04) 0%,
+    rgba(255,255,255,0.09) 40%,
+    rgba(255,255,255,0.04) 80%
+  );
+}
+
+/* ── Pull-to-refresh — better positioning ────────────────────── */
+#fc-pull-indicator {
+  top: calc(env(safe-area-inset-top) + 64px);
+  box-shadow: var(--fc-shadow-md);
+}
+
+/* Light mode: nav glass stays bright */
+[data-theme="light"] .fc-nav {
+  box-shadow: 0 -1px 0 rgba(13,27,46,0.08), 0 -8px 24px rgba(13,27,46,0.04);
+  border-top-color: rgba(13,27,46,0.10);
+}
+[data-theme="light"] body.fc-theme {
+  background-image:
+    radial-gradient(ellipse 80% 50% at 15% -5%,   rgba(13,173,212,0.10) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 45% at 88% 6%,    rgba(29,78,216,0.08) 0%, transparent 55%);
+}
