@@ -468,22 +468,6 @@ body.fc-theme {
   isolation: isolate;
 }
 
-/* Content fade — dissolves scrolling content into the nav bar.
-   Kept subtle so it doesn't appear as an unintended "blur band". */
-.fc-nav::before {
-  content: '';
-  position: absolute;
-  bottom: 100%;
-  left: 0; right: 0;
-  height: 40px;
-  background: linear-gradient(
-    to bottom,
-    transparent            0%,
-    rgba(4,  9, 18, 0.60) 100%
-  );
-  pointer-events: none;
-  z-index: 1;
-}
 .fc-nav-item {
   position: relative;
   display: flex;
