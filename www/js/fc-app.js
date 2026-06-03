@@ -5808,10 +5808,12 @@ window.FCApp = (function () {
 
     try {
       await FCData.updateUserField('notifications_enabled', enable);
+      toast(enable ? 'Notifications enabled' : 'Notifications turned off', 'success');
     } catch (err) {
       console.error('[toggleNotifications]', err.message);
+      toast('Could not save notification preference', 'error');
+      return false;
     }
-    toast(enable ? 'Notifications enabled' : 'Notifications turned off', 'success');
     return true;
   }
 
@@ -6413,7 +6415,7 @@ window.FCApp = (function () {
     // Update disconnect sheet body to name the specific bank
     const bodyEl = document.getElementById('disconnect-sheet-body');
     if (bodyEl) {
-      bodyEl.innerHTML = `This removes your <strong style="color:rgba(255,255,255,0.75)">${name}</strong> connection and deletes all its synced transaction data from FlowCheck. <strong style="color:rgba(255,255,255,0.75)">Your actual bank account is not affected.</strong>`;
+      bodyEl.innerHTML = `This removes your <strong style="color:rgba(255,255,255,0.75)">${esc(name)}</strong> connection and deletes all its synced transaction data from FlowCheck. <strong style="color:rgba(255,255,255,0.75)">Your actual bank account is not affected.</strong>`;
     }
     closeBankSheet();
     const sheet = document.getElementById('fc-disconnect-sheet');
