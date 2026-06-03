@@ -123,6 +123,11 @@ body[data-screen="onboarding"]      .fc-screen[data-screen="onboarding"]      { 
 body[data-screen="paywall"]         .fc-screen[data-screen="paywall"]         { display: flex; }
 body[data-screen="app"]             .fc-screen[data-screen="app"]             { display: flex; }
 
+/* Hide the fixed nav bar + its gradient on every screen except the main app.
+   Without this, the glass tab bar bleeds through as a dark blur at the bottom
+   of the paywall, onboarding, login, and all other pre-app screens. */
+body:not([data-screen="app"]) .fc-nav { display: none !important; }
+
 /* Dev preview phone frame */
 html, body {
   height: 100%;

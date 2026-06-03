@@ -5649,7 +5649,6 @@ window.FCApp = (function () {
   async function toggleBiometric(enable) {
     const toggleEl = document.getElementById('toggle-biometric');
     function snapBack() {
-      // Toggle uses .on class, not a checkbox
       if (toggleEl) {
         toggleEl.classList.toggle('on', !enable);
         toggleEl.setAttribute('aria-checked', !enable);
@@ -5665,8 +5664,10 @@ window.FCApp = (function () {
           return;
         }
       }
+      // Face ID is a device-local preference — stored in Capacitor Preferences only.
+      // Do NOT write to Firestore: the field is not in security rules and the write
+      // always throws "Missing or insufficient permissions", reverting the toggle.
       await FCAuth.setBiometricEnabled(enable);
-      await FCData.updateUserField('biometric_enabled', enable);
       toast(enable ? 'Face ID enabled' : 'Face ID disabled', 'success');
     } catch (err) {
       console.error('[toggleBiometric]', err.message);
@@ -5677,25 +5678,28 @@ window.FCApp = (function () {
 
   async function toggleNotifications(enable) {
     if (enable) {
-      // requestAndRegister() now only returns false when the OS *explicitly* denied
-      // permission. APNs registration errors are non-fatal and logged separately.
-      const granted = await FCPush.requestAndRegister();
-      if (!granted) {
-        // requestAndRegister returned false → OS denied. Double-check to be sure.
-        const osStatus = await FCPush.checkPermissions().catch(() => 'denied');
-        if (osStatus === 'denied') {
-          toast('Notifications are blocked — tap to open Settings', 'info');
-          try {
-            const App = window.Capacitor?.Plugins?.App;
-            if (App) await App.openUrl({ url: 'app-settings:' });
-          } catch (_) {}
-        }
-        // Sync toggle back to off in the UI
+      await FCPush.requestAndRegister();
+
+      // Check OS permission AFTER the request — this is the authoritative answer.
+      const osStatus = await FCPush.checkPermissions().catch(() => 'unavailable');
+
+      if (osStatus === 'denied') {
+        // User has explicitly blocked notifications at the OS level.
+        toast('Notifications blocked — open iOS Settings to enable', 'info');
+        try {
+          const App = window.Capacitor?.Plugins?.App;
+          if (App) await App.openUrl({ url: 'app-settings:' });
+        } catch (_) {}
+        // Snap toggle back to off
         const toggle = document.getElementById('toggle-notifications');
         if (toggle) { toggle.classList.remove('on'); toggle.setAttribute('aria-checked', 'false'); }
         return false;
+        // Any other status ('granted', 'prompt', 'unavailable') means we can proceed.
+        // 'prompt'     → user hasn't been asked yet; dialog will show on next foreground
+        // 'unavailable'→ simulator or plugin not ready; save preference anyway
       }
     }
+
     try {
       await FCData.updateUserField('notifications_enabled', enable);
     } catch (err) {
