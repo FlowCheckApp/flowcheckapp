@@ -83,9 +83,9 @@ window.FC_CONFIG = {
   },
 
   /* ── Email ──────────────────────────────────────────────────
-     Transactional email (nodemailer SMTP via backend).
-     Required Railway env vars: EMAIL_HOST, EMAIL_PORT, EMAIL_USER,
-     EMAIL_PASS (SendGrid API key), EMAIL_FROM
+     Transactional email via Resend (backend-only).
+     Required Railway env vars: RESEND_API_KEY, EMAIL_FROM
+     EMAIL_FROM must be a verified sender domain in Resend.
      ─────────────────────────────────────────────────────────── */
   email: {
     welcomeEndpoint: 'https://getflowcheck.app/email/welcome',

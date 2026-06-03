@@ -57,7 +57,7 @@
       enabled: true,
       environment: _FC_ENV,
       // Tag each release so you can filter errors by app version
-      release: 'flowcheck@1.0.0', // bump this when you ship
+      release: 'flowcheck@2.0.0',
       sendDefaultPii: false,       // don't auto-collect IP address or other PII
       // Sample 100% of errors (it's a finance app — we want to know about everything)
       sampleRate: 1.0,
@@ -6088,13 +6088,24 @@ function _btnLoad(btn, loading) {
 }
 window._btnLoad = _btnLoad;
 
-/* ── Keyboard avoidance — scrolls focused input above keyboard ── */
+/* ── Keyboard avoidance — native-feel input lifting ── */
 (function() {
   if (!window.visualViewport) return;
-  let _kbTimer;
-  let _kbOpen = false;
 
-  // Find nearest scrollable ancestor, falling back to the active fc-screen
+  const AUTH_SCREENS = new Set(['login','register','forgot-password','verify-email']);
+  let _kbTimer;
+  let _kbOpen   = false;
+  let _kbHeight = 0;
+
+  function _screenEl() {
+    const s = document.body.dataset.screen;
+    return document.querySelector(`.fc-screen[data-screen="${s}"]`);
+  }
+
+  function _isAuth() {
+    return AUTH_SCREENS.has(document.body.dataset.screen);
+  }
+
   function _scrollableParent(el) {
     let node = el ? el.parentElement : null;
     while (node && node !== document.body) {
@@ -6102,60 +6113,65 @@ window._btnLoad = _btnLoad;
       if (oy === 'auto' || oy === 'scroll' || oy === 'overlay') return node;
       node = node.parentElement;
     }
-    const screen = document.body.dataset.screen;
-    return document.querySelector(`.fc-screen[data-screen="${screen}"]`);
+    return _screenEl();
   }
 
   function _scrollToActive() {
     const active = document.activeElement;
     if (!active || (active.tagName !== 'INPUT' && active.tagName !== 'TEXTAREA')) return;
-    const vv           = window.visualViewport;
-    const kbHeight     = window.innerHeight - vv.height - vv.offsetTop;
-    if (kbHeight < 80) return;
-    const rect         = active.getBoundingClientRect();
-    // On auth screens, use 100px padding so the next field (e.g. password)
-    // stays visible above the keyboard — not just the currently focused field.
-    const screen = document.body.dataset.screen;
-    const isAuth = ['login','register','forgot-password','verify-email'].includes(screen);
-    const padding = isAuth ? 100 : 24;
-    const visibleBottom = window.innerHeight - kbHeight - padding;
-    if (rect.bottom > visibleBottom) {
-      const container = _scrollableParent(active);
-      if (container) container.scrollTop += rect.bottom - visibleBottom;
+    if (_kbHeight < 80) return;
+
+    const container = _scrollableParent(active);
+    if (!container) return;
+
+    // KEY FIX: auth screens have height:100dvh — a fixed height that never
+    // overflows, so scrollTop can't move. Temporarily expand the bottom
+    // padding to create overflow, then scroll the focused input into view.
+    if (_isAuth()) {
+      container.style.paddingBottom = (_kbHeight + 32) + 'px';
+    }
+
+    const rect        = active.getBoundingClientRect();
+    // 120px clearance on auth screens: shows both the focused field AND
+    // the field below it (e.g. email + password both visible above keyboard)
+    const padding     = _isAuth() ? 120 : 24;
+    const visibleBot  = window.innerHeight - _kbHeight - padding;
+
+    if (rect.bottom > visibleBot) {
+      container.scrollTop += rect.bottom - visibleBot;
     }
   }
 
   function _onViewportResize() {
     clearTimeout(_kbTimer);
-    const vv       = window.visualViewport;
-    const kbHeight = window.innerHeight - vv.height - vv.offsetTop;
+    const vv = window.visualViewport;
+    _kbHeight = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
 
-    if (kbHeight > 80) {
+    if (_kbHeight > 80) {
       _kbOpen = true;
       requestAnimationFrame(_scrollToActive);
     } else if (_kbOpen) {
       _kbOpen = false;
-      // Wait 200ms after kbHeight≤80 signal before resetting scrollTop.
-      // The iOS keyboard dismiss animation runs ~280ms total; the signal fires
-      // near the end (~250ms in), so 200ms after that gives the native
-      // UIScrollView time to fully settle before we zero the offset.
+      // Wait for keyboard dismiss animation to finish (~280ms on iOS),
+      // then reset the padding and scroll position cleanly.
       _kbTimer = setTimeout(() => {
-        // Pre-app form screens: reset the auth screen container scroll to zero.
-        // These screens are now overflow-y:auto, so scrollTop=0 is reliable.
-        const screen = document.body.dataset.screen;
-        const preApp = ['login','register','forgot-password','verify-email'].includes(screen);
-        if (preApp) {
-          const el = document.querySelector(`.fc-screen[data-screen="${screen}"]`);
-          if (el) el.scrollTop = 0;
+        const el = _screenEl();
+        if (!el) return;
+        if (_isAuth() || AUTH_SCREENS.has(document.body.dataset.screen)) {
+          el.style.paddingBottom = '';
         }
-      }, 200);
+        el.scrollTop = 0;
+      }, 280);
     }
   }
 
-  // Focus fires before keyboard opens — wait for iOS keyboard animation (~350ms)
+  // focusin fires before the keyboard opens. Run immediately in case the
+  // keyboard was already open (switching fields), then again after the
+  // iOS keyboard animation completes (~400ms).
   document.addEventListener('focusin', (e) => {
     if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') return;
-    setTimeout(_scrollToActive, 420);
+    requestAnimationFrame(_scrollToActive); // instant if keyboard already open
+    setTimeout(_scrollToActive, 420);       // fallback after animation
   }, { passive: true });
 
   window.visualViewport.addEventListener('resize', _onViewportResize, { passive: true });
