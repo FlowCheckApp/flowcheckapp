@@ -2335,208 +2335,335 @@ body {
 
 <!-- ════════════════════════════════════ SCREEN: ONBOARDING -->
 <style>
-/* ── Onboarding v2 — Immersive Premium ───────────────────── */
+/* ══════════════════════════════════════════════════════════════
+   ELITE ONBOARDING v4 — Cinematic · Premium · World-Class
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Design tokens ── */
+:root {
+  --ob-spring:  cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ob-smooth:  cubic-bezier(0.22, 1, 0.36, 1);
+  --ob-snappy:  cubic-bezier(0.4, 0, 0.2, 1);
+  --ob-glass:   rgba(255,255,255,0.055);
+  --ob-glass-b: rgba(255,255,255,0.09);
+}
+
+/* ── Screen shell ── */
 .fc-ob-screen {
   flex-direction: column; align-items: stretch; background: var(--fc-bg);
-  padding-top: calc(env(safe-area-inset-top) + 12px);
-  padding-bottom: calc(env(safe-area-inset-bottom) + 24px);
+  padding-top: calc(env(safe-area-inset-top,44px) + 14px);
+  padding-bottom: calc(env(safe-area-inset-bottom,20px) + 28px);
   overflow: hidden; position: relative;
 }
+
+/* ── Ambient orbs ── */
 .fc-ob-orb {
-  position: absolute; border-radius: 50%; filter: blur(70px);
-  pointer-events: none; will-change: opacity, transform;
-  transition: opacity 0.9s ease, transform 1.4s cubic-bezier(0.25,0.1,0.25,1);
+  position: absolute; border-radius: 50%; filter: blur(80px);
+  pointer-events: none; will-change: opacity;
+  transition: opacity 1.1s var(--ob-smooth), transform 1.6s var(--ob-smooth);
 }
+
+/* ── Progress bar (top) ── */
+.fc-ob-progress-rail {
+  position: absolute; top: calc(env(safe-area-inset-top,44px) + 14px);
+  left: 24px; right: 24px; height: 2px; border-radius: 999px;
+  background: rgba(255,255,255,0.08); z-index: 3; overflow: hidden;
+}
+.fc-ob-progress-fill {
+  height: 100%; border-radius: 999px;
+  background: linear-gradient(90deg, #1ac4f0, #2563eb);
+  transition: width 0.5s var(--ob-smooth);
+  box-shadow: 0 0 8px rgba(26,196,240,0.5);
+}
+
+/* ── Morphing step dots ── */
 .fc-ob-steps {
-  display: flex; justify-content: center; gap: 6px;
-  padding: 8px 0 14px; flex-shrink: 0; position: relative; z-index: 2;
+  display: flex; justify-content: center; align-items: center; gap: 7px;
+  padding: 10px 0 16px; flex-shrink: 0; position: relative; z-index: 2;
 }
 .fc-ob-step {
-  width: 7px; height: 7px; border-radius: 999px; background: rgba(255,255,255,0.14);
-  transition: width 0.38s cubic-bezier(0.34,1.56,0.64,1), background 0.3s, box-shadow 0.3s;
+  height: 7px; border-radius: 999px; background: rgba(255,255,255,0.13);
+  transition: width 0.4s var(--ob-spring), background 0.35s ease, box-shadow 0.35s ease;
+  width: 7px;
 }
 .fc-ob-step.active {
-  width: 26px;
-  background: var(--fc-accent);
-  box-shadow: 0 0 10px rgba(26,196,240,0.55);
+  width: 28px; background: var(--fc-accent);
+  box-shadow: 0 0 12px rgba(26,196,240,0.6), 0 0 4px rgba(26,196,240,0.8);
 }
+
+/* ── Slide container + transitions ── */
 .fc-ob-slides { flex: 1; position: relative; overflow: hidden; z-index: 2; }
+
+/* Incoming slide */
 .fc-ob-slide {
-  position: absolute; inset: 0; display: flex; flex-direction: column;
-  align-items: center; justify-content: flex-start;
-  padding: 0 28px; text-align: center; opacity: 0; pointer-events: none;
-  transform: translate3d(36px, 0, 0) scale(0.98);
-  transition: opacity 0.30s cubic-bezier(0.25,0.46,0.45,0.94),
-              transform 0.30s cubic-bezier(0.25,0.46,0.45,0.94);
-  will-change: transform, opacity;
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: flex-start; padding: 0 26px;
+  text-align: center; opacity: 0; pointer-events: none;
+  transform: translate3d(40px, 0, 0) scale(0.97);
+  transition: opacity 0.38s var(--ob-smooth), transform 0.38s var(--ob-smooth);
+  will-change: transform, opacity; overflow-y: auto; -webkit-overflow-scrolling: touch;
 }
-.fc-ob-slide.active { opacity: 1; pointer-events: all; transform: translate3d(0,0,0) scale(1); }
-.fc-ob-slide.exit   { opacity: 0; transform: translate3d(-36px,0,0) scale(0.98); pointer-events: none; }
-.fc-ob-slide.fc-ob-question { justify-content: center; gap: 0; }
+/* Active slide — all children stagger-animate in */
+.fc-ob-slide.active {
+  opacity: 1; pointer-events: all;
+  transform: translate3d(0, 0, 0) scale(1);
+}
+/* Children stagger */
+.fc-ob-slide.active > * { animation: obChildIn 0.48s var(--ob-smooth) both; }
+.fc-ob-slide.active > *:nth-child(1) { animation-delay: 0.04s; }
+.fc-ob-slide.active > *:nth-child(2) { animation-delay: 0.09s; }
+.fc-ob-slide.active > *:nth-child(3) { animation-delay: 0.14s; }
+.fc-ob-slide.active > *:nth-child(4) { animation-delay: 0.19s; }
+.fc-ob-slide.active > *:nth-child(5) { animation-delay: 0.24s; }
+.fc-ob-slide.active > *:nth-child(6) { animation-delay: 0.29s; }
+.fc-ob-slide.active > *:nth-child(7) { animation-delay: 0.33s; }
+@keyframes obChildIn {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+/* Exiting slide */
+.fc-ob-slide.exit {
+  opacity: 0; transform: translate3d(-40px, 0, 0) scale(0.97); pointer-events: none;
+}
+/* Question slides vertically center */
+.fc-ob-slide.fc-ob-question { justify-content: center; }
+
+/* ── Art zone ── */
 .fc-ob-art {
-  width: 100%; height: 216px; position: relative;
+  width: 100%; position: relative;
   display: flex; align-items: center; justify-content: center;
-  margin-bottom: 20px; flex-shrink: 0;
+  flex-shrink: 0; margin-bottom: 22px;
 }
-.fc-ob-glow { position: absolute; inset: 0; pointer-events: none; filter: blur(32px); border-radius: 50%; }
-.fc-ob-hero-card {
-  background: linear-gradient(145deg,rgba(26,196,240,0.17),rgba(37,99,235,0.10));
-  border: 1px solid rgba(26,196,240,0.28); border-radius: 24px; padding: 20px 22px;
-  width: 236px; text-align: left;
-  box-shadow: 0 28px 72px rgba(26,196,240,0.22),0 8px 24px rgba(0,0,0,0.45);
-  animation: fcObFloat 3.8s ease-in-out infinite; position: relative; z-index: 1;
+.fc-ob-glow {
+  position: absolute; inset: 0; pointer-events: none;
+  filter: blur(36px); border-radius: 50%;
 }
-@keyframes fcObFloat {
-  0%,100% { transform: translateY(0) rotate(-1deg); }
-  50%      { transform: translateY(-11px) rotate(-1deg); }
+
+/* ── Premium glass card ── */
+.fc-ob-glass-card {
+  background: var(--ob-glass);
+  border: 1px solid var(--ob-glass-b);
+  border-radius: 22px;
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.32), inset 0 1px 0 rgba(255,255,255,0.09);
 }
-.fc-ob-hero-label { font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.36);margin-bottom:5px; }
-.fc-ob-hero-score {
-  font-size:44px;font-weight:800;letter-spacing:-0.04em;line-height:1;margin-bottom:8px;
-  background:linear-gradient(135deg,#1ac4f0,#2563eb);
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+
+/* ── Dashboard hero card (slide 0) ── */
+.fc-ob-dash-card {
+  position: relative; z-index: 2; width: 100%; max-width: 305px;
+  padding: 18px 20px 14px;
+  background: linear-gradient(150deg, rgba(26,196,240,0.13) 0%, rgba(37,99,235,0.08) 60%, rgba(26,196,240,0.04) 100%);
+  border: 1px solid rgba(26,196,240,0.22);
+  border-radius: 24px; text-align: left;
+  box-shadow: 0 0 0 1px rgba(26,196,240,0.08), 0 28px 72px rgba(26,196,240,0.18), 0 8px 24px rgba(0,0,0,0.45);
+  animation: obDashFloat 4s ease-in-out infinite;
 }
-.fc-ob-hero-badge {
-  display:inline-flex;align-items:center;gap:4px;background:rgba(52,199,89,0.14);color:#34c759;
-  font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;
-  border:1px solid rgba(52,199,89,0.24);margin-bottom:14px;
+@keyframes obDashFloat {
+  0%,100% { transform: translateY(0) rotateX(0deg); }
+  50%      { transform: translateY(-10px) rotateX(1deg); }
 }
-.fc-ob-hero-bars { display:flex;gap:5px;align-items:flex-end;height:36px; }
-.fc-ob-hero-bar {
-  flex:1;border-radius:4px 4px 0 0;animation:fcBarGrow 0.9s var(--fc-ease-spring) both;
-  background:linear-gradient(to top,rgba(26,196,240,0.55),rgba(26,196,240,0.2));
+.fc-ob-nw-label {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.10em;
+  text-transform: uppercase; color: rgba(255,255,255,0.32); margin-bottom: 6px;
 }
-@keyframes fcBarGrow { from{transform:scaleY(0);transform-origin:bottom;}to{transform:scaleY(1);} }
-.fc-ob-hero-bar:nth-child(1){height:52%;animation-delay:.10s;}
-.fc-ob-hero-bar:nth-child(2){height:78%;animation-delay:.18s;}
-.fc-ob-hero-bar:nth-child(3){height:42%;animation-delay:.26s;}
-.fc-ob-hero-bar:nth-child(4){height:88%;animation-delay:.34s;}
-.fc-ob-hero-bar:nth-child(5){height:62%;animation-delay:.42s;}
-.fc-ob-hero-bar:nth-child(6){height:72%;animation-delay:.50s;}
-.fc-ob-hero-bar:nth-child(7){height:100%;animation-delay:.58s;background:linear-gradient(to top,var(--fc-accent),rgba(26,196,240,0.45));}
-.fc-ob-ring-wrap { position:relative;z-index:1;display:flex;flex-direction:column;align-items:center; }
-.fc-ob-ring-track { fill:none;stroke:rgba(255,255,255,0.07);stroke-width:10; }
-.fc-ob-ring-fill {
-  fill:none;stroke:url(#obRingGrad);stroke-width:10;stroke-linecap:round;
-  stroke-dasharray:251.2;stroke-dashoffset:251.2;
-  transition:stroke-dashoffset 1.8s cubic-bezier(0.34,1.05,0.64,1) 0.15s;
-  transform-origin:center;transform:rotate(-90deg);
+.fc-ob-nw-value {
+  font-size: 38px; font-weight: 800; letter-spacing: -0.04em;
+  color: #fff; line-height: 1; font-variant-numeric: tabular-nums;
 }
-.fc-ob-ring-fill.animate { stroke-dashoffset:55; }
-.fc-ob-ring-num {
-  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
-  font-size:38px;font-weight:800;letter-spacing:-0.04em;
-  background:linear-gradient(135deg,#1ac4f0,#2563eb);
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+.fc-ob-nw-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: rgba(52,199,89,0.14); border: 1px solid rgba(52,199,89,0.22);
+  border-radius: 999px; padding: 3px 9px;
+  font-size: 11px; font-weight: 700; color: #34c759; margin-top: 7px; margin-bottom: 14px;
 }
-.fc-ob-ring-label { font-size:11px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:rgba(255,255,255,0.38);margin-top:6px; }
-.fc-ob-ring-chips { display:flex;gap:7px;flex-wrap:wrap;justify-content:center;margin-top:10px; }
-.fc-ob-ring-chip { display:flex;align-items:center;gap:5px;background:rgba(255,255,255,0.06);border-radius:999px;padding:4px 10px;font-size:11px;font-weight:500;color:rgba(255,255,255,0.52); }
-.fc-ob-ring-chip-dot { width:6px;height:6px;border-radius:50%; }
-.fc-ob-shield-ring {
-  width:120px;height:120px;border-radius:999px;background:rgba(52,199,89,0.07);
-  border:1.5px solid rgba(52,199,89,0.22);display:flex;align-items:center;justify-content:center;
-  box-shadow:0 0 48px rgba(52,199,89,0.18),0 0 90px rgba(52,199,89,0.07);
-  animation:fcShieldPulse 2.6s ease-in-out infinite;position:relative;z-index:1;
+.fc-ob-bar-row {
+  display: flex; gap: 4px; align-items: flex-end; height: 34px;
 }
-@keyframes fcShieldPulse {
-  0%,100%{box-shadow:0 0 48px rgba(52,199,89,0.18),0 0 90px rgba(52,199,89,0.07);}
-  50%{box-shadow:0 0 70px rgba(52,199,89,0.30),0 0 120px rgba(52,199,89,0.13);}
+.fc-ob-bar {
+  flex: 1; border-radius: 3px 3px 0 0;
+  background: linear-gradient(to top, rgba(26,196,240,0.38), rgba(26,196,240,0.15));
+  animation: obBarGrow 0.8s var(--ob-spring) both;
+  transform-origin: bottom;
 }
-.fc-ob-q-icon { font-size:52px;margin-bottom:18px;line-height:1; }
-.fc-ob-grid { width:100%;display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:20px; }
-.fc-ob-grid-option {
-  padding:18px 12px 16px;background:rgba(255,255,255,0.05);
-  border:1.5px solid rgba(255,255,255,0.09);border-radius:20px;color:white;
-  font-size:13px;font-weight:600;text-align:center;
-  transition:background 0.15s,border-color 0.15s,transform 0.12s;
-  -webkit-user-select:none;cursor:pointer;
-  display:flex;flex-direction:column;align-items:center;gap:9px;line-height:1.3;
+@keyframes obBarGrow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+.fc-ob-bar:nth-child(1){height:46%;animation-delay:.08s;}
+.fc-ob-bar:nth-child(2){height:68%;animation-delay:.15s;}
+.fc-ob-bar:nth-child(3){height:40%;animation-delay:.22s;}
+.fc-ob-bar:nth-child(4){height:82%;animation-delay:.29s;}
+.fc-ob-bar:nth-child(5){height:56%;animation-delay:.36s;}
+.fc-ob-bar:nth-child(6){height:74%;animation-delay:.43s;}
+.fc-ob-bar:nth-child(7){height:100%;animation-delay:.50s;
+  background:linear-gradient(to top,#1ac4f0,rgba(37,99,235,0.7));
+  box-shadow:0 0 12px rgba(26,196,240,0.45);}
+
+.fc-ob-stat-row {
+  display: flex; gap: 8px; margin-top: 10px;
 }
-.fc-ob-grid-option:active { transform:scale(0.95); }
-.fc-ob-grid-option.selected { background:rgba(26,196,240,0.14);border-color:var(--fc-accent);color:var(--fc-accent);box-shadow:0 0 0 1px rgba(26,196,240,0.18),0 8px 24px rgba(26,196,240,0.12); }
-.fc-ob-grid-icon { font-size:32px;line-height:1;transition:transform 0.28s cubic-bezier(0.34,1.56,0.64,1); }
-.fc-ob-grid-option.selected .fc-ob-grid-icon { transform:scale(1.22); }
-.fc-ob-goal-continue {
-  width:100%;margin-top:18px;height:54px;border-radius:16px;
-  background:linear-gradient(135deg,var(--fc-accent),var(--fc-electric));
-  border:none;color:#fff;font-size:16px;font-weight:700;font-family:inherit;
-  cursor:pointer;letter-spacing:-0.01em;
-  opacity:0;transform:translateY(10px);pointer-events:none;
-  transition:opacity 0.22s ease,transform 0.22s cubic-bezier(0.34,1.56,0.64,1);
-  -webkit-tap-highlight-color:transparent;
+.fc-ob-stat-pill {
+  flex: 1; text-align: center; padding: 10px 8px; border-radius: 14px;
 }
-.fc-ob-goal-continue.visible { opacity:1;transform:translateY(0);pointer-events:all; }
-.fc-ob-options { width:100%;display:flex;flex-direction:column;gap:10px;margin-top:20px; }
-.fc-ob-option {
-  width:100%;padding:15px 18px;background:rgba(255,255,255,0.05);
-  border:1.5px solid rgba(255,255,255,0.09);border-radius:16px;color:white;
-  font-size:16px;font-weight:500;text-align:left;
-  transition:background 0.15s,border-color 0.15s,transform 0.12s;
-  -webkit-user-select:none;cursor:pointer;display:flex;align-items:center;gap:10px;
+
+/* ── Typography ── */
+.fc-ob-title {
+  font-size: 30px; font-weight: 800; letter-spacing: -0.03em;
+  line-height: 1.16; color: white; margin: 0 0 10px;
 }
-.fc-ob-option:active { transform:scale(0.975); }
-.fc-ob-option.selected { background:rgba(26,196,240,0.12);border-color:var(--fc-accent);color:var(--fc-accent); }
-.fc-ob-option-check {
-  width:22px;height:22px;border-radius:50%;flex-shrink:0;border:2px solid rgba(255,255,255,0.18);
-  margin-left:auto;display:flex;align-items:center;justify-content:center;
-  transition:background 0.15s,border-color 0.15s;
-}
-.fc-ob-option.selected .fc-ob-option-check { background:var(--fc-accent);border-color:var(--fc-accent); }
-.fc-ob-option.selected .fc-ob-option-check::after { content:'';width:6px;height:6px;background:#07101a;border-radius:50%; }
-.fc-ob-title { font-size:28px;font-weight:800;letter-spacing:-0.026em;line-height:1.18;color:white;margin:0 0 10px; }
+.fc-ob-title-xl { font-size: 32px; }
 .fc-ob-title-grad {
-  background:linear-gradient(135deg,#ffffff 30%,rgba(26,196,240,0.88));
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  background: linear-gradient(135deg, #fff 20%, rgba(26,196,240,0.9) 80%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
 }
-.fc-ob-title.fc-ob-title--lg { font-size:29px; }
-.fc-ob-desc { font-size:15px;line-height:1.56;color:rgba(255,255,255,0.45);margin:0;max-width:290px; }
-.fc-ob-trust { display:flex;flex-wrap:wrap;justify-content:center;gap:10px 18px;margin-top:18px; }
-.fc-ob-trust-item { display:flex;align-items:center;gap:5px;font-size:12px;color:rgba(255,255,255,0.5); }
-.fc-ob-cta { padding:16px 24px 0;flex-shrink:0;display:flex;flex-direction:column;align-items:center;position:relative;z-index:2; }
+.fc-ob-desc {
+  font-size: 15px; line-height: 1.6; color: rgba(255,255,255,0.46);
+  margin: 0; max-width: 285px;
+}
+.fc-ob-desc-sm { font-size: 14px; }
 
-/* ── Slide 4: Notification pre-permission styles ─────────── */
-.fc-ob-notif-bell {
-  display:flex;align-items:center;justify-content:center;
-  width:86px;height:86px;
-  background:radial-gradient(ellipse at 50% 60%,rgba(255,176,32,0.22),rgba(255,176,32,0.06));
-  border:1px solid rgba(255,176,32,0.20);
-  border-radius:50%;
-  margin:0 auto 18px;
-  animation:fc-bell-ring 4s ease-in-out infinite;
+/* ── Goal picker (slide 1) ── */
+.fc-ob-grid {
+  width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 18px;
 }
-@keyframes fc-bell-ring {
-  0%,100%,65%  { transform:rotate(0deg); }
-  5%           { transform:rotate(-14deg); }
-  10%          { transform:rotate(14deg); }
-  15%          { transform:rotate(-10deg); }
-  20%          { transform:rotate(10deg); }
-  25%          { transform:rotate(-4deg); }
-  30%          { transform:rotate(4deg); }
-  35%          { transform:rotate(0deg); }
+.fc-ob-grid-option {
+  padding: 20px 12px 18px;
+  background: rgba(255,255,255,0.05); border: 1.5px solid rgba(255,255,255,0.09);
+  border-radius: 22px; color: white; font-size: 13.5px; font-weight: 600;
+  text-align: center; cursor: pointer; -webkit-user-select: none;
+  display: flex; flex-direction: column; align-items: center; gap: 10px; line-height: 1.3;
+  transition: background 0.18s ease, border-color 0.18s ease, transform 0.14s var(--ob-spring),
+              box-shadow 0.18s ease;
+  -webkit-tap-highlight-color: transparent;
 }
-.fc-ob-notif-cards {
-  display:flex;flex-direction:column;gap:9px;width:100%;max-width:290px;margin:0 auto;
+.fc-ob-grid-option:active { transform: scale(0.94); }
+.fc-ob-grid-option.selected {
+  background: rgba(26,196,240,0.12); border-color: var(--fc-accent); color: var(--fc-accent);
+  box-shadow: 0 0 0 1px rgba(26,196,240,0.16), 0 8px 28px rgba(26,196,240,0.14);
 }
-.fc-ob-notif-card {
-  display:flex;align-items:center;gap:10px;
-  background:rgba(255,255,255,0.055);
-  border:1px solid rgba(255,255,255,0.09);
-  border-radius:12px;padding:10px 13px;
-  transition:opacity 0.3s,transform 0.3s;
+.fc-ob-grid-icon {
+  font-size: 34px; line-height: 1;
+  transition: transform 0.32s var(--ob-spring);
 }
-.fc-ob-notif-card:nth-child(2) { opacity:0.72;transform:scale(0.97); }
-.fc-ob-notif-card-icon {
-  width:34px;height:34px;border-radius:9px;
-  display:flex;align-items:center;justify-content:center;
-  font-size:17px;flex-shrink:0;
+.fc-ob-grid-option.selected .fc-ob-grid-icon { transform: scale(1.25); }
+.fc-ob-goal-continue {
+  width: 100%; margin-top: 16px; height: 56px; border-radius: 18px;
+  background: linear-gradient(135deg, var(--fc-accent), var(--fc-electric));
+  border: none; color: #fff; font-size: 16px; font-weight: 700; font-family: inherit;
+  cursor: pointer; letter-spacing: -0.01em;
+  opacity: 0; transform: translateY(12px); pointer-events: none;
+  transition: opacity 0.24s ease, transform 0.28s var(--ob-spring),
+              box-shadow 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 8px 28px rgba(26,196,240,0);
 }
-.fc-ob-notif-card-title  { font-size:13px;font-weight:600;color:rgba(255,255,255,0.88);line-height:1.3; }
-.fc-ob-notif-card-body   { font-size:11px;color:rgba(255,255,255,0.42);margin-top:2px; }
+.fc-ob-goal-continue.visible {
+  opacity: 1; transform: translateY(0); pointer-events: all;
+  box-shadow: 0 8px 28px rgba(26,196,240,0.35), 0 2px 8px rgba(0,0,0,0.25);
+}
+.fc-ob-goal-continue:active { transform: scale(0.97); }
 
-/* ══ Onboarding v3 — Splash · Auth · Slide enhancements ═══ */
+/* ── Security slide (slide 2) ── */
+.fc-ob-shield-ring {
+  width: 110px; height: 110px; border-radius: 50%;
+  background: radial-gradient(ellipse at 50% 30%, rgba(52,199,89,0.18), rgba(52,199,89,0.05));
+  border: 1.5px solid rgba(52,199,89,0.26);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 52px rgba(52,199,89,0.22), 0 0 100px rgba(52,199,89,0.08);
+  animation: obShieldPulse 2.8s ease-in-out infinite;
+  position: relative; z-index: 1;
+}
+@keyframes obShieldPulse {
+  0%,100% { box-shadow: 0 0 52px rgba(52,199,89,0.22), 0 0 100px rgba(52,199,89,0.08); }
+  50%      { box-shadow: 0 0 78px rgba(52,199,89,0.36), 0 0 140px rgba(52,199,89,0.14); }
+}
 
-/* SPLASH — spinning conic ring + ambient orbs */
+/* ── Permissions (slide 3) ── */
+.fc-ob-toggle-list {
+  width: 100%; max-width: 340px;
+  border-radius: 20px; overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.04);
+  margin-bottom: 14px;
+}
+.fc-ob-toggle-row {
+  display: flex; align-items: center; gap: 14px;
+  padding: 15px 17px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.fc-ob-toggle-row:last-child { border-bottom: none; }
+.fc-ob-toggle-icon {
+  width: 38px; height: 38px; border-radius: 11px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; flex-shrink: 0;
+}
+
+/* ── Paywall slide (slide 4) ── */
+.fc-ob-trust-strip {
+  display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+  background: rgba(52,199,89,0.07); border: 1px solid rgba(52,199,89,0.16);
+  border-radius: 999px; padding: 5px 16px; margin-bottom: 12px;
+}
+.fc-ob-trust-strip-text { font-size: 11px; font-weight: 600; color: rgba(52,199,89,0.85); }
+
+.fc-ob-plan-row {
+  width: 100%; max-width: 316px; display: flex; gap: 10px; margin-bottom: 14px;
+}
+.fc-ob-plan-btn {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 14px 8px; border-radius: 18px; cursor: pointer; text-align: center;
+  position: relative; -webkit-tap-highlight-color: transparent;
+  transition: transform 0.14s var(--ob-spring), box-shadow 0.2s ease;
+}
+.fc-ob-plan-btn:active { transform: scale(0.95); }
+.fc-ob-plan-monthly {
+  background: rgba(255,255,255,0.05); border: 1.5px solid rgba(255,255,255,0.12);
+}
+.fc-ob-plan-annual {
+  background: rgba(26,196,240,0.08); border: 1.5px solid rgba(26,196,240,0.45);
+  box-shadow: 0 0 24px rgba(26,196,240,0.12);
+}
+.fc-ob-plan-badge {
+  position: absolute; top: -9px; left: 50%; transform: translateX(-50%);
+  background: linear-gradient(90deg, #1ac4f0, #2563eb); border-radius: 999px;
+  padding: 2px 10px; font-size: 9px; font-weight: 800; color: #fff;
+  letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap;
+}
+.fc-ob-plan-label { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(255,255,255,0.38); }
+.fc-ob-plan-price { font-size: 22px; font-weight: 800; color: #fff; letter-spacing: -0.04em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.fc-ob-plan-detail-green { font-size: 10px; font-weight: 600; color: rgba(52,199,89,0.9); }
+.fc-ob-plan-detail-muted { font-size: 10px; color: rgba(255,255,255,0.32); }
+
+.fc-ob-feat-list {
+  width: 100%; max-width: 316px; display: flex; flex-direction: column; gap: 7px; margin-bottom: 14px;
+}
+.fc-ob-feat {
+  display: flex; align-items: center; gap: 11px; padding: 11px 14px;
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 14px;
+}
+.fc-ob-feat-icon {
+  width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.fc-ob-feat-name { font-size: 13px; font-weight: 600; color: #fff; line-height: 1.2; }
+.fc-ob-feat-desc { font-size: 11px; color: rgba(255,255,255,0.38); margin-top: 1px; }
+
+.fc-ob-checkrow {
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 16px; margin-top: 6px;
+}
+.fc-ob-checkitem {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 11.5px; font-weight: 500; color: rgba(255,255,255,0.48);
+}
+
+/* ── CTA zone ── */
+.fc-ob-cta {
+  padding: 14px 24px 0; flex-shrink: 0;
+  display: flex; flex-direction: column; align-items: center;
+  position: relative; z-index: 3;
+}
+
+/* ── Splash / Auth enhancements ── */
 .fc-splash { position:relative; overflow:hidden; }
 .fc-splash-orb {
   position:absolute; border-radius:50%; filter:blur(80px);
@@ -2579,7 +2706,7 @@ body {
 }
 .fc-splash-loader { position:relative; z-index:1; }
 
-/* AUTH HERO — branded card above login/register form */
+/* AUTH HERO */
 .fc-auth-hero {
   display:flex; align-items:center; gap:13px; width:100%; margin-bottom:20px;
   padding:13px 16px;
@@ -2596,7 +2723,7 @@ body {
 .fc-auth-hero-name { font-size:16px; font-weight:800; color:#fff; letter-spacing:-0.02em; line-height:1.1; }
 .fc-auth-hero-tagline { font-size:11px; color:rgba(255,255,255,0.38); margin-top:3px; font-weight:500; }
 
-/* SLIDE 3 — review pill */
+/* Review pill (kept for any future use) */
 .fc-ob-review-pill {
   display:inline-flex; align-items:center; gap:7px; flex-shrink:0;
   background:rgba(255,176,32,0.09); border:1px solid rgba(255,176,32,0.18);
@@ -2604,100 +2731,108 @@ body {
 }
 .fc-ob-review-stars { color:#ffb020; font-size:12px; line-height:1; letter-spacing:1px; }
 .fc-ob-review-text { font-size:11px; font-weight:600; color:rgba(255,255,255,0.60); }
-
-/* SLIDE 5 — trust strip above paywall headline */
-.fc-ob-user-strip {
-  display:flex; align-items:center; gap:8px; margin-bottom:12px; flex-shrink:0;
-  background:rgba(52,199,89,0.07); border:1px solid rgba(52,199,89,0.16);
-  border-radius:999px; padding:5px 16px;
-}
-.fc-ob-user-strip-text { font-size:11px; font-weight:600; color:rgba(52,199,89,0.85); }
 </style>
 
 <section class="fc-screen fc-ob-screen" data-screen="onboarding" aria-label="Welcome to FlowCheck">
 
-  <!-- Ambient orbs -->
-  <div id="ob-orb-cyan"   class="fc-ob-orb" style="width:420px;height:420px;top:-120px;left:-100px;background:radial-gradient(circle,rgba(26,196,240,0.28),transparent 68%);opacity:1;transition:opacity 0.8s ease"></div>
-  <div id="ob-orb-purple" class="fc-ob-orb" style="width:300px;height:300px;bottom:40px;right:0;background:radial-gradient(circle,rgba(37,99,235,0.18),transparent 60%);opacity:0.4;transition:opacity 0.8s ease"></div>
-  <div id="ob-orb-green"  class="fc-ob-orb" style="width:260px;height:260px;bottom:20px;left:0;background:radial-gradient(circle,rgba(52,199,89,0.16),transparent 60%);opacity:0;transition:opacity 0.8s ease"></div>
+  <!-- Ambient orbs — positions shift per slide via JS -->
+  <div id="ob-orb-cyan"   class="fc-ob-orb" style="width:460px;height:460px;top:-140px;left:-80px;background:radial-gradient(circle,rgba(26,196,240,0.26),transparent 66%);opacity:1"></div>
+  <div id="ob-orb-purple" class="fc-ob-orb" style="width:320px;height:320px;bottom:60px;right:-40px;background:radial-gradient(circle,rgba(37,99,235,0.20),transparent 62%);opacity:0.45"></div>
+  <div id="ob-orb-green"  class="fc-ob-orb" style="width:280px;height:280px;bottom:30px;left:-20px;background:radial-gradient(circle,rgba(52,199,89,0.18),transparent 60%);opacity:0"></div>
 
-  <!-- Linear progress bar — tracks slide position -->
-  <div aria-hidden="true"
-       style="position:absolute;top:calc(env(safe-area-inset-top,0px) + 12px);
-              left:20px;right:20px;height:2px;border-radius:999px;
-              background:rgba(255,255,255,0.09)">
-    <div id="ob-progress-fill"
-         style="height:100%;width:16.7%;border-radius:999px;
-                background:linear-gradient(90deg,#1ac4f0,#2563eb);
-                transition:width 0.45s cubic-bezier(0.25,0.1,0.25,1)"></div>
+  <!-- Progress rail -->
+  <div class="fc-ob-progress-rail" aria-hidden="true">
+    <div class="fc-ob-progress-fill" id="ob-progress-fill" style="width:20%"></div>
   </div>
 
   <div class="fc-ob-slides">
 
-    <!-- ── SLIDE 0: Hero — full financial picture ───────────────── -->
+    <!-- ══ SLIDE 0 — VISION: Cinematic hero ══════════════════════ -->
     <div class="fc-ob-slide active" id="ob-slide-0">
-      <!-- Mock dashboard art -->
-      <div class="fc-ob-art" style="height:280px">
-        <div class="fc-ob-glow" style="background:radial-gradient(ellipse at 50% 50%,rgba(26,196,240,0.30),transparent 65%)"></div>
-        <!-- Floating net worth card -->
-        <div style="position:relative;z-index:2;width:100%;max-width:300px;display:flex;flex-direction:column;gap:10px">
-          <!-- Main card -->
-          <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.10);border-radius:20px;padding:20px;backdrop-filter:blur(12px)">
-            <div style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.35);margin-bottom:8px">NET WORTH</div>
-            <div style="font-size:36px;font-weight:800;letter-spacing:-0.03em;color:#fff;line-height:1" id="ob-counter">$0</div>
-            <div style="display:flex;align-items:center;gap:6px;margin-top:6px">
-              <span style="font-size:11px;font-weight:700;color:#34c759;background:rgba(52,199,89,0.15);border-radius:999px;padding:3px 8px">↑ +$847 this month</span>
+
+      <!-- ── ART: Floating glassmorphic dashboard card ── -->
+      <div class="fc-ob-art" style="height:272px;padding-top:4px">
+        <div class="fc-ob-glow" style="background:radial-gradient(ellipse at 50% 50%,rgba(26,196,240,0.32),transparent 62%)"></div>
+        <div style="position:relative;z-index:2;width:100%;max-width:308px;display:flex;flex-direction:column;gap:9px">
+
+          <!-- Main net worth card -->
+          <div class="fc-ob-dash-card">
+            <div class="fc-ob-nw-label">NET WORTH</div>
+            <div class="fc-ob-nw-value" id="ob-counter">$0</div>
+            <div class="fc-ob-nw-badge">
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#34c759" stroke-width="3" stroke-linecap="round" aria-hidden="true"><polyline points="18 15 12 9 6 15"/></svg>
+              +$847 this month
             </div>
-            <!-- Mini bar chart -->
-            <div style="display:flex;gap:4px;align-items:flex-end;height:32px;margin-top:14px">
-              <div style="flex:1;height:40%;background:rgba(26,196,240,0.3);border-radius:3px 3px 0 0"></div>
-              <div style="flex:1;height:60%;background:rgba(26,196,240,0.4);border-radius:3px 3px 0 0"></div>
-              <div style="flex:1;height:50%;background:rgba(26,196,240,0.35);border-radius:3px 3px 0 0"></div>
-              <div style="flex:1;height:75%;background:rgba(26,196,240,0.45);border-radius:3px 3px 0 0"></div>
-              <div style="flex:1;height:55%;background:rgba(26,196,240,0.38);border-radius:3px 3px 0 0"></div>
-              <div style="flex:1;height:90%;background:linear-gradient(to top,#1ac4f0,rgba(26,196,240,0.5));border-radius:3px 3px 0 0;box-shadow:0 0 8px rgba(26,196,240,0.4)"></div>
-              <div style="flex:1;height:100%;background:linear-gradient(to top,#1ac4f0,#2563eb);border-radius:3px 3px 0 0;box-shadow:0 0 12px rgba(37,99,235,0.5)"></div>
-            </div>
-          </div>
-          <!-- Floating stat pills -->
-          <div style="display:flex;gap:8px">
-            <div style="flex:1;background:rgba(52,199,89,0.12);border:1px solid rgba(52,199,89,0.22);border-radius:14px;padding:12px;text-align:center">
-              <div style="font-size:15px;font-weight:800;color:#34c759">742</div>
-              <div style="font-size:9px;font-weight:600;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:0.06em;margin-top:2px">Health Score</div>
-            </div>
-            <div style="flex:1;background:rgba(255,176,32,0.10);border:1px solid rgba(255,176,32,0.20);border-radius:14px;padding:12px;text-align:center">
-              <div style="font-size:15px;font-weight:800;color:#ffb020">$2.1k</div>
-              <div style="font-size:9px;font-weight:600;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:0.06em;margin-top:2px">Saved this mo</div>
-            </div>
-            <div style="flex:1;background:rgba(37,99,235,0.10);border:1px solid rgba(37,99,235,0.22);border-radius:14px;padding:12px;text-align:center">
-              <div style="font-size:15px;font-weight:800;color:#60a5fa">$0</div>
-              <div style="font-size:9px;font-weight:600;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:0.06em;margin-top:2px">Bills overdue</div>
+            <div class="fc-ob-bar-row">
+              <div class="fc-ob-bar"></div>
+              <div class="fc-ob-bar"></div>
+              <div class="fc-ob-bar"></div>
+              <div class="fc-ob-bar"></div>
+              <div class="fc-ob-bar"></div>
+              <div class="fc-ob-bar"></div>
+              <div class="fc-ob-bar"></div>
             </div>
           </div>
+
+          <!-- Stat pills row -->
+          <div class="fc-ob-stat-row">
+            <div class="fc-ob-stat-pill" style="background:rgba(52,199,89,0.11);border:1px solid rgba(52,199,89,0.20)">
+              <div style="font-size:16px;font-weight:800;color:#34c759;letter-spacing:-0.02em">742</div>
+              <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,0.34);text-transform:uppercase;letter-spacing:0.07em;margin-top:2px">Health</div>
+            </div>
+            <div class="fc-ob-stat-pill" style="background:rgba(255,176,32,0.09);border:1px solid rgba(255,176,32,0.18)">
+              <div style="font-size:16px;font-weight:800;color:#ffb020;letter-spacing:-0.02em">$2.1k</div>
+              <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,0.34);text-transform:uppercase;letter-spacing:0.07em;margin-top:2px">Saved</div>
+            </div>
+            <div class="fc-ob-stat-pill" style="background:rgba(37,99,235,0.10);border:1px solid rgba(37,99,235,0.20)">
+              <div style="font-size:16px;font-weight:800;color:#60a5fa;letter-spacing:-0.02em">$0</div>
+              <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,0.34);text-transform:uppercase;letter-spacing:0.07em;margin-top:2px">Overdue</div>
+            </div>
+          </div>
+
         </div>
       </div>
-      <h1 class="fc-ob-title" style="margin-top:4px"><span class="fc-ob-title-grad">See every dollar.</span><br>Always know where<br>you stand.</h1>
-      <p class="fc-ob-desc">Live balances, credit score, smart spending alerts, and a financial health score — all in one place.</p>
 
-      <!-- Inline legal micro-copy — GDPR/CCPA compliant, no blocking checkbox -->
-      <p style="font-size:11px;color:rgba(255,255,255,0.28);text-align:center;
-                margin-top:16px;line-height:1.65;padding:0 8px;max-width:300px">
+      <!-- Copy -->
+      <h1 class="fc-ob-title" style="margin-top:2px">
+        <span class="fc-ob-title-grad">See every dollar.</span><br>
+        Know exactly where<br>you stand.
+      </h1>
+      <p class="fc-ob-desc">Connect your accounts once. Get your complete financial picture — live balances, cash flow, health score.</p>
+
+      <!-- Legal micro-copy — inline, GDPR compliant -->
+      <p style="font-size:11px;color:rgba(255,255,255,0.26);text-align:center;margin-top:16px;line-height:1.7;padding:0 6px;max-width:295px">
         By continuing you agree to our
-        <a href="#" onclick="FCApp.openUrl('/legal/terms.html');return false"
-           style="color:rgba(255,255,255,0.45);text-decoration:underline">Terms</a>
+        <a href="#" onclick="FCApp.openUrl('/legal/terms.html');return false" style="color:rgba(255,255,255,0.44);text-decoration:underline">Terms</a>
         and
-        <a href="#" onclick="FCApp.openUrl('/legal/privacy.html');return false"
-           style="color:rgba(255,255,255,0.45);text-decoration:underline">Privacy Policy</a>,
-        including Plaid to connect bank accounts.
+        <a href="#" onclick="FCApp.openUrl('/legal/privacy.html');return false" style="color:rgba(255,255,255,0.44);text-decoration:underline">Privacy Policy</a>,
+        including Plaid to securely connect bank accounts.
       </p>
     </div>
 
-    <!-- ── SLIDE 1: Goal picker ──────────────────────────────────── -->
+    <!-- ══ SLIDE 1 — GOAL: Personalization ═══════════════════════ -->
     <div class="fc-ob-slide fc-ob-question" id="ob-slide-1">
-      <div class="fc-ob-q-icon" style="font-size:48px;margin-bottom:14px">🎯</div>
-      <h1 class="fc-ob-title fc-ob-title--lg" style="margin-bottom:6px">What's your #1<br>money goal?</h1>
-      <p class="fc-ob-desc" style="margin-bottom:0;font-size:14px">We'll personalize FlowCheck around what matters to you.</p>
-      <div class="fc-ob-grid" style="margin-top:22px">
+      <!-- Icon -->
+      <div style="width:68px;height:68px;border-radius:50%;
+                  background:radial-gradient(ellipse at 50% 30%,rgba(37,99,235,0.24),rgba(37,99,235,0.08));
+                  border:1px solid rgba(37,99,235,0.30);
+                  display:flex;align-items:center;justify-content:center;
+                  box-shadow:0 0 40px rgba(37,99,235,0.20);
+                  margin-bottom:18px;flex-shrink:0">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>
+        </svg>
+      </div>
+
+      <h1 class="fc-ob-title fc-ob-title-xl" style="margin-bottom:7px">
+        What's your #1<br>money goal?
+      </h1>
+      <p class="fc-ob-desc fc-ob-desc-sm" style="margin-bottom:0">
+        We'll personalize FlowCheck around what matters most to you.
+      </p>
+
+      <!-- 2×2 goal grid -->
+      <div class="fc-ob-grid">
         <button class="fc-ob-grid-option" onclick="obSelectGoal(this,'save_more')" type="button">
           <span class="fc-ob-grid-icon">💰</span>Save more
         </button>
@@ -2711,117 +2846,109 @@ body {
           <span class="fc-ob-grid-icon">📈</span>Build wealth
         </button>
       </div>
-      <button class="fc-ob-goal-continue" id="ob-goal-continue" onclick="obNext()" type="button">Continue</button>
+
+      <!-- Continue — appears on selection -->
+      <button class="fc-ob-goal-continue" id="ob-goal-continue" onclick="obNext()" type="button">
+        Continue
+      </button>
     </div>
 
-    <!-- ── SLIDE 2: Security & privacy — builds trust before paywall ── -->
-    <div class="fc-ob-slide" id="ob-slide-2" style="justify-content:center;padding-top:12px">
-      <div class="fc-ob-art" style="height:210px">
-        <div class="fc-ob-glow" style="background:radial-gradient(ellipse at 50% 60%,rgba(48,209,88,0.26),transparent 65%)"></div>
-        <div style="position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:10px;width:100%;max-width:300px">
-          <!-- Shield icon -->
-          <div style="width:80px;height:80px;border-radius:50%;
-                      background:radial-gradient(ellipse at 50% 30%,rgba(48,209,88,0.20),rgba(48,209,88,0.06));
-                      border:1.5px solid rgba(48,209,88,0.28);
-                      display:flex;align-items:center;justify-content:center;
-                      box-shadow:0 0 48px rgba(48,209,88,0.20),0 0 90px rgba(48,209,88,0.07);
-                      margin-bottom:4px;flex-shrink:0">
-            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#30d158" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <!-- ══ SLIDE 2 — TRUST: Bank-grade security ═══════════════════ -->
+    <div class="fc-ob-slide" id="ob-slide-2" style="justify-content:center;padding-top:8px">
+
+      <!-- Art: animated shield -->
+      <div class="fc-ob-art" style="height:200px">
+        <div class="fc-ob-glow" style="background:radial-gradient(ellipse at 50% 55%,rgba(48,209,88,0.28),transparent 62%)"></div>
+        <div style="position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:11px;width:100%;max-width:295px">
+
+          <!-- Animated shield -->
+          <div class="fc-ob-shield-ring">
+            <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#30d158" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
               <polyline points="9 12 11 14 15 10"/>
             </svg>
           </div>
-          <!-- Security stat cards -->
+
+          <!-- 3-stat row -->
           <div style="display:flex;gap:8px;width:100%">
-            <div style="flex:1;background:rgba(48,209,88,0.08);border:1px solid rgba(48,209,88,0.18);border-radius:14px;padding:12px 10px;text-align:center">
-              <div style="font-size:18px;font-weight:800;color:#30d158;letter-spacing:-0.02em">256-bit</div>
-              <div style="font-size:9.5px;font-weight:600;color:rgba(255,255,255,0.36);text-transform:uppercase;letter-spacing:0.06em;margin-top:3px">Encryption</div>
+            <div style="flex:1;background:rgba(48,209,88,0.08);border:1px solid rgba(48,209,88,0.18);border-radius:15px;padding:12px 8px;text-align:center">
+              <div style="font-size:16px;font-weight:800;color:#30d158;letter-spacing:-0.02em">256-bit</div>
+              <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,0.34);text-transform:uppercase;letter-spacing:0.07em;margin-top:3px">Encryption</div>
             </div>
-            <div style="flex:1;background:rgba(26,196,240,0.08);border:1px solid rgba(26,196,240,0.18);border-radius:14px;padding:12px 10px;text-align:center">
-              <div style="font-size:18px;font-weight:800;color:#1ac4f0;letter-spacing:-0.02em">SOC 2</div>
-              <div style="font-size:9.5px;font-weight:600;color:rgba(255,255,255,0.36);text-transform:uppercase;letter-spacing:0.06em;margin-top:3px">Certified</div>
+            <div style="flex:1;background:rgba(26,196,240,0.08);border:1px solid rgba(26,196,240,0.18);border-radius:15px;padding:12px 8px;text-align:center">
+              <div style="font-size:16px;font-weight:800;color:#1ac4f0;letter-spacing:-0.02em">SOC 2</div>
+              <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,0.34);text-transform:uppercase;letter-spacing:0.07em;margin-top:3px">Certified</div>
             </div>
-            <div style="flex:1;background:rgba(48,209,88,0.08);border:1px solid rgba(48,209,88,0.18);border-radius:14px;padding:12px 10px;text-align:center">
-              <div style="font-size:18px;font-weight:800;color:#30d158;letter-spacing:-0.02em">$0</div>
-              <div style="font-size:9.5px;font-weight:600;color:rgba(255,255,255,0.36);text-transform:uppercase;letter-spacing:0.06em;margin-top:3px">Liability</div>
-            </div>
-          </div>
-          <!-- Plaid trust bar -->
-          <div style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:11px 14px;display:flex;align-items:center;gap:10px">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-            <span style="font-size:12px;color:rgba(255,255,255,0.46);line-height:1.4">Bank connections powered by <strong style="color:rgba(255,255,255,0.66);font-weight:600">Plaid</strong> — read-only, never write access</span>
-          </div>
-        </div>
-      </div>
-      <h1 class="fc-ob-title" style="margin-top:8px">Your data stays<br><span class="fc-ob-title-grad">yours. Always.</span></h1>
-      <p class="fc-ob-desc">Bank-grade encryption. Read-only access. We can never move your money — ever.</p>
-    </div>
-
-    <!-- ── SLIDE 3: Feature showcase + social proof ──────────────── -->
-    <div class="fc-ob-slide" id="ob-slide-3" style="justify-content:center;padding-top:16px">
-      <div class="fc-ob-art" style="height:240px">
-        <div class="fc-ob-glow" style="background:radial-gradient(ellipse at 50% 55%,rgba(37,99,235,0.32),transparent 65%)"></div>
-        <!-- Feature grid — showcases the most powerful Pro capabilities -->
-        <div style="position:relative;z-index:2;width:100%;max-width:310px;display:flex;flex-direction:column;gap:8px">
-
-          <!-- Cash Flow Forecast -->
-          <div style="display:flex;align-items:center;gap:13px;background:rgba(255,255,255,0.055);border:1px solid rgba(255,255,255,0.09);border-radius:16px;padding:13px 15px">
-            <div style="width:40px;height:40px;border-radius:12px;background:rgba(26,196,240,0.15);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1ac4f0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-            </div>
-            <div>
-              <div style="font-size:13.5px;font-weight:700;color:#fff;margin-bottom:2px">31-day Cash Flow Forecast</div>
-              <div style="font-size:11px;color:rgba(255,255,255,0.38);line-height:1.3">See if you'll run low — before it happens</div>
+            <div style="flex:1;background:rgba(48,209,88,0.08);border:1px solid rgba(48,209,88,0.18);border-radius:15px;padding:12px 8px;text-align:center">
+              <div style="font-size:16px;font-weight:800;color:#30d158;letter-spacing:-0.02em">$0</div>
+              <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,0.34);text-transform:uppercase;letter-spacing:0.07em;margin-top:3px">Liability</div>
             </div>
           </div>
 
-          <!-- Spending Anomaly Detection -->
-          <div style="display:flex;align-items:center;gap:13px;background:rgba(255,255,255,0.055);border:1px solid rgba(255,255,255,0.09);border-radius:16px;padding:13px 15px">
-            <div style="width:40px;height:40px;border-radius:12px;background:rgba(255,69,58,0.14);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ff453a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-            </div>
-            <div>
-              <div style="font-size:13.5px;font-weight:700;color:#fff;margin-bottom:2px">Spending Anomaly Alerts</div>
-              <div style="font-size:11px;color:rgba(255,255,255,0.38);line-height:1.3">Caught when a category spikes 50%+ above normal</div>
-            </div>
-          </div>
-
-          <!-- Debt Payoff Planner -->
-          <div style="display:flex;align-items:center;gap:13px;background:rgba(255,255,255,0.055);border:1px solid rgba(255,255,255,0.09);border-radius:16px;padding:13px 15px">
-            <div style="width:40px;height:40px;border-radius:12px;background:rgba(52,199,89,0.15);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#34c759" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-            </div>
-            <div>
-              <div style="font-size:13.5px;font-weight:700;color:#fff;margin-bottom:2px">Debt Payoff Planner</div>
-              <div style="font-size:11px;color:rgba(255,255,255,0.38);line-height:1.3">Avalanche vs. Snowball — see which saves more</div>
-            </div>
+          <!-- Plaid trust badge -->
+          <div style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:10px 14px;display:flex;align-items:center;gap:10px">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.45)" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <span style="font-size:12px;color:rgba(255,255,255,0.44);line-height:1.45">Powered by <strong style="color:rgba(255,255,255,0.72);font-weight:600">Plaid</strong> — read-only access, we can never move money</span>
           </div>
 
         </div>
       </div>
-      <div class="fc-ob-review-pill">
-        <span class="fc-ob-review-stars">★★★★★</span>
-        <span class="fc-ob-review-text">Loved by users across 50+ countries</span>
-      </div>
-      <h1 class="fc-ob-title" style="font-size:26px;margin-top:0">Everything you need.<br><span class="fc-ob-title-grad">Nothing you don't.</span></h1>
-      <p class="fc-ob-desc" style="font-size:14px">No spreadsheets. No guessing. FlowCheck connects to your bank and does the heavy lifting automatically.</p>
+
+      <h1 class="fc-ob-title" style="margin-top:6px">
+        Your data stays<br><span class="fc-ob-title-grad">yours. Always.</span>
+      </h1>
+      <p class="fc-ob-desc">
+        Bank-grade encryption. Read-only access. Zero liability. FlowCheck can see your accounts — never touch them.
+      </p>
     </div>
 
-    <!-- ── SLIDE 4: Permissions — notifications, Face ID, email ── -->
-    <div class="fc-ob-slide" id="ob-slide-4">
-      <div class="fc-ob-art" style="height:108px">
-        <div class="fc-ob-glow" style="background:radial-gradient(ellipse at 50% 55%,rgba(37,99,235,0.30),transparent 65%)"></div>
-        <div style="position:relative;z-index:2;font-size:62px;line-height:1">⚙️</div>
+    <!-- ══ SLIDE 3 — PERMISSIONS: Stay ahead ═════════════════════ -->
+    <div class="fc-ob-slide" id="ob-slide-3" style="justify-content:center;padding-top:4px">
+
+      <!-- Art: notification preview cards -->
+      <div class="fc-ob-art" style="height:168px">
+        <div class="fc-ob-glow" style="background:radial-gradient(ellipse at 50% 50%,rgba(255,176,32,0.22),transparent 65%)"></div>
+        <div style="position:relative;z-index:2;width:100%;max-width:295px;display:flex;flex-direction:column;gap:8px">
+
+          <!-- Notification card 1 -->
+          <div style="display:flex;align-items:center;gap:11px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.10);border-radius:16px;padding:12px 14px;backdrop-filter:blur(16px)">
+            <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#1ac4f0,#2563eb);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" aria-hidden="true"><polyline points="18 15 12 9 6 15"/></svg>
+            </div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:700;color:#fff;line-height:1.3">FlowCheck</div>
+              <div style="font-size:11.5px;color:rgba(255,255,255,0.52);line-height:1.35;margin-top:1px">💰 Paycheck of $3,200 just arrived</div>
+            </div>
+            <div style="font-size:10px;color:rgba(255,255,255,0.28);flex-shrink:0">now</div>
+          </div>
+
+          <!-- Notification card 2 -->
+          <div style="display:flex;align-items:center;gap:11px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:12px 14px;opacity:0.75;transform:scale(0.97)">
+            <div style="width:36px;height:36px;border-radius:10px;background:rgba(255,176,32,0.18);border:1px solid rgba(255,176,32,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ffb020" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            </div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:700;color:#fff;line-height:1.3">FlowCheck</div>
+              <div style="font-size:11.5px;color:rgba(255,255,255,0.48);line-height:1.35;margin-top:1px">⚠️ Netflix bill due in 2 days</div>
+            </div>
+            <div style="font-size:10px;color:rgba(255,255,255,0.24);flex-shrink:0">1h ago</div>
+          </div>
+
+        </div>
       </div>
-      <h1 class="fc-ob-title" style="font-size:26px;margin-top:10px">Set up your<br><span class="fc-ob-title-grad">preferences.</span></h1>
-      <p class="fc-ob-desc" style="font-size:13px;margin-bottom:20px">Customize your experience. Everything can be changed later in Settings.</p>
 
-      <!-- Permission rows -->
-      <div style="width:100%;max-width:340px;display:flex;flex-direction:column;border-radius:18px;overflow:hidden;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.04)">
+      <h1 class="fc-ob-title" style="margin-top:4px">
+        Stay one step<br><span class="fc-ob-title-grad">ahead.</span>
+      </h1>
+      <p class="fc-ob-desc fc-ob-desc-sm" style="margin-bottom:18px">
+        Smart alerts before bills hit. Budget warnings before you overspend. Never get caught off guard.
+      </p>
 
-        <!-- Push notifications -->
-        <div style="display:flex;align-items:center;gap:14px;padding:16px 18px;border-bottom:1px solid rgba(255,255,255,0.06)">
-          <div style="width:38px;height:38px;border-radius:10px;background:rgba(255,176,32,0.14);display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0">🔔</div>
+      <!-- Toggle list -->
+      <div class="fc-ob-toggle-list">
+        <!-- Notifications -->
+        <div class="fc-ob-toggle-row">
+          <div class="fc-ob-toggle-icon" style="background:rgba(255,176,32,0.14)">🔔</div>
           <div style="flex:1;min-width:0">
             <div style="font-size:14px;font-weight:600;color:#fff;margin-bottom:2px">Bill &amp; budget alerts</div>
             <div style="font-size:11px;color:rgba(255,255,255,0.38);line-height:1.35">Reminders before due dates, budget warnings</div>
@@ -2831,10 +2958,9 @@ body {
             <span class="fc-toggle-track"></span>
           </label>
         </div>
-
         <!-- Face ID -->
-        <div style="display:flex;align-items:center;gap:14px;padding:16px 18px;border-bottom:1px solid rgba(255,255,255,0.06)">
-          <div style="width:38px;height:38px;border-radius:10px;background:rgba(26,196,240,0.14);display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0">🔒</div>
+        <div class="fc-ob-toggle-row">
+          <div class="fc-ob-toggle-icon" style="background:rgba(26,196,240,0.13)">🔒</div>
           <div style="flex:1;min-width:0">
             <div style="font-size:14px;font-weight:600;color:#fff;margin-bottom:2px">Face ID sign-in</div>
             <div style="font-size:11px;color:rgba(255,255,255,0.38);line-height:1.35">Unlock FlowCheck instantly and securely</div>
@@ -2844,136 +2970,130 @@ body {
             <span class="fc-toggle-track"></span>
           </label>
         </div>
-
-        <!-- Email marketing (opt-in, unchecked by default — GDPR compliant) -->
-        <div style="display:flex;align-items:center;gap:14px;padding:16px 18px">
-          <div style="width:38px;height:38px;border-radius:10px;background:rgba(37,99,235,0.14);display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0">✉️</div>
+        <!-- Email -->
+        <div class="fc-ob-toggle-row">
+          <div class="fc-ob-toggle-icon" style="background:rgba(37,99,235,0.13)">✉️</div>
           <div style="flex:1;min-width:0">
-            <div style="font-size:14px;font-weight:600;color:#fff;margin-bottom:2px">Tips &amp; product updates <span style="font-size:9px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:rgba(255,255,255,0.28);margin-left:4px">Optional</span></div>
-            <div style="font-size:11px;color:rgba(255,255,255,0.38);line-height:1.35">Weekly financial insights &amp; app news by email</div>
+            <div style="font-size:14px;font-weight:600;color:#fff;margin-bottom:2px">
+              Tips &amp; updates
+              <span style="font-size:9px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:rgba(255,255,255,0.26);margin-left:5px">Optional</span>
+            </div>
+            <div style="font-size:11px;color:rgba(255,255,255,0.38);line-height:1.35">Weekly insights &amp; app news by email</div>
           </div>
           <label class="fc-toggle" aria-label="Email updates" style="flex-shrink:0">
             <input type="checkbox" id="ob-email-toggle">
             <span class="fc-toggle-track"></span>
           </label>
         </div>
-
       </div>
 
-      <!-- Inline legal disclosure -->
-      <p style="font-size:10px;color:rgba(255,255,255,0.22);text-align:center;margin-top:14px;line-height:1.6;padding:0 8px;max-width:320px">
-        Security alerts and account-related emails are always sent — they're required to keep your account safe and cannot be disabled. Marketing emails are optional; unsubscribe any time. See our <a href="#" onclick="FCApp.openUrl('/legal/privacy.html');return false" style="color:rgba(255,255,255,0.38);text-decoration:underline">Privacy Policy</a>.
+      <p style="font-size:10px;color:rgba(255,255,255,0.22);text-align:center;margin-top:2px;line-height:1.65;padding:0 6px;max-width:315px">
+        Security and account emails are always sent. Marketing emails are optional — unsubscribe any time.
+        <a href="#" onclick="FCApp.openUrl('/legal/privacy.html');return false" style="color:rgba(255,255,255,0.38);text-decoration:underline">Privacy Policy</a>.
       </p>
     </div>
 
-    <!-- ── SLIDE 5: Paywall — 7-day free trial ──────────────────── -->
-    <div class="fc-ob-slide" id="ob-slide-5" style="justify-content:flex-start;padding-top:8px;overflow-y:auto;-webkit-overflow-scrolling:touch">
+    <!-- ══ SLIDE 4 — PAYWALL: 7-day free trial ═══════════════════ -->
+    <div class="fc-ob-slide" id="ob-slide-4" style="justify-content:flex-start;padding-top:6px">
 
-      <!-- Trust strip — social proof above everything -->
-      <div class="fc-ob-user-strip">
-        <span style="font-size:13px">👥</span>
-        <span class="fc-ob-user-strip-text">14,000+ people trust FlowCheck with their money</span>
+      <!-- Social proof trust strip -->
+      <div class="fc-ob-trust-strip">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(52,199,89,0.75)" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <span class="fc-ob-trust-strip-text">14,000+ people trust FlowCheck with their money</span>
       </div>
 
-      <!-- Hero icon with concentric rings -->
-      <div style="position:relative;width:76px;height:76px;margin-bottom:14px;flex-shrink:0">
-        <div style="position:absolute;inset:0;border-radius:50%;border:1px solid rgba(26,196,240,0.14);animation:fcRingPulse 3s ease-in-out infinite"></div>
-        <div style="position:absolute;inset:8px;border-radius:50%;border:1px solid rgba(26,196,240,0.22);animation:fcRingPulse 3s ease-in-out infinite 0.5s"></div>
-        <div style="position:absolute;inset:16px;border-radius:50%;
-                    background:linear-gradient(135deg,rgba(26,196,240,0.20),rgba(37,99,235,0.18));
-                    border:1.5px solid rgba(26,196,240,0.40);
+      <!-- Hero ring icon -->
+      <div aria-hidden="true" style="position:relative;width:72px;height:72px;margin-bottom:13px;flex-shrink:0">
+        <div style="position:absolute;inset:0;border-radius:50%;border:1px solid rgba(26,196,240,0.16);animation:fcRingPulse 3.2s ease-in-out infinite"></div>
+        <div style="position:absolute;inset:8px;border-radius:50%;border:1px solid rgba(26,196,240,0.26);animation:fcRingPulse 3.2s 0.55s ease-in-out infinite"></div>
+        <div style="position:absolute;inset:17px;border-radius:50%;
+                    background:linear-gradient(145deg,rgba(26,196,240,0.22),rgba(37,99,235,0.18));
+                    border:1.5px solid rgba(26,196,240,0.44);
                     display:flex;align-items:center;justify-content:center;
-                    box-shadow:0 0 24px rgba(26,196,240,0.22)">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1ac4f0" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    box-shadow:0 0 26px rgba(26,196,240,0.26)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1ac4f0" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <line x1="12" y1="1" x2="12" y2="23"/>
             <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
           </svg>
         </div>
       </div>
 
-      <h1 class="fc-ob-title" style="font-size:24px;margin-bottom:4px;line-height:1.2">
-        <span class="fc-ob-title-grad">7 Days Free.</span><br><span id="ob-price-subtitle">Then just $2.91/month.</span>
+      <h1 class="fc-ob-title" style="font-size:26px;margin-bottom:5px;line-height:1.18">
+        <span class="fc-ob-title-grad">7 Days Free.</span><br>
+        <span id="ob-price-subtitle" style="color:rgba(255,255,255,0.88)">Then just $2.91/month.</span>
       </h1>
-      <p class="fc-ob-desc" style="font-size:13px;margin-bottom:16px;color:rgba(255,255,255,0.45)">
+      <p class="fc-ob-desc fc-ob-desc-sm" style="margin-bottom:15px;color:rgba(255,255,255,0.42)">
         Cancel any time. No charge until your trial ends.
       </p>
 
-      <!-- Plan selector — annual pre-selected (best for conversion) -->
-      <div style="width:100%;max-width:320px;display:flex;gap:9px;margin-bottom:14px">
-        <button id="ob-plan-monthly" onclick="obSelectPlan('monthly')" type="button"
-                style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;
-                       background:rgba(255,255,255,0.05);border:1.5px solid rgba(255,255,255,0.12);
-                       border-radius:16px;padding:13px 8px;cursor:pointer;text-align:center;
-                       transition:all 0.2s;-webkit-tap-highlight-color:transparent">
-          <div style="font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:rgba(255,255,255,0.38)">Monthly</div>
-          <div id="ob-price-monthly" style="font-size:21px;font-weight:800;color:#fff;letter-spacing:-0.04em;line-height:1.1;font-variant-numeric:tabular-nums">$4.99</div>
-          <div style="font-size:10px;color:rgba(255,255,255,0.32)">per month</div>
+      <!-- Plan selector -->
+      <div class="fc-ob-plan-row">
+        <button id="ob-plan-monthly" class="fc-ob-plan-btn fc-ob-plan-monthly" onclick="obSelectPlan('monthly')" type="button">
+          <span class="fc-ob-plan-label">Monthly</span>
+          <span class="fc-ob-plan-price" id="ob-price-monthly">$4.99</span>
+          <span class="fc-ob-plan-detail-muted">per month</span>
         </button>
-        <button id="ob-plan-annual" onclick="obSelectPlan('annual')" type="button"
-                style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;
-                       background:rgba(26,196,240,0.09);border:1.5px solid rgba(26,196,240,0.50);
-                       border-radius:16px;padding:13px 8px;cursor:pointer;text-align:center;
-                       position:relative;transition:all 0.2s;-webkit-tap-highlight-color:transparent">
-          <div style="position:absolute;top:-9px;left:50%;transform:translateX(-50%);
-                      background:linear-gradient(90deg,#1ac4f0,#2563eb);border-radius:999px;
-                      padding:2px 10px;font-size:9px;font-weight:800;color:#fff;
-                      letter-spacing:0.06em;text-transform:uppercase;white-space:nowrap">BEST VALUE</div>
-          <div style="font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:rgba(255,255,255,0.38)">Annual</div>
-          <div id="ob-price-annual" style="font-size:21px;font-weight:800;color:#fff;letter-spacing:-0.04em;line-height:1.1;font-variant-numeric:tabular-nums">$34.99</div>
-          <div id="ob-price-annual-detail" style="font-size:10px;color:rgba(52,199,89,0.9);font-weight:600">$2.91/mo · Save 41%</div>
+        <button id="ob-plan-annual" class="fc-ob-plan-btn fc-ob-plan-annual" onclick="obSelectPlan('annual')" type="button">
+          <span class="fc-ob-plan-badge">BEST VALUE</span>
+          <span class="fc-ob-plan-label">Annual</span>
+          <span class="fc-ob-plan-price" id="ob-price-annual">$34.99</span>
+          <span class="fc-ob-plan-detail-green" id="ob-price-annual-detail">$2.91/mo · Save 41%</span>
         </button>
       </div>
 
-      <!-- Feature list -->
-      <div style="width:100%;max-width:320px;display:flex;flex-direction:column;gap:7px;margin-bottom:14px">
-        <div style="display:flex;align-items:center;gap:10px;padding:10px 13px;
-                    background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);
-                    border-radius:12px">
-          <span style="font-size:16px;flex-shrink:0">📊</span>
+      <!-- 4 feature rows -->
+      <div class="fc-ob-feat-list">
+        <div class="fc-ob-feat">
+          <div class="fc-ob-feat-icon" style="background:rgba(26,196,240,0.13)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1ac4f0" stroke-width="2" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          </div>
           <div>
-            <div style="font-size:13px;font-weight:600;color:#fff;line-height:1.2">31-Day Cash Flow Forecast</div>
-            <div style="font-size:11px;color:rgba(255,255,255,0.36);margin-top:1px">See if you'll run low before it happens</div>
+            <div class="fc-ob-feat-name">31-Day Cash Flow Forecast</div>
+            <div class="fc-ob-feat-desc">See if you'll run low before it happens</div>
           </div>
         </div>
-        <div style="display:flex;align-items:center;gap:10px;padding:10px 13px;
-                    background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);
-                    border-radius:12px">
-          <span style="font-size:16px;flex-shrink:0">🧠</span>
+        <div class="fc-ob-feat">
+          <div class="fc-ob-feat-icon" style="background:rgba(37,99,235,0.12)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+          </div>
           <div>
-            <div style="font-size:13px;font-weight:600;color:#fff;line-height:1.2">AI Smart Insights</div>
-            <div style="font-size:11px;color:rgba(255,255,255,0.36);margin-top:1px">Personalized tips based on your spending</div>
+            <div class="fc-ob-feat-name">AI Smart Insights</div>
+            <div class="fc-ob-feat-desc">Personalized tips based on your spending</div>
           </div>
         </div>
-        <div style="display:flex;align-items:center;gap:10px;padding:10px 13px;
-                    background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);
-                    border-radius:12px">
-          <span style="font-size:16px;flex-shrink:0">💳</span>
+        <div class="fc-ob-feat">
+          <div class="fc-ob-feat-icon" style="background:rgba(52,199,89,0.12)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#34c759" stroke-width="2" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          </div>
           <div>
-            <div style="font-size:13px;font-weight:600;color:#fff;line-height:1.2">Debt Payoff Planner</div>
-            <div style="font-size:11px;color:rgba(255,255,255,0.36);margin-top:1px">Avalanche vs. Snowball — see what saves more</div>
+            <div class="fc-ob-feat-name">Debt Payoff Planner</div>
+            <div class="fc-ob-feat-desc">Avalanche vs. Snowball — see what saves more</div>
           </div>
         </div>
-        <div style="display:flex;align-items:center;gap:10px;padding:10px 13px;
-                    background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);
-                    border-radius:12px">
-          <span style="font-size:16px;flex-shrink:0">🔗</span>
+        <div class="fc-ob-feat">
+          <div class="fc-ob-feat-icon" style="background:rgba(255,176,32,0.10)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ffb020" stroke-width="2" stroke-linecap="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+          </div>
           <div>
-            <div style="font-size:13px;font-weight:600;color:#fff;line-height:1.2">Unlimited Bank Accounts</div>
-            <div style="font-size:11px;color:rgba(255,255,255,0.36);margin-top:1px">Connect every account for the full picture</div>
+            <div class="fc-ob-feat-name">Unlimited Bank Accounts</div>
+            <div class="fc-ob-feat-desc">Connect every account for the full picture</div>
           </div>
         </div>
       </div>
 
-      <!-- Trust strip -->
-      <div class="fc-ob-trust" style="margin-bottom:4px">
-        <div class="fc-ob-trust-item">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--fc-success)" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Cancel any time
+      <!-- Trust checkmarks -->
+      <div class="fc-ob-checkrow">
+        <div class="fc-ob-checkitem">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#34c759" stroke-width="2.8" stroke-linecap="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+          Cancel any time
         </div>
-        <div class="fc-ob-trust-item">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--fc-success)" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>No charge today
+        <div class="fc-ob-checkitem">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#34c759" stroke-width="2.8" stroke-linecap="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+          No charge today
         </div>
-        <div class="fc-ob-trust-item">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--fc-success)" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Bank-grade security
+        <div class="fc-ob-checkitem">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#34c759" stroke-width="2.8" stroke-linecap="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+          Bank-grade security
         </div>
       </div>
 
@@ -2981,46 +3101,59 @@ body {
 
   </div><!-- /fc-ob-slides -->
 
-  <!-- Step dots — shown below slides, above CTA -->
+  <!-- Step dots (5 total — one per slide) -->
   <div class="fc-ob-steps" aria-hidden="true" id="ob-steps-row">
     <div class="fc-ob-step active" id="ob-step-0"></div>
     <div class="fc-ob-step" id="ob-step-1"></div>
     <div class="fc-ob-step" id="ob-step-2"></div>
     <div class="fc-ob-step" id="ob-step-3"></div>
     <div class="fc-ob-step" id="ob-step-4"></div>
-    <div class="fc-ob-step" id="ob-step-5"></div>
   </div>
 
+  <!-- CTA zone -->
   <div class="fc-ob-cta">
+    <!-- Primary next button (slides 0, 2, 3) -->
     <button id="ob-next-btn" class="fc-btn fc-btn--primary fc-btn--block"
             onclick="obNext()" type="button"
-            style="font-size:17px;height:56px;margin-bottom:0;letter-spacing:-0.01em;border-radius:17px">
-      Try Free for 7 Days
+            style="font-size:17px;height:56px;margin-bottom:0;letter-spacing:-0.015em;border-radius:18px;
+                   box-shadow:0 8px 30px rgba(26,196,240,0.35),0 2px 8px rgba(0,0,0,0.25)">
+      Get Started
     </button>
-    <!-- Trial CTA — shown on slide 5 (paywall) instead of next button -->
+    <!-- Trial CTA (slide 4 — paywall) -->
     <button id="ob-trial-btn" class="fc-btn fc-btn--primary fc-btn--block"
             onclick="FCApp.startTrialFromOnboarding()" type="button"
-            style="font-size:17px;height:56px;display:none;margin-bottom:0;border-radius:17px;letter-spacing:-0.01em">
+            style="font-size:17px;height:56px;display:none;margin-bottom:0;border-radius:18px;letter-spacing:-0.015em;
+                   box-shadow:0 8px 30px rgba(26,196,240,0.35),0 2px 8px rgba(0,0,0,0.25)">
       Start 7-Day Free Trial
     </button>
+    <!-- Plaid connect (post-paywall) -->
     <button id="btn-plaid-link" class="fc-btn fc-btn--primary fc-btn--block"
             onclick="FCApp.startPlaidLink()" type="button"
-            style="font-size:17px;height:56px;display:none;margin-bottom:0;background:linear-gradient(135deg,#1ac4f0,#2563eb)">
+            style="font-size:17px;height:56px;display:none;margin-bottom:0;
+                   background:linear-gradient(135deg,#1ac4f0,#2563eb);border-radius:18px">
       Connect My Bank
     </button>
+    <!-- Skip link -->
     <button class="fc-skip-btn" onclick="FCApp.skipOnboarding()" type="button"
-            style="margin-top:12px;padding:8px 0;display:none;opacity:0.45;font-size:13px" id="ob-skip-btn">
+            style="margin-top:13px;padding:8px 0;display:none;opacity:0.4;font-size:13px;
+                   font-weight:500;letter-spacing:0.01em" id="ob-skip-btn">
       Maybe later
     </button>
-    <p id="ob-legal-note" style="display:none;font-size:10px;color:rgba(255,255,255,0.22);text-align:center;margin-top:10px;line-height:1.6">
-      Subscription auto-renews after 7-day trial at the selected price. Cancel any time in iOS Settings before trial ends. By continuing you agree to our <a href="#" onclick="FCApp.openUrl('/legal/terms.html');return false" style="color:rgba(255,255,255,0.35)">Terms</a> and <a href="#" onclick="FCApp.openUrl('/legal/privacy.html');return false" style="color:rgba(255,255,255,0.35)">Privacy Policy</a>.
+    <!-- Legal note (paywall slide only) -->
+    <p id="ob-legal-note" style="display:none;font-size:10px;color:rgba(255,255,255,0.20);text-align:center;
+                                  margin-top:10px;line-height:1.65;padding:0 6px">
+      Subscription auto-renews after 7-day trial at the selected price. Cancel any time in iOS Settings before trial ends.
+      By continuing you agree to our
+      <a href="#" onclick="FCApp.openUrl('/legal/terms.html');return false" style="color:rgba(255,255,255,0.36)">Terms</a>
+      and
+      <a href="#" onclick="FCApp.openUrl('/legal/privacy.html');return false" style="color:rgba(255,255,255,0.36)">Privacy Policy</a>.
     </p>
   </div>
 
 </section>
 
 <script>
-/* ── Onboarding net worth counter animation ───────────────── */
+/* ── Net worth counter animation (slide 0) ─────────────────── */
 (function() {
   var _counterDone = false;
 
@@ -3029,27 +3162,22 @@ body {
     _counterDone = true;
     var el = document.getElementById('ob-counter');
     if (!el) return;
-    var target   = 47382;
-    var duration = 1800;
-    var start    = null;
-    function easeOut(t) { return 1 - Math.pow(1 - t, 3); }
-    function step(ts) {
+    var target = 47382, duration = 1900, start = null;
+    function ease(t) { return 1 - Math.pow(1 - t, 3); }
+    function tick(ts) {
       if (!start) start = ts;
-      var p   = Math.min((ts - start) / duration, 1);
-      var val = Math.round(easeOut(p) * target);
-      el.textContent = '$' + val.toLocaleString('en-US');
-      if (p < 1) requestAnimationFrame(step);
+      var p = Math.min((ts - start) / duration, 1);
+      el.textContent = '$' + Math.round(ease(p) * target).toLocaleString('en-US');
+      if (p < 1) requestAnimationFrame(tick);
     }
-    setTimeout(function() { requestAnimationFrame(step); }, 450);
+    setTimeout(function() { requestAnimationFrame(tick); }, 500);
   }
 
-  /* Watch for body[data-screen="onboarding"] */
   var _obs = new MutationObserver(function(muts) {
     muts.forEach(function(m) {
-      if (m.type === 'attributes' && m.attributeName === 'data-screen') {
-        if (document.body.dataset.screen === 'onboarding') {
-          _obAnimateCounter();
-        }
+      if (m.attributeName === 'data-screen' && document.body.dataset.screen === 'onboarding') {
+        _counterDone = false; // allow replay on re-entry
+        _obAnimateCounter();
       }
     });
   });
@@ -5300,13 +5428,12 @@ FCApp.handleAppleSignIn = async function() {
   }
 };
 
-/* ── Onboarding stepper (5 slides) ──────────────────────── */
+/* ── Onboarding stepper (5 slides: 0=vision, 1=goal, 2=security, 3=permissions, 4=paywall) ── */
 let _obStep = 0;
-const _OB_TOTAL   = 6;
-const _obAnswers  = {};
-// Labels per step — null = slide auto-advances; 'trial' = last slide shows trial CTA
-// Slide 2 is now security/trust — uses Continue (not auto-advance)
-const _obLabels = ['Try Free for 7 Days', null, 'Continue', 'Continue', 'Continue', 'trial'];
+const _OB_TOTAL  = 5;
+const _obAnswers = {};
+// null = question slide (auto-advances on tap); 'trial' = last slide shows trial CTA
+const _obLabels  = ['Get Started', null, 'Continue', 'Continue', 'trial'];
 
 function _obUpdateControls() {
   const nextBtn  = document.getElementById('ob-next-btn');
@@ -5421,8 +5548,8 @@ async function obNext() {
     _obSaveConsent();
   }
 
-  // Permissions slide — apply choices before advancing
-  if (_obStep === 4) {
+  // Permissions slide (slide 3) — apply choices before advancing
+  if (_obStep === 3) {
     const btn = document.getElementById('ob-next-btn');
     if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
     await _obApplyPermissions();
@@ -5483,12 +5610,11 @@ function _obUpdateOrbs(step) {
   if (!cyan) return;
   // Adjust orb intensities per slide for ambient variety
   const configs = [
-    { c:'1',   p:'0.5', g:'0'   }, // slide 0 — cyan dominant (hero)
-    { c:'0.4', p:'0.9', g:'0'   }, // slide 1 — purple (goal picker)
-    { c:'0.7', p:'0.4', g:'0'   }, // slide 2 — cyan/mixed (attribution)
-    { c:'0.3', p:'0.8', g:'0.1' }, // slide 3 — purple (feature showcase)
-    { c:'0.2', p:'0.9', g:'0.2' }, // slide 4 — purple (permissions)
-    { c:'0',   p:'0.2', g:'1'   }, // slide 5 — green (security + connect)
+    { c:'1',   p:'0.4', g:'0'   }, // slide 0 — vision: cyan dominant
+    { c:'0.3', p:'1',   g:'0'   }, // slide 1 — goal: electric blue
+    { c:'0.5', p:'0.2', g:'1'   }, // slide 2 — security: green dominant
+    { c:'0.2', p:'0.8', g:'0.2' }, // slide 3 — permissions: warm blue
+    { c:'0.1', p:'1',   g:'0.1' }, // slide 4 — paywall: electric blue
   ];
   const cfg = configs[Math.min(step, configs.length - 1)];
   cyan.style.opacity   = cfg.c;
