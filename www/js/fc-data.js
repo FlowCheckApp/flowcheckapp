@@ -262,8 +262,17 @@ window.FCData = (function () {
     const db   = FCAuth.db();
     if (!user || !db) return;
 
-    const unsub = db.collection('users').doc(user.uid)
+    // Capture the UID at the moment the listener is created. If the auth state
+    // changes (sign-out, account switch) before a pending Firestore snapshot
+    // resolves, the stale callback would overwrite the new user's state.
+    // The UID guard prevents that race condition.
+    const boundUid = user.uid;
+
+    const unsub = db.collection('users').doc(boundUid)
       .onSnapshot(snap => {
+        // Reject snapshots that arrive after the user has switched accounts
+        const currentUid = FCAuth.currentUser()?.uid;
+        if (!currentUid || currentUid !== boundUid) return;
         if (snap.exists) callback({ id: snap.id, ...snap.data() });
       }, err => console.error('[FCData] User listener error:', err));
 

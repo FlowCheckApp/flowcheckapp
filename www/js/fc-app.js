@@ -147,39 +147,179 @@ window.FCApp = (function () {
   // Detect monthly-recurring subscription transactions (shared by stat + hunter)
   // Exclusion list: bank fees, interest charges, loan payments, transfers — these
   // recur regularly but are NOT subscriptions.
-  const _SUB_EXCLUDE_RE = /\b(interest charge|interest|finance charge|late fee|annual fee|over.?limit fee|returned payment|overdraft|service charge|maintenance fee|wire transfer|ach|zelle|venmo|cashapp|paypal|transfer|loan payment|mortgage payment|auto pay|autopay)\b/i;
+  const _SUB_EXCLUDE_RE = /\b(interest charge|interest|finance charge|late fee|annual fee|over.?limit fee|returned payment|overdraft|service charge|maintenance fee|wire transfer|ach|zelle|venmo|cashapp|paypal|transfer|loan payment|mortgage payment|auto pay|autopay|direct deposit|payroll|salary|refund)\b/i;
+
+  // Normalise a merchant name to a stable grouping key.
+  // Strips common suffixes (INC, LLC, .COM, *XXXX charge codes) so that
+  // "NETFLIX.COM", "Netflix Inc", and "NETFLIX* STREAMING" all map to "netflix".
+  function _subGroupKey(name) {
+    return name
+      .toLowerCase()
+      .replace(/\s*\*\s*.*$/, '')        // strip charge codes after *
+      .replace(/\.(com|net|org|io)\b/g, '')
+      .replace(/\b(inc|llc|ltd|co|corp|subscription|billing|payment|charge|recurring|monthly|weekly|annual)\b/g, '')
+      .replace(/[^a-z0-9]/g, '')
+      .substring(0, 16);
+  }
+
   function _detectSubscriptions() {
     const map = {};
     for (const t of state.transactions) {
       if (t.isCredit || !t.date || !t.name) continue;
-      // Skip bank charges, interest, fees, and transfers
       if (_SUB_EXCLUDE_RE.test(t.name)) continue;
-      const rawCat = (t.category && t.category[0]) || '';
+      const rawCat  = (t.category && t.category[0]) || '';
       const normCat = FCData.normalizePlaidCategory(rawCat).toLowerCase();
       if (normCat.includes('transfer') || normCat === 'loan' || normCat === 'bank fees') continue;
-      const key = t.name.toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 14);
+
+      const key = _subGroupKey(t.name);
+      if (!key) continue;
       if (!map[key]) map[key] = { name: t.name, entries: [] };
-      map[key].entries.push({ amount: t.amount || 0, ts: FCData.parseDateLocal(t.date).getTime() });
+      // Keep the display name from the most recent transaction
+      map[key].entries.push({
+        amount: t.amount || 0,
+        ts:     FCData.parseDateLocal(t.date).getTime(),
+        date:   t.date,
+        name:   t.name,
+      });
     }
     const detected = [];
     for (const [, data] of Object.entries(map)) {
       if (data.entries.length < 2) continue;
       data.entries.sort((a, b) => a.ts - b.ts);
+
       const gaps = [];
       for (let i = 1; i < data.entries.length; i++)
         gaps.push((data.entries[i].ts - data.entries[i - 1].ts) / 86400000);
       const avgGap = gaps.reduce((a, b) => a + b, 0) / gaps.length;
-      const avgAmt = data.entries.reduce((s, e) => s + e.amount, 0) / data.entries.length;
-      const isMonthly = avgGap >= 25 && avgGap <= 37;
-      const isWeekly  = avgGap >= 5  && avgGap <= 9;
-      if ((isMonthly || isWeekly) && avgAmt >= 1) {
-        const alreadyTracked = state.bills.some(b =>
-          b.name.toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 8) ===
-          data.name.toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 8));
-        detected.push({ name: data.name, amount: avgAmt, freq: isMonthly ? 'mo' : 'wk', tracked: alreadyTracked });
-      }
+
+      // Use median amount to resist outliers (e.g. an annual charge mixed in)
+      const sorted  = [...data.entries].sort((a, b) => a.amount - b.amount);
+      const mid     = Math.floor(sorted.length / 2);
+      const medAmt  = sorted.length % 2 === 0
+        ? (sorted[mid - 1].amount + sorted[mid].amount) / 2
+        : sorted[mid].amount;
+
+      // Monthly: 21–40 day gap (catches end-of-month variance + billing cycles)
+      // Weekly: 5–9 day gap
+      // Bi-monthly: 55–65 day gap (every other month)
+      const isMonthly  = avgGap >= 21 && avgGap <= 40;
+      const isWeekly   = avgGap >= 5  && avgGap <= 9;
+      const isBiMonthly = avgGap >= 55 && avgGap <= 65;
+      const freq = isMonthly ? 'mo' : isWeekly ? 'wk' : isBiMonthly ? '2mo' : null;
+      if (!freq || medAmt < 0.50) continue;
+
+      const mostRecent = data.entries[data.entries.length - 1];
+      const alreadyTracked = state.bills.some(b =>
+        _subGroupKey(b.name).substring(0, 8) === _subGroupKey(data.name).substring(0, 8));
+
+      detected.push({
+        name:       mostRecent.name,   // most recent display name
+        amount:     medAmt,
+        freq,
+        tracked:    alreadyTracked,
+        entries:    data.entries,      // full history for detail view
+        lastDate:   mostRecent.date,
+      });
     }
-    return detected;
+    // Sort by amount descending (biggest spend first)
+    return detected.sort((a, b) => b.amount - a.amount);
+  }
+
+  // Show subscription detail bottom sheet
+  function showSubDetail(encodedName) {
+    const name = decodeURIComponent(encodedName);
+    const subs = _detectSubscriptions();
+    const sub  = subs.find(s => s.name === name) || subs.find(s => _subGroupKey(s.name) === _subGroupKey(name));
+    if (!sub) return;
+
+    const sheet = document.getElementById('sub-detail-sheet');
+    if (!sheet) return;
+
+    // Estimate next charge date from last date + frequency
+    function nextChargeDate(lastDate, freq) {
+      const d = FCData.parseDateLocal(lastDate);
+      if (freq === 'mo')  d.setMonth(d.getMonth() + 1);
+      else if (freq === 'wk')   d.setDate(d.getDate() + 7);
+      else if (freq === '2mo')  d.setMonth(d.getMonth() + 2);
+      return d;
+    }
+    const freqLabel   = sub.freq === 'mo' ? 'Monthly' : sub.freq === 'wk' ? 'Weekly' : 'Every 2 months';
+    const nextDate    = nextChargeDate(sub.lastDate, sub.freq);
+    const nextLabel   = nextDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+    const lastLabel   = FCData.parseDateLocal(sub.lastDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    const annualEst   = sub.freq === 'mo' ? sub.amount * 12 : sub.freq === 'wk' ? sub.amount * 52 : sub.amount * 6;
+    const cancelUrl   = _subCancelUrl(sub.name);
+
+    function subIcon(n) {
+      const l = n.toLowerCase();
+      if (l.includes('netflix'))   return '🎬';
+      if (l.includes('spotify'))   return '🎵';
+      if (l.includes('apple'))     return '🍎';
+      if (l.includes('amazon'))    return '📦';
+      if (l.includes('hulu'))      return '📺';
+      if (l.includes('disney'))    return '🏰';
+      if (l.includes('youtube'))   return '▶️';
+      if (l.includes('gym') || l.includes('fitness') || l.includes('planet')) return '💪';
+      if (l.includes('adobe'))     return '🎨';
+      if (l.includes('microsoft') || l.includes('office') || l.includes('xbox')) return '🖥️';
+      if (l.includes('google'))    return '🔍';
+      if (l.includes('dropbox') || l.includes('icloud') || l.includes('storage')) return '☁️';
+      if (l.includes('max') || l.includes('hbo'))   return '📡';
+      if (l.includes('peacock') || l.includes('paramount') || l.includes('starz')) return '📺';
+      if (l.includes('openai') || l.includes('chatgpt') || l.includes('claude')) return '🤖';
+      return '📱';
+    }
+
+    const historyRows = sub.entries.slice().reverse().slice(0, 12).map(e => {
+      const d = FCData.parseDateLocal(e.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
+        <span style="font-size:13px;color:rgba(255,255,255,0.6)">${d}</span>
+        <span style="font-size:13px;font-weight:600;color:#fff">${FCData.formatCurrency(e.amount)}</span>
+      </div>`;
+    }).join('');
+
+    const body = document.getElementById('sub-detail-body');
+    if (body) body.innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;padding:24px 0 20px">
+        <div style="font-size:48px;margin-bottom:10px">${subIcon(sub.name)}</div>
+        <div style="font-size:20px;font-weight:700;color:#fff;margin-bottom:4px">${esc(_cleanTxnName({ name: sub.name }))}</div>
+        <div style="font-size:32px;font-weight:800;color:#fff;margin-bottom:2px">${FCData.formatCurrency(sub.amount)}<span style="font-size:16px;font-weight:500;color:rgba(255,255,255,0.5)">/${sub.freq}</span></div>
+        <div style="font-size:12px;color:rgba(255,255,255,0.4)">${FCData.formatCurrency(Math.round(annualEst))}/year estimated</div>
+      </div>
+      <div style="background:rgba(255,255,255,0.04);border-radius:16px;padding:4px 16px;margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
+          <span style="font-size:13px;color:rgba(255,255,255,0.5)">Frequency</span>
+          <span style="font-size:13px;font-weight:600;color:#fff">${freqLabel}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
+          <span style="font-size:13px;color:rgba(255,255,255,0.5)">Last charge</span>
+          <span style="font-size:13px;font-weight:600;color:#fff">${lastLabel}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0">
+          <span style="font-size:13px;color:rgba(255,255,255,0.5)">Next estimated</span>
+          <span style="font-size:13px;font-weight:600;color:var(--fc-warning)">${nextLabel}</span>
+        </div>
+      </div>
+      <div style="margin-bottom:16px">
+        <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.35);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px">Charge history</div>
+        <div style="background:rgba(255,255,255,0.04);border-radius:16px;padding:4px 16px">
+          ${historyRows || '<div style="padding:12px 0;text-align:center;color:rgba(255,255,255,0.3);font-size:13px">No history available</div>'}
+        </div>
+      </div>
+      <a href="${cancelUrl}" target="_blank" rel="noopener noreferrer"
+         style="display:block;text-align:center;padding:14px;background:rgba(255,69,58,0.12);border:1px solid rgba(255,69,58,0.25);border-radius:14px;color:#ff453a;font-size:15px;font-weight:600;text-decoration:none;margin-bottom:8px">
+        Manage / Cancel Subscription
+      </a>
+    `;
+
+    sheet.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeSubDetail() {
+    const sheet = document.getElementById('sub-detail-sheet');
+    if (sheet) sheet.classList.remove('open');
+    document.body.style.overflow = '';
   }
 
   // Cancel / manage URL for known subscription services
@@ -1728,33 +1868,22 @@ window.FCApp = (function () {
     }
 
     listEl.innerHTML = zombies.slice(0, 6).map(z => {
-      const cancelUrl = _subCancelUrl(z.name);
       const icon      = subIcon(z.name);
       const name      = _cleanTxnName({ name: z.name });
       const annualCost = FCData.formatCurrency(Math.round(z.amount * 12));
+      const encoded   = encodeURIComponent(z.name);
       return `
-        <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;
+        <div onclick="FCApp.showSubDetail('${encoded}')"
+             style="display:flex;align-items:center;gap:12px;padding:10px 12px;
                     background:rgba(255,255,255,0.04);border-radius:12px;
-                    border:1px solid rgba(255,255,255,0.06)">
+                    border:1px solid rgba(255,255,255,0.06);cursor:pointer;
+                    -webkit-tap-highlight-color:transparent">
           <span style="font-size:20px;flex-shrink:0">${icon}</span>
           <div style="flex:1;min-width:0">
             <div style="font-size:13px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(name)}</div>
             <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:1px">${FCData.formatCurrency(z.amount)}/${z.freq} · ${annualCost}/yr</div>
           </div>
-          ${cancelUrl ? `
-          <a href="${cancelUrl}" target="_blank" rel="noopener noreferrer"
-             style="flex-shrink:0;font-size:12px;font-weight:600;color:#ff453a;
-                    background:rgba(255,69,58,0.10);border:1px solid rgba(255,69,58,0.25);
-                    border-radius:8px;padding:5px 10px;text-decoration:none;white-space:nowrap;
-                    -webkit-tap-highlight-color:transparent">
-            Cancel
-          </a>` : `
-          <button onclick="FCApp.showBillSheet()" type="button"
-             style="flex-shrink:0;font-size:12px;font-weight:600;color:var(--fc-accent);
-                    background:rgba(26,196,240,0.10);border:1px solid rgba(26,196,240,0.25);
-                    border-radius:8px;padding:5px 10px;font-family:inherit;cursor:pointer;white-space:nowrap">
-            Track
-          </button>`}
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="2.5" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
         </div>`;
     }).join('');
 
@@ -4817,7 +4946,10 @@ window.FCApp = (function () {
     const emailEl = document.getElementById('settings-email');
     const initEl  = document.getElementById('settings-avatar');
     const displayName = user.name || user.displayName || 'User';
-    const displayEmail = user.email || FCAuth.currentUser()?.email || '';
+    // Always prefer the live Firebase Auth email — Firestore may lag on first
+    // load or retain a previous session's value during an account switch.
+    const authUser     = FCAuth.currentUser();
+    const displayEmail = (authUser?.email) || user.email || '';
     if (nameEl)  nameEl.textContent  = displayName;
     if (emailEl) emailEl.textContent = displayEmail;
     if (initEl)  initEl.textContent  = displayName.charAt(0).toUpperCase();
@@ -5545,21 +5677,22 @@ window.FCApp = (function () {
 
   async function toggleNotifications(enable) {
     if (enable) {
+      // requestAndRegister() now only returns false when the OS *explicitly* denied
+      // permission. APNs registration errors are non-fatal and logged separately.
       const granted = await FCPush.requestAndRegister();
       if (!granted) {
-        // Double-check OS permission — requestAndRegister may fail for reasons
-        // other than "user denied" (e.g. simulator, plugin not ready). Only show
-        // the "blocked" message if the OS actually denied permission.
-        const osStatus = await FCPush.checkPermissions().catch(() => 'unavailable');
+        // requestAndRegister returned false → OS denied. Double-check to be sure.
+        const osStatus = await FCPush.checkPermissions().catch(() => 'denied');
         if (osStatus === 'denied') {
-          toast('Notifications blocked — enable in iOS Settings', 'info');
+          toast('Notifications are blocked — tap to open Settings', 'info');
           try {
             const App = window.Capacitor?.Plugins?.App;
             if (App) await App.openUrl({ url: 'app-settings:' });
           } catch (_) {}
-        } else {
-          toast('Could not enable notifications — try again', 'error');
         }
+        // Sync toggle back to off in the UI
+        const toggle = document.getElementById('toggle-notifications');
+        if (toggle) { toggle.classList.remove('on'); toggle.setAttribute('aria-checked', 'false'); }
         return false;
       }
     }
@@ -5568,7 +5701,7 @@ window.FCApp = (function () {
     } catch (err) {
       console.error('[toggleNotifications]', err.message);
     }
-    toast(enable ? 'Notifications enabled' : 'Notifications disabled', 'success');
+    toast(enable ? 'Notifications enabled' : 'Notifications turned off', 'success');
     return true;
   }
 
@@ -7186,6 +7319,107 @@ window.FCApp = (function () {
     return null; // caller re-reads once Firestore listener updates state.user.referral_code
   }
 
+  /* ─────────────────────────────────────────────────────────────
+     PROFILE MANAGEMENT
+     ───────────────────────────────────────────────────────────── */
+
+  function showEditProfileSheet() {
+    const sheet = document.getElementById('edit-profile-sheet');
+    if (!sheet) return;
+    const user      = state.user;
+    const authUser  = FCAuth.currentUser();
+    const nameInput = document.getElementById('edit-profile-name');
+    const emailInput= document.getElementById('edit-profile-email');
+    const phoneInput= document.getElementById('edit-profile-phone');
+    if (nameInput)  nameInput.value  = user?.name || authUser?.displayName || '';
+    if (emailInput) emailInput.value = authUser?.email || user?.email || '';
+    if (phoneInput) phoneInput.value = user?.phone || '';
+    const errEl = document.getElementById('edit-profile-error');
+    if (errEl) errEl.textContent = '';
+    sheet.style.display = 'flex';
+    requestAnimationFrame(() => sheet.classList.add('open'));
+    haptic('light');
+  }
+
+  function closeEditProfileSheet() {
+    const sheet = document.getElementById('edit-profile-sheet');
+    if (!sheet) return;
+    sheet.classList.remove('open');
+    setTimeout(() => { sheet.style.display = 'none'; }, 280);
+  }
+
+  async function saveProfileChanges() {
+    const btn       = document.getElementById('edit-profile-save-btn');
+    const errEl     = document.getElementById('edit-profile-error');
+    const nameInput = document.getElementById('edit-profile-name');
+    const emailInput= document.getElementById('edit-profile-email');
+    const phoneInput= document.getElementById('edit-profile-phone');
+    if (!btn) return;
+
+    const newName  = (nameInput?.value || '').trim();
+    const newEmail = (emailInput?.value || '').trim().toLowerCase();
+    const newPhone = (phoneInput?.value || '').trim();
+
+    if (!newName) {
+      if (errEl) errEl.textContent = 'Name is required.';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+    if (errEl) errEl.textContent = '';
+
+    try {
+      const authUser = FCAuth.currentUser();
+      const db       = FCAuth.db();
+      const updates  = {};
+
+      // Update display name in Firebase Auth
+      if (authUser && newName !== (authUser.displayName || '')) {
+        await authUser.updateProfile({ displayName: newName });
+      }
+
+      // Email change requires re-authentication in Firebase — show clear message
+      if (authUser && newEmail && newEmail !== authUser.email) {
+        try {
+          await authUser.updateEmail(newEmail);
+          updates.email = newEmail;
+        } catch (emailErr) {
+          if (emailErr.code === 'auth/requires-recent-login') {
+            if (errEl) errEl.textContent = 'For security, please sign out and sign back in before changing your email.';
+            btn.disabled = false;
+            btn.textContent = 'Save Changes';
+            return;
+          }
+          throw emailErr;
+        }
+      }
+
+      // Build Firestore update
+      updates.name = newName;
+      if (newPhone) updates.phone = newPhone;
+
+      if (authUser && db) {
+        await db.collection('users').doc(authUser.uid).update(updates);
+      }
+
+      // Optimistically update local state so UI reflects instantly
+      if (state.user) {
+        Object.assign(state.user, updates);
+      }
+
+      closeEditProfileSheet();
+      _renderSettings();
+      toast('Profile updated', 'success');
+    } catch (err) {
+      console.error('[saveProfileChanges]', err);
+      if (errEl) errEl.textContent = err.message || 'Could not save changes. Please try again.';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Save Changes';
+    }
+  }
+
   function showReferralSheet() {
     const sheet = document.getElementById('fc-referral-sheet');
     if (!sheet) return;
@@ -7457,6 +7691,13 @@ window.FCApp = (function () {
     copyReferralCode,
     shareReferralCode,
     toggleReferralInput,
+    // Subscription detail
+    showSubDetail,
+    closeSubDetail,
+    // Profile management
+    showEditProfileSheet,
+    closeEditProfileSheet,
+    saveProfileChanges,
   };
 })();
 

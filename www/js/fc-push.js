@@ -25,16 +25,36 @@ window.FCPush = (function () {
 
     try {
       const permission = await push.requestPermissions();
-      if (permission.receive !== 'granted') {
-        fcLog('Push permission denied');
+      // 'denied' = user explicitly blocked; 'prompt' = not yet asked (shouldn't
+      // land here after requestPermissions returns). Anything else ('granted',
+      // 'provisional', unknown) we treat as granted and proceed.
+      if (permission.receive === 'denied') {
+        fcLog('Push permission denied by user');
         return false;
       }
-      await push.register();
+
+      // Attach listeners BEFORE calling register() so the 'registration' event
+      // (which delivers the FCM token) is never missed if register() resolves
+      // synchronously or the listener fires in the same microtask tick.
       _attachListeners();
-      fcLog('Push notifications registered');
+
+      // register() initiates APNs registration. The actual token arrives
+      // asynchronously via the 'registration' listener above — we must NOT
+      // treat a register() rejection as "no permission". Network errors,
+      // APNs misconfigs, or simulator limitations all cause register() to
+      // throw even when the user has explicitly granted permission.
+      try {
+        await push.register();
+      } catch (regErr) {
+        // Log for diagnostics but do NOT return false — the OS permission was
+        // granted. The token may arrive later when connectivity is restored.
+        console.error('[FCPush] APNs register() failed (non-fatal):', regErr);
+      }
+
+      fcLog('Push notifications permission granted, registration initiated');
       return true;
     } catch (err) {
-      console.error('[FCPush] register failed:', err);
+      console.error('[FCPush] requestPermissions failed:', err);
       return false;
     }
   }
