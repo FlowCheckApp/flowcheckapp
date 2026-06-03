@@ -251,7 +251,15 @@ body.fc-theme {
   background: var(--fc-bg);
   padding: calc(env(safe-area-inset-top, 44px) + 20px) 24px calc(env(safe-area-inset-bottom, 20px) + 16px);
   gap: 0;
-  overflow: hidden;
+  /* overflow-y:auto makes this a proper iOS scroll container.
+     overflow:hidden was causing WKWebView to hold a sticky scrollTop offset
+     after keyboard dismiss because the native UIScrollView backing an
+     overflow:hidden element doesn't reset cleanly via JS scrollTop=0. */
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  height: 100dvh;
+  max-height: 100dvh;
   position: relative;
 }
 
@@ -286,13 +294,6 @@ body.fc-theme {
   animation: fcAuthOrbDrift 13s 2s ease-in-out infinite reverse;
 }
 
-/* Auth screens — fixed height, no scroll */
-.fc-auth-screen {
-  height: 100dvh;
-  max-height: 100dvh;
-  justify-content: flex-start;
-}
-
 /* Content wrapper sits above orbs, fills remaining height */
 .fc-auth-body {
   position: relative;
@@ -302,8 +303,9 @@ body.fc-theme {
   flex-direction: column;
   align-items: center;
   flex: 1;
-  /* Bottom padding ensures legal text stays above keyboard safe area */
-  padding-bottom: max(env(safe-area-inset-bottom, 16px), 16px);
+  /* Parent .fc-auth-screen already includes env(safe-area-inset-bottom) in its
+     padding shorthand — a flat 16px here avoids double-counting the home indicator. */
+  padding-bottom: 16px;
 }
 
 /* ── Logo mark ── */
@@ -759,7 +761,7 @@ body.fc-theme {
     radial-gradient(ellipse 90% 50% at 50% 20%, rgba(37,99,235,0.28) 0%, transparent 65%),
     radial-gradient(ellipse 50% 35% at 85% 80%, rgba(26,196,240,0.14) 0%, transparent 55%),
     var(--fc-bg);
-  padding: calc(env(safe-area-inset-top) + 20px) 24px 32px;
+  padding: calc(env(safe-area-inset-top) + 20px) 24px calc(env(safe-area-inset-bottom) + 32px);
   text-align: center;
   gap: 0;
   overflow-y: auto;
@@ -6113,17 +6115,20 @@ window._btnLoad = _btnLoad;
       requestAnimationFrame(_scrollToActive);
     } else if (_kbOpen) {
       _kbOpen = false;
-      // After keyboard closes: reset body scroll (guard against stuck WKWebView offset)
+      // Wait 200ms after kbHeight≤80 signal before resetting scrollTop.
+      // The iOS keyboard dismiss animation runs ~280ms total; the signal fires
+      // near the end (~250ms in), so 200ms after that gives the native
+      // UIScrollView time to fully settle before we zero the offset.
       _kbTimer = setTimeout(() => {
-        window.scrollTo(0, 0);
-        // Pre-app screens: also reset the screen container scroll
+        // Pre-app form screens: reset the auth screen container scroll to zero.
+        // These screens are now overflow-y:auto, so scrollTop=0 is reliable.
         const screen = document.body.dataset.screen;
         const preApp = ['login','register','forgot-password','verify-email'].includes(screen);
         if (preApp) {
           const el = document.querySelector(`.fc-screen[data-screen="${screen}"]`);
           if (el) el.scrollTop = 0;
         }
-      }, 80);
+      }, 200);
     }
   }
 
