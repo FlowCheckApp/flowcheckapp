@@ -1368,7 +1368,7 @@ window.FCApp = (function () {
     const h = new Date().getHours();
     const greet = h < 5 ? 'Good night' : h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
     const rawName = state.user?.name || state.user?.displayName || '';
-    const name    = rawName.split(' ')[0] || 'there';
+    const name    = rawName.split(' ')[0] || (state.user?.email || '').split('@')[0] || 'there';
     const dateEl  = document.getElementById('home-greeting-date');
     const titleEl = document.getElementById('home-greeting-title');
     if (dateEl) dateEl.textContent = greet;
@@ -2949,7 +2949,7 @@ window.FCApp = (function () {
     // Prefer Firestore 'name' field (set at registration) → Firebase Auth displayName
     // → email prefix → fallback. Never show username/email handle in the greeting.
     const rawName = state.user?.name || state.user?.displayName || '';
-    const name    = rawName.split(' ')[0] || 'there';
+    const name    = rawName.split(' ')[0] || (state.user?.email || '').split('@')[0] || 'there';
 
     if (dateEl) dateEl.textContent = tod;
     titleEl.textContent = name;
