@@ -5,6 +5,13 @@
   "server": {
     "androidScheme": "https"
   },
+  "plugins": {
+    "GoogleAuth": {
+      "scopes": ["profile", "email"],
+      "serverClientId": "305596636244-REPLACE_WITH_WEB_CLIENT_ID.apps.googleusercontent.com",
+      "forceCodeForRefreshToken": true
+    }
+  },
   "ios": {
     "contentInset": "always",
     "backgroundColor": "#0a1520",

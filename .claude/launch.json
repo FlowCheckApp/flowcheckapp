@@ -4,8 +4,8 @@
     {
       "name": "flowcheck",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["serve", "-p", "4321", "www"],
-      "port": 4321
+      "runtimeArgs": ["serve", "-p", "4322", "www"],
+      "port": 4322
     }
   ]
 }

@@ -358,6 +358,48 @@ window.FCAuth = (function () {
     }
   }
 
+  /* ── Sign in with Google ─────────────────────────────────── */
+  async function signInWithGoogle() {
+    if (!_auth) init();
+    const isNative = window.Capacitor && window.Capacitor.isNativePlatform();
+    const googlePlugin = Cap() && Cap().GoogleAuth;
+
+    if (isNative && googlePlugin) {
+      const result = await googlePlugin.signIn();
+      const idToken = result.authentication && result.authentication.idToken;
+      if (!idToken) throw new Error('Google sign-in did not return an ID token');
+      const credential = firebase.auth.GoogleAuthProvider.credential(idToken);
+      const userCred = await _auth.signInWithCredential(credential);
+      // Create user doc on first sign-in
+      const doc = await _db.collection('users').doc(userCred.user.uid).get();
+      if (!doc.exists) {
+        await _db.collection('users').doc(userCred.user.uid).set({
+          uid:          userCred.user.uid,
+          name:         userCred.user.displayName || 'FlowCheck User',
+          email:        userCred.user.email || '',
+          created_at:   firebase.firestore.FieldValue.serverTimestamp(),
+          last_seen:    firebase.firestore.FieldValue.serverTimestamp(),
+          plaid_linked: false,
+          pro:          false,
+          streak:       0,
+        });
+      }
+      haptic('medium');
+      return userCred.user;
+    } else {
+      // Web browser / simulator fallback
+      if (window.Capacitor && window.Capacitor.isNativePlatform()) {
+        throw new Error('Google Sign In requires app configuration. Please use Apple or email to sign in.');
+      }
+      const provider = new firebase.auth.GoogleAuthProvider();
+      provider.addScope('email');
+      provider.addScope('profile');
+      const userCred = await _auth.signInWithPopup(provider);
+      haptic('medium');
+      return userCred.user;
+    }
+  }
+
   /* ── Password reset ──────────────────────────────────────── */
   async function sendPasswordReset(email) {
     if (!_auth) init();
@@ -483,6 +525,7 @@ window.FCAuth = (function () {
     signIn,
     signInWithBiometric,
     signInWithApple,
+    signInWithGoogle,
     signUp,
     sendPasswordReset,
     signOut,
