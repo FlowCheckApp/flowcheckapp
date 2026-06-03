@@ -229,9 +229,20 @@ service cloud.firestore {
     }
 
     // ─── /referrals — Admin SDK only ──────────────────────────────
-    // Maps referral codes → referrer uid + activation stats.
-    // The backend validates and activates codes; clients never read/write directly.
     match /referrals/{code} {
+      allow read, write: if false;
+    }
+
+    // ─── /otp_codes — Admin SDK only ──────────────────────────────
+    // 6-digit OTP codes for email verification. Backend-only.
+    // Never expose codes to the client — even to the owner.
+    match /otp_codes/{uid} {
+      allow read, write: if false;
+    }
+
+    // ─── /signup_followups — Admin SDK only ───────────────────────
+    // Tracks abandoned signup follow-up email state. Backend-only.
+    match /signup_followups/{uid} {
       allow read, write: if false;
     }
 

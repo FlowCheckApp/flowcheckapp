@@ -268,10 +268,10 @@ window.FCAuth = (function () {
 
     await _db.collection('users').doc(user.uid).set(doc);
 
-    // Send Firebase email verification — non-blocking, never delays signup flow
-    if (!user.emailVerified) {
-      try { await user.sendEmailVerification(); } catch (_) { /* best-effort */ }
-    }
+    // Note: email verification is now handled via OTP (POST /auth/otp/send)
+    // called from fc-app.js after the verify-email screen loads.
+    // Firebase's sendEmailVerification() is intentionally NOT called here
+    // to avoid sending two emails to the user.
 
     haptic('medium');
     return user;
