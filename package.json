@@ -19,6 +19,7 @@
     "@capacitor/core": "^8.3.4",
     "@capacitor/haptics": "^8.0.0",
     "@capacitor/ios": "^8.3.4",
+    "@capacitor/keyboard": "^8.0.3",
     "@capacitor/local-notifications": "^8.0.0",
     "@capacitor/preferences": "^8.0.0",
     "@capacitor/push-notifications": "^8.0.0",

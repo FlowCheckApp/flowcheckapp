@@ -6,6 +6,11 @@
     "androidScheme": "https"
   },
   "plugins": {
+    "Keyboard": {
+      "resize": "none",
+      "style": "dark",
+      "resizeOnFullScreen": false
+    },
     "GoogleAuth": {
       "scopes": ["profile", "email"],
       "serverClientId": "305596636244-REPLACE_WITH_WEB_CLIENT_ID.apps.googleusercontent.com",
@@ -13,7 +18,7 @@
     }
   },
   "ios": {
-    "contentInset": "always",
+    "contentInset": "never",
     "backgroundColor": "#0a1520",
     "packageClassList": ["BiometricAuthNative"]
   }

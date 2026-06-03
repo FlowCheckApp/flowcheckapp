@@ -145,6 +145,14 @@ html, body {
   font-variant-numeric: tabular-nums;
   touch-action: pan-y;       /* allow vertical scroll gestures only at root level */
 }
+/* Override design system body.fc-theme — its min-height:100vh and padding-bottom
+   can make the body taller than the WKWebView, leaving a stuck scroll offset when
+   the keyboard dismisses. Body scroll is disabled; safe-area padding is handled
+   per-screen, so none of this is needed at the body level. */
+body.fc-theme {
+  min-height: unset;
+  padding-bottom: 0;
+}
 .phone-frame {
   max-width: 440px;
   margin: 24px auto;
@@ -164,106 +172,46 @@ html, body {
 }
 
 /* ════════════════════════════════════════════════════════════
-   SPLASH SCREEN — Elite Cinematic v2
+   SPLASH SCREEN
    ════════════════════════════════════════════════════════════ */
 .fc-splash {
   align-items:center; justify-content:center;
-  background: radial-gradient(ellipse 80% 60% at 50% 20%, rgba(26,196,240,0.10) 0%, transparent 70%),
-              radial-gradient(ellipse 60% 50% at 80% 80%, rgba(37,99,235,0.12) 0%, transparent 65%),
-              var(--fc-bg);
+  background: var(--fc-bg);
   gap:0; overflow:hidden; position:relative; flex-direction:column;
 }
-/* Ambient drifting orbs */
+/* Ambient glow — static, subtle depth only */
 .fc-splash-orb { position:absolute; border-radius:50%; pointer-events:none; }
 .fc-splash-orb--cyan {
-  width:500px;height:500px; top:-160px; left:50%; transform:translateX(-50%);
-  background:radial-gradient(circle, rgba(26,196,240,0.20) 0%, transparent 68%);
-  filter:blur(70px); animation:splashOrbDrift 8s ease-in-out infinite;
+  width:560px; height:560px; top:-200px; left:50%; transform:translateX(-50%);
+  background:radial-gradient(circle, rgba(26,196,240,0.14) 0%, transparent 65%);
+  filter:blur(80px);
 }
 .fc-splash-orb--blue {
-  width:380px;height:380px; bottom:-100px; right:-80px;
-  background:radial-gradient(circle, rgba(37,99,235,0.18) 0%, transparent 65%);
-  filter:blur(65px); animation:splashOrbDrift 11s 1.5s ease-in-out infinite reverse;
+  width:420px; height:420px; bottom:-140px; right:-100px;
+  background:radial-gradient(circle, rgba(37,99,235,0.12) 0%, transparent 65%);
+  filter:blur(80px);
 }
-.fc-splash-orb--accent {
-  width:260px;height:260px; bottom:120px; left:-60px;
-  background:radial-gradient(circle, rgba(26,196,240,0.10) 0%, transparent 60%);
-  filter:blur(55px); animation:splashOrbDrift 9s 3s ease-in-out infinite;
-}
-@keyframes splashOrbDrift {
-  0%,100%{transform:translate(0,0) scale(1);}
-  40%{transform:translate(16px,-20px) scale(1.06);}
-  70%{transform:translate(-12px,10px) scale(0.96);}
-}
-/* Multi-ring system */
-.fc-splash-rings {
-  position:relative; width:164px; height:164px;
+/* App icon — same DNA as auth + lock screens */
+.fc-splash-icon {
+  width:88px; height:88px; border-radius:26px;
+  background: linear-gradient(145deg, #1ac4f0, #2563eb);
   display:flex; align-items:center; justify-content:center;
-  margin-bottom:30px; animation:fcLogoIn 0.8s var(--fc-ease-spring) both;
-}
-/* Outer slow ring */
-.fc-splash-rings::before {
-  content:''; position:absolute; inset:0; border-radius:50%;
-  background: conic-gradient(from 0deg, transparent 0%, rgba(26,196,240,0.15) 25%, rgba(37,99,235,0.20) 50%, rgba(26,196,240,0.08) 75%, transparent 100%);
-  animation: splashRingOuter 6s linear infinite;
-}
-/* Inner faster ring */
-.fc-splash-rings::after {
-  content:''; position:absolute; inset:14px; border-radius:50%;
-  background: conic-gradient(from 180deg, transparent 0%, rgba(26,196,240,0.35) 30%, rgba(37,99,235,0.45) 60%, transparent 100%);
-  animation: splashRingInner 3.5s linear infinite reverse;
-}
-@keyframes splashRingOuter { to{transform:rotate(360deg)} }
-@keyframes splashRingInner { to{transform:rotate(360deg)} }
-/* Glow blur layer */
-.fc-splash-ring-glow {
-  position:absolute; inset:10px; border-radius:50%;
-  background: conic-gradient(from 0deg, #1ac4f0, #2563eb, #1ac4f0);
-  filter: blur(18px); opacity:.55;
-  animation: splashRingOuter 3.5s linear infinite;
-}
-/* Logo core */
-.fc-splash-ring-inner {
-  position:relative; z-index:1; width:106px; height:106px; border-radius:50%;
-  background: linear-gradient(145deg, #0e2040, #071624);
-  display:flex; align-items:center; justify-content:center;
-  box-shadow: 0 0 60px rgba(26,196,240,0.22) inset, 0 0 0 1.5px rgba(26,196,240,0.28);
-}
-.fc-splash-logo-icon {
-  width:46px; height:46px;
-  background: linear-gradient(135deg, #1ac4f0, #2563eb);
-  border-radius:14px;
-  display:flex; align-items:center; justify-content:center;
-  box-shadow: 0 0 28px rgba(26,196,240,0.45), 0 4px 16px rgba(0,0,0,0.4);
+  box-shadow: 0 24px 64px rgba(26,196,240,0.28), 0 4px 16px rgba(0,0,0,0.45);
+  margin-bottom:28px; position:relative; z-index:1;
+  animation: fcLogoIn 0.65s var(--fc-ease-spring) both;
 }
 /* Typography */
 .fc-splash-wordmark {
-  font-size:36px; font-weight:900; letter-spacing:-.04em; color:white;
-  animation: fcFadeUp 0.55s 0.2s var(--fc-ease-out) both;
+  font-size:34px; font-weight:900; letter-spacing:-.04em; color:white;
+  animation: fcFadeUp 0.5s 0.15s var(--fc-ease-out) both;
   position:relative; z-index:1;
 }
 .fc-splash-tagline {
-  font-size:13px; color:rgba(255,255,255,.32); font-weight:500; letter-spacing:.03em;
-  animation: fcFadeUp 0.55s 0.32s var(--fc-ease-out) both;
-  margin-top:7px; position:relative; z-index:1;
+  font-size:13px; color:rgba(255,255,255,.30); font-weight:500; letter-spacing:.04em;
+  animation: fcFadeUp 0.5s 0.25s var(--fc-ease-out) both;
+  margin-top:8px; position:relative; z-index:1;
 }
-/* Scan bar (replaces dots) */
-.fc-splash-scan {
-  width:120px; height:2px; border-radius:999px;
-  background: rgba(255,255,255,0.06);
-  margin-top:40px; overflow:hidden; position:relative; z-index:1;
-  animation: fcFadeUp 0.55s 0.42s var(--fc-ease-out) both;
-}
-.fc-splash-scan::after {
-  content:''; position:absolute; inset-block:0; width:50%;
-  background: linear-gradient(90deg, transparent, #1ac4f0, transparent);
-  animation: splashScan 1.8s ease-in-out infinite;
-}
-@keyframes splashScan {
-  0%   { left:-50%; }
-  100% { left:100%; }
-}
-@keyframes fcLogoIn{from{opacity:0;transform:scale(.65) translateY(24px)}to{opacity:1;transform:none}}
+@keyframes fcLogoIn{from{opacity:0;transform:scale(.72) translateY(16px)}to{opacity:1;transform:none}}
 
 /* ════════════════════════════════════════════════════════════
    ELITE AUTH SYSTEM v3 — world-class onboarding
@@ -738,23 +686,19 @@ html, body {
   padding: 0 28px; position: relative; z-index: 1;
   padding-top: 24px;
 }
-/* Logo ring */
-.fc-hero-logo-wrap { display: flex; flex-direction: column; align-items: center; margin-bottom: 36px; }
-.fc-hero-logo-ring {
-  width: 88px; height: 88px; border-radius: 50%; padding: 2.5px;
-  background: conic-gradient(from 0deg, #1ac4f0 0%, #2563eb 45%, rgba(26,196,240,0.3) 72%, #1ac4f0 100%);
-  box-shadow: 0 0 56px rgba(26,196,240,0.38), 0 0 120px rgba(26,196,240,0.12);
-  animation: heroLogoSpin 5s linear infinite;
-  margin-bottom: 16px;
-}
-.fc-hero-logo-inner {
-  width: 100%; height: 100%; border-radius: 50%; background: var(--fc-bg);
+/* Logo */
+.fc-hero-logo-wrap { display: flex; flex-direction: column; align-items: center; margin-bottom: 32px; }
+.fc-hero-logo-icon {
+  width: 72px; height: 72px; border-radius: 22px;
+  background: linear-gradient(145deg, #1ac4f0, #2563eb);
   display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 20px 52px rgba(26,196,240,0.28), 0 4px 16px rgba(0,0,0,0.4);
+  margin-bottom: 14px;
+  animation: fcLogoIn 0.65s var(--fc-ease-spring) both;
 }
-@keyframes heroLogoSpin { to { transform: rotate(360deg); } }
 .fc-hero-wordmark {
-  font-size: 22px; font-weight: 800; color: #fff; letter-spacing: -0.03em;
-  animation: fcFadeUp 0.6s 0.3s var(--fc-ease-out) both;
+  font-size: 20px; font-weight: 800; color: rgba(255,255,255,0.70); letter-spacing: -0.02em;
+  animation: fcFadeUp 0.5s 0.2s var(--fc-ease-out) both;
 }
 /* Hero copy */
 .fc-hero-copy { text-align: center; margin-bottom: 28px; }
@@ -2031,26 +1975,17 @@ body {
 
 <!-- ══════════════════════════════════════ SCREEN: SPLASH -->
 <section class="fc-screen fc-splash" data-screen="splash" aria-label="Loading">
-  <!-- Ambient drifting orbs -->
   <div class="fc-splash-orb fc-splash-orb--cyan" aria-hidden="true"></div>
   <div class="fc-splash-orb fc-splash-orb--blue" aria-hidden="true"></div>
-  <div class="fc-splash-orb fc-splash-orb--accent" aria-hidden="true"></div>
 
-  <!-- Multi-ring logo system -->
-  <div class="fc-splash-rings" aria-hidden="true">
-    <div class="fc-splash-ring-glow"></div>
-    <div class="fc-splash-ring-inner">
-      <div class="fc-splash-logo-icon">
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="white" aria-hidden="true">
-          <path d="M4 4h16v3H4zm0 6h11v3H4zm0 6h7v3H4z"/>
-        </svg>
-      </div>
-    </div>
+  <div class="fc-splash-icon" aria-hidden="true">
+    <svg width="38" height="38" viewBox="0 0 24 24" fill="white" aria-hidden="true">
+      <path d="M4 4h16v3H4zm0 6h11v3H4zm0 6h7v3H4z"/>
+    </svg>
   </div>
 
   <div class="fc-splash-wordmark">FlowCheck</div>
   <div class="fc-splash-tagline">Your financial life, organized.</div>
-  <div class="fc-splash-scan" aria-hidden="true"></div>
 </section>
 
 
@@ -2066,12 +2001,10 @@ body {
   </div>
   <div class="fc-hero-content">
     <div class="fc-hero-logo-wrap">
-      <div class="fc-hero-logo-ring">
-        <div class="fc-hero-logo-inner">
-          <svg width="36" height="36" viewBox="0 0 24 24" fill="white" aria-hidden="true">
-            <path d="M4 4h16v3H4zm0 6h11v3H4zm0 6h7v3H4z"/>
-          </svg>
-        </div>
+      <div class="fc-hero-logo-icon">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="white" aria-hidden="true">
+          <path d="M4 4h16v3H4zm0 6h11v3H4zm0 6h7v3H4z"/>
+        </svg>
       </div>
       <div class="fc-hero-wordmark">FlowCheck</div>
     </div>
@@ -2896,46 +2829,8 @@ body {
 
 /* ── Splash / Auth enhancements ── */
 .fc-splash { position:relative; overflow:hidden; }
-.fc-splash-orb {
-  position:absolute; border-radius:50%; filter:blur(80px);
-  pointer-events:none; z-index:0;
-}
-.fc-splash-orb--cyan {
-  width:480px; height:480px; top:-160px; left:-120px;
-  background:radial-gradient(circle,rgba(26,196,240,0.22),transparent 65%);
-  animation:fcSplashDrift 7s ease-in-out infinite;
-}
-.fc-splash-orb--blue {
-  width:400px; height:400px; bottom:-120px; right:-100px;
-  background:radial-gradient(circle,rgba(37,99,235,0.18),transparent 65%);
-  animation:fcSplashDrift 9s ease-in-out infinite reverse;
-}
-@keyframes fcSplashDrift {
-  0%,100%{transform:translate(0,0);}
-  50%{transform:translate(22px,-16px);}
-}
-.fc-splash-ring {
-  position:relative; z-index:1; flex-shrink:0;
-  width:90px; height:90px; border-radius:50%;
-  padding:2.5px;
-  background:conic-gradient(from 0deg, #1ac4f0 0%, #2563eb 40%, rgba(26,196,240,0.3) 70%, #1ac4f0 100%);
-  box-shadow:0 0 64px rgba(26,196,240,0.32), 0 0 120px rgba(26,196,240,0.10);
-  animation:fcSplashRingSpin 3.5s linear infinite;
-  margin-bottom:22px;
-}
-.fc-splash-ring-inner {
-  width:100%; height:100%; border-radius:50%;
-  background:var(--fc-bg);
-  display:flex; align-items:center; justify-content:center;
-}
-@keyframes fcSplashRingSpin { to { transform:rotate(360deg); } }
 .fc-splash-wordmark { position:relative; z-index:1; }
-.fc-splash-tagline {
-  position:relative; z-index:1;
-  font-size:13px; color:rgba(255,255,255,0.30); font-weight:500;
-  letter-spacing:0.04em; margin-top:2px; margin-bottom:34px;
-}
-.fc-splash-loader { position:relative; z-index:1; }
+.fc-splash-tagline { position:relative; z-index:1; }
 
 /* AUTH HERO */
 .fc-auth-hero {
@@ -6182,15 +6077,29 @@ window._btnLoad = _btnLoad;
   let _kbTimer;
   let _kbOpen = false;
 
-  function _scrollToActive(el) {
+  // Find nearest scrollable ancestor, falling back to the active fc-screen
+  function _scrollableParent(el) {
+    let node = el ? el.parentElement : null;
+    while (node && node !== document.body) {
+      const oy = getComputedStyle(node).overflowY;
+      if (oy === 'auto' || oy === 'scroll' || oy === 'overlay') return node;
+      node = node.parentElement;
+    }
+    const screen = document.body.dataset.screen;
+    return document.querySelector(`.fc-screen[data-screen="${screen}"]`);
+  }
+
+  function _scrollToActive() {
     const active = document.activeElement;
     if (!active || (active.tagName !== 'INPUT' && active.tagName !== 'TEXTAREA')) return;
-    const vv       = window.visualViewport;
-    const kbHeight = window.innerHeight - vv.height - vv.offsetTop;
-    const rect     = active.getBoundingClientRect();
-    const visibleBottom = window.innerHeight - kbHeight - 20; // 20px breathing room
+    const vv           = window.visualViewport;
+    const kbHeight     = window.innerHeight - vv.height - vv.offsetTop;
+    if (kbHeight < 80) return;
+    const rect         = active.getBoundingClientRect();
+    const visibleBottom = window.innerHeight - kbHeight - 20;
     if (rect.bottom > visibleBottom) {
-      el.scrollTop += rect.bottom - visibleBottom;
+      const container = _scrollableParent(active);
+      if (container) container.scrollTop += rect.bottom - visibleBottom;
     }
   }
 
@@ -6198,37 +6107,30 @@ window._btnLoad = _btnLoad;
     clearTimeout(_kbTimer);
     const vv       = window.visualViewport;
     const kbHeight = window.innerHeight - vv.height - vv.offsetTop;
-    const screen   = document.body.dataset.screen;
-    const preApp   = ['login','register','forgot-password','verify-email'].includes(screen);
-    if (!preApp) return;
-
-    const el = document.querySelector(`.fc-screen[data-screen="${screen}"]`);
-    if (!el) return;
 
     if (kbHeight > 80) {
       _kbOpen = true;
-      // Fire immediately — no delay avoids the visible bounce
-      requestAnimationFrame(() => _scrollToActive(el));
+      requestAnimationFrame(_scrollToActive);
     } else if (_kbOpen) {
       _kbOpen = false;
-      // Small delay so iOS finishes its own scroll-back before we reset
+      // After keyboard closes: reset body scroll (guard against stuck WKWebView offset)
       _kbTimer = setTimeout(() => {
-        el.scrollTop = 0;
         window.scrollTo(0, 0);
+        // Pre-app screens: also reset the screen container scroll
+        const screen = document.body.dataset.screen;
+        const preApp = ['login','register','forgot-password','verify-email'].includes(screen);
+        if (preApp) {
+          const el = document.querySelector(`.fc-screen[data-screen="${screen}"]`);
+          if (el) el.scrollTop = 0;
+        }
       }, 80);
     }
   }
 
-  // Focus event fires before keyboard opens — pre-position on next frame
+  // Focus fires before keyboard opens — wait for iOS keyboard animation (~350ms)
   document.addEventListener('focusin', (e) => {
     if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') return;
-    const screen = document.body.dataset.screen;
-    const preApp = ['login','register','forgot-password','verify-email'].includes(screen);
-    if (!preApp) return;
-    const el = document.querySelector(`.fc-screen[data-screen="${screen}"]`);
-    if (!el) return;
-    // Wait for keyboard to actually open (iOS takes ~350ms), then scroll
-    setTimeout(() => _scrollToActive(el), 360);
+    setTimeout(_scrollToActive, 360);
   }, { passive: true });
 
   window.visualViewport.addEventListener('resize', _onViewportResize, { passive: true });
