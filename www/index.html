@@ -5639,6 +5639,10 @@ window._btnLoad = _btnLoad;
             if (gap > 0) el.scrollTop += gap;
           });
         }
+      } else {
+        // Keyboard closed — reset any scroll shift so it doesn't bleed to other screens
+        el.scrollTop = 0;
+        window.scrollTo(0, 0);
       }
     }, 60);
   }

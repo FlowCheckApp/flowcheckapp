@@ -1092,6 +1092,7 @@ window.FCApp = (function () {
     const inEl = document.querySelector(`.fc-screen[data-screen="${name}"]`);
     if (inEl) {
       inEl.scrollTop = 0;
+      window.scrollTo(0, 0);
       if (name !== 'splash') {
         const cls = (prev === 'splash' || name === 'app')
           ? 'fc-screen--reveal'
