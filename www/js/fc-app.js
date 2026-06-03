@@ -234,6 +234,7 @@ window.FCApp = (function () {
 
     const sheet = document.getElementById('sub-detail-sheet');
     if (!sheet) return;
+    sheet.style.display = 'flex';
 
     // Estimate next charge date from last date + frequency
     function nextChargeDate(lastDate, freq) {
@@ -312,14 +313,13 @@ window.FCApp = (function () {
       </a>
     `;
 
-    sheet.classList.add('open');
-    document.body.style.overflow = 'hidden';
   }
 
   function closeSubDetail() {
     const sheet = document.getElementById('sub-detail-sheet');
-    if (sheet) sheet.classList.remove('open');
-    document.body.style.overflow = '';
+    if (!sheet) return;
+    sheet.classList.add('fc-sheet--closing');
+    setTimeout(() => { sheet.style.display = 'none'; sheet.classList.remove('fc-sheet--closing'); }, 280);
   }
 
   // Cancel / manage URL for known subscription services
@@ -7341,15 +7341,14 @@ window.FCApp = (function () {
     const errEl = document.getElementById('edit-profile-error');
     if (errEl) errEl.textContent = '';
     sheet.style.display = 'flex';
-    requestAnimationFrame(() => sheet.classList.add('open'));
     haptic('light');
   }
 
   function closeEditProfileSheet() {
     const sheet = document.getElementById('edit-profile-sheet');
     if (!sheet) return;
-    sheet.classList.remove('open');
-    setTimeout(() => { sheet.style.display = 'none'; }, 280);
+    sheet.classList.add('fc-sheet--closing');
+    setTimeout(() => { sheet.style.display = 'none'; sheet.classList.remove('fc-sheet--closing'); }, 280);
   }
 
   async function saveProfileChanges() {

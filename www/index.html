@@ -5686,66 +5686,53 @@ attachToFCApp();
 <!-- ══════════════════════════════════════════════════════════════════
      SUBSCRIPTION DETAIL SHEET
      ══════════════════════════════════════════════════════════════════ -->
-<div id="sub-detail-sheet" class="fc-bottom-sheet" style="display:none" aria-modal="true" role="dialog" aria-label="Subscription detail">
-  <div class="fc-sheet-handle"></div>
-  <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 20px 0">
-    <div style="font-size:17px;font-weight:700;color:#fff">Subscription</div>
-    <button onclick="FCApp.closeSubDetail()" class="fc-iconbtn" aria-label="Close" style="margin-right:-8px">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-    </button>
+<div id="sub-detail-sheet" class="fc-sheet-overlay" onclick="if(event.target===this)FCApp.closeSubDetail()" style="display:none" role="dialog" aria-modal="true" aria-label="Subscription detail">
+  <div class="fc-sheet" onclick="event.stopPropagation()" style="max-height:85vh;overflow-y:auto;-webkit-overflow-scrolling:touch">
+    <div class="fc-sheet-handle"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 20px 0">
+      <div class="fc-sheet-title" style="margin:0">Subscription</div>
+      <button onclick="FCApp.closeSubDetail()" class="fc-iconbtn" aria-label="Close" style="margin-right:-8px">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div id="sub-detail-body" style="padding:0 20px 20px"></div>
   </div>
-  <div id="sub-detail-body" style="padding:0 20px 20px;overflow-y:auto;-webkit-overflow-scrolling:touch;max-height:70vh"></div>
 </div>
-<div class="fc-sheet-backdrop" onclick="FCApp.closeSubDetail()" id="sub-detail-backdrop" style="display:none"></div>
-<style>
-#sub-detail-sheet { z-index: 320; }
-#sub-detail-backdrop { z-index: 319; }
-#sub-detail-sheet.open { transform: translateY(0) !important; }
-#sub-detail-sheet.open ~ #sub-detail-backdrop { display: block; }
-</style>
 
 <!-- ══════════════════════════════════════════════════════════════════
      EDIT PROFILE SHEET
      ══════════════════════════════════════════════════════════════════ -->
-<div id="edit-profile-sheet" class="fc-bottom-sheet" style="display:none" aria-modal="true" role="dialog" aria-label="Edit profile">
-  <div class="fc-sheet-handle"></div>
-  <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 20px 0">
-    <div style="font-size:17px;font-weight:700;color:#fff">Edit Profile</div>
-    <button onclick="FCApp.closeEditProfileSheet()" class="fc-iconbtn" aria-label="Close" style="margin-right:-8px">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-    </button>
+<div id="edit-profile-sheet" class="fc-sheet-overlay" onclick="if(event.target===this)FCApp.closeEditProfileSheet()" style="display:none" role="dialog" aria-modal="true" aria-label="Edit profile">
+  <div class="fc-sheet" onclick="event.stopPropagation()">
+    <div class="fc-sheet-handle"></div>
+    <div class="fc-sheet-title">Edit Profile</div>
+    <div style="padding:0 20px 8px">
+      <div style="margin-bottom:14px">
+        <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.4);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px">Display Name</div>
+        <input id="edit-profile-name" type="text" autocomplete="name" autocapitalize="words" placeholder="Your name"
+               style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:13px 16px;font-size:15px;color:#fff;font-family:inherit;outline:none;-webkit-appearance:none">
+      </div>
+      <div style="margin-bottom:14px">
+        <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.4);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px">Email Address</div>
+        <input id="edit-profile-email" type="email" inputmode="email" autocomplete="email" placeholder="you@example.com"
+               style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:13px 16px;font-size:15px;color:#fff;font-family:inherit;outline:none;-webkit-appearance:none">
+        <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:5px;padding-left:4px">Changing email requires recent sign-in for security.</div>
+      </div>
+      <div style="margin-bottom:20px">
+        <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.4);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px">Phone (optional)</div>
+        <input id="edit-profile-phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+1 (555) 000-0000"
+               style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:13px 16px;font-size:15px;color:#fff;font-family:inherit;outline:none;-webkit-appearance:none">
+      </div>
+      <div id="edit-profile-error" style="font-size:13px;color:var(--fc-danger);margin-bottom:12px;min-height:18px"></div>
+      <button id="edit-profile-save-btn" onclick="FCApp.saveProfileChanges()"
+              class="fc-btn fc-btn--primary fc-btn--block">
+        Save Changes
+      </button>
+    </div>
+    <div style="height:calc(env(safe-area-inset-bottom) + 12px)"></div>
   </div>
-  <div style="padding:20px 20px 8px">
-    <div style="margin-bottom:14px">
-      <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.4);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px">Display Name</div>
-      <input id="edit-profile-name" type="text" autocomplete="name" autocapitalize="words" placeholder="Your name"
-             style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:13px 16px;font-size:15px;color:#fff;font-family:inherit;outline:none;-webkit-appearance:none">
-    </div>
-    <div style="margin-bottom:14px">
-      <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.4);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px">Email Address</div>
-      <input id="edit-profile-email" type="email" inputmode="email" autocomplete="email" placeholder="you@example.com"
-             style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:13px 16px;font-size:15px;color:#fff;font-family:inherit;outline:none;-webkit-appearance:none">
-      <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:5px;padding-left:4px">Changing email requires recent sign-in for security.</div>
-    </div>
-    <div style="margin-bottom:20px">
-      <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.4);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px">Phone (optional)</div>
-      <input id="edit-profile-phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+1 (555) 000-0000"
-             style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:13px 16px;font-size:15px;color:#fff;font-family:inherit;outline:none;-webkit-appearance:none">
-    </div>
-    <div id="edit-profile-error" style="font-size:13px;color:var(--fc-danger);margin-bottom:12px;min-height:18px"></div>
-    <button id="edit-profile-save-btn" onclick="FCApp.saveProfileChanges()"
-            style="width:100%;padding:15px;background:var(--fc-accent);border:none;border-radius:14px;color:#fff;font-size:16px;font-weight:700;font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent">
-      Save Changes
-    </button>
-  </div>
-  <div style="height:calc(env(safe-area-inset-bottom) + 12px)"></div>
 </div>
-<div class="fc-sheet-backdrop" onclick="FCApp.closeEditProfileSheet()" id="edit-profile-backdrop" style="display:none"></div>
 <style>
-#edit-profile-sheet { z-index: 320; }
-#edit-profile-backdrop { z-index: 319; }
-#edit-profile-sheet.open { transform: translateY(0) !important; }
-#edit-profile-sheet.open ~ #edit-profile-backdrop { display: block; }
 input::placeholder { color: rgba(255,255,255,0.25); }
 </style>
 
