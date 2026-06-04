@@ -6204,9 +6204,9 @@ window.FCApp = (function () {
       searchInput.addEventListener('input', e => handleSearch(e.target.value));
     }
 
-    // Configure RevenueCat with the Firebase UID so RC subscriber records map
-    // directly to Firebase users — the webhook uses app_user_id as the UID.
-    FCPurchases.configure(FCAuth.currentUser()?.uid || null).catch(() => {});
+    // RevenueCat is configured inside onAuthStateChanged (below) once Firebase
+    // resolves the real UID — calling configure() here would use a null UID
+    // because currentUser() is always null at DOMContentLoaded.
 
     // ── Referral deep link handler ─────────────────────────────────
     // Fires when the app is opened via flowcheck://referral?code=FLOWXXXXXX
@@ -6266,6 +6266,11 @@ window.FCApp = (function () {
       if (user) {
         fcLog('User authenticated:', user.uid);
 
+        // Configure RevenueCat now that we have the real Firebase UID.
+        // Must happen here, not at DOMContentLoaded, because currentUser()
+        // is null until Firebase auth resolves.
+        FCPurchases.configure(user.uid).catch(() => {});
+
         // Warm the Railway backend immediately after auth so it's ready
         // before the user taps anything — prevents cold-start timeouts.
         FCData.warmBackend();
@@ -6287,15 +6292,28 @@ window.FCApp = (function () {
         // Navigate to the correct screen.
         // Fetch userDoc and biometric setting in parallel — they're independent
         // and running them sequentially added ~100-300ms to every cold launch.
-        const [userDoc, biometricEnabled] = await Promise.all([
-          FCAuth.getUserDoc(),
-          FCAuth.isBiometricEnabled(),
-        ]);
+        let userDoc = null, biometricEnabled = false;
+        try {
+          [userDoc, biometricEnabled] = await Promise.all([
+            FCAuth.getUserDoc(),
+            FCAuth.isBiometricEnabled(),
+          ]);
+        } catch (err) {
+          fcLog('Failed to load user doc on auth:', err);
+          // Transient Firestore error — fall back to home rather than blank screen.
+          // Next app open will retry via onAuthStateChanged.
+          setScreen('app');
+          _renderHome();
+          return;
+        }
         // needsOnboarding: user exists in Firestore, hasn't completed onboarding,
         // and hasn't linked a bank (bank link = backward-compat bypass for early users).
         // If the user closed the app mid-onboarding (onboarding_complete not yet set),
         // they resume onboarding on next open — never jump to the dashboard.
-        const needsOnboarding = userDoc && !userDoc.onboarding_complete && !userDoc.plaid_linked;
+        // Treat a missing doc (new user whose Firestore doc isn't created yet)
+        // the same as an incomplete user — always route to onboarding rather
+        // than falling through to the dashboard.
+        const needsOnboarding = !userDoc || (!userDoc.onboarding_complete && !userDoc.plaid_linked);
         if (needsOnboarding) {
           // New user just registered in this session — show email verification first
           if (window._fcNewUserFaceIdPending) {
@@ -6366,7 +6384,11 @@ window.FCApp = (function () {
                 }
                 setTimeout(() => _tryStartTour(), 1400);
               }
-            }).catch(() => {});
+            }).catch(() => {
+              // RC unavailable — can't confirm pro status, so show paywall to be safe.
+              // A real Pro subscriber will see their entitlement restored on next RC connect.
+              if (!_paywallShownThisSession) setTimeout(() => showPaywall(), 1200);
+            });
           } else if (userDoc?.is_pro) {
             // Pro user — offer tour if they haven't seen it
             setTimeout(() => _tryStartTour(), 1400);
