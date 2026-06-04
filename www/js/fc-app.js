@@ -19,6 +19,7 @@ window.FCApp = (function () {
     goals:           [],
     budgets:         {},
     syncing:         false,
+    initialLoading:  false,  // true after auth until first Firestore snapshot arrives
     lastSyncAt:      0,          // timestamp of last successful sync (ms) — used for rate limiting
     searchQuery:     '',
     period:          '1M',       // active home-screen period: 1D | 1W | 1M | 3M | 1Y | All
@@ -3122,7 +3123,7 @@ window.FCApp = (function () {
 
     if (!state.accounts.length) {
       // Show skeleton while bank is linked and data is in-flight; hide otherwise
-      const loading = !!(state.user?.plaid_linked && state.syncing);
+      const loading = !!(state.user?.plaid_linked && (state.syncing || state.initialLoading));
       if (skeleton) skeleton.style.display = loading ? '' : 'none';
       wrap.style.display = 'none';
       if (dots) dots.style.display = 'none';
@@ -3391,7 +3392,7 @@ window.FCApp = (function () {
     if (!recent.length) {
       if (section) section.style.display = state.user?.plaid_linked ? '' : 'none';
       // Show shimmer skeleton while syncing, plain empty state otherwise
-      if (state.user?.plaid_linked && state.syncing) {
+      if (state.user?.plaid_linked && (state.syncing || state.initialLoading)) {
         if (skeleton) skeleton.style.display = '';
         return;
       }
@@ -3995,12 +3996,59 @@ window.FCApp = (function () {
   }
 
   /* ─────────────────────────────────────────────────────────────
+     SKELETON HELPERS  (reuse .fc-skel shimmer class from index.html)
+     ───────────────────────────────────────────────────────────── */
+
+  // Returns n shimmer transaction rows using the existing .fc-skel / .fc-skel-txn classes.
+  function _skeletonTxnRows(n) {
+    const configs = [
+      [55, 35, 52], [65, 40, 44], [48, 28, 58],
+      [60, 32, 48], [52, 38, 56], [44, 30, 50], [58, 36, 54],
+    ];
+    return Array.from({ length: n }, (_, i) => {
+      const op = (Math.max(0.22, 1 - i * 0.13)).toFixed(2);
+      const [w1, w2, w3] = configs[i % configs.length];
+      return `<div class="fc-skel-txn">
+        <div class="fc-skel" style="width:36px;height:36px;border-radius:10px;flex-shrink:0;opacity:${op}"></div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:6px">
+          <div class="fc-skel" style="height:13px;width:${w1}%;opacity:${op}"></div>
+          <div class="fc-skel" style="height:10px;width:${w2}%;opacity:${(op * 0.65).toFixed(2)}"></div>
+        </div>
+        <div class="fc-skel" style="width:${w3}px;height:14px;opacity:${op}"></div>
+      </div>`;
+    }).join('');
+  }
+
+  // Returns n shimmer category rows for the Insights tab.
+  function _skeletonCategoryRows(n) {
+    const widths = [[70, 35], [55, 28], [80, 40], [45, 32], [65, 38]];
+    return Array.from({ length: n }, (_, i) => {
+      const op = (Math.max(0.22, 1 - i * 0.15)).toFixed(2);
+      const [w1, w2] = widths[i % widths.length];
+      return `<div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:0.5px solid rgba(255,255,255,0.04)">
+        <div class="fc-skel" style="width:32px;height:32px;border-radius:8px;flex-shrink:0;opacity:${op}"></div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:5px">
+          <div class="fc-skel" style="height:12px;width:${w1}%;opacity:${op}"></div>
+          <div class="fc-skel" style="height:10px;width:${w2}%;opacity:${(op * 0.6).toFixed(2)}"></div>
+        </div>
+        <div class="fc-skel" style="width:48px;height:12px;opacity:${op}"></div>
+      </div>`;
+    }).join('');
+  }
+
+  /* ─────────────────────────────────────────────────────────────
      RENDER: ACTIVITY
      ───────────────────────────────────────────────────────────── */
 
   function _renderActivity() {
     const container = document.getElementById('activity-list');
     if (!container) return;
+
+    // Show shimmer rows while waiting for the first Firestore snapshot.
+    if (state.initialLoading && state.user?.plaid_linked) {
+      container.innerHTML = `<div class="dash-txn-card">${_skeletonTxnRows(7)}</div>`;
+      return;
+    }
 
     // Apply period filter
     const _now2 = new Date(); _now2.setHours(0,0,0,0);
@@ -4264,6 +4312,12 @@ window.FCApp = (function () {
 
     const container = document.getElementById('insights-categories');
     if (!container) return;
+
+    // Show shimmer while waiting for the first Firestore snapshot.
+    if (state.initialLoading && state.user?.plaid_linked) {
+      container.innerHTML = _skeletonCategoryRows(5);
+      return;
+    }
 
     // ── Period-aware transactions ─────────────────────────────────
     // Insights respond to the global period selector (same as home screen)
@@ -6032,6 +6086,7 @@ window.FCApp = (function () {
       return;
     }
     _listenersAttached = true;
+    state.initialLoading = true;
     FCData.listenToUser(user => {
       state.user = user;
       if (state.screen === 'app') _renderSettings();
@@ -6041,6 +6096,7 @@ window.FCApp = (function () {
     });
 
     FCData.listenToAccounts(accounts => {
+      state.initialLoading = false;
       state.accounts = accounts;
       if (state.tab === 'home') _renderHome();
       if (state.tab === 'insights') _renderInsights();
@@ -6049,6 +6105,7 @@ window.FCApp = (function () {
     });
 
     FCData.listenToTransactions(500, transactions => {
+      state.initialLoading = false;
       state.transactions = transactions;
       // Re-render home so "Recent Activity" and "Safe to Spend" update immediately
       if (state.tab === 'home')     _renderHome();
