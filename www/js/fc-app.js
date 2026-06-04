@@ -5119,6 +5119,10 @@ window.FCApp = (function () {
     const user = state.user;
     if (!user) return;
 
+    // Show dev-only tools when env = development
+    const devRow = document.getElementById('dev-test-email-row');
+    if (devRow) devRow.style.display = FC_CONFIG.app.env === 'development' ? 'flex' : 'none';
+
     const nameEl  = document.getElementById('settings-name');
     const emailEl = document.getElementById('settings-email');
     const initEl  = document.getElementById('settings-avatar');
@@ -6390,6 +6394,7 @@ window.FCApp = (function () {
   }
 
   async function sendTestEmail() {
+    if (FC_CONFIG.app.env !== 'development') return;
     const statusEl = document.getElementById('test-email-status');
     if (statusEl) statusEl.textContent = 'Sending…';
     try {
