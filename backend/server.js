@@ -51,6 +51,7 @@ const rateLimit    = require('express-rate-limit');
 const compression  = require('compression');
 const admin        = require('firebase-admin');
 const crypto       = require('crypto');
+const path         = require('path');
 const {
   Configuration, PlaidApi, PlaidEnvironments,
   Products, CountryCode,
@@ -340,6 +341,11 @@ async function requireAuth(req, res, next) {
 /* ── Root + Health check ─────────────────────────────────────── */
 app.get('/', (_req, res) => res.json({ name: 'FlowCheck API', status: 'ok', version: '1.0.0' }));
 app.get('/health', (_req, res) => res.json({ ok: true }));
+app.get('/flowcheck-icon.png', (_req, res) => {
+  res.setHeader('Content-Type', 'image/png');
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  res.sendFile(path.join(__dirname, 'flowcheck-icon.png'));
+});
 
 /* ─────────────────────────────────────────────────────────────
    GET /open   — smart deep link for email CTAs
@@ -360,7 +366,7 @@ app.get('/open', (req, res) => {
   <title>Opening FlowCheck…</title>
   <style>
     body{margin:0;background:#060e18;color:#fff;font-family:-apple-system,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;text-align:center;padding:20px;box-sizing:border-box}
-    .logo{width:72px;height:72px;background:linear-gradient(135deg,#1ac4f0,#2563eb);border-radius:18px;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:32px}
+    .logo{display:block;width:72px;height:72px;border-radius:18px;margin:0 auto 20px;box-shadow:0 8px 28px rgba(26,196,240,0.3)}
     h1{font-size:22px;font-weight:700;margin:0 0 8px}
     p{color:rgba(255,255,255,.5);font-size:14px;margin:0 0 28px}
     a.btn{display:inline-block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:16px;padding:14px 32px;border-radius:12px;text-decoration:none;margin-top:8px}
@@ -372,7 +378,7 @@ app.get('/open', (req, res) => {
   </script>
 </head>
 <body>
-  <div class="logo">📊</div>
+  <img src="/flowcheck-icon.png" class="logo" alt="FlowCheck">
   <h1>Opening FlowCheck…</h1>
   <p>If the app doesn't open automatically, tap below.</p>
   <a class="btn" href="${scheme}">Open in FlowCheck</a>
@@ -413,7 +419,7 @@ app.get('/r/:code', (req, res) => {
   <title>Join FlowCheck — Free Month of Pro</title>
   <style>
     body{margin:0;background:#060e18;color:#fff;font-family:-apple-system,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;text-align:center;padding:24px;box-sizing:border-box}
-    .logo{width:80px;height:80px;background:linear-gradient(135deg,#1ac4f0,#2563eb);border-radius:20px;margin:0 auto 24px;display:flex;align-items:center;justify-content:center;font-size:36px;box-shadow:0 8px 32px rgba(26,196,240,0.3)}
+    .logo{display:block;width:80px;height:80px;border-radius:20px;margin:0 auto 24px;box-shadow:0 8px 32px rgba(26,196,240,0.3)}
     h1{font-size:24px;font-weight:800;margin:0 0 8px;letter-spacing:-0.02em}
     .sub{color:rgba(255,255,255,.55);font-size:15px;margin:0 0 32px;line-height:1.5}
     .code-box{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:16px 24px;margin-bottom:28px;display:inline-block}
@@ -431,7 +437,7 @@ app.get('/r/:code', (req, res) => {
   </script>
 </head>
 <body>
-  <div class="logo">📊</div>
+  <img src="/flowcheck-icon.png" class="logo" alt="FlowCheck">
   <h1>You've been invited!</h1>
   <p class="sub">Your friend shared FlowCheck with you.<br>Sign up and you both get <strong>1 month of Pro free</strong>.</p>
   <div class="code-box">
@@ -632,7 +638,7 @@ app.post('/plaid/exchange-token', requireAuth, _plaidUserLimiter, async (req, re
               <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
               <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
                 <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:36px 32px;text-align:center">
-                  <div style="font-size:48px;margin-bottom:12px">${lifetimePro ? '🏆' : '🎉'}</div>
+                  ${LOGO_IMG}
                   <h1 style="color:#fff;font-size:22px;font-weight:700;margin:0 0 6px">Your referral just paid off, ${referrerName}!</h1>
                   <p style="color:rgba(255,255,255,0.6);font-size:14px;margin:0">${referredName} connected their bank</p>
                 </div>
@@ -665,7 +671,7 @@ app.post('/plaid/exchange-token', requireAuth, _plaidUserLimiter, async (req, re
               <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
               <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
                 <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:36px 32px;text-align:center">
-                  <div style="font-size:48px;margin-bottom:12px">🎁</div>
+                  ${LOGO_IMG}
                   <h1 style="color:#fff;font-size:22px;font-weight:700;margin:0 0 6px">You've got 1 month Pro free, ${referredName}!</h1>
                   <p style="color:rgba(255,255,255,0.6);font-size:14px;margin:0">A welcome gift for joining via referral</p>
                 </div>
@@ -1150,6 +1156,7 @@ if (_resendApiKey) {
 }
 
 const EMAIL_FROM = process.env.EMAIL_FROM || 'FlowCheck <noreply@getflowcheck.app>';
+const LOGO_IMG   = `<img src="${BACKEND_URL}/flowcheck-icon.png" width="64" height="64" style="border-radius:16px;display:block;margin:0 auto 20px;box-shadow:0 4px 20px rgba(26,196,240,0.25)" alt="FlowCheck">`;
 
 async function _sendEmail(to, subject, html, uid = null) {
   if (!_resendApiKey) {
@@ -1204,9 +1211,7 @@ app.post('/email/welcome', requireAuth, async (req, res) => {
       <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
       <div style="max-width:520px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
         <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:40px 32px;text-align:center">
-          <div style="width:64px;height:64px;background:linear-gradient(135deg,#1ac4f0,#2563eb);border-radius:16px;margin:0 auto 20px;display:flex;align-items:center;justify-content:center">
-            <span style="font-size:28px">&#x2713;</span>
-          </div>
+          ${LOGO_IMG}
           <h1 style="color:#ffffff;font-size:26px;font-weight:700;margin:0 0 8px;letter-spacing:-0.02em">Welcome to FlowCheck, ${_htmlEscape(name)}!</h1>
           <p style="color:rgba(255,255,255,0.6);font-size:15px;margin:0">Your money, clearly.</p>
         </div>
@@ -1297,7 +1302,7 @@ app.post('/email/pro-upgrade', requireAuth, async (req, res) => {
       <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
       <div style="max-width:520px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
         <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:40px 32px;text-align:center">
-          <div style="font-size:48px;margin-bottom:16px">🚀</div>
+          ${LOGO_IMG}
           <h1 style="color:#ffffff;font-size:26px;font-weight:700;margin:0 0 8px;letter-spacing:-0.02em">You're now Pro, ${name}!</h1>
           <p style="color:rgba(255,255,255,0.6);font-size:15px;margin:0">${plan === 'annual' ? 'Annual plan · thanks for the commitment' : 'Monthly plan · cancel anytime'}</p>
         </div>
@@ -1741,9 +1746,13 @@ async function _sendBillRemindersForUser(uid, userData) {
         _sendEmail(email, overdueTitle, `
           <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
           <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
-            <div style="background:#fee2e2;border-left:4px solid #dc2626;padding:20px 28px">
-              <h2 style="font-size:18px;font-weight:700;color:#991b1b;margin:0 0 6px">⚠️ ${safeBill} is overdue</h2>
-              <p style="font-size:15px;color:#7f1d1d;margin:0">${_fmt(bill.amount || 0)} was due ${overdueDays} day${overdueDays > 1 ? 's' : ''} ago.</p>
+            <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:32px;text-align:center">
+              ${LOGO_IMG}
+              <h1 style="color:#fff;font-size:22px;font-weight:700;margin:0 0 6px">Payment Overdue</h1>
+              <p style="color:rgba(255,255,255,0.6);font-size:14px;margin:0">${safeBill} · ${_fmt(bill.amount || 0)}</p>
+            </div>
+            <div style="background:#fee2e2;border-left:4px solid #dc2626;padding:16px 28px">
+              <p style="font-size:15px;color:#991b1b;font-weight:600;margin:0">${_fmt(bill.amount || 0)} was due ${overdueDays} day${overdueDays > 1 ? 's' : ''} ago.</p>
             </div>
             <div style="padding:24px 28px">
               <p style="font-size:14px;color:#6b7280;margin:0 0 20px">Late payments can affect your credit score. Open FlowCheck to mark it paid or update the due date.</p>
@@ -1765,7 +1774,7 @@ async function _sendBillRemindersForUser(uid, userData) {
         <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
         <div style="max-width:520px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
           <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:32px;text-align:center">
-            <div style="font-size:40px;margin-bottom:12px">💳</div>
+            ${LOGO_IMG}
             <h1 style="color:#ffffff;font-size:22px;font-weight:700;margin:0 0 6px">${safeBill} due ${dayLabel}</h1>
             <p style="color:rgba(255,255,255,0.6);font-size:15px;margin:0">${amountStr} · ${due}</p>
           </div>
@@ -1774,7 +1783,7 @@ async function _sendBillRemindersForUser(uid, userData) {
               Just a heads up — your <strong>${safeBill}</strong> payment of <strong>${amountStr}</strong> is due ${dayLabel}.
               Make sure you have sufficient funds in your account.
             </p>
-            <a href="https://getflowcheck.app" style="display:block;background:linear-gradient(135deg,#1ac4f0,#6b3fe0);color:#ffffff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
+            <a href="https://getflowcheck.app" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#ffffff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
               Review in FlowCheck →
             </a>
           </div>
@@ -1854,7 +1863,7 @@ async function _sendWeeklySummaryForUser(uid, userData) {
     <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
     <div style="max-width:520px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
       <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:36px 32px;text-align:center">
-        <div style="font-size:40px;margin-bottom:12px">📊</div>
+        ${LOGO_IMG}
         <h1 style="color:#ffffff;font-size:22px;font-weight:700;margin:0 0 6px">Weekly Summary, ${_htmlEscape(name)}!</h1>
         <p style="color:rgba(255,255,255,0.6);font-size:14px;margin:0">Here's how your money moved this week</p>
       </div>
@@ -1868,7 +1877,7 @@ async function _sendWeeklySummaryForUser(uid, userData) {
           <div style="font-size:13px;font-weight:600;color:#374151;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:12px">Top Categories</div>
           <table style="width:100%;border-collapse:collapse">${topCats}</table>
         </div>` : ''}
-        <a href="https://getflowcheck.app" style="display:block;background:linear-gradient(135deg,#1ac4f0,#6b3fe0);color:#ffffff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
+        <a href="https://getflowcheck.app" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#ffffff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
           View Full Breakdown →
         </a>
       </div>
@@ -1898,7 +1907,7 @@ async function _sendBankConnectedEmail(uid, institutionName) {
       <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
       <div style="max-width:520px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
         <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:36px 32px;text-align:center">
-          <div style="font-size:48px;margin-bottom:12px">🏦</div>
+          ${LOGO_IMG}
           <h1 style="color:#ffffff;font-size:22px;font-weight:700;margin:0 0 6px">${safe} connected!</h1>
           <p style="color:rgba(255,255,255,0.6);font-size:14px;margin:0">Your account is syncing now</p>
         </div>
@@ -1993,7 +2002,7 @@ async function _sendMonthlySummaryForUser(uid, userData, cutoffStr, monthLabel) 
     <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
     <div style="max-width:520px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
       <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:36px 32px;text-align:center">
-        <div style="font-size:40px;margin-bottom:12px">📅</div>
+        ${LOGO_IMG}
         <h1 style="color:#ffffff;font-size:22px;font-weight:700;margin:0 0 6px">${_htmlEscape(monthLabel)} Recap, ${name}!</h1>
         <p style="color:rgba(255,255,255,0.6);font-size:14px;margin:0">Here's how your money moved last month</p>
       </div>
@@ -2216,7 +2225,7 @@ async function _runOnboardingDrip(uid, d, drip, ageDays) {
       <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
       <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
         <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:36px 32px;text-align:center">
-          <div style="font-size:48px;margin-bottom:12px">🏦</div>
+          ${LOGO_IMG}
           <h1 style="color:#fff;font-size:22px;font-weight:700;margin:0 0 6px">Connect your bank, ${name}</h1>
           <p style="color:rgba(255,255,255,0.6);font-size:14px;margin:0">It takes about 60 seconds</p>
         </div>
@@ -2249,7 +2258,7 @@ async function _runOnboardingDrip(uid, d, drip, ageDays) {
         <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
         <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
           <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:36px 32px;text-align:center">
-            <div style="font-size:48px;margin-bottom:12px">🎯</div>
+            ${LOGO_IMG}
             <h1 style="color:#fff;font-size:22px;font-weight:700;margin:0 0 6px">Your bank is connected, ${name}</h1>
             <p style="color:rgba(255,255,255,0.6);font-size:14px;margin:0">One more step to get the most out of FlowCheck</p>
           </div>
@@ -2306,7 +2315,7 @@ async function _runOnboardingDrip(uid, d, drip, ageDays) {
         <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
         <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
           <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:36px 32px;text-align:center">
-            <div style="font-size:48px;margin-bottom:12px">👀</div>
+            ${LOGO_IMG}
             <h1 style="color:#fff;font-size:22px;font-weight:700;margin:0 0 6px">Your first week on FlowCheck</h1>
             <p style="color:rgba(255,255,255,0.6);font-size:14px;margin:0">Here's what we found, ${name}</p>
           </div>
@@ -2340,7 +2349,7 @@ async function _runOnboardingDrip(uid, d, drip, ageDays) {
         <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
         <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
           <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:36px 32px;text-align:center">
-            <div style="font-size:48px;margin-bottom:12px">📋</div>
+            ${LOGO_IMG}
             <h1 style="color:#fff;font-size:22px;font-weight:700;margin:0 0 6px">Never miss a bill, ${name}</h1>
             <p style="color:rgba(255,255,255,0.6);font-size:14px;margin:0">One late payment can cost you in fees and credit score</p>
           </div>
@@ -2399,7 +2408,7 @@ if (cron) {
             <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
             <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
               <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:36px 32px;text-align:center">
-                <div style="font-size:48px;margin-bottom:12px">👀</div>
+                ${LOGO_IMG}
                 <h1 style="color:#fff;font-size:22px;font-weight:700;margin:0 0 6px">You haven't checked in lately, ${name}</h1>
                 <p style="color:rgba(255,255,255,0.6);font-size:14px;margin:0">Your money keeps moving even when you don't</p>
               </div>
@@ -2503,7 +2512,7 @@ async function _sendYearInReviewForUser(uid, userData, year, yearStart, yearEnd)
     <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
     <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
       <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:40px 32px;text-align:center">
-        <div style="font-size:48px;margin-bottom:12px">🎉</div>
+        ${LOGO_IMG}
         <h1 style="color:#fff;font-size:26px;font-weight:700;margin:0 0 6px">${year} Year in Review</h1>
         <p style="color:rgba(255,255,255,0.6);font-size:14px;margin:0">Here's what your financial year looked like, ${name}</p>
       </div>
@@ -2779,10 +2788,10 @@ async function _webhookSyncItem(itemId, retryCount = 0) {
             _sendEmail(userData.email, `💳 Large purchase detected: ${_fmt(t.amount)}`, `
               <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
               <div style="max-width:480px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.08)">
-                <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:24px 28px;text-align:center">
-                  <div style="font-size:36px;margin-bottom:8px">💳</div>
+                <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:28px;text-align:center">
+                  ${LOGO_IMG}
                   <h2 style="color:#fff;font-size:20px;font-weight:700;margin:0">${_fmt(t.amount)} purchase</h2>
-                  <p style="color:rgba(255,255,255,0.6);font-size:13px;margin:4px 0 0">${safeMerch}</p>
+                  <p style="color:rgba(255,255,255,0.6);font-size:13px;margin:6px 0 0">${safeMerch}</p>
                 </div>
                 <div style="padding:24px">
                   <p style="font-size:14px;color:#374151;margin:0 0 20px">A charge of <strong>${_fmt(t.amount)}</strong> from <strong>${safeMerch}</strong> just appeared on your account. If you don't recognize this, check your card immediately.</p>
@@ -3503,9 +3512,7 @@ app.post('/auth/otp/send', requireAuth, async (req, res) => {
       <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
       <div style="max-width:480px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
         <div style="background:linear-gradient(135deg,#060e18,#0d2035);padding:36px 32px;text-align:center">
-          <div style="width:60px;height:60px;background:linear-gradient(135deg,#1ac4f0,#2563eb);border-radius:14px;margin:0 auto 18px;display:flex;align-items:center;justify-content:center">
-            <span style="font-size:26px">&#x2709;&#xFE0F;</span>
-          </div>
+          ${LOGO_IMG}
           <h1 style="color:#ffffff;font-size:22px;font-weight:700;margin:0;letter-spacing:-0.02em">Verify your email</h1>
         </div>
         <div style="padding:32px;text-align:center">
@@ -3626,9 +3633,7 @@ setInterval(async () => {
           <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
           <div style="max-width:520px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
             <div style="background:linear-gradient(135deg,#060e18,#0d2035);padding:36px 32px;text-align:center">
-              <div style="width:60px;height:60px;background:linear-gradient(135deg,#1ac4f0,#2563eb);border-radius:14px;margin:0 auto 16px">
-                <span style="font-size:26px;line-height:60px">&#x1F4B3;</span>
-              </div>
+              ${LOGO_IMG}
               <h1 style="color:#ffffff;font-size:22px;font-weight:700;margin:0;letter-spacing:-0.02em">Your account is waiting</h1>
             </div>
             <div style="padding:32px">
