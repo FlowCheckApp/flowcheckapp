@@ -60,18 +60,9 @@ const {
 const REQUIRED = [
   'PLAID_CLIENT_ID', 'PLAID_SECRET', 'PLAID_ENV',
   'FIREBASE_PROJECT_ID', 'FIREBASE_SERVICE_ACCOUNT',
-  // Experian (sandbox) — add to Railway env vars:
-  // EXPERIAN_CLIENT_ID, EXPERIAN_CLIENT_SECRET,
-  // EXPERIAN_USERNAME, EXPERIAN_PASSWORD
-  // EXPERIAN_SUBSCRIBER_CODE (from Experian portal — defaults to test value)
 ];
-const EXPERIAN_OPTIONAL = ['EXPERIAN_CLIENT_ID','EXPERIAN_CLIENT_SECRET','EXPERIAN_USERNAME','EXPERIAN_PASSWORD'];
 for (const key of REQUIRED) {
   if (!process.env[key]) { console.error(`[Boot] Missing required env var: ${key}`); process.exit(1); }
-}
-// Warn but don't crash if Experian creds missing — credit endpoints will 500 gracefully
-for (const key of EXPERIAN_OPTIONAL) {
-  if (!process.env[key]) console.warn(`[Boot] Experian env var not set: ${key} — /credit/* endpoints will fail`);
 }
 
 const PLAID_ENV_VALID = ['sandbox', 'development', 'production'];
@@ -210,7 +201,7 @@ app.use(cors({
 
 // ── Global request timeout ─────────────────────────────────────
 // Kill any request that hasn't responded in 30 seconds.
-// Prevents hung Plaid/Experian calls from tying up the event loop.
+// Prevents hung Plaid API calls from tying up the event loop.
 // The webhook route handles its own tight timing — 30s is plenty there.
 app.use((req, res, next) => {
   const timer = setTimeout(() => {
@@ -307,7 +298,7 @@ app.use('/plaid/sync',                  generalLimiter);
 app.use('/plaid/webhook',              generalLimiter); // Plaid calls this — must stay responsive
 app.use('/plaid/disconnect',            strictLimiter); // covers /plaid/disconnect AND /plaid/disconnect/:itemId
 app.use('/user/account',                strictLimiter);
-app.use('/credit',                      strictLimiter); // Experian-cost — strict limit
+app.use('/credit',                      strictLimiter); // manual credit score entry
 app.use('/notifications/send',          strictLimiter);
 app.use('/notifications/budget-alert',  strictLimiter);
 app.use('/notifications/register',      generalLimiter);
@@ -349,6 +340,117 @@ async function requireAuth(req, res, next) {
 /* ── Root + Health check ─────────────────────────────────────── */
 app.get('/', (_req, res) => res.json({ name: 'FlowCheck API', status: 'ok', version: '1.0.0' }));
 app.get('/health', (_req, res) => res.json({ ok: true }));
+
+/* ─────────────────────────────────────────────────────────────
+   GET /open   — smart deep link for email CTAs
+   Tries to redirect to the app via custom URL scheme (flowcheck://).
+   If the app is installed, iOS opens it immediately. If not, the
+   fallback HTML page directs the user to the App Store.
+   ─────────────────────────────────────────────────────────────── */
+app.get('/open', (req, res) => {
+  const ref    = (req.query.ref || '').replace(/[^a-z0-9_-]/gi, '').slice(0, 64);
+  const scheme = `flowcheck://open${ref ? `?ref=${encodeURIComponent(ref)}` : ''}`;
+  const store  = 'https://apps.apple.com/app/flowcheck/id6742624701';
+  res.setHeader('Content-Type', 'text/html');
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Opening FlowCheck…</title>
+  <style>
+    body{margin:0;background:#060e18;color:#fff;font-family:-apple-system,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;text-align:center;padding:20px;box-sizing:border-box}
+    .logo{width:72px;height:72px;background:linear-gradient(135deg,#1ac4f0,#2563eb);border-radius:18px;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:32px}
+    h1{font-size:22px;font-weight:700;margin:0 0 8px}
+    p{color:rgba(255,255,255,.5);font-size:14px;margin:0 0 28px}
+    a.btn{display:inline-block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:16px;padding:14px 32px;border-radius:12px;text-decoration:none;margin-top:8px}
+    a.secondary{display:block;color:rgba(255,255,255,.35);font-size:13px;margin-top:16px;text-decoration:none}
+  </style>
+  <script>
+    // Try to open the app. If not installed, user sees the fallback buttons.
+    setTimeout(function(){window.location.href='${scheme}';},120);
+  </script>
+</head>
+<body>
+  <div class="logo">📊</div>
+  <h1>Opening FlowCheck…</h1>
+  <p>If the app doesn't open automatically, tap below.</p>
+  <a class="btn" href="${scheme}">Open in FlowCheck</a>
+  <a class="secondary" href="${store}">Download on the App Store</a>
+</body>
+</html>`);
+});
+
+/* ─────────────────────────────────────────────────────────────
+   GET /r/:code  — referral landing page
+   Shared by users as: https://getflowcheck.app/r/FLOWXXXXXX
+   Tries to open the app directly via custom scheme. If not
+   installed, shows download page with the referral code preserved.
+   Analytics: tracks referral_opened event.
+   ─────────────────────────────────────────────────────────────── */
+app.get('/r/:code', (req, res) => {
+  const rawCode = (req.params.code || '').toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 16);
+  if (!rawCode || !/^FLOW/.test(rawCode)) {
+    return res.redirect(302, `${BACKEND_URL}/open`);
+  }
+
+  // Log referral_opened analytics event (best-effort, non-blocking)
+  db.collection('referral_opens').add({
+    code:       rawCode,
+    timestamp:  admin.firestore.FieldValue.serverTimestamp(),
+    user_agent: (req.headers['user-agent'] || '').slice(0, 200),
+  }).catch(() => {});
+
+  const appScheme = `flowcheck://referral?code=${encodeURIComponent(rawCode)}`;
+  const storeUrl  = 'https://apps.apple.com/app/flowcheck';
+
+  res.setHeader('Content-Type', 'text/html');
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Join FlowCheck — Free Month of Pro</title>
+  <style>
+    body{margin:0;background:#060e18;color:#fff;font-family:-apple-system,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;text-align:center;padding:24px;box-sizing:border-box}
+    .logo{width:80px;height:80px;background:linear-gradient(135deg,#1ac4f0,#2563eb);border-radius:20px;margin:0 auto 24px;display:flex;align-items:center;justify-content:center;font-size:36px;box-shadow:0 8px 32px rgba(26,196,240,0.3)}
+    h1{font-size:24px;font-weight:800;margin:0 0 8px;letter-spacing:-0.02em}
+    .sub{color:rgba(255,255,255,.55);font-size:15px;margin:0 0 32px;line-height:1.5}
+    .code-box{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:16px 24px;margin-bottom:28px;display:inline-block}
+    .code-label{font-size:11px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:0.08em;margin:0 0 6px}
+    .code{font-size:28px;font-weight:800;letter-spacing:0.12em;color:#1ac4f0}
+    a.btn{display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:17px;padding:16px 32px;border-radius:14px;text-decoration:none;margin-bottom:14px;box-shadow:0 4px 20px rgba(26,196,240,0.25)}
+    a.secondary{display:block;color:rgba(255,255,255,.35);font-size:13px;text-decoration:none}
+    .perks{background:rgba(255,255,255,0.04);border-radius:12px;padding:16px 20px;margin-bottom:28px;text-align:left;max-width:320px}
+    .perk{font-size:14px;color:rgba(255,255,255,.7);margin:6px 0;display:flex;align-items:center;gap:10px}
+    .perk::before{content:'✦';color:#1ac4f0;flex-shrink:0}
+  </style>
+  <script>
+    // Try to open app with referral code embedded
+    setTimeout(function(){ window.location.href = '${appScheme}'; }, 100);
+  </script>
+</head>
+<body>
+  <div class="logo">📊</div>
+  <h1>You've been invited!</h1>
+  <p class="sub">Your friend shared FlowCheck with you.<br>Sign up and you both get <strong>1 month of Pro free</strong>.</p>
+  <div class="code-box">
+    <p class="code-label">Your referral code</p>
+    <p class="code">${rawCode}</p>
+  </div>
+  <div class="perks">
+    <p class="perk">Unlimited bank accounts</p>
+    <p class="perk">Financial Health Score</p>
+    <p class="perk">AI spending insights</p>
+    <p class="perk">Bill tracking &amp; reminders</p>
+  </div>
+  <a class="btn" href="${appScheme}" onclick="setTimeout(function(){window.location.href='${storeUrl}'},1500)">
+    Open FlowCheck →
+  </a>
+  <a class="secondary" href="${storeUrl}">Download on the App Store</a>
+</body>
+</html>`);
+});
 
 /* ─────────────────────────────────────────────────────────────
    POST /plaid/link-token
@@ -523,7 +625,7 @@ app.post('/plaid/exchange-token', requireAuth, _plaidUserLimiter, async (req, re
 
           // Notify referrer: you earned Pro
           if (referrerRecord?.email) {
-            const referrerName = _htmlEscape((referrerRecord.displayName || 'there').split(' ')[0]);
+            const referrerName = _htmlEscape((referrerRecord.displayName || 'Friend').split(' ')[0]);
             const referredName = _htmlEscape((referredRecord?.displayName || 'Someone').split(' ')[0]);
             const rewardLabel  = lifetimePro ? 'Lifetime Pro 🏆' : '1 month of Pro free';
             _sendEmail(referrerRecord.email, `${referredName} joined FlowCheck — you earned ${rewardLabel}! 🎉`, `
@@ -558,7 +660,7 @@ app.post('/plaid/exchange-token', requireAuth, _plaidUserLimiter, async (req, re
 
           // Notify referred user: you also earned 1 month Pro
           if (referredRecord?.email) {
-            const referredName = _htmlEscape((referredRecord.displayName || 'there').split(' ')[0]);
+            const referredName = _htmlEscape((referredRecord.displayName || 'Friend').split(' ')[0]);
             _sendEmail(referredRecord.email, `You got 1 month of FlowCheck Pro — welcome gift! 🎁`, `
               <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
               <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
@@ -975,326 +1077,39 @@ app.delete('/user/account', requireAuth, async (req, res) => {
   }
 });
 
+
 /* ─────────────────────────────────────────────────────────────
-   EXPERIAN CREDIT SCORE
-   Uses Experian Connect API (OAuth2 password grant) to obtain an
-   access token, then queries Consumer Credit Profile Sandbox.
-   Credentials: EXPERIAN_CLIENT_ID, EXPERIAN_CLIENT_SECRET,
-                EXPERIAN_USERNAME, EXPERIAN_PASSWORD
-   All stored as Railway env vars — never in client code.
-   ───────────────────────────────────────────────────────────── */
+   CREDIT SCORE
+   Manual entry only — users enter their score from their bank
+   or credit monitoring service (no third-party API required).
+   ─────────────────────────────────────────────────────────────── */
 
-// Use production API when credentials are configured, sandbox otherwise
-// Set EXPERIAN_ENV=production in Railway when you have production approval.
-// Leave unset (or set to 'sandbox') to use the sandbox endpoint.
-const EXPERIAN_BASE = process.env.EXPERIAN_ENV === 'production'
-  ? 'https://us-api.experian.com'
-  : 'https://sandbox-us-api.experian.com';
-// Consumer Credit Profile API — plain JSON, no JavaScript Collector required
-const EXPERIAN_CREDIT_PROFILE_BASE = `${EXPERIAN_BASE}/consumerservices/credit-profile`;
-const EXPERIAN_TOKEN_URL           = `${EXPERIAN_BASE}/oauth2/v1/token`;
-
-// Token cache: { token, expiresAt }
-let _experianToken = null;
-
-async function _getExperianToken() {
-  if (_experianToken && Date.now() < _experianToken.expiresAt - 60_000) {
-    return _experianToken.token; // use cached (with 60s buffer)
-  }
-
-  // Experian OAuth2 password grant — all credentials go in the JSON body,
-  // Grant_type sent as a header (not in body), no Basic auth.
-  const resp = await fetch(EXPERIAN_TOKEN_URL, {
-    method:  'POST',
-    headers: {
-      'Accept':       'application/json',
-      'Content-Type': 'application/json',
-      'Grant_type':   'password',
-    },
-    body: JSON.stringify({
-      username:      process.env.EXPERIAN_USERNAME,
-      password:      process.env.EXPERIAN_PASSWORD,
-      client_id:     process.env.EXPERIAN_CLIENT_ID,
-      client_secret: process.env.EXPERIAN_CLIENT_SECRET,
-    }),
-  });
-
-  if (!resp.ok) {
-    const txt = await resp.text();
-    _experianToken = null; // Clear stale cache on any auth failure
-    throw new Error(`Experian token failed (${resp.status}): ${txt}`);
-  }
-
-  const data = await resp.json();
-  const expiresIn = parseInt(data.expires_in) || 1800;
-  _experianToken = {
-    token:     data.access_token,
-    expiresAt: Date.now() + expiresIn * 1000,
-  };
-  console.log('[experian] Token refreshed, expires in', expiresIn, 's');
-  return _experianToken.token;
-}
-
-/* ── GET /credit/score ──────────────────────────────────────── */
-/* Returns { score, scoreType, riskClass, factors[] }           */
-/* PII sanitiser — strips to safe chars, enforces maxLen */
-function sanitisePii(val, maxLen = 100) {
-  if (!val) return null;
-  return String(val).replace(/[<>"'%;()&+]/g, '').trim().slice(0, maxLen);
-}
-
-// Helper: format DOB → MMDDYYYY (8 digits, no separators) for Experian Connect API
-function _formatDob(raw) {
-  if (!raw) return '01011980';
-  const digits = String(raw).replace(/\D/g, '');
-  if (digits.length === 8) {
-    // Could be YYYYMMDD or MMDDYYYY — assume YYYYMMDD input, output MMDDYYYY
-    // If first 4 digits look like a year (1900-2099), reorder
-    const year = parseInt(digits.slice(0, 4));
-    if (year >= 1900 && year <= 2099) {
-      return `${digits.slice(4,6)}${digits.slice(6,8)}${digits.slice(0,4)}`;
-    }
-    return digits; // already MMDDYYYY
-  }
-  if (raw.includes('-') && raw.length === 10) {
-    // YYYY-MM-DD → MMDDYYYY
-    const [y, m, d] = raw.split('-');
-    return `${m}${d}${y}`;
-  }
-  return digits.slice(0, 8) || '01011980';
-}
-
-// Shared demo score response — returned when Experian is unreachable or unconfigured.
-// isDemo: true tells the client to show "Score unavailable" instead of a fake number.
-const DEMO_SCORE = {
-  score:     720,
-  scoreType: 'VantageScore 3.0',
-  riskClass: 'Good',
-  isDemo:    true,   // CLIENT: check this flag — if true, show "Score unavailable"
-  factors:   [
-    'Length of credit history',
-    'Credit utilization ratio',
-    'Recent credit inquiries',
-  ],
-  cached: false,
-  demo:   true,
-};
-
-app.post('/credit/score', requireAuth, perUserLimiter(5), async (req, res) => {
-  // Sanitise any PII fields passed in query or body (future-proof)
-  if (req.body) {
-    if (req.body.firstName) req.body.firstName = sanitisePii(req.body.firstName, 50);
-    if (req.body.lastName)  req.body.lastName  = sanitisePii(req.body.lastName,  50);
-    if (req.body.ssn)       req.body.ssn       = (req.body.ssn || '').replace(/\D/g, '').slice(0, 9);
-    if (req.body.dob)       req.body.dob       = (req.body.dob || '').replace(/\D/g, '').slice(0, 8);
-    if (req.body.address)   req.body.address   = sanitisePii(req.body.address, 100);
-    if (req.body.city)      req.body.city      = sanitisePii(req.body.city, 50);
-    if (req.body.state)     req.body.state     = sanitisePii(req.body.state, 2);
-    if (req.body.zip)       req.body.zip       = (req.body.zip || '').replace(/\D/g, '').slice(0, 5);
-  }
-
-  // If Experian credentials are not configured, return demo/sandbox data
-  // so the app still functions during development without crashing.
-  const hasExperian = EXPERIAN_OPTIONAL.every(k => !!process.env[k]);
-  if (!hasExperian) {
-    console.warn('[credit] Experian creds not configured — returning demo score');
-    return res.json(DEMO_SCORE);
-  }
-
+/* ── GET /credit/score — returns the stored manual score ──────── */
+app.get('/credit/score', requireAuth, async (req, res) => {
   try {
-    // Check if user already has a stored score (< 24h old) to avoid
-    // hammering the sandbox and burning through rate limits
-    const userRef  = db.collection('users').doc(req.uid);
-    const userSnap = await userRef.get();
+    const userSnap = await db.collection('users').doc(req.uid).get();
     const userData = userSnap.exists ? userSnap.data() : {};
-
-    const CACHE_MS = 24 * 60 * 60 * 1000; // 24h
-    if (userData.credit_score && userData.credit_score_updated_at) {
-      const age = Date.now() - userData.credit_score_updated_at.toMillis();
-      if (age < CACHE_MS) {
-        console.log(`[credit] uid:${req.uid} returning cached score`);
-        return res.json({
-          score:     userData.credit_score,
-          scoreType: userData.credit_score_type || 'VantageScore 3.0',
-          riskClass: userData.credit_risk_class || null,
-          factors:   userData.credit_factors    || [],
-          cached:    true,
-          isDemo:    false,
-          demo:      false,
-        });
-      }
-    }
-
-    // Get Experian OAuth token
-    const token = await _getExperianToken();
-
-    // ── Single call: POST /v2/credit-report ────────────────────────
-    // Consumer Credit Profile API — pure JSON, no JavaScript Collector
-    // required. Sandbox test SSN: 111111111. DOB: birth year only.
-    const abort   = new AbortController();
-    const timeout = setTimeout(() => abort.abort(), 20_000);
-
-    // Extract just the birth year for Consumer Credit Profile API
-    // Sandbox test consumer DOB year is 1959 — set as fallback below in reportBody
-    const dobYear = (() => {
-      const raw    = req.body?.dob || '';
-      const digits = String(raw).replace(/\D/g, '');
-      if (digits.length >= 4) return digits.slice(0, 4); // YYYYMMDD → YYYY
-      return ''; // let reportBody handle the sandbox default
-    })();
-
-    // Sandbox test consumer: KIMBERLY CBRILEY — plain credit report, no special add-ons required.
-    // This is TestCase_Email_Address from the Experian OAS spec — the simplest positive test case.
-    // PII must match exactly. TC24 (Armstrong/Rent Bureau) requires a product we may not have.
-    const isSandbox = !process.env.EXPERIAN_ENV || process.env.EXPERIAN_ENV !== 'production';
-
-    const reportBody = {
-      consumerPii: {
-        primaryApplicant: {
-          name: {
-            lastName:  req.body?.lastName  || (isSandbox ? 'CBRILEY'   : ''),
-            firstName: req.body?.firstName || (isSandbox ? 'KIMBERLY'  : ''),
-          },
-          // Spec requires MMDDYYYY (8 digits) for CBRILEY — "01011969" not "1969"
-          dob:  { dob: dobYear || (isSandbox ? '01011969' : '') },
-          ssn:  { ssn: req.body?.ssn || (isSandbox ? '111111111' : '') },
-          currentAddress: {
-            line1:   req.body?.address || (isSandbox ? '5870 SPENCER PIKE' : ''),
-            city:    req.body?.city    || (isSandbox ? 'MOUNT STERLING'    : ''),
-            state:   req.body?.state   || (isSandbox ? 'KY'                : ''),
-            zipCode: req.body?.zip     || (isSandbox ? '40353'             : ''),
-          },
-        },
-      },
-      requestor:          { subscriberCode: process.env.EXPERIAN_SUBSCRIBER_CODE || '2222222' },
-      permissiblePurpose: { type: '18' },   // 18 = credit transaction (matches CBRILEY test case)
-      addOns: {
-        // V3 = VantageScore 3.0, F = FICO — no resellerInfo needed for this test case
-        riskModels: { modelIndicator: ['V3', 'F'], scorePercentile: 'Y' },
-      },
-    };
-
-    // Log the request structure (no SSN) for debugging
-    console.log('[credit] Sending to Experian:', JSON.stringify({
-      ...reportBody,
-      consumerPii: { primaryApplicant: { ...reportBody.consumerPii.primaryApplicant, ssn: '***' } },
-    }));
-
-    let reportData;
-    try {
-      const resp = await fetch(`${EXPERIAN_CREDIT_PROFILE_BASE}/v2/credit-report`, {
-        signal:  abort.signal,
-        method:  'POST',
-        headers: {
-          'Accept':          'application/json',
-          'Content-Type':    'application/json',
-          'Authorization':   `Bearer ${token}`,
-          // clientReferenceId is sandbox-only — omit in production
-          ...(isSandbox ? { 'clientReferenceId': 'SBMYSQL' } : {}),
-        },
-        body: JSON.stringify(reportBody),
+    if (userData.credit_score) {
+      return res.json({
+        score:     userData.credit_score,
+        scoreType: userData.credit_score_type || 'FICO',
+        riskClass: userData.credit_risk_class || null,
+        factors:   userData.credit_factors    || [],
+        cached:    true,
+        manual:    !!userData.credit_score_manual,
       });
-      clearTimeout(timeout);
-
-      if (!resp.ok) {
-        const errTxt = await resp.text();
-        console.error('[credit] /v2/credit-report error:', resp.status, errTxt.slice(0, 500));
-        return res.json({ ...DEMO_SCORE, factors: ['Payment history', 'Credit utilization', 'Credit age'] });
-      }
-
-      reportData = await resp.json();
-      console.log('[credit] /v2/credit-report ok, keys:', Object.keys(reportData).join(', '));
-    } catch (fetchErr) {
-      clearTimeout(timeout);
-      if (fetchErr.name === 'AbortError') {
-        console.error('[credit] /v2/credit-report timed out');
-        return res.json({ ...DEMO_SCORE, factors: ['Payment history', 'Credit utilization', 'Credit age'] });
-      }
-      throw fetchErr;
     }
-
-    // ── Parse score from Consumer Credit Profile response ──────────
-    // Response shape: { creditProfile: [{ riskModel: [{score, scoreFactors, ...}] }] }
-    let score     = null;
-    let scoreType = 'VantageScore 3.0';
-    let riskClass = null;
-    let factors   = [];
-
-    try {
-      const profile = Array.isArray(reportData?.creditProfile)
-        ? reportData.creditProfile[0]
-        : reportData?.creditProfile;
-
-      // Path A: riskModel array — returned when addOns.riskModels requested
-      const rmArr = profile?.riskModel;
-      const rm    = Array.isArray(rmArr) ? rmArr[0] : rmArr;
-      if (rm) {
-        score     = rm.score ? parseInt(rm.score, 10) : null;
-        scoreType = rm.modelIndicator ? `Experian ${rm.modelIndicator}` : 'VantageScore 3.0';
-        riskClass = rm.riskClass?.description || null;
-        factors   = (rm.scoreFactors || [])
-          .map(f => f.description || f.reason || f)
-          .filter(s => typeof s === 'string' && s.length > 0);
-      }
-
-      // Path B: score.results array (alternate shape)
-      if (!score && profile?.score?.results) {
-        const results = Array.isArray(profile.score.results)
-          ? profile.score.results[0]
-          : profile.score.results;
-        if (results) {
-          score     = results.score ? parseInt(results.score, 10) : null;
-          scoreType = results.modelIndicator ? `Experian ${results.modelIndicator}` : 'VantageScore 3.0';
-          riskClass = results.riskClass?.description || null;
-          factors   = (results.scoreFactors || [])
-            .map(f => f.description || f.reason || f)
-            .filter(s => typeof s === 'string' && s.length > 0);
-        }
-      }
-
-      // Path C: flat score on profile
-      if (!score && profile?.score && typeof profile.score !== 'object') {
-        score = parseInt(profile.score, 10) || null;
-      }
-    } catch (parseErr) {
-      console.error('[credit] parse error:', parseErr.message);
-    }
-
-    // Sandbox safety net — if we got a report but couldn't parse a score,
-    // use 720 as placeholder rather than returning null.
-    if (!score) {
-      console.warn('[credit] Could not parse score from report — using sandbox placeholder 720');
-      score = 720;
-    }
-
-    // Cache in Firestore (score only — never raw PII)
-    await userRef.update({
-      credit_score:            score,
-      credit_score_type:       scoreType,
-      credit_risk_class:       riskClass,
-      credit_factors:          factors,
-      credit_score_updated_at: admin.firestore.FieldValue.serverTimestamp(),
-    });
-
-    console.log(`[credit] uid:${req.uid} score=${score} type=${scoreType}`);
-    res.json({ score, scoreType, riskClass, factors, cached: false });
-
+    // No score stored yet
+    return res.json({ score: null, noScore: true });
   } catch (err) {
-    if (err.name === 'AbortError') {
-      console.error('[credit/score] Experian timed out');
-      return res.json({ ...DEMO_SCORE, factors: ['Payment history', 'Credit utilization', 'Credit age'] });
-    }
-    console.error('[credit/score] Unexpected error:', err.message);
-    // Any unexpected error — fall back to demo so the app never shows a broken state
-    res.json({ ...DEMO_SCORE, factors: ['Payment history', 'Credit utilization', 'Credit age'] });
+    console.error('[credit/score]', err.message);
+    res.status(500).json({ message: 'Unable to retrieve credit score' });
   }
 });
 
-/* ── POST /credit/manual ──────────────────────────────────────── */
-/* Allows user to manually enter a score if they don't want to    */
-/* connect Experian (e.g. they know their FICO from their bank).  */
+/* ── POST /credit/manual — save user-entered credit score ─────── */
 app.post('/credit/manual', requireAuth, async (req, res) => {
-  const VALID_SCORE_TYPES = ['FICO', 'VantageScore', 'Experian', 'Other'];
+  const VALID_SCORE_TYPES = ['FICO', 'VantageScore', 'Other'];
   const { score, scoreType } = req.body;
   const parsedScore = parseInt(score);
   if (!parsedScore || parsedScore < 300 || parsedScore > 850) {
@@ -1378,7 +1193,7 @@ app.post('/email/welcome', requireAuth, async (req, res) => {
   try {
     const userRecord = await admin.auth().getUser(req.uid);
     const email = userRecord.email;
-    const name  = (userRecord.displayName || 'there').split(' ')[0];
+    const name  = (userRecord.displayName || 'Friend').split(' ')[0];
 
     if (!email) {
       // Apple "hide my email" users — skip silently
@@ -1406,7 +1221,7 @@ app.post('/email/welcome', requireAuth, async (req, res) => {
             <p style="font-size:14px;color:#4b5563;margin:5px 0">✓ Add your recurring bills for reminders</p>
             <p style="font-size:14px;color:#4b5563;margin:5px 0">✓ Check your Financial Health Score</p>
           </div>
-          <a href="https://getflowcheck.app" style="display:block;background:linear-gradient(135deg,#1ac4f0,#6b3fe0);color:#ffffff;font-weight:700;font-size:16px;padding:15px 28px;border-radius:10px;text-decoration:none;text-align:center;letter-spacing:-0.01em">
+          <a href="${BACKEND_URL}/open?ref=welcome_email" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#ffffff;font-weight:700;font-size:16px;padding:15px 28px;border-radius:10px;text-decoration:none;text-align:center;letter-spacing:-0.01em">
             Open FlowCheck →
           </a>
         </div>
@@ -1473,7 +1288,7 @@ app.post('/email/pro-upgrade', requireAuth, async (req, res) => {
   try {
     const userRecord = await admin.auth().getUser(req.uid);
     const email = userRecord.email;
-    const name  = _htmlEscape((userRecord.displayName || 'there').split(' ')[0]);
+    const name  = _htmlEscape((userRecord.displayName || 'Friend').split(' ')[0]);
     const plan  = req.body?.plan === 'annual' ? 'annual' : 'monthly';
 
     if (!email) return res.json({ ok: true, skipped: 'no_email' });
@@ -1498,7 +1313,7 @@ app.post('/email/pro-upgrade', requireAuth, async (req, res) => {
             <p style="font-size:14px;color:#4b5563;margin:5px 0">✦ Net worth tracking &amp; milestones</p>
             <p style="font-size:14px;color:#4b5563;margin:5px 0">✦ Weekly financial summaries</p>
           </div>
-          <a href="https://getflowcheck.app" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#ffffff;font-weight:700;font-size:16px;padding:15px 28px;border-radius:10px;text-decoration:none;text-align:center;letter-spacing:-0.01em">
+          <a href="${BACKEND_URL}/open?ref=pro_upgrade_email" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#ffffff;font-weight:700;font-size:16px;padding:15px 28px;border-radius:10px;text-decoration:none;text-align:center;letter-spacing:-0.01em">
             Explore FlowCheck Pro →
           </a>
         </div>
@@ -1984,7 +1799,7 @@ async function _sendWeeklySummaryForUser(uid, userData) {
   const weeklyOn = userData.email_weekly_enabled  !== false; // respects granular unsubscribe
   if (!email || !notifOn || !weeklyOn || !_resendApiKey) return;
 
-  const name = _htmlEscape((userData.display_name || userData.name || 'there').split(' ')[0]);
+  const name = _htmlEscape((userData.display_name || userData.name || 'Friend').split(' ')[0]);
 
   // Aggregate last 7 days of transactions
   const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 7);
@@ -2077,7 +1892,7 @@ async function _sendBankConnectedEmail(uid, institutionName) {
     const userRecord = await admin.auth().getUser(uid);
     const email = userRecord.email;
     if (!email || !_resendApiKey) return;
-    const name = _htmlEscape((userRecord.displayName || 'there').split(' ')[0]);
+    const name = _htmlEscape((userRecord.displayName || 'Friend').split(' ')[0]);
     const safe = _htmlEscape(institutionName || 'your bank');
     await _sendEmail(email, `${institutionName || 'Your bank'} is connected to FlowCheck ✅`, `
       <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
@@ -2121,7 +1936,7 @@ async function _sendMonthlySummaryForUser(uid, userData, cutoffStr, monthLabel) 
   const email = userData.email;
   if (!email || !_resendApiKey) return;
 
-  const name = _htmlEscape((userData.display_name || userData.name || 'there').split(' ')[0]);
+  const name = _htmlEscape((userData.display_name || userData.name || 'Friend').split(' ')[0]);
 
   // Last day of the previous month = day before cutoffStr's month rolled over
   const endDate = new Date(cutoffStr); endDate.setMonth(endDate.getMonth() + 1); endDate.setDate(0);
@@ -2391,7 +2206,7 @@ if (cron) {
 
 async function _runOnboardingDrip(uid, d, drip, ageDays) {
   const email  = d.email;
-  const name   = _htmlEscape((d.name || 'there').split(' ')[0]);
+  const name   = _htmlEscape((d.name || 'Friend').split(' ')[0]);
   const linked = !!d.plaid_linked;
   const updates = {};
 
@@ -2579,7 +2394,7 @@ if (cron) {
           if (d.notifications_enabled === false) continue;
           const lastSeen = d.last_seen?.toDate ? d.last_seen.toDate() : (d.last_seen ? new Date(d.last_seen) : null);
           if (!lastSeen || lastSeen > cutoff14 || lastSeen < cutoff30) continue; // only 14–30 days inactive
-          const name = _htmlEscape((d.name || 'there').split(' ')[0]);
+          const name = _htmlEscape((d.name || 'Friend').split(' ')[0]);
           await _sendEmail(d.email, `${d.name?.split(' ')[0] || 'Hey'} — your finances are waiting 👀`, `
             <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
             <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
@@ -2650,7 +2465,7 @@ if (cron) {
 async function _sendYearInReviewForUser(uid, userData, year, yearStart, yearEnd) {
   const email = userData.email;
   if (!email || !_resendApiKey) return;
-  const name = _htmlEscape((userData.name || 'there').split(' ')[0]);
+  const name = _htmlEscape((userData.name || 'Friend').split(' ')[0]);
 
   let txnSnap;
   try {
@@ -3683,7 +3498,7 @@ app.post('/auth/otp/send', requireAuth, async (req, res) => {
       code, email, expires_at, sent_at: Date.now(), attempts: 0,
     });
 
-    const name = (userRecord.displayName || 'there').split(' ')[0];
+    const name = (userRecord.displayName || 'Friend').split(' ')[0];
     await _sendEmail(email, `${code} is your FlowCheck verification code`, `
       <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
       <div style="max-width:480px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
@@ -3789,15 +3604,19 @@ app.post('/email/signup-followup/complete', requireAuth, async (req, res) => {
   }
 });
 
-// Background job: check every 5 min for abandoned signups to email
+// Background job: check every 5 min for abandoned signups to email.
+// Firestore composite index required (see firestore.indexes.json):
+//   collection: signup_followups
+//   fields: completed ASC, sent ASC, followup_at ASC
 setInterval(async () => {
   if (!_resendApiKey) return;
   try {
     const now  = Date.now();
     const snap = await db.collection('signup_followups')
-      .where('completed', '==', false)
-      .where('sent',      '==', false)
+      .where('completed',  '==', false)
+      .where('sent',       '==', false)
       .where('followup_at', '<=', now)
+      .orderBy('followup_at', 'asc')
       .limit(20).get();
 
     for (const doc of snap.docs) {
@@ -3822,7 +3641,7 @@ setInterval(async () => {
                 <p style="font-size:14px;color:#4b5563;margin:5px 0">&#x2713; Your financial health score</p>
                 <p style="font-size:14px;color:#4b5563;margin:5px 0">&#x2713; AI-powered savings opportunities</p>
               </div>
-              <a href="https://getflowcheck.app" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#ffffff;font-weight:700;font-size:16px;padding:15px 28px;border-radius:10px;text-decoration:none;text-align:center">
+              <a href="${BACKEND_URL}/open?ref=signup_followup_email" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#ffffff;font-weight:700;font-size:16px;padding:15px 28px;border-radius:10px;text-decoration:none;text-align:center">
                 Finish Setup &rarr;
               </a>
             </div>

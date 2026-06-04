@@ -1220,7 +1220,23 @@ window.FCApp = (function () {
       }
       if (name === 'app') _updateGreeting();
       if (name === 'login') { _clearError('login-error'); resetForgotPasswordScreen(); }
-      if (name === 'register') _clearError('register-error');
+      if (name === 'register') {
+        _clearError('register-error');
+        // Auto-fill referral code if one was captured from a deep link / referral URL
+        if (window._fcPendingReferralCode) {
+          const refInput = document.getElementById('reg-referral-code');
+          if (refInput && !refInput.value) {
+            refInput.value = window._fcPendingReferralCode;
+            const wrap = document.getElementById('reg-referral-wrap');
+            if (wrap) wrap.style.display = 'block';
+            const chev = document.getElementById('reg-referral-chevron');
+            if (chev) chev.style.transform = 'rotate(90deg)';
+          }
+          if (typeof FCAnalytics !== 'undefined') {
+            FCAnalytics.track('referral_signup_started', { code: window._fcPendingReferralCode });
+          }
+        }
+      }
       if (typeof FCAnalytics !== 'undefined') FCAnalytics.screen(name);
       fcLog('Screen →', name);
       _screenTransitioning = false;
@@ -1384,7 +1400,10 @@ window.FCApp = (function () {
         else _renderActivity();
       }, ANIM_MS);
     } else if (tabId === 'insights') {
-      setTimeout(_renderInsights, ANIM_MS);
+      // requestAnimationFrame inside the timeout ensures the DOM write lands in
+      // the first frame AFTER the animation class is removed — prevents layout
+      // thrash and the "shake" artifact on WKWebView.
+      setTimeout(() => requestAnimationFrame(_renderInsights), ANIM_MS);
     } else if (tabId === 'goals') {
       setTimeout(_renderGoals, ANIM_MS);
     } else if (tabId === 'wealth') {
@@ -1634,7 +1653,7 @@ window.FCApp = (function () {
   }
 
   /* ─────────────────────────────────────────────────────────────
-     CREDIT SCORE — Experian integration
+     CREDIT SCORE — manual entry (user enters their own score)
      ───────────────────────────────────────────────────────────── */
 
   // Map numeric score to label + arc color
@@ -3017,9 +3036,9 @@ window.FCApp = (function () {
         FCData.saveCreditSnapshot(data.score).catch(() => {});
       }
 
-      // Show a subtle note if running on demo data
-      if (data.demo) {
-        toast('Showing sample score — Experian not yet configured', 'info');
+      // Show info note if score was manually entered vs. fetched from a service
+      if (data.manual) {
+        // Manual scores don't need a notification — they're already understood as user-entered
       }
     } catch (err) {
       const msg = err.name === 'AbortError'
@@ -5531,7 +5550,14 @@ window.FCApp = (function () {
       _sendWelcomeEmail().catch(() => {});
       // Apply referral code on the backend — non-blocking, never delays onboarding
       if ((referralCode || '').trim()) _applyReferralCode(referralCode.trim()).catch(() => {});
-      if (typeof FCAnalytics !== 'undefined') FCAnalytics.track('signed_up', { has_referral: !!referralCode });
+      if (typeof FCAnalytics !== 'undefined') {
+        FCAnalytics.track('signed_up', { has_referral: !!referralCode });
+        if (referralCode) {
+          FCAnalytics.track('referral_signup_completed', { code: referralCode.trim().toUpperCase() });
+        }
+      }
+      // Clear stored referral code — it's been applied
+      window._fcPendingReferralCode = null;
       // Auth observer will route to faceid-setup → onboarding
     } catch (err) {
       window._fcNewUserFaceIdPending = false; // clear on error
@@ -5647,6 +5673,7 @@ window.FCApp = (function () {
     clearTimeout(_idleTimer);
 
     FCData.detachAllListeners();
+    _listenersAttached = false; // allow re-attach on next sign-in (fixes data leak bug)
     if (typeof FCAnalytics !== 'undefined') FCAnalytics.track('signed_out');
     if (window.Sentry) Sentry.setUser(null);
     await FCAuth.signOut();
@@ -6167,6 +6194,52 @@ window.FCApp = (function () {
     // Configure RevenueCat early so offerings are cached by the time paywall shows
     FCPurchases.configure().catch(() => {});
 
+    // ── Referral deep link handler ─────────────────────────────────
+    // Fires when the app is opened via flowcheck://referral?code=FLOWXXXXXX
+    // (from the /r/:code landing page). Pre-fills the referral code field on signup.
+    const _handleReferralDeepLink = (urlStr) => {
+      try {
+        if (!urlStr || !urlStr.includes('referral')) return;
+        let params;
+        if (urlStr.includes('?')) {
+          params = new URLSearchParams(urlStr.split('?')[1]);
+        } else { return; }
+        const code = (params.get('code') || '').toUpperCase();
+        if (!code || !/^FLOW[A-Z0-9]{4,8}$/.test(code)) return;
+        // Persist for use when the registration screen loads
+        window._fcPendingReferralCode = code;
+        // Pre-fill registration form if already visible
+        const referralInput = document.getElementById('reg-referral-code');
+        if (referralInput) {
+          referralInput.value = code;
+          const wrap = document.getElementById('reg-referral-wrap');
+          if (wrap) wrap.style.display = 'block';
+          const chev = document.getElementById('reg-referral-chevron');
+          if (chev) chev.style.transform = 'rotate(90deg)';
+        }
+        if (typeof FCAnalytics !== 'undefined') {
+          FCAnalytics.track('referral_opened', { code });
+        }
+        fcLog('[referral] Deep link code captured:', code);
+      } catch (_) {}
+    };
+
+    // Listen for Capacitor App URL open events (cold-start + foreground)
+    const _capAppPlugin = window.Capacitor?.Plugins?.App;
+    if (_capAppPlugin) {
+      if (_capAppPlugin.addListener) {
+        _capAppPlugin.addListener('appUrlOpen', (data) => {
+          _handleReferralDeepLink(data?.url || '');
+        });
+      }
+      // Cold-start deep link (app was not running when link was tapped)
+      if (_capAppPlugin.getLaunchUrl) {
+        _capAppPlugin.getLaunchUrl().then(data => {
+          if (data?.url) _handleReferralDeepLink(data.url);
+        }).catch(() => {});
+      }
+    }
+
     // Native layer owns privacy blur + lock screen on iOS.
     // JS only drives the idle timer — when it fires it calls BiometricAuth.lock()
     // which tells AppDelegate to show the native lock screen.
@@ -6204,37 +6277,39 @@ window.FCApp = (function () {
           FCAuth.getUserDoc(),
           FCAuth.isBiometricEnabled(),
         ]);
-        // Show onboarding only for brand-new users (no onboarding_complete flag)
-        // who also haven't connected a bank yet. Existing users with plaid_linked
-        // bypass regardless (backward-compatible).
+        // needsOnboarding: user exists in Firestore, hasn't completed onboarding,
+        // and hasn't linked a bank (bank link = backward-compat bypass for early users).
+        // If the user closed the app mid-onboarding (onboarding_complete not yet set),
+        // they resume onboarding on next open — never jump to the dashboard.
         const needsOnboarding = userDoc && !userDoc.onboarding_complete && !userDoc.plaid_linked;
         if (needsOnboarding) {
-          // New user just registered — show email verification first, then Face ID
+          // New user just registered in this session — show email verification first
           if (window._fcNewUserFaceIdPending) {
             window._fcNewUserFaceIdPending = false;
             if (!user.emailVerified) {
-              // Email/password signup: send OTP and show verification screen
+              // Email/password signup: show OTP verification screen
               window._fcVerifyEmailPending = true;
               setScreen('verify-email');
               const addrEl = document.getElementById('verify-email-addr');
               if (addrEl) addrEl.textContent = user.email || '';
-              // Send OTP code via backend (non-blocking — screen is already shown)
+              // Send OTP and schedule follow-up email (non-blocking)
               FCAuth.getIdToken().then(token => {
                 fetch(`${FC_CONFIG.app.apiBase}/auth/otp/send`, {
                   method: 'POST',
                   headers: { 'Authorization': `Bearer ${token}` },
                 }).catch(() => {});
-                // Schedule abandoned-signup follow-up email (1 hr)
                 fetch(`${FC_CONFIG.app.apiBase}/email/signup-followup/schedule`, {
                   method: 'POST',
                   headers: { 'Authorization': `Bearer ${token}` },
                 }).catch(() => {});
               }).catch(() => {});
             } else {
-              // Apple Sign In or already verified (edge case)
+              // Apple Sign In / already verified — go straight to face ID setup
               setScreen('faceid-setup');
             }
           } else {
+            // Returning user who closed app before finishing onboarding — resume it.
+            // Never drop them onto the dashboard without completing onboarding.
             setScreen('onboarding');
           }
         } else {
@@ -6256,17 +6331,26 @@ window.FCApp = (function () {
               onboarding_done: !!(userDoc?.onboarding_complete),
             });
           }
-          // Gate non-pro users who have already connected a bank.
-          // Don't show the paywall to brand-new users mid-onboarding — wait until
-          // they've linked an account and seen real value first.
-          if (!userDoc?.is_pro && !_paywallShownThisSession) {
-            if (userDoc?.plaid_linked) {
-              FCPurchases.checkProStatus().then(isPro => {
-                if (!isPro && !_paywallShownThisSession) setTimeout(() => showPaywall(), 1500);
-                else if (isPro) setTimeout(() => _tryStartTour(), 1400);
-              }).catch(() => {});
-            }
-            // If bank not yet linked, skip paywall — let them connect first.
+          // Gate returning users who have completed onboarding but aren't Pro.
+          // We check RevenueCat (source of truth) rather than cached Firestore is_pro,
+          // because the Firestore flag can lag after a subscription change.
+          // Show paywall to any user who has completed onboarding and isn't pro,
+          // regardless of bank connection status — fixes the onboarding bypass bug
+          // where users who skipped the paywall could re-open the app without seeing it.
+          if (!userDoc?.is_pro && !_paywallShownThisSession && userDoc?.onboarding_complete) {
+            FCPurchases.checkProStatus().then(isPro => {
+              if (!isPro && !_paywallShownThisSession) {
+                // Brief delay so the home screen renders first (better UX than
+                // an immediate modal, avoids the janky instant-overlay feel)
+                setTimeout(() => showPaywall(), 1200);
+              } else if (isPro) {
+                // RevenueCat confirmed Pro — update cached flag if stale
+                if (userDoc && !userDoc.is_pro) {
+                  try { FCData.updateUserField('is_pro', true); } catch (_) {}
+                }
+                setTimeout(() => _tryStartTour(), 1400);
+              }
+            }).catch(() => {});
           } else if (userDoc?.is_pro) {
             // Pro user — offer tour if they haven't seen it
             setTimeout(() => _tryStartTour(), 1400);
@@ -7836,25 +7920,57 @@ window.FCApp = (function () {
   async function shareReferralCode() {
     const code = _getReferralCode();
     if (!code) return;
-    const shareText = `Use my code ${code} on FlowCheck and we both get a free month of Pro. 💰 Download: https://apps.apple.com/app/flowcheck`;
+
+    // Use the backend referral landing page — reliable, no Firebase Dynamic Links,
+    // never redirects to random sites. Tries to open the app, falls back to App Store.
+    const referralUrl = `${FC_CONFIG.app.apiBase}/r/${encodeURIComponent(code)}`;
+    const shareText   = `Join me on FlowCheck — we both get 1 free month of Pro! 💰`;
     haptic('medium');
+
+    // Track analytics
+    if (typeof FCAnalytics !== 'undefined') {
+      FCAnalytics.track('referral_share_tapped', { code });
+    }
+
     try {
       if (navigator.share) {
-        await navigator.share({ title: 'FlowCheck — Refer a Friend', text: shareText });
+        await navigator.share({
+          title: 'FlowCheck — Refer a Friend',
+          text:  shareText,
+          url:   referralUrl,
+        });
+        if (typeof FCAnalytics !== 'undefined') FCAnalytics.track('referral_shared', { code, method: 'native_share' });
       } else {
-        // Capacitor share plugin fallback
-        const { Share } = await Promise.resolve().then(() => CapacitorExports || window.Capacitor?.Plugins);
-        if (Share?.share) {
-          await Share.share({ title: 'FlowCheck', text: shareText, dialogTitle: 'Share FlowCheck' });
+        // Capacitor Share plugin fallback
+        const plugins = window.Capacitor?.Plugins;
+        if (plugins?.Share?.share) {
+          await plugins.Share.share({
+            title:       'FlowCheck',
+            text:        `${shareText}\n\n${referralUrl}`,
+            url:         referralUrl,
+            dialogTitle: 'Share FlowCheck',
+          });
+          if (typeof FCAnalytics !== 'undefined') FCAnalytics.track('referral_shared', { code, method: 'capacitor_share' });
         } else {
-          copyReferralCode();
-          toast('Code copied — paste it to share!', 'success');
+          // Last resort: copy link to clipboard
+          try {
+            await navigator.clipboard.writeText(referralUrl);
+          } catch (_) {
+            const ta = document.createElement('textarea');
+            ta.value = referralUrl; ta.style.position = 'fixed'; ta.style.opacity = '0';
+            document.body.appendChild(ta); ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+          }
+          toast('Referral link copied!', 'success');
+          if (typeof FCAnalytics !== 'undefined') FCAnalytics.track('referral_shared', { code, method: 'clipboard' });
         }
       }
     } catch (err) {
       if (err.name !== 'AbortError') {
-        copyReferralCode();
-        toast('Code copied — paste it to share!', 'success');
+        // Share was dismissed or failed — copy link as fallback
+        try { await navigator.clipboard.writeText(referralUrl); } catch (_) {}
+        toast('Referral link copied!', 'success');
       }
     }
   }

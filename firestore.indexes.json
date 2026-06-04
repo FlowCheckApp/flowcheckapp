@@ -1,4 +1,46 @@
 {
-  "indexes": [],
+  "indexes": [
+    {
+      "collectionGroup": "signup_followups",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "completed",  "order": "ASCENDING" },
+        { "fieldPath": "sent",       "order": "ASCENDING" },
+        { "fieldPath": "followup_at","order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "notifications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "type",       "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "notifications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "read",       "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "transactions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "date",       "order": "ASCENDING" },
+        { "fieldPath": "pending",    "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "bills",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status",     "order": "ASCENDING" },
+        { "fieldPath": "due_date",   "order": "ASCENDING" }
+      ]
+    }
+  ],
   "fieldOverrides": []
 }

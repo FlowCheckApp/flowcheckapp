@@ -108,7 +108,7 @@
       <li><a href="#overview">Overview</a></li>
       <li><a href="#information">Information We Collect</a></li>
       <li><a href="#plaid">Plaid & Bank Data</a></li>
-      <li><a href="#experian">Credit Score (Experian)</a></li>
+      <li><a href="#experian">Credit Score</a></li>
       <li><a href="#firebase">Firebase</a></li>
       <li><a href="#notifications">Notifications</a></li>
       <li><a href="#revenuecat">RevenueCat</a></li>
@@ -163,7 +163,7 @@
       <li>Financial goals (name, target amount, target date)</li>
       <li>Bill reminders (name, amount, due date)</li>
       <li>Monthly budget limits by category</li>
-      <li>A manually entered credit score (if you choose not to use Experian)</li>
+      <li>A manually entered credit score (from your bank or credit monitoring service)</li>
     </ul>
 
     <h3>2.4 Device & Usage Data</h3>
@@ -187,15 +187,14 @@
     </ul>
     <p>Plaid's data practices are governed by their own privacy policy, available at <a href="https://plaid.com/legal/privacy-policy/" target="_blank">plaid.com/legal/privacy-policy</a>. By using the bank connection feature, you agree to Plaid's <a href="https://plaid.com/legal/end-user-privacy-policy/" target="_blank">End User Privacy Policy</a>.</p>
 
-    <h2 id="experian">4. Experian — Credit Score</h2>
-    <p>If you use the credit score feature, FlowCheck securely contacts <strong>Experian</strong> (a leading credit bureau) to retrieve your credit profile. In this process:</p>
+    <h2 id="experian">4. Credit Score</h2>
+    <p>FlowCheck allows you to manually enter a credit score you already know from your bank, credit card issuer, or credit monitoring service (such as Credit Karma, Experian app, or your bank's app). FlowCheck does not retrieve credit reports or contact any credit bureau directly.</p>
     <ul>
-      <li>Your request is sent through our secure backend — your data is never sent directly from your device to Experian</li>
-      <li>We do not store your Social Security Number (SSN) on our servers. Any SSN submitted is used solely for the single credit pull request and immediately discarded</li>
-      <li>Your credit score, risk class, and score factors are cached in your account for up to 24 hours to avoid unnecessary credit bureau queries, then refreshed on your next request</li>
-      <li>We do not perform hard inquiries on your credit — credit score lookups through FlowCheck are soft pulls and do not affect your credit score</li>
+      <li>The score you enter is stored in your FlowCheck account and used only to display your financial health score within the app</li>
+      <li>FlowCheck never performs credit inquiries (hard or soft) on your behalf</li>
+      <li>No Social Security Number or personal identifying information is required or requested</li>
+      <li>Your manually entered credit score is deleted when you delete your FlowCheck account</li>
     </ul>
-    <p>Experian's privacy practices are governed by their privacy policy at <a href="https://www.experian.com/privacy" target="_blank">experian.com/privacy</a>.</p>
 
     <h2 id="firebase">5. Firebase (Google)</h2>
     <p>FlowCheck uses <strong>Google Firebase</strong> for the following purposes:</p>
@@ -253,7 +252,7 @@
     <h2 id="sharing">9. Data Sharing & Disclosure</h2>
     <p>We do not sell, rent, or trade your personal information. We share data only in the following limited circumstances:</p>
     <ul>
-      <li><strong>Service Providers:</strong> We share data with Plaid, Experian, Firebase (Google), RevenueCat, and PostHog solely to operate the features described in this policy. Each provider is bound by data processing agreements and their own privacy policies.</li>
+      <li><strong>Service Providers:</strong> We share data with Plaid, Firebase (Google), RevenueCat, and PostHog solely to operate the features described in this policy. Each provider is bound by data processing agreements and their own privacy policies.</li>
       <li><strong>Legal Requirements:</strong> We may disclose information if required by law, court order, or to protect the rights, safety, or property of FlowCheck, our users, or the public.</li>
       <li><strong>Business Transfer:</strong> If FlowCheck is acquired or merges with another company, your data may be transferred. We will notify you and give you the opportunity to delete your account before any such transfer is finalized.</li>
     </ul>

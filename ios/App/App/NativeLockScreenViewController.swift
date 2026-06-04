@@ -107,12 +107,32 @@ final class NativeLockScreenViewController: UIViewController {
         shadowWrap.layer.shadowRadius  = 24
         shadowWrap.layer.shadowOpacity = 0.40
 
-        // SF Symbol icon inside logo
-        let cfg  = UIImage.SymbolConfiguration(pointSize: 28, weight: .medium)
-        let icon = UIImage(systemName: "chart.line.uptrend.xyaxis", withConfiguration: cfg)
-                ?? UIImage(systemName: "house.fill", withConfiguration: cfg)
-        let iconView = UIImageView(image: icon)
-        iconView.tintColor = .white
+        // App icon — load the actual FlowCheck icon from the bundle so the lock
+        // screen shows real branding, not a generic SF Symbol.
+        // Falls back to the chart symbol if the icon can't be loaded (e.g. simulator).
+        let appIcon: UIImage? = {
+            if let icons = Bundle.main.infoDictionary?["CFBundleIcons"] as? [String: Any],
+               let primary = icons["CFBundlePrimaryIcon"] as? [String: Any],
+               let files = primary["CFBundleIconFiles"] as? [String],
+               let name = files.last {
+                return UIImage(named: name)
+            }
+            return nil
+        }()
+
+        let iconView: UIImageView
+        if let appIcon = appIcon {
+            iconView = UIImageView(image: appIcon)
+            iconView.contentMode   = .scaleAspectFill
+            iconView.layer.cornerRadius = 14
+            iconView.clipsToBounds = true
+        } else {
+            let cfg  = UIImage.SymbolConfiguration(pointSize: 28, weight: .medium)
+            let sym  = UIImage(systemName: "chart.line.uptrend.xyaxis", withConfiguration: cfg)
+                    ?? UIImage(systemName: "dollarsign.circle.fill", withConfiguration: cfg)
+            iconView = UIImageView(image: sym)
+            iconView.tintColor = .white
+        }
         iconView.translatesAutoresizingMaskIntoConstraints = false
         logoContainer.addSubview(iconView)
 

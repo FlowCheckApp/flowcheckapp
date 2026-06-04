@@ -49,8 +49,10 @@ window.FC_CONFIG = {
   },
 
   /* ── Credit ─────────────────────────────────────────────────
-     Server-proxied Experian endpoints. PII (SSN, DOB) is sent
-     only once to YOUR backend and never stored on-device.
+     Manual credit score entry — users enter their own score
+     from their bank or credit monitoring service.
+     GET  scoreEndpoint  → returns stored score (if any)
+     POST manualEndpoint → { score, scoreType } → saves to Firestore
      ─────────────────────────────────────────────────────────── */
   credit: {
     scoreEndpoint:  'https://getflowcheck.app/credit/score',
