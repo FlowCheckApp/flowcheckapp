@@ -6389,6 +6389,21 @@ window.FCApp = (function () {
     _doSync(true); // user-initiated — show toast
   }
 
+  async function sendTestEmail() {
+    const statusEl = document.getElementById('test-email-status');
+    if (statusEl) statusEl.textContent = 'Sending…';
+    try {
+      const resp = await FCAuth.authedFetch(`${FC_CONFIG.app.apiBase}/email/test`, { method: 'POST' });
+      const data = await resp.json();
+      if (statusEl) statusEl.textContent = data.sent ? '✓ Sent' : '✗ Failed';
+      toast(data.sent ? 'Test email sent — check your inbox' : 'Email not sent — check Resend config', data.sent ? 'success' : 'error');
+    } catch (err) {
+      if (statusEl) statusEl.textContent = '✗ Error';
+      toast('Test failed: ' + err.message, 'error');
+    }
+    setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 4000);
+  }
+
   /* ─────────────────────────────────────────────────────────────
      NOTIFICATION CENTER
      ───────────────────────────────────────────────────────────── */
@@ -8032,6 +8047,7 @@ window.FCApp = (function () {
     toast,
     haptic,
     manualSync,
+    sendTestEmail,
     // Bank sheets
     showBankSheet,
     closeBankSheet,
