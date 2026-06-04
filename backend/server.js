@@ -121,6 +121,29 @@ function _htmlEscape(str) {
     .replace(/'/g, '&#x27;');
 }
 
+/**
+ * Resolve a user's display name for email personalization.
+ * Priority: Firestore `name` field → Firebase Auth displayName → 'Friend'.
+ * Firestore is preferred because it's user-editable from within the app;
+ * Auth displayName is a fallback for Apple/Google sign-in users who haven't
+ * set a name in-app yet.
+ */
+async function _resolveDisplayName(uid, fallback = 'Friend') {
+  try {
+    const snap = await db.collection('users').doc(uid).get();
+    if (snap.exists) {
+      const name = (snap.data().name || '').trim();
+      if (name) return _htmlEscape(name.split(' ')[0]);
+    }
+  } catch (_) {}
+  try {
+    const record = await admin.auth().getUser(uid);
+    const name = (record.displayName || '').trim();
+    if (name) return _htmlEscape(name.split(' ')[0]);
+  } catch (_) {}
+  return fallback;
+}
+
 /* ── Firebase ID-token cache (LRU, 14-min TTL) ──────────────────── */
 // Firebase Admin SDK caches tokens internally but still does JWT
 // parsing on every call. This thin in-process cache cuts redundant
@@ -408,7 +431,7 @@ app.get('/r/:code', (req, res) => {
   }).catch(() => {});
 
   const appScheme = `flowcheck://referral?code=${encodeURIComponent(rawCode)}`;
-  const storeUrl  = 'https://apps.apple.com/app/flowcheck';
+  const storeUrl  = 'https://apps.apple.com/app/flowcheck/id6742624701';
 
   res.setHeader('Content-Type', 'text/html');
   res.send(`<!DOCTYPE html>
@@ -628,11 +651,13 @@ app.post('/plaid/exchange-token', requireAuth, _plaidUserLimiter, async (req, re
             admin.auth().getUser(referrerUid).catch(() => null),
             admin.auth().getUser(req.uid).catch(() => null),
           ]);
+          const [referrerName, referredName] = await Promise.all([
+            _resolveDisplayName(referrerUid, 'Friend'),
+            _resolveDisplayName(req.uid, 'Someone'),
+          ]);
 
           // Notify referrer: you earned Pro
           if (referrerRecord?.email) {
-            const referrerName = _htmlEscape((referrerRecord.displayName || 'Friend').split(' ')[0]);
-            const referredName = _htmlEscape((referredRecord?.displayName || 'Someone').split(' ')[0]);
             const rewardLabel  = lifetimePro ? 'Lifetime Pro 🏆' : '1 month of Pro free';
             _sendEmail(referrerRecord.email, `${referredName} joined FlowCheck — you earned ${rewardLabel}! 🎉`, `
               <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
@@ -666,7 +691,6 @@ app.post('/plaid/exchange-token', requireAuth, _plaidUserLimiter, async (req, re
 
           // Notify referred user: you also earned 1 month Pro
           if (referredRecord?.email) {
-            const referredName = _htmlEscape((referredRecord.displayName || 'Friend').split(' ')[0]);
             _sendEmail(referredRecord.email, `You got 1 month of FlowCheck Pro — welcome gift! 🎁`, `
               <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
               <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
@@ -1200,52 +1224,79 @@ app.post('/email/welcome', requireAuth, async (req, res) => {
   try {
     const userRecord = await admin.auth().getUser(req.uid);
     const email = userRecord.email;
-    const name  = (userRecord.displayName || 'Friend').split(' ')[0];
 
     if (!email) {
-      // Apple "hide my email" users — skip silently
       return res.json({ ok: true, skipped: 'no_email' });
     }
 
-    await _sendEmail(email, 'Welcome to FlowCheck 🎉', `
-      <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-      <div style="max-width:520px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
-        <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:40px 32px;text-align:center">
-          ${LOGO_IMG}
-          <h1 style="color:#ffffff;font-size:26px;font-weight:700;margin:0 0 8px;letter-spacing:-0.02em">Welcome to FlowCheck, ${_htmlEscape(name)}!</h1>
-          <p style="color:rgba(255,255,255,0.6);font-size:15px;margin:0">Your money, clearly.</p>
-        </div>
-        <div style="padding:32px">
-          <p style="font-size:16px;color:#374151;line-height:1.6;margin:0 0 24px">
-            You're all set. FlowCheck gives you a real-time view of your money, smart spending alerts, and a financial health score that actually helps you improve.
-          </p>
-          <div style="background:#f0fffe;border-left:3px solid #1ac4f0;border-radius:8px;padding:16px 20px;margin-bottom:28px">
-            <p style="font-size:14px;font-weight:600;color:#0a1520;margin:0 0 10px">Get the most out of FlowCheck:</p>
-            <p style="font-size:14px;color:#4b5563;margin:5px 0">✓ Connect your bank account with Plaid</p>
-            <p style="font-size:14px;color:#4b5563;margin:5px 0">✓ Set a monthly budget to track spending</p>
-            <p style="font-size:14px;color:#4b5563;margin:5px 0">✓ Add your recurring bills for reminders</p>
-            <p style="font-size:14px;color:#4b5563;margin:5px 0">✓ Check your Financial Health Score</p>
-          </div>
-          <a href="${BACKEND_URL}/open?ref=welcome_email" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#ffffff;font-weight:700;font-size:16px;padding:15px 28px;border-radius:10px;text-decoration:none;text-align:center;letter-spacing:-0.01em">
-            Open FlowCheck →
-          </a>
-        </div>
-        <div style="padding:20px 32px;border-top:1px solid #f3f4f6;text-align:center">
-          <p style="font-size:12px;color:#9ca3af;margin:0">
-            FlowCheck · Your money, clearly.<br>
-            <a href="https://getflowcheck.app/privacy" style="color:#9ca3af">Privacy Policy</a> &nbsp;·&nbsp;
-            <a href="${_unsubUrl(req.uid, 'all')}" style="color:#9ca3af">Unsubscribe</a>
-          </p>
-        </div>
-      </div>
-      </body></html>
-    `);
+    const name = await _resolveDisplayName(req.uid);
+
+    await _sendEmail(email, `Welcome to FlowCheck, ${name} 👋`, `
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Welcome to FlowCheck</title></head>
+<body style="margin:0;padding:0;background-color:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
+<div style="display:none;max-height:0;overflow:hidden;font-size:1px;color:#f3f4f6">Your FlowCheck account is ready — connect your bank and see your money clearly.</div>
+<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f3f4f6;padding:32px 16px">
+<tr><td align="center">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%">
+
+  <!-- Header -->
+  <tr><td style="background:linear-gradient(160deg,#060e18 0%,#0d2240 100%);border-radius:16px 16px 0 0;padding:40px 40px 36px;text-align:center">
+    ${LOGO_IMG}
+    <h1 style="color:#ffffff;font-size:28px;font-weight:800;margin:0 0 8px;letter-spacing:-0.03em;line-height:1.2">Welcome, ${name}.</h1>
+    <p style="color:rgba(255,255,255,0.55);font-size:15px;margin:0;font-weight:400">Your money, clearly.</p>
+  </td></tr>
+
+  <!-- Body -->
+  <tr><td style="background:#ffffff;padding:36px 40px">
+    <p style="font-size:16px;color:#374151;line-height:1.7;margin:0 0 28px">
+      You're all set. FlowCheck connects to your bank and gives you a live view of your spending, bills, and financial health — all in one place.
+    </p>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0fffe;border-radius:12px;margin-bottom:32px">
+      <tr><td style="padding:20px 24px">
+        <p style="font-size:12px;font-weight:700;color:#1ac4f0;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 14px">Get started in 3 steps</p>
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr><td style="padding:6px 0;font-size:14px;color:#374151">
+            <span style="display:inline-block;width:22px;height:22px;background:#1ac4f0;border-radius:50%;text-align:center;line-height:22px;font-size:11px;font-weight:800;color:#060e18;margin-right:10px;vertical-align:middle">1</span>
+            Connect your bank account with Plaid
+          </td></tr>
+          <tr><td style="padding:6px 0;font-size:14px;color:#374151">
+            <span style="display:inline-block;width:22px;height:22px;background:rgba(26,196,240,0.2);border-radius:50%;text-align:center;line-height:22px;font-size:11px;font-weight:800;color:#1ac4f0;margin-right:10px;vertical-align:middle">2</span>
+            Set a monthly budget and track spending
+          </td></tr>
+          <tr><td style="padding:6px 0;font-size:14px;color:#374151">
+            <span style="display:inline-block;width:22px;height:22px;background:rgba(26,196,240,0.2);border-radius:50%;text-align:center;line-height:22px;font-size:11px;font-weight:800;color:#1ac4f0;margin-right:10px;vertical-align:middle">3</span>
+            Check your Financial Health Score
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+
+    <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
+      <a href="${BACKEND_URL}/open?ref=welcome_email" style="display:inline-block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#ffffff;font-weight:700;font-size:16px;padding:16px 40px;border-radius:12px;text-decoration:none;letter-spacing:-0.01em">Open FlowCheck →</a>
+    </td></tr></table>
+  </td></tr>
+
+  <!-- Footer -->
+  <tr><td style="background:#ffffff;border-radius:0 0 16px 16px;border-top:1px solid #f3f4f6;padding:20px 40px;text-align:center">
+    <p style="font-size:12px;color:#9ca3af;margin:0;line-height:1.8">
+      FlowCheck · Your money, clearly.<br>
+      <a href="https://getflowcheck.app/privacy" style="color:#9ca3af;text-decoration:none">Privacy Policy</a>
+      &nbsp;·&nbsp;
+      <a href="${_unsubUrl(req.uid, 'all', BACKEND_URL)}" style="color:#9ca3af;text-decoration:none">Unsubscribe</a>
+    </p>
+  </td></tr>
+
+</table>
+</td></tr>
+</table>
+</body></html>
+    `, req.uid);
     return res.json({ ok: true });
   } catch (err) {
     console.error('[email/welcome]', err.message);
-    // Never block the app — always return 200
-    // Guard: nodemailer sometimes fires a late timeout event after the promise
-    // already settled, which can reach this catch AFTER res.json() was sent.
     if (res.headersSent) return;
     res.json({ ok: true, error: 'email_failed' });
   }
@@ -1293,45 +1344,68 @@ app.post('/email/pro-upgrade', requireAuth, async (req, res) => {
   try {
     const userRecord = await admin.auth().getUser(req.uid);
     const email = userRecord.email;
-    const name  = _htmlEscape((userRecord.displayName || 'Friend').split(' ')[0]);
-    const plan  = req.body?.plan === 'annual' ? 'annual' : 'monthly';
-
     if (!email) return res.json({ ok: true, skipped: 'no_email' });
 
-    await _sendEmail(email, 'Welcome to FlowCheck Pro 🚀', `
-      <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-      <div style="max-width:520px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
-        <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:40px 32px;text-align:center">
-          ${LOGO_IMG}
-          <h1 style="color:#ffffff;font-size:26px;font-weight:700;margin:0 0 8px;letter-spacing:-0.02em">You're now Pro, ${name}!</h1>
-          <p style="color:rgba(255,255,255,0.6);font-size:15px;margin:0">${plan === 'annual' ? 'Annual plan · thanks for the commitment' : 'Monthly plan · cancel anytime'}</p>
-        </div>
-        <div style="padding:32px">
-          <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 24px">
-            Your Pro subscription is active. Here's everything you've unlocked:
-          </p>
-          <div style="background:#f0fffe;border-left:3px solid #1ac4f0;border-radius:8px;padding:16px 20px;margin-bottom:28px">
-            <p style="font-size:14px;color:#4b5563;margin:5px 0">✦ Unlimited bank accounts</p>
-            <p style="font-size:14px;color:#4b5563;margin:5px 0">✦ Financial Health Score</p>
-            <p style="font-size:14px;color:#4b5563;margin:5px 0">✦ AI-powered spending insights</p>
-            <p style="font-size:14px;color:#4b5563;margin:5px 0">✦ Bill tracking &amp; reminders</p>
-            <p style="font-size:14px;color:#4b5563;margin:5px 0">✦ Net worth tracking &amp; milestones</p>
-            <p style="font-size:14px;color:#4b5563;margin:5px 0">✦ Weekly financial summaries</p>
-          </div>
-          <a href="${BACKEND_URL}/open?ref=pro_upgrade_email" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#ffffff;font-weight:700;font-size:16px;padding:15px 28px;border-radius:10px;text-decoration:none;text-align:center;letter-spacing:-0.01em">
-            Explore FlowCheck Pro →
-          </a>
-        </div>
-        <div style="padding:20px 32px;border-top:1px solid #f3f4f6;text-align:center">
-          <p style="font-size:12px;color:#9ca3af;margin:0">
-            FlowCheck · Your money, clearly.<br>
-            Manage your subscription in the App Store.<br>
-            <a href="https://getflowcheck.app/privacy" style="color:#9ca3af">Privacy Policy</a>
-          </p>
-        </div>
-      </div>
-      </body></html>
-    `);
+    const name = await _resolveDisplayName(req.uid);
+    const plan = req.body?.plan === 'annual' ? 'annual' : 'monthly';
+    const planLabel = plan === 'annual' ? 'Annual plan · billed yearly' : 'Monthly plan · cancel anytime';
+
+    await _sendEmail(email, 'You\'re now FlowCheck Pro 🚀', `
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Welcome to FlowCheck Pro</title></head>
+<body style="margin:0;padding:0;background-color:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
+<div style="display:none;max-height:0;overflow:hidden;font-size:1px;color:#f3f4f6">Your Pro subscription is active — here's everything you've unlocked.</div>
+<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f3f4f6;padding:32px 16px">
+<tr><td align="center">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%">
+
+  <!-- Header -->
+  <tr><td style="background:linear-gradient(160deg,#060e18 0%,#0d2240 100%);border-radius:16px 16px 0 0;padding:40px 40px 36px;text-align:center">
+    ${LOGO_IMG}
+    <h1 style="color:#ffffff;font-size:28px;font-weight:800;margin:0 0 8px;letter-spacing:-0.03em;line-height:1.2">You're Pro, ${name}.</h1>
+    <p style="color:rgba(255,255,255,0.55);font-size:15px;margin:0">${planLabel}</p>
+  </td></tr>
+
+  <!-- Body -->
+  <tr><td style="background:#ffffff;padding:36px 40px">
+    <p style="font-size:16px;color:#374151;line-height:1.7;margin:0 0 28px">
+      Your subscription is active. Everything is unlocked — no limits, no restrictions.
+    </p>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0fffe;border-radius:12px;margin-bottom:32px">
+      <tr><td style="padding:20px 24px">
+        <p style="font-size:12px;font-weight:700;color:#1ac4f0;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 14px">What's included</p>
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr><td style="padding:5px 0;font-size:14px;color:#374151"><span style="color:#1ac4f0;margin-right:10px;font-weight:700">✦</span>Unlimited bank accounts</td></tr>
+          <tr><td style="padding:5px 0;font-size:14px;color:#374151"><span style="color:#1ac4f0;margin-right:10px;font-weight:700">✦</span>Financial Health Score</td></tr>
+          <tr><td style="padding:5px 0;font-size:14px;color:#374151"><span style="color:#1ac4f0;margin-right:10px;font-weight:700">✦</span>AI-powered spending insights</td></tr>
+          <tr><td style="padding:5px 0;font-size:14px;color:#374151"><span style="color:#1ac4f0;margin-right:10px;font-weight:700">✦</span>Bill tracking &amp; reminders</td></tr>
+          <tr><td style="padding:5px 0;font-size:14px;color:#374151"><span style="color:#1ac4f0;margin-right:10px;font-weight:700">✦</span>Net worth tracking &amp; milestones</td></tr>
+          <tr><td style="padding:5px 0;font-size:14px;color:#374151"><span style="color:#1ac4f0;margin-right:10px;font-weight:700">✦</span>Weekly financial summaries</td></tr>
+        </table>
+      </td></tr>
+    </table>
+
+    <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
+      <a href="${BACKEND_URL}/open?ref=pro_upgrade_email" style="display:inline-block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#ffffff;font-weight:700;font-size:16px;padding:16px 40px;border-radius:12px;text-decoration:none;letter-spacing:-0.01em">Open FlowCheck →</a>
+    </td></tr></table>
+  </td></tr>
+
+  <!-- Footer -->
+  <tr><td style="background:#ffffff;border-radius:0 0 16px 16px;border-top:1px solid #f3f4f6;padding:20px 40px;text-align:center">
+    <p style="font-size:12px;color:#9ca3af;margin:0;line-height:1.8">
+      FlowCheck · Your money, clearly.<br>
+      Manage your subscription in <a href="itms-apps://apps.apple.com/account/subscriptions" style="color:#9ca3af;text-decoration:none">App Store Settings</a>.<br>
+      <a href="https://getflowcheck.app/privacy" style="color:#9ca3af;text-decoration:none">Privacy Policy</a>
+    </p>
+  </td></tr>
+
+</table>
+</td></tr>
+</table>
+</body></html>
+    `, req.uid);
     return res.json({ ok: true });
   } catch (err) {
     console.error('[email/pro-upgrade]', err.message);

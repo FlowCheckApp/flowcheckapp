@@ -2243,6 +2243,11 @@ body {
     <div class="fc-auth-divider fc-auth-field-enter" style="margin:14px 0 12px"><span>or sign up with email</span></div>
 
     <div class="fc-input-group fc-auth-field-enter" style="width:100%">
+      <div class="fc-input-label">First name</div>
+      <input id="reg-name" class="fc-input" type="text" autocomplete="given-name" autocapitalize="words" placeholder="Your first name" enterkeyhint="next" onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('reg-email').focus()}">
+    </div>
+
+    <div class="fc-input-group fc-auth-field-enter" style="width:100%">
       <div class="fc-input-label">Email</div>
       <input id="reg-email" class="fc-input" type="email" autocomplete="email" inputmode="email" placeholder="you@example.com" enterkeyhint="next" onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('reg-password').focus()}">
     </div>
@@ -2262,7 +2267,7 @@ body {
     </div>
 
     <button id="btn-register" class="fc-btn fc-btn--primary fc-btn--block fc-auth-field-enter"
-            onclick="FCApp.handleRegister('', document.getElementById('reg-email').value, document.getElementById('reg-password').value, '')"
+            onclick="FCApp.handleRegister((document.getElementById('reg-name').value||'').trim(), document.getElementById('reg-email').value, document.getElementById('reg-password').value, (window._fcPendingReferralCode||''))"
             type="button">
       Create Account
     </button>

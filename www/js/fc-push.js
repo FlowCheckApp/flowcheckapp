@@ -75,11 +75,12 @@ window.FCPush = (function () {
         const user = FCAuth.currentUser();
         const db   = FCAuth.db();
         if (user && db) {
-          // Save to Firestore directly (fast path)
-          await db.collection('users').doc(user.uid).update({
+          // Use set+merge so this works even if the user doc doesn't exist yet
+          // (race condition during fresh signup). update() would throw NOT_FOUND.
+          await db.collection('users').doc(user.uid).set({
             fcm_token:      _fcmToken,
             fcm_updated_at: firebase.firestore.FieldValue.serverTimestamp(),
-          });
+          }, { merge: true });
           // Also register with backend (keeps server-side token in sync)
           const idToken      = await user.getIdToken();
           const registerUrl  = (window.FC_CONFIG && FC_CONFIG.notifications && FC_CONFIG.notifications.registerEndpoint)

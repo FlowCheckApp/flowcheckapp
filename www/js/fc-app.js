@@ -5536,13 +5536,22 @@ window.FCApp = (function () {
     _setLoading('btn-register', true, 'Creating account…');
     _clearError('register-error');
     try {
+      // Validate name — required so emails personalize correctly
+      const trimmedName = (name || '').trim();
+      if (!trimmedName) {
+        _showError('register-error', 'Please enter your first name.');
+        _setLoading('btn-register', false, 'Create Account');
+        document.getElementById('reg-name')?.focus();
+        return;
+      }
+
       // Sign out any cached session first — prevents onAuthStateChanged firing
       // with the OLD user before signUp completes and routing a new registrant
       // straight to the existing account's home screen.
       try { FCData.detachAllListeners(); _listenersAttached = false; await FCAuth.signOut(); } catch (_) {}
       // Flag: auth observer will route this new user to Face ID setup first
       window._fcNewUserFaceIdPending = true;
-      await FCAuth.signUp(name, email, password, referralCode);
+      await FCAuth.signUp(trimmedName, email, password, referralCode);
       // Clear any stale RevenueCat pro cache from a previous test session
       // so the paywall always shows correctly for brand-new accounts.
       try { localStorage.removeItem('fc_pro_status_v1'); } catch (_) {}
@@ -7779,21 +7788,31 @@ window.FCApp = (function () {
     try {
       const authUser = FCAuth.currentUser();
       const db       = FCAuth.db();
-      const updates  = {};
+
+      if (!authUser) {
+        if (errEl) errEl.textContent = 'Session expired — please sign in again.';
+        return;
+      }
+
+      // Force token refresh so Firestore accepts the write (guards against
+      // stale cached tokens that can cause spurious permission-denied errors).
+      try { await authUser.getIdToken(true); } catch (_) {}
+
+      const updates = {};
 
       // Update display name in Firebase Auth
-      if (authUser && newName !== (authUser.displayName || '')) {
+      if (newName !== (authUser.displayName || '')) {
         await authUser.updateProfile({ displayName: newName });
       }
 
       // Email change requires re-authentication in Firebase — show clear message
-      if (authUser && newEmail && newEmail !== authUser.email) {
+      if (newEmail && newEmail !== authUser.email) {
         try {
           await authUser.updateEmail(newEmail);
           updates.email = newEmail;
         } catch (emailErr) {
           if (emailErr.code === 'auth/requires-recent-login') {
-            if (errEl) errEl.textContent = 'For security, please sign out and sign back in before changing your email.';
+            if (errEl) errEl.textContent = 'For security, sign out and sign back in before changing your email.';
             btn.disabled = false;
             btn.textContent = 'Save Changes';
             return;
@@ -7806,8 +7825,22 @@ window.FCApp = (function () {
       updates.name = newName;
       if (newPhone) updates.phone = newPhone;
 
-      if (authUser && db) {
-        await db.collection('users').doc(authUser.uid).update(updates);
+      if (db) {
+        // Try update() first (doc should exist). If NOT_FOUND, fall back to
+        // set+merge which creates the doc — this handles the edge case where
+        // a user's Firestore doc was wiped but their Auth account remains.
+        try {
+          await db.collection('users').doc(authUser.uid).update(updates);
+        } catch (updateErr) {
+          if (updateErr.code === 'not-found') {
+            await db.collection('users').doc(authUser.uid).set(
+              { uid: authUser.uid, ...updates },
+              { merge: true }
+            );
+          } else {
+            throw updateErr;
+          }
+        }
       }
 
       // Optimistically update local state so UI reflects instantly
@@ -7820,7 +7853,12 @@ window.FCApp = (function () {
       toast('Profile updated', 'success');
     } catch (err) {
       console.error('[saveProfileChanges]', err);
-      if (errEl) errEl.textContent = err.message || 'Could not save changes. Please try again.';
+      const isPermission = err.code === 'permission-denied' || err.code === 'PERMISSION_DENIED';
+      if (errEl) {
+        errEl.textContent = isPermission
+          ? 'Could not save — try signing out and back in, then update your profile.'
+          : (err.message || 'Could not save changes. Please try again.');
+      }
     } finally {
       btn.disabled = false;
       btn.textContent = 'Save Changes';

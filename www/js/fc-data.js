@@ -291,8 +291,23 @@ window.FCData = (function () {
   async function updateUserField(field, value) {
     const user = FCAuth.currentUser();
     const db   = FCAuth.db();
-    if (!user || !db) return;
-    await db.collection('users').doc(user.uid).update({ [field]: value });
+    if (!user || !db) throw new Error('Not authenticated');
+    // Refresh token before write — guards against stale cached tokens that
+    // produce spurious permission-denied errors on long-running sessions.
+    try { await user.getIdToken(true); } catch (_) {}
+    try {
+      await db.collection('users').doc(user.uid).update({ [field]: value });
+    } catch (err) {
+      if (err.code === 'not-found') {
+        // Doc doesn't exist yet (edge case: fresh signup race) — create it
+        await db.collection('users').doc(user.uid).set(
+          { uid: user.uid, [field]: value },
+          { merge: true }
+        );
+      } else {
+        throw err;
+      }
+    }
   }
 
   /* ─────────────────────────────────────────────────────────────

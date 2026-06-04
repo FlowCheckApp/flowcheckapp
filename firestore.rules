@@ -34,16 +34,23 @@ service cloud.firestore {
     // write them. Letting clients seed `is_pro:true` at signup bypasses payment.
     function allowedUserCreateFields() {
       return request.resource.data.keys().hasOnly([
-        'uid', 'name', 'email',
+        'uid', 'name', 'email', 'phone',
         'created_at', 'last_seen', 'last_streak_date',
         'plaid_linked', 'plaid_institution', 'plaid_institution_id', 'plaid_linked_at',
         'streak',
         'goals', 'budgets',
         'notifications_enabled', 'biometric_enabled',
         'email_marketing_opt_in',
-        'onboarding_goal', 'onboarding_income',
+        'onboarding_goal', 'onboarding_income', 'onboarding_complete', 'onboarding_attribution',
+        'tour_completed',
+        // FCM token — may be written via set+merge on fresh installs before doc exists
+        'fcm_token', 'fcm_updated_at',
+        // Terms acceptance
+        'terms_accepted_at', 'terms_version',
         // Referral — stored at signup if the user entered a referral code
         'referred_by',
+        // Referral code — deterministic, generated client-side
+        'referral_code',
       ]);
     }
 
