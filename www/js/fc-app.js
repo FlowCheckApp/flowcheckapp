@@ -6419,35 +6419,43 @@ window.FCApp = (function () {
               onboarding_done: !!(userDoc?.onboarding_complete),
             });
           }
-          // Gate returning users who have completed onboarding but aren't Pro.
-          // We check RevenueCat (source of truth) rather than cached Firestore is_pro,
-          // because the Firestore flag can lag after a subscription change.
-          // Show paywall to any user who has completed onboarding and isn't pro,
-          // regardless of bank connection status — fixes the onboarding bypass bug
-          // where users who skipped the paywall could re-open the app without seeing it.
-          if (!userDoc?.is_pro && !_paywallShownThisSession && userDoc?.onboarding_complete) {
-            FCPurchases.checkProStatus().then(isPro => {
-              if (!isPro && !_paywallShownThisSession) {
-                // Brief delay so the home screen renders first (better UX than
-                // an immediate modal, avoids the janky instant-overlay feel)
-                setTimeout(() => showPaywall(), 1200);
-              } else if (isPro) {
-                // RevenueCat confirmed Pro — optimistically update local state cache
-                // (Firestore is_pro is written server-side by RevenueCat webhook, not client)
-                if (userDoc && !userDoc.is_pro) {
-                  if (state.user) state.user.is_pro = true;
+          // Always verify pro status with RC for every onboarded user.
+          // Firestore is_pro can be permanently stale when a cancellation webhook
+          // can't resolve the Firebase UID (anonymous RC subscriber residual).
+          // Skipping this check for is_pro=true users creates a permanent revenue leak.
+          if (userDoc?.onboarding_complete && !_paywallShownThisSession) {
+            FCPurchases.checkProStatus().then(async isPro => {
+              if (isPro) {
+                // RC confirmed Pro — sync local cache if Firestore was behind
+                if (state.user && !state.user.is_pro) {
+                  state.user.is_pro = true;
                   _refreshAfterPro();
                 }
                 setTimeout(() => _tryStartTour(), 1400);
+              } else if (userDoc?.is_pro) {
+                // Firestore says pro but RC says not — could be an anonymous RC subscriber
+                // whose webhook couldn't map to a Firebase UID. Attempt restore to link
+                // the App Store receipt to the named subscriber before concluding lapsed.
+                try {
+                  const { isPro: restored } = await FCPurchases.restorePurchases();
+                  if (restored) {
+                    if (state.user) state.user.is_pro = true;
+                    _refreshAfterPro();
+                    return;
+                  }
+                } catch (_) {}
+                // Restore didn't recover Pro — subscription has genuinely lapsed
+                if (state.user) state.user.is_pro = false;
+                if (!_paywallShownThisSession) setTimeout(() => showPaywall(), 1200);
+              } else {
+                // RC and Firestore both say not pro — show paywall
+                if (!_paywallShownThisSession) setTimeout(() => showPaywall(), 1200);
               }
             }).catch(() => {
-              // RC unavailable — can't confirm pro status, so show paywall to be safe.
-              // A real Pro subscriber will see their entitlement restored on next RC connect.
-              if (!_paywallShownThisSession) setTimeout(() => showPaywall(), 1200);
+              // RC unavailable — trust Firestore rather than blocking users on a bad connection.
+              if (!userDoc?.is_pro && !_paywallShownThisSession) setTimeout(() => showPaywall(), 1200);
+              else if (userDoc?.is_pro) setTimeout(() => _tryStartTour(), 1400);
             });
-          } else if (userDoc?.is_pro) {
-            // Pro user — offer tour if they haven't seen it
-            setTimeout(() => _tryStartTour(), 1400);
           }
         }
       } else {

@@ -396,8 +396,14 @@ app.get('/open', (req, res) => {
     a.secondary{display:block;color:rgba(255,255,255,.35);font-size:13px;margin-top:16px;text-decoration:none}
   </style>
   <script>
-    // Try to open the app. If not installed, user sees the fallback buttons.
-    setTimeout(function(){window.location.href='${scheme}';},120);
+    // Try to open the app. Blur fires if iOS hands off to the app — use it to
+    // cancel the App Store fallback so we don't redirect users who already opened.
+    var launched = false;
+    window.addEventListener('blur', function() { launched = true; }, { once: true });
+    setTimeout(function() {
+      window.location.href = '${scheme}';
+      setTimeout(function() { if (!launched) window.location.href = '${store}'; }, 2000);
+    }, 120);
   </script>
 </head>
 <body>
@@ -455,8 +461,14 @@ app.get('/r/:code', (req, res) => {
     .perk::before{content:'✦';color:#1ac4f0;flex-shrink:0}
   </style>
   <script>
-    // Try to open app with referral code embedded
-    setTimeout(function(){ window.location.href = '${appScheme}'; }, 100);
+    // Blur fires when iOS hands off to the app — cancel the App Store fallback
+    // so users who already have the app don't get redirected to the store.
+    var launched = false;
+    window.addEventListener('blur', function() { launched = true; }, { once: true });
+    setTimeout(function() {
+      window.location.href = '${appScheme}';
+      setTimeout(function() { if (!launched) window.location.href = '${storeUrl}'; }, 2200);
+    }, 100);
   </script>
 </head>
 <body>
@@ -473,7 +485,7 @@ app.get('/r/:code', (req, res) => {
     <p class="perk">AI spending insights</p>
     <p class="perk">Bill tracking &amp; reminders</p>
   </div>
-  <a class="btn" href="${appScheme}" onclick="setTimeout(function(){window.location.href='${storeUrl}'},1500)">
+  <a class="btn" href="${appScheme}" onclick="var t=setTimeout(function(){window.location.href='${storeUrl}'},2000);window.addEventListener('blur',function(){clearTimeout(t)},{once:true})">
     Open FlowCheck →
   </a>
   <a class="secondary" href="${storeUrl}">Download on the App Store</a>
