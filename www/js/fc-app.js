@@ -353,7 +353,7 @@ window.FCApp = (function () {
         </div>
       </div>
       <a href="${cancelUrl}" target="_blank" rel="noopener noreferrer"
-         style="display:block;text-align:center;padding:14px;background:rgba(255,69,58,0.12);border:1px solid rgba(255,69,58,0.25);border-radius:14px;color:#ff453a;font-size:15px;font-weight:600;text-decoration:none;margin-bottom:8px">
+         style="display:block;text-align:center;padding:14px;background:rgba(255,69,58,0.12);border:1px solid rgba(255,69,58,0.25);border-radius:14px;color:var(--fc-danger);font-size:15px;font-weight:600;text-decoration:none;margin-bottom:8px">
         Manage / Cancel Subscription
       </a>
     `;
@@ -540,10 +540,9 @@ window.FCApp = (function () {
           pulse = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
           pulse.setAttribute('id', 'sparkline-pulse');
           pulse.setAttribute('fill', 'none');
-          pulse.setAttribute('stroke', '#1ac4f0');
           pulse.setAttribute('stroke-width', '1.5');
           pulse.setAttribute('opacity', '0');
-          pulse.style.cssText = 'animation:sparkPulse 2s ease-out infinite';
+          pulse.style.cssText = 'stroke:var(--fc-accent);animation:sparkPulse 2s ease-out infinite';
           sparkSvg.appendChild(pulse);
           // Inject keyframes once
           if (!document.getElementById('spark-pulse-style')) {
@@ -1660,11 +1659,11 @@ window.FCApp = (function () {
   // Map numeric score to label + arc color
   function _creditLabel(score) {
     if (!score) return { label: '—', color: 'rgba(255,255,255,0.3)' };
-    if (score >= 800) return { label: 'Exceptional',  color: '#34c759' };
+    if (score >= 800) return { label: 'Exceptional',  color: 'var(--fc-success)' };
     if (score >= 740) return { label: 'Very Good',    color: '#30d158' };
-    if (score >= 670) return { label: 'Good',         color: '#1ac4f0' };
+    if (score >= 670) return { label: 'Good',         color: 'var(--fc-accent)' };
     if (score >= 580) return { label: 'Fair',         color: '#ffb020' };
-    return               { label: 'Poor',         color: '#ff453a' };
+    return               { label: 'Poor',         color: 'var(--fc-danger)' };
   }
 
   /* ── Affiliate Offer Card ─────────────────────────────────────
@@ -1903,7 +1902,7 @@ window.FCApp = (function () {
       const isOver  = pct > target + 5;
       const isUnder = pct < target - 5;
       const status  = isOver ? `${pct - target}% over` : isUnder ? `${target - pct}% under` : 'On target ✓';
-      const statusColor = isOver ? '#ff453a' : isUnder ? '#ff9f0a' : '#34c759';
+      const statusColor = isOver ? 'var(--fc-danger)' : isUnder ? 'var(--fc-warning)' : 'var(--fc-success)';
       return `
         <div>
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px">
@@ -1920,7 +1919,7 @@ window.FCApp = (function () {
             </div>
           </div>
           <div class="dash-bar-track" style="background:rgba(255,255,255,0.07)">
-            <div class="dash-bar-fill" style="width:${barPct}%;background:${isOver ? '#ff453a' : color}"></div>
+            <div class="dash-bar-fill" style="width:${barPct}%;background:${isOver ? 'var(--fc-danger)' : color}"></div>
           </div>
           <div style="height:6px;position:relative;margin-top:2px">
             <div style="position:absolute;left:${target}%;top:-8px;width:1px;height:16px;background:rgba(255,255,255,0.2)"></div>
@@ -1929,9 +1928,9 @@ window.FCApp = (function () {
     }
 
     rowsEl.innerHTML =
-      makeRow('Needs',   needs,   50, '#1ac4f0', '🏠', '') +
+      makeRow('Needs',   needs,   50, 'var(--fc-accent)', '🏠', '') +
       makeRow('Wants',   wants,   30, '#60a5fa', '✨', '') +
-      makeRow('Savings', savings, 20, '#34c759', '💰', '');
+      makeRow('Savings', savings, 20, 'var(--fc-success)', '💰', '');
 
     // Tip
     const tipEl = document.getElementById('budget-wizard-tip');
@@ -2173,18 +2172,18 @@ window.FCApp = (function () {
           <div style="background:${isWinner ? 'rgba(52,199,89,0.08)' : 'rgba(255,255,255,0.04)'};
                       border:1px solid ${isWinner ? 'rgba(52,199,89,0.25)' : 'rgba(255,255,255,0.07)'};
                       border-radius:12px;padding:12px;text-align:center">
-            ${isWinner ? '<div style="font-size:9px;font-weight:700;color:#34c759;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:4px">★ Recommended</div>' : '<div style="margin-bottom:4px;height:13px"></div>'}
+            ${isWinner ? '<div style="font-size:9px;font-weight:700;color:var(--fc-success);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:4px">★ Recommended</div>' : '<div style="margin-bottom:4px;height:13px"></div>'}
             <div style="font-size:14px;font-weight:700;color:${color};margin-bottom:2px">${label}</div>
             <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:8px">${label === 'Avalanche' ? 'Highest APR first' : 'Smallest balance first'}</div>
             <div style="font-size:20px;font-weight:800;color:#fff;margin-bottom:1px">${monthsLabel(data.months)}</div>
             <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:6px">to debt free</div>
-            <div style="font-size:13px;font-weight:700;color:${isWinner ? '#34c759' : 'rgba(255,255,255,0.6)'}">
+            <div style="font-size:13px;font-weight:700;color:${isWinner ? 'var(--fc-success)' : 'rgba(255,255,255,0.6)'}">
               ${FCData.formatCurrency(Math.round(data.totalInterest))} interest
             </div>
           </div>`;
       }
       compEl.innerHTML =
-        methodCard('Avalanche', avalanche, '#1ac4f0', true) +
+        methodCard('Avalanche', avalanche, 'var(--fc-accent)', true) +
         methodCard('Snowball',  snowball,  '#60a5fa', false);
     }
 
@@ -2315,7 +2314,7 @@ window.FCApp = (function () {
     const H      = canvas.offsetHeight || 80;
     canvas.width  = W;
     canvas.height = H;
-    const COLORS = ['#1ac4f0','#60a5fa','#34c759','#FFD60A','#ff9f0a','#ff453a'];
+    const COLORS = ['var(--fc-accent)','#60a5fa','var(--fc-success)','#FFD60A','var(--fc-warning)','var(--fc-danger)'];
     const particles = Array.from({ length: 60 }, () => ({
       x:   Math.random() * W,
       y:   Math.random() * H * 0.4,
@@ -2485,7 +2484,7 @@ window.FCApp = (function () {
         full:     'Chase Freedom Unlimited®',
         issuer:   'chase',
         fee:      0,
-        color:    '#1ac4f0',
+        color:    'var(--fc-accent)',
         gradient: 'linear-gradient(135deg,#001a24 0%,#000d14 100%)',
         rates:    { dining: 3, drugstores: 3, travel: 5, other: 1.5 },
         perks:    ['1.5% on all purchases', '3% dining & drugstores', 'No annual fee'],
@@ -2735,7 +2734,7 @@ window.FCApp = (function () {
 
       // Zero-line y position (only draw if minVal < 0)
       const zeroY    = py(0);
-      const lineColor = isDanger ? '#ff453a' : isWarning ? '#ff9f0a' : '#1ac4f0';
+      const lineColor = isDanger ? 'var(--fc-danger)' : isWarning ? 'var(--fc-warning)' : 'var(--fc-accent)';
       const gradId    = isDanger ? 'cfGradDanger' : isWarning ? 'cfGradWarn' : 'cfGrad';
 
       chartEl.innerHTML = `
@@ -2773,7 +2772,7 @@ window.FCApp = (function () {
         callout.style.display = '';
         lowLabel.textContent  = minDay === 0 ? 'Today' : `Day ${minDay}`;
         lowValue.textContent  = FCData.formatCurrency(Math.round(minBalance));
-        lowValue.style.color  = isDanger ? '#ff453a' : isWarning ? '#ff9f0a' : '#1ac4f0';
+        lowValue.style.color  = isDanger ? 'var(--fc-danger)' : isWarning ? 'var(--fc-warning)' : 'var(--fc-accent)';
       }
     }
 
@@ -2785,11 +2784,11 @@ window.FCApp = (function () {
     if (nowEl)  nowEl.textContent  = _fmtCompact(cashNow);
     if (lowEl) {
       lowEl.textContent = _fmtCompact(minBalance);
-      lowEl.style.color = isDanger ? '#ff453a' : isWarning ? '#ff9f0a' : '#34c759';
+      lowEl.style.color = isDanger ? 'var(--fc-danger)' : isWarning ? 'var(--fc-warning)' : 'var(--fc-success)';
     }
     if (endEl) {
       endEl.textContent = _fmtCompact(endBalance);
-      endEl.style.color = endBalance < 0 ? '#ff453a' : endBalance < threshold ? '#ff9f0a' : '#fff';
+      endEl.style.color = endBalance < 0 ? 'var(--fc-danger)' : endBalance < threshold ? 'var(--fc-warning)' : '#fff';
     }
 
     // ── 8. Status badge ────────────────────────────────────────────
@@ -2798,15 +2797,15 @@ window.FCApp = (function () {
       if (isDanger) {
         badge.textContent        = '⚠ Shortfall';
         badge.style.background   = 'rgba(255,69,58,0.15)';
-        badge.style.color        = '#ff453a';
+        badge.style.color        = 'var(--fc-danger)';
       } else if (isWarning) {
         badge.textContent        = '⚠ Watch Out';
         badge.style.background   = 'rgba(255,159,10,0.15)';
-        badge.style.color        = '#ff9f0a';
+        badge.style.color        = 'var(--fc-warning)';
       } else {
         badge.textContent        = '✓ On Track';
         badge.style.background   = 'rgba(52,199,89,0.15)';
-        badge.style.color        = '#34c759';
+        badge.style.color        = 'var(--fc-success)';
       }
     }
 
@@ -2822,7 +2821,7 @@ window.FCApp = (function () {
                        : negDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         warnEl.textContent = `At your current spending rate, your balance is projected to go negative ${negLabel}. Consider reducing discretionary spending or transferring funds.`;
         warnEl.style.display = '';
-        warnEl.style.color = '#ff453a';
+        warnEl.style.color = 'var(--fc-danger)';
         warnEl.style.borderColor = 'rgba(255,69,58,0.25)';
         warnEl.style.background  = 'rgba(255,69,58,0.08)';
       } else if (isWarning) {
@@ -3105,12 +3104,12 @@ window.FCApp = (function () {
      RENDER: ACCOUNT PILLS
      ───────────────────────────────────────────────────────────── */
   const _ACCT_TYPE_META = {
-    depository: { icon: '🏦', color: '#1ac4f0', label: 'Checking' },
-    savings:    { icon: '💰', color: '#34c759', label: 'Savings'  },
-    credit:     { icon: '💳', color: '#ff453a', label: 'Credit'   },
-    investment: { icon: '📈', color: '#2563eb', label: 'Invest'   },
-    loan:       { icon: '🏠', color: '#ff9f0a', label: 'Loan'     },
-    mortgage:   { icon: '🏠', color: '#ff9f0a', label: 'Mortgage' },
+    depository: { icon: '🏦', color: 'var(--fc-accent)', label: 'Checking' },
+    savings:    { icon: '💰', color: 'var(--fc-success)', label: 'Savings'  },
+    credit:     { icon: '💳', color: 'var(--fc-danger)', label: 'Credit'   },
+    investment: { icon: '📈', color: 'var(--fc-electric)', label: 'Invest'   },
+    loan:       { icon: '🏠', color: 'var(--fc-warning)', label: 'Loan'     },
+    mortgage:   { icon: '🏠', color: 'var(--fc-warning)', label: 'Mortgage' },
     other:      { icon: '🏦', color: '#636366', label: 'Account'  },
   };
 
@@ -3139,8 +3138,8 @@ window.FCApp = (function () {
       savings:    { bg:'#071811', border:'rgba(29,158,117,0.22)',  accent:'#1D9E75', iconBg:'rgba(29,158,117,0.14)',  iconBorder:'rgba(29,158,117,0.28)'  },
       credit:     { bg:'#160708', border:'rgba(216,90,48,0.22)',   accent:'#D85A30', iconBg:'rgba(216,90,48,0.14)',   iconBorder:'rgba(216,90,48,0.28)'   },
       investment: { bg:'#0d0714', border:'rgba(96,165,250,0.22)', accent:'#60a5fa', iconBg:'rgba(96,165,250,0.14)', iconBorder:'rgba(96,165,250,0.28)' },
-      loan:       { bg:'#160b03', border:'rgba(255,159,10,0.22)',  accent:'#FF9F0A', iconBg:'rgba(255,159,10,0.14)',  iconBorder:'rgba(255,159,10,0.28)'  },
-      mortgage:   { bg:'#160b03', border:'rgba(255,159,10,0.22)',  accent:'#FF9F0A', iconBg:'rgba(255,159,10,0.14)',  iconBorder:'rgba(255,159,10,0.28)'  },
+      loan:       { bg:'#160b03', border:'rgba(255,159,10,0.22)',  accent:'var(--fc-warning)', iconBg:'rgba(255,159,10,0.14)',  iconBorder:'rgba(255,159,10,0.28)'  },
+      mortgage:   { bg:'#160b03', border:'rgba(255,159,10,0.22)',  accent:'var(--fc-warning)', iconBg:'rgba(255,159,10,0.14)',  iconBorder:'rgba(255,159,10,0.28)'  },
       other:      { bg:'#111118', border:'rgba(255,255,255,0.09)', accent:'#888',    iconBg:'rgba(255,255,255,0.07)', iconBorder:'rgba(255,255,255,0.10)' },
     };
 
@@ -3193,10 +3192,10 @@ window.FCApp = (function () {
         <div class="dash-acct-bal fc-amount">${negPfx}$${dollars}<span class="dash-acct-cents">.${cents}</span></div>
       </div>`;
     }).join('') + `<div class="dash-acct-add" onclick="FCApp.startPlaidLink()" role="button" tabindex="0" aria-label="Add bank account">
-        <div style="width:36px;height:36px;border-radius:12px;background:rgba(37,99,235,0.12);display:flex;align-items:center;justify-content:center;color:#2563eb">
+        <div style="width:36px;height:36px;border-radius:12px;background:rgba(37,99,235,0.12);display:flex;align-items:center;justify-content:center;color:var(--fc-electric)">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         </div>
-        <div style="font-size:11px;font-weight:700;color:#2563eb;letter-spacing:0.02em;text-align:center;line-height:1.3;margin-top:4px">Add<br>Bank</div>
+        <div style="font-size:11px;font-weight:700;color:var(--fc-electric);letter-spacing:0.02em;text-align:center;line-height:1.3;margin-top:4px">Add<br>Bank</div>
       </div>`;
 
     // ── Carousel dots — update active on scroll ───────────────────────────────
@@ -3234,8 +3233,8 @@ window.FCApp = (function () {
      RENDER: CATEGORY SPENDING DONUT
      ───────────────────────────────────────────────────────────── */
   const _DONUT_COLORS = [
-    '#1ac4f0','#2563eb','#34c759','#ff9f0a',
-    '#ff453a','#bf5af2','#00c7be','#ffd60a',
+    'var(--fc-accent)','var(--fc-electric)','var(--fc-success)','var(--fc-warning)',
+    'var(--fc-danger)','#bf5af2','#00c7be','#ffd60a',
   ];
 
   // Maps the output of FCData.normalizePlaidCategory() → clean display label
@@ -3582,10 +3581,10 @@ window.FCApp = (function () {
 
   // Color config per insight type
   const _FOCUS_COLORS = {
-    danger: { bar: '#ff453a', dot: '#ff453a', label: 'rgba(255,69,58,0.85)',  border: 'rgba(255,69,58,0.28)',  bg: 'rgba(255,69,58,0.08)'  },
-    warn:   { bar: '#ff9f0a', dot: '#ff9f0a', label: 'rgba(255,159,10,0.85)', border: 'rgba(255,159,10,0.28)', bg: 'rgba(255,159,10,0.06)' },
-    info:   { bar: '#2563eb', dot: '#60a5fa', label: 'rgba(96,165,250,0.85)', border: 'rgba(37,99,235,0.28)',  bg: 'rgba(37,99,235,0.06)'  },
-    good:   { bar: '#34c759', dot: '#34c759', label: 'rgba(52,199,89,0.85)',  border: 'rgba(52,199,89,0.28)',  bg: 'rgba(52,199,89,0.06)'  },
+    danger: { bar: 'var(--fc-danger)', dot: 'var(--fc-danger)', label: 'rgba(255,69,58,0.85)',  border: 'rgba(255,69,58,0.28)',  bg: 'rgba(255,69,58,0.08)'  },
+    warn:   { bar: 'var(--fc-warning)', dot: 'var(--fc-warning)', label: 'rgba(255,159,10,0.85)', border: 'rgba(255,159,10,0.28)', bg: 'rgba(255,159,10,0.06)' },
+    info:   { bar: 'var(--fc-electric)', dot: '#60a5fa', label: 'rgba(96,165,250,0.85)', border: 'rgba(37,99,235,0.28)',  bg: 'rgba(37,99,235,0.06)'  },
+    good:   { bar: 'var(--fc-success)', dot: 'var(--fc-success)', label: 'rgba(52,199,89,0.85)',  border: 'rgba(52,199,89,0.28)',  bg: 'rgba(52,199,89,0.06)'  },
   };
 
   function _renderTodaysFocus() {
@@ -3845,7 +3844,7 @@ window.FCApp = (function () {
         const sr = Math.round(((monthIncome - monthSpend) / monthIncome) * 100);
         // Show negative savings rate — hiding it masks overspending
         srEl.textContent = (sr < 0 ? '-' : '') + Math.abs(sr) + '%';
-        srEl.style.color = sr >= 20 ? '#34c759' : sr >= 10 ? '#ff9f0a' : '#ff453a';
+        srEl.style.color = sr >= 20 ? 'var(--fc-success)' : sr >= 10 ? 'var(--fc-warning)' : 'var(--fc-danger)';
       } else {
         srEl.textContent = '—';
         srEl.style.color = '';
@@ -3976,7 +3975,7 @@ window.FCApp = (function () {
         const circumference = 201;
         const ringOffset    = circumference - (circumference * barPct / 100);
         ringCircle.style.strokeDashoffset = ringOffset;
-        ringCircle.style.stroke = isOver || barPct > 85 ? '#ff453a'
+        ringCircle.style.stroke = isOver || barPct > 85 ? 'var(--fc-danger)'
                                 : barPct > 65           ? '#ffb020'
                                 : 'url(#safeGrad)';
       }
@@ -4275,7 +4274,7 @@ window.FCApp = (function () {
     ring.style.strokeDashoffset = offset;
 
     // Color ring by score
-    ring.style.stroke = total >= 70 ? '#1ac4f0' : total >= 50 ? '#ff9f0a' : '#ff3b30';
+    ring.style.stroke = total >= 70 ? 'var(--fc-accent)' : total >= 50 ? 'var(--fc-warning)' : '#ff3b30';
 
     gradeEl.textContent  = hasData ? gradeMap[0] : '—';
     scoreEl.textContent  = hasData ? total        : 'Score';
@@ -4287,9 +4286,9 @@ window.FCApp = (function () {
       if (bar) { bar.style.width = Math.round(score / max * 100) + '%'; bar.style.background = color; }
       if (val)   val.textContent = Math.round(score / max * 100);
     };
-    setBar('ins-bar-spending', 'ins-val-spending', spendScore, 34, spendScore >= 25 ? 'linear-gradient(90deg,#1ac4f0,#2563eb)' : 'linear-gradient(90deg,#ff9f0a,#ff6b00)');
-    setBar('ins-bar-savings',  'ins-val-savings',  savingsScore, 33, 'linear-gradient(90deg,#34c759,#1ac4f0)');
-    setBar('ins-bar-networth', 'ins-val-networth', nwScore, 33, nwScore >= 20 ? 'linear-gradient(90deg,#ff9f0a,#2563eb)' : 'linear-gradient(90deg,#ff3b30,#ff9f0a)');
+    setBar('ins-bar-spending', 'ins-val-spending', spendScore, 34, spendScore >= 25 ? 'linear-gradient(90deg,var(--fc-accent),var(--fc-electric))' : 'linear-gradient(90deg,var(--fc-warning),#ff6b00)');
+    setBar('ins-bar-savings',  'ins-val-savings',  savingsScore, 33, 'linear-gradient(90deg,var(--fc-success),var(--fc-accent))');
+    setBar('ins-bar-networth', 'ins-val-networth', nwScore, 33, nwScore >= 20 ? 'linear-gradient(90deg,var(--fc-warning),var(--fc-electric))' : 'linear-gradient(90deg,#ff3b30,var(--fc-warning))');
 
     // Tip
     if (tipEl) {
@@ -4640,8 +4639,8 @@ window.FCApp = (function () {
       list.innerHTML = top.map(([name, data], i) => {
         const pct  = Math.round((data.total / maxMerchant) * 100);
         const col  = FCData.categoryColor('Shopping'); // use neutral color for merchants
-        const cols = ['#1ac4f0','#2563eb','#ff6b35','#f093fb','#43e97b'];
-        const barColor = cols[i] || '#1ac4f0';
+        const cols = ['var(--fc-accent)','var(--fc-electric)','#ff6b35','#f093fb','#43e97b'];
+        const barColor = cols[i] || 'var(--fc-accent)';
         const shortName = name.length > 22 ? name.substring(0, 22) + '…' : name;
         return `
           <div style="margin-bottom:10px">
@@ -4730,7 +4729,7 @@ window.FCApp = (function () {
         }
         const lastPt = pts[pts.length - 1];
         const areaD  = `${d} L ${W} ${H} L 0 ${H} Z`;
-        const color  = delta >= 0 ? '#1ac4f0' : '#ff453a';
+        const color  = delta >= 0 ? 'var(--fc-accent)' : 'var(--fc-danger)';
 
         nwSvg.innerHTML = `
           <defs>
@@ -5238,8 +5237,8 @@ window.FCApp = (function () {
     if (proBadge) {
       proBadge.textContent = isPro ? 'Pro ✓' : 'Free';
       proBadge.style.cssText = isPro
-        ? 'font-size:10px;padding:4px 10px;background:rgba(26,196,240,0.15);color:#1ac4f0;border:0.5px solid rgba(26,196,240,0.25);border-radius:999px'
-        : 'font-size:10px;padding:4px 10px;background:rgba(255,159,10,0.12);color:#ff9f0a;border:0.5px solid rgba(255,159,10,0.25);border-radius:999px';
+        ? 'font-size:10px;padding:4px 10px;background:rgba(26,196,240,0.15);color:var(--fc-accent);border:0.5px solid rgba(26,196,240,0.25);border-radius:999px'
+        : 'font-size:10px;padding:4px 10px;background:rgba(255,159,10,0.12);color:var(--fc-warning);border:0.5px solid rgba(255,159,10,0.25);border-radius:999px';
     }
 
     // Pro row — show status + cancel option for Pro users
@@ -5249,7 +5248,7 @@ window.FCApp = (function () {
       proPill.textContent = isPro ? 'Manage' : 'Upgrade →';
       proPill.style.cssText = isPro
         ? 'font-size:10px;padding:3px 8px;background:rgba(26,196,240,0.12);color:var(--fc-accent);border-radius:999px'
-        : 'font-size:10px;padding:3px 8px;background:rgba(255,159,10,0.12);color:#ff9f0a;border-radius:999px';
+        : 'font-size:10px;padding:3px 8px;background:rgba(255,159,10,0.12);color:var(--fc-warning);border-radius:999px';
     }
     if (proRow) {
       proRow.onclick = isPro ? () => _openCancelSheet() : () => showPaywall();
@@ -7806,7 +7805,7 @@ window.FCApp = (function () {
       // For inline-styled scrubber buttons (insights tab), update style directly
       if (!btn.classList.contains('dash-scrub-btn') && !btn.closest('.fc-scrubber')) {
         btn.style.background   = active ? 'rgba(26,196,240,0.16)' : 'none';
-        btn.style.color        = active ? '#1ac4f0' : 'rgba(255,255,255,0.38)';
+        btn.style.color        = active ? 'var(--fc-accent)' : 'rgba(255,255,255,0.38)';
         btn.style.border       = active ? '0.5px solid rgba(26,196,240,0.28)' : 'none';
       }
     });
@@ -8051,7 +8050,7 @@ window.FCApp = (function () {
     if (btn) {
       const orig = btn.textContent;
       btn.textContent = 'Copied!';
-      btn.style.color = '#34c759';
+      btn.style.color = 'var(--fc-success)';
       setTimeout(() => { btn.textContent = orig; btn.style.color = ''; }, 2000);
     }
     haptic('light');
