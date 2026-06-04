@@ -33,7 +33,13 @@ window.FCPurchases = (function () {
      INITIALISE
      Call once, early in app boot (before showing paywall).
      ───────────────────────────────────────────────────────────── */
-  async function configure() {
+  /**
+   * Configure RevenueCat SDK.
+   * Pass the Firebase UID as appUserID so RC subscriber records map 1:1 to
+   * Firebase users — the webhook can then use app_user_id directly as the UID.
+   * Safe to call multiple times — no-op after first configure.
+   */
+  async function configure(appUserID = null) {
     const plugin = RC();
     const cfg    = CFG();
     if (!plugin || !cfg?.apiKey) {
@@ -42,9 +48,11 @@ window.FCPurchases = (function () {
     }
     if (_configured) return;
     try {
-      await plugin.configure({ apiKey: cfg.apiKey });
+      const opts = { apiKey: cfg.apiKey };
+      if (appUserID) opts.appUserID = String(appUserID);
+      await plugin.configure(opts);
       _configured = true;
-      fcLog('FCPurchases: configured (entitlement:', cfg.entitlementId, ')');
+      fcLog('FCPurchases: configured, uid =', appUserID || '(anonymous)', 'entitlement:', cfg.entitlementId);
     } catch (err) {
       console.error('[FCPurchases] configure error:', err.message);
     }

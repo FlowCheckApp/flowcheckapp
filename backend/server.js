@@ -1975,7 +1975,7 @@ async function _sendBankConnectedEmail(uid, institutionName) {
     const userRecord = await admin.auth().getUser(uid);
     const email = userRecord.email;
     if (!email || !_resendApiKey) return;
-    const name = _htmlEscape((userRecord.displayName || 'Friend').split(' ')[0]);
+    const name = await _resolveDisplayName(uid);
     const safe = _htmlEscape(institutionName || 'your bank');
     await _sendEmail(email, `${institutionName || 'Your bank'} is connected to FlowCheck ✅`, `
       <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
@@ -3581,7 +3581,7 @@ app.post('/auth/otp/send', requireAuth, async (req, res) => {
       code, email, expires_at, sent_at: Date.now(), attempts: 0,
     });
 
-    const name = (userRecord.displayName || 'Friend').split(' ')[0];
+    const name = await _resolveDisplayName(req.uid);
     await _sendEmail(email, `${code} is your FlowCheck verification code`, `
       <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
       <div style="max-width:480px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
@@ -3739,6 +3739,181 @@ setInterval(async () => {
     console.error('[signup-followup] Background job error:', err.message);
   }
 }, 5 * 60 * 1000);
+
+/* ─────────────────────────────────────────────────────────────
+   POST /webhooks/revenuecat
+   RevenueCat sends this on every subscription lifecycle event.
+   The app_user_id is the Firebase UID (set at SDK configure time).
+
+   Set RC_WEBHOOK_SECRET in Railway env vars to the same value you
+   enter in the "Authorization header value" field in RevenueCat.
+   RevenueCat sends it verbatim as the Authorization header.
+
+   Handled events → Firestore effect:
+     INITIAL_PURCHASE / RENEWAL / UNCANCELLATION  → is_pro = true
+     EXPIRATION / CANCELLATION (grace ended)       → is_pro = false
+     BILLING_ISSUE                                 → push alert
+   All other events are acknowledged (200) but ignored.
+   ─────────────────────────────────────────────────────────────── */
+const _RC_PRO_EVENTS   = new Set(['INITIAL_PURCHASE', 'RENEWAL', 'UNCANCELLATION', 'PRODUCT_CHANGE']);
+const _RC_LAPSE_EVENTS = new Set(['EXPIRATION']);
+
+app.post('/webhooks/revenuecat', async (req, res) => {
+  // ── 1. Auth: verify shared secret ───────────────────────────────
+  const rcSecret = process.env.RC_WEBHOOK_SECRET;
+  if (rcSecret) {
+    const incoming = req.headers['authorization'] || '';
+    if (incoming !== rcSecret) {
+      console.warn('[rc-webhook] Unauthorized — bad secret');
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+  }
+
+  const event = req.body?.event;
+  if (!event) return res.status(400).json({ error: 'Missing event' });
+
+  const {
+    type,
+    app_user_id: uid,
+    aliases = [],
+    expiration_at_ms,
+    product_id,
+    period_type,
+  } = event;
+
+  // Resolve Firebase UID — app_user_id is the UID if configure() was called with it.
+  // Fall back to iterating aliases for subscribers configured before this fix.
+  let firebaseUid = uid;
+  if (!firebaseUid || firebaseUid.startsWith('$RCAnonymous')) {
+    const realAlias = aliases.find(a => a && !a.startsWith('$RCAnonymous'));
+    firebaseUid = realAlias || null;
+  }
+
+  if (!firebaseUid) {
+    console.warn('[rc-webhook] No Firebase UID resolvable for event', type, 'aliases:', aliases);
+    return res.json({ ok: true, skipped: 'no_firebase_uid' });
+  }
+
+  console.log(`[rc-webhook] ${type} → uid:${firebaseUid} product:${product_id || '?'}`);
+
+  try {
+    const userRef  = db.collection('users').doc(firebaseUid);
+    const TS       = admin.firestore.FieldValue.serverTimestamp;
+    const now      = new Date();
+
+    if (_RC_PRO_EVENTS.has(type)) {
+      // Determine expiry — use RevenueCat's value if present, else +1 month
+      let expiresAt;
+      if (expiration_at_ms) {
+        expiresAt = admin.firestore.Timestamp.fromMillis(expiration_at_ms);
+      } else {
+        const d = new Date(now); d.setMonth(d.getMonth() + 1);
+        expiresAt = admin.firestore.Timestamp.fromDate(d);
+      }
+
+      await userRef.set({
+        is_pro:          true,
+        pro:             true,
+        pro_expires_at:  expiresAt,
+        pro_product_id:  product_id || null,
+        pro_period_type: period_type || null,
+        pro_updated_at:  TS(),
+      }, { merge: true });
+
+      console.log(`[rc-webhook] ✓ is_pro=true for uid:${firebaseUid} expires:${expiration_at_ms ? new Date(expiration_at_ms).toISOString() : 'unknown'}`);
+
+      // Send confirmation email (non-blocking, only for new purchases)
+      if (type === 'INITIAL_PURCHASE') {
+        _resolveDisplayName(firebaseUid).then(name => {
+          admin.auth().getUser(firebaseUid)
+            .then(u => u.email)
+            .then(email => {
+              if (!email) return;
+              const plan = (product_id || '').includes('annual') ? 'annual' : 'monthly';
+              return _sendEmail(email, 'You\'re now FlowCheck Pro 🚀', `
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background-color:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
+<div style="display:none;max-height:0;overflow:hidden;font-size:1px;color:#f3f4f6">Your Pro subscription is active — everything is unlocked.</div>
+<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f3f4f6;padding:32px 16px"><tr><td align="center">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%">
+  <tr><td style="background:linear-gradient(160deg,#060e18 0%,#0d2240 100%);border-radius:16px 16px 0 0;padding:40px 40px 36px;text-align:center">
+    ${LOGO_IMG}
+    <h1 style="color:#fff;font-size:28px;font-weight:800;margin:0 0 8px;letter-spacing:-0.03em">You're Pro, ${name}.</h1>
+    <p style="color:rgba(255,255,255,0.55);font-size:15px;margin:0">${plan === 'annual' ? 'Annual plan · billed yearly' : 'Monthly plan · cancel anytime'}</p>
+  </td></tr>
+  <tr><td style="background:#fff;padding:36px 40px">
+    <p style="font-size:16px;color:#374151;line-height:1.7;margin:0 0 28px">Your subscription is active. Everything is unlocked.</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0fffe;border-radius:12px;margin-bottom:32px"><tr><td style="padding:20px 24px">
+      <p style="font-size:12px;font-weight:700;color:#1ac4f0;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 14px">What's included</p>
+      <table width="100%" cellpadding="0" cellspacing="0">
+        <tr><td style="padding:5px 0;font-size:14px;color:#374151"><span style="color:#1ac4f0;margin-right:10px;font-weight:700">✦</span>Unlimited bank accounts</td></tr>
+        <tr><td style="padding:5px 0;font-size:14px;color:#374151"><span style="color:#1ac4f0;margin-right:10px;font-weight:700">✦</span>Financial Health Score</td></tr>
+        <tr><td style="padding:5px 0;font-size:14px;color:#374151"><span style="color:#1ac4f0;margin-right:10px;font-weight:700">✦</span>AI-powered spending insights</td></tr>
+        <tr><td style="padding:5px 0;font-size:14px;color:#374151"><span style="color:#1ac4f0;margin-right:10px;font-weight:700">✦</span>Bill tracking &amp; reminders</td></tr>
+        <tr><td style="padding:5px 0;font-size:14px;color:#374151"><span style="color:#1ac4f0;margin-right:10px;font-weight:700">✦</span>Net worth &amp; milestones</td></tr>
+      </table>
+    </td></tr></table>
+    <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
+      <a href="${BACKEND_URL}/open?ref=rc_webhook_pro" style="display:inline-block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:16px;padding:16px 40px;border-radius:12px;text-decoration:none">Open FlowCheck →</a>
+    </td></tr></table>
+  </td></tr>
+  <tr><td style="background:#fff;border-radius:0 0 16px 16px;border-top:1px solid #f3f4f6;padding:20px 40px;text-align:center">
+    <p style="font-size:12px;color:#9ca3af;margin:0;line-height:1.8">FlowCheck · Your money, clearly.<br>
+      Manage subscription in <a href="itms-apps://apps.apple.com/account/subscriptions" style="color:#9ca3af;text-decoration:none">App Store Settings</a>.
+    </p>
+  </td></tr>
+</table></td></tr></table>
+</body></html>
+              `, firebaseUid);
+            })
+            .catch(() => {});
+        }).catch(() => {});
+      }
+
+    } else if (_RC_LAPSE_EVENTS.has(type)) {
+      await userRef.set({
+        is_pro:         false,
+        pro:            false,
+        pro_expires_at: null,
+        pro_updated_at: TS(),
+      }, { merge: true });
+
+      console.log(`[rc-webhook] ✓ is_pro=false (${type}) for uid:${firebaseUid}`);
+
+    } else if (type === 'BILLING_ISSUE') {
+      // Non-fatal — subscription is in grace period; push a heads-up
+      console.log(`[rc-webhook] Billing issue for uid:${firebaseUid}`);
+      const userSnap = await userRef.get();
+      const fcmToken = userSnap.exists ? userSnap.data().fcm_token : null;
+      if (fcmToken) {
+        _sendFCM(firebaseUid, fcmToken, {
+          title: 'Payment issue with your subscription',
+          body:  'Please update your payment method to keep FlowCheck Pro active.',
+          type:  'billing_issue',
+          data:  {},
+        }).catch(() => {});
+      }
+
+    } else if (type === 'CANCELLATION') {
+      // User cancelled but may still be in their paid period — don't revoke yet.
+      // EXPIRATION fires when access actually ends.
+      await userRef.set({ pro_cancel_at_period_end: true, pro_updated_at: TS() }, { merge: true });
+      console.log(`[rc-webhook] Cancellation noted for uid:${firebaseUid} — still active until expiry`);
+
+    } else {
+      console.log(`[rc-webhook] Ignored event type: ${type}`);
+    }
+
+  } catch (err) {
+    console.error('[rc-webhook] Error processing event:', err.message);
+    // Return 200 anyway — RevenueCat retries on non-2xx, causing duplicate writes
+    return res.json({ ok: true, error: err.message });
+  }
+
+  res.json({ ok: true });
+});
 
 /* ─────────────────────────────────────────────────────────────
    PROCESS-LEVEL ERROR GUARDS

@@ -6063,7 +6063,7 @@ window.FCApp = (function () {
 
     FCData.listenToGoals(goals => {
       state.goals = goals;
-      if (state.tab === 'goals') _renderGoals();
+      if (state.tab === 'goals' || (state.tab === 'wealth' && _wealthSeg === 'goals')) _renderGoals();
     });
 
     FCData.listenToBudgets(budgets => {
@@ -6200,8 +6200,9 @@ window.FCApp = (function () {
       searchInput.addEventListener('input', e => handleSearch(e.target.value));
     }
 
-    // Configure RevenueCat early so offerings are cached by the time paywall shows
-    FCPurchases.configure().catch(() => {});
+    // Configure RevenueCat with the Firebase UID so RC subscriber records map
+    // directly to Firebase users — the webhook uses app_user_id as the UID.
+    FCPurchases.configure(FCAuth.currentUser()?.uid || null).catch(() => {});
 
     // ── Referral deep link handler ─────────────────────────────────
     // Fires when the app is opened via flowcheck://referral?code=FLOWXXXXXX
@@ -6353,9 +6354,11 @@ window.FCApp = (function () {
                 // an immediate modal, avoids the janky instant-overlay feel)
                 setTimeout(() => showPaywall(), 1200);
               } else if (isPro) {
-                // RevenueCat confirmed Pro — update cached flag if stale
+                // RevenueCat confirmed Pro — optimistically update local state cache
+                // (Firestore is_pro is written server-side by RevenueCat webhook, not client)
                 if (userDoc && !userDoc.is_pro) {
-                  try { FCData.updateUserField('is_pro', true); } catch (_) {}
+                  if (state.user) state.user.is_pro = true;
+                  _refreshAfterPro();
                 }
                 setTimeout(() => _tryStartTour(), 1400);
               }
