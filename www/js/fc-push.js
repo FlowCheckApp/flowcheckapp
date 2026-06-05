@@ -231,6 +231,19 @@ window.FCPush = (function () {
   /* ── Getters ──────────────────────────────────────────────── */
   function getFcmToken() { return _fcmToken; }
 
+  /**
+   * Reset push state for account switching.
+   * Clears the listener-guard so the next requestAndRegister() call re-attaches
+   * all Capacitor push listeners and saves a fresh token for the new user.
+   * Does NOT cancel pending local notifications — those are bill-specific and
+   * will be re-scheduled by FCData.listenToBills on next sign-in.
+   */
+  function reset() {
+    _listenersAdded = false;
+    _fcmToken       = null;
+    fcLog('[FCPush] reset — listeners will re-attach on next registration');
+  }
+
   /* ── Public API ──────────────────────────────────────────── */
   return {
     requestAndRegister,
@@ -241,5 +254,6 @@ window.FCPush = (function () {
     cancelAllBillReminders,
     clearDeliveredAndBadge,
     getFcmToken,
+    reset,
   };
 })();

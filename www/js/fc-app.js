@@ -1154,7 +1154,7 @@ window.FCApp = (function () {
   // Forward (higher) = incoming slides from right; Back (lower) = from left.
   const _SCREEN_ORDER = {
     splash: 0, hero: 0.5, login: 1, register: 2, 'forgot-password': 1.5,
-    'verify-email': 3, 'faceid-setup': 4, onboarding: 5, paywall: 6, app: 7,
+    'verify-email': 3, 'faceid-setup': 4, 'notif-permission': 4.5, onboarding: 5, paywall: 6, app: 7,
   };
 
   let _screenTransitioning = false;
@@ -1770,9 +1770,26 @@ window.FCApp = (function () {
    *  ended by token expiry or programmatic signOut doesn't leak the previous
    *  user's accounts/transactions into the next sign-in. */
   function _wipeUserState() {
+    fcLog('[FCApp] _wipeUserState — clearing all user state and listeners');
+
     // Detach all Firestore listeners first — prevents stale data firing
     // for a signed-out user when onAuthStateChanged triggers wipe.
     try { if (typeof FCData !== 'undefined') FCData.detachAllListeners(); } catch (_) {}
+
+    // CRITICAL: reset the guard so _attachDataListeners() re-attaches for the
+    // next sign-in. Without this, onAuthStateChanged(user) would find
+    // _listenersAttached=true (from the previous session) and skip the attach,
+    // leaving the new user with permanently empty state.
+    _listenersAttached = false;
+
+    // Reset RevenueCat to a clean subscriber — prevents new user being evaluated
+    // against the previous user's entitlement cache / RC identity.
+    try { if (typeof FCPurchases !== 'undefined') FCPurchases.reset().catch(() => {}); } catch (_) {}
+
+    // Reset push listener guard — ensures new user's FCM token gets registered
+    // after the next requestAndRegister() call (e.g. from _onPlaidSuccess).
+    try { if (typeof FCPush !== 'undefined') FCPush.reset(); } catch (_) {}
+
     state.user          = null;
     state.accounts      = [];
     state.transactions  = [];
@@ -1783,6 +1800,7 @@ window.FCApp = (function () {
     state.txnOverrides  = {};
     state.creditHistory = [];
     state.searchQuery   = '';
+    state.initialLoading = false;
     _paywallShownThisSession    = false;
     _streakCheckedThisSession   = false;
     if (_privacyModeOn) {
@@ -1790,12 +1808,43 @@ window.FCApp = (function () {
       document.body.classList.remove('fc-privacy');
     }
     // Wipe per-user localStorage caches (net-worth history, budget alert
-    // flags, debt start, etc.) so they can't leak into the next user.
+    // flags, debt start, milestone flags, RC pro cache, etc.) so they can't
+    // leak into the next user's session.
     try {
       Object.keys(localStorage)
         .filter(k => k.startsWith('fc_'))
         .forEach(k => localStorage.removeItem(k));
     } catch (_) { /* localStorage unavailable in strict CSP — safe to ignore */ }
+
+    // Blank out the home DOM immediately so the previous user's rendered
+    // content is never visible during the gap between wipe and first render.
+    _clearHomeDom();
+  }
+
+  /**
+   * Replace main content areas of the home tab with skeleton placeholders.
+   * Called during _wipeUserState() so the DOM never shows stale data from a
+   * previous account while the new account's Firestore listeners load.
+   */
+  function _clearHomeDom() {
+    try {
+      const skeletonBar = `<div style="height:14px;border-radius:7px;background:rgba(255,255,255,0.06);margin:6px 0;width:var(--w,80%)"></div>`;
+      const ids = ['home-accounts-list','home-txn-list','home-nw-amount','home-greeting'];
+      ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (id === 'home-nw-amount') {
+          el.textContent = '—';
+        } else {
+          el.innerHTML = `${skeletonBar}${skeletonBar}<div style="--w:55%">${skeletonBar}</div>`;
+        }
+      });
+      // Reset the account and transaction skeleton visibility
+      const acctSkel = document.getElementById('home-acct-skeleton');
+      const txnSkel  = document.getElementById('home-txn-skeleton');
+      if (acctSkel) acctSkel.style.display = 'none';
+      if (txnSkel)  txnSkel.style.display  = 'none';
+    } catch (_) {}
   }
 
   /** Re-render every pro-gated surface after a successful purchase/restore.
@@ -5735,17 +5784,23 @@ window.FCApp = (function () {
     const confirmed = await _confirmDialog('Sign out', 'Are you sure you want to sign out?');
     if (!confirmed) return;
 
+    fcLog('[FCApp] handleSignOut — signing out uid:', FCAuth.currentUser()?.uid);
+
     // Stop idle timer immediately
     clearTimeout(_idleTimer);
 
-    FCData.detachAllListeners();
-    _listenersAttached = false; // allow re-attach on next sign-in (fixes data leak bug)
     if (typeof FCAnalytics !== 'undefined') FCAnalytics.track('signed_out');
     if (window.Sentry) Sentry.setUser(null);
+
+    // _wipeUserState() detaches listeners, resets _listenersAttached,
+    // resets FCPurchases and FCPush — call BEFORE signOut() so no
+    // in-flight listener callback can write to the cleared state.
+    _wipeUserState();
+
     await FCAuth.signOut();
     if (typeof FCAnalytics !== 'undefined') FCAnalytics.reset();
-    _wipeUserState();
     setScreen('hero');
+    fcLog('[FCApp] handleSignOut — complete, screen = hero');
   }
 
   /* ── Small UI helpers ────────────────────────────────────── */
@@ -5804,7 +5859,8 @@ window.FCApp = (function () {
 
   /**
    * Face ID setup screen — user tapped "Enable Face ID".
-   * Requests biometric enrollment via Capacitor, then routes to onboarding.
+   * Saves biometric preference, then routes to the notification
+   * permission screen (new users only) before onboarding.
    */
   async function handleBiometricSetup() {
     try {
@@ -5813,7 +5869,7 @@ window.FCApp = (function () {
     } catch (_) {
       // Biometrics unavailable on this device — silently skip
     }
-    setScreen('onboarding');
+    setScreen('notif-permission');
   }
 
   /** User tapped "Not now" on the Face ID setup screen. */
@@ -5821,7 +5877,7 @@ window.FCApp = (function () {
     try {
       if (FCAuth.setBiometricEnabled) FCAuth.setBiometricEnabled(false).catch(() => {});
     } catch (_) {}
-    setScreen('onboarding');
+    setScreen('notif-permission');
   }
 
   /**
@@ -6320,11 +6376,15 @@ window.FCApp = (function () {
     // Observe Firebase auth state
     FCAuth.onAuthStateChanged(async user => {
       if (user) {
-        fcLog('User authenticated:', user.uid);
+        fcLog('[FCApp] onAuthStateChanged — user:', user.uid, '| listenersAttached:', _listenersAttached);
 
-        // Configure RevenueCat now that we have the real Firebase UID.
-        // Must happen here, not at DOMContentLoaded, because currentUser()
-        // is null until Firebase auth resolves.
+        // Wipe ALL state from the previous session FIRST — before any async
+        // work. This also resets _listenersAttached, FCPurchases, and FCPush.
+        _wipeUserState();
+
+        // Configure RevenueCat with the new user's UID. _wipeUserState()
+        // called FCPurchases.reset(), clearing the _configured guard, so this
+        // will do a real configure rather than returning early.
         FCPurchases.configure(user.uid).catch(() => {});
 
         // Warm the Railway backend immediately after auth so it's ready
@@ -6335,15 +6395,11 @@ window.FCApp = (function () {
         // Requesting immediately on auth interrupts onboarding and feels premature —
         // users should connect their bank first so the value proposition is clear.
 
-        // Clear ALL stale user state from a previous session so the new
-        // account's data renders cleanly. Just nulling state.user used to
-        // leak the previous user's transactions/accounts arrays into the
-        // first render after sign-in (bug #6).
-        _wipeUserState();
         _updateGreeting();
 
-        // Attach real-time data listeners
+        // Attach real-time data listeners for the new user
         _attachDataListeners();
+        fcLog('[FCApp] listeners attached for uid:', user.uid);
 
         // Navigate to the correct screen.
         // Fetch userDoc and biometric setting in parallel — they're independent
@@ -6459,9 +6515,8 @@ window.FCApp = (function () {
           }
         }
       } else {
-        fcLog('No user — showing hero');
-        FCData.detachAllListeners();
-        _listenersAttached = false; // allow re-attach on next sign-in
+        fcLog('[FCApp] onAuthStateChanged — no user, wiping state and returning to hero');
+        // _wipeUserState() handles detachAllListeners + _listenersAttached reset
         _wipeUserState();
         setScreen('hero');
         // Show or hide the Face ID button based on whether biometric is

@@ -180,6 +180,24 @@ window.FCPurchases = (function () {
   function isPro() { return _proStatus; }
   function isConfigured() { return _configured; }
 
+  /**
+   * Reset all RC state for account switching.
+   * Call this during sign-out / _wipeUserState() so the next configure()
+   * call sets up a fresh RC subscriber instead of returning early.
+   * Also calls plugin.logOut() to sever the RC→Firebase UID mapping so
+   * entitlement checks can't bleed across account boundaries.
+   */
+  async function reset() {
+    _configured = false;
+    _proStatus  = false;
+    _offerings  = null;
+    try {
+      const plugin = RC();
+      if (plugin && typeof plugin.logOut === 'function') await plugin.logOut();
+    } catch (_) {}
+    fcLog('[FCPurchases] reset — ready for next configure()');
+  }
+
   /* ── Public API ───────────────────────────────────────────────── */
   return {
     configure,
@@ -190,5 +208,6 @@ window.FCPurchases = (function () {
     isInTrial,
     isPro,
     isConfigured,
+    reset,
   };
 })();
