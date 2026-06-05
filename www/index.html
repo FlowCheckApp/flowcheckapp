@@ -2169,7 +2169,7 @@ body {
       <div class="fc-input-wrap">
         <input id="login-password" class="fc-input" type="password"
                autocomplete="current-password" placeholder="••••••••"
-               style="padding-right:50px"
+               enterkeyhint="go" style="padding-right:50px"
                onkeydown="if(event.key==='Enter'){document.getElementById('btn-login').click()}">
         <button class="fc-input-eye" onclick="togglePasswordVisibility('login-password',this)" type="button" aria-label="Show password">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
@@ -2262,7 +2262,7 @@ body {
       <div class="fc-input-label">Password</div>
       <div class="fc-input-wrap">
         <input id="reg-password" class="fc-input" type="password" autocomplete="new-password"
-               placeholder="At least 8 characters" style="padding-right:50px"
+               placeholder="At least 8 characters" enterkeyhint="go" minlength="8" style="padding-right:50px"
                onkeydown="if(event.key==='Enter'){document.getElementById('btn-register').click()}">
         <button class="fc-input-eye" onclick="togglePasswordVisibility('reg-password',this)" type="button" aria-label="Show password">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
@@ -3981,6 +3981,11 @@ body {
     .fc-home-txn:last-child{border-bottom:none}
     .fc-home-txn:active{background:rgba(255,255,255,0.05)}
     .fc-home-txn-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+    .fc-txn-name{font-size:13.5px;font-weight:500;color:var(--fc-text,#fff);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .fc-txn-meta{font-size:11px;color:var(--fc-text-faint);margin-top:1px}
+    .fc-txn-amt{font-size:14px;font-weight:700;color:rgba(255,255,255,0.85);font-variant-numeric:tabular-nums}
+    .fc-txn-credit{color:var(--fc-success)!important}
+    .fc-txn-chev{stroke:rgba(255,255,255,0.2)}
 
     /* ── Today's Focus card ────────────────────────────────────── */
     .dash-focus-card{
@@ -4063,6 +4068,11 @@ body {
 
     /* ── Stat card sub-label ────────────────────────────────────── */
     .dash-sp-sub{font-size:9.5px;color:rgba(255,255,255,0.30);font-weight:500;letter-spacing:0.01em;line-height:1.2;min-height:12px}
+
+    /* ── Bills card total row ───────────────────────────────────── */
+    .fc-bills-total{display:flex;align-items:center;justify-content:space-between;padding:11px 17px 13px;border-top:.5px solid rgba(255,255,255,0.055)}
+    .fc-bills-total-lbl{font-size:11px;font-weight:600;color:rgba(255,255,255,0.32);letter-spacing:.04em;text-transform:uppercase}
+    .fc-bills-total-amt{font-size:15px;font-weight:800;color:#fff;font-variant-numeric:tabular-nums;letter-spacing:-0.03em}
 
     /* ── Empty states ───────────────────────────────────────────── */
     .dash-empty{
@@ -5734,11 +5744,11 @@ body {
       </div>
       <div class="fc-input-group" style="margin:0">
         <label class="fc-input-label">Target Amount ($)</label>
-        <input id="goal-target-input" type="number" class="fc-input" placeholder="10000" min="1" step="1" oninput="FCApp._updateGoalCalc&&FCApp._updateGoalCalc()">
+        <input id="goal-target-input" type="number" class="fc-input" inputmode="decimal" placeholder="10000" min="1" step="1" oninput="FCApp._updateGoalCalc&&FCApp._updateGoalCalc()">
       </div>
       <div class="fc-input-group" style="margin:0">
         <label class="fc-input-label">Current Progress ($)</label>
-        <input id="goal-current-input" type="number" class="fc-input" placeholder="0" min="0" step="1" oninput="FCApp._updateGoalCalc&&FCApp._updateGoalCalc()">
+        <input id="goal-current-input" type="number" class="fc-input" inputmode="decimal" placeholder="0" min="0" step="1" oninput="FCApp._updateGoalCalc&&FCApp._updateGoalCalc()">
       </div>
       <div class="fc-input-group" style="margin:0">
         <label class="fc-input-label">Target Date <span style="color:var(--fc-text-faint);font-weight:400">(optional)</span></label>
@@ -5815,7 +5825,7 @@ body {
     <div id="budget-current-spend" style="font-size:13px;color:var(--fc-text-faint);margin-bottom:14px"></div>
     <div class="fc-input-group" style="margin:0">
       <label class="fc-input-label">Monthly Budget ($)</label>
-      <input id="budget-limit-input" type="number" class="fc-input" placeholder="e.g. 500" min="0" step="10">
+      <input id="budget-limit-input" type="number" class="fc-input" inputmode="decimal" placeholder="e.g. 500" min="0" step="10">
     </div>
     <!-- Quick presets -->
     <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap" id="budget-presets"></div>
@@ -5856,7 +5866,7 @@ body {
       </div>
       <div class="fc-input-group" style="margin:0">
         <label class="fc-input-label">Balance ($)</label>
-        <input id="manual-acct-balance" type="number" class="fc-input" placeholder="0.00" min="0" step="0.01">
+        <input id="manual-acct-balance" type="number" class="fc-input" inputmode="decimal" placeholder="0.00" min="0" step="0.01">
       </div>
     </div>
     <p style="font-size:12px;color:var(--fc-text-faint);margin-top:14px;line-height:1.5">
@@ -5886,7 +5896,7 @@ body {
       </div>
       <div class="fc-input-group" style="margin:0">
         <label class="fc-input-label">Amount ($)</label>
-        <input id="bill-amount" type="number" class="fc-input" placeholder="0.00" min="0" step="0.01">
+        <input id="bill-amount" type="number" class="fc-input" inputmode="decimal" placeholder="0.00" min="0" step="0.01">
       </div>
       <div class="fc-input-group" style="margin:0">
         <label class="fc-input-label">Due Date</label>

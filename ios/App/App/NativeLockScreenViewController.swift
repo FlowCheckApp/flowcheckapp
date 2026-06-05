@@ -348,7 +348,8 @@ final class NativeLockScreenViewController: UIViewController {
             }
         }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.42) { [weak self] in
+        // Dismiss after spring animation completes — 0.18s identity + slight buffer
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) { [weak self] in
             self?.dismissWithSuccess()
         }
     }

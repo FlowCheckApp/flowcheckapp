@@ -100,13 +100,25 @@ console.log(`[Boot] FlowCheck API | Firebase: ${process.env.FIREBASE_PROJECT_ID}
 const BACKEND_URL = (process.env.BACKEND_URL || 'https://getflowcheck.app').replace(/\/$/, '');
 
 /* ── Safe error messages — never leak internals to clients ─────── */
-// Returns a safe, user-friendly error string.
-// In production, internal error details stay in logs only.
-function _safeMsg(err, fallback = 'An unexpected error occurred — please try again') {
-  if (err?.response?.data?.error_message) return err.response.data.error_message;
-  if (err?.response?.data?.error_code)    return `Error: ${err.response.data.error_code}`;
-  if (err?.code?.startsWith('auth/'))     return err.message;
-  return process.env.NODE_ENV === 'development' ? (err?.message || fallback) : fallback;
+// Returns a safe, user-friendly error string. Plaid error details,
+// stack traces, and internal codes stay in server logs only.
+// Plaid error_codes that are safe and actionable to surface to the user:
+const _SAFE_PLAID_CODES = new Set([
+  'INSTITUTION_DOWN','INSTITUTION_NOT_RESPONDING','INSTITUTION_NOT_AVAILABLE',
+  'ITEM_LOGIN_REQUIRED','USER_SETUP_REQUIRED','MFA_NOT_SUPPORTED',
+  'OAUTH_STATE_ID_ALREADY_PROCESSED','NO_ACCOUNTS','ITEM_LOCKED',
+]);
+function _safeMsg(err, fallback = 'Something went wrong — please try again') {
+  // Safe Plaid error codes shown to user verbatim (actionable)
+  const plaidCode = err?.response?.data?.error_code;
+  if (plaidCode && _SAFE_PLAID_CODES.has(plaidCode)) {
+    return err.response.data.display_message || err.response.data.error_message || fallback;
+  }
+  // Firebase auth errors are user-facing by design
+  if (err?.code?.startsWith('auth/')) return err.message;
+  // In development, expose internals for debugging
+  if (process.env.NODE_ENV !== 'production') return err?.message || fallback;
+  return fallback;
 }
 
 /* ── HTML escape — prevents injection in email templates ────────── */
@@ -517,8 +529,8 @@ app.post('/plaid/link-token', requireAuth, _plaidUserLimiter, async (req, res) =
     });
     res.json({ link_token: data.link_token });
   } catch (err) {
-    const msg = err.response?.data?.error_message || err.message;
-    console.error('[link-token]', msg);
+    const msg = _safeMsg(err);
+    console.error('[link-token]', err?.response?.data?.error_code || err.message);
     res.status(500).json({ message: msg });
   }
 });
@@ -545,6 +557,24 @@ app.get('/plaid/oauth-return', (req, res) => {
 app.post('/plaid/exchange-token', requireAuth, _plaidUserLimiter, async (req, res) => {
   const { public_token, metadata } = req.body;
   if (!public_token) return res.status(400).json({ message: 'public_token required' });
+
+  // Server-side pro gate: free users may link only 1 bank account.
+  // Client-side gating alone is insufficient — enforce here authoritatively.
+  try {
+    const userSnap = await db.collection('users').doc(req.uid).get();
+    const userData = userSnap.data() || {};
+    const isPro    = !!(userData.is_pro || userData.pro);
+    if (!isPro) {
+      const existingItems = await db.collection('users').doc(req.uid)
+        .collection('plaid_items').limit(1).get();
+      if (!existingItems.empty) {
+        return res.status(403).json({ message: 'Upgrade to Pro to connect additional bank accounts.' });
+      }
+    }
+  } catch (gateErr) {
+    console.error('[exchange-token] pro gate check failed:', gateErr.message);
+    // Fail open only if the check itself errors — don't block legitimate users on DB hiccup.
+  }
 
   try {
     const { data } = await plaid.itemPublicTokenExchange({ public_token });

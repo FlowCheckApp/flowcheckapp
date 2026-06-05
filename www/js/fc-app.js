@@ -3588,12 +3588,12 @@ window.FCApp = (function () {
         <div class="fc-home-txn" onclick="FCApp.openTransactionDetail('${esc(t.id)}')" role="button" tabindex="0">
           <div class="fc-home-txn-icon" style="background:${esc(color)}22">${esc(emoji)}</div>
           <div style="flex:1;min-width:0">
-            <div style="font-size:13.5px;font-weight:500;color:white;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(name)}</div>
-            <div style="font-size:11px;color:var(--fc-text-faint);margin-top:1px">${esc(cat)} · ${esc(dateStr)}</div>
+            <div class="fc-txn-name">${esc(name)}</div>
+            <div class="fc-txn-meta">${esc(cat)} · ${esc(dateStr)}</div>
           </div>
           <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
-            <div style="font-size:14px;font-weight:700;color:${isCredit ? 'var(--fc-success)' : 'rgba(255,255,255,0.85)'};font-variant-numeric:tabular-nums">${isCredit ? '+' : '−'}${FCData.formatCurrency(amt)}</div>
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+            <div class="fc-txn-amt${isCredit ? ' fc-txn-credit' : ''}">${isCredit ? '+' : '−'}${FCData.formatCurrency(amt)}</div>
+            <svg class="fc-txn-chev" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
           </div>
         </div>`;
     }).join('');
@@ -3907,9 +3907,14 @@ window.FCApp = (function () {
                   title="Mark as paid" type="button" aria-label="Mark ${esc(b.name)} as paid">✓</button>
               </div>
             </div>`;
-        }).join('') + (allUnpaid.length > 3
-          ? `<div style="text-align:center;padding:10px 0 4px;cursor:pointer;color:var(--fc-accent);font-size:13px;font-weight:500" onclick="FCApp.switchTab('activity');FCApp.switchActivitySegment('bills')">See all ${allUnpaid.length} bills →</div>`
-          : '');
+        }).join('') +
+          (allUnpaid.length > 3
+            ? `<div style="text-align:center;padding:10px 0 4px;cursor:pointer;color:var(--fc-accent);font-size:13px;font-weight:500" onclick="FCApp.switchTab('activity');FCApp.switchActivitySegment('bills')">See all ${allUnpaid.length} bills →</div>`
+            : '') +
+          `<div class="fc-bills-total">
+            <span class="fc-bills-total-lbl">Total due</span>
+            <span class="fc-bills-total-amt">${FCData.formatCurrency(unpaidBillsTotal)}</span>
+          </div>`;
       }
 
       // Badge count
@@ -5739,7 +5744,7 @@ window.FCApp = (function () {
       // Only consult RC if it's already configured — don't await configure() here
       // because it can hang on a cold device and delay the user seeing their data.
       const _isProAfterLink = FCPurchases.isConfigured()
-        ? await FCPurchases.checkProStatus().catch(() => false)
+        ? await FCPurchases.checkProStatus().catch(e => { fcLog('[RC] checkProStatus failed:', e?.message); return false; })
         : false;
       if (!_isProAfterLink) {
         setTimeout(() => showPaywall(), 500);
@@ -7287,15 +7292,21 @@ window.FCApp = (function () {
       const monthly = offerings.monthly || offerings.availablePackages?.find(p => p.packageType === 'MONTHLY');
 
       if (annual) {
-        const price = annual.product.priceString;
+        const price    = annual.product.priceString;
+        const rawAnnual = annual.product.price;
         const amountEl = document.getElementById('pw-price-annual-amount');
         const detailEl = document.getElementById('pw-price-annual');
         if (amountEl) amountEl.textContent = price;
         if (detailEl) {
-          // Try to compute monthly equivalent
-          const raw = annual.product.price;
-          const monthlyEq = raw ? `$${(raw / 12).toFixed(2)}/mo — 7-day free trial` : '7-day free trial';
-          detailEl.textContent = monthlyEq;
+          const monthlyEq = rawAnnual ? `$${(rawAnnual / 12).toFixed(2)}/mo &nbsp;<span class="fc-pw-plan-strike">vs $${(rawAnnual > 0 && monthly ? (monthly.product.price * 12).toFixed(2) : '59.88')}</span>` : '7-day free trial';
+          detailEl.innerHTML = monthlyEq;
+        }
+        // Update "Save X%" dynamically from live prices
+        const savingsEl = document.querySelector('.fc-pw-plan-savings');
+        if (savingsEl && rawAnnual && monthly?.product?.price) {
+          const fullYear = monthly.product.price * 12;
+          const savePct  = Math.round((1 - rawAnnual / fullYear) * 100);
+          if (savePct > 0) savingsEl.textContent = `Save ${savePct}%`;
         }
         // Update CTA & terms text to reflect live price
         const termsEl = document.getElementById('pw-terms-text');
@@ -7305,7 +7316,7 @@ window.FCApp = (function () {
       }
       if (monthly) {
         const el = document.getElementById('pw-price-monthly');
-        if (el) el.textContent = `${monthly.product.priceString}/mo · Billed monthly`;
+        if (el) el.textContent = `${monthly.product.priceString}/mo · No commitment`;
       }
     } catch (err) {
       fcLog('Paywall offerings load failed (using defaults):', err.message);

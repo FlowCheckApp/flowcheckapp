@@ -1028,6 +1028,9 @@ body.fc-theme {
 [data-theme="light"] .fc-home-txn:active { background: rgba(13,27,46,0.03) !important; }
 [data-theme="light"] .dash-txn { border-bottom-color: rgba(13,27,46,0.06) !important; }
 [data-theme="light"] .dash-txn:active { background: rgba(13,27,46,0.03) !important; }
+[data-theme="light"] .fc-txn-name  { color: #0a1520 !important; }
+[data-theme="light"] .fc-txn-amt   { color: rgba(13,27,46,0.80) !important; }
+[data-theme="light"] .fc-txn-chev  { stroke: rgba(13,27,46,0.20) !important; }
 
 /* ── Health row ──────────────────────────────────────────── */
 [data-theme="light"] .dash-health {
