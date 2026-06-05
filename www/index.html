@@ -82,8 +82,10 @@
           delete event.user.username;
           delete event.user.ip_address;
         }
-        // Drop breadcrumbs that contain financial URL patterns
-        if (event.breadcrumbs && event.breadcrumbs.values) {
+        // Drop breadcrumbs that contain financial URL patterns.
+        // Guard Array.isArray: some Sentry SDK versions deliver breadcrumbs
+        // as a non-array in edge cases (e.g. a processed/frozen object).
+        if (event.breadcrumbs && Array.isArray(event.breadcrumbs.values)) {
           event.breadcrumbs.values = event.breadcrumbs.values.filter(b =>
             !(b.data && b.data.url && b.data.url.includes('plaid'))
           );

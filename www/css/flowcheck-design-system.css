@@ -1264,6 +1264,88 @@ body.fc-theme {
 [data-theme="light"] .fc-hero-signin-link { color: rgba(10,21,32,0.45) !important; }
 [data-theme="light"] .fc-hero-legal    { color: rgba(10,21,32,0.28) !important; }
 [data-theme="light"] .fc-hero-legal a  { color: rgba(10,21,32,0.45) !important; }
+/* Hero logo SVG (fill="white" attribute) */
+[data-theme="light"] .fc-hero-logo-icon svg { fill: #fff; } /* keeps white on dark icon bg */
+
+/* ── Auth screens — inline color overrides in light ─────── */
+/* Logo SVG fill="white" attribute — CSS selector beats presentation attribute */
+[data-theme="light"] .fc-auth-logo svg { fill: #0a1520; }
+/* Wordmark below logo */
+[data-theme="light"] .fc-auth-screen [style*="color:rgba(255,255,255,0.32)"] { color: rgba(10,21,32,0.38) !important; }
+/* Face ID button label */
+[data-theme="light"] .fc-auth-screen [style*="color:#fff"] { color: #0a1520 !important; }
+/* Chevron/arrow faint icons */
+[data-theme="light"] .fc-auth-screen [style*="stroke:rgba(255,255,255,0.28)"] { stroke: rgba(10,21,32,0.28) !important; }
+/* Apple Sign In — dark logo + dark text on light bg */
+[data-theme="light"] .fc-auth-apple-btn { background: rgba(10,21,32,0.06) !important; border-color: rgba(10,21,32,0.12) !important; color: #0a1520 !important; }
+[data-theme="light"] .fc-auth-apple-btn svg { fill: #0a1520 !important; }
+
+/* ── Face ID setup screen in light ───────────────────────── */
+[data-theme="light"] [data-screen="faceid-setup"] h1[style*="color:#fff"] { color: #0a1520 !important; }
+[data-theme="light"] [data-screen="faceid-setup"] [style*="color:rgba(255,255,255,0.48)"] { color: rgba(10,21,32,0.50) !important; }
+[data-theme="light"] [data-screen="faceid-setup"] [style*="color:rgba(255,255,255,0.78)"] { color: rgba(10,21,32,0.80) !important; }
+
+/* ── Notification permission screen in light ──────────────── */
+[data-theme="light"] [data-screen="notif-permission"] h1[style*="color:#fff"] { color: #0a1520 !important; }
+[data-theme="light"] [data-screen="notif-permission"] [style*="color:rgba(255,255,255,0.46)"] { color: rgba(10,21,32,0.50) !important; }
+[data-theme="light"] [data-screen="notif-permission"] [style*="color:rgba(255,255,255,0.76)"] { color: rgba(10,21,32,0.80) !important; }
+/* Tile titles and sub-labels */
+[data-theme="light"] [data-screen="notif-permission"] [style*="color:#fff"] { color: #0a1520 !important; }
+[data-theme="light"] [data-screen="notif-permission"] [style*="color:rgba(255,255,255,0.38)"] { color: rgba(10,21,32,0.42) !important; }
+/* Footer legal line */
+[data-theme="light"] [data-screen="notif-permission"] [style*="color:rgba(255,255,255,0.22)"] { color: rgba(10,21,32,0.30) !important; }
+
+/* ── Onboarding screen (.fc-ob-screen) in light ──────────── */
+/* CSS-class-based overrides */
+[data-theme="light"] .fc-ob-title    { color: #0a1520 !important; }
+[data-theme="light"] .fc-ob-desc     { color: rgba(10,21,32,0.50) !important; }
+[data-theme="light"] .fc-ob-title-grad {
+  background: linear-gradient(135deg, #0a1520 20%, var(--fc-accent) 80%) !important;
+  -webkit-background-clip: text !important; background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+}
+[data-theme="light"] .fc-ob-nw-label  { color: rgba(10,21,32,0.40) !important; }
+[data-theme="light"] .fc-ob-nw-value  { color: #0a1520 !important; }
+[data-theme="light"] .fc-ob-progress-rail { background: rgba(10,21,32,0.10) !important; }
+[data-theme="light"] .fc-ob-step      { background: rgba(10,21,32,0.14) !important; }
+[data-theme="light"] .fc-ob-grid-option {
+  background: rgba(10,21,32,0.04) !important;
+  border-color: rgba(10,21,32,0.10) !important;
+  color: #0a1520 !important;
+}
+[data-theme="light"] .fc-ob-grid-option.selected {
+  background: rgba(13,173,212,0.10) !important;
+  border-color: var(--fc-accent) !important;
+  color: var(--fc-accent) !important;
+}
+[data-theme="light"] .fc-ob-toggle-list  { background: rgba(10,21,32,0.03) !important; border-color: rgba(10,21,32,0.08) !important; }
+[data-theme="light"] .fc-ob-toggle-row   { border-bottom-color: rgba(10,21,32,0.07) !important; }
+[data-theme="light"] .fc-ob-glass-card   {
+  background: rgba(10,21,32,0.04) !important;
+  border-color: rgba(10,21,32,0.08) !important;
+  box-shadow: 0 4px 20px rgba(10,21,32,0.08), inset 0 1px 0 rgba(255,255,255,0.80) !important;
+}
+/* Inline white/faint-white text in ob slides */
+[data-theme="light"] .fc-ob-screen [style*="color:#fff"],
+[data-theme="light"] .fc-ob-screen [style*="color:white"],
+[data-theme="light"] .fc-ob-screen [style*="color: white"]  { color: #0a1520 !important; }
+[data-theme="light"] .fc-ob-screen [style*="color:rgba(255,255,255,0.34)"],
+[data-theme="light"] .fc-ob-screen [style*="color:rgba(255,255,255,0.38)"],
+[data-theme="light"] .fc-ob-screen [style*="color:rgba(255,255,255,0.44)"],
+[data-theme="light"] .fc-ob-screen [style*="color:rgba(255,255,255,0.46)"],
+[data-theme="light"] .fc-ob-screen [style*="color:rgba(255,255,255,0.48)"] { color: rgba(10,21,32,0.42) !important; }
+[data-theme="light"] .fc-ob-screen [style*="color:rgba(255,255,255,0.72)"],
+[data-theme="light"] .fc-ob-screen [style*="color:rgba(255,255,255,0.76)"],
+[data-theme="light"] .fc-ob-screen [style*="color:rgba(255,255,255,0.78)"] { color: rgba(10,21,32,0.80) !important; }
+/* Inline dark-mode glass backgrounds */
+[data-theme="light"] .fc-ob-screen [style*="background:rgba(255,255,255,0.04)"],
+[data-theme="light"] .fc-ob-screen [style*="background:rgba(255,255,255,0.05)"],
+[data-theme="light"] .fc-ob-screen [style*="background:rgba(255,255,255,0.06)"],
+[data-theme="light"] .fc-ob-screen [style*="background:rgba(255,255,255,0.08)"] { background: rgba(10,21,32,0.04) !important; }
+/* Inline border colors */
+[data-theme="light"] .fc-ob-screen [style*="border:1px solid rgba(255,255,255,0.08)"],
+[data-theme="light"] .fc-ob-screen [style*="border:1px solid rgba(255,255,255,0.09)"],
+[data-theme="light"] .fc-ob-screen [style*="border:1px solid rgba(255,255,255,0.18)"] { border-color: rgba(10,21,32,0.08) !important; }
 
 /* ── Paywall in light ────────────────────────────────────── */
 [data-theme="light"] .fc-paywall::before { opacity: 0.3; }

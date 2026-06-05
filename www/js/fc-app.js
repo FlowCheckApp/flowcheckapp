@@ -1586,14 +1586,18 @@ window.FCApp = (function () {
   function _updateGreeting() {
     const h = new Date().getHours();
     const greet = h < 5 ? 'Good night' : h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
-    const rawName = state.user?.name || state.user?.displayName || '';
-    const name    = rawName.split(' ')[0] || (state.user?.email || '').split('@')[0] || 'there';
+    // Resolution order: Firestore 'name' → Firebase Auth displayName → email prefix → ''
+    // Never falls back to 'there' if any real identity signal exists.
+    const authUser = window.FCAuth && FCAuth.currentUser ? FCAuth.currentUser() : null;
+    const rawName = state.user?.name || authUser?.displayName || state.user?.email?.split('@')[0] || '';
+    const name    = rawName.split(' ')[0] || authUser?.email?.split('@')[0] || '';
     const dateEl  = document.getElementById('home-greeting-date');
     const titleEl = document.getElementById('home-greeting-title');
     if (dateEl) dateEl.textContent = greet;
-    if (titleEl) titleEl.textContent = name;
+    if (titleEl) titleEl.textContent = name || greet.split(' ')[1]; // "Good morning" → "morning" if truly no name
     const avatarEl = document.getElementById('home-user-avatar');
-    if (avatarEl) avatarEl.textContent = name.charAt(0).toUpperCase() || 'B';
+    const avatarLetter = name.charAt(0).toUpperCase() || (authUser?.email || '').charAt(0).toUpperCase() || '?';
+    if (avatarEl) avatarEl.textContent = avatarLetter;
   }
 
   /* ─────────────────────────────────────────────────────────────
@@ -3235,16 +3239,19 @@ window.FCApp = (function () {
     const hour = new Date().getHours();
     const tod  = hour < 5 ? 'Good night' : hour < 12 ? 'Good morning'
                : hour < 17 ? 'Good afternoon' : 'Good evening';
-    // Prefer Firestore 'name' field (set at registration) → Firebase Auth displayName
-    // → email prefix → fallback. Never show username/email handle in the greeting.
-    const rawName = state.user?.name || state.user?.displayName || '';
-    const name    = rawName.split(' ')[0] || (state.user?.email || '').split('@')[0] || 'there';
+    // Resolution: Firestore 'name' → Firebase Auth displayName → email prefix → blank
+    // Firebase Auth displayName is set via updateProfile() on email signup and is
+    // available immediately — before the Firestore listener delivers its first snapshot.
+    const authUser2 = window.FCAuth && FCAuth.currentUser ? FCAuth.currentUser() : null;
+    const rawName   = state.user?.name || authUser2?.displayName || state.user?.email?.split('@')[0] || '';
+    const name      = rawName.split(' ')[0] || authUser2?.email?.split('@')[0] || '';
 
     if (dateEl) dateEl.textContent = tod;
-    titleEl.textContent = name;
+    titleEl.textContent = name || tod.split(' ')[1]; // "Good evening" → "evening" if truly no name
 
     // Avatar initial
-    if (avatarEl) avatarEl.textContent = name.charAt(0).toUpperCase() || 'B';
+    const avatarLetter2 = name.charAt(0).toUpperCase() || (authUser2?.email || '').charAt(0).toUpperCase() || '?';
+    if (avatarEl) avatarEl.textContent = avatarLetter2;
 
     if (subEl) {
       // Show contextual subtitle: safe-to-spend if connected, else prompt
@@ -5344,10 +5351,11 @@ window.FCApp = (function () {
     const nameEl  = document.getElementById('settings-name');
     const emailEl = document.getElementById('settings-email');
     const initEl  = document.getElementById('settings-avatar');
-    const displayName = user.name || user.displayName || 'User';
+    // Resolution: Firestore 'name' → Firebase Auth displayName → email prefix
+    const authUser    = FCAuth.currentUser();
+    const displayName = user.name || authUser?.displayName || user.email?.split('@')[0] || 'User';
     // Always prefer the live Firebase Auth email — Firestore may lag on first
     // load or retain a previous session's value during an account switch.
-    const authUser     = FCAuth.currentUser();
     const displayEmail = (authUser?.email) || user.email || '';
     if (nameEl)  nameEl.textContent  = displayName;
     if (emailEl) emailEl.textContent = displayEmail;
@@ -6537,7 +6545,12 @@ window.FCApp = (function () {
         } catch (err) {
           fcLog('Failed to load user doc on auth:', err);
           // Transient Firestore error — fall back to home rather than blank screen.
-          // Next app open will retry via onAuthStateChanged.
+          // Seed a minimal user object from Firebase Auth so the greeting shows
+          // the real name rather than falling through to "there".
+          if (!state.user) {
+            const authUser = FCAuth.currentUser();
+            if (authUser) state.user = { name: authUser.displayName || '', email: authUser.email || '' };
+          }
           setScreen('app');
           _renderHome();
           return;
@@ -6585,6 +6598,10 @@ window.FCApp = (function () {
           // don't override it — the Firestore write triggers this observer again, but the
           // user should stay on the paywall until they purchase or dismiss.
           if (state.screen === 'paywall' || _paywallShownThisSession) return;
+          // Pre-seed state.user from the already-fetched userDoc so the very first
+          // _renderHome() call has the correct name. The listenToUser listener
+          // will overwrite this with the live snapshot moments later.
+          if (!state.user && userDoc) state.user = userDoc;
           setScreen('app');
           _renderHome();
           setTimeout(() => _doSync(false), 900);
@@ -8259,7 +8276,24 @@ window.FCApp = (function () {
     }
 
     try {
-      if (navigator.share) {
+      // In a Capacitor/native context, the Capacitor Share plugin is reliable and
+      // always shares the correct URL. navigator.share on iOS WKWebView CAN share
+      // the capacitor://localhost page URL instead of the provided url — so we
+      // check for the Capacitor plugin FIRST and only fall back to navigator.share
+      // on web where it behaves correctly.
+      const plugins       = window.Capacitor?.Plugins;
+      const isNative      = window.Capacitor?.isNativePlatform?.();
+      const capacitorShare = plugins?.Share?.share;
+
+      if (isNative && capacitorShare) {
+        await capacitorShare({
+          title:       'FlowCheck — Refer a Friend',
+          text:        `${shareText}\n\n${referralUrl}`,
+          url:         referralUrl,
+          dialogTitle: 'Share FlowCheck',
+        });
+        if (typeof FCAnalytics !== 'undefined') FCAnalytics.track('referral_shared', { code, method: 'capacitor_share' });
+      } else if (navigator.share) {
         await navigator.share({
           title: 'FlowCheck — Refer a Friend',
           text:  shareText,
@@ -8267,30 +8301,18 @@ window.FCApp = (function () {
         });
         if (typeof FCAnalytics !== 'undefined') FCAnalytics.track('referral_shared', { code, method: 'native_share' });
       } else {
-        // Capacitor Share plugin fallback
-        const plugins = window.Capacitor?.Plugins;
-        if (plugins?.Share?.share) {
-          await plugins.Share.share({
-            title:       'FlowCheck',
-            text:        `${shareText}\n\n${referralUrl}`,
-            url:         referralUrl,
-            dialogTitle: 'Share FlowCheck',
-          });
-          if (typeof FCAnalytics !== 'undefined') FCAnalytics.track('referral_shared', { code, method: 'capacitor_share' });
-        } else {
-          // Last resort: copy link to clipboard
-          try {
-            await navigator.clipboard.writeText(referralUrl);
-          } catch (_) {
-            const ta = document.createElement('textarea');
-            ta.value = referralUrl; ta.style.position = 'fixed'; ta.style.opacity = '0';
-            document.body.appendChild(ta); ta.select();
-            document.execCommand('copy');
-            document.body.removeChild(ta);
-          }
-          toast('Referral link copied!', 'success');
-          if (typeof FCAnalytics !== 'undefined') FCAnalytics.track('referral_shared', { code, method: 'clipboard' });
+        // Last resort: copy link to clipboard
+        try {
+          await navigator.clipboard.writeText(referralUrl);
+        } catch (_) {
+          const ta = document.createElement('textarea');
+          ta.value = referralUrl; ta.style.position = 'fixed'; ta.style.opacity = '0';
+          document.body.appendChild(ta); ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
         }
+        toast('Referral link copied!', 'success');
+        if (typeof FCAnalytics !== 'undefined') FCAnalytics.track('referral_shared', { code, method: 'clipboard' });
       }
     } catch (err) {
       if (err.name !== 'AbortError') {
