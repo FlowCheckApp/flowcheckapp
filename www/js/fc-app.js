@@ -4124,8 +4124,10 @@ window.FCApp = (function () {
         spentSubEl.textContent = `${spentPct}% of income`;
         spentSubEl.style.color = spentPct >= 90 ? 'var(--fc-danger)' : spentPct >= 70 ? 'var(--fc-warning)' : '';
       } else {
-        // Show period label instead of a broken percentage
-        spentSubEl.textContent = _PERIOD_LABELS[state.period] || 'this month';
+        // For 1W, clarify it can include prior-month transactions
+        const label = state.period === '1W' ? 'last 7 days'
+                    : _PERIOD_LABELS[state.period] || 'this month';
+        spentSubEl.textContent = label;
         spentSubEl.style.color = '';
       }
     }

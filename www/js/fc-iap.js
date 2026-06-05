@@ -193,7 +193,17 @@ window.FCPurchases = (function () {
     _offerings  = null;
     try {
       const plugin = RC();
-      if (plugin && typeof plugin.logOut === 'function') await plugin.logOut();
+      if (plugin && typeof plugin.logOut === 'function') {
+        await plugin.logOut().catch(err => {
+          // Code 22 = "LogOut was called but the current user is anonymous"
+          // This fires on sign-out when RC identity was never set (anonymous RC user).
+          // It's harmless — anonymous identities don't carry entitlements.
+          const code = err?.code ?? err?.errorCode;
+          if (String(code) !== '22' && !String(err?.message || '').includes('anonymous')) {
+            fcLog('[FCPurchases] logOut error (non-critical):', err?.message);
+          }
+        });
+      }
     } catch (_) {}
     fcLog('[FCPurchases] reset — ready for next configure()');
   }

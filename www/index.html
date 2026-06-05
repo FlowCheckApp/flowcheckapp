@@ -6026,13 +6026,17 @@ async function handleBiometricToggle(el) {
   await FCApp.toggleBiometric(willEnable);
 }
 
+let _notifToggleBusy = false;
 async function handleNotifToggle(el) {
+  if (_notifToggleBusy) return; // debounce — prevent rapid double-tap
+  _notifToggleBusy = true;
   const willEnable = !el.classList.contains('on');
   const granted = await FCApp.toggleNotifications(willEnable);
   if (granted !== false) {
     el.classList.toggle('on', willEnable);
     el.setAttribute('aria-checked', willEnable);
   }
+  _notifToggleBusy = false;
 }
 
 /* ── Notification permission onboarding screen ───────────── */

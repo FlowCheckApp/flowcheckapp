@@ -288,12 +288,12 @@ window.FCData = (function () {
     return unsub;
   }
 
-  async function updateUserField(field, value) {
+  async function updateUserField(field, value, _retry = true) {
     const user = FCAuth.currentUser();
     const db   = FCAuth.db();
     if (!user || !db) throw new Error('Not authenticated');
-    // Refresh token before write — guards against stale cached tokens that
-    // produce spurious permission-denied errors on long-running sessions.
+    // Force-refresh the token before writing — guards against stale tokens
+    // on long sessions and timing windows right after sign-in / purchase.
     try { await user.getIdToken(true); } catch (_) {}
     try {
       await db.collection('users').doc(user.uid).update({ [field]: value });
@@ -304,6 +304,12 @@ window.FCData = (function () {
           { uid: user.uid, [field]: value },
           { merge: true }
         );
+      } else if (err.code === 'permission-denied' && _retry) {
+        // Firestore occasionally returns permission-denied immediately after
+        // sign-in or purchase while the auth token propagates internally.
+        // Wait 800ms then retry once with a fresh token.
+        await new Promise(r => setTimeout(r, 800));
+        return updateUserField(field, value, false);
       } else {
         throw err;
       }
