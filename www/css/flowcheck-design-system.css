@@ -1349,3 +1349,676 @@ body.fc-theme {
 [data-theme="light"] [style*="background:rgba(0,0,0,0.3)"] {
   background: rgba(10,21,32,0.06) !important;
 }
+
+/* ============================================================
+   PREMIUM POLISH v4 — Enterprise UX layer
+   FlowCheck: Top-tier App Store fintech quality
+   ============================================================ */
+
+/* ── Additional design tokens ──────────────────────────────── */
+:root {
+  /* Typography scale tokens */
+  --fc-text-hero:   clamp(44px, 11vw, 52px);  /* net worth / hero number */
+  --fc-text-h1:     28px;
+  --fc-text-h2:     22px;
+  --fc-text-h3:     17px;
+  --fc-text-body:   15px;
+  --fc-text-sm:     13px;
+  --fc-text-xs:     11px;
+  --fc-text-2xs:    10px;
+
+  /* Line heights */
+  --fc-lh-tight:  1.12;
+  --fc-lh-snug:   1.25;
+  --fc-lh-normal: 1.45;
+  --fc-lh-relaxed:1.65;
+
+  /* Letter spacing */
+  --fc-ls-hero:   -0.04em;
+  --fc-ls-h1:     -0.025em;
+  --fc-ls-h2:     -0.018em;
+  --fc-ls-body:    0;
+  --fc-ls-cap:     0.08em;
+
+  /* Animation durations */
+  --fc-dur-instant:  80ms;
+  --fc-dur-fast:    150ms;
+  --fc-dur-normal:  280ms;
+  --fc-dur-slow:    420ms;
+  --fc-dur-lazy:    600ms;
+
+  /* Z-index scale */
+  --fc-z-base:    1;
+  --fc-z-sticky:  10;
+  --fc-z-overlay: 40;
+  --fc-z-modal:   60;
+  --fc-z-toast:   80;
+
+  /* Touch target minimum */
+  --fc-touch: 44px;
+}
+
+/* ── Global financial number quality ───────────────────────── */
+/* Every number that represents money should never jump-width  */
+.fc-currency,
+.fc-amount,
+[data-amount],
+.fc-stat-value,
+.fc-list-amount,
+.fc-display,
+.fc-num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1, "ss01" 1;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Negative amounts — always red */
+.fc-amount--negative { color: var(--fc-danger) !important; }
+/* Positive delta */
+.fc-amount--positive { color: var(--fc-success) !important; }
+
+/* ── SKELETON SYSTEM v2 — Multi-variant shimmer ─────────────── */
+
+/* The shimmer sweep: moves left-to-right like Monarch/Robinhood */
+@keyframes fcShimmerSweep {
+  0%   { background-position: -400px 0; }
+  100% { background-position: calc(400px + 100%) 0; }
+}
+
+/* Base skeleton — dark mode */
+.fc-sk {
+  background: linear-gradient(
+    90deg,
+    rgba(255,255,255,0.04)  0%,
+    rgba(255,255,255,0.085) 38%,
+    rgba(255,255,255,0.11)  50%,
+    rgba(255,255,255,0.085) 62%,
+    rgba(255,255,255,0.04)  100%
+  );
+  background-size: 400px 100%;
+  animation: fcShimmerSweep 1.4s ease-in-out infinite;
+  border-radius: 6px;
+  display: block;
+}
+
+/* Light mode skeleton */
+[data-theme="light"] .fc-sk {
+  background: linear-gradient(
+    90deg,
+    rgba(10,21,32,0.05)  0%,
+    rgba(10,21,32,0.09) 38%,
+    rgba(10,21,32,0.12) 50%,
+    rgba(10,21,32,0.09) 62%,
+    rgba(10,21,32,0.05) 100%
+  );
+  background-size: 400px 100%;
+}
+
+/* Skeleton shape variants */
+.fc-sk--text-lg  { height: 18px; border-radius: 5px; }
+.fc-sk--text-md  { height: 14px; border-radius: 4px; }
+.fc-sk--text-sm  { height: 11px; border-radius: 3px; }
+.fc-sk--circle   { border-radius: 50%; aspect-ratio: 1; }
+.fc-sk--rect     { border-radius: var(--fc-r-md); }
+.fc-sk--pill     { border-radius: var(--fc-r-pill); height: 30px; }
+.fc-sk--hero-num { height: 48px; width: 180px; border-radius: 8px; }
+.fc-sk--avatar   { width: 44px; height: 44px; border-radius: 14px; flex-shrink: 0; }
+.fc-sk--card     { border-radius: var(--fc-r-xl); }
+
+/* Skeleton block — a self-contained skeleton card placeholder */
+.fc-sk-card {
+  border-radius: var(--fc-r-xl);
+  padding: 20px;
+  background: rgba(255,255,255,0.025);
+  border: 0.5px solid rgba(255,255,255,0.05);
+}
+[data-theme="light"] .fc-sk-card {
+  background: rgba(10,21,32,0.025);
+  border-color: rgba(10,21,32,0.07);
+}
+
+/* Skeleton row — icon + two lines of text */
+.fc-sk-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+}
+.fc-sk-row-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+/* Dashboard-specific skeleton groups */
+.fc-sk-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px;
+}
+.fc-sk-stat-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 8px;
+}
+.fc-sk-stat-item {
+  border-radius: var(--fc-r-lg);
+  height: 72px;
+  background: rgba(255,255,255,0.025);
+}
+
+/* Stagger skeleton children for a cascade effect */
+.fc-sk-list > .fc-sk-row:nth-child(1) { animation-delay: 0.00s; }
+.fc-sk-list > .fc-sk-row:nth-child(2) { animation-delay: 0.06s; }
+.fc-sk-list > .fc-sk-row:nth-child(3) { animation-delay: 0.12s; }
+.fc-sk-list > .fc-sk-row:nth-child(4) { animation-delay: 0.18s; }
+.fc-sk-list > .fc-sk-row:nth-child(5) { animation-delay: 0.24s; }
+
+/* ── Button system improvements ─────────────────────────────── */
+
+/* Loading state — spinner replaces text */
+.fc-btn--loading {
+  pointer-events: none;
+  opacity: 0.82;
+  position: relative;
+}
+.fc-btn--loading::after {
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255,255,255,0.28);
+  border-top-color: rgba(255,255,255,0.92);
+  border-radius: 50%;
+  animation: fcBtnSpin 0.65s linear infinite;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+@keyframes fcBtnSpin {
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* Destructive button */
+.fc-btn--danger {
+  background: rgba(255,69,58,0.14);
+  color: var(--fc-danger);
+  border: 1px solid rgba(255,69,58,0.28);
+  box-shadow: none;
+}
+.fc-btn--danger:active {
+  background: rgba(255,69,58,0.22);
+  transform: scale(0.97);
+}
+
+/* Success state */
+.fc-btn--success {
+  background: linear-gradient(135deg, var(--fc-success) 0%, #22c55e 100%);
+  color: #fff;
+  box-shadow: 0 6px 20px rgba(48,209,88,0.28);
+}
+
+/* ── Touch target enforcer ──────────────────────────────────── */
+/* Anything tappable that might be too small gets a safe hit-area */
+.fc-tap-safe {
+  position: relative;
+}
+.fc-tap-safe::before {
+  content: '';
+  position: absolute;
+  inset: -6px;
+}
+
+/* ── Toggle (switch) — premium native feel ─────────────────── */
+.fc-toggle {
+  width: 52px;
+  height: 30px;
+  border-radius: 15px;
+  background: rgba(255,255,255,0.10);
+  border: 1px solid rgba(255,255,255,0.08);
+  position: relative;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background var(--fc-dur-fast) var(--fc-ease-out),
+              border-color var(--fc-dur-fast) var(--fc-ease-out),
+              box-shadow var(--fc-dur-fast) var(--fc-ease-out);
+  -webkit-tap-highlight-color: transparent;
+}
+.fc-toggle::after {
+  content: '';
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #fff;
+  top: 2px;
+  left: 2px;
+  transition: transform var(--fc-dur-fast) var(--fc-ease-spring),
+              box-shadow var(--fc-dur-fast) var(--fc-ease-out);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.28);
+  will-change: transform;
+}
+.fc-toggle.on {
+  background: var(--fc-accent);
+  border-color: transparent;
+  box-shadow: 0 0 0 1px rgba(26,196,240,0.28), 0 2px 10px rgba(26,196,240,0.22);
+}
+.fc-toggle.on::after {
+  transform: translateX(22px);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.22);
+}
+.fc-toggle:active { opacity: 0.78; }
+
+/* Toggle in light mode */
+[data-theme="light"] .fc-toggle {
+  background: rgba(10,21,32,0.10);
+  border-color: rgba(10,21,32,0.10);
+}
+[data-theme="light"] .fc-toggle::after {
+  box-shadow: 0 2px 6px rgba(10,21,32,0.20);
+}
+[data-theme="light"] .fc-toggle.on {
+  background: var(--fc-accent);
+}
+
+/* ── Settings list — native iOS feel ───────────────────────── */
+.fc-settings-section {
+  margin: 0 16px 8px;
+}
+.fc-settings-section-title {
+  font-size: var(--fc-text-2xs);
+  font-weight: 700;
+  letter-spacing: var(--fc-ls-cap);
+  text-transform: uppercase;
+  color: var(--fc-text-faint);
+  padding: 18px 4px 7px;
+}
+.fc-settings-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 0;
+  min-height: var(--fc-touch);
+  border-bottom: 0.5px solid rgba(255,255,255,0.055);
+  transition: background var(--fc-dur-instant) var(--fc-ease-out);
+  border-radius: 4px;
+  -webkit-tap-highlight-color: transparent;
+}
+.fc-settings-row:last-child { border-bottom: none; }
+.fc-settings-row:active {
+  background: rgba(255,255,255,0.04);
+}
+.fc-settings-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.fc-settings-label {
+  flex: 1;
+  font-size: var(--fc-text-body);
+  font-weight: 500;
+  color: var(--fc-text);
+  line-height: var(--fc-lh-snug);
+}
+.fc-settings-value {
+  font-size: var(--fc-text-sm);
+  color: var(--fc-text-faint);
+  font-weight: 500;
+}
+.settings-section-hdr {
+  font-size: var(--fc-text-2xs);
+  font-weight: 700;
+  letter-spacing: var(--fc-ls-cap);
+  text-transform: uppercase;
+  color: var(--fc-text-faint);
+  padding: 18px 20px 7px;
+  opacity: 0.55;
+}
+
+/* ── Merchant avatar — letter fallback ─────────────────────── */
+.fc-merchant-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 700;
+  flex-shrink: 0;
+  letter-spacing: 0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.22);
+  color: #fff;
+  background: linear-gradient(
+    135deg,
+    var(--fc-bg-elevated-2),
+    var(--fc-bg-elevated)
+  );
+  border: 0.5px solid rgba(255,255,255,0.07);
+  user-select: none;
+  -webkit-user-select: none;
+  overflow: hidden;
+  position: relative;
+}
+
+/* ── Empty state — premium centered layout ─────────────────── */
+.fc-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 48px 24px;
+  gap: 0;
+}
+.fc-empty-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 20px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.07);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 18px;
+  font-size: 26px;
+}
+.fc-empty-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--fc-text);
+  letter-spacing: var(--fc-ls-h2);
+  margin-bottom: 7px;
+  line-height: var(--fc-lh-snug);
+}
+.fc-empty-sub {
+  font-size: var(--fc-text-sm);
+  color: var(--fc-text-faint);
+  line-height: var(--fc-lh-relaxed);
+  max-width: 240px;
+  margin-bottom: 24px;
+}
+
+/* ── Number animation — smooth financial counter ──────────────  */
+@keyframes fcNumIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.96);
+    filter: blur(2px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+.fc-num-enter {
+  animation: fcNumIn 0.36s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.fc-num-update {
+  animation: fcNumIn 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ── Hero card — refine the signature glow ─────────────────── */
+.fc-card--hero {
+  background: linear-gradient(
+    150deg,
+    rgba(26,196,240,0.085) 0%,
+    rgba(37,99,235,0.045)  55%,
+    rgba(10,16,28,0.98)   100%
+  );
+  border-color: rgba(26,196,240,0.175);
+  animation: fcHeroCardPulse 6s ease-in-out infinite;
+}
+/* Ensure the hero card ::before glow pseudo-element (if used) is refined */
+.fc-card--hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    ellipse 70% 50% at 15% 30%,
+    rgba(26,196,240,0.09),
+    transparent 70%
+  );
+  pointer-events: none;
+}
+
+/* ── Section header — consistent premium eyebrow ───────────── */
+.fc-sec-hdr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px 8px;
+}
+.fc-sec-hdr-title {
+  font-size: var(--fc-text-sm);
+  font-weight: 700;
+  color: var(--fc-text);
+  letter-spacing: var(--fc-ls-h2);
+}
+.fc-sec-hdr-action {
+  font-size: var(--fc-text-xs);
+  font-weight: 600;
+  color: var(--fc-accent);
+  cursor: pointer;
+  padding: 6px 0 6px 12px;
+  -webkit-tap-highlight-color: transparent;
+}
+.fc-sec-hdr-action:active { opacity: 0.65; }
+
+/* ── Toast — premium floating pill ─────────────────────────── */
+.fc-toast {
+  position: fixed;
+  bottom: calc(env(safe-area-inset-bottom) + 92px);
+  left: 16px;
+  right: 16px;
+  z-index: var(--fc-z-toast);
+  background: rgba(14, 24, 38, 0.92);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border: 0.5px solid rgba(255,255,255,0.10);
+  border-radius: var(--fc-r-pill);
+  padding: 13px 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--fc-text-sm);
+  font-weight: 600;
+  color: var(--fc-text);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.42), 0 2px 8px rgba(0,0,0,0.28);
+  pointer-events: none;
+  transform: translateY(8px);
+  opacity: 0;
+  transition: transform var(--fc-dur-normal) var(--fc-ease-spring),
+              opacity var(--fc-dur-normal) var(--fc-ease-out);
+}
+.fc-toast.fc-toast--visible {
+  transform: translateY(0);
+  opacity: 1;
+}
+.fc-toast.fc-toast--success .fc-toast-dot { background: var(--fc-success); }
+.fc-toast.fc-toast--error   .fc-toast-dot { background: var(--fc-danger); }
+.fc-toast.fc-toast--info    .fc-toast-dot { background: var(--fc-accent); }
+.fc-toast-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--fc-text-muted);
+}
+
+/* ── Pull-to-refresh indicator ──────────────────────────────── */
+#fc-pull-indicator {
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + 68px);
+  left: 50%;
+  transform: translateX(-50%) translateY(-80px);
+  z-index: var(--fc-z-sticky);
+  background: var(--fc-bg-elevated);
+  border: 0.5px solid var(--fc-border-strong);
+  border-radius: var(--fc-r-pill);
+  padding: 9px 18px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fc-text-xs);
+  font-weight: 600;
+  color: var(--fc-text-muted);
+  box-shadow: var(--fc-shadow-md);
+  transition: transform var(--fc-dur-normal) var(--fc-ease-spring),
+              opacity var(--fc-dur-normal) var(--fc-ease-out);
+  pointer-events: none;
+  white-space: nowrap;
+}
+#fc-pull-indicator.visible {
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ── Bottom sheet — premium physics ─────────────────────────── */
+.fc-sheet {
+  border-radius: 22px 22px 0 0;
+  background: linear-gradient(180deg, var(--fc-bg-elevated) 0%, var(--fc-bg) 100%);
+  border-top: 0.5px solid var(--fc-border-strong);
+  overflow: hidden;
+}
+.fc-sheet-handle {
+  width: 36px;
+  height: 4px;
+  background: rgba(255,255,255,0.18);
+  border-radius: 2px;
+  margin: 10px auto 4px;
+  flex-shrink: 0;
+}
+[data-theme="light"] .fc-sheet {
+  background: linear-gradient(180deg, #ffffff 0%, #f5f7fc 100%);
+  border-top-color: rgba(10,21,32,0.10);
+}
+[data-theme="light"] .fc-sheet-handle {
+  background: rgba(10,21,32,0.15);
+}
+
+/* ── Progress bar — smoother fill ───────────────────────────── */
+.fc-progress-fill {
+  transition: width var(--fc-dur-slow) cubic-bezier(0.34, 1.2, 0.64, 1);
+}
+
+/* ── Dashboard section separator ───────────────────────────── */
+.fc-dash-sep {
+  height: 0.5px;
+  background: rgba(255,255,255,0.045);
+  margin: 4px 0;
+}
+
+/* ── Notification badge / dot ───────────────────────────────── */
+.fc-notif-badge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--fc-danger);
+  border: 2px solid var(--fc-bg);
+  animation: fcSyncDotPulse 2.4s ease-in-out infinite;
+}
+
+/* ── Tab bar active glow — slight uplift on active icon ─────── */
+.fc-nav-item.active svg {
+  transform: translateY(-2px);
+  filter: drop-shadow(0 0 8px rgba(26,196,240,0.60));
+}
+
+/* ── Card active state — consistent depth tap ───────────────── */
+.fc-card[role="button"]:active,
+.fc-card.fc-card--clickable:active,
+.fc-tap:active {
+  transform: scale(0.978);
+  opacity: 0.90;
+  transition: transform 0.10s, opacity 0.10s;
+}
+
+/* ── List item — better active press ────────────────────────── */
+.fc-list-item:active {
+  opacity: 0.68;
+  background: rgba(255,255,255,0.02);
+  border-radius: 10px;
+  transition: all 0.08s;
+}
+
+/* ── Input focus ring — cleaner ─────────────────────────────── */
+.fc-input:focus {
+  outline: none;
+  border-color: rgba(26,196,240,0.55);
+  background: rgba(26,196,240,0.05);
+  box-shadow: 0 0 0 3px rgba(26,196,240,0.08), 0 1px 4px rgba(0,0,0,0.14);
+}
+
+/* ── Search bar ─────────────────────────────────────────────── */
+.fc-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255,255,255,0.05);
+  border: 0.5px solid var(--fc-border);
+  border-radius: var(--fc-r-pill);
+  padding: 0 14px;
+  height: 38px;
+  transition: border-color var(--fc-dur-fast), background var(--fc-dur-fast);
+}
+.fc-search-bar:focus-within {
+  border-color: rgba(26,196,240,0.40);
+  background: rgba(26,196,240,0.04);
+}
+.fc-search-bar input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  font-size: var(--fc-text-sm);
+  color: var(--fc-text);
+  font-family: inherit;
+}
+.fc-search-bar input::placeholder {
+  color: var(--fc-text-faint);
+}
+
+/* ── Smooth fade-in for async content ───────────────────────── */
+@keyframes fcContentReveal {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.fc-content-reveal {
+  animation: fcContentReveal var(--fc-dur-normal) var(--fc-ease-out) both;
+}
+
+/* ── Reduced motion — universal off switch ─────────────────── */
+/* (Already set above, but re-enforce for new animations) */
+@media (prefers-reduced-motion: reduce) {
+  .fc-sk,
+  .fc-num-enter,
+  .fc-num-update,
+  .fc-content-reveal,
+  .fc-btn--loading::after,
+  .fc-card--hero,
+  .fc-notif-badge,
+  .fc-nav-item.active svg {
+    animation: none !important;
+    transition: none !important;
+  }
+  .fc-card--hero {
+    box-shadow:
+      inset 0 1px 0 rgba(26,196,240,0.10),
+      inset 0 -1px 0 rgba(0,0,0,0.20),
+      0 0 44px rgba(26,196,240,0.07),
+      0 12px 32px rgba(0,0,0,0.36);
+  }
+}

@@ -1108,7 +1108,79 @@ app.delete('/user/account', requireAuth, async (req, res) => {
     // 3. Delete user document
     await userRef.delete();
 
-    // 4. Delete Firebase Auth account — must be last
+    // 4. Send goodbye email BEFORE deleting the auth record — last chance to
+    //    read the user's email from Firebase Auth. Best-effort: never blocks deletion.
+    try {
+      const userRecord = await admin.auth().getUser(uid);
+      const email = userRecord.email;
+      const name  = userRecord.displayName ? userRecord.displayName.split(' ')[0] : 'there';
+      if (email && _resendApiKey) {
+        await _sendEmail(email, 'Your FlowCheck account has been deleted', `
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Account Deleted — FlowCheck</title></head>
+<body style="margin:0;padding:0;background-color:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
+<div style="display:none;max-height:0;overflow:hidden;font-size:1px;color:#f3f4f6">Your FlowCheck account and all associated data have been permanently deleted.</div>
+<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f3f4f6;padding:32px 16px">
+<tr><td align="center">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:540px;width:100%">
+
+  <!-- Header -->
+  <tr><td style="background:linear-gradient(160deg,#060e18 0%,#0d2240 100%);border-radius:16px 16px 0 0;padding:40px 40px 36px;text-align:center">
+    ${LOGO_IMG}
+    <h1 style="color:#ffffff;font-size:26px;font-weight:800;margin:0 0 8px;letter-spacing:-0.03em;line-height:1.2">Account deleted.</h1>
+    <p style="color:rgba(255,255,255,0.50);font-size:15px;margin:0">We're sorry to see you go, ${_htmlEscape(name)}.</p>
+  </td></tr>
+
+  <!-- Body -->
+  <tr><td style="background:#ffffff;padding:36px 40px">
+    <p style="font-size:15px;color:#374151;line-height:1.7;margin:0 0 24px">
+      Your FlowCheck account has been <strong>permanently deleted</strong>. All of your data has been removed from our servers in accordance with our privacy policy.
+    </p>
+
+    <!-- What was deleted -->
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#fafafa;border:1px solid #e5e7eb;border-radius:12px;margin-bottom:28px">
+      <tr><td style="padding:20px 24px">
+        <p style="font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 12px">What was deleted</p>
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr><td style="padding:4px 0;font-size:14px;color:#374151"><span style="color:#34c759;margin-right:8px;font-weight:700">✓</span>Your account and login credentials</td></tr>
+          <tr><td style="padding:4px 0;font-size:14px;color:#374151"><span style="color:#34c759;margin-right:8px;font-weight:700">✓</span>All connected bank accounts (Plaid links revoked)</td></tr>
+          <tr><td style="padding:4px 0;font-size:14px;color:#374151"><span style="color:#34c759;margin-right:8px;font-weight:700">✓</span>Transaction history and spending data</td></tr>
+          <tr><td style="padding:4px 0;font-size:14px;color:#374151"><span style="color:#34c759;margin-right:8px;font-weight:700">✓</span>Bills, goals, and budget settings</td></tr>
+          <tr><td style="padding:4px 0;font-size:14px;color:#374151"><span style="color:#34c759;margin-right:8px;font-weight:700">✓</span>All personal preferences and notifications</td></tr>
+        </table>
+      </td></tr>
+    </table>
+
+    <p style="font-size:14px;color:#6b7280;line-height:1.7;margin:0 0 28px">
+      If you deleted by mistake or want to give FlowCheck another try, you're always welcome back. Simply download the app and create a new account.
+    </p>
+
+    <p style="font-size:13px;color:#9ca3af;line-height:1.6;margin:0 0 4px">
+      Questions about your data or this deletion? Contact us at
+      <a href="mailto:support@getflowcheck.app" style="color:#1ac4f0;text-decoration:none">support@getflowcheck.app</a>
+    </p>
+  </td></tr>
+
+  <!-- Footer -->
+  <tr><td style="background:#f9fafb;border-top:1px solid #e5e7eb;border-radius:0 0 16px 16px;padding:20px 40px;text-align:center">
+    <p style="font-size:12px;color:#9ca3af;margin:0;line-height:1.5">
+      FlowCheck · <a href="https://getflowcheck.app" style="color:#9ca3af;text-decoration:none">getflowcheck.app</a><br>
+      This is a transactional email related to your account deletion request. No further emails will be sent to this address.
+    </p>
+  </td></tr>
+
+</table>
+</td></tr>
+</table>
+</body></html>
+        `);
+      }
+    } catch (emailErr) {
+      console.warn('[delete-account] goodbye email failed (non-fatal):', emailErr.message);
+    }
+
+    // 5. Delete Firebase Auth account — must be last (after reading email above)
     await admin.auth().deleteUser(uid);
 
     console.log(`[delete-account] uid:${uid} fully deleted`);

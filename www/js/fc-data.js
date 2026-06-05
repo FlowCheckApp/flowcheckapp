@@ -545,32 +545,111 @@ window.FCData = (function () {
     const cat  = normalizePlaidCategory(rawCat).toLowerCase();
     const nm   = (name || '').toLowerCase();
 
-    // Name-based overrides (most specific)
-    if (nm.includes('netflix'))    return '🎬';
-    if (nm.includes('spotify'))    return '🎵';
-    if (nm.includes('apple'))      return '🍎';
-    if (nm.includes('amazon'))     return '📦';
-    if (nm.includes('starbucks'))  return '☕';
-    if (nm.includes('uber eats') || nm.includes('doordash') || nm.includes('grubhub')) return '🛵';
-    if (nm.includes('uber') || nm.includes('lyft')) return '🚗';
-    if (nm.includes('airbnb'))     return '🏠';
-    if (nm.includes('delta') || nm.includes('united') || nm.includes('southwest') || nm.includes('american air')) return '✈️';
-    if (nm.includes('target'))     return '🎯';
-    if (nm.includes('walmart'))    return '🏬';
-    if (nm.includes('costco'))     return '🏪';
-    if (nm.includes('gas') || nm.includes('shell') || nm.includes('chevron') || nm.includes('exxon')) return '⛽';
-    if (nm.includes('gym') || nm.includes('planet fitness') || nm.includes('la fitness')) return '💪';
-    if (nm.includes('hulu') || nm.includes('disney') || nm.includes('paramount') || nm.includes('hbo') || nm.includes('max')) return '📺';
-    if (nm.includes('microsoft') || nm.includes('office') || nm.includes('adobe')) return '💻';
-    if (nm.includes('google'))     return '🔍';
-    if (nm.includes('paypal'))     return '💰';
-    if (nm.includes('venmo') || nm.includes('zelle') || nm.includes('cashapp')) return '💸';
-    if (nm.includes('hospital') || nm.includes('clinic') || nm.includes('pharmacy') || nm.includes('cvs') || nm.includes('walgreen')) return '💊';
-    if (nm.includes('insurance'))  return '🛡️';
-    if (nm.includes('rent') || nm.includes('mortgage')) return '🏡';
-    if (nm.includes('electric') || nm.includes('pg&e') || nm.includes('con ed')) return '⚡';
-    if (nm.includes('water'))      return '💧';
-    if (nm.includes('internet') || nm.includes('comcast') || nm.includes('verizon') || nm.includes('att') || nm.includes('tmobile')) return '📡';
+    // ── Merchant name overrides (most specific, checked first) ────────
+    // Streaming / entertainment
+    if (nm.includes('netflix'))                           return '🎬';
+    if (nm.includes('hulu'))                              return '📺';
+    if (nm.includes('disney'))                            return '🏰';
+    if (nm.includes('hbo') || nm.includes(' max'))        return '📺';
+    if (nm.includes('paramount'))                         return '📺';
+    if (nm.includes('peacock'))                           return '📺';
+    if (nm.includes('spotify'))                           return '🎵';
+    if (nm.includes('apple music') || nm.includes('apple tv') || nm.includes('apple one')) return '🍎';
+    if (nm.includes('youtube'))                           return '▶️';
+    if (nm.includes('twitch'))                            return '🎮';
+    if (nm.includes('audible') || nm.includes('kindle'))  return '📖';
+    // Food delivery
+    if (nm.includes('doordash'))                          return '🚪';
+    if (nm.includes('uber eats'))                         return '🛵';
+    if (nm.includes('grubhub'))                           return '🛵';
+    if (nm.includes('instacart'))                         return '🛒';
+    if (nm.includes('postmates'))                         return '🛵';
+    // Coffee / cafes
+    if (nm.includes('starbucks'))                         return '☕';
+    if (nm.includes('dunkin'))                            return '☕';
+    if (nm.includes('peet'))                              return '☕';
+    if (nm.includes('dutch bros'))                        return '☕';
+    // Rideshare
+    if (nm.includes('uber') && !nm.includes('eats'))      return '🚗';
+    if (nm.includes('lyft'))                              return '🚗';
+    // Retail & shopping
+    if (nm.includes('amazon') && !nm.includes('aws'))     return '📦';
+    if (nm.includes('amazon web') || nm.includes('aws'))  return '☁️';
+    if (nm.includes('target'))                            return '🎯';
+    if (nm.includes('walmart'))                           return '🏬';
+    if (nm.includes('costco'))                            return '🏪';
+    if (nm.includes('whole foods'))                       return '🥦';
+    if (nm.includes('trader joe'))                        return '🌺';
+    if (nm.includes('kroger') || nm.includes('safeway') || nm.includes('publix') ||
+        nm.includes('albertson') || nm.includes('aldi') || nm.includes('wegmans')) return '🛒';
+    if (nm.includes('best buy'))                          return '📺';
+    if (nm.includes('home depot') || nm.includes('lowe'))  return '🔨';
+    if (nm.includes('apple store') || nm.includes('apple.com/bill')) return '🍎';
+    // Gas stations
+    if (nm.includes('shell') || nm.includes('chevron') || nm.includes('exxon') ||
+        nm.includes('bp ') || nm.includes('mobil') || nm.includes('sunoco') ||
+        nm.includes('marathon') || nm.includes('speedway') || nm.includes('casey') ||
+        nm.includes('circle k') || nm.includes('wawa') || nm.includes('7-eleven')) return '⛽';
+    if (nm.includes('gas') && !nm.includes('natural gas')) return '⛽';
+    // Airlines
+    if (nm.includes('delta') || nm.includes('united') || nm.includes('southwest') ||
+        nm.includes('american air') || nm.includes('jetblue') || nm.includes('spirit air') ||
+        nm.includes('frontier') || nm.includes('alaska air'))  return '✈️';
+    if (nm.includes('hotel') || nm.includes('marriott') || nm.includes('hilton') ||
+        nm.includes('hyatt') || nm.includes('ihg') || nm.includes('westin') ||
+        nm.includes('sheraton') || nm.includes('airbnb') || nm.includes('vrbo'))  return '🏨';
+    // Fitness
+    if (nm.includes('planet fitness') || nm.includes('la fitness') || nm.includes('gold') ||
+        nm.includes('anytime fitness') || nm.includes('equinox') || nm.includes('24 hour') ||
+        nm.includes('crunch') || nm.includes('ymca') || nm.includes('classpass') ||
+        nm.includes('peloton') || nm.includes('orangetheory'))                     return '💪';
+    // Health / pharmacy
+    if (nm.includes('cvs') || nm.includes('walgreen') || nm.includes('rite aid') ||
+        nm.includes('pharmacy'))                          return '💊';
+    if (nm.includes('hospital') || nm.includes('medical center') || nm.includes('urgent care') ||
+        nm.includes('clinic') || nm.includes(' md ') || nm.includes(' dr '))       return '🏥';
+    // Tech / software
+    if (nm.includes('microsoft') || nm.includes('office 365') || nm.includes('xbox')) return '💻';
+    if (nm.includes('adobe') || nm.includes('creative cloud'))                     return '🎨';
+    if (nm.includes('google') && !nm.includes('google pay'))                       return '🔍';
+    if (nm.includes('notion') || nm.includes('slack') || nm.includes('figma'))     return '💻';
+    if (nm.includes('dropbox') || nm.includes('icloud') || nm.includes('google one')) return '☁️';
+    if (nm.includes('openai') || nm.includes('chatgpt') || nm.includes('anthropic') || nm.includes('claude')) return '🤖';
+    // Financial
+    if (nm.includes('paypal'))                            return '🅿️';
+    if (nm.includes('venmo') || nm.includes('zelle') || nm.includes('cashapp') || nm.includes('cash app')) return '💸';
+    if (nm.includes('robinhood') || nm.includes('fidelity') || nm.includes('schwab') ||
+        nm.includes('vanguard') || nm.includes('coinbase') || nm.includes('webull')) return '📈';
+    // Housing
+    if (nm.includes('rent') || nm.includes('mortgage') || nm.includes('hoa '))     return '🏡';
+    if (nm.includes('airbnb'))                            return '🏠';
+    // Utilities
+    if (nm.includes('electric') || nm.includes('pg&e') || nm.includes('con ed') ||
+        nm.includes('duke energy') || nm.includes('xcel') || nm.includes('pse&g'))  return '⚡';
+    if (nm.includes('water') && !nm.includes('water bottle'))                       return '💧';
+    if (nm.includes('comcast') || nm.includes('xfinity') || nm.includes('spectrum') ||
+        nm.includes('cox ') || nm.includes('att internet') || nm.includes('frontier internet')) return '📡';
+    if (nm.includes('verizon') || nm.includes('t-mobile') || nm.includes('tmobile') ||
+        nm.includes('at&t') || nm.includes(' att ') || nm.includes('boost mobile') ||
+        nm.includes('cricket'))                           return '📱';
+    if (nm.includes('insurance') || nm.includes('geico') || nm.includes('allstate') ||
+        nm.includes('state farm') || nm.includes('progressive') || nm.includes('nationwide')) return '🛡️';
+    // Education / wellness
+    if (nm.includes('duolingo') || nm.includes('babbel'))  return '🗣️';
+    if (nm.includes('masterclass') || nm.includes('skillshare') || nm.includes('coursera') ||
+        nm.includes('udemy'))                              return '🎓';
+    if (nm.includes('calm') || nm.includes('headspace') || nm.includes('noom'))    return '🧘';
+    // Food chains
+    if (nm.includes('mcdonald') || nm.includes("mcd'") )  return '🍟';
+    if (nm.includes('chipotle'))                           return '🌯';
+    if (nm.includes('chick-fil') || nm.includes('chick fil')) return '🐔';
+    if (nm.includes('taco bell'))                          return '🌮';
+    if (nm.includes('pizza') || nm.includes('domino') || nm.includes("papa john") ||
+        nm.includes('little caesar'))                      return '🍕';
+    if (nm.includes('subway') && !nm.includes('transit')) return '🥖';
+    if (nm.includes('panera'))                             return '🥪';
+    // ATM / cash
+    if (nm.includes('atm') || nm.includes('cash withdrawal')) return '🏧';
 
     // Category-based
     if (cat.includes('food') || cat.includes('restaurant') || cat.includes('dining')) return '🍽️';

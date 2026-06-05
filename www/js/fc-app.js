@@ -110,39 +110,95 @@ window.FCApp = (function () {
   }
 
   // ── Transaction display-name cleaner ─────────────────────────────
-  // Strips raw bank strings like "DEBIT PURCHASE 0523 9264 CENEX" → "Cenex"
-  // Also handles "9264 ANTHROPIC", "SQ *TACO BELL #1234", etc.
+  // Plaid's `merchant_name` is already clean — use it whenever present.
+  // For raw `name` strings we strip bank-specific noise patterns so that
+  // "DEBIT PURCHASE 0523 9264 CENEX #4 HELENA MT" → "Cenex"
   function _cleanTxnName(t) {
     if (t.customName)    return t.customName;
     if (t.merchant_name) return t.merchant_name;
-    let name = t.name || 'Transaction';
+    let name = (t.name || 'Transaction').trim();
 
-    // 1. Strip full bank prefix with 4-digit sequence + ref token
-    //    e.g. "DEBIT PURCHASE 0523 9264 CENEX" → "CENEX"
-    name = name.replace(/^(?:DEBIT\s+(?:PURCHASE|CARD)|POS\s+(?:PURCHASE|DEBIT)|ACH\s+DEBIT|ONLINE\s+(?:PAYMENT|PURCHASE)|ELECTRONIC|CHECKCARD|CHECK\s+CARD|VISA\s+(?:PURCHASE|DEBIT)|MASTERCARD\s+DEBIT)\s+\d{4}\s+\S+\s*/i, '');
+    // 1. Strip full bank prefix phrases (case-insensitive)
+    name = name.replace(
+      /^(?:DEBIT\s+(?:PURCHASE|CARD\s+PURCHASE)|POS\s+(?:PURCHASE|DEBIT|TERMINAL)|ACH\s+(?:DEBIT|WITHDRAWAL|WEB)|ONLINE\s+(?:PAYMENT|PURCHASE|BANKING\s+PAYMENT)|ELECTRONIC\s+(?:PAYMENT|DEBIT)|CHECK\s+CARD\s+(?:PURCHASE)?|CHECKCARD|VISA\s+(?:PURCHASE|DEBIT|DDA\s+PURCHASE)|MASTERCARD\s+(?:DEBIT|PURCHASE)|RECURRING\s+(?:CARD\s+)?PURCHASE|MOBILE\s+PURCHASE|ATM\s+DEBIT|POINT\s+OF\s+SALE|POS\s+DEBIT\s+VISA)\s*/i,
+      ''
+    );
 
-    // 2. Strip standalone leading 4-digit reference number + any trailing junk
-    //    e.g. "9264 CENEX" → "CENEX"
-    //         "9264&@#anthropic" → "anthropic" → "Anthropic"
+    // 2. Strip leading date / terminal / reference token patterns
+    //    "0523 9264 MERCHANT" → "MERCHANT"
+    //    "04/15 MERCHANT" → "MERCHANT"
+    name = name.replace(/^\d{2}\/\d{2}\s+/, '');
+    name = name.replace(/^\d{4}\s+\d{4,}\s+/, '');
     name = name.replace(/^\d{4}[\s&@#*|_\-!%^()[\]{}]*/, '');
 
-    // 3. Strip Square/Toast/Stripe noise: "SQ *", "TST* ", "SP * "
-    name = name.replace(/^(?:SQ|TST|SP|PP)\s*\*\s*/i, '');
+    // 3. Strip POS terminal noise: "SQ *", "TST* ", "SP * ", "AMZN*", "AMZN Mktp"
+    name = name.replace(/^(?:SQ|TST|TST\*|SP|PP|LN|SQU)\s*\*\s*/i, '');
+    name = name.replace(/^AMZN\s*MKTP\s*US\b\s*/i, 'Amazon ');
+    name = name.replace(/^AMZN\s*\*\s*/i, 'Amazon ');
+    name = name.replace(/^WWW\s*\.\s*/i, '');
 
-    // 4. Strip trailing location noise: " #1234 SEATTLE WA", " 00", " WA US"
-    name = name.replace(/\s+#\d+\s+\S+\s+\S{2}\s*$/, '');
-    name = name.replace(/\s+\d{9,}.*$/, '');
+    // 4. Strip trailing location / state / store-number noise
+    //    "STARBUCKS #4921 SEATTLE WA" → "Starbucks"
+    //    "TARGET 00042 PORTLAND OR US" → "Target"
+    //    "WALMART SUPERCENTER #3487" → "Walmart Supercenter"
+    name = name.replace(/\s+#\d{3,}\s+\S+\s+(?:[A-Z]{2})\s*(?:US|USA)?\s*$/i, '');
+    name = name.replace(/\s+#\d{3,}\s*$/i, '');
+    name = name.replace(/\s+\d{3,}\s+\S+\s+(?:[A-Z]{2})\s*(?:US|USA)?\s*$/i, '');
+    name = name.replace(/\s+(?:[A-Z]{2})\s+(?:US|USA)\s*$/i, '');
+
+    // 5. Strip long numeric tails (transaction IDs, phone auth codes)
+    name = name.replace(/\s+\d{7,}.*$/, '');
     name = name.replace(/\s+\d{2}\s*$/, '');
 
-    // 5. Collapse extra whitespace
+    // 6. Remove embedded TLDs: "NETFLIX.COM" → "Netflix"
+    name = name.replace(/\.(com|net|org|io|app|co)\b/gi, '');
+
+    // 7. Strip legal suffixes: "Inc", "LLC", "Ltd", "Corp" at end
+    name = name.replace(/\s+(?:inc\.?|llc\.?|ltd\.?|corp\.?|l\.p\.?)$/i, '');
+
+    // 8. Collapse extra whitespace
     name = name.replace(/\s{2,}/g, ' ').trim();
 
-    // 6. Proper-case if all-caps OR all-lowercase (raw bank / corrupted format)
+    // 9. Proper-case if ALL-CAPS or all-lowercase (raw bank string)
     if (name.length > 2 && (name === name.toUpperCase() || name === name.toLowerCase())) {
       name = name.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+      // Re-capitalize known brands that title-case breaks
+      name = name
+        .replace(/\bMcdonalds\b/g, "McDonald's")
+        .replace(/\bBofA\b/gi, 'BofA')
+        .replace(/\bAtm\b/g, 'ATM')
+        .replace(/\bUs\b(?=\s|$)/g, 'US');
     }
 
     return name || (t.name || 'Transaction');
+  }
+
+  // ── Premium number animation ─────────────────────────────────────
+  // Smoothly counts from `from` to `to` over `duration` ms.
+  // `formatter` is called with the current numeric value (e.g. FCData.formatCurrency).
+  // Returns a cancel function.
+  function _animateNumber(el, from, to, formatter, duration = 700) {
+    if (!el) return () => {};
+    // If values are identical or very close, just set it
+    if (Math.abs(to - from) < 0.005) {
+      el.textContent = formatter(to);
+      return () => {};
+    }
+    const startTime = performance.now();
+    let rafId;
+    const tick = (now) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      // Ease-out cubic for a satisfying deceleration
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const current = from + (to - from) * eased;
+      el.textContent = formatter(current);
+      if (progress < 1) {
+        rafId = requestAnimationFrame(tick);
+      }
+    };
+    rafId = requestAnimationFrame(tick);
+    return () => { if (rafId) cancelAnimationFrame(rafId); };
   }
 
   // Hard exclusions: things that recur but are NOT subscriptions
@@ -1444,7 +1500,8 @@ window.FCApp = (function () {
     if (!element) return;
     prefix   = prefix  || '';
     suffix   = suffix  || '';
-    duration = duration || 1000;
+    // Default 680ms — fast enough to feel snappy, slow enough to feel premium
+    duration = duration || 680;
 
     // Skip re-animation if value hasn't changed — prevents count-up replay on
     // every Firestore listener tick that rebuilds the same DOM node.
@@ -1452,13 +1509,22 @@ window.FCApp = (function () {
     if (!isNaN(prevTarget) && Math.abs(prevTarget - target) < 0.005) return;
     element.dataset.animTarget = target;
 
+    // Cancel any in-flight animation for this element
+    const prevRaf = element._fcAnimRaf;
+    if (prevRaf) cancelAnimationFrame(prevRaf);
+
+    // Always use tabular-nums so numbers never jump-width during animation
+    element.style.fontVariantNumeric = 'tabular-nums';
+    element.style.fontFeatureSettings = '"tnum" 1';
+
     const startValue = parseFloat(element.dataset.animVal || '0');
     const startTime  = performance.now();
 
     function step(now) {
       const elapsed  = now - startTime;
       const progress = Math.min(elapsed / duration, 1);
-      const eased    = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+      // Ease-out expo — fast initial movement, smooth landing
+      const eased    = progress === 1 ? 1 : 1 - Math.pow(2, -8 * progress);
       const current  = startValue + (target - startValue) * eased;
 
       const isNeg  = current < 0;
@@ -1469,9 +1535,20 @@ window.FCApp = (function () {
       element.textContent = (isNeg ? (prefix ? '−' + prefix : '−') : (prefix || '')) + absStr + suffix;
       element.dataset.animVal = current;
 
-      if (progress < 1) requestAnimationFrame(step);
+      if (progress < 1) {
+        element._fcAnimRaf = requestAnimationFrame(step);
+      } else {
+        delete element._fcAnimRaf;
+        // Ensure the final value is always exact (no floating-point drift)
+        const finalIsNeg = target < 0;
+        const finalStr   = Math.abs(target).toLocaleString('en-US', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        });
+        element.textContent = (finalIsNeg ? (prefix ? '−' + prefix : '−') : (prefix || '')) + finalStr + suffix;
+      }
     }
-    requestAnimationFrame(step);
+    element._fcAnimRaf = requestAnimationFrame(step);
   }
 
   /* ─────────────────────────────────────────────────────────────
@@ -1828,18 +1905,38 @@ window.FCApp = (function () {
    */
   function _clearHomeDom() {
     try {
-      const skeletonBar = `<div style="height:14px;border-radius:7px;background:rgba(255,255,255,0.06);margin:6px 0;width:var(--w,80%)"></div>`;
-      const ids = ['home-accounts-list','home-txn-list','home-nw-amount','home-greeting'];
-      ids.forEach(id => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        if (id === 'home-nw-amount') {
-          el.textContent = '—';
-        } else {
-          el.innerHTML = `${skeletonBar}${skeletonBar}<div style="--w:55%">${skeletonBar}</div>`;
-        }
-      });
-      // Reset the account and transaction skeleton visibility
+      // Premium skeleton rows using the fc-sk shimmer system
+      const skRow = (w1, w2) => `
+        <div class="fc-sk-row">
+          <div class="fc-sk fc-sk--avatar" style="width:40px;height:40px"></div>
+          <div class="fc-sk-row-body">
+            <div class="fc-sk fc-sk--text-md" style="width:${w1}%"></div>
+            <div class="fc-sk fc-sk--text-sm" style="width:${w2}%;margin-top:3px"></div>
+          </div>
+        </div>`;
+
+      const acctList = document.getElementById('home-accounts-list');
+      if (acctList) {
+        acctList.innerHTML = `<div class="fc-sk-list">${skRow(62,38)}${skRow(55,30)}${skRow(70,42)}</div>`;
+      }
+
+      const txnList = document.getElementById('home-txn-list');
+      if (txnList) {
+        txnList.innerHTML = `<div class="fc-sk-list">${skRow(58,34)}${skRow(65,28)}${skRow(48,38)}${skRow(72,32)}</div>`;
+      }
+
+      // Hero number: show an em-dash, styled — the animateNumber will replace it
+      const nwEl = document.getElementById('home-nw-amount');
+      if (nwEl) nwEl.textContent = '—';
+
+      const greetEl = document.getElementById('home-greeting');
+      if (greetEl) {
+        greetEl.innerHTML = `
+          <div class="fc-sk fc-sk--text-lg" style="width:55%;margin-bottom:6px"></div>
+          <div class="fc-sk fc-sk--text-md" style="width:38%"></div>`;
+      }
+
+      // Reset the legacy skeleton overlays
       const acctSkel = document.getElementById('home-acct-skeleton');
       const txnSkel  = document.getElementById('home-txn-skeleton');
       if (acctSkel) acctSkel.style.display = 'none';
@@ -5013,9 +5110,10 @@ window.FCApp = (function () {
     const liEl = document.getElementById('wealth-hero-liabilities');
     const dlEl = document.getElementById('wealth-hero-delta');
 
-    if (nwEl) nwEl.textContent = FCData.formatCurrency(nw);
-    if (asEl) asEl.textContent = FCData.formatCurrency(assets);
-    if (liEl) liEl.textContent = FCData.formatCurrency(liabilities);
+    // Animate the net worth hero number for premium feel
+    if (nwEl) animateNumber(nwEl, nw, '$');
+    if (asEl) animateNumber(asEl, assets, '$', '', 500);
+    if (liEl) animateNumber(liEl, liabilities, '$', '', 500);
 
     // Delta vs last month NW history if available
     if (dlEl) {
