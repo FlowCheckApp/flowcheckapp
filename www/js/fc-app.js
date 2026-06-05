@@ -89,7 +89,7 @@ window.FCApp = (function () {
   ]);
   function _isSpendTxn(t) {
     if (t.isCredit || !t.date) return false;
-    const raw  = (t.category && t.category[0]) || t.category || '';
+    const raw  = (Array.isArray(t.category) ? t.category[0] : t.category) || '';
     const norm = FCData.normalizePlaidCategory(raw).toLowerCase();
     return !_XFER_SKIP.has(norm) && !norm.includes('transfer');
   }
@@ -109,7 +109,7 @@ window.FCApp = (function () {
   ]);
   function _isIncomeTxn(t) {
     if (!t.isCredit || !t.date) return false;
-    const raw  = ((t.category && t.category[0]) || t.category || '').trim();
+    const raw  = ((Array.isArray(t.category) ? t.category[0] : t.category) || '').trim();
     const norm = FCData.normalizePlaidCategory(raw).toLowerCase();
     // Exclude explicit payment/outbound categories only
     if (_INCOME_HARD_EXCLUDE.has(raw.toLowerCase())) return false;
@@ -801,9 +801,10 @@ window.FCApp = (function () {
 
     const bars = buckets.map((b, i) => {
       const x  = GAP + i * (barW + GAP);
-      const h  = b.total > 0 ? Math.max(Math.round((b.total / maxVal) * (H - 10)), 4) : 0;
+      const h  = b.total > 0 ? Math.max(Math.round((b.total / maxVal) * (H - 10)), 4) : 2;
       const y  = H - h;
-      if (h === 0) return ''; // zero-spend day — no bar at all
+      // Zero-spend: render a 2px stub so x-axis labels stay aligned with bars
+      if (b.total <= 0) return `<rect x="${x}" y="${y}" width="${barW}" height="${h}" rx="${rx}" fill="rgba(255,255,255,0.05)"/>`;
       if (b.isNow) {
         // Active bucket: full gradient + glow + bright top cap
         return `<rect x="${x}" y="${y}" width="${barW}" height="${h}" rx="${rx}" fill="url(#cg-now)" filter="url(#glow-bar)"/>
@@ -2035,7 +2036,7 @@ window.FCApp = (function () {
         'See exactly how your spending splits into needs, wants, and savings — then get a plan to fix it.');
       return;
     }
-    if (!state.user?.plaid_linked || monthIncome < 50) { section.style.display = 'none'; return; }
+    if (!state.user?.plaid_linked || !_incomeIsReliable(monthIncome, monthSpend)) { section.style.display = 'none'; return; }
 
     // Category → bucket mapping
     const _NEEDS_CATS = new Set([
@@ -2069,17 +2070,18 @@ window.FCApp = (function () {
       else if (_WANTS_CATS.has(norm)) wants += t.amount || 0;
       // else: uncategorized — skip (don't pollute buckets)
     }
+    const base        = Math.max(monthIncome, 1); // safe denominator — wizard is only shown when income is reliable
     const savings     = Math.max(0, monthIncome - needs - wants);
-    const savingsPct  = Math.round((savings / monthIncome) * 100);
-    const needsPct    = Math.round((needs   / monthIncome) * 100);
-    const wantsPct    = Math.round((wants   / monthIncome) * 100);
+    const savingsPct  = Math.round((savings / base) * 100);
+    const needsPct    = Math.round((needs   / base) * 100);
+    const wantsPct    = Math.round((wants   / base) * 100);
 
     // Render rows
     const rowsEl = document.getElementById('budget-wizard-rows');
     if (!rowsEl) return;
 
     function makeRow(label, actual, target, color, icon, tip) {
-      const pct     = Math.round((actual / monthIncome) * 100);
+      const pct     = Math.round((actual / base) * 100);
       const barPct  = Math.min(pct, 100);
       const isOver  = pct > target + 5;
       const isUnder = pct < target - 5;
@@ -3491,7 +3493,7 @@ window.FCApp = (function () {
       if (t.isCredit || !t.date) return false;
       const d = FCData.parseDateLocal(t.date);
       if (d.getMonth() !== now.getMonth() || d.getFullYear() !== now.getFullYear()) return false;
-      const rawCat = (t.category && t.category[0]) || t.category || '';
+      const rawCat = (Array.isArray(t.category) ? t.category[0] : t.category) || '';
       const normalized = FCData.normalizePlaidCategory(rawCat).toLowerCase();
       // Exclude internal transfers and loan/credit card payments from spending analysis
       return !_TRANSFER_CATS.has(normalized) && !normalized.includes('transfer');
@@ -3501,7 +3503,7 @@ window.FCApp = (function () {
     // Aggregate by pretty category (merge Restaurants + Food and Drink → Dining, etc.)
     const catMap = {};
     for (const t of monthTxns) {
-      const rawCat = (t.category && t.category[0]) || t.category || 'Other';
+      const rawCat = (Array.isArray(t.category) ? t.category[0] : t.category) || 'Other';
       const cat = _prettyCategory(FCData.normalizePlaidCategory(rawCat));
       catMap[cat] = (catMap[cat] || 0) + (t.amount || 0);
     }
@@ -3688,10 +3690,13 @@ window.FCApp = (function () {
     }
 
     // ── 4. Unusual large transaction in last 3 days ──────────────
-    const cutoff3d = new Date(now.getTime() - 3 * 86400000);
+    const cutoff3d  = new Date(now.getTime() - 3  * 86400000);
+    const cutoff60d = new Date(now.getTime() - 60 * 86400000);
     const recent   = txns.filter(t => !t.isCredit && FCData.parseDateLocal(t.date) >= cutoff3d);
     if (recent.length) {
-      const amounts  = txns.filter(t => !t.isCredit && _isSpendTxn(t)).map(t => t.amount || 0);
+      // Use 60-day rolling window so one large historical payment doesn't permanently
+      // raise the "average" and suppress future unusual-spend alerts.
+      const amounts  = txns.filter(t => !t.isCredit && _isSpendTxn(t) && FCData.parseDateLocal(t.date) >= cutoff60d).map(t => t.amount || 0);
       const avg      = amounts.length ? amounts.reduce((a,b)=>a+b,0)/amounts.length : 0;
       const outlier  = recent.find(t => (t.amount || 0) > avg * 3 && (t.amount || 0) > 50);
       if (outlier && avg > 0) {
@@ -3840,10 +3845,12 @@ window.FCApp = (function () {
 
   // Compact currency for tight stat cards — $19,330 → $19.3K, $1,200,000 → $1.2M
   function _fmtCompact(val) {
-    const abs = Math.abs(val);
+    if (val == null || isNaN(val)) return '$0';
+    const abs  = Math.abs(val);
     const sign = val < 0 ? '−$' : '$';
     if (abs >= 1000000) return sign + (abs / 1000000).toFixed(1) + 'M';
     if (abs >= 10000)   return sign + (abs / 1000).toFixed(1)    + 'K';
+    if (abs >= 1000)    return sign + (abs / 1000).toFixed(1)    + 'K';
     return FCData.formatCurrency(val);
   }
 
@@ -3906,7 +3913,7 @@ window.FCApp = (function () {
         const allUnpaid = state.bills.filter(b => b.status !== 'paid');
         billsEl.innerHTML = upcoming.map(b => {
           const days = FCData.daysUntil(b.due_date);
-          const { label, color } = FCData.billDueLabelAndColor(days);
+          const { label, color } = FCData.billDueLabelAndColor(days !== null ? days : 999);
           const bg = b.color || FCData.categoryColor(b.category || 'Service');
           return `
             <div class="fc-list-item" style="cursor:pointer" onclick="FCApp.switchTab('activity');FCApp.switchActivitySegment('bills')" role="button">
@@ -4501,9 +4508,12 @@ window.FCApp = (function () {
     const budget   = (state.budgets?.['total']?.limit) || 3000;
 
     // ── 1. Spending Score (0-34) ──────────────────────────────
-    // Bug fix: exclude transfers/payments from spend (use _isSpendTxn)
-    const spent    = txns.filter(t => !t.isCredit && _isSpendTxn(t)).reduce((s, t) => s + (t.amount || 0), 0);
-    const spendRatio = budget > 0 ? spent / budget : 1;
+    const spent      = txns.filter(t => !t.isCredit && _isSpendTxn(t)).reduce((s, t) => s + (t.amount || 0), 0);
+    const income     = txns.filter(_isIncomeTxn).reduce((s, t) => s + (t.amount || 0), 0);
+    // Use the user's set budget as denominator; if no budget, fall back to detected income;
+    // if neither, use a neutral ratio of 0.5 (fair) so the score doesn't tank on missing data.
+    const spendDenominator = budget > 0 ? budget : (income > 0 ? income : null);
+    const spendRatio = spendDenominator ? spent / spendDenominator : 0.5;
     let spendScore = Math.round(34 * Math.max(0, Math.min(1, 1 - (spendRatio - 0.5) * 2)));
     // Perfect if under 75% of budget, 0 if over 150%
     if (spendRatio <= 0.75) spendScore = 34;
@@ -4511,7 +4521,7 @@ window.FCApp = (function () {
     else spendScore = Math.round(34 * (1.5 - spendRatio) / 0.75);
 
     // ── 2. Savings Score (0-33) ───────────────────────────────
-    const income       = txns.filter(_isIncomeTxn).reduce((s, t) => s + (t.amount || 0), 0);
+    // `income` already computed above for spendRatio fallback
     const incomeOkScore = _incomeIsReliable(income, spent);
     const savingsRate  = incomeOkScore ? (income - spent) / income : null;
     const savingsAccts = accts.filter(a => a.type === 'depository');
@@ -4638,7 +4648,7 @@ window.FCApp = (function () {
         const lmStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
         const lmEnd   = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
         const lastMoSpend = state.transactions
-          .filter(t => !t.isCredit)
+          .filter(t => _isSpendTxn(t))
           .filter(t => { const d = FCData.parseDateLocal(t.date || t.authorized_date); return d >= lmStart && d <= lmEnd; })
           .reduce((s, t) => s + (t.amount || 0), 0);
         if (lastMoSpend > 0) {

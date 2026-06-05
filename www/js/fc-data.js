@@ -1115,13 +1115,15 @@ window.FCData = (function () {
 
   /* ── Format helpers ──────────────────────────────────────── */
   function formatCurrency(amount, showSign = false) {
+    if (amount == null || isNaN(amount)) return '$0.00';
     const abs = Math.abs(amount);
     const formatted = abs.toLocaleString('en-US', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     });
-    if (showSign) return amount < 0 ? `-$${formatted}` : `+$${formatted}`;
-    return `$${formatted}`;
+    if (showSign) return amount < 0 ? `−$${formatted}` : `+$${formatted}`;
+    // Always show minus sign for negative amounts (e.g. negative account balance)
+    return amount < 0 ? `−$${formatted}` : `$${formatted}`;
   }
 
   /* ── Public API ───────────────────────────────────────────── */
