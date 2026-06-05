@@ -960,8 +960,9 @@ body.fc-theme {
 
 /* ── Hero card net worth ──────────────────────────────────── */
 [data-theme="light"] .dash-nw-card {
+  background: linear-gradient(155deg, #f0f8ff 0%, #eef5fb 100%) !important;
   border-color: rgba(13,173,212,0.22) !important;
-  box-shadow: 0 1px 3px rgba(13,27,46,0.07), 0 8px 28px rgba(13,27,46,0.07), 0 0 0 0.5px rgba(13,173,212,0.12) !important;
+  box-shadow: 0 1px 3px rgba(13,27,46,0.06), 0 8px 28px rgba(13,27,46,0.08), 0 0 0 0.5px rgba(13,173,212,0.14) !important;
 }
 [data-theme="light"] .dash-nw-card::before,
 [data-theme="light"] .dash-nw-card::after { display: none; }
@@ -1000,6 +1001,20 @@ body.fc-theme {
 }
 [data-theme="light"] .dash-sp-lbl { color: rgba(13,27,46,0.42) !important; }
 [data-theme="light"] .dash-sp-val { color: #0a1520 !important; }
+[data-theme="light"] .dash-sp-sub { color: rgba(13,27,46,0.36) !important; }
+
+/* ── Month Pulse bar ─────────────────────────────────────── */
+[data-theme="light"] .dash-pulse {
+  background: #ffffff !important;
+  border-color: rgba(13,27,46,0.09) !important;
+  box-shadow: 0 1px 3px rgba(13,27,46,0.06), 0 6px 20px rgba(13,27,46,0.05) !important;
+}
+[data-theme="light"] .dash-pulse-label    { color: rgba(13,27,46,0.40) !important; }
+[data-theme="light"] .dash-pulse-amounts  { color: rgba(13,27,46,0.52) !important; }
+[data-theme="light"] .dash-pulse-amounts span { color: #0a1520 !important; }
+[data-theme="light"] .dash-pulse-track    { background: rgba(13,27,46,0.07) !important; }
+[data-theme="light"] .dash-pulse-sub      { color: rgba(13,27,46,0.38) !important; }
+[data-theme="light"] #fch-cashflow        { color: #0a1520 !important; }
 
 /* ── Section headers ─────────────────────────────────────── */
 [data-theme="light"] .dash-sec-title { color: rgba(13,27,46,0.75) !important; }

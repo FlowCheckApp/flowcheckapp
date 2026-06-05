@@ -4004,17 +4004,88 @@ window.FCApp = (function () {
       );
     }
 
-    // Savings rate → NW footer
-    const srEl = document.getElementById('fch-savings-rate');
-    if (srEl) {
-      if (monthIncome > 0) {
-        const sr = Math.round(((monthIncome - monthSpend) / monthIncome) * 100);
-        // Show negative savings rate — hiding it masks overspending
-        srEl.textContent = (sr < 0 ? '-' : '') + Math.abs(sr) + '%';
-        srEl.style.color = sr >= 20 ? 'var(--fc-success)' : sr >= 10 ? 'var(--fc-warning)' : 'var(--fc-danger)';
+    // Cash flow → NW footer (replaces broken savings rate)
+    const cfEl = document.getElementById('fch-cashflow');
+    if (cfEl) {
+      if (monthIncome > 0 || monthSpend > 0) {
+        const cf = monthIncome - monthSpend;
+        cfEl.textContent = (cf >= 0 ? '+' : '−') + _fmtCompact(Math.abs(cf));
+        cfEl.style.color = cf >= 0 ? 'var(--fc-success)' : 'var(--fc-danger)';
       } else {
-        srEl.textContent = '—';
-        srEl.style.color = '';
+        cfEl.textContent = '—';
+        cfEl.style.color = '';
+      }
+    }
+
+    // ── Month Pulse bar ──────────────────────────────────────────
+    const pulseRow       = document.getElementById('dash-pulse-row');
+    const pulseFill      = document.getElementById('dash-pulse-fill');
+    const pulseSpentEl   = document.getElementById('dash-pulse-spent');
+    const pulseIncomeEl  = document.getElementById('dash-pulse-income');
+    const pulseDaysEl    = document.getElementById('dash-pulse-days');
+    const pulseProjEl    = document.getElementById('dash-pulse-projected');
+
+    if (pulseRow) {
+      if (state.user && state.user.plaid_linked) {
+        pulseRow.style.display = '';
+        const pulsePct   = monthIncome > 0 ? Math.min(Math.round((monthSpend / monthIncome) * 100), 100) : 0;
+        const fillColor  = pulsePct >= 90 ? 'var(--fc-danger)'
+                         : pulsePct >= 70 ? 'var(--fc-warning)'
+                         : 'linear-gradient(90deg,var(--fc-accent),var(--fc-electric))';
+        if (pulseSpentEl)  pulseSpentEl.textContent  = _fmtCompact(monthSpend);
+        if (pulseIncomeEl) pulseIncomeEl.textContent = monthIncome > 0 ? _fmtCompact(monthIncome) : 'no income yet';
+        if (pulseFill)     { pulseFill.style.width = pulsePct + '%'; pulseFill.style.background = fillColor; }
+
+        const _now3    = new Date();
+        const lastDay  = new Date(_now3.getFullYear(), _now3.getMonth() + 1, 0).getDate();
+        const daysLeft = lastDay - _now3.getDate();
+        if (pulseDaysEl) {
+          pulseDaysEl.textContent = daysLeft === 0 ? 'Last day of month'
+                                  : `${daysLeft} day${daysLeft !== 1 ? 's' : ''} left`;
+        }
+        if (pulseProjEl && monthIncome > 0 && _now3.getDate() > 3) {
+          const projected = Math.round((monthSpend / _now3.getDate()) * lastDay);
+          const overBudget = projected > monthIncome;
+          pulseProjEl.style.display = '';
+          pulseProjEl.innerHTML = `Est. <span style="${overBudget ? 'color:var(--fc-danger)' : ''}">${_fmtCompact(projected)}</span> by month end`;
+        } else if (pulseProjEl) {
+          pulseProjEl.style.display = 'none';
+        }
+      } else {
+        pulseRow.style.display = 'none';
+      }
+    }
+
+    // ── Quick-stat sub-labels ───────────────────────────────────
+    const cashSubEl  = document.getElementById('fch-qs-cash-sub');
+    const spentSubEl = document.getElementById('fch-qs-spent-sub');
+    const billsSubEl = document.getElementById('fch-qs-bills-sub');
+
+    if (cashSubEl) {
+      const n = state.accounts.length;
+      cashSubEl.textContent = n ? `${n} account${n !== 1 ? 's' : ''}` : 'connect a bank';
+    }
+    if (spentSubEl) {
+      if (monthIncome > 0 && monthSpend > 0) {
+        const spentPct = Math.round((monthSpend / monthIncome) * 100);
+        spentSubEl.textContent = `${spentPct}% of income`;
+        spentSubEl.style.color = spentPct >= 90 ? 'var(--fc-danger)' : spentPct >= 70 ? 'var(--fc-warning)' : '';
+      } else {
+        spentSubEl.textContent = _PERIOD_LABELS[state.period] || 'this month';
+        spentSubEl.style.color = '';
+      }
+    }
+    if (billsSubEl) {
+      const billCount = unpaidBills.length;
+      billsSubEl.textContent = billCount ? `${billCount} upcoming` : 'all clear';
+      // Tint bills stat card top bar red only when there are bills due
+      const billsStatCard = document.getElementById('dash-stat-bills');
+      if (billsStatCard) {
+        billsStatCard.style.setProperty('--bills-bar-color',
+          overdueCount > 0 ? 'var(--fc-danger)'
+          : billCount  > 0 ? 'var(--fc-warning)'
+          : 'rgba(255,255,255,0.14)'
+        );
       }
     }
 
