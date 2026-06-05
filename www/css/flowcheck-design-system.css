@@ -1373,6 +1373,14 @@ body.fc-theme {
 [data-theme="light"] .fc-ob-screen [style*="border:1px solid rgba(255,255,255,0.09)"],
 [data-theme="light"] .fc-ob-screen [style*="border:1px solid rgba(255,255,255,0.18)"] { border-color: rgba(10,21,32,0.08) !important; }
 
+/* Back button + AI steps in light */
+[data-theme="light"] #ob-back-btn { background: rgba(10,21,32,0.06) !important; color: rgba(10,21,32,0.55) !important; }
+[data-theme="light"] .ob-ai-step  { border-bottom-color: rgba(10,21,32,0.07) !important; }
+[data-theme="light"] .ob-ai-step.active { background: rgba(13,173,212,0.06) !important; }
+[data-theme="light"] .ob-ai-step.done   { background: rgba(23,163,74,0.05) !important; }
+[data-theme="light"] .ob-ai-step-text   { color: #0a1520 !important; }
+[data-theme="light"] .ob-insight-card   { background: rgba(10,21,32,0.04) !important; border-color: rgba(10,21,32,0.09) !important; }
+
 /* ── Paywall in light ────────────────────────────────────── */
 [data-theme="light"] .fc-paywall::before { opacity: 0.18; }
 [data-theme="light"] .fc-pw-title        { color: #0a1520 !important; }

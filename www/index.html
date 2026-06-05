@@ -580,6 +580,24 @@ body.fc-theme {
 }
 .fc-auth-skip:active { color: rgba(255,255,255,0.58); }
 
+/* ── Keyboard-open: hide decorations, compress header ─────── */
+/* When the keyboard is visible, orbs and the logo + subtitle eat
+   precious space. Collapse them so the form + CTA stay visible.  */
+body.fc-keyboard-open .fc-auth-orb {
+  opacity: 0 !important;
+  transition: opacity 0.25s ease;
+}
+body.fc-keyboard-open .fc-auth-body > div:first-child {
+  /* Logo + brand row */
+  max-height: 0;
+  overflow: hidden;
+  margin-bottom: 0 !important;
+  transition: max-height 0.25s ease, margin-bottom 0.25s ease;
+}
+body.fc-keyboard-open .fc-auth-title  { font-size: 22px; margin-bottom: 4px; }
+body.fc-keyboard-open .fc-auth-subtitle { display: none; }
+body.fc-keyboard-open .fc-auth-screen { padding-top: calc(env(safe-area-inset-top, 44px) + 8px); }
+
 /* ── Forgot / link ── */
 .fc-forgot-btn {
   background: none; border: none;
@@ -2670,9 +2688,8 @@ body {
 
 /* ── Progress bar (top) ── */
 .fc-ob-progress-rail {
-  position: absolute; top: calc(env(safe-area-inset-top,44px) + 14px);
-  left: 24px; right: 24px; height: 2px; border-radius: 999px;
-  background: rgba(255,255,255,0.08); z-index: 3; overflow: hidden;
+  height: 3px; border-radius: 999px;
+  background: rgba(255,255,255,0.08); overflow: hidden;
 }
 .fc-ob-progress-fill {
   height: 100%; border-radius: 999px;
@@ -3007,9 +3024,19 @@ body {
   <div id="ob-orb-purple" class="fc-ob-orb" style="width:320px;height:320px;bottom:60px;right:-40px;background:radial-gradient(circle,rgba(37,99,235,0.20),transparent 62%);opacity:0.45"></div>
   <div id="ob-orb-green"  class="fc-ob-orb" style="width:280px;height:280px;bottom:30px;left:-20px;background:radial-gradient(circle,rgba(52,199,89,0.18),transparent 60%);opacity:0"></div>
 
-  <!-- Progress rail -->
-  <div class="fc-ob-progress-rail" aria-hidden="true">
-    <div class="fc-ob-progress-fill" id="ob-progress-fill" style="width:20%"></div>
+  <!-- Top bar: back button + progress rail -->
+  <div style="position:absolute;top:calc(env(safe-area-inset-top,44px) + 10px);left:0;right:0;display:flex;align-items:center;padding:0 16px;gap:12px;z-index:4">
+    <button id="ob-back-btn" onclick="obPrev()" type="button"
+            style="display:none;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.07);
+                   border:none;color:rgba(255,255,255,0.55);cursor:pointer;flex-shrink:0;
+                   display:none;align-items:center;justify-content:center;
+                   -webkit-tap-highlight-color:transparent;transition:background .15s"
+            aria-label="Go back">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+    </button>
+    <div class="fc-ob-progress-rail" style="position:relative;top:auto;left:auto;right:auto;flex:1;margin:0" aria-hidden="true">
+      <div class="fc-ob-progress-fill" id="ob-progress-fill" style="width:20%"></div>
+    </div>
   </div>
 
   <div class="fc-ob-slides">
@@ -3413,12 +3440,15 @@ body {
       var dot = document.getElementById('ob-step-' + s);
       if (dot) dot.classList.toggle('active', s === i);
     }
+    _updateBackBtn(i);
   }
 
   function _showSlide(next, direction) {
     var curr = document.getElementById('ob-slide-' + _currentSlide);
     var nextEl = document.getElementById('ob-slide-' + next);
     if (!nextEl) return;
+    // Haptic on every slide transition
+    try { if (window.Capacitor && Capacitor.Plugins.Haptics) Capacitor.Plugins.Haptics.impact({ style: 'light' }); } catch(_) {}
     if (curr) curr.classList.add(direction === 'forward' ? 'exit' : 'exit-back');
     nextEl.classList.add('active');
     setTimeout(function() {
@@ -3432,63 +3462,54 @@ body {
   }
 
   function _updateCTA(i) {
-    var nextBtn  = document.getElementById('ob-next-btn');
-    var plaidBtn = document.getElementById('btn-plaid-link');
-    var trialBtn = document.getElementById('ob-trial-btn');
-    var skipBtn  = document.getElementById('ob-skip-btn');
-    var legalNote= document.getElementById('ob-legal-note');
+    var nextBtn   = document.getElementById('ob-next-btn');
+    var plaidBtn  = document.getElementById('btn-plaid-link');
+    var trialBtn  = document.getElementById('ob-trial-btn');
+    var legalNote = document.getElementById('ob-legal-note');
 
-    // Hide all first
-    [nextBtn, plaidBtn, trialBtn, skipBtn].forEach(function(b){ if(b) b.style.display='none'; });
+    [nextBtn, plaidBtn, trialBtn].forEach(function(b){ if(b) b.style.display='none'; });
     if (legalNote) legalNote.style.display = 'none';
 
     if (i === 0) {
       if (nextBtn) { nextBtn.style.display = ''; nextBtn.textContent = 'Continue'; }
     } else if (i === 1) {
-      // Goal slide — continue button controlled by selection state
+      // Goal slide — fc-ob-goal-continue button inside the slide handles this
       var gc = document.getElementById('ob-goal-continue');
       if (gc && _selectedGoal) gc.classList.add('visible');
     } else if (i === 2) {
-      // AI slide — no button until animation completes
+      // AI slide — button appears after animation (handled by _runAiAnimation)
     } else if (i === 3) {
       if (plaidBtn) plaidBtn.style.display = '';
-      if (skipBtn)  skipBtn.style.display = '';
     } else if (i === 4) {
       if (trialBtn) trialBtn.style.display = '';
-      if (skipBtn)  { skipBtn.style.display = ''; skipBtn.style.opacity = '0.38'; }
       if (legalNote) legalNote.style.display = '';
     }
   }
 
   function _runAiAnimation() {
     if (_aiDone) { _showNextAfterAi(); return; }
-    var delays = [0, 800, 1600, 2400];
+    // 4 steps × 450ms = 1.8s total — snappy, not sluggish
+    var delays = [0, 450, 900, 1350];
     var nextBtn = document.getElementById('ob-next-btn');
 
     delays.forEach(function(delay, i) {
       setTimeout(function() {
-        // Mark previous as done
         if (i > 0) {
           var prev = document.getElementById('ob-ai-step-' + (i - 1));
           if (prev) { prev.classList.remove('active'); prev.classList.add('done'); }
         }
-        // Activate current
         var step = document.getElementById('ob-ai-step-' + i);
         if (step) step.classList.add('active');
       }, delay);
     });
 
-    // All done
+    // All done at 2.0s (last step 1350ms + 650ms settle)
     setTimeout(function() {
       var last = document.getElementById('ob-ai-step-3');
       if (last) { last.classList.remove('active'); last.classList.add('done'); }
       _aiDone = true;
-      // Show continue button
-      if (nextBtn) {
-        nextBtn.style.display = '';
-        nextBtn.textContent = 'Continue';
-      }
-    }, 3200);
+      if (nextBtn) { nextBtn.style.display = ''; nextBtn.textContent = 'Continue'; }
+    }, 2000);
   }
 
   function _showNextAfterAi() {
@@ -3504,6 +3525,19 @@ body {
       _showSlide(_currentSlide + 1, 'forward');
     }
   };
+
+  /* ── Public: obPrev ── */
+  window.obPrev = function() {
+    if (_currentSlide > 0) {
+      _showSlide(_currentSlide - 1, 'back');
+    }
+  };
+
+  function _updateBackBtn(i) {
+    var btn = document.getElementById('ob-back-btn');
+    if (!btn) return;
+    btn.style.display = i > 0 ? 'flex' : 'none';
+  }
 
   /* ── Public: obSelectGoal ── */
   window.obSelectGoal = function(el, goal) {

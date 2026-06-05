@@ -3938,7 +3938,7 @@ window.FCApp = (function () {
             : '') +
           `<div class="fc-bills-total">
             <span class="fc-bills-total-lbl">Total due</span>
-            <span class="fc-bills-total-amt">${FCData.formatCurrency(unpaidBillsTotal)}</span>
+            <span class="fc-bills-total-amt">${FCData.formatCurrency(allUnpaid.reduce((s,b) => s + (b.amount || 0), 0))}</span>
           </div>`;
       }
 
@@ -6540,28 +6540,97 @@ window.FCApp = (function () {
       item.addEventListener('click', () => switchTab(item.dataset.view));
     });
 
-    // ── Keyboard scroll fix ───────────────────────────────────────
-    // On iOS WKWebView the keyboard can cover input fields because the
-    // viewport doesn't auto-scroll. visualViewport.resize fires when
-    // the keyboard appears/disappears — scroll the focused field to center.
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', () => {
-        const focused = document.activeElement;
-        if (focused && (focused.tagName === 'INPUT' || focused.tagName === 'TEXTAREA')) {
-          setTimeout(() => {
-            focused.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }, 80);
+    // ── Keyboard handling — iOS WKWebView native-quality ─────────
+    //
+    // Problem: WKWebView does NOT auto-scroll when the keyboard appears.
+    // `scrollIntoView({block:'center'})` centers in the FULL 844px viewport
+    // but the keyboard covers the bottom ~350px — so the input ends up
+    // behind the keyboard.
+    //
+    // Fix: use visualViewport to know the exact visible height, then scroll
+    // the nearest scroll-container (not the whole page) by the exact amount
+    // needed to clear the keyboard, with 100px of breathing room.
+    //
+    // Also: iOS WKWebView never auto-dismisses the keyboard on tap-outside —
+    // we wire that up here too so the experience feels fully native.
+
+    function _scrollInputAboveKeyboard(input) {
+      if (!input || !window.visualViewport) return;
+      // Give the keyboard time to fully settle before measuring
+      requestAnimationFrame(() => {
+        const rect         = input.getBoundingClientRect();
+        const visibleH     = window.visualViewport.height;
+        const CLEARANCE    = 110; // px above keyboard — enough for the input label + some air
+        const inputBottom  = rect.bottom;
+
+        if (inputBottom > visibleH - CLEARANCE) {
+          // How much do we need to scroll up?
+          const overshoot = inputBottom - (visibleH - CLEARANCE);
+          // Walk up to the nearest scrollable ancestor (auth screen, sheet, etc.)
+          let el = input.parentElement;
+          while (el && el !== document.body) {
+            const style = getComputedStyle(el);
+            if (style.overflowY === 'auto' || style.overflowY === 'scroll') {
+              el.scrollBy({ top: overshoot, behavior: 'smooth' });
+              return;
+            }
+            el = el.parentElement;
+          }
+          // Fallback: scroll the window
+          window.scrollBy({ top: overshoot, behavior: 'smooth' });
         }
       });
     }
-    // Fallback: also scroll on focus (covers cases where keyboard was
-    // already open when switching between fields)
+
+    function _resetAuthScroll() {
+      // After keyboard dismisses, snap the visible auth screen back to top
+      const active = document.querySelector('.fc-auth-screen[style*="display: flex"], .fc-auth-screen:not([style*="display: none"])');
+      if (active) active.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    if (window.visualViewport) {
+      let _lastVpH = window.visualViewport.height;
+      window.visualViewport.addEventListener('resize', () => {
+        const vpH     = window.visualViewport.height;
+        const focused = document.activeElement;
+        const isInput = focused && (focused.tagName === 'INPUT' || focused.tagName === 'TEXTAREA');
+
+        if (vpH < _lastVpH - 50) {
+          // Keyboard appeared
+          document.body.classList.add('fc-keyboard-open');
+          if (isInput) _scrollInputAboveKeyboard(focused);
+        } else if (vpH > _lastVpH + 50) {
+          // Keyboard dismissed
+          document.body.classList.remove('fc-keyboard-open');
+          _resetAuthScroll();
+        }
+        _lastVpH = vpH;
+      });
+    }
+
+    // Scroll on focus too — covers switching between fields when keyboard
+    // is already open (no resize event fires in that case)
     document.addEventListener('focusin', e => {
       const el = e.target;
       if (el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA') return;
-      setTimeout(() => {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }, 300);
+      // Small delay so the browser finishes its own focus-scroll first
+      setTimeout(() => _scrollInputAboveKeyboard(el), 120);
+    }, { passive: true });
+
+    // ── Tap-outside-input keyboard dismissal ─────────────────────
+    // iOS WKWebView never dismisses the keyboard automatically when the
+    // user taps the background. This makes it feel broken vs native apps.
+    document.addEventListener('touchend', e => {
+      const focused = document.activeElement;
+      if (!focused || (focused.tagName !== 'INPUT' && focused.tagName !== 'TEXTAREA')) return;
+      // If the tap landed on an input, button, label, or interactive element, do nothing
+      const tag = e.target.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'BUTTON' ||
+          tag === 'LABEL' || tag === 'A' || tag === 'SELECT') return;
+      // If the tap is inside an interactive container (fc-input-eye, etc.), do nothing
+      if (e.target.closest('button, a, label, [role="button"]')) return;
+      // Dismiss
+      focused.blur();
     }, { passive: true });
 
     // ── Hide Google Sign In on native when plugin is not installed ──
