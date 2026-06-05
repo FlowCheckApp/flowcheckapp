@@ -18,6 +18,15 @@ window.FCData = (function () {
   let _listeners   = [];   // Active Firestore unsubscribe functions
   let _plaidHandler = null;
 
+  // Suppress "Missing or insufficient permissions" errors that fire when a
+  // Firestore listener delivers one last callback after sign-out before
+  // Firestore acknowledges the unsubscribe. These are expected and should
+  // not reach Sentry.
+  function _listenerErr(name, err) {
+    if (!FCAuth.currentUser()) return;
+    console.error(`[FCData] ${name} listener error:`, err);
+  }
+
   /**
    * Parse a Plaid/Firestore date string "YYYY-MM-DD" as LOCAL midnight.
    * `new Date("2026-05-17")` parses as UTC midnight which is the prior
@@ -282,7 +291,7 @@ window.FCData = (function () {
         const currentUid = FCAuth.currentUser()?.uid;
         if (!currentUid || currentUid !== boundUid) return;
         if (snap.exists) callback({ id: snap.id, ...snap.data() });
-      }, err => console.error('[FCData] User listener error:', err));
+      }, err => _listenerErr('User', err));
 
     _listeners.push(unsub);
     return unsub;
@@ -335,7 +344,7 @@ window.FCData = (function () {
           .map(d => ({ id: d.id, ...d.data() }))
           .sort((a, b) => (b.balance_current || 0) - (a.balance_current || 0));
         callback(accounts);
-      }, err => console.error('[FCData] Accounts listener error:', err));
+      }, err => _listenerErr('Accounts', err));
 
     _listeners.push(unsub);
     return unsub;
@@ -388,7 +397,7 @@ window.FCData = (function () {
           };
         });
         callback(txns);
-      }, err => console.error('[FCData] Transactions listener error:', err));
+      }, err => _listenerErr('Transactions', err));
 
     _listeners.push(unsub);
     return unsub;
@@ -714,7 +723,7 @@ window.FCData = (function () {
       .onSnapshot(snap => {
         const bills = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         callback(bills);
-      }, err => console.error('[FCData] Bills listener error:', err));
+      }, err => _listenerErr('Bills', err));
 
     _listeners.push(unsub);
     return unsub;
@@ -808,7 +817,7 @@ window.FCData = (function () {
           pct: Math.round(((d.data().current || 0) / (d.data().target || 1)) * 100),
         }));
         callback(goals);
-      }, err => console.error('[FCData] Goals listener error:', err));
+      }, err => _listenerErr('Goals', err));
 
     _listeners.push(unsub);
     return unsub;
@@ -885,7 +894,7 @@ window.FCData = (function () {
         const budgets = {};
         snap.docs.forEach(d => { budgets[d.id] = { id: d.id, ...d.data() }; });
         callback(budgets);
-      }, err => console.error('[FCData] Budgets listener error:', err));
+      }, err => _listenerErr('Budgets', err));
 
     _listeners.push(unsub);
     return unsub;
@@ -913,7 +922,7 @@ window.FCData = (function () {
         const overrides = {};
         snap.docs.forEach(d => { overrides[d.id] = d.data(); });
         callback(overrides);
-      }, err => console.error('[FCData] TransactionOverrides listener error:', err));
+      }, err => _listenerErr('TransactionOverrides', err));
 
     _listeners.push(unsub);
     return unsub;
@@ -999,7 +1008,7 @@ window.FCData = (function () {
       .onSnapshot(snap => {
         const history = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         callback(history);
-      }, err => console.error('[FCData] CreditHistory listener error:', err));
+      }, err => _listenerErr('CreditHistory', err));
 
     _listeners.push(unsub);
     return unsub;
@@ -1055,7 +1064,7 @@ window.FCData = (function () {
       const history = {};
       keep.forEach(k => { history[k] = raw[k]; });
       callback(history);
-    }, err => console.error('[FCData] NWHistory listener error:', err));
+    }, err => _listenerErr('NWHistory', err));
     _listeners.push(unsub);
     return unsub;
   }
@@ -1080,7 +1089,7 @@ window.FCData = (function () {
       .onSnapshot(snap => {
         const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         callback(items);
-      }, err => console.error('[FCData] Notifications listener error:', err));
+      }, err => _listenerErr('Notifications', err));
 
     _listeners.push(unsub);
     return unsub;

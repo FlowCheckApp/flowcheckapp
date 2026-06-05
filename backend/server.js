@@ -3889,22 +3889,35 @@ app.post('/webhooks/revenuecat', async (req, res) => {
   const {
     type,
     app_user_id: uid,
+    original_app_user_id,
     aliases = [],
+    transferred_from = [],
     expiration_at_ms,
     product_id,
     period_type,
   } = event;
 
-  // Resolve Firebase UID — app_user_id is the UID if configure() was called with it.
-  // Fall back to iterating aliases for subscribers configured before this fix.
-  let firebaseUid = uid;
-  if (!firebaseUid || firebaseUid.startsWith('$RCAnonymous')) {
-    const realAlias = aliases.find(a => a && !a.startsWith('$RCAnonymous'));
-    firebaseUid = realAlias || null;
+  // Resolve Firebase UID. Priority order:
+  //   1. app_user_id (set at SDK configure time — should always be the Firebase UID)
+  //   2. aliases array (for subscribers linked before the configure-with-UID fix)
+  //   3. original_app_user_id (present on TRANSFER events)
+  //   4. transferred_from array (TRANSFER source accounts)
+  const _isAnon = (s) => !s || s.startsWith('$RCAnonymous');
+  let firebaseUid = _isAnon(uid) ? null : uid;
+  if (!firebaseUid) {
+    firebaseUid = aliases.find(a => !_isAnon(a)) || null;
+  }
+  if (!firebaseUid) {
+    firebaseUid = _isAnon(original_app_user_id) ? null : original_app_user_id;
+  }
+  if (!firebaseUid) {
+    firebaseUid = transferred_from.find(a => !_isAnon(a)) || null;
   }
 
   if (!firebaseUid) {
-    console.warn('[rc-webhook] No Firebase UID resolvable for event', type, 'aliases:', aliases);
+    // TRANSFER/EXPIRATION for fully-anonymous subscribers is expected — log at
+    // info level, not warn, so it doesn't pollute Sentry or on-call alerts.
+    console.log(`[rc-webhook] No Firebase UID for ${type} (anonymous subscriber) — skipping`);
     return res.json({ ok: true, skipped: 'no_firebase_uid' });
   }
 

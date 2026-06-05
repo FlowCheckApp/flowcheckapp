@@ -6450,8 +6450,12 @@ window._btnLoad = _btnLoad;
 
   const AUTH_SCREENS = new Set(['login','register','forgot-password','verify-email']);
   let _kbTimer;
-  let _kbOpen   = false;
-  let _kbHeight = 0;
+  let _kbOpen = false;
+  // Capture the full-screen height BEFORE any keyboard interaction.
+  // Capacitor sets resize:"native" which means window.innerHeight shrinks
+  // with the keyboard — comparing vv.height against this baseline is how
+  // we correctly measure keyboard height in both resize modes.
+  const _fullH = window.innerHeight;
 
   function _screenEl() {
     const s = document.body.dataset.screen;
@@ -6475,23 +6479,30 @@ window._btnLoad = _btnLoad;
   function _scrollToActive() {
     const active = document.activeElement;
     if (!active || (active.tagName !== 'INPUT' && active.tagName !== 'TEXTAREA')) return;
-    if (_kbHeight < 80) return;
+    if (!_kbOpen) return;
 
     const container = _scrollableParent(active);
     if (!container) return;
 
-    // KEY FIX: auth screens have height:100dvh — a fixed height that never
-    // overflows, so scrollTop can't move. Temporarily expand the bottom
-    // padding to create overflow, then scroll the focused input into view.
+    const vv  = window.visualViewport;
+    // True keyboard height: delta from full-screen height to current visible
+    // viewport. Works with resize:"native" (window.innerHeight already shrunk)
+    // because vv.height always equals the true visible area above the keyboard.
+    const kbH = Math.max(0, _fullH - vv.height - vv.offsetTop);
+
+    // Expand bottom padding so the auth screen can scroll past the keyboard.
+    // kbH is 0 with resize:native (WebView already shrank), so we use a
+    // generous fixed value to ensure there's always room to scroll to.
     if (_isAuth()) {
-      container.style.paddingBottom = (_kbHeight + 32) + 'px';
+      container.style.paddingBottom = Math.max(kbH, 80) + 'px';
     }
 
-    const rect        = active.getBoundingClientRect();
-    // 120px clearance on auth screens: shows both the focused field AND
-    // the field below it (e.g. email + password both visible above keyboard)
-    const padding     = _isAuth() ? 120 : 24;
-    const visibleBot  = window.innerHeight - _kbHeight - padding;
+    const rect = active.getBoundingClientRect();
+    // 120px clearance: keeps the focused field AND the next field visible.
+    const padding    = _isAuth() ? 120 : 24;
+    // vv.height is the actual visible area above the keyboard in both
+    // resize modes — use it directly rather than innerHeight - kbH.
+    const visibleBot = vv.height - padding;
 
     if (rect.bottom > visibleBot) {
       container.scrollTop += rect.bottom - visibleBot;
@@ -6500,16 +6511,18 @@ window._btnLoad = _btnLoad;
 
   function _onViewportResize() {
     clearTimeout(_kbTimer);
-    const vv = window.visualViewport;
-    _kbHeight = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+    const vv  = window.visualViewport;
+    // Use _fullH baseline so this works with Capacitor resize:"native".
+    const kbH = Math.max(0, _fullH - vv.height - vv.offsetTop);
 
-    if (_kbHeight > 80) {
+    if (kbH > 100) {
       _kbOpen = true;
+      document.body.classList.add('fc-keyboard-open');
       requestAnimationFrame(_scrollToActive);
     } else if (_kbOpen) {
       _kbOpen = false;
-      // Wait for keyboard dismiss animation to finish (~280ms on iOS),
-      // then reset the padding and scroll position cleanly.
+      document.body.classList.remove('fc-keyboard-open');
+      // Wait for keyboard dismiss animation (~280ms) then reset cleanly.
       _kbTimer = setTimeout(() => {
         const el = _screenEl();
         if (!el) return;
@@ -6521,13 +6534,12 @@ window._btnLoad = _btnLoad;
     }
   }
 
-  // focusin fires before the keyboard opens. Run immediately in case the
-  // keyboard was already open (switching fields), then again after the
-  // iOS keyboard animation completes (~400ms).
+  // focusin fires before the keyboard opens. Run immediately if keyboard is
+  // already open (field switch), then again after iOS animation (~400ms).
   document.addEventListener('focusin', (e) => {
     if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') return;
-    requestAnimationFrame(_scrollToActive); // instant if keyboard already open
-    setTimeout(_scrollToActive, 420);       // fallback after animation
+    requestAnimationFrame(_scrollToActive);
+    setTimeout(_scrollToActive, 420);
   }, { passive: true });
 
   window.visualViewport.addEventListener('resize', _onViewportResize, { passive: true });
@@ -6570,19 +6582,6 @@ window._btnLoad = _btnLoad;
       }, { once: false });
     }
 
-    // Keyboard scroll-into-view — ensures the focused field stays above
-    // the keyboard on iOS WKWebView. resize:"native" in capacitor.config.json
-    // handles the primary scroll; this is a fallback for timing edge cases
-    // (e.g. first tap before the WebView has computed keyboard height).
-    document.querySelectorAll('.fc-auth-screen .fc-input').forEach(function(input) {
-      input.addEventListener('focus', function() {
-        // Short delay lets the keyboard begin its slide-up animation
-        // before we ask the element to scroll into view.
-        setTimeout(function() {
-          input.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }, 320);
-      });
-    });
   });
 })();
 </script>
