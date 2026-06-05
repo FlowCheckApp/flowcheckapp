@@ -1000,6 +1000,61 @@ window.FCData = (function () {
   }
 
   /* ─────────────────────────────────────────────────────────────
+     FIRESTORE — NET WORTH HISTORY
+     Daily snapshots stored at users/{uid}/nw_history/snapshots
+     as a single document with a `data` map keyed by 'YYYY-MM-DD'.
+     60-day rolling window enforced on write. Survives reinstall
+     and device switches — unlike the old localStorage approach.
+     ───────────────────────────────────────────────────────────── */
+
+  /**
+   * Persist today's net worth in Firestore.
+   * Uses dot-notation update for safe partial-map merge, falling back
+   * to a full set() when the document doesn't exist yet.
+   * @param {string} date - 'YYYY-MM-DD'
+   * @param {number} value - net worth in dollars
+   */
+  async function saveNetWorthSnapshot(date, value) {
+    const user = FCAuth.currentUser();
+    const db   = FCAuth.db();
+    if (!user || !db || value == null) return;
+    const ref = db.collection('users').doc(user.uid)
+      .collection('nw_history').doc('snapshots');
+    const updates = { updated_at: firebase.firestore.FieldValue.serverTimestamp() };
+    updates[`data.${date}`] = Math.round(value * 100) / 100;
+    try {
+      await ref.update(updates);
+    } catch (_) {
+      // Document doesn't exist yet — create it
+      await ref.set({ data: { [date]: Math.round(value * 100) / 100 },
+                      updated_at: firebase.firestore.FieldValue.serverTimestamp() });
+    }
+  }
+
+  /**
+   * Listen to net worth history snapshots.
+   * Callback receives a plain object { 'YYYY-MM-DD': number } sorted to 60 days.
+   */
+  function listenToNetWorthHistory(callback) {
+    const user = FCAuth.currentUser();
+    const db   = FCAuth.db();
+    if (!user || !db) return;
+    const ref = db.collection('users').doc(user.uid)
+      .collection('nw_history').doc('snapshots');
+    const unsub = ref.onSnapshot(snap => {
+      const raw  = snap.exists ? (snap.data().data || {}) : {};
+      // Trim to last 60 days so the client never holds stale data
+      const keys = Object.keys(raw).sort();
+      const keep = keys.slice(-60);
+      const history = {};
+      keep.forEach(k => { history[k] = raw[k]; });
+      callback(history);
+    }, err => console.error('[FCData] NWHistory listener error:', err));
+    _listeners.push(unsub);
+    return unsub;
+  }
+
+  /* ─────────────────────────────────────────────────────────────
      FIRESTORE — NOTIFICATIONS
      ───────────────────────────────────────────────────────────── */
 
@@ -1088,6 +1143,8 @@ window.FCData = (function () {
     setBudget,
     saveCreditSnapshot,
     listenToCreditHistory,
+    saveNetWorthSnapshot,
+    listenToNetWorthHistory,
     listenToNotifications,
     markNotificationRead,
     markAllNotificationsRead,

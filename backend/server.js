@@ -1093,7 +1093,7 @@ app.delete('/user/account', requireAuth, async (req, res) => {
 
     // 2. Delete all Firestore subcollections (CCPA: must erase everything)
     for (const sub of ['accounts', 'transactions', 'goals', 'budgets', 'bills', 'plaid_items',
-                        'notifications', 'transaction_overrides', 'credit_history']) {
+                        'notifications', 'transaction_overrides', 'credit_history', 'nw_history']) {
       let snap;
       do {
         snap = await userRef.collection(sub).limit(400).get();

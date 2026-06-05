@@ -26,6 +26,7 @@ window.FCApp = (function () {
     notifications:   [],
     txnOverrides:    {},         // { [txnId]: {name?, category?} }
     creditHistory:   [],         // [{month:'YYYY-MM', score:number}, …] oldest-first
+    nwHistory:       {},         // {'YYYY-MM-DD': number} — Firestore-backed net worth sparkline
   };
 
   // Tracks which specific item is being disconnected (null = disconnect all)
@@ -517,31 +518,43 @@ window.FCApp = (function () {
     return 'https://apps.apple.com/account/subscriptions';
   }
 
-  /* ── Net Worth History (localStorage sparkline) ─────────────── */
-  // Key is user-scoped so switching accounts never leaks another user's trend data.
+  /* ── Net Worth History (Firestore sparkline, localStorage for instant render) ── */
+  // localStorage key kept for same-session immediate sparkline draw;
+  // Firestore is the durable store that survives reinstall/device switch.
   function _nwHistoryKey() {
     return state.user?.uid ? `fc_nw_history_${state.user.uid}` : null;
   }
 
-  // Persist today's net worth and keep 60-day rolling window
+  // Persist today's net worth: write to localStorage immediately (fast path for
+  // same-session sparkline) and to Firestore async (durable cross-device path).
   function _snapshotNetWorth(netWorth) {
     if (!state.user || !state.user.plaid_linked) return;
     const key = _nwHistoryKey();
     if (!key) return;
+
+    const today = new Date().toISOString().split('T')[0];
+
+    // Firestore write — best-effort, never blocks the UI
+    FCData.saveNetWorthSnapshot(today, netWorth).catch(() => {});
+
+    // localStorage write-through for instant same-session sparkline
     try {
       // One-time migration: remove the old un-namespaced key if present
       if (localStorage.getItem('fc_nw_history')) localStorage.removeItem('fc_nw_history');
 
-      const today   = new Date().toISOString().split('T')[0];
       const raw     = localStorage.getItem(key);
       const history = raw ? JSON.parse(raw) : {};
       history[today] = Math.round(netWorth * 100) / 100;
-      // Keep last 60 days
       const keys = Object.keys(history).sort();
       if (keys.length > 60) keys.slice(0, keys.length - 60).forEach(k => delete history[k]);
       localStorage.setItem(key, JSON.stringify(history));
-      _drawNetWorthSparkline(history);
     } catch (_) {}
+
+    // Draw immediately using Firestore state if available, else localStorage cache
+    const drawSource = Object.keys(state.nwHistory).length > 0
+      ? state.nwHistory
+      : (() => { try { return JSON.parse(localStorage.getItem(key) || '{}'); } catch (_) { return {}; } })();
+    _drawNetWorthSparkline(drawSource);
   }
 
   function _drawNetWorthSparkline(history) {
@@ -1876,6 +1889,7 @@ window.FCApp = (function () {
     state.notifications = [];
     state.txnOverrides  = {};
     state.creditHistory = [];
+    state.nwHistory     = {};
     state.searchQuery   = '';
     state.initialLoading = false;
     _paywallShownThisSession    = false;
@@ -4849,8 +4863,12 @@ window.FCApp = (function () {
       if (!nwSvg) return;
 
       try {
-        const nwKey   = _nwHistoryKey();
-        const history = JSON.parse((nwKey && localStorage.getItem(nwKey)) || '{}');
+        // Prefer Firestore-backed history (survives reinstall); fall back to
+        // same-session localStorage cache for the first render before the
+        // Firestore listener fires.
+        const nwKey     = _nwHistoryKey();
+        const lsHistory = (() => { try { return JSON.parse((nwKey && localStorage.getItem(nwKey)) || '{}'); } catch (_) { return {}; } })();
+        const history   = Object.keys(state.nwHistory).length > 0 ? state.nwHistory : lsHistory;
         const keys    = Object.keys(history).sort();
         const vals    = keys.map(k => history[k]);
 
@@ -6302,6 +6320,14 @@ window.FCApp = (function () {
     FCData.listenToCreditHistory(history => {
       state.creditHistory = history;
       if (state.tab === 'home') _renderCreditScore();
+    });
+
+    // Net worth history (daily snapshots — Firestore-backed for cross-device persistence)
+    FCData.listenToNetWorthHistory(history => {
+      state.nwHistory = history;
+      // Re-draw sparkline with the authoritative Firestore data
+      _drawNetWorthSparkline(history);
+      if (state.tab === 'insights') _renderInsights();
     });
   }
 

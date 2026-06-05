@@ -233,6 +233,18 @@ service cloud.firestore {
                          ]);
         allow delete: if false;
       }
+
+      // Net worth history — read/write by owner (client saves daily snapshots).
+      // Single document 'snapshots' with a `data` map of {YYYY-MM-DD: number}.
+      // Written by saveNetWorthSnapshot() in fc-data.js.
+      match /nw_history/{docId} {
+        allow read:   if isOwner(uid);
+        allow create: if isOwner(uid)
+                      && request.resource.data.keys().hasOnly(['data', 'updated_at']);
+        allow update: if isOwner(uid)
+                      && request.resource.data.keys().hasOnly(['data', 'updated_at']);
+        allow delete: if false;
+      }
     }
 
     // ─── /referrals — Admin SDK only ──────────────────────────────

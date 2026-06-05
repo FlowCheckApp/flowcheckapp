@@ -48,9 +48,20 @@ final class NativeLockScreenViewController: UIViewController {
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         startPulse()
-        // Small pause so the VC is fully on-screen before the system Face ID dialog appears
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
-            self?.authenticate()
+
+        // Subtle fade+lift entry so the lock screen feels like it rises into view
+        // rather than snapping on instantly (presented with animated:false for blur continuity).
+        view.alpha     = 0
+        view.transform = CGAffineTransform(translationX: 0, y: 18)
+        UIView.animate(withDuration: 0.28, delay: 0,
+                       usingSpringWithDamping: 0.82, initialSpringVelocity: 0.4,
+                       options: []) {
+            self.view.alpha     = 1
+            self.view.transform = .identity
+        } completion: { _ in
+            // Trigger Face ID after the entry animation completes so the system
+            // dialog doesn't overlay mid-animation.
+            self.authenticate()
         }
     }
 
@@ -387,9 +398,13 @@ final class NativeLockScreenViewController: UIViewController {
 
     private func dismissWithSuccess() {
         onUnlocked?()
-        UIView.animate(withDuration: 0.30, delay: 0, options: [.curveEaseIn]) {
+        // Scale slightly down + fade — feels like the lock screen recedes to
+        // reveal the app underneath, matching iOS system unlock behaviour.
+        UIView.animate(withDuration: 0.32, delay: 0,
+                       usingSpringWithDamping: 0.9, initialSpringVelocity: 0.3,
+                       options: [.curveEaseIn]) {
             self.view.alpha     = 0
-            self.view.transform = CGAffineTransform(scaleX: 1.04, y: 1.04)
+            self.view.transform = CGAffineTransform(scaleX: 0.94, y: 0.94)
         } completion: { _ in
             self.dismiss(animated: false) {
                 self.view.alpha     = 1
