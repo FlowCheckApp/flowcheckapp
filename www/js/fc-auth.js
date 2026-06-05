@@ -64,7 +64,7 @@ window.FCAuth = (function () {
     } catch (_) {}
   }
 
-  /* ── Preferences (secure key-value storage) ──────────────── */
+  /* ── Preferences (NSUserDefaults — NOT Keychain-backed) ─────── */
   async function prefSet(key, value) {
     try {
       if (Preferences()) await Preferences().set({ key, value: JSON.stringify(value) });
@@ -206,7 +206,13 @@ window.FCAuth = (function () {
     // Successful login — clear any accumulated failure count
     _clearAttempts(email);
 
-    // Store that biometric should be offered next time
+    // Store that biometric should be offered next time.
+    // TODO(security): biometric_email is the user's email address (PII) stored in
+    // NSUserDefaults via @capacitor/preferences — NOT in the iOS Keychain.
+    // NSUserDefaults is unencrypted and included in unencrypted device backups.
+    // Fix: install a Keychain-backed plugin (e.g. @capacitor-community/secure-storage)
+    // and replace the prefSet/prefGet calls for 'biometric_email' (and 'biometric_enabled')
+    // with SecureStorage.set/get. No such plugin exists in package.json as of 2026-06-04.
     await prefSet('biometric_email', email);
     await prefSet('biometric_enabled', true);
 

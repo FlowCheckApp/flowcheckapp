@@ -95,19 +95,37 @@ window.FCApp = (function () {
   }
 
   // ── Shared income-transaction filter ─────────────────────────────
-  // Plaid stores payroll/direct-deposit as TRANSFER_IN (primary category) which
-  // normalizePlaidCategory maps to 'Transfer' — that would be excluded by the old
-  // includes('transfer') guard.  Whitelist Plaid's income primaries first so
-  // paychecks are never silently dropped from the income total.
-  const _INCOME_RAW = new Set(['INCOME', 'TRANSFER_IN', 'Income', 'Transfer In']);
+  // Strategy: count ALL credits as income, exclude only explicit non-income
+  // categories. Plaid frequently classifies direct deposits and paychecks as
+  // "Transfer" or "TRANSFER_IN" — a whitelist approach silently drops them.
+  //
+  // Hard-exclude only:
+  //   • Outbound transfers (credit to loan, CC payment, transfer out)
+  //   • Loan and credit card payments (money leaving to pay a debt)
+  // Everything else that is a credit (isCredit=true) is income.
+  const _INCOME_HARD_EXCLUDE = new Set([
+    'credit card', 'credit card payment', 'loan payment', 'loan payments',
+    'transfer out', 'payment',
+  ]);
   function _isIncomeTxn(t) {
     if (!t.isCredit || !t.date) return false;
-    const raw = (t.category && t.category[0]) || t.category || '';
-    // Explicitly include known Plaid income categories regardless of norm
-    if (_INCOME_RAW.has(raw) || _INCOME_RAW.has(raw.toUpperCase().replace(/ /g,'_'))) return true;
+    const raw  = ((t.category && t.category[0]) || t.category || '').trim();
     const norm = FCData.normalizePlaidCategory(raw).toLowerCase();
-    // Exclude only explicit non-income credits (internal xfers, CC payments)
-    return !_XFER_SKIP.has(norm) && !norm.includes('payment');
+    // Exclude explicit payment/outbound categories only
+    if (_INCOME_HARD_EXCLUDE.has(raw.toLowerCase())) return false;
+    if (_INCOME_HARD_EXCLUDE.has(norm)) return false;
+    if (norm.includes('credit card') || norm.includes('loan payment')) return false;
+    // All other credits (transfers in, income, deposits, refunds, cashback) = income
+    return true;
+  }
+
+  // Returns true when detected income is reliable enough to display ratios.
+  // Below this threshold, the income figure is likely incomplete (no paycheck
+  // detected yet, or early in the month) — suppress % calculations.
+  function _incomeIsReliable(income, spend) {
+    if (income <= 0) return false;
+    // Income must be at least 30% of spend, or $200, to be trustworthy for display
+    return income >= 200 || income >= spend * 0.30;
   }
 
   // ── Transaction display-name cleaner ─────────────────────────────
@@ -4003,19 +4021,24 @@ window.FCApp = (function () {
     const qsSpent = document.getElementById('fch-qs-spent');
     if (qsSpent) {
       qsSpent.textContent = _fmtCompact(periodSpend);
+      // Only color-code if income is reliably detected; otherwise neutral
       qsSpent.className = 'dash-sp-val ' + (
-        periodIncome > 0 && periodSpend / periodIncome > 0.9 ? 'dash-red' :
-        periodIncome > 0 && periodSpend / periodIncome > 0.7 ? '' : 'dash-green'
+        _incomeIsReliable(periodIncome, periodSpend) && periodSpend / periodIncome > 0.9 ? 'dash-red' :
+        _incomeIsReliable(periodIncome, periodSpend) && periodSpend / periodIncome > 0.7 ? '' : ''
       );
     }
 
-    // Cash flow → NW footer (replaces broken savings rate)
+    // Cash flow → NW footer — only meaningful when income is detectable
     const cfEl = document.getElementById('fch-cashflow');
     if (cfEl) {
-      if (monthIncome > 0 || monthSpend > 0) {
+      if (_incomeIsReliable(monthIncome, monthSpend)) {
         const cf = monthIncome - monthSpend;
         cfEl.textContent = (cf >= 0 ? '+' : '−') + _fmtCompact(Math.abs(cf));
         cfEl.style.color = cf >= 0 ? 'var(--fc-success)' : 'var(--fc-danger)';
+      } else if (monthSpend > 0) {
+        // Show spend only, no misleading cash-flow math
+        cfEl.textContent = '−' + _fmtCompact(monthSpend);
+        cfEl.style.color = 'var(--fc-danger)';
       } else {
         cfEl.textContent = '—';
         cfEl.style.color = '';
@@ -4033,13 +4056,29 @@ window.FCApp = (function () {
     if (pulseRow) {
       if (state.user && state.user.plaid_linked) {
         pulseRow.style.display = '';
-        const pulsePct   = monthIncome > 0 ? Math.min(Math.round((monthSpend / monthIncome) * 100), 100) : 0;
-        const fillColor  = pulsePct >= 90 ? 'var(--fc-danger)'
-                         : pulsePct >= 70 ? 'var(--fc-warning)'
+        const incomeOk   = _incomeIsReliable(monthIncome, monthSpend);
+        const pulsePct   = incomeOk ? Math.min(Math.round((monthSpend / monthIncome) * 100), 100) : 0;
+        const fillColor  = incomeOk && pulsePct >= 90 ? 'var(--fc-danger)'
+                         : incomeOk && pulsePct >= 70 ? 'var(--fc-warning)'
                          : 'linear-gradient(90deg,var(--fc-accent),var(--fc-electric))';
+
         if (pulseSpentEl)  pulseSpentEl.textContent  = _fmtCompact(monthSpend);
-        if (pulseIncomeEl) pulseIncomeEl.textContent = monthIncome > 0 ? _fmtCompact(monthIncome) : 'no income yet';
-        if (pulseFill)     { pulseFill.style.width = pulsePct + '%'; pulseFill.style.background = fillColor; }
+        // Only show income denominator when it's reliably detected
+        const pulseOfEl = document.getElementById('dash-pulse-of');
+        if (pulseIncomeEl) {
+          if (incomeOk) {
+            pulseIncomeEl.textContent = _fmtCompact(monthIncome);
+            if (pulseOfEl) pulseOfEl.textContent = ' of ';
+          } else {
+            // Hide "of $X" when income isn't reliably detected
+            pulseIncomeEl.textContent = '';
+            if (pulseOfEl) pulseOfEl.textContent = '';
+          }
+        }
+        if (pulseFill) {
+          pulseFill.style.width      = incomeOk ? pulsePct + '%' : '100%';
+          pulseFill.style.background = monthSpend > 0 ? fillColor : 'rgba(255,255,255,0.10)';
+        }
 
         const _now3    = new Date();
         const lastDay  = new Date(_now3.getFullYear(), _now3.getMonth() + 1, 0).getDate();
@@ -4048,9 +4087,10 @@ window.FCApp = (function () {
           pulseDaysEl.textContent = daysLeft === 0 ? 'Last day of month'
                                   : `${daysLeft} day${daysLeft !== 1 ? 's' : ''} left`;
         }
-        if (pulseProjEl && monthIncome > 0 && _now3.getDate() > 3) {
-          const projected = Math.round((monthSpend / _now3.getDate()) * lastDay);
-          const overBudget = projected > monthIncome;
+        // Show end-of-month projection only when we have enough days of data
+        if (pulseProjEl && _now3.getDate() > 3) {
+          const projected  = Math.round((monthSpend / _now3.getDate()) * lastDay);
+          const overBudget = incomeOk && projected > monthIncome;
           pulseProjEl.style.display = '';
           pulseProjEl.innerHTML = `Est. <span style="${overBudget ? 'color:var(--fc-danger)' : ''}">${_fmtCompact(projected)}</span> by month end`;
         } else if (pulseProjEl) {
@@ -4071,11 +4111,13 @@ window.FCApp = (function () {
       cashSubEl.textContent = n ? `${n} account${n !== 1 ? 's' : ''}` : 'connect a bank';
     }
     if (spentSubEl) {
-      if (monthIncome > 0 && monthSpend > 0) {
+      const incomeOkSub = _incomeIsReliable(monthIncome, monthSpend);
+      if (incomeOkSub && monthSpend > 0) {
         const spentPct = Math.round((monthSpend / monthIncome) * 100);
         spentSubEl.textContent = `${spentPct}% of income`;
         spentSubEl.style.color = spentPct >= 90 ? 'var(--fc-danger)' : spentPct >= 70 ? 'var(--fc-warning)' : '';
       } else {
+        // Show period label instead of a broken percentage
         spentSubEl.textContent = _PERIOD_LABELS[state.period] || 'this month';
         spentSubEl.style.color = '';
       }
@@ -4469,16 +4511,21 @@ window.FCApp = (function () {
     else spendScore = Math.round(34 * (1.5 - spendRatio) / 0.75);
 
     // ── 2. Savings Score (0-33) ───────────────────────────────
-    // Bug fix: use _isIncomeTxn to exclude transfers/refunds from income
-    const income   = txns.filter(_isIncomeTxn).reduce((s, t) => s + (t.amount || 0), 0);
-    const savingsRate = income > 0 ? (income - spent) / income : 0;
+    const income       = txns.filter(_isIncomeTxn).reduce((s, t) => s + (t.amount || 0), 0);
+    const incomeOkScore = _incomeIsReliable(income, spent);
+    const savingsRate  = incomeOkScore ? (income - spent) / income : null;
     const savingsAccts = accts.filter(a => a.type === 'depository');
     const totalSavings = savingsAccts.reduce((s, a) => s + (a.balance_current || a.balance || 0), 0);
     let savingsScore = 0;
-    if (savingsRate >= 0.2) savingsScore = 33;
-    else if (savingsRate > 0) savingsScore = Math.round(33 * (savingsRate / 0.2));
-    // Boost if savings balance > 1 month of income
-    if (totalSavings > income && income > 0) savingsScore = Math.min(33, savingsScore + 8);
+    if (savingsRate !== null) {
+      if (savingsRate >= 0.2) savingsScore = 33;
+      else if (savingsRate > 0) savingsScore = Math.round(33 * (savingsRate / 0.2));
+      // Boost if savings balance > 1 month of income
+      if (totalSavings > income) savingsScore = Math.min(33, savingsScore + 8);
+    } else {
+      // Income not reliably detected — give neutral score for savings factor
+      savingsScore = 16;
+    }
 
     // ── 3. Net Worth Score (0-33) ─────────────────────────────
     const assets = accts
@@ -4506,9 +4553,9 @@ window.FCApp = (function () {
 
     // Tips
     const tips = [];
-    if (spendRatio > 0.9)    tips.push('You\'re close to your monthly budget — ease up on discretionary spending.');
-    if (savingsRate < 0.1)   tips.push('Try saving at least 10% of income. Even small amounts compound over time.');
-    if (nw < 0)              tips.push('Your liabilities exceed your assets. Paying down high-interest debt first will help.');
+    if (spendRatio > 0.9)                        tips.push('You\'re close to your monthly budget — ease up on discretionary spending.');
+    if (savingsRate !== null && savingsRate < 0.1) tips.push('Try saving at least 10% of income. Even small amounts compound over time.');
+    if (nw < 0)                                   tips.push('Your liabilities exceed your assets. Paying down high-interest debt first will help.');
     if (!tips.length)        tips.push('You\'re on track! Keep maintaining your current habits to keep your score growing.');
 
     // Animate ring
@@ -5012,7 +5059,7 @@ window.FCApp = (function () {
     const savingsBarEl  = document.getElementById('savings-bar');
     const savingsMetaEl = document.getElementById('savings-meta');
 
-    if (periodIncome > 0) {
+    if (_incomeIsReliable(periodIncome, periodSpend)) {
       const netFlow     = periodIncome - periodSpend;
       const savingsRate = Math.max(0, Math.round((netFlow / periodIncome) * 100));
       const rateColor   = savingsRate >= 20 ? 'var(--fc-success)'
@@ -5020,7 +5067,6 @@ window.FCApp = (function () {
                         : 'var(--fc-warning)';
       const rateIcon    = savingsRate >= 20 ? '🔥' : savingsRate >= 10 ? '📈' : '⚠️';
 
-      // Two-column layout: just the % + icon (no long label)
       if (savingsRateEl) { savingsRateEl.textContent = `${savingsRate}% ${rateIcon}`; savingsRateEl.style.color = rateColor; }
       if (savingsBarEl)  { savingsBarEl.style.width = Math.min(savingsRate, 100) + '%'; savingsBarEl.style.background = rateColor; }
       if (savingsMetaEl) {
@@ -5033,7 +5079,12 @@ window.FCApp = (function () {
     } else {
       if (savingsRateEl) { savingsRateEl.textContent = '—'; savingsRateEl.style.color = 'var(--fc-text-faint)'; }
       if (savingsBarEl)  savingsBarEl.style.width = '0%';
-      if (savingsMetaEl) savingsMetaEl.textContent = 'Link your accounts to track savings';
+      if (savingsMetaEl) {
+        savingsMetaEl.textContent = periodIncome > 0
+          ? `Income detected: ${FCData.formatCurrency(periodIncome)} — may be incomplete`
+          : 'No income detected this period';
+        savingsMetaEl.style.color = 'var(--fc-text-faint)';
+      }
     }
   }
 
