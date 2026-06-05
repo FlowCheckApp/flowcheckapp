@@ -1329,14 +1329,22 @@ body.fc-theme {
 [data-theme="light"] .fc-ob-screen [style*="color:#fff"],
 [data-theme="light"] .fc-ob-screen [style*="color:white"],
 [data-theme="light"] .fc-ob-screen [style*="color: white"]  { color: #0a1520 !important; }
+[data-theme="light"] .fc-ob-screen [style*="color:rgba(255,255,255,0.20)"],
+[data-theme="light"] .fc-ob-screen [style*="color:rgba(255,255,255,0.22)"] { color: rgba(10,21,32,0.30) !important; }
 [data-theme="light"] .fc-ob-screen [style*="color:rgba(255,255,255,0.34)"],
+[data-theme="light"] .fc-ob-screen [style*="color:rgba(255,255,255,0.36)"],
 [data-theme="light"] .fc-ob-screen [style*="color:rgba(255,255,255,0.38)"],
+[data-theme="light"] .fc-ob-screen [style*="color:rgba(255,255,255,0.42)"],
 [data-theme="light"] .fc-ob-screen [style*="color:rgba(255,255,255,0.44)"],
 [data-theme="light"] .fc-ob-screen [style*="color:rgba(255,255,255,0.46)"],
 [data-theme="light"] .fc-ob-screen [style*="color:rgba(255,255,255,0.48)"] { color: rgba(10,21,32,0.42) !important; }
 [data-theme="light"] .fc-ob-screen [style*="color:rgba(255,255,255,0.72)"],
 [data-theme="light"] .fc-ob-screen [style*="color:rgba(255,255,255,0.76)"],
 [data-theme="light"] .fc-ob-screen [style*="color:rgba(255,255,255,0.78)"] { color: rgba(10,21,32,0.80) !important; }
+/* Legal note + link colors in ob CTA */
+[data-theme="light"] #ob-legal-note { color: rgba(10,21,32,0.30) !important; }
+[data-theme="light"] #ob-legal-note a { color: rgba(10,21,32,0.45) !important; }
+
 /* Inline dark-mode glass backgrounds */
 [data-theme="light"] .fc-ob-screen [style*="background:rgba(255,255,255,0.04)"],
 [data-theme="light"] .fc-ob-screen [style*="background:rgba(255,255,255,0.05)"],
@@ -1348,9 +1356,10 @@ body.fc-theme {
 [data-theme="light"] .fc-ob-screen [style*="border:1px solid rgba(255,255,255,0.18)"] { border-color: rgba(10,21,32,0.08) !important; }
 
 /* ── Paywall in light ────────────────────────────────────── */
-[data-theme="light"] .fc-paywall::before { opacity: 0.3; }
+[data-theme="light"] .fc-paywall::before { opacity: 0.18; }
 [data-theme="light"] .fc-pw-title        { color: #0a1520 !important; }
 [data-theme="light"] .fc-pw-feature-name { color: #0a1520 !important; }
+[data-theme="light"] .fc-pw-feature-desc { color: rgba(10,21,32,0.48) !important; }
 [data-theme="light"] .fc-pw-features {
   background: rgba(10,21,32,0.04) !important;
   border-color: rgba(10,21,32,0.09) !important;
@@ -1360,7 +1369,27 @@ body.fc-theme {
   background: rgba(10,21,32,0.04) !important;
   border-color: rgba(10,21,32,0.12) !important;
 }
-[data-theme="light"] .fc-pw-plan-name { color: #0a1520 !important; }
+[data-theme="light"] .fc-pw-plan-name   { color: #0a1520 !important; }
+[data-theme="light"] .fc-pw-plan-price  { color: rgba(10,21,32,0.50) !important; }
+[data-theme="light"] .fc-pw-plan-strike { color: rgba(10,21,32,0.32) !important; }
+[data-theme="light"] .fc-pw-plan-radio  { border-color: rgba(10,21,32,0.25) !important; }
+[data-theme="light"] .fc-pw-annual-amount  { color: #0a1520 !important; }
+[data-theme="light"] .fc-pw-annual-period  { color: rgba(10,21,32,0.50) !important; }
+[data-theme="light"] .fc-pw-social {
+  background: rgba(10,21,32,0.05) !important;
+  border-color: rgba(10,21,32,0.09) !important;
+}
+[data-theme="light"] .fc-pw-social-text { color: rgba(10,21,32,0.55) !important; }
+[data-theme="light"] .fc-pw-trust-item  { color: rgba(10,21,32,0.42) !important; }
+[data-theme="light"] .fc-pw-terms       { color: rgba(10,21,32,0.30) !important; }
+[data-theme="light"] .fc-pw-footer a    { color: rgba(10,21,32,0.40) !important; }
+[data-theme="light"] .fc-pw-footer-sep  { color: rgba(10,21,32,0.20) !important; }
+/* Close button + inline-white text in paywall */
+[data-theme="light"] .fc-paywall [style*="background:rgba(255,255,255,0.10)"] {
+  background: rgba(10,21,32,0.07) !important;
+  border-color: rgba(10,21,32,0.12) !important;
+}
+[data-theme="light"] .fc-paywall [style*="color:rgba(255,255,255,0.32)"] { color: rgba(10,21,32,0.40) !important; }
 
 /* ── Phone frame shadow in light ─────────────────────────── */
 [data-theme="light"] .phone-frame {

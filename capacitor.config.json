@@ -7,9 +7,9 @@
   },
   "plugins": {
     "Keyboard": {
-      "resize": "none",
-      "style": "dark",
-      "resizeOnFullScreen": false
+      "resize": "native",
+      "style": "default",
+      "resizeOnFullScreen": true
     },
     "GoogleAuth": {
       "scopes": ["profile", "email"],
