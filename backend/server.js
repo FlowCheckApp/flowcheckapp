@@ -773,9 +773,8 @@ app.post('/plaid/exchange-token', requireAuth, _plaidUserLimiter, async (req, re
 
     res.json({ success: true, item_id: data.item_id });
   } catch (err) {
-    const msg = err.response?.data?.error_message || err.message;
-    console.error('[exchange]', msg);
-    res.status(500).json({ message: msg });
+    console.error('[exchange]', err.message);
+    res.status(500).json({ message: _safeMsg(err) });
   }
 });
 
@@ -3688,7 +3687,7 @@ app.post('/auth/otp/send', requireAuth, async (req, res) => {
       }
     }
 
-    const code       = String(Math.floor(100000 + Math.random() * 900000));
+    const code       = String(crypto.randomInt(100000, 1000000));
     const expires_at = Date.now() + 10 * 60 * 1000;
 
     await db.collection('otp_codes').doc(req.uid).set({
@@ -3877,7 +3876,9 @@ app.post('/webhooks/revenuecat', async (req, res) => {
   const rcSecret = process.env.RC_WEBHOOK_SECRET;
   if (rcSecret) {
     const incoming = req.headers['authorization'] || '';
-    if (incoming !== rcSecret) {
+    const inBuf = Buffer.from(incoming);
+    const secretBuf = Buffer.from(rcSecret);
+    if (inBuf.length !== secretBuf.length || !crypto.timingSafeEqual(inBuf, secretBuf)) {
       console.warn('[rc-webhook] Unauthorized — bad secret');
       return res.status(401).json({ error: 'Unauthorized' });
     }

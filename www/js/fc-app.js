@@ -543,36 +543,22 @@ window.FCApp = (function () {
     return state.user?.uid ? `fc_nw_history_${state.user.uid}` : null;
   }
 
-  // Persist today's net worth: write to localStorage immediately (fast path for
-  // same-session sparkline) and to Firestore async (durable cross-device path).
   function _snapshotNetWorth(netWorth) {
     if (!state.user || !state.user.plaid_linked) return;
-    const key = _nwHistoryKey();
-    if (!key) return;
 
     const today = new Date().toISOString().split('T')[0];
 
     // Firestore write — best-effort, never blocks the UI
     FCData.saveNetWorthSnapshot(today, netWorth).catch(() => {});
 
-    // localStorage write-through for instant same-session sparkline
+    // One-time cleanup of legacy localStorage net worth data (financial data must not be in localStorage)
     try {
-      // One-time migration: remove the old un-namespaced key if present
+      const key = _nwHistoryKey();
       if (localStorage.getItem('fc_nw_history')) localStorage.removeItem('fc_nw_history');
-
-      const raw     = localStorage.getItem(key);
-      const history = raw ? JSON.parse(raw) : {};
-      history[today] = Math.round(netWorth * 100) / 100;
-      const keys = Object.keys(history).sort();
-      if (keys.length > 60) keys.slice(0, keys.length - 60).forEach(k => delete history[k]);
-      localStorage.setItem(key, JSON.stringify(history));
+      if (key && localStorage.getItem(key)) localStorage.removeItem(key);
     } catch (_) {}
 
-    // Draw immediately using Firestore state if available, else localStorage cache
-    const drawSource = Object.keys(state.nwHistory).length > 0
-      ? state.nwHistory
-      : (() => { try { return JSON.parse(localStorage.getItem(key) || '{}'); } catch (_) { return {}; } })();
-    _drawNetWorthSparkline(drawSource);
+    _drawNetWorthSparkline(state.nwHistory);
   }
 
   function _drawNetWorthSparkline(history) {
@@ -5005,12 +4991,7 @@ window.FCApp = (function () {
       if (!nwSvg) return;
 
       try {
-        // Prefer Firestore-backed history (survives reinstall); fall back to
-        // same-session localStorage cache for the first render before the
-        // Firestore listener fires.
-        const nwKey     = _nwHistoryKey();
-        const lsHistory = (() => { try { return JSON.parse((nwKey && localStorage.getItem(nwKey)) || '{}'); } catch (_) { return {}; } })();
-        const history   = Object.keys(state.nwHistory).length > 0 ? state.nwHistory : lsHistory;
+        const history = state.nwHistory;
         const keys    = Object.keys(history).sort();
         const vals    = keys.map(k => history[k]);
 
