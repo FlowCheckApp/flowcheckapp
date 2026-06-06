@@ -459,48 +459,59 @@ app.get('/r/:code', (req, res) => {
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Join FlowCheck — Free Month of Pro</title>
   <style>
-    body{margin:0;background:#060e18;color:#fff;font-family:-apple-system,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;text-align:center;padding:24px;box-sizing:border-box}
-    .logo{display:block;width:80px;height:80px;border-radius:20px;margin:0 auto 24px;box-shadow:0 8px 32px rgba(26,196,240,0.3)}
-    h1{font-size:24px;font-weight:800;margin:0 0 8px;letter-spacing:-0.02em}
-    .sub{color:rgba(255,255,255,.55);font-size:15px;margin:0 0 32px;line-height:1.5}
-    .code-box{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:16px 24px;margin-bottom:28px;display:inline-block}
-    .code-label{font-size:11px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:0.08em;margin:0 0 6px}
-    .code{font-size:28px;font-weight:800;letter-spacing:0.12em;color:#1ac4f0}
-    a.btn{display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:17px;padding:16px 32px;border-radius:14px;text-decoration:none;margin-bottom:14px;box-shadow:0 4px 20px rgba(26,196,240,0.25)}
-    a.secondary{display:block;color:rgba(255,255,255,.35);font-size:13px;text-decoration:none}
-    .perks{background:rgba(255,255,255,0.04);border-radius:12px;padding:16px 20px;margin-bottom:28px;text-align:left;max-width:320px}
-    .perk{font-size:14px;color:rgba(255,255,255,.7);margin:6px 0;display:flex;align-items:center;gap:10px}
-    .perk::before{content:'✦';color:#1ac4f0;flex-shrink:0}
+    *{box-sizing:border-box}
+    body{margin:0;background:#0a1520;color:#fff;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display',sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;text-align:center;padding:32px 24px}
+    .logo{display:block;width:88px;height:88px;border-radius:22px;margin:0 auto 20px;box-shadow:0 12px 40px rgba(26,196,240,0.35)}
+    .badge{display:inline-block;background:rgba(26,196,240,0.12);border:1px solid rgba(26,196,240,0.25);border-radius:20px;padding:5px 14px;font-size:12px;font-weight:600;color:#1ac4f0;letter-spacing:0.04em;margin-bottom:16px}
+    h1{font-size:26px;font-weight:800;margin:0 0 10px;letter-spacing:-0.02em;line-height:1.2}
+    .sub{color:rgba(255,255,255,.5);font-size:15px;margin:0 0 28px;line-height:1.55;max-width:300px}
+    .code-box{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:18px 28px;margin-bottom:24px;display:inline-block}
+    .code-label{font-size:11px;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:0.1em;margin:0 0 8px}
+    .code{font-size:30px;font-weight:800;letter-spacing:0.14em;color:#1ac4f0;margin:0}
+    .perks{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:14px;padding:18px 22px;margin-bottom:28px;text-align:left;width:100%;max-width:320px}
+    .perk{font-size:14px;color:rgba(255,255,255,.75);margin:8px 0;display:flex;align-items:center;gap:12px;line-height:1.3}
+    .perk-icon{color:#1ac4f0;font-size:16px;flex-shrink:0}
+    .btn{display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:17px;padding:17px 32px;border-radius:14px;text-decoration:none;margin-bottom:14px;box-shadow:0 6px 24px rgba(26,196,240,0.3);letter-spacing:-0.01em;width:100%;max-width:320px}
+    .btn:active{opacity:0.88}
+    .secondary{display:block;color:rgba(255,255,255,.3);font-size:13px;text-decoration:none;margin-top:4px}
+    .secondary:active{color:rgba(255,255,255,.5)}
+    .disclaimer{font-size:11px;color:rgba(255,255,255,.2);margin-top:32px;max-width:280px;line-height:1.5}
   </style>
-  <script>
-    // Blur fires when iOS hands off to the app — cancel the App Store fallback
-    // so users who already have the app don't get redirected to the store.
-    var launched = false;
-    window.addEventListener('blur', function() { launched = true; }, { once: true });
-    setTimeout(function() {
-      window.location.href = '${appScheme}';
-      setTimeout(function() { if (!launched) window.location.href = '${storeUrl}'; }, 2200);
-    }, 100);
-  </script>
 </head>
 <body>
   <img src="/flowcheck-icon.png" class="logo" alt="FlowCheck">
-  <h1>You've been invited!</h1>
-  <p class="sub">Your friend shared FlowCheck with you.<br>Sign up and you both get <strong>1 month of Pro free</strong>.</p>
+  <div class="badge">🎁 You're invited</div>
+  <h1>Get 1 month of<br>FlowCheck Pro free</h1>
+  <p class="sub">Your friend shared FlowCheck with you. Sign up and you both get Pro — no card required.</p>
   <div class="code-box">
     <p class="code-label">Your referral code</p>
     <p class="code">${rawCode}</p>
   </div>
   <div class="perks">
-    <p class="perk">Unlimited bank accounts</p>
-    <p class="perk">Financial Health Score</p>
-    <p class="perk">AI spending insights</p>
-    <p class="perk">Bill tracking &amp; reminders</p>
+    <div class="perk"><span class="perk-icon">✦</span>Unlimited bank accounts</div>
+    <div class="perk"><span class="perk-icon">✦</span>Financial Health Score</div>
+    <div class="perk"><span class="perk-icon">✦</span>AI spending insights</div>
+    <div class="perk"><span class="perk-icon">✦</span>Bill tracking &amp; reminders</div>
   </div>
-  <a class="btn" href="${appScheme}" onclick="var t=setTimeout(function(){window.location.href='${storeUrl}'},2000);window.addEventListener('blur',function(){clearTimeout(t)},{once:true})">
-    Open FlowCheck →
-  </a>
+  <a class="btn" id="open-btn" href="${storeUrl}">Open FlowCheck →</a>
   <a class="secondary" href="${storeUrl}">Download on the App Store</a>
+  <p class="disclaimer">FlowCheck is not a bank. Not financial advice. Code expires after first bank connection.</p>
+  <script>
+    // Try to open the app if installed. Button defaults to App Store href.
+    // On tap: attempt custom scheme, fall back to App Store after 2.5s if no blur.
+    document.getElementById('open-btn').addEventListener('click', function(e) {
+      e.preventDefault();
+      var launched = false;
+      var fallback = setTimeout(function() {
+        if (!launched) window.location.href = '${storeUrl}';
+      }, 2500);
+      window.addEventListener('blur', function() {
+        launched = true;
+        clearTimeout(fallback);
+      }, { once: true });
+      window.location.href = '${appScheme}';
+    });
+  </script>
 </body>
 </html>`);
 });

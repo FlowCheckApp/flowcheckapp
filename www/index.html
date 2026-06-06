@@ -212,20 +212,22 @@ body.fc-theme {
   display:flex; align-items:center; justify-content:center;
   box-shadow: 0 24px 64px rgba(26,196,240,0.28), 0 4px 16px rgba(0,0,0,0.45);
   margin-bottom:28px; position:relative; z-index:1;
-  animation: fcLogoIn 0.65s var(--fc-ease-spring) both;
+  animation: fcLogoIn 0.5s var(--fc-ease-spring) both;
 }
 /* Typography */
 .fc-splash-wordmark {
   font-size:34px; font-weight:900; letter-spacing:-.04em; color:white;
-  animation: fcFadeUp 0.5s 0.15s var(--fc-ease-out) both;
+  animation: fcFadeUp 0.45s 0.38s var(--fc-ease-out) both;
   position:relative; z-index:1;
 }
 .fc-splash-tagline {
   font-size:13px; color:rgba(255,255,255,.30); font-weight:500; letter-spacing:.04em;
-  animation: fcFadeUp 0.5s 0.25s var(--fc-ease-out) both;
+  animation: fcFadeUp 0.4s 0.52s var(--fc-ease-out) both;
   margin-top:8px; position:relative; z-index:1;
 }
-@keyframes fcLogoIn{from{opacity:0;transform:scale(.72) translateY(16px)}to{opacity:1;transform:none}}
+/* Icon starts fully visible (matches native launch screen state) and settles into position.
+   Text fades in after icon is stable — creates seamless native→web handoff. */
+@keyframes fcLogoIn{from{opacity:1;transform:scale(0.9) translateY(8px)}to{opacity:1;transform:none}}
 
 /* ════════════════════════════════════════════════════════════
    ELITE AUTH SYSTEM v3 — world-class onboarding

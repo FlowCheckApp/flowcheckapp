@@ -1,21 +1,24 @@
 #!/bin/bash
 # FlowCheck — deploy
 # Usage:
-#   ./deploy.sh                     # deploy with auto timestamp message
-#   ./deploy.sh "my commit message"
-#   ./deploy.sh --skip-firebase     # skip Firestore rules deploy
-#   ./deploy.sh "msg" --skip-firebase
+#   ./deploy.sh                          # deploy with auto timestamp message
+#   ./deploy.sh "my commit message"      # deploy with custom message
+#   ./deploy.sh --skip-firebase          # skip Firestore rules deploy
+#   ./deploy.sh --no-xcode               # skip opening Xcode (backend-only deploy)
+#   ./deploy.sh "msg" --skip-firebase --no-xcode
 
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 SKIP_FIREBASE=false
+NO_XCODE=false
 MSG=""
 
 # Parse args
 for arg in "$@"; do
   case "$arg" in
     --skip-firebase) SKIP_FIREBASE=true ;;
+    --no-xcode)      NO_XCODE=true ;;
     *)               MSG="$arg" ;;
   esac
 done
@@ -32,8 +35,8 @@ echo -e "\n${CYN}━━━ FlowCheck Deploy ━━━━━━━━━━━━
 echo -e "${DIM}  $MSG${RST}"
 
 # ── 1. Copy web files into iOS bundle ───────────────────────────
-# Bypasses `npx cap sync ios` which hangs due to SPM resolution.
-# cap sync just copies www/ to ios/App/App/public/ — we do it directly.
+# Direct copy instead of `npx cap sync ios` — faster and avoids SPM
+# resolution delays. Copies exactly what the app needs.
 step "Copying web files → iOS bundle"
 PUBLIC="$ROOT/ios/App/App/public"
 
@@ -51,13 +54,23 @@ ok "Web files synced"
 step "Git commit & push"
 cd "$ROOT"
 
-git add -A
+# Stage specific paths — never use -A (risks committing .env, keys, etc.)
+git add \
+  www/ \
+  backend/ \
+  ios/App/App/public/ \
+  ios/App/App.xcodeproj/project.pbxproj \
+  ios/App/App/GoogleService-Info.plist \
+  capacitor.config.json \
+  firestore.rules \
+  firestore.indexes.json \
+  deploy.sh 2>/dev/null || true
 
 if git diff --cached --quiet; then
   echo -e "${DIM}  (nothing to commit — pushing anyway)${RST}"
 else
   git commit -m "$MSG"
-  ok "Committed"
+  ok "Committed: $MSG"
 fi
 
 git push
@@ -79,16 +92,17 @@ else
 fi
 
 # ── 4. Open Xcode ───────────────────────────────────────────────
-step "Opening Xcode"
-# Prefer .xcworkspace (CocoaPods) if present, fall back to .xcodeproj (SPM)
-XCODE_FILE=""
-if [[ -d "$ROOT/ios/App/App.xcworkspace" ]]; then
-  XCODE_FILE="$ROOT/ios/App/App.xcworkspace"
+if [[ "$NO_XCODE" == false ]]; then
+  step "Opening Xcode"
+  XCODE_FILE=""
+  if [[ -d "$ROOT/ios/App/App.xcworkspace" ]]; then
+    XCODE_FILE="$ROOT/ios/App/App.xcworkspace"
+  else
+    XCODE_FILE="$ROOT/ios/App/App.xcodeproj"
+  fi
+  open "$XCODE_FILE"
+  ok "Opened $(basename "$XCODE_FILE")"
+  echo -e "\n${GRN}━━━ Done — hit ⌘R in Xcode to build to device ━━━${RST}\n"
 else
-  XCODE_FILE="$ROOT/ios/App/App.xcodeproj"
+  echo -e "\n${GRN}━━━ Done — backend deploying on Railway ━━━${RST}\n"
 fi
-
-open "$XCODE_FILE"
-ok "Opened $(basename "$XCODE_FILE")"
-
-echo -e "\n${GRN}━━━ Done — hit ⌘R in Xcode to build to device ━━━${RST}\n"
