@@ -4,34 +4,30 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>Security — FlowCheck</title>
-  <meta name="description" content="Bank-grade 256-bit encryption, read-only Plaid access, and iOS Keychain storage. Your financial data is never at risk.">
+  <meta name="description" content="Bank-grade 256-bit encryption, read-only Plaid access, iOS Keychain storage. Your financial data is protected at every layer.">
   <link rel="stylesheet" href="/css/site.css">
 </head>
 <body>
 
-<nav class="nav">
+<nav class="nav" id="nav">
   <div class="nav-inner">
-    <a href="/" class="nav-logo">
-      <div class="nav-logo-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M4 4h16v3H4zm0 6h11v3H4zm0 6h7v3H4z"/></svg></div>
-      FlowCheck
-    </a>
+    <a href="/" class="nav-logo"><div class="nav-logo-mark"><svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M4 4h16v3H4zm0 6h11v3H4zm0 6h7v3H4z"/></svg></div>FlowCheck</a>
     <div class="nav-links" id="nav-links">
-      <a href="/features">Features</a><a href="/pricing">Pricing</a><a href="/security">Security</a>
-      <a href="/login">Log in</a>
+      <a href="/features">Features</a><a href="/pricing">Pricing</a><a href="/security" class="active">Security</a>
+    </div>
+    <div class="nav-right">
+      <a href="/login" class="nav-login">Log in</a>
       <a href="https://apps.apple.com/app/flowcheck/id6742624701" class="nav-cta">Download</a>
     </div>
-    <button id="nav-menu-btn" aria-label="Menu" aria-expanded="false">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-    </button>
+    <button id="nav-menu-btn" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
   </div>
 </nav>
 
 <section class="page-hero">
-  <div class="page-hero-glow" aria-hidden="true"></div>
   <div class="container" style="position:relative;z-index:1">
-    <div class="section-label reveal">Security & trust</div>
-    <h1 class="reveal reveal-delay-1">Your money stays<br><span class="gradient-text">completely safe.</span></h1>
-    <p class="reveal reveal-delay-2">FlowCheck is built from the ground up with security as the first priority. We use the same standards as major banks — because your financial data deserves nothing less.</p>
+    <div class="eyebrow reveal">Security & trust</div>
+    <h1 class="reveal d1">Your money stays<br>completely <span class="accent">safe.</span></h1>
+    <p class="reveal d2">FlowCheck is built with security as the first priority — the same standards used by major banks, because your financial data deserves nothing less.</p>
   </div>
 </section>
 
@@ -39,100 +35,103 @@
   <div class="container">
     <div class="security-grid">
       <div class="security-card reveal">
-        <div class="security-icon-wrap" style="background:rgba(26,196,240,0.12)">🔒</div>
+        <div class="icon-box" style="background:rgba(14,165,233,0.10)">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0ea5e9" stroke-width="2" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
         <h3>256-bit AES encryption</h3>
-        <p>All data is encrypted in transit with TLS 1.3 and at rest with AES-256. The same standard used by major financial institutions worldwide.</p>
+        <p>All data is encrypted in transit with TLS 1.3 and at rest with AES-256 — the same standard used by major financial institutions worldwide.</p>
       </div>
-      <div class="security-card reveal reveal-delay-1">
-        <div class="security-icon-wrap" style="background:rgba(52,199,89,0.12)">👁</div>
+      <div class="security-card reveal d1">
+        <div class="icon-box" style="background:rgba(34,197,94,0.10)">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </div>
         <h3>Read-only bank access</h3>
         <p>FlowCheck uses Plaid for bank connectivity. We can only read your transactions — we cannot initiate payments, transfers, or any changes to your accounts. Ever.</p>
       </div>
-      <div class="security-card reveal reveal-delay-2">
-        <div class="security-icon-wrap" style="background:rgba(37,99,235,0.12)">📱</div>
+      <div class="security-card reveal">
+        <div class="icon-box" style="background:rgba(99,102,241,0.12)">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="2" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+        </div>
         <h3>iOS Keychain storage</h3>
-        <p>Sensitive credentials are stored in the iOS Keychain — hardware-backed, encrypted storage that even FlowCheck cannot read without your biometric or device passcode.</p>
+        <p>Sensitive credentials are stored in the iOS Keychain — hardware-backed encrypted storage that even FlowCheck cannot read without your biometric.</p>
       </div>
-      <div class="security-card reveal reveal-delay-3">
-        <div class="security-icon-wrap" style="background:rgba(175,82,222,0.12)">🏦</div>
+      <div class="security-card reveal d1">
+        <div class="icon-box" style="background:rgba(251,191,36,0.10)">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2" stroke-linecap="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+        </div>
         <h3>Powered by Plaid</h3>
-        <p>Bank connections are handled entirely by Plaid, a financial data infrastructure company trusted by over 12,000 apps including Venmo, Robinhood, and Betterment.</p>
+        <p>Bank connections are handled entirely by Plaid, trusted by over 12,000 apps including Venmo, Robinhood, and Betterment. Your credentials never touch FlowCheck's servers.</p>
       </div>
       <div class="security-card reveal">
-        <div class="security-icon-wrap" style="background:rgba(255,159,10,0.12)">🛡</div>
+        <div class="icon-box" style="background:rgba(251,146,60,0.10)">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fb923c" stroke-width="2" stroke-linecap="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+        </div>
         <h3>Firebase authentication</h3>
-        <p>User accounts are secured by Google Firebase Authentication, with rate limiting, brute-force protection, and token revocation on suspicious activity.</p>
+        <p>Accounts are secured by Google Firebase with rate limiting, brute-force protection, token revocation, and session monitoring built in.</p>
       </div>
-      <div class="security-card reveal reveal-delay-1">
-        <div class="security-icon-wrap" style="background:rgba(255,69,58,0.12)">🔑</div>
-        <h3>Face ID & biometric lock</h3>
-        <p>FlowCheck locks automatically and requires Face ID or Touch ID to unlock. The app blurs your content immediately when you switch apps — before iOS takes its screenshot.</p>
+      <div class="security-card reveal d1">
+        <div class="icon-box" style="background:rgba(244,114,182,0.10)">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f472b6" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+        </div>
+        <h3>Face ID & auto-lock</h3>
+        <p>FlowCheck locks automatically and requires Face ID or Touch ID. The app blurs your financial data the moment you switch apps — before iOS takes its screenshot.</p>
       </div>
     </div>
 
-    <!-- Compliance badges -->
-    <div style="text-align:center;margin-top:64px">
-      <div class="section-label reveal">Compliance & standards</div>
+    <div style="margin-top:64px;text-align:center">
+      <div class="eyebrow reveal">Standards</div>
     </div>
-    <div class="compliance-row reveal">
-      <div class="compliance-badge"><span class="compliance-badge-icon">🔐</span> 256-bit Encryption</div>
-      <div class="compliance-badge"><span class="compliance-badge-icon">🏦</span> Plaid-powered</div>
-      <div class="compliance-badge"><span class="compliance-badge-icon">📱</span> iOS Keychain</div>
-      <div class="compliance-badge"><span class="compliance-badge-icon">🛡</span> Firebase Auth</div>
-      <div class="compliance-badge"><span class="compliance-badge-icon">👁</span> Read-only access</div>
-      <div class="compliance-badge"><span class="compliance-badge-icon">🚫</span> $0 Liability</div>
+    <div class="badge-row reveal">
+      <div class="badge-chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> 256-bit Encryption</div>
+      <div class="badge-chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg> Plaid-powered</div>
+      <div class="badge-chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg> iOS Keychain</div>
+      <div class="badge-chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> Read-only access</div>
+      <div class="badge-chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> $0 Liability</div>
     </div>
 
-    <!-- What we never do -->
-    <div style="max-width:720px;margin:64px auto 0;text-align:center" class="reveal">
-      <div class="section-label">What we never do</div>
-      <h2 style="margin-bottom:32px">We cannot touch your money.<br><span class="gradient-text">By design.</span></h2>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;text-align:left">
-        <div style="background:rgba(255,69,58,0.06);border:1px solid rgba(255,69,58,0.15);border-radius:12px;padding:16px 20px">
-          <div style="font-size:13px;color:#ff6b60;font-weight:600;margin-bottom:4px">✗ We never</div>
-          <div style="font-size:14px;color:var(--muted)">Store your bank passwords</div>
+    <div style="max-width:640px;margin:72px auto 0;text-align:center" class="reveal">
+      <div class="eyebrow">What we never do</div>
+      <h2 style="margin-bottom:28px">We cannot touch<br>your money.</h2>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;text-align:left">
+        <div style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.12);border-radius:12px;padding:16px 18px">
+          <div style="font-size:12px;color:#fca5a5;font-weight:700;margin-bottom:4px">Never</div>
+          <div style="font-size:14px;color:var(--text-2)">Store your bank passwords</div>
         </div>
-        <div style="background:rgba(255,69,58,0.06);border:1px solid rgba(255,69,58,0.15);border-radius:12px;padding:16px 20px">
-          <div style="font-size:13px;color:#ff6b60;font-weight:600;margin-bottom:4px">✗ We never</div>
-          <div style="font-size:14px;color:var(--muted)">Move or transfer your funds</div>
+        <div style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.12);border-radius:12px;padding:16px 18px">
+          <div style="font-size:12px;color:#fca5a5;font-weight:700;margin-bottom:4px">Never</div>
+          <div style="font-size:14px;color:var(--text-2)">Move or transfer your funds</div>
         </div>
-        <div style="background:rgba(255,69,58,0.06);border:1px solid rgba(255,69,58,0.15);border-radius:12px;padding:16px 20px">
-          <div style="font-size:13px;color:#ff6b60;font-weight:600;margin-bottom:4px">✗ We never</div>
-          <div style="font-size:14px;color:var(--muted)">Sell your financial data</div>
+        <div style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.12);border-radius:12px;padding:16px 18px">
+          <div style="font-size:12px;color:#fca5a5;font-weight:700;margin-bottom:4px">Never</div>
+          <div style="font-size:14px;color:var(--text-2)">Sell your financial data</div>
         </div>
-        <div style="background:rgba(255,69,58,0.06);border:1px solid rgba(255,69,58,0.15);border-radius:12px;padding:16px 20px">
-          <div style="font-size:13px;color:#ff6b60;font-weight:600;margin-bottom:4px">✗ We never</div>
-          <div style="font-size:14px;color:var(--muted)">Store financial data in localStorage</div>
+        <div style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.12);border-radius:12px;padding:16px 18px">
+          <div style="font-size:12px;color:#fca5a5;font-weight:700;margin-bottom:4px">Never</div>
+          <div style="font-size:14px;color:var(--text-2)">Store financial data in localStorage</div>
         </div>
       </div>
     </div>
   </div>
 </section>
 
-<section class="cta-section">
-  <div class="cta-glow" aria-hidden="true"></div>
-  <div class="container" style="position:relative;z-index:1">
-    <h2 class="reveal">Security you can trust.<br><span class="gradient-text">Finance you can control.</span></h2>
-    <p class="reveal reveal-delay-1">Join thousands of people who trust FlowCheck with their financial life.</p>
-    <div class="cta-badges reveal reveal-delay-2">
-      <a href="https://apps.apple.com/app/flowcheck/id6742624701" class="btn btn-primary btn-lg">Download Free</a>
-    </div>
-    <p style="font-size:12px;color:rgba(255,255,255,0.25);margin-top:20px;margin-bottom:0">FlowCheck is not a bank. Not financial advice.</p>
-  </div>
-</section>
-
-<footer class="footer">
+<div class="cta-block reveal">
   <div class="container">
-    <div class="footer-inner">
-      <div class="footer-logo"><div class="nav-logo-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M4 4h16v3H4zm0 6h11v3H4zm0 6h7v3H4z"/></svg></div>FlowCheck</div>
-      <div class="footer-links">
-        <a href="/features">Features</a><a href="/pricing">Pricing</a><a href="/security">Security</a>
-        <a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="mailto:support@getflowcheck.app">Support</a>
-      </div>
-      <div class="footer-copy">© 2025 FlowCheck</div>
+    <div class="eyebrow">Trust built in</div>
+    <h2>Security you can trust.<br>Finances you can control.</h2>
+    <p>Your data is protected at every layer — from the bank connection to your lock screen.</p>
+    <div class="cta-actions">
+      <a href="https://apps.apple.com/app/flowcheck/id6742624701" class="btn btn-primary btn-lg">Download Free</a>
+      <a href="/features" class="btn btn-secondary btn-lg">See features</a>
     </div>
+    <p class="text-muted mt-8" style="font-size:12px">FlowCheck is not a bank · Not financial advice</p>
   </div>
-</footer>
+</div>
+
+<footer class="footer"><div class="container"><div class="footer-inner">
+  <a href="/" class="footer-logo"><div class="nav-logo-mark"><svg width="13" height="13" viewBox="0 0 24 24" fill="white"><path d="M4 4h16v3H4zm0 6h11v3H4zm0 6h7v3H4z"/></svg></div>FlowCheck</a>
+  <div class="footer-links"><a href="/features">Features</a><a href="/pricing">Pricing</a><a href="/security">Security</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="mailto:support@getflowcheck.app">Support</a></div>
+  <div class="footer-copy">© 2025 FlowCheck</div>
+</div></div></footer>
 <script src="/js/site.js"></script>
 </body>
 </html>

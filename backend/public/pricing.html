@@ -4,121 +4,105 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>Pricing — FlowCheck</title>
-  <meta name="description" content="Free forever with one bank. Upgrade to Pro for unlimited accounts, AI insights, and Financial Health Score. 7-day free trial.">
+  <meta name="description" content="Free forever with one bank. Pro unlocks unlimited accounts, AI insights, and Financial Health Score. 7-day free trial.">
   <link rel="stylesheet" href="/css/site.css">
 </head>
 <body>
 
-<nav class="nav">
+<nav class="nav" id="nav">
   <div class="nav-inner">
-    <a href="/" class="nav-logo">
-      <div class="nav-logo-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M4 4h16v3H4zm0 6h11v3H4zm0 6h7v3H4z"/></svg></div>
-      FlowCheck
-    </a>
+    <a href="/" class="nav-logo"><div class="nav-logo-mark"><svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M4 4h16v3H4zm0 6h11v3H4zm0 6h7v3H4z"/></svg></div>FlowCheck</a>
     <div class="nav-links" id="nav-links">
-      <a href="/features">Features</a><a href="/pricing">Pricing</a><a href="/security">Security</a>
-      <a href="/login">Log in</a>
+      <a href="/features">Features</a><a href="/pricing" class="active">Pricing</a><a href="/security">Security</a>
+    </div>
+    <div class="nav-right">
+      <a href="/login" class="nav-login">Log in</a>
       <a href="https://apps.apple.com/app/flowcheck/id6742624701" class="nav-cta">Download</a>
     </div>
-    <button id="nav-menu-btn" aria-label="Menu" aria-expanded="false">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-    </button>
+    <button id="nav-menu-btn" aria-label="Menu" aria-expanded="false"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
   </div>
 </nav>
 
 <section class="page-hero">
-  <div class="page-hero-glow" aria-hidden="true"></div>
   <div class="container" style="position:relative;z-index:1">
-    <div class="section-label reveal">Simple pricing</div>
-    <h1 class="reveal reveal-delay-1">Start free.<br><span class="gradient-text">Upgrade when ready.</span></h1>
-    <p class="reveal reveal-delay-2">No hidden fees. No complicated tiers. Free forever for the basics, Pro for the full picture.</p>
+    <div class="eyebrow reveal">Pricing</div>
+    <h1 class="reveal d1">Simple, honest pricing.</h1>
+    <p class="reveal d2">Free forever for the basics. Pro for the full picture. No hidden fees, no complicated tiers.</p>
   </div>
 </section>
 
-<section class="section" style="padding-top:24px">
+<section class="section" style="padding-top:0">
   <div class="container">
-
-    <!-- Pricing cards -->
-    <div class="pricing-grid reveal">
-      <div class="pricing-card">
-        <div class="pricing-name">Free</div>
-        <div class="pricing-price">$0</div>
-        <div class="pricing-period">Forever free · no card required</div>
-        <ul class="pricing-features">
-          <li><span class="pricing-check">✓</span> 1 bank account</li>
-          <li><span class="pricing-check">✓</span> Full transaction history</li>
-          <li><span class="pricing-check">✓</span> Basic spending overview</li>
-          <li><span class="pricing-check">✓</span> Net worth snapshot</li>
-          <li><span class="pricing-check">✓</span> Secure Face ID lock</li>
-          <li><span class="pricing-x">–</span><span style="color:rgba(255,255,255,.35)">Unlimited accounts</span></li>
-          <li><span class="pricing-x">–</span><span style="color:rgba(255,255,255,.35)">Financial Health Score</span></li>
-          <li><span class="pricing-x">–</span><span style="color:rgba(255,255,255,.35)">AI spending insights</span></li>
-          <li><span class="pricing-x">–</span><span style="color:rgba(255,255,255,.35)">Bill tracking</span></li>
-          <li><span class="pricing-x">–</span><span style="color:rgba(255,255,255,.35)">31-day cash flow forecast</span></li>
+    <div class="pricing-row">
+      <div class="plan reveal">
+        <div class="plan-name">Free</div>
+        <div class="plan-price">$0</div>
+        <div class="plan-period">Forever free · no card required</div>
+        <ul class="plan-features">
+          <li><svg class="plan-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>1 bank account</li>
+          <li><svg class="plan-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Transaction history</li>
+          <li><svg class="plan-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Basic spending overview</li>
+          <li><svg class="plan-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Net worth snapshot</li>
+          <li><svg class="plan-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Face ID security</li>
+          <li><svg class="plan-x" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span class="text-muted">Unlimited accounts</span></li>
+          <li><svg class="plan-x" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span class="text-muted">AI insights</span></li>
+          <li><svg class="plan-x" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span class="text-muted">Financial Health Score</span></li>
+          <li><svg class="plan-x" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span class="text-muted">Bill tracking</span></li>
         </ul>
-        <a href="https://apps.apple.com/app/flowcheck/id6742624701" class="btn btn-ghost pricing-cta">Download Free</a>
+        <a href="https://apps.apple.com/app/flowcheck/id6742624701" class="btn btn-secondary plan-btn">Get started free</a>
       </div>
 
-      <div class="pricing-card pricing-card--pro">
-        <div class="pricing-badge">Best Value · Most Popular</div>
-        <div class="pricing-name">Pro</div>
-        <div class="pricing-price">$34.99<span>/year</span></div>
-        <div class="pricing-period">or $4.99/month · 7-day free trial</div>
-        <ul class="pricing-features">
-          <li><span class="pricing-check">✓</span> Unlimited bank accounts</li>
-          <li><span class="pricing-check">✓</span> Full transaction history</li>
-          <li><span class="pricing-check">✓</span> Financial Health Score</li>
-          <li><span class="pricing-check">✓</span> AI spending insights</li>
-          <li><span class="pricing-check">✓</span> Bill tracking & reminders</li>
-          <li><span class="pricing-check">✓</span> 31-day cash flow forecast</li>
-          <li><span class="pricing-check">✓</span> Smart Debt Payoff Planner</li>
-          <li><span class="pricing-check">✓</span> Net worth milestones</li>
-          <li><span class="pricing-check">✓</span> 50/30/20 Budget Wizard</li>
-          <li><span class="pricing-check">✓</span> Priority support</li>
+      <div class="plan plan--featured reveal d1">
+        <div class="plan-label"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>Most popular</div>
+        <div class="plan-name">Pro</div>
+        <div class="plan-price">$34<sub>.99/yr</sub></div>
+        <div class="plan-period">7-day free trial · or $4.99/month</div>
+        <ul class="plan-features">
+          <li><svg class="plan-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Unlimited bank accounts</li>
+          <li><svg class="plan-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>AI spending insights</li>
+          <li><svg class="plan-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Financial Health Score</li>
+          <li><svg class="plan-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Bill tracking & reminders</li>
+          <li><svg class="plan-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>31-day cash flow forecast</li>
+          <li><svg class="plan-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Smart Debt Payoff Planner</li>
+          <li><svg class="plan-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Net worth milestones</li>
+          <li><svg class="plan-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>50/30/20 Budget Wizard</li>
         </ul>
-        <a href="https://apps.apple.com/app/flowcheck/id6742624701" class="btn btn-primary pricing-cta">Start Free Trial</a>
+        <a href="https://apps.apple.com/app/flowcheck/id6742624701" class="btn btn-primary plan-btn">Start free trial</a>
       </div>
     </div>
+    <p class="text-center text-muted mt-8" style="font-size:12px">Managed by Apple App Store · Cancel anytime in iOS Settings</p>
 
-    <!-- Full comparison table -->
-    <div style="margin-top:72px">
-      <h2 style="text-align:center;margin-bottom:8px" class="reveal">Full feature <span class="gradient-text">comparison</span></h2>
-      <p style="text-align:center;color:var(--muted);margin-bottom:0" class="reveal reveal-delay-1">Everything that's included in each plan</p>
-
+    <!-- Comparison table -->
+    <div style="margin-top:80px">
+      <h2 class="text-center reveal" style="margin-bottom:8px">Full comparison</h2>
       <div style="overflow-x:auto;margin-top:32px" class="reveal">
-        <table class="compare-table">
+        <table class="compare">
           <thead>
             <tr>
               <th>Feature</th>
               <th>Free</th>
-              <th class="compare-head-pro compare-col-pro">Pro</th>
+              <th class="c-th-pro c-pro">Pro</th>
             </tr>
           </thead>
           <tbody>
-            <tr><td colspan="3" style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;padding:20px 20px 8px">Account sync</td></tr>
-            <tr><td>Bank accounts</td><td>1</td><td class="compare-col-pro">Unlimited</td></tr>
-            <tr><td>Real-time transaction sync</td><td class="compare-yes">✓</td><td class="compare-col-pro compare-yes">✓</td></tr>
-            <tr><td>Transaction history</td><td class="compare-yes">✓</td><td class="compare-col-pro compare-yes">✓</td></tr>
-            <tr><td>Net worth tracking</td><td class="compare-yes">✓</td><td class="compare-col-pro compare-yes">✓</td></tr>
-
-            <tr><td colspan="3" style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;padding:20px 20px 8px">AI &amp; insights</td></tr>
-            <tr><td>AI spending insights</td><td class="compare-no">–</td><td class="compare-col-pro compare-yes">✓</td></tr>
-            <tr><td>Financial Health Score</td><td class="compare-no">–</td><td class="compare-col-pro compare-yes">✓</td></tr>
-            <tr><td>Anomaly detection</td><td class="compare-no">–</td><td class="compare-col-pro compare-yes">✓</td></tr>
-            <tr><td>Monthly spending reports</td><td class="compare-no">–</td><td class="compare-col-pro compare-yes">✓</td></tr>
-            <tr><td>50/30/20 Budget Wizard</td><td class="compare-no">–</td><td class="compare-col-pro compare-yes">✓</td></tr>
-
-            <tr><td colspan="3" style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;padding:20px 20px 8px">Planning</td></tr>
-            <tr><td>Bill tracking &amp; reminders</td><td class="compare-no">–</td><td class="compare-col-pro compare-yes">✓</td></tr>
-            <tr><td>31-day cash flow forecast</td><td class="compare-no">–</td><td class="compare-col-pro compare-yes">✓</td></tr>
-            <tr><td>Smart Debt Payoff Planner</td><td class="compare-no">–</td><td class="compare-col-pro compare-yes">✓</td></tr>
-            <tr><td>Goals &amp; savings tracking</td><td class="compare-no">–</td><td class="compare-col-pro compare-yes">✓</td></tr>
-            <tr><td>Net worth milestones</td><td class="compare-no">–</td><td class="compare-col-pro compare-yes">✓</td></tr>
-
-            <tr><td colspan="3" style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;padding:20px 20px 8px">Security</td></tr>
-            <tr><td>Face ID / biometric lock</td><td class="compare-yes">✓</td><td class="compare-col-pro compare-yes">✓</td></tr>
-            <tr><td>256-bit encryption</td><td class="compare-yes">✓</td><td class="compare-col-pro compare-yes">✓</td></tr>
-            <tr><td>Privacy blur overlay</td><td class="compare-yes">✓</td><td class="compare-col-pro compare-yes">✓</td></tr>
+            <tr><td class="cat" colspan="3">Account sync</td></tr>
+            <tr><td>Bank accounts</td><td>1</td><td class="c-pro">Unlimited</td></tr>
+            <tr><td>Real-time sync</td><td class="yes">✓</td><td class="c-pro yes">✓</td></tr>
+            <tr><td>Transaction history</td><td class="yes">✓</td><td class="c-pro yes">✓</td></tr>
+            <tr><td>Net worth tracking</td><td class="yes">✓</td><td class="c-pro yes">✓</td></tr>
+            <tr><td class="cat" colspan="3">AI & insights</td></tr>
+            <tr><td>AI spending insights</td><td class="no">–</td><td class="c-pro yes">✓</td></tr>
+            <tr><td>Financial Health Score</td><td class="no">–</td><td class="c-pro yes">✓</td></tr>
+            <tr><td>Anomaly detection</td><td class="no">–</td><td class="c-pro yes">✓</td></tr>
+            <tr><td>50/30/20 Budget Wizard</td><td class="no">–</td><td class="c-pro yes">✓</td></tr>
+            <tr><td class="cat" colspan="3">Planning</td></tr>
+            <tr><td>Bill tracking & reminders</td><td class="no">–</td><td class="c-pro yes">✓</td></tr>
+            <tr><td>31-day cash flow forecast</td><td class="no">–</td><td class="c-pro yes">✓</td></tr>
+            <tr><td>Smart Debt Payoff Planner</td><td class="no">–</td><td class="c-pro yes">✓</td></tr>
+            <tr><td>Net worth milestones</td><td class="no">–</td><td class="c-pro yes">✓</td></tr>
+            <tr><td class="cat" colspan="3">Security</td></tr>
+            <tr><td>Face ID / biometric lock</td><td class="yes">✓</td><td class="c-pro yes">✓</td></tr>
+            <tr><td>256-bit encryption</td><td class="yes">✓</td><td class="c-pro yes">✓</td></tr>
           </tbody>
         </table>
       </div>
@@ -126,66 +110,56 @@
 
     <!-- FAQ -->
     <div style="margin-top:80px;text-align:center">
-      <div class="section-label reveal">FAQ</div>
-      <h2 class="reveal reveal-delay-1">Common questions</h2>
+      <div class="eyebrow reveal">FAQ</div>
+      <h2 class="reveal d1">Common questions</h2>
     </div>
-    <div class="faq-list">
+    <div class="faq reveal">
       <div class="faq-item">
-        <button class="faq-q">Is the free plan actually free forever? <span class="faq-chevron">↓</span></button>
-        <div class="faq-a">Yes. The free plan has no time limit and no credit card required. You can use FlowCheck with one bank account indefinitely at no cost. We only charge for Pro features.</div>
+        <button class="faq-q">Is the free plan actually free forever? <span class="faq-icon">+</span></button>
+        <div class="faq-a">Yes. No time limit, no credit card required. You can use FlowCheck with one bank account indefinitely at no cost.</div>
       </div>
       <div class="faq-item">
-        <button class="faq-q">What happens after the 7-day trial? <span class="faq-chevron">↓</span></button>
-        <div class="faq-a">After the trial, your subscription begins at the price you selected ($34.99/year or $4.99/month). You'll receive a reminder from Apple before you're charged. You can cancel at any time in your App Store subscription settings.</div>
+        <button class="faq-q">What happens after the 7-day trial? <span class="faq-icon">+</span></button>
+        <div class="faq-a">Your subscription begins at the price you selected. Apple sends a reminder before you're charged. Cancel anytime in iOS Settings → Subscriptions → FlowCheck.</div>
       </div>
       <div class="faq-item">
-        <button class="faq-q">Can I cancel at any time? <span class="faq-chevron">↓</span></button>
-        <div class="faq-a">Yes — cancel anytime through iOS Settings → Your Name → Subscriptions → FlowCheck. You keep Pro access until the end of your billing period, then automatically revert to the free plan.</div>
+        <button class="faq-q">How is payment handled? <span class="faq-icon">+</span></button>
+        <div class="faq-a">All payments go through the Apple App Store. FlowCheck never sees or stores your payment information — Apple handles it entirely.</div>
       </div>
       <div class="faq-item">
-        <button class="faq-q">How is payment processed? <span class="faq-chevron">↓</span></button>
-        <div class="faq-a">All payments go through the Apple App Store. FlowCheck never sees or stores your payment information. Your subscription is managed entirely by Apple.</div>
-      </div>
-      <div class="faq-item">
-        <button class="faq-q">Can I get a refund? <span class="faq-chevron">↓</span></button>
-        <div class="faq-a">Refund requests are handled by Apple directly. You can request a refund at reportaproblem.apple.com. Apple typically processes refunds within 48 hours for recent purchases.</div>
+        <button class="faq-q">Can I get a refund? <span class="faq-icon">+</span></button>
+        <div class="faq-a">Refund requests are handled by Apple at reportaproblem.apple.com. Apple typically processes refunds within 48 hours for recent purchases.</div>
       </div>
     </div>
   </div>
 </section>
 
-<section class="cta-section">
-  <div class="cta-glow" aria-hidden="true"></div>
-  <div class="container" style="position:relative;z-index:1">
-    <h2 class="reveal">Try Pro free<br><span class="gradient-text">for 7 days.</span></h2>
-    <p class="reveal reveal-delay-1">No charge during the trial. Cancel before it ends and you pay nothing.</p>
-    <div class="cta-badges reveal reveal-delay-2">
+<div class="cta-block reveal">
+  <div class="container">
+    <div class="eyebrow">Try it free</div>
+    <h2>Start with Pro,<br>risk-free for 7 days.</h2>
+    <p>No charge during the trial. Cancel before it ends and you pay nothing.</p>
+    <div class="cta-actions">
       <a href="https://apps.apple.com/app/flowcheck/id6742624701" class="btn btn-primary btn-lg">Start Free Trial</a>
     </div>
-    <p style="font-size:12px;color:rgba(255,255,255,.25);margin-top:20px;margin-bottom:0">Managed by Apple App Store · Cancel anytime</p>
+    <p class="text-muted mt-8" style="font-size:12px">Managed by Apple App Store · Cancel anytime</p>
   </div>
-</section>
+</div>
 
-<footer class="footer">
-  <div class="container">
-    <div class="footer-inner">
-      <div class="footer-logo"><div class="nav-logo-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M4 4h16v3H4zm0 6h11v3H4zm0 6h7v3H4z"/></svg></div>FlowCheck</div>
-      <div class="footer-links">
-        <a href="/features">Features</a><a href="/pricing">Pricing</a><a href="/security">Security</a>
-        <a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="mailto:support@getflowcheck.app">Support</a>
-      </div>
-      <div class="footer-copy">© 2025 FlowCheck</div>
-    </div>
-  </div>
-</footer>
+<footer class="footer"><div class="container"><div class="footer-inner">
+  <a href="/" class="footer-logo"><div class="nav-logo-mark"><svg width="13" height="13" viewBox="0 0 24 24" fill="white"><path d="M4 4h16v3H4zm0 6h11v3H4zm0 6h7v3H4z"/></svg></div>FlowCheck</a>
+  <div class="footer-links"><a href="/features">Features</a><a href="/pricing">Pricing</a><a href="/security">Security</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="mailto:support@getflowcheck.app">Support</a></div>
+  <div class="footer-copy">© 2025 FlowCheck</div>
+</div></div></footer>
+
 <script src="/js/site.js"></script>
 <script>
   document.querySelectorAll('.faq-q').forEach(btn => {
     btn.addEventListener('click', () => {
       const item = btn.closest('.faq-item');
-      const wasOpen = item.classList.contains('open');
+      const was = item.classList.contains('open');
       document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('open'));
-      if (!wasOpen) item.classList.add('open');
+      if (!was) item.classList.add('open');
     });
   });
 </script>

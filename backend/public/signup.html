@@ -9,163 +9,115 @@
 </head>
 <body>
 
-<nav class="nav">
+<nav class="nav nav--scrolled">
   <div class="nav-inner">
     <a href="/" class="nav-logo">
-      <div class="nav-logo-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M4 4h16v3H4zm0 6h11v3H4zm0 6h7v3H4z"/></svg></div>
+      <div class="nav-logo-mark"><svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M4 4h16v3H4zm0 6h11v3H4zm0 6h7v3H4z"/></svg></div>
       FlowCheck
     </a>
-    <div class="nav-links" id="nav-links">
-      <a href="/features">Features</a><a href="/pricing">Pricing</a>
-      <a href="https://apps.apple.com/app/flowcheck/id6742624701" class="nav-cta">Download App</a>
+    <div class="nav-right">
+      <a href="/login" class="nav-login">Log in</a>
     </div>
-    <button id="nav-menu-btn" aria-label="Menu" aria-expanded="false">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-    </button>
   </div>
 </nav>
 
-<div class="auth-page">
-  <div class="auth-box">
+<div class="auth-wrap">
+  <div class="auth-card">
     <div class="auth-logo">
-      <div class="nav-logo-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M4 4h16v3H4zm0 6h11v3H4zm0 6h7v3H4z"/></svg></div>
+      <div class="nav-logo-mark"><svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M4 4h16v3H4zm0 6h11v3H4zm0 6h7v3H4z"/></svg></div>
       FlowCheck
     </div>
-    <div class="auth-title">Create your account</div>
-    <div class="auth-sub">Free forever. No credit card required.</div>
+    <h1 class="auth-h">Create your account</h1>
+    <p class="auth-sub">Free forever. No credit card required.</p>
 
     <div id="auth-alert" class="auth-alert" role="alert"></div>
 
-    <button class="auth-social-btn" id="btn-google" style="width:100%;margin-bottom:12px">
+    <button class="social-btn" id="btn-google" style="margin-bottom:14px">
       <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
       Continue with Google
     </button>
 
-    <div class="auth-divider"><span>or</span></div>
+    <div class="auth-or"><span>or</span></div>
 
-    <form class="auth-form" id="signup-form" novalidate>
-      <div class="form-field">
+    <form class="auth-form" id="signup-form" novalidate style="margin-top:14px">
+      <div class="form-group">
         <label class="form-label" for="name">Full name</label>
         <input class="form-input" type="text" id="name" autocomplete="name" placeholder="Your name" required>
       </div>
-      <div class="form-field">
+      <div class="form-group">
         <label class="form-label" for="email">Email</label>
         <input class="form-input" type="email" id="email" autocomplete="email" placeholder="you@example.com" required>
       </div>
-      <div class="form-field">
+      <div class="form-group">
         <label class="form-label" for="password">Password</label>
-        <input class="form-input" type="password" id="password" autocomplete="new-password" placeholder="At least 8 characters" required minlength="8">
+        <input class="form-input" type="password" id="password" autocomplete="new-password" placeholder="At least 8 characters" required>
       </div>
-      <div class="form-field" id="referral-field" style="display:none">
-        <label class="form-label" for="referral">Referral code (optional)</label>
-        <input class="form-input" type="text" id="referral" placeholder="FLOWXXXXXX" style="text-transform:uppercase;letter-spacing:0.08em">
+      <div class="form-group" id="ref-group" style="display:none">
+        <label class="form-label" for="referral">Referral code</label>
+        <input class="form-input" type="text" id="referral" placeholder="FLOWXXXXXX" style="text-transform:uppercase;letter-spacing:0.06em">
       </div>
-      <button type="button" onclick="document.getElementById('referral-field').style.display='block';this.style.display='none'"
-        style="font-size:13px;color:var(--muted);background:none;border:none;padding:0;cursor:pointer;text-align:left;margin-top:-4px">
-        + Have a referral code?
-      </button>
-      <button type="submit" class="auth-submit" id="submit-btn">Create account</button>
+      <button type="button" id="show-ref" style="font-size:13px;color:var(--text-3);background:none;border:none;padding:0;cursor:pointer;text-align:left;font-family:inherit;margin-top:-4px">+ Have a referral code?</button>
+      <button type="submit" class="form-submit" id="submit-btn">Create account</button>
     </form>
 
-    <div class="auth-footer-link">
-      Already have an account? <a href="/login">Log in →</a>
-    </div>
-
-    <p style="font-size:11px;color:var(--faint);text-align:center;margin-top:16px;line-height:1.5">
-      By creating an account you agree to our <a href="/terms" style="color:var(--muted)">Terms</a> and <a href="/privacy" style="color:var(--muted)">Privacy Policy</a>.
-    </p>
+    <div class="auth-link">Already have an account? <a href="/login">Log in →</a></div>
+    <p style="font-size:11px;color:var(--text-3);text-align:center;margin-top:14px;line-height:1.5">By signing up you agree to our <a href="/terms" style="color:var(--text-2)">Terms</a> and <a href="/privacy" style="color:var(--text-2)">Privacy Policy</a>.</p>
   </div>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
 <script>
-  firebase.initializeApp({
-    apiKey:            'AIzaSyBtdCUetv2nRPiaZVt-_TXUtd77wxqLVSw',
-    authDomain:        'flowcheck-46570.firebaseapp.com',
-    projectId:         'flowcheck-46570',
-    storageBucket:     'flowcheck-46570.firebasestorage.app',
-    messagingSenderId: '305596636244',
-    appId:             '1:305596636244:web:75dc2c36fbc8afc9bca1c1',
-  });
+  firebase.initializeApp({ apiKey:'AIzaSyBtdCUetv2nRPiaZVt-_TXUtd77wxqLVSw', authDomain:'flowcheck-46570.firebaseapp.com', projectId:'flowcheck-46570', storageBucket:'flowcheck-46570.firebasestorage.app', messagingSenderId:'305596636244', appId:'1:305596636244:web:75dc2c36fbc8afc9bca1c1' });
   const auth = firebase.auth();
+  auth.onAuthStateChanged(u => { if (u) window.location.href = '/account'; });
 
-  // Pre-fill referral code from URL ?ref= or ?code=
-  (function() {
-    const params = new URLSearchParams(window.location.search);
-    const code = (params.get('code') || params.get('ref') || '').toUpperCase();
-    if (code && /^FLOW[A-Z0-9]{4,8}$/.test(code)) {
-      document.getElementById('referral').value = code;
-      document.getElementById('referral-field').style.display = 'block';
-      const hint = document.querySelector('[onclick*="referral-field"]');
-      if (hint) hint.style.display = 'none';
+  // Pre-fill referral from URL
+  (function(){
+    const p = new URLSearchParams(window.location.search);
+    const c = (p.get('code')||p.get('ref')||'').toUpperCase();
+    if (c && /^FLOW[A-Z0-9]{4,8}$/.test(c)) {
+      document.getElementById('referral').value = c;
+      document.getElementById('ref-group').style.display = 'block';
+      document.getElementById('show-ref').style.display = 'none';
     }
   })();
-
-  auth.onAuthStateChanged(user => {
-    if (user) window.location.href = '/account';
+  document.getElementById('show-ref').addEventListener('click', function(){
+    document.getElementById('ref-group').style.display = 'block';
+    this.style.display = 'none';
+    document.getElementById('referral').focus();
   });
 
-  function showAlert(msg, type) {
-    const el = document.getElementById('auth-alert');
-    el.textContent = msg;
-    el.className = 'auth-alert ' + type;
-  }
+  const alertEl = document.getElementById('auth-alert');
+  function showErr(html) { alertEl.innerHTML = html; alertEl.className = 'auth-alert err'; }
+  function setLoad(v) { const b = document.getElementById('submit-btn'); b.disabled = v; b.textContent = v ? 'Creating account…' : 'Create account'; }
 
-  function setLoading(loading) {
-    const btn = document.getElementById('submit-btn');
-    btn.disabled = loading;
-    btn.textContent = loading ? 'Creating account…' : 'Create account';
-  }
-
-  document.getElementById('signup-form').addEventListener('submit', async (e) => {
+  document.getElementById('signup-form').addEventListener('submit', async e => {
     e.preventDefault();
-    const name     = document.getElementById('name').value.trim();
-    const email    = document.getElementById('email').value.trim();
-    const password = document.getElementById('password').value;
-    const referral = document.getElementById('referral').value.trim().toUpperCase();
-
-    if (!name || !email || !password) return showAlert('Please fill in all fields.', 'error');
-    if (password.length < 8) return showAlert('Password must be at least 8 characters.', 'error');
-
-    setLoading(true);
+    const name = document.getElementById('name').value.trim();
+    const email = document.getElementById('email').value.trim();
+    const pass  = document.getElementById('password').value;
+    const ref   = document.getElementById('referral').value.trim().toUpperCase();
+    if (!name || !email || !pass) return showErr('Please fill in all fields.');
+    if (pass.length < 8) return showErr('Password must be at least 8 characters.');
+    setLoad(true);
     try {
-      const cred = await auth.createUserWithEmailAndPassword(email, password);
-      // Set display name
+      const cred = await auth.createUserWithEmailAndPassword(email, pass);
       await cred.user.updateProfile({ displayName: name });
-      // Apply referral code to backend (non-blocking)
-      if (referral && /^FLOW[A-Z0-9]{4,8}$/.test(referral)) {
+      if (ref && /^FLOW[A-Z0-9]{4,8}$/.test(ref)) {
         cred.user.getIdToken().then(token => {
-          fetch('https://getflowcheck.app/api/referral/apply', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-            body: JSON.stringify({ code: referral }),
-          }).catch(() => {});
-        }).catch(() => {});
+          fetch('https://getflowcheck.app/api/referral/apply', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify({code:ref}) }).catch(()=>{});
+        }).catch(()=>{});
       }
-      // onAuthStateChanged redirects to /account
-    } catch (err) {
-      setLoading(false);
-      const msgs = {
-        'auth/email-already-in-use': 'An account with this email already exists. <a href="/login">Log in instead →</a>',
-        'auth/invalid-email':        'Please enter a valid email address.',
-        'auth/weak-password':        'Password is too weak. Use at least 8 characters.',
-      };
-      showAlert('', 'error');
-      document.getElementById('auth-alert').innerHTML = msgs[err.code] || err.message;
-      document.getElementById('auth-alert').className = 'auth-alert error';
+    } catch(err) {
+      setLoad(false);
+      const m = { 'auth/email-already-in-use':'An account with this email already exists. <a href="/login">Log in instead →</a>', 'auth/invalid-email':'Invalid email address.', 'auth/weak-password':'Password is too weak.' };
+      showErr(m[err.code] || err.message);
     }
   });
-
   document.getElementById('btn-google').addEventListener('click', async () => {
-    try {
-      const provider = new firebase.auth.GoogleAuthProvider();
-      await auth.signInWithPopup(provider);
-    } catch (err) {
-      if (err.code !== 'auth/popup-closed-by-user') {
-        showAlert('Google sign-in failed. Please try again.', 'error');
-      }
-    }
+    try { await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()); }
+    catch(e) { if (e.code !== 'auth/popup-closed-by-user') { alertEl.textContent = 'Google sign-in failed.'; alertEl.className = 'auth-alert err'; } }
   });
 </script>
 <script src="/js/site.js"></script>
