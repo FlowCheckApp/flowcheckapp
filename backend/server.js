@@ -375,7 +375,56 @@ async function requireAuth(req, res, next) {
 }
 
 /* ── Root + Health check ─────────────────────────────────────── */
-app.get('/', (_req, res) => res.json({ name: 'FlowCheck API', status: 'ok', version: '1.0.0' }));
+// Root returns branded HTML so iMessage/social scrapers always see FlowCheck
+// meta tags when the bare domain (getflowcheck.app) is shared.
+app.get('/', (_req, res) => {
+  const ua = req.headers['user-agent'] || '';
+  // Non-browser clients (curl, monitoring, API consumers) get JSON
+  if (!ua.includes('Mozilla') && !ua.includes('facebookexternalhit') &&
+      !ua.includes('Twitterbot') && !ua.includes('LinkedInBot') &&
+      !ua.includes('Slackbot') && !ua.includes('WhatsApp') &&
+      !ua.includes('Discordbot') && !ua.includes('TelegramBot')) {
+    return res.json({ name: 'FlowCheck API', status: 'ok', version: '1.0.0' });
+  }
+  const store = 'https://apps.apple.com/app/flowcheck/id6742624701';
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>FlowCheck — Your financial life, organized.</title>
+  <meta name="description" content="Connect your bank accounts, track spending, and take control of your finances. Free to download.">
+  <meta property="og:title"       content="FlowCheck — Your financial life, organized.">
+  <meta property="og:description" content="Connect your banks, track spending, monitor net worth, and get AI insights — all in one app.">
+  <meta property="og:image"       content="${BACKEND_URL}/flowcheck-icon.png">
+  <meta property="og:url"         content="${BACKEND_URL}">
+  <meta property="og:type"        content="website">
+  <meta property="og:site_name"   content="FlowCheck">
+  <meta name="twitter:card"       content="summary">
+  <meta name="twitter:title"      content="FlowCheck — Your financial life, organized.">
+  <meta name="twitter:image"      content="${BACKEND_URL}/flowcheck-icon.png">
+  <meta name="apple-itunes-app"   content="app-id=6742624701">
+  <style>
+    body{margin:0;background:#060e18;color:#fff;font-family:-apple-system,sans-serif;
+         display:flex;flex-direction:column;align-items:center;justify-content:center;
+         min-height:100vh;text-align:center;padding:32px 24px;box-sizing:border-box}
+    img{width:80px;height:80px;border-radius:20px;margin-bottom:20px;
+        box-shadow:0 8px 28px rgba(26,196,240,0.3)}
+    h1{font-size:24px;font-weight:800;margin:0 0 8px;letter-spacing:-.02em}
+    p{color:rgba(255,255,255,.5);font-size:15px;margin:0 0 28px;max-width:280px;line-height:1.5}
+    a{display:inline-block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;
+      font-weight:700;font-size:16px;padding:14px 32px;border-radius:12px;text-decoration:none}
+  </style>
+</head>
+<body>
+  <img src="/flowcheck-icon.png" alt="FlowCheck">
+  <h1>FlowCheck</h1>
+  <p>Your financial life, organized. Connect your banks, track spending, and grow your net worth.</p>
+  <a href="${store}">Download on the App Store</a>
+</body>
+</html>`);
+});
 app.get('/health', (_req, res) => res.json({ ok: true }));
 app.get('/flowcheck-icon.png', (_req, res) => {
   res.setHeader('Content-Type', 'image/png');
@@ -393,13 +442,19 @@ app.get('/open', (req, res) => {
   const ref    = (req.query.ref || '').replace(/[^a-z0-9_-]/gi, '').slice(0, 64);
   const scheme = `flowcheck://open${ref ? `?ref=${encodeURIComponent(ref)}` : ''}`;
   const store  = 'https://apps.apple.com/app/flowcheck/id6742624701';
-  res.setHeader('Content-Type', 'text/html');
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.send(`<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Opening FlowCheck…</title>
+  <meta property="og:title"  content="FlowCheck — Your financial life, organized.">
+  <meta property="og:image"  content="${BACKEND_URL}/flowcheck-icon.png">
+  <meta property="og:url"    content="${BACKEND_URL}/open">
+  <meta name="twitter:card"  content="summary">
+  <meta name="twitter:image" content="${BACKEND_URL}/flowcheck-icon.png">
+  <meta name="apple-itunes-app" content="app-id=6742624701, app-argument=${scheme}">
   <style>
     body{margin:0;background:#060e18;color:#fff;font-family:-apple-system,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;text-align:center;padding:20px;box-sizing:border-box}
     .logo{display:block;width:72px;height:72px;border-radius:18px;margin:0 auto 20px;box-shadow:0 8px 28px rgba(26,196,240,0.3)}
@@ -502,14 +557,14 @@ app.get('/invite/:code', async (req, res) => {
   <!-- Open Graph — rich previews in iMessage, Twitter, Slack, etc. -->
   <meta property="og:title"       content="${ogTitle}">
   <meta property="og:description" content="${ogDesc}">
-  <meta property="og:image"       content="${BACKEND_URL}/og-invite.png">
+  <meta property="og:image"       content="${BACKEND_URL}/flowcheck-icon.png">
   <meta property="og:url"         content="${inviteUrl}">
   <meta property="og:type"        content="website">
   <meta property="og:site_name"   content="FlowCheck">
   <meta name="twitter:card"        content="summary_large_image">
   <meta name="twitter:title"       content="${ogTitle}">
   <meta name="twitter:description" content="${ogDesc}">
-  <meta name="twitter:image"       content="${BACKEND_URL}/og-invite.png">
+  <meta name="twitter:image"       content="${BACKEND_URL}/flowcheck-icon.png">
 
   <!-- Apple Smart App Banner — shows native "Open" prompt in Safari -->
   <meta name="apple-itunes-app" content="app-id=6742624701, app-argument=${appScheme}">
