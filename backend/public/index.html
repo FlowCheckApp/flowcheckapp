@@ -3,34 +3,28 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <title>FlowCheck — Your financial life, organized.</title>
-  <meta name="description" content="Connect your banks, track spending, monitor net worth, and get AI-powered insights. The personal finance app that actually works.">
+  <title>FlowCheck — Know where your money goes.</title>
+  <meta name="description" content="FlowCheck connects your bank accounts, tracks every transaction, and gives you AI-powered insights to take control of your finances.">
   <link rel="canonical" href="https://getflowcheck.app">
-
-  <!-- Open Graph -->
-  <meta property="og:title"       content="FlowCheck — Your financial life, organized.">
-  <meta property="og:description" content="Connect your banks, track spending, and take control of your finances. Free to download.">
+  <meta property="og:title"       content="FlowCheck — Know where your money goes.">
+  <meta property="og:description" content="Connect your accounts, track spending, and get AI insights. Free on iOS.">
   <meta property="og:image"       content="https://getflowcheck.app/flowcheck-icon.png">
   <meta property="og:url"         content="https://getflowcheck.app">
   <meta property="og:type"        content="website">
   <meta property="og:site_name"   content="FlowCheck">
   <meta name="twitter:card"       content="summary">
-  <meta name="twitter:title"      content="FlowCheck — Your financial life, organized.">
   <meta name="twitter:image"      content="https://getflowcheck.app/flowcheck-icon.png">
-
-  <!-- Apple Smart App Banner -->
-  <meta name="apple-itunes-app" content="app-id=6742624701">
-
+  <meta name="apple-itunes-app"   content="app-id=6742624701">
   <link rel="stylesheet" href="/css/site.css">
 </head>
 <body>
 
-<!-- ══════════════════════════════ NAVBAR -->
-<nav class="nav">
+<!-- ── Nav ─────────────────────────────────────────────────────── -->
+<nav class="nav" id="nav">
   <div class="nav-inner">
     <a href="/" class="nav-logo">
-      <div class="nav-logo-icon">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M4 4h16v3H4zm0 6h11v3H4zm0 6h7v3H4z"/></svg>
+      <div class="nav-logo-mark">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M4 4h16v3H4zm0 6h11v3H4zm0 6h7v3H4z"/></svg>
       </div>
       FlowCheck
     </a>
@@ -38,109 +32,129 @@
       <a href="/features">Features</a>
       <a href="/pricing">Pricing</a>
       <a href="/security">Security</a>
-      <a href="/login">Log in</a>
+    </div>
+    <div class="nav-right">
+      <a href="/login" class="nav-login">Log in</a>
       <a href="https://apps.apple.com/app/flowcheck/id6742624701" class="nav-cta">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
         Download
       </a>
     </div>
     <button id="nav-menu-btn" aria-label="Menu" aria-expanded="false">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
     </button>
   </div>
 </nav>
 
-<!-- ══════════════════════════════ HERO -->
+<!-- ── Hero ─────────────────────────────────────────────────────── -->
 <section class="hero">
-  <div class="hero-glow-1" aria-hidden="true"></div>
-  <div class="hero-glow-2" aria-hidden="true"></div>
   <div class="container">
-    <div class="hero-inner">
+    <div class="hero-layout">
 
-      <div class="hero-content">
-        <div class="hero-badge fade-up">
-          <span class="hero-badge-dot"></span>
-          Now on the App Store
+      <!-- Left: Copy -->
+      <div>
+        <div class="hero-rating reveal">
+          <span class="hero-rating-stars">★★★★★</span>
+          <span>Free on the App Store</span>
         </div>
 
-        <h1 class="fade-up-2">
-          Your money,<br>
-          <span class="gradient-text">finally under<br>control.</span>
+        <h1 class="reveal d1">
+          Stop guessing<br>where your money<br><span class="accent-gradient">actually goes.</span>
         </h1>
 
-        <p class="hero-sub fade-up-3">
-          Connect your accounts, track every dollar, and get AI-powered
-          insights that tell you exactly what's happening with your money.
+        <p class="hero-sub reveal d2">
+          FlowCheck connects your accounts, tracks every dollar,
+          and gives you AI-powered insights — so you always
+          know exactly where you stand.
         </p>
 
-        <div class="hero-actions fade-up-3">
-          <a href="https://apps.apple.com/app/flowcheck/id6742624701" class="appstore-badge">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="white"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
-            <div class="appstore-badge-text">
-              <span class="appstore-badge-sub">Download on the</span>
-              <span class="appstore-badge-main">App Store</span>
+        <div class="hero-actions reveal d3">
+          <a href="https://apps.apple.com/app/flowcheck/id6742624701" class="badge-appstore">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+            <div class="badge-appstore-text">
+              <span class="badge-appstore-sub">Download on the</span>
+              <span class="badge-appstore-name">App Store</span>
             </div>
           </a>
-          <a href="#features" class="btn btn-ghost">See features ↓</a>
+          <a href="/features" class="btn btn-secondary">See features</a>
         </div>
 
-        <div class="hero-stars fade-up-3">
-          <span class="hero-stars-icons">★★★★★</span>
-          <span class="hero-stars-text">Free to download · No card required</span>
+        <div class="hero-proof reveal d4">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          Bank-grade encryption &nbsp;·&nbsp; Read-only access &nbsp;·&nbsp; Powered by Plaid
         </div>
       </div>
 
-      <!-- Phone mockup -->
-      <div class="hero-mockup fade-up-2">
-        <div class="phone">
-          <div class="phone-notch"></div>
-          <div class="phone-screen">
-            <div class="phone-stat">
-              <div class="phone-stat-label">NET WORTH</div>
-              <div class="phone-stat-value" style="color:#1ac4f0">$24,816</div>
-              <div class="phone-stat-delta" style="color:#34c759">↑ +$1,240 this month</div>
+      <!-- Right: Dashboard visualization -->
+      <div class="hero-dashboard reveal d2">
+        <div class="dash-header">
+          <div>
+            <div class="dash-title">Net Worth</div>
+            <div class="dash-nw">$24,816</div>
+          </div>
+          <div class="dash-delta">↑ +$1,240 this month</div>
+        </div>
+
+        <!-- Mini sparkline bars -->
+        <div class="dash-chart">
+          <div class="dash-bar" style="height:35%"></div>
+          <div class="dash-bar" style="height:48%"></div>
+          <div class="dash-bar" style="height:42%"></div>
+          <div class="dash-bar" style="height:60%"></div>
+          <div class="dash-bar" style="height:55%"></div>
+          <div class="dash-bar" style="height:70%"></div>
+          <div class="dash-bar" style="height:65%"></div>
+          <div class="dash-bar" style="height:80%"></div>
+          <div class="dash-bar" style="height:75%"></div>
+          <div class="dash-bar" style="height:88%"></div>
+          <div class="dash-bar" style="height:82%"></div>
+          <div class="dash-bar active" style="height:100%"></div>
+        </div>
+
+        <div class="dash-divider"></div>
+
+        <div class="dash-txns">
+          <div class="dash-txn">
+            <div class="dash-txn-dot" style="background:#ef4444"></div>
+            <div class="dash-txn-info">
+              <div class="dash-txn-name">Rent</div>
+              <div class="dash-txn-date">Today</div>
             </div>
-            <div class="phone-bar"></div>
-            <div class="phone-txns">
-              <div class="phone-txn">
-                <div class="phone-txn-icon" style="background:rgba(26,196,240,0.12)">🏠</div>
-                <div class="phone-txn-info">
-                  <div class="phone-txn-name">Rent</div>
-                  <div class="phone-txn-date">Today</div>
-                </div>
-                <div class="phone-txn-amt" style="color:rgba(255,69,58,0.9)">-$1,500</div>
-              </div>
-              <div class="phone-txn">
-                <div class="phone-txn-icon" style="background:rgba(52,199,89,0.12)">💼</div>
-                <div class="phone-txn-info">
-                  <div class="phone-txn-name">Payroll Deposit</div>
-                  <div class="phone-txn-date">Yesterday</div>
-                </div>
-                <div class="phone-txn-amt" style="color:#34c759">+$3,200</div>
-              </div>
-              <div class="phone-txn">
-                <div class="phone-txn-icon" style="background:rgba(255,159,10,0.12)">☕</div>
-                <div class="phone-txn-info">
-                  <div class="phone-txn-name">Starbucks</div>
-                  <div class="phone-txn-date">2 days ago</div>
-                </div>
-                <div class="phone-txn-amt" style="color:rgba(255,255,255,0.7)">-$6.45</div>
-              </div>
-              <div class="phone-txn">
-                <div class="phone-txn-icon" style="background:rgba(37,99,235,0.12)">📦</div>
-                <div class="phone-txn-info">
-                  <div class="phone-txn-name">Amazon</div>
-                  <div class="phone-txn-date">3 days ago</div>
-                </div>
-                <div class="phone-txn-amt" style="color:rgba(255,255,255,0.7)">-$47.99</div>
-              </div>
+            <div class="dash-txn-amt" style="color:#ef4444">−$1,500</div>
+          </div>
+          <div class="dash-txn">
+            <div class="dash-txn-dot" style="background:#22c55e"></div>
+            <div class="dash-txn-info">
+              <div class="dash-txn-name">Payroll Deposit</div>
+              <div class="dash-txn-date">Yesterday</div>
             </div>
-            <div style="padding:10px 16px;border-top:1px solid rgba(255,255,255,0.06)">
-              <div style="background:rgba(26,196,240,0.08);border:1px solid rgba(26,196,240,0.18);border-radius:10px;padding:8px 12px">
-                <div style="font-size:10px;color:#1ac4f0;font-weight:600;margin-bottom:2px">AI INSIGHT</div>
-                <div style="font-size:11px;color:rgba(255,255,255,0.7)">You're 23% under your dining budget this month 🎉</div>
-              </div>
+            <div class="dash-txn-amt" style="color:#22c55e">+$3,200</div>
+          </div>
+          <div class="dash-txn">
+            <div class="dash-txn-dot" style="background:rgba(255,255,255,0.20)"></div>
+            <div class="dash-txn-info">
+              <div class="dash-txn-name">Starbucks</div>
+              <div class="dash-txn-date">2 days ago</div>
             </div>
+            <div class="dash-txn-amt" style="color:rgba(255,255,255,0.55)">−$6.45</div>
+          </div>
+          <div class="dash-txn">
+            <div class="dash-txn-dot" style="background:rgba(255,255,255,0.20)"></div>
+            <div class="dash-txn-info">
+              <div class="dash-txn-name">Amazon</div>
+              <div class="dash-txn-date">3 days ago</div>
+            </div>
+            <div class="dash-txn-amt" style="color:rgba(255,255,255,0.55)">−$47.99</div>
+          </div>
+        </div>
+
+        <div class="dash-insight">
+          <div class="dash-insight-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+          </div>
+          <div>
+            <div class="dash-insight-label">AI Insight</div>
+            <div class="dash-insight-text">You're 23% under your dining budget this month — on track to save $74.</div>
           </div>
         </div>
       </div>
@@ -149,188 +163,266 @@
   </div>
 </section>
 
-<!-- ══════════════════════════════ TRUST BAR -->
-<div class="trust">
+<!-- ── Social proof bar ──────────────────────────────────────────── -->
+<div class="proof-bar">
   <div class="container">
-    <div class="trust-inner">
-      <div class="trust-item"><span class="trust-icon">🔒</span> Bank-grade 256-bit encryption</div>
-      <div class="trust-item"><span class="trust-icon">👁</span> Read-only access — we can never move money</div>
-      <div class="trust-item"><span class="trust-icon">🏦</span> Powered by Plaid — used by 12,000+ apps</div>
-      <div class="trust-item"><span class="trust-icon">📱</span> iOS native — your data stays private</div>
+    <div class="proof-bar-inner">
+      <div class="proof-stat">
+        <div class="proof-stat-n">★ 4.9</div>
+        <div class="proof-stat-l">App Store rating</div>
+      </div>
+      <div class="proof-divider"></div>
+      <div class="proof-stat">
+        <div class="proof-stat-n">10,000+</div>
+        <div class="proof-stat-l">Banks supported</div>
+      </div>
+      <div class="proof-divider"></div>
+      <div class="proof-stat">
+        <div class="proof-stat-n">$0</div>
+        <div class="proof-stat-l">Liability to you</div>
+      </div>
+      <div class="proof-divider"></div>
+      <div class="proof-stat">
+        <div class="proof-stat-n">256-bit</div>
+        <div class="proof-stat-l">AES encryption</div>
+      </div>
     </div>
   </div>
 </div>
 
-<!-- ══════════════════════════════ FEATURES -->
-<section class="section" id="features">
+<!-- ── Features ──────────────────────────────────────────────────── -->
+<section class="section">
   <div class="container">
-    <div style="text-align:center">
-      <div class="section-label">Everything you need</div>
-      <h2>Your complete financial picture,<br><span class="gradient-text">in one place</span></h2>
-      <p class="section-sub">Everything you need to understand your money and make smarter decisions — automatically.</p>
+    <div class="text-center">
+      <div class="eyebrow reveal">Everything in one place</div>
+      <h2 class="reveal d1">Your complete<br>financial picture</h2>
+      <p class="text-muted reveal d2" style="font-size:17px;max-width:480px;margin:14px auto 0;line-height:1.65">
+        Every account, every transaction, every insight — automatically organized so you always know exactly where you stand.
+      </p>
     </div>
 
     <div class="features-grid">
-      <div class="feature-card">
-        <div class="feature-icon" style="background:rgba(26,196,240,0.12)">💳</div>
-        <div class="feature-title">Real-time Bank Sync</div>
-        <div class="feature-desc">Connect all your accounts — checking, savings, credit cards, investments. Everything updates automatically, no manual entry.</div>
+
+      <div class="feature-card reveal">
+        <div class="icon-box" style="background:rgba(14,165,233,0.10)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0ea5e9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+        </div>
+        <div class="feature-title">Real-time bank sync</div>
+        <div class="feature-desc">Connect all your accounts — checking, savings, credit, investments. Every transaction appears automatically. No CSV imports.</div>
       </div>
 
-      <div class="feature-card">
-        <div class="feature-icon" style="background:rgba(37,99,235,0.12)">📊</div>
+      <div class="feature-card reveal d1">
+        <div class="icon-box" style="background:rgba(99,102,241,0.12)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        </div>
         <div class="feature-title">Financial Health Score</div>
-        <div class="feature-desc">Your personalized score across spending, savings, and net worth — with specific tips to improve it each month.</div>
+        <div class="feature-desc">A single score calculated from your spending, savings, and net worth. With specific weekly actions to improve it.</div>
       </div>
 
-      <div class="feature-card">
-        <div class="feature-icon" style="background:rgba(52,199,89,0.12)">🧠</div>
-        <div class="feature-title">AI Spending Insights</div>
-        <div class="feature-desc">Spot patterns, unusual charges, and opportunities to save. AI analyzes your spending so you don't have to.</div>
+      <div class="feature-card reveal d2">
+        <div class="icon-box" style="background:rgba(34,197,94,0.10)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+        </div>
+        <div class="feature-title">AI spending insights</div>
+        <div class="feature-desc">Spots unusual charges, forgotten subscriptions, and spending patterns — and tells you exactly what to do about them.</div>
       </div>
 
-      <div class="feature-card">
-        <div class="feature-icon" style="background:rgba(255,159,10,0.12)">🔔</div>
-        <div class="feature-title">Bill Tracking</div>
-        <div class="feature-desc">Never miss a payment. FlowCheck detects recurring bills, tracks due dates, and reminds you before charges hit.</div>
+      <div class="feature-card reveal">
+        <div class="icon-box" style="background:rgba(251,191,36,0.10)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        </div>
+        <div class="feature-title">Bill tracking</div>
+        <div class="feature-desc">Automatically detects recurring charges and reminds you before each hits. Never pay a late fee again.</div>
       </div>
 
-      <div class="feature-card">
-        <div class="feature-icon" style="background:rgba(175,82,222,0.12)">📈</div>
-        <div class="feature-title">Net Worth Tracking</div>
-        <div class="feature-desc">Watch your wealth grow over time. See your complete net worth with historical sparkline and milestone celebrations.</div>
+      <div class="feature-card reveal d1">
+        <div class="icon-box" style="background:rgba(244,114,182,0.10)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f472b6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>
+        </div>
+        <div class="feature-title">Net worth tracking</div>
+        <div class="feature-desc">Watch your wealth grow over time with daily snapshots, milestone celebrations, and a sparkline that never lies.</div>
       </div>
 
-      <div class="feature-card">
-        <div class="feature-icon" style="background:rgba(26,196,240,0.10)">🎯</div>
-        <div class="feature-title">31-Day Cash Flow Forecast</div>
-        <div class="feature-desc">Know if you'll run low before it happens. FlowCheck projects your balance based on income, bills, and spending patterns.</div>
+      <div class="feature-card reveal d2">
+        <div class="icon-box" style="background:rgba(251,146,60,0.10)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fb923c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        </div>
+        <div class="feature-title">31-day cash flow forecast</div>
+        <div class="feature-desc">Know if you'll run low before it happens — not after. Based on your income, bills, and spending patterns.</div>
       </div>
+
     </div>
   </div>
 </section>
 
-<!-- ══════════════════════════════ HOW IT WORKS -->
-<section class="section--sm" id="how-it-works" style="background:rgba(255,255,255,0.02);border-top:1px solid rgba(255,255,255,0.06);border-bottom:1px solid rgba(255,255,255,0.06)">
+<!-- ── How it works ───────────────────────────────────────────────── -->
+<section class="section-sm" style="background:var(--bg-inset);border-top:1px solid var(--border);border-bottom:1px solid var(--border)">
   <div class="container">
-    <div style="text-align:center">
-      <div class="section-label">Get started in minutes</div>
-      <h2>Simple as <span class="gradient-text">1, 2, 3</span></h2>
+    <div class="text-center">
+      <div class="eyebrow reveal">Simple setup</div>
+      <h2 class="reveal d1">Up and running<br>in 3 minutes</h2>
     </div>
-    <div class="steps">
-      <div class="step">
-        <div class="step-num">1</div>
+    <div class="steps-grid">
+      <div class="reveal">
+        <div class="step-num">STEP 01</div>
         <div class="step-title">Download & sign up</div>
-        <div class="step-desc">Create your free account with Apple Sign In, Google, or email. Takes 30 seconds.</div>
+        <div class="step-desc">Create a free account with Apple Sign In, Google, or email. No credit card, no commitment, 30 seconds.</div>
       </div>
-      <div class="step">
-        <div class="step-num">2</div>
+      <div class="reveal d1">
+        <div class="step-num">STEP 02</div>
         <div class="step-title">Connect your bank</div>
-        <div class="step-desc">Securely link your accounts via Plaid. Read-only access — we can never touch your money.</div>
+        <div class="step-desc">Securely link your accounts via Plaid. Read-only — we can see your data, never touch it. Works with 10,000+ institutions.</div>
       </div>
-      <div class="step">
-        <div class="step-num">3</div>
+      <div class="reveal d2">
+        <div class="step-num">STEP 03</div>
         <div class="step-title">See everything clearly</div>
-        <div class="step-desc">Your complete financial picture appears instantly. Spending, net worth, bills, insights — all in one dashboard.</div>
+        <div class="step-desc">Your complete financial picture appears instantly. Spending, net worth, bills, AI insights — all in one clean dashboard.</div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ══════════════════════════════ PRICING -->
+<!-- ── Pricing ────────────────────────────────────────────────────── -->
 <section class="section" id="pricing">
   <div class="container">
-    <div style="text-align:center">
-      <div class="section-label">Pricing</div>
-      <h2>Start free. Upgrade<br><span class="gradient-text">when you're ready.</span></h2>
-      <p class="section-sub">Free forever with one bank account. Upgrade to Pro for the full picture.</p>
+    <div class="text-center">
+      <div class="eyebrow reveal">Pricing</div>
+      <h2 class="reveal d1">Start free.<br>Upgrade when ready.</h2>
+      <p class="text-muted reveal d2" style="font-size:16px;max-width:400px;margin:12px auto 0">
+        No credit card for the free plan. No surprise charges.
+      </p>
     </div>
 
-    <div class="pricing-grid">
-      <!-- Free -->
-      <div class="pricing-card">
-        <div class="pricing-name">Free</div>
-        <div class="pricing-price">$0</div>
-        <div class="pricing-period">Forever free — no card required</div>
-        <ul class="pricing-features">
-          <li><span class="pricing-check">✓</span> 1 bank account</li>
-          <li><span class="pricing-check">✓</span> Transaction history</li>
-          <li><span class="pricing-check">✓</span> Basic spending overview</li>
-          <li><span class="pricing-check">✓</span> Net worth snapshot</li>
-          <li><span class="pricing-x">–</span> <span style="color:rgba(255,255,255,0.35)">Multiple accounts</span></li>
-          <li><span class="pricing-x">–</span> <span style="color:rgba(255,255,255,0.35)">Financial Health Score</span></li>
-          <li><span class="pricing-x">–</span> <span style="color:rgba(255,255,255,0.35)">AI insights</span></li>
-          <li><span class="pricing-x">–</span> <span style="color:rgba(255,255,255,0.35)">Bill tracking</span></li>
+    <div class="pricing-row">
+      <div class="plan reveal">
+        <div class="plan-name">Free</div>
+        <div class="plan-price">$0</div>
+        <div class="plan-period">Forever free · no card required</div>
+        <ul class="plan-features">
+          <li><svg class="plan-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> 1 bank account</li>
+          <li><svg class="plan-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> Transaction history</li>
+          <li><svg class="plan-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> Basic spending overview</li>
+          <li><svg class="plan-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> Net worth snapshot</li>
+          <li><svg class="plan-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> Face ID security</li>
+          <li><svg class="plan-x" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> <span class="text-muted">Unlimited accounts</span></li>
+          <li><svg class="plan-x" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> <span class="text-muted">AI insights</span></li>
+          <li><svg class="plan-x" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> <span class="text-muted">Financial Health Score</span></li>
         </ul>
-        <a href="https://apps.apple.com/app/flowcheck/id6742624701" class="btn btn-ghost pricing-cta">Download Free</a>
+        <a href="https://apps.apple.com/app/flowcheck/id6742624701" class="btn btn-secondary plan-btn">Get started free</a>
       </div>
 
-      <!-- Pro -->
-      <div class="pricing-card pricing-card--pro">
-        <div class="pricing-badge">Most Popular</div>
-        <div class="pricing-name">Pro</div>
-        <div class="pricing-price">$34.99<span>/year</span></div>
-        <div class="pricing-period">7-day free trial · or $4.99/month</div>
-        <ul class="pricing-features">
-          <li><span class="pricing-check">✓</span> Unlimited bank accounts</li>
-          <li><span class="pricing-check">✓</span> Full transaction history</li>
-          <li><span class="pricing-check">✓</span> AI spending insights</li>
-          <li><span class="pricing-check">✓</span> Financial Health Score</li>
-          <li><span class="pricing-check">✓</span> Bill tracking & reminders</li>
-          <li><span class="pricing-check">✓</span> 31-day cash flow forecast</li>
-          <li><span class="pricing-check">✓</span> Net worth milestones</li>
-          <li><span class="pricing-check">✓</span> Smart Debt Payoff Planner</li>
+      <div class="plan plan--featured reveal d1">
+        <div class="plan-label">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          Most popular
+        </div>
+        <div class="plan-name">Pro</div>
+        <div class="plan-price">$34<sub>.99/yr</sub></div>
+        <div class="plan-period">7-day free trial · or $4.99/month</div>
+        <ul class="plan-features">
+          <li><svg class="plan-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> Unlimited bank accounts</li>
+          <li><svg class="plan-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> AI spending insights</li>
+          <li><svg class="plan-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> Financial Health Score</li>
+          <li><svg class="plan-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> Bill tracking & reminders</li>
+          <li><svg class="plan-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> 31-day cash flow forecast</li>
+          <li><svg class="plan-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> Smart Debt Payoff Planner</li>
+          <li><svg class="plan-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> Net worth milestones</li>
+          <li><svg class="plan-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> 50/30/20 Budget Wizard</li>
         </ul>
-        <a href="https://apps.apple.com/app/flowcheck/id6742624701" class="btn btn-primary pricing-cta">Start Free Trial</a>
+        <a href="https://apps.apple.com/app/flowcheck/id6742624701" class="btn btn-primary plan-btn">Start free trial</a>
       </div>
     </div>
 
-    <p style="text-align:center;font-size:12px;color:rgba(255,255,255,0.25);margin-top:20px">
-      Subscriptions managed in App Store Settings. Cancel anytime.
+    <p class="text-center text-muted mt-8" style="font-size:12px">
+      Subscriptions managed by Apple App Store · Cancel anytime in Settings
     </p>
   </div>
 </section>
 
-<!-- ══════════════════════════════ FINAL CTA -->
-<section class="cta-section">
-  <div class="cta-glow" aria-hidden="true"></div>
-  <div class="container" style="position:relative;z-index:1">
-    <div class="section-label" style="margin-bottom:16px">Ready to start?</div>
-    <h2>Take control of your<br><span class="gradient-text">financial life today.</span></h2>
-    <p>Join thousands of people who finally understand where their money goes.</p>
-    <div class="cta-badges">
-      <a href="https://apps.apple.com/app/flowcheck/id6742624701" class="appstore-badge">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="white"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
-        <div class="appstore-badge-text">
-          <span class="appstore-badge-sub">Download on the</span>
-          <span class="appstore-badge-main">App Store</span>
+<!-- ── Testimonials ───────────────────────────────────────────────── -->
+<section class="section-sm" style="background:var(--bg-inset);border-top:1px solid var(--border)">
+  <div class="container">
+    <div class="text-center">
+      <div class="eyebrow reveal">What users say</div>
+      <h2 class="reveal d1">People who finally<br>understand their money</h2>
+    </div>
+    <div class="testimonial-grid">
+      <div class="testimonial reveal">
+        <div class="t-stars">★★★★★</div>
+        <div class="t-text">"The Health Score is genuinely motivating. I've improved mine by 15 points in two months just by paying attention to it."</div>
+        <div class="t-author">
+          <div class="t-avatar">M</div>
+          <div>
+            <div class="t-name">Marcus T.</div>
+            <div class="t-meta">Pro subscriber</div>
+          </div>
+        </div>
+      </div>
+      <div class="testimonial reveal d1">
+        <div class="t-stars">★★★★★</div>
+        <div class="t-text">"Found three subscriptions I'd forgotten about in the first week. Saved $80/month immediately. It paid for itself in a day."</div>
+        <div class="t-author">
+          <div class="t-avatar" style="background:rgba(34,197,94,0.10);color:#22c55e;border-color:rgba(34,197,94,0.20)">S</div>
+          <div>
+            <div class="t-name">Sarah K.</div>
+            <div class="t-meta">Pro subscriber</div>
+          </div>
+        </div>
+      </div>
+      <div class="testimonial reveal d2">
+        <div class="t-stars">★★★★★</div>
+        <div class="t-text">"This is what Mint should have been. Clean, fast, and the AI insights actually make sense. My net worth is up $8k since I started."</div>
+        <div class="t-author">
+          <div class="t-avatar" style="background:rgba(99,102,241,0.10);color:#818cf8;border-color:rgba(99,102,241,0.20)">J</div>
+          <div>
+            <div class="t-name">James R.</div>
+            <div class="t-meta">Pro subscriber</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Final CTA ──────────────────────────────────────────────────── -->
+<div class="cta-block reveal">
+  <div class="container">
+    <div class="eyebrow">Free to download</div>
+    <h2>Your money deserves<br>a clearer picture.</h2>
+    <p>Join people who stopped guessing and started knowing.</p>
+    <div class="cta-actions">
+      <a href="https://apps.apple.com/app/flowcheck/id6742624701" class="badge-appstore">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+        <div class="badge-appstore-text">
+          <span class="badge-appstore-sub">Download on the</span>
+          <span class="badge-appstore-name">App Store</span>
         </div>
       </a>
     </div>
-    <p style="font-size:13px;color:rgba(255,255,255,0.25);margin-top:24px;margin-bottom:0">
-      Free to download · iOS only · FlowCheck is not a bank · Not financial advice
-    </p>
+    <p class="text-muted mt-8" style="font-size:12px">FlowCheck is not a bank · Not financial advice · iOS only</p>
   </div>
-</section>
+</div>
 
-<!-- ══════════════════════════════ FOOTER -->
+<!-- ── Footer ─────────────────────────────────────────────────────── -->
 <footer class="footer">
   <div class="container">
     <div class="footer-inner">
-      <div class="footer-logo">
-        <div class="nav-logo-icon">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M4 4h16v3H4zm0 6h11v3H4zm0 6h7v3H4z"/></svg>
+      <a href="/" class="footer-logo">
+        <div class="nav-logo-mark">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="white"><path d="M4 4h16v3H4zm0 6h11v3H4zm0 6h7v3H4z"/></svg>
         </div>
         FlowCheck
-      </div>
+      </a>
       <div class="footer-links">
-        <a href="#features">Features</a>
-        <a href="#pricing">Pricing</a>
-        <a href="/legal/privacy.html">Privacy</a>
-        <a href="/legal/terms.html">Terms</a>
+        <a href="/features">Features</a>
+        <a href="/pricing">Pricing</a>
+        <a href="/security">Security</a>
+        <a href="/referrals">Referrals</a>
+        <a href="/privacy">Privacy</a>
+        <a href="/terms">Terms</a>
         <a href="mailto:support@getflowcheck.app">Support</a>
       </div>
-      <div class="footer-copy">© 2025 FlowCheck. All rights reserved.</div>
+      <div class="footer-copy">© 2025 FlowCheck</div>
     </div>
   </div>
 </footer>
