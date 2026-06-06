@@ -195,9 +195,16 @@ const app = express();
 app.set('trust proxy', 1); // Railway / Render sit behind a reverse proxy
 
 // ── Response compression ───────────────────────────────────────
-// Gzip/deflate all JSON responses — meaningful savings on sync
-// payloads with hundreds of transactions.
 app.use(compression());
+
+// ── Static website files (public/) ────────────────────────────
+// Serves the marketing website: CSS, JS, images.
+// The root / route is handled explicitly below (user-agent check).
+// This must come before the API routes so assets resolve first.
+app.use(express.static(path.join(__dirname, 'public'), {
+  maxAge: '1h',
+  index:  false,   // root handled by explicit GET / route
+}));
 
 // ── Security headers (Helmet) ──────────────────────────────────
 // Removes X-Powered-By, adds HSTS, X-Frame-Options, X-Content-Type,
@@ -377,53 +384,17 @@ async function requireAuth(req, res, next) {
 /* ── Root + Health check ─────────────────────────────────────── */
 // Root returns branded HTML so iMessage/social scrapers always see FlowCheck
 // meta tags when the bare domain (getflowcheck.app) is shared.
-app.get('/', (_req, res) => {
+app.get('/', (req, res) => {
   const ua = req.headers['user-agent'] || '';
   // Non-browser clients (curl, monitoring, API consumers) get JSON
+  // Non-browser API clients get JSON; browsers and social scrapers get the website
   if (!ua.includes('Mozilla') && !ua.includes('facebookexternalhit') &&
       !ua.includes('Twitterbot') && !ua.includes('LinkedInBot') &&
       !ua.includes('Slackbot') && !ua.includes('WhatsApp') &&
       !ua.includes('Discordbot') && !ua.includes('TelegramBot')) {
     return res.json({ name: 'FlowCheck API', status: 'ok', version: '1.0.0' });
   }
-  const store = 'https://apps.apple.com/app/flowcheck/id6742624701';
-  res.setHeader('Content-Type', 'text/html; charset=utf-8');
-  res.send(`<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>FlowCheck — Your financial life, organized.</title>
-  <meta name="description" content="Connect your bank accounts, track spending, and take control of your finances. Free to download.">
-  <meta property="og:title"       content="FlowCheck — Your financial life, organized.">
-  <meta property="og:description" content="Connect your banks, track spending, monitor net worth, and get AI insights — all in one app.">
-  <meta property="og:image"       content="${BACKEND_URL}/flowcheck-icon.png">
-  <meta property="og:url"         content="${BACKEND_URL}">
-  <meta property="og:type"        content="website">
-  <meta property="og:site_name"   content="FlowCheck">
-  <meta name="twitter:card"       content="summary">
-  <meta name="twitter:title"      content="FlowCheck — Your financial life, organized.">
-  <meta name="twitter:image"      content="${BACKEND_URL}/flowcheck-icon.png">
-  <meta name="apple-itunes-app"   content="app-id=6742624701">
-  <style>
-    body{margin:0;background:#060e18;color:#fff;font-family:-apple-system,sans-serif;
-         display:flex;flex-direction:column;align-items:center;justify-content:center;
-         min-height:100vh;text-align:center;padding:32px 24px;box-sizing:border-box}
-    img{width:80px;height:80px;border-radius:20px;margin-bottom:20px;
-        box-shadow:0 8px 28px rgba(26,196,240,0.3)}
-    h1{font-size:24px;font-weight:800;margin:0 0 8px;letter-spacing:-.02em}
-    p{color:rgba(255,255,255,.5);font-size:15px;margin:0 0 28px;max-width:280px;line-height:1.5}
-    a{display:inline-block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;
-      font-weight:700;font-size:16px;padding:14px 32px;border-radius:12px;text-decoration:none}
-  </style>
-</head>
-<body>
-  <img src="/flowcheck-icon.png" alt="FlowCheck">
-  <h1>FlowCheck</h1>
-  <p>Your financial life, organized. Connect your banks, track spending, and grow your net worth.</p>
-  <a href="${store}">Download on the App Store</a>
-</body>
-</html>`);
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 app.get('/health', (_req, res) => res.json({ ok: true }));
 app.get('/flowcheck-icon.png', (_req, res) => {
