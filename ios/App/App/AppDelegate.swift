@@ -284,11 +284,29 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
     // MARK: - Helpers
 
-    /// Reads the biometric preference written by Capacitor Preferences JS.
-    /// Capacitor stores values as JSON strings under "CapacitorStorage.<key>".
+    /// Reads the biometric preference.
+    /// Phase 4 migrated storage from Capacitor Preferences (NSUserDefaults) to
+    /// capacitor-secure-storage-plugin (Keychain, service "cap_sec"). We check
+    /// Keychain first, then fall back to the old NSUserDefaults location so
+    /// existing installs that haven't re-launched since migration still work.
     private func isBiometricEnabled() -> Bool {
-        let raw = UserDefaults.standard.string(forKey: "CapacitorStorage.biometric_enabled")
-        return raw == "true"
+        // Primary: Keychain (capacitor-secure-storage-plugin, service "cap_sec")
+        let query: [String: Any] = [
+            kSecClass as String:       kSecClassGenericPassword,
+            kSecAttrService as String: "cap_sec",
+            kSecAttrAccount as String: "biometric_enabled",
+            kSecReturnData as String:  true,
+            kSecMatchLimit as String:  kSecMatchLimitOne,
+        ]
+        var item: AnyObject?
+        if SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess,
+           let data = item as? Data,
+           let str  = String(data: data, encoding: .utf8) {
+            return str == "true"
+        }
+        // Fallback: legacy Capacitor Preferences / NSUserDefaults location
+        let legacy = UserDefaults.standard.string(forKey: "CapacitorStorage.biometric_enabled")
+        return legacy == "true"
     }
 
     // MARK: - Jailbreak Alert
