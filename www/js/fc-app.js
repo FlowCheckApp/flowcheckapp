@@ -1276,7 +1276,6 @@ window.FCApp = (function () {
     const inEl = document.querySelector(`.fc-screen[data-screen="${name}"]`);
     if (inEl) {
       inEl.scrollTop = 0;
-      window.scrollTo(0, 0);
       if (name !== 'splash') {
         const cls = (prev === 'splash' || name === 'app')
           ? 'fc-screen--reveal'
@@ -1486,7 +1485,6 @@ window.FCApp = (function () {
       setTimeout(_renderSettings, ANIM_MS);
     }
 
-    haptic('light');
     if (typeof FCAnalytics !== 'undefined') FCAnalytics.screen('tab_' + tabId);
     fcLog('Tab →', tabId, '(from', prev + ')');
   }
@@ -1975,6 +1973,8 @@ window.FCApp = (function () {
     try { _renderHome();       } catch (_) {}
     try { _renderActivity();   } catch (_) {}
     try { _renderInsights();   } catch (_) {}
+    try { _renderWealth();     } catch (_) {}
+    try { _renderGoals();      } catch (_) {}
     try { _renderSettings();   } catch (_) {}
     const settingsProRow = document.getElementById('settings-pro-row');
     if (settingsProRow) settingsProRow.style.display = 'none';
@@ -5791,7 +5791,9 @@ window.FCApp = (function () {
         ? await FCPurchases.checkProStatus().catch(e => { fcLog('[RC] checkProStatus failed:', e?.message); return false; })
         : false;
       if (!_isProAfterLink) {
-        setTimeout(() => showPaywall(), 500);
+        // Give the user a moment to see their home screen before the paywall appears.
+        // 1.4s lets the success toast finish and the first render settle.
+        setTimeout(() => showPaywall(), 1400);
       }
     } catch (err) {
       if (err.message !== 'cancelled') {

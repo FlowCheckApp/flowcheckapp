@@ -64,6 +64,9 @@
   --fc-ease-in-out:     cubic-bezier(0.4, 0, 0.2, 1);
   --fc-ease-decel:      cubic-bezier(0, 0, 0.2, 1);
 
+  /* --- Keyboard (set dynamically by JS via Capacitor Keyboard plugin) --- */
+  --keyboard-height: 0px;
+
   /* --- Spacing scale (4px base) --- */
   --fc-s-1: 4px;
   --fc-s-2: 8px;

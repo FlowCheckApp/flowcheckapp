@@ -6467,6 +6467,30 @@ window._btnLoad = _btnLoad;
     return _screenEl();
   }
 
+  // Track the last container that had paddingBottom injected so we can clean
+  // it up on hide even if the active element has changed by then.
+  let _paddedContainer = null;
+
+  // Sheet overlay IDs that contain input fields — used to decide whether
+  // paddingBottom injection is needed when the keyboard appears.
+  const _SHEET_IDS = new Set([
+    'fc-budget-sheet', 'fc-bill-sheet', 'fc-goal-sheet',
+    'fc-txn-sheet', 'fc-referral-sheet', 'fc-manual-account-sheet',
+    'edit-profile-sheet',
+  ]);
+
+  function _isInSheet(el) {
+    // Returns true when the input lives inside a bottom sheet overlay.
+    let node = el ? el.parentElement : null;
+    while (node && node !== document.body) {
+      if (_SHEET_IDS.has(node.id) ||
+          node.classList.contains('fc-sheet-overlay') ||
+          node.classList.contains('fc-sheet-content')) return true;
+      node = node.parentElement;
+    }
+    return false;
+  }
+
   function _scrollToActive() {
     const active = document.activeElement;
     if (!active || (active.tagName !== 'INPUT' && active.tagName !== 'TEXTAREA')) return;
@@ -6477,9 +6501,16 @@ window._btnLoad = _btnLoad;
     // With resize:"native" the WebView has already shrunk to fit above the
     // keyboard, so vv.height IS the usable area — no kbH calculation needed.
     const vvH     = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-    const padding = _isAuth() ? 100 : 20;
+    // Auth screens and in-app sheets both need bottom padding so the CTA
+    // button stays visible above the keyboard. Pure scroll views (home,
+    // activity, insights) only need the scrollTop nudge.
+    const needsPad = _isAuth() || _isInSheet(active);
+    const padding  = needsPad ? 100 : 20;
 
-    if (_isAuth()) container.style.paddingBottom = Math.max(80, padding) + 'px';
+    if (needsPad) {
+      container.style.paddingBottom = Math.max(80, padding) + 'px';
+      _paddedContainer = container;
+    }
 
     const rect = active.getBoundingClientRect();
     if (rect.bottom > vvH - padding) {
@@ -6490,12 +6521,13 @@ window._btnLoad = _btnLoad;
   function _onKeyboardHide() {
     _kbOpen = false;
     document.body.classList.remove('fc-keyboard-open');
+    document.documentElement.style.setProperty('--keyboard-height', '0px');
     clearTimeout(_kbTimer);
     _kbTimer = setTimeout(() => {
+      // Clear padding on whichever container we injected it into
+      if (_paddedContainer) { _paddedContainer.style.paddingBottom = ''; _paddedContainer = null; }
       const el = _screenEl();
-      if (!el) return;
-      if (_isAuth()) el.style.paddingBottom = '';
-      el.scrollTop = 0;
+      if (el && _isAuth()) el.scrollTop = 0;
     }, 100);
   }
 
@@ -6506,9 +6538,14 @@ window._btnLoad = _btnLoad;
   // high then snaps down" artifact.
   const KbPlugin = window.Capacitor?.Plugins?.Keyboard;
   if (KbPlugin) {
-    KbPlugin.addListener('keyboardWillShow', () => {
+    KbPlugin.addListener('keyboardWillShow', (info) => {
       _kbOpen = true;
       document.body.classList.add('fc-keyboard-open');
+      // Expose keyboard height as a CSS variable so sheets and animations can
+      // react smoothly without polling visualViewport on every frame.
+      document.documentElement.style.setProperty(
+        '--keyboard-height', (info.keyboardHeight || 0) + 'px'
+      );
     });
     KbPlugin.addListener('keyboardDidShow', _scrollToActive);
     KbPlugin.addListener('keyboardWillHide', _onKeyboardHide);
@@ -6523,6 +6560,7 @@ window._btnLoad = _btnLoad;
       if (kbH > 100) {
         _kbOpen = true;
         document.body.classList.add('fc-keyboard-open');
+        document.documentElement.style.setProperty('--keyboard-height', kbH + 'px');
         clearTimeout(_resizeTimer);
         _resizeTimer = setTimeout(_scrollToActive, 80);
       } else if (_kbOpen) {
