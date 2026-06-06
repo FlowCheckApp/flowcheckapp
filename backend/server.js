@@ -1323,7 +1323,8 @@ async function _sendEmail(to, subject, html, uid = null) {
         'Authorization': `Bearer ${_resendApiKey}`,
         'Content-Type':  'application/json',
       },
-      body: JSON.stringify({ from: EMAIL_FROM, to, subject, html, headers }),
+      body:   JSON.stringify({ from: EMAIL_FROM, to, subject, html, headers }),
+      signal: AbortSignal.timeout(10_000),
     });
     if (!resp.ok) {
       const errText = await resp.text();
@@ -3234,13 +3235,14 @@ async function _webhookSyncItem(itemId, retryCount = 0) {
             const catSnap = await userRef.collection('transactions')
               .where('date', '>=', monthStart)
               .where('pending', '==', false)
+              .where('isCredit', '==', false)
               .get();
 
             let monthlySpent = 0;
             catSnap.docs.forEach(d => {
               const tx = d.data();
               const txCat = (tx.category && tx.category[0] || '').toUpperCase();
-              if (txCat === cat && !tx.isCredit) monthlySpent += tx.amount;
+              if (txCat === cat) monthlySpent += tx.amount;
             });
 
             if (monthlySpent > budgetLimit) {

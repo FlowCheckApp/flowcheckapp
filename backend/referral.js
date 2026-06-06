@@ -212,10 +212,10 @@ module.exports = function makeReferralRouter(admin, db) {
   });
 
   // ── POST /api/referral/activate ───────────────────────────────────────────
-  // Call this from the Plaid token-exchange flow AFTER a user successfully
-  // connects their first bank account. Awards 1 free Pro month to both sides.
-  // This is called SERVER-SIDE from within the token exchange route,
-  // not directly by the client.
+  // Called internally from the Plaid token-exchange flow after a user connects
+  // their first bank account. Awards 1 free Pro month to both sides.
+  // Requires plaid_linked === true so this cannot be triggered by an attacker
+  // who hasn't connected a real bank account.
   router.post('/activate', requireAuth, async (req, res) => {
     const uid = req.uid;
 
@@ -226,6 +226,9 @@ module.exports = function makeReferralRouter(admin, db) {
       if (!userSnap.exists) return res.status(404).json({ error: 'User not found' });
 
       const userData = userSnap.data();
+
+      // Require a real bank connection — prevents abuse via direct API calls
+      if (!userData.plaid_linked) return res.status(403).json({ error: 'Bank account required' });
 
       // No referral on this account, or already activated
       if (!userData.referred_by_code) return res.json({ status: 'no_referral' });
