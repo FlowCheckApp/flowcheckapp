@@ -732,7 +732,7 @@ app.post('/plaid/exchange-token', requireAuth, _plaidUserLimiter, async (req, re
                       ? 'You\'ve referred 3 people to FlowCheck — that earns you lifetime Pro access. Thank you for spreading the word.'
                       : 'Your Pro subscription has been extended by one month. Keep sharing and you can earn even more — 3 referrals unlocks lifetime access.'}
                   </p>
-                  <a href="https://getflowcheck.app" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
+                  <a href="${BACKEND_URL}/open" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
                     Open FlowCheck →
                   </a>
                 </div>
@@ -763,7 +763,7 @@ app.post('/plaid/exchange-token', requireAuth, _plaidUserLimiter, async (req, re
                     <p style="font-size:13px;color:#4b5563;margin:4px 0">✦ AI spending insights</p>
                     <p style="font-size:13px;color:#4b5563;margin:4px 0">✦ Bill tracking &amp; reminders</p>
                   </div>
-                  <a href="https://getflowcheck.app" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
+                  <a href="${BACKEND_URL}/open" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
                     Explore Pro Features →
                   </a>
                 </div>
@@ -1640,7 +1640,7 @@ app.post('/notifications/budget-alert', requireAuth, async (req, res) => {
           </div>
           <div style="padding:24px">
             <p style="font-size:14px;color:#6b7280;margin:0 0 20px">Open FlowCheck to review your spending and adjust your budget.</p>
-            <a href="https://getflowcheck.app" style="display:inline-block;background:#1ac4f0;color:#0a1520;font-weight:700;font-size:14px;padding:12px 24px;border-radius:8px;text-decoration:none">View in FlowCheck →</a>
+            <a href="${BACKEND_URL}/open" style="display:inline-block;background:#1ac4f0;color:#0a1520;font-weight:700;font-size:14px;padding:12px 24px;border-radius:8px;text-decoration:none">View in FlowCheck →</a>
           </div>
           <div style="padding:16px 24px;border-top:1px solid #f3f4f6">
             <p style="font-size:11px;color:#9ca3af;margin:0">
@@ -1956,7 +1956,7 @@ async function _sendBillRemindersForUser(uid, userData) {
             </div>
             <div style="padding:24px 28px">
               <p style="font-size:14px;color:#6b7280;margin:0 0 20px">Late payments can affect your credit score. Open FlowCheck to mark it paid or update the due date.</p>
-              <a href="https://getflowcheck.app" style="display:inline-block;background:#dc2626;color:#ffffff;font-weight:700;font-size:14px;padding:12px 24px;border-radius:8px;text-decoration:none">Mark as Paid →</a>
+              <a href="${BACKEND_URL}/open" style="display:inline-block;background:#dc2626;color:#ffffff;font-weight:700;font-size:14px;padding:12px 24px;border-radius:8px;text-decoration:none">Mark as Paid →</a>
             </div>
             <div style="padding:14px 28px;border-top:1px solid #f3f4f6">
               <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · <a href="${_unsubUrl(uid, 'alerts', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe from bill alerts</a></p>
@@ -1983,7 +1983,7 @@ async function _sendBillRemindersForUser(uid, userData) {
               Just a heads up — your <strong>${safeBill}</strong> payment of <strong>${amountStr}</strong> is due ${dayLabel}.
               Make sure you have sufficient funds in your account.
             </p>
-            <a href="https://getflowcheck.app" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#ffffff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
+            <a href="${BACKEND_URL}/open" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#ffffff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
               Review in FlowCheck →
             </a>
           </div>
@@ -2121,7 +2121,7 @@ async function _sendWeeklySummaryForUser(uid, userData) {
           <table style="width:100%;border-collapse:collapse">${topCats}</table>
         </div>` : ''}
         ${insightLines ? `<div style="margin-bottom:24px"><div style="font-size:13px;font-weight:600;color:#374151;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px">Spending Insights</div>${insightLines}</div>` : ''}
-        <a href="https://getflowcheck.app" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#ffffff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
+        <a href="${BACKEND_URL}/open" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#ffffff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
           View Full Breakdown →
         </a>
       </div>
@@ -2165,7 +2165,7 @@ async function _sendBankConnectedEmail(uid, institutionName) {
             <p style="font-size:13px;color:#4b5563;margin:4px 0">→ Add recurring bills so you never miss a payment</p>
             <p style="font-size:13px;color:#4b5563;margin:4px 0">→ Check your Financial Health Score</p>
           </div>
-          <a href="https://getflowcheck.app" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#ffffff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
+          <a href="${BACKEND_URL}/open" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#ffffff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
             View My Dashboard →
           </a>
         </div>
@@ -2294,7 +2294,7 @@ async function _sendMonthlySummaryForUser(uid, userData, cutoffStr, monthLabel) 
           <div style="font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px">Top Spending Categories</div>
           <table style="width:100%;border-collapse:collapse">${topCats}</table>
         </div>` : ''}
-        <a href="https://getflowcheck.app" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#ffffff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
+        <a href="${BACKEND_URL}/open" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#ffffff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
           View Full Breakdown →
         </a>
       </div>
@@ -2354,7 +2354,7 @@ async function _sendMonthlySummaryForUser(uid, userData, cutoffStr, monthLabel) 
               ? `Great work! Your score improved this month — driven by your savings rate and spending discipline.`
               : `Your score dipped this month. Open FlowCheck to see your spending breakdown and find areas to trim.`}
           </p>
-          <a href="https://getflowcheck.app" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">See My Full Report →</a>
+          <a href="${BACKEND_URL}/open" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">See My Full Report →</a>
         </div>
         <div style="padding:14px 32px;border-top:1px solid #f3f4f6;text-align:center">
           <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · <a href="${_unsubUrl(uid, 'weekly')}" style="color:#9ca3af">Unsubscribe from monthly summaries</a></p>
@@ -2561,7 +2561,7 @@ async function _runOnboardingDrip(uid, d, drip, ageDays) {
             <p style="font-size:13px;color:#4b5563;margin:4px 0">✓ Read-only — FlowCheck can never move your money</p>
             <p style="font-size:13px;color:#4b5563;margin:4px 0">✓ Disconnect any time in Settings</p>
           </div>
-          <a href="https://getflowcheck.app" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
+          <a href="${BACKEND_URL}/open" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
             Connect My Bank →
           </a>
         </div>
@@ -2595,7 +2595,7 @@ async function _runOnboardingDrip(uid, d, drip, ageDays) {
               <p style="font-size:13px;color:#4b5563;margin:4px 0">2. Tap "Set Budget" next to any category</p>
               <p style="font-size:13px;color:#4b5563;margin:4px 0">3. Enter your monthly limit — done</p>
             </div>
-            <a href="https://getflowcheck.app" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
+            <a href="${BACKEND_URL}/open" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
               Set My First Budget →
             </a>
           </div>
@@ -2651,7 +2651,7 @@ async function _runOnboardingDrip(uid, d, drip, ageDays) {
             <p style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 20px">
               That's your money in motion. Open FlowCheck to see the full breakdown — every transaction categorized, your Financial Health Score, and where you could be saving.
             </p>
-            <a href="https://getflowcheck.app" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
+            <a href="${BACKEND_URL}/open" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
               See My Full Breakdown →
             </a>
           </div>
@@ -2685,7 +2685,7 @@ async function _runOnboardingDrip(uid, d, drip, ageDays) {
               <p style="font-size:13px;color:#4b5563;margin:4px 0">✓ Email reminder if you miss the push</p>
               <p style="font-size:13px;color:#4b5563;margin:4px 0">✓ Overdue alerts so nothing slips through</p>
             </div>
-            <a href="https://getflowcheck.app" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
+            <a href="${BACKEND_URL}/open" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
               Add My First Bill →
             </a>
           </div>
@@ -2744,7 +2744,7 @@ if (cron) {
                   <p style="font-size:13px;color:#4b5563;margin:4px 0">→ Check for any bills coming due</p>
                   <p style="font-size:13px;color:#4b5563;margin:4px 0">→ Review your financial health score</p>
                 </div>
-                <a href="https://getflowcheck.app" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
+                <a href="${BACKEND_URL}/open" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
                   Check In Now →
                 </a>
               </div>
@@ -2859,7 +2859,7 @@ async function _sendYearInReviewForUser(uid, userData, year, yearStart, yearEnd)
           <div style="font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px">Where Your Money Went</div>
           <table style="width:100%;border-collapse:collapse">${topCats}</table>
         </div>` : ''}
-        <a href="https://getflowcheck.app" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
+        <a href="${BACKEND_URL}/open" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
           Start ${year + 1} Strong →
         </a>
       </div>
@@ -2979,7 +2979,7 @@ async function _detectAndEmailSubscriptions(uid, userRef, userData, fcmToken) {
                 <div style="font-size:22px;font-weight:800;color:#1ac4f0">${_fmt(medAmt)}</div>
               </div>
               <p style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 20px">We detected this as a recurring ${freq} charge. Open FlowCheck to add it as a tracked bill or mark it as expected.</p>
-              <a href="https://getflowcheck.app" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">View in FlowCheck →</a>
+              <a href="${BACKEND_URL}/open" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">View in FlowCheck →</a>
             </div>
             <div style="padding:14px 32px;border-top:1px solid #f3f4f6;text-align:center">
               <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · <a href="${_unsubUrl(uid, 'alerts', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe from alerts</a></p>
@@ -3020,7 +3020,7 @@ async function _detectAndEmailSubscriptions(uid, userRef, userData, fcmToken) {
               <p style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 20px">
                 ${delta > 0 ? 'Your subscription cost went up. If this doesn\'t look right, check your account with the provider.' : 'Your subscription cost went down — no action needed.'}
               </p>
-              <a href="https://getflowcheck.app" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">View in FlowCheck →</a>
+              <a href="${BACKEND_URL}/open" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">View in FlowCheck →</a>
             </div>
             <div style="padding:14px 32px;border-top:1px solid #f3f4f6;text-align:center">
               <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · <a href="${_unsubUrl(uid, 'alerts', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe from alerts</a></p>
@@ -3290,7 +3290,7 @@ async function _webhookSyncItem(itemId, retryCount = 0) {
                     <div style="font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">Total account balance</div>
                     <div style="font-size:26px;font-weight:800;color:#0a1520">${_fmt(totalBal)}</div>
                   </div>
-                  <a href="https://getflowcheck.app" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">View My Accounts →</a>
+                  <a href="${BACKEND_URL}/open" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">View My Accounts →</a>
                 </div>
                 <div style="padding:14px 32px;border-top:1px solid #f3f4f6;text-align:center">
                   <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · <a href="${_unsubUrl(uid, 'alerts', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe from alerts</a></p>
@@ -3335,7 +3335,7 @@ async function _webhookSyncItem(itemId, retryCount = 0) {
                     <div style="font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">Current net worth</div>
                     <div style="font-size:26px;font-weight:800;color:#059669">${_fmt(netWorth)}</div>
                   </div>
-                  <a href="https://getflowcheck.app" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">View Net Worth →</a>
+                  <a href="${BACKEND_URL}/open" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">View Net Worth →</a>
                 </div>
                 <div style="padding:14px 32px;border-top:1px solid #f3f4f6;text-align:center">
                   <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · <a href="${_unsubUrl(uid, 'alerts', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe</a></p>
@@ -3370,7 +3370,7 @@ async function _webhookSyncItem(itemId, retryCount = 0) {
                 </div>
                 <div style="padding:24px">
                   <p style="font-size:14px;color:#374151;margin:0 0 20px">A charge of <strong>${_fmt(t.amount)}</strong> from <strong>${safeMerch}</strong> just appeared on your account. If you don't recognize this, check your card immediately.</p>
-                  <a href="https://getflowcheck.app" style="display:inline-block;background:#1ac4f0;color:#0a1520;font-weight:700;font-size:14px;padding:12px 24px;border-radius:8px;text-decoration:none">Review Transaction →</a>
+                  <a href="${BACKEND_URL}/open" style="display:inline-block;background:#1ac4f0;color:#0a1520;font-weight:700;font-size:14px;padding:12px 24px;border-radius:8px;text-decoration:none">Review Transaction →</a>
                 </div>
                 <div style="padding:14px 24px;border-top:1px solid #f3f4f6">
                   <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · <a href="${_unsubUrl(uid, 'alerts', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe from alerts</a></p>
@@ -3404,7 +3404,7 @@ async function _webhookSyncItem(itemId, retryCount = 0) {
                 </div>
                 <div style="padding:24px">
                   <p style="font-size:14px;color:#6b7280;margin:0 0 20px">You may want to transfer funds or hold off on purchases to avoid overdraft fees.</p>
-                  <a href="https://getflowcheck.app" style="display:inline-block;background:#1ac4f0;color:#0a1520;font-weight:700;font-size:14px;padding:12px 24px;border-radius:8px;text-decoration:none">View Accounts →</a>
+                  <a href="${BACKEND_URL}/open" style="display:inline-block;background:#1ac4f0;color:#0a1520;font-weight:700;font-size:14px;padding:12px 24px;border-radius:8px;text-decoration:none">View Accounts →</a>
                 </div>
                 <div style="padding:14px 24px;border-top:1px solid #f3f4f6">
                   <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · <a href="${_unsubUrl(uid, 'alerts', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe from alerts</a></p>
@@ -3450,7 +3450,7 @@ async function _webhookSyncItem(itemId, retryCount = 0) {
                   </div>
                   <div style="padding:24px 28px">
                     <p style="font-size:14px;color:#6b7280;margin:0 0 20px">This could be a legitimate charge or an accidental double-bill. Check your recent transactions to confirm.</p>
-                    <a href="https://getflowcheck.app" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">Review Transactions →</a>
+                    <a href="${BACKEND_URL}/open" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">Review Transactions →</a>
                   </div>
                   <div style="padding:14px 28px;border-top:1px solid #f3f4f6;text-align:center">
                     <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · <a href="${_unsubUrl(uid, 'alerts', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe from alerts</a></p>
@@ -4166,7 +4166,7 @@ app.post('/auth/login-event', requireAuth, async (req, res) => {
             </div>
           </div>
           <p style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 20px">If this was you, no action is needed. If you didn't sign in, reset your password immediately.</p>
-          <a href="https://getflowcheck.app" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">Open FlowCheck →</a>
+          <a href="${BACKEND_URL}/open" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">Open FlowCheck →</a>
         </div>
         <div style="padding:14px 32px;border-top:1px solid #f3f4f6;text-align:center">
           <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · <a href="${_unsubUrl(req.uid, 'alerts', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe from security alerts</a></p>

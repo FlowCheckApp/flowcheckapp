@@ -6555,21 +6555,38 @@ window.FCApp = (function () {
     // resolves the real UID — calling configure() here would use a null UID
     // because currentUser() is always null at DOMContentLoaded.
 
-    // ── Referral deep link handler ─────────────────────────────────
-    // Fires when the app is opened via flowcheck://referral?code=FLOWXXXXXX
-    // (from the /r/:code landing page). Pre-fills the referral code field on signup.
-    const _handleReferralDeepLink = (urlStr) => {
+    // ── Deep link handler ──────────────────────────────────────────
+    // Handles two URL schemes:
+    //   flowcheck://open?ref=...       — email CTAs, routes authenticated+onboarded
+    //                                    users to the dashboard
+    //   flowcheck://referral?code=...  — referral links, pre-fills signup code
+    const _handleDeepLink = (urlStr) => {
       try {
-        if (!urlStr || !urlStr.includes('referral')) return;
+        if (!urlStr) return;
+
+        // flowcheck://open — "Open FlowCheck" button from all email templates.
+        // If the user is authenticated and has completed onboarding, navigate
+        // directly to the dashboard. If they haven't onboarded, let normal routing
+        // handle it (onAuthStateChanged will route to the correct screen).
+        if (urlStr.startsWith('flowcheck://open')) {
+          fcLog('[deeplink] open received, current screen:', state.screen);
+          const user = FCAuth.currentUser?.();
+          if (user && _onboardingLocallyCached(user.uid) && state.screen !== 'app') {
+            setScreen('app');
+            _renderHome();
+          }
+          return;
+        }
+
+        // flowcheck://referral?code=FLOWXXXXXX — referral invite links
+        if (!urlStr.includes('referral')) return;
         let params;
         if (urlStr.includes('?')) {
           params = new URLSearchParams(urlStr.split('?')[1]);
         } else { return; }
         const code = (params.get('code') || '').toUpperCase();
         if (!code || !/^FLOW[A-Z0-9]{4,8}$/.test(code)) return;
-        // Persist for use when the registration screen loads
         window._fcPendingReferralCode = code;
-        // Pre-fill registration form if already visible
         const referralInput = document.getElementById('reg-referral-code');
         if (referralInput) {
           referralInput.value = code;
@@ -6578,10 +6595,8 @@ window.FCApp = (function () {
           const chev = document.getElementById('reg-referral-chevron');
           if (chev) chev.style.transform = 'rotate(90deg)';
         }
-        if (typeof FCAnalytics !== 'undefined') {
-          FCAnalytics.track('referral_opened', { code });
-        }
-        fcLog('[referral] Deep link code captured:', code);
+        if (typeof FCAnalytics !== 'undefined') FCAnalytics.track('referral_opened', { code });
+        fcLog('[deeplink] referral code captured:', code);
       } catch (_) {}
     };
 
@@ -6590,13 +6605,13 @@ window.FCApp = (function () {
     if (_capAppPlugin) {
       if (_capAppPlugin.addListener) {
         _capAppPlugin.addListener('appUrlOpen', (data) => {
-          _handleReferralDeepLink(data?.url || '');
+          _handleDeepLink(data?.url || '');
         });
       }
       // Cold-start deep link (app was not running when link was tapped)
       if (_capAppPlugin.getLaunchUrl) {
         _capAppPlugin.getLaunchUrl().then(data => {
-          if (data?.url) _handleReferralDeepLink(data.url);
+          if (data?.url) _handleDeepLink(data.url);
         }).catch(() => {});
       }
     }
@@ -7350,10 +7365,9 @@ window.FCApp = (function () {
 
     if (typeof FCAnalytics !== 'undefined') FCAnalytics.track('paywall_viewed', { source: state.screen });
 
-    // Always show the X close button — the paywall is always reachable from the
-    // dashboard now (skipOnboarding navigates to app first, then shows paywall).
+    // Paywall is a hard gate — no dismiss button. Users must subscribe or restore.
     const closeBtn = document.getElementById('pw-close-btn');
-    if (closeBtn) closeBtn.style.display = 'flex';
+    if (closeBtn) closeBtn.style.display = 'none';
 
     // Reset success overlay in case it was left visible from a previous purchase attempt
     const successOverlay = document.getElementById('pw-success-overlay');
@@ -7480,6 +7494,11 @@ window.FCApp = (function () {
         // Best-effort Firestore cache — rules intentionally block client writes of is_pro
         // (RevenueCat is the source of truth). Never let this fail the purchase success flow.
         try { await FCData.updateUserField('is_pro', true); } catch (_) {}
+        // Mark onboarding complete so cold-start routing never sends this user
+        // back to onboarding. Handles the case where the user purchased directly
+        // from the paywall shown during onboarding (startTrialFromOnboarding),
+        // which skips the skipOnboarding() path that normally writes this flag.
+        _markOnboardingComplete().catch(() => {});
         // Show animated success overlay instead of plain toast
         const overlay = document.getElementById('pw-success-overlay');
         const icon    = document.getElementById('pw-success-icon');
