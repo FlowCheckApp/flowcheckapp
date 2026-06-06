@@ -15,7 +15,7 @@
 		504EC30F1FED79650016851F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30E1FED79650016851F /* Assets.xcassets */; };
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
-		CA0DA07D2FBEA4CF00FCDFF9 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = CA0DA07C2FBEA4CF00FCDFF9 /* GoogleService-Info.plist */; };
+		CA7E054C2FD3C49F00CA8E63 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = CA7E054B2FD3C49F00CA8E63 /* GoogleService-Info.plist */; };
 		FC001B02FC00001001FCSEC /* SecurityChecker.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC001B01FC00001001FCSEC /* SecurityChecker.swift */; };
 		FC001B04FC00001001FCATT /* AppAttestManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC001B03FC00001001FCATT /* AppAttestManager.swift */; };
 		FC001B06FC00001001FCBIO /* BiometricPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC001B05FC00001001FCBIO /* BiometricPlugin.swift */; };
@@ -34,9 +34,9 @@
 		504EC3131FED79650016851F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
-		CA0DA07C2FBEA4CF00FCDFF9 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		CA51EE6B2FBCB24900C17D00 /* App.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.entitlements; sourceTree = "<group>"; };
 		CA7E05442FD1241300CA8E63 /* AppDebug.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AppDebug.entitlements; sourceTree = "<group>"; };
+		CA7E054B2FD3C49F00CA8E63 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		FC001B01FC00001001FCSEC /* SecurityChecker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecurityChecker.swift; sourceTree = "<group>"; };
 		FC001B03FC00001001FCATT /* AppAttestManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppAttestManager.swift; sourceTree = "<group>"; };
 		FC001B05FC00001001FCBIO /* BiometricPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BiometricPlugin.swift; sourceTree = "<group>"; };
@@ -76,6 +76,7 @@
 		504EC3061FED79650016851F /* App */ = {
 			isa = PBXGroup;
 			children = (
+				CA7E054B2FD3C49F00CA8E63 /* GoogleService-Info.plist */,
 				CA7E05442FD1241300CA8E63 /* AppDebug.entitlements */,
 				CA51EE6B2FBCB24900C17D00 /* App.entitlements */,
 				FCPRV0011FC00001000FCPRV /* PrivacyInfo.xcprivacy */,
@@ -83,7 +84,6 @@
 				FC001B03FC00001001FCATT /* AppAttestManager.swift */,
 				FC001B05FC00001001FCBIO /* BiometricPlugin.swift */,
 				FC001B07FC00001001FCLCK /* NativeLockScreenViewController.swift */,
-				CA0DA07C2FBEA4CF00FCDFF9 /* GoogleService-Info.plist */,
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
 				504EC3071FED79650016851F /* AppDelegate.swift */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
@@ -167,8 +167,8 @@
 				504EC30F1FED79650016851F /* Assets.xcassets in Resources */,
 				50379B232058CBB4000EE86E /* capacitor.config.json in Resources */,
 				504EC30D1FED79650016851F /* Main.storyboard in Resources */,
+				CA7E054C2FD3C49F00CA8E63 /* GoogleService-Info.plist in Resources */,
 				2FAD9763203C412B000D30F8 /* config.xml in Resources */,
-				CA0DA07D2FBEA4CF00FCDFF9 /* GoogleService-Info.plist in Resources */,
 				FCPRV0012FC00001000FCPRV /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

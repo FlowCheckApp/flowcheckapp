@@ -2032,6 +2032,48 @@ async function _sendWeeklySummaryForUser(uid, userData) {
     .map(([cat, amt]) => `<tr><td style="padding:6px 0;color:#374151;font-size:14px">${_htmlEscape(cat)}</td><td style="padding:6px 0;text-align:right;font-weight:600;color:#111827;font-size:14px">${_fmt(amt)}</td></tr>`)
     .join('');
 
+  // Unusual spend: compare each top category to prior 4-week average
+  const fourWeeksAgo = new Date(); fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
+  const fourWeeksStr = fourWeeksAgo.toISOString().slice(0, 10);
+  let priorSnap;
+  try { priorSnap = await db.collection('users').doc(uid).collection('transactions').where('date', '>=', fourWeeksStr).where('date', '<', cutoffStr).where('pending', '==', false).get(); } catch (_) { priorSnap = null; }
+  const priorCats = {};
+  if (priorSnap) priorSnap.docs.forEach(d => { const t = d.data(); if (!t.isCredit && !_isXferTxn(t)) { const c = (t.category && t.category[0]) || 'Other'; priorCats[c] = (priorCats[c] || 0) + t.amount; } });
+  const insightLines = Object.entries(categories)
+    .filter(([cat, amt]) => {
+      const weeklyAvg = (priorCats[cat] || 0) / 4;
+      return weeklyAvg > 10 && amt > weeklyAvg * 1.4; // 40%+ spike vs average week
+    })
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 2)
+    .map(([cat, amt]) => {
+      const avg = (priorCats[cat] || 0) / 4;
+      const pct = Math.round((amt / avg - 1) * 100);
+      const label = cat.charAt(0) + cat.slice(1).toLowerCase().replace(/_/g, ' ');
+      return `<div style="background:#fff7ed;border-left:3px solid #f59e0b;border-radius:8px;padding:12px 14px;margin-bottom:10px"><p style="font-size:13px;color:#92400e;margin:0">📈 <strong>${_htmlEscape(label)}</strong> spending is up ${pct}% vs your usual week (${_fmt(amt)} vs avg ${_fmt(avg)})</p></div>`;
+    }).join('');
+
+  // Safe to spend: upcoming bills in next 7 days subtracted from total balance
+  let safeToSpendHtml = '';
+  try {
+    const nowStr  = new Date().toISOString().slice(0, 10);
+    const nextStr = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+    const billSnap = await db.collection('users').doc(uid).collection('bills')
+      .where('next_due', '>=', nowStr).where('next_due', '<=', nextStr).where('paid', '==', false).get();
+    const upcomingBills = billSnap.docs.reduce((s, d) => s + (d.data().amount || 0), 0);
+    const totalIncome7 = txnSnap.docs.reduce((s, d) => { const t = d.data(); return t.isCredit ? s + t.amount : s; }, 0);
+    const safeAmt = totalIncome7 - totalSpent - upcomingBills;
+    if (totalIncome7 > 0 || upcomingBills > 0) {
+      const safeColor = safeAmt >= 0 ? '#059669' : '#dc2626';
+      safeToSpendHtml = `
+        <div style="background:#f0fff4;border-radius:12px;padding:18px 20px;margin-bottom:24px">
+          <div style="font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Safe to spend this week</div>
+          <div style="font-size:28px;font-weight:800;color:${safeColor}">${_fmt(Math.abs(safeAmt))}</div>
+          <div style="font-size:12px;color:#9ca3af;margin-top:4px">${upcomingBills > 0 ? `After ${_fmt(upcomingBills)} in upcoming bills` : 'After this week\'s spending'}</div>
+        </div>`;
+    }
+  } catch (_) {}
+
   // FCM push — sent before email so users get an instant heads-up
   if (userData.fcm_token && notifOn) {
     const topCatName = Object.entries(categories).sort((a, b) => b[1] - a[1])[0]?.[0] || '';
@@ -2059,11 +2101,13 @@ async function _sendWeeklySummaryForUser(uid, userData) {
           <div style="font-size:13px;color:#6b7280;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.05em">Total Spent This Week</div>
           <div style="font-size:32px;font-weight:800;color:#0a1520;letter-spacing:-0.03em">${_fmt(totalSpent)}</div>
         </div>
+        ${safeToSpendHtml}
         ${topCats ? `
         <div style="margin-bottom:24px">
           <div style="font-size:13px;font-weight:600;color:#374151;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:12px">Top Categories</div>
           <table style="width:100%;border-collapse:collapse">${topCats}</table>
         </div>` : ''}
+        ${insightLines ? `<div style="margin-bottom:24px"><div style="font-size:13px;font-weight:600;color:#374151;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px">Spending Insights</div>${insightLines}</div>` : ''}
         <a href="https://getflowcheck.app" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#ffffff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
           View Full Breakdown →
         </a>
@@ -2947,17 +2991,89 @@ async function _webhookSyncItem(itemId, retryCount = 0) {
           const title = isEarlyPay ? '💸 Early Pay Arrived!' : '🎉 Payday!';
           const body  = `${_fmt(credit)} just landed in your account.`;
 
-          _sendFCM(uid, fcmToken, {
+          await _saveNotification(uid, { title, body, type: isEarlyPay ? 'early_pay' : 'payday', data: { amount: String(credit), account_id: t.account_id || '' } });
+          if (fcmToken) _sendFCM(uid, fcmToken, {
             title, body,
-            type:      'payday',
+            type:      isEarlyPay ? 'early_pay' : 'payday',
             data:      { amount: String(credit), account_id: t.account_id || '' },
             channelId: 'flowcheck_default',
           }).catch(err => console.error('[fcm payday]', err.message));
 
+          // Payday email — amount landed + running total balance
+          if (userData.email && userData.email_alerts_enabled !== false) {
+            const totalBal = accounts
+              .filter(a => a.type === 'depository')
+              .reduce((s, a) => s + (a.balance_available ?? a.balance_current ?? 0), 0);
+            _sendEmail(userData.email,
+              isEarlyPay ? `💸 Early pay: ${_fmt(credit)} just landed` : `🎉 Payday: ${_fmt(credit)} just hit your account`,
+              `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+              <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
+                <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:36px 32px;text-align:center">
+                  ${LOGO_IMG}
+                  <div style="font-size:40px;font-weight:900;color:#1ac4f0;letter-spacing:-0.03em;margin-bottom:6px">${_fmt(credit)}</div>
+                  <p style="color:rgba(255,255,255,0.65);font-size:15px;margin:0">${isEarlyPay ? '⚡ Early pay landed' : '🎉 Payday has arrived'}</p>
+                </div>
+                <div style="padding:28px 32px">
+                  <div style="background:#f0fffe;border-radius:12px;padding:16px 20px;margin-bottom:20px">
+                    <div style="font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">Total account balance</div>
+                    <div style="font-size:26px;font-weight:800;color:#0a1520">${_fmt(totalBal)}</div>
+                  </div>
+                  <a href="https://getflowcheck.app" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">View My Accounts →</a>
+                </div>
+                <div style="padding:14px 32px;border-top:1px solid #f3f4f6;text-align:center">
+                  <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · <a href="${_unsubUrl(uid, 'alerts', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe from alerts</a></p>
+                </div>
+              </div></body></html>`, uid).catch(e => console.error('[email payday]', e.message));
+          }
+
           break; // one payday alert per sync batch is enough
         }
 
-        // ── 1b. Large transaction alert ──────────────────────────────
+        // ── 1b. Savings milestone check ───────────────────────────────
+        // Runs after every sync with new transactions. Calculates net worth
+        // from live account balances and fires once per crossed threshold.
+        {
+          const NW_MILESTONES = [1000, 5000, 10000, 25000, 50000, 100000, 250000, 500000, 1000000];
+          const netWorth = accounts.reduce((s, a) => {
+            const bal = a.balance_current ?? 0;
+            return a.type === 'credit' || a.type === 'loan' ? s - bal : s + bal;
+          }, 0);
+          const lastMilestone = userData.last_nw_milestone || 0;
+          const crossed = NW_MILESTONES.filter(m => m > lastMilestone && netWorth >= m);
+          if (crossed.length > 0) {
+            const milestone = crossed[crossed.length - 1];
+            await userRef.update({ last_nw_milestone: milestone });
+            const mTitle = `🏆 Net worth milestone: ${_fmt(milestone)}`;
+            const mBody  = `You just crossed ${_fmt(milestone)} in net worth. Keep it up!`;
+            await _saveNotification(uid, { title: mTitle, body: mBody, type: 'savings_milestone', data: { milestone: String(milestone) } });
+            if (fcmToken) _sendFCM(uid, fcmToken, { title: mTitle, body: mBody, type: 'savings_milestone', channelId: 'flowcheck_default' }).catch(() => {});
+            if (userData.email && userData.email_alerts_enabled !== false) {
+              _sendEmail(userData.email, mTitle, `
+              <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+              <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
+                <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:36px 32px;text-align:center">
+                  ${LOGO_IMG}
+                  <div style="font-size:48px;margin-bottom:8px">🏆</div>
+                  <div style="font-size:36px;font-weight:900;color:#1ac4f0;letter-spacing:-0.03em">${_fmt(milestone)}</div>
+                  <p style="color:rgba(255,255,255,0.65);font-size:15px;margin:8px 0 0">Net worth milestone reached</p>
+                </div>
+                <div style="padding:28px 32px">
+                  <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 20px">You just crossed <strong>${_fmt(milestone)}</strong> in net worth. That's a real milestone — keep building.</p>
+                  <div style="background:#f0fffe;border-radius:12px;padding:16px 20px;margin-bottom:20px">
+                    <div style="font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">Current net worth</div>
+                    <div style="font-size:26px;font-weight:800;color:#059669">${_fmt(netWorth)}</div>
+                  </div>
+                  <a href="https://getflowcheck.app" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">View Net Worth →</a>
+                </div>
+                <div style="padding:14px 32px;border-top:1px solid #f3f4f6;text-align:center">
+                  <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · <a href="${_unsubUrl(uid, 'alerts', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe</a></p>
+                </div>
+              </div></body></html>`, uid).catch(e => console.error('[email milestone]', e.message));
+            }
+          }
+        }
+
+        // ── 1c. Large transaction alert ──────────────────────────────
         const LARGE_TXN_THRESHOLD = 100;
         const LARGE_SKIP_RE = /\b(mortgage|rent|loan payment|insurance|transfer|payroll)\b/i;
         for (const t of added) {
@@ -3025,6 +3141,53 @@ async function _webhookSyncItem(itemId, retryCount = 0) {
             `, uid).catch(e => console.error('[email low-balance]', e.message));
           }
           break;
+        }
+
+        // ── 1d. Duplicate charge detection ───────────────────────────
+        if (added.length > 0) {
+          const sevenAgo = new Date(); sevenAgo.setDate(sevenAgo.getDate() - 7);
+          const sevenStr = sevenAgo.toISOString().slice(0, 10);
+          for (const t of added) {
+            if (t.amount <= 0) continue;
+            if (t.amount < 5) continue; // ignore tiny charges
+            const mKey = (t.merchant_name || t.name || '').toLowerCase().trim();
+            if (!mKey) continue;
+            const dupSnap = await userRef.collection('transactions')
+              .where('date', '>=', sevenStr)
+              .where('amount', '==', t.amount)
+              .where('pending', '==', false)
+              .get();
+            const dupes = dupSnap.docs.filter(d => {
+              const tx = d.data();
+              return (tx.merchant_name || tx.name || '').toLowerCase().trim() === mKey
+                && d.id !== t.transaction_id;
+            });
+            if (dupes.length > 0) {
+              const safeMerch = _htmlEscape(t.merchant_name || t.name || 'A merchant');
+              const dupTitle = `⚠️ Possible duplicate charge`;
+              const dupBody  = `${t.merchant_name || t.name} charged ${_fmt(t.amount)} twice in the last 7 days.`;
+              await _saveNotification(uid, { title: dupTitle, body: dupBody, type: 'duplicate_charge', data: { merchant: mKey, amount: String(t.amount) } });
+              if (fcmToken) _sendFCM(uid, fcmToken, { title: dupTitle, body: dupBody, type: 'duplicate_charge', channelId: 'flowcheck_alerts' }).catch(() => {});
+              if (userData.email && userData.email_alerts_enabled !== false) {
+                _sendEmail(userData.email, `⚠️ Possible duplicate: ${_fmt(t.amount)} from ${t.merchant_name || t.name}`, `
+                <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+                <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
+                  <div style="background:#fff3cd;border-left:5px solid #f59e0b;padding:24px 28px">
+                    <h2 style="font-size:18px;font-weight:700;color:#92400e;margin:0 0 6px">⚠️ Possible duplicate charge</h2>
+                    <p style="font-size:15px;color:#78350f;margin:0"><strong>${safeMerch}</strong> charged <strong>${_fmt(t.amount)}</strong> twice in the last 7 days.</p>
+                  </div>
+                  <div style="padding:24px 28px">
+                    <p style="font-size:14px;color:#6b7280;margin:0 0 20px">This could be a legitimate charge or an accidental double-bill. Check your recent transactions to confirm.</p>
+                    <a href="https://getflowcheck.app" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">Review Transactions →</a>
+                  </div>
+                  <div style="padding:14px 28px;border-top:1px solid #f3f4f6;text-align:center">
+                    <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · <a href="${_unsubUrl(uid, 'alerts', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe from alerts</a></p>
+                  </div>
+                </div></body></html>`, uid).catch(e => console.error('[email dup-charge]', e.message));
+              }
+              break; // one duplicate alert per sync
+            }
+          }
         }
 
         // ── 2. Budget overage detection ───────────────────────────────
