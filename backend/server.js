@@ -203,7 +203,8 @@ app.use(compression());
 // This must come before the API routes so assets resolve first.
 app.use(express.static(path.join(__dirname, 'public'), {
   maxAge: '1h',
-  index:  false,   // root handled by explicit GET / route
+  index:       false,        // root handled by explicit GET / route
+  extensions:  ['html'],    // /features → features.html, /pricing → pricing.html
 }));
 
 // ── Security headers (Helmet) ──────────────────────────────────
