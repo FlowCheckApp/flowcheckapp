@@ -200,7 +200,19 @@ h3 { font-size: clamp(18px, 2vw, 22px); font-weight: 700; }
 .badge-appstore-sub  { font-size: 10px; color: rgba(255,255,255,0.55); letter-spacing: 0.01em; }
 .badge-appstore-name { font-size: 16px; font-weight: 700; color: #fff; letter-spacing: -0.02em; }
 
-/* ── Scroll reveal ───────────────────────────────────────────────── */
+/* ── Hero entry animations — CSS-native, fires immediately on load ── */
+/* Never use .reveal on above-fold hero content — use these instead   */
+@keyframes fcFadeUp {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: none; }
+}
+.ha   { animation: fcFadeUp 0.65s cubic-bezier(.22,1,.36,1) both; }
+.ha-1 { animation: fcFadeUp 0.65s 0.08s cubic-bezier(.22,1,.36,1) both; }
+.ha-2 { animation: fcFadeUp 0.65s 0.20s cubic-bezier(.22,1,.36,1) both; }
+.ha-3 { animation: fcFadeUp 0.65s 0.32s cubic-bezier(.22,1,.36,1) both; }
+.ha-4 { animation: fcFadeUp 0.65s 0.44s cubic-bezier(.22,1,.36,1) both; }
+
+/* ── Scroll reveal (below-fold sections only) ────────────────────── */
 .reveal {
   opacity: 0; transform: translateY(22px);
   transition: opacity 0.6s cubic-bezier(.22,1,.36,1), transform 0.6s cubic-bezier(.22,1,.36,1);
@@ -333,8 +345,9 @@ h3 { font-size: clamp(18px, 2vw, 22px); font-weight: 700; }
 }
 .proof-bar-inner {
   display: flex; align-items: center; justify-content: center;
-  gap: 48px; flex-wrap: wrap;
+  gap: 40px; flex-wrap: nowrap;
 }
+@media (max-width: 700px) { .proof-bar-inner { flex-wrap: wrap; gap: 20px; } }
 .proof-stat { text-align: center; }
 .proof-stat-n { font-size: 22px; font-weight: 800; letter-spacing: -0.03em; }
 .proof-stat-l { font-size: 12px; color: var(--text-2); margin-top: 2px; }

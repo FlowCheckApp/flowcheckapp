@@ -708,22 +708,30 @@ app.get('/invite/:code', async (req, res) => {
 
     <div class="features">
       <div class="feature">
-        <div class="feature-icon" style="background:rgba(26,196,240,0.12)">💳</div>
+        <div class="feature-icon" style="background:rgba(14,165,233,0.12)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0ea5e9" stroke-width="2" stroke-linecap="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+        </div>
         <span>Unlimited bank accounts</span>
         <span class="check">✓</span>
       </div>
       <div class="feature">
-        <div class="feature-icon" style="background:rgba(37,99,235,0.12)">📊</div>
+        <div class="feature-icon" style="background:rgba(99,102,241,0.12)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="2" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        </div>
         <span>Financial Health Score</span>
         <span class="check">✓</span>
       </div>
       <div class="feature">
-        <div class="feature-icon" style="background:rgba(26,196,240,0.10)">🧠</div>
+        <div class="feature-icon" style="background:rgba(34,197,94,0.10)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+        </div>
         <span>AI spending insights</span>
         <span class="check">✓</span>
       </div>
       <div class="feature">
-        <div class="feature-icon" style="background:rgba(52,199,89,0.12)">🔔</div>
+        <div class="feature-icon" style="background:rgba(251,191,36,0.10)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        </div>
         <span>Bill tracking &amp; reminders</span>
         <span class="check">✓</span>
       </div>
@@ -743,7 +751,10 @@ app.get('/invite/:code', async (req, res) => {
       </div>
       <div id="state-install">
         <a class="btn-primary" href="${storeUrl}" id="store-btn">
-          Download FlowCheck Free →
+          Download on App Store →
+        </a>
+        <a class="btn-secondary" href="https://getflowcheck.app/signup?code=${encodeURIComponent(rawCode)}" style="margin-top:8px;color:rgba(255,255,255,0.45);font-size:13px;text-decoration:none;display:block;padding:10px">
+          Sign up on the web instead →
         </a>
         <a class="btn-secondary" href="${appScheme}" id="reopen-btn">Already installed? Open app</a>
       </div>
