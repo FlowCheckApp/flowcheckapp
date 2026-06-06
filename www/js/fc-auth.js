@@ -55,6 +55,7 @@ window.FCAuth = (function () {
   const BiometricAuth  = () => Cap() && (Cap().BiometricAuth || Cap().NativeBiometric);
   const Haptics        = () => Cap() && Cap().Haptics;
   const Preferences    = () => Cap() && (Cap().Preferences || Cap().Storage);
+  const SecureStorage  = () => Cap() && Cap().SecureStoragePlugin;
 
   /* ── Haptic helper ───────────────────────────────────────── */
   function haptic(style) {
@@ -87,6 +88,49 @@ window.FCAuth = (function () {
     try {
       if (Preferences()) await Preferences().remove({ key });
       else localStorage.removeItem('fc_' + key);
+    } catch (_) {}
+  }
+
+  /* ── Keychain-backed secure storage (for biometric PII) ────── */
+  // Uses capacitor-secure-storage-plugin which maps to iOS Keychain.
+  // Falls back to Preferences when running in browser/dev mode.
+  // One-time migration: on first read, pulls any existing Preferences value
+  // into Keychain and deletes the NSUserDefaults copy.
+  async function secureSet(key, value) {
+    try {
+      if (SecureStorage()) await SecureStorage().set({ key, value: String(value) });
+      else await prefSet(key, value);
+    } catch (_) {}
+  }
+
+  async function secureGet(key) {
+    try {
+      if (SecureStorage()) {
+        try {
+          const r = await SecureStorage().get({ key });
+          if (r && r.value != null) return r.value;
+        } catch (_) { /* key not found */ }
+        // One-time migration: move from Preferences (NSUserDefaults) → Keychain
+        const legacy = await prefGet(key);
+        if (legacy != null) {
+          await SecureStorage().set({ key, value: String(legacy) }).catch(() => {});
+          await prefRemove(key);
+          return String(legacy);
+        }
+        return null;
+      }
+      return prefGet(key);
+    } catch (_) { return null; }
+  }
+
+  async function secureRemove(key) {
+    try {
+      if (SecureStorage()) {
+        await SecureStorage().remove({ key }).catch(() => {});
+        await prefRemove(key); // clean up any legacy NSUserDefaults copy
+      } else {
+        await prefRemove(key);
+      }
     } catch (_) {}
   }
 
@@ -207,14 +251,10 @@ window.FCAuth = (function () {
     _clearAttempts(email);
 
     // Store that biometric should be offered next time.
-    // TODO(security): biometric_email is the user's email address (PII) stored in
-    // NSUserDefaults via @capacitor/preferences — NOT in the iOS Keychain.
-    // NSUserDefaults is unencrypted and included in unencrypted device backups.
-    // Fix: install a Keychain-backed plugin (e.g. @capacitor-community/secure-storage)
-    // and replace the prefSet/prefGet calls for 'biometric_email' (and 'biometric_enabled')
-    // with SecureStorage.set/get. No such plugin exists in package.json as of 2026-06-04.
-    await prefSet('biometric_email', email);
-    await prefSet('biometric_enabled', true);
+    // biometric_email and biometric_enabled go to Keychain (capacitor-secure-storage-plugin)
+    // so the user's email is never exposed in NSUserDefaults or unencrypted device backups.
+    await secureSet('biometric_email', email);
+    await secureSet('biometric_enabled', 'true');
 
     // Security alert email — non-blocking, at most once per day per user
     authedFetch(`${window.FC_CONFIG?.app?.apiBase}/auth/login-event`, { method: 'POST' }).catch(() => {});
@@ -225,7 +265,7 @@ window.FCAuth = (function () {
 
   /* ── Biometric unlock (for returning users) ──────────────── */
   async function signInWithBiometric() {
-    const email = await prefGet('biometric_email');
+    const email = await secureGet('biometric_email');
     if (!email) throw new Error('No saved credentials for biometric sign-in');
 
     // Prompt Face ID — this verifies identity but doesn't fetch password.
@@ -423,8 +463,8 @@ window.FCAuth = (function () {
     // Clear biometric preferences — including the cached email so a different
     // user on a shared device doesn't see the previous user's address pre-filled
     // on the lock screen or as the "last user" hint.
-    await prefRemove('biometric_enabled');
-    await prefRemove('biometric_email');
+    await secureRemove('biometric_enabled');
+    await secureRemove('biometric_email');
     // Sign out of Firebase
     await _auth.signOut();
     _currentUser = null;
@@ -442,16 +482,15 @@ window.FCAuth = (function () {
     // The cache caused the toggle to be a no-op when _biometricAvailable
     // was set to false on the first call (e.g. plugin not ready yet).
     const available = await checkBiometricAvailable();
-    const setting   = await prefGet('biometric_enabled');
-    // Require explicit opt-in (setting === true), not just non-false.
-    // This prevents Face ID from appearing "enabled" on a fresh install
-    // before the user has ever touched the toggle.
-    return available && setting === true;
+    const setting   = await secureGet('biometric_enabled');
+    // Require explicit opt-in ('true' string), not just non-null.
+    // SecureStorage values are always strings; migration converts old booleans.
+    return available && setting === 'true';
   }
 
   async function setBiometricEnabled(enabled) {
     _biometricAvailable = false; // force re-check on next isBiometricEnabled() call
-    await prefSet('biometric_enabled', enabled);
+    await secureSet('biometric_enabled', enabled ? 'true' : 'false');
   }
 
   async function getUserDoc() {

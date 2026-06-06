@@ -1,0 +1,222 @@
+/* ============================================================
+   fc-screens.css — Screen-specific utility classes
+   Extracted from fc-app.js inline styles.
+   All colors use CSS vars so light/dark mode works automatically.
+   ============================================================ */
+
+/* ── Detail rows (sub-detail sheet, debt planner, etc.) ── */
+.fcs-detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--fc-border);
+}
+.fcs-detail-row:last-child,
+.fcs-detail-row.no-border { border-bottom: none; }
+
+/* ── History rows (charge history in sub-detail) ── */
+.fcs-history-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--fc-border);
+}
+.fcs-history-row:last-child { border-bottom: none; }
+
+/* ── List card wrapper (detail info panel, charge history panel) ── */
+.fcs-list-card {
+  background: var(--fc-card-bg);
+  border-radius: var(--fc-r-md);
+  padding: 4px 16px;
+}
+
+/* ── Small item card (debt planner debt rows) ── */
+.fcs-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 11px;
+  background: var(--fc-card-bg);
+  border-radius: 10px;
+  border: 1px solid var(--fc-border);
+}
+
+/* ── Row text: muted label + strong value ── */
+.fcs-row-lbl {
+  font-size: 13px;
+  color: var(--fc-text-muted);
+}
+.fcs-row-val {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fc-text);
+}
+
+/* ── Small sub-text (APR, dates, annotation copy) ── */
+.fcs-sub {
+  font-size: 11px;
+  color: var(--fc-text-faint);
+}
+
+/* ── Icon box: 32×32 chip used in insight cards ── */
+.fcs-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: var(--fc-card-bg-hover);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+  line-height: 1;
+  margin-top: 1px;
+}
+
+/* ── Insight card shell (background + border-left are set inline per-card) ── */
+.fcs-insight-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 12px 14px;
+  border: 1px solid var(--fc-border);
+  border-radius: var(--fc-r-sm);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+[data-theme="light"] .fcs-insight-card {
+  box-shadow: inset 0 1px 0 rgba(13, 27, 46, 0.04);
+}
+
+/* ── Sheet centered header (subscription detail top section) ── */
+.fcs-sheet-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 0 20px;
+}
+
+/* ── Cancel/manage danger link button ── */
+.fcs-cancel-btn {
+  display: block;
+  text-align: center;
+  padding: 14px;
+  background: var(--fc-danger-soft);
+  border: 1px solid rgba(255, 69, 58, 0.25);
+  border-radius: var(--fc-r-sm);
+  color: var(--fc-danger);
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+  margin-bottom: 8px;
+}
+
+/* ── Budget wizard row: header bar (label + value on same line) ── */
+.fcs-bw-row-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 7px;
+}
+.fcs-bw-row-lhs { display: flex; align-items: center; gap: 7px; }
+.fcs-bw-row-rhs { text-align: right; }
+
+/* ── Debt planner method card (Avalanche vs Snowball) ── */
+.fcs-method-card {
+  background: var(--fc-card-bg);
+  border: 1px solid var(--fc-border);
+  border-radius: var(--fc-r-sm);
+  padding: 12px;
+  text-align: center;
+}
+.fcs-method-card.winner {
+  background: var(--fc-success-soft);
+  border-color: rgba(52, 199, 89, 0.25);
+}
+
+/* ── Card recommender "why it fits" panel ── */
+.fcs-why-box {
+  background: var(--fc-card-bg);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+
+/* ── Very faint disclosure / legal copy ── */
+.fcs-disclosure {
+  font-size: 10px;
+  color: var(--fc-text-disabled);
+  text-align: center;
+  margin-top: 8px;
+  line-height: 1.4;
+}
+
+/* ── Clickable list row (zombie subs, offers, generic tappable rows) ── */
+.fcs-list-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--fc-card-bg);
+  border-radius: var(--fc-r-sm);
+  border: 1px solid var(--fc-border);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ── Health / financial factor pill ── */
+.fcs-factor-pill {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--fc-card-bg);
+  border-radius: 8px;
+  padding: 5px 9px;
+}
+
+/* ── Budget / category status badge ── */
+.fcs-badge {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: var(--fc-r-pill);
+  white-space: nowrap;
+}
+.fcs-badge--over { background: var(--fc-danger-soft);  color: var(--fc-danger);  }
+.fcs-badge--warn { background: var(--fc-warning-soft); color: var(--fc-warning); }
+.fcs-badge--ok   { background: var(--fc-success-soft); color: var(--fc-success); }
+.fcs-badge--add  {
+  background: var(--fc-card-bg-hover);
+  color: var(--fc-text-faint);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+/* ── Mini progress bar track (spending bars, budget bars) ── */
+.fcs-bar-track {
+  background: var(--fc-card-bg-hover);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+/* ── Credit score / score factor chip ── */
+.fcs-factor-chip {
+  background: var(--fc-card-bg-hover);
+  border: 1px solid var(--fc-border-strong);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  color: var(--fc-text-muted);
+}
+
+/* ── Account scroll counter pill ("1 of N") ── */
+.fcs-acct-counter {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--fc-text-faint);
+  letter-spacing: 0.06em;
+  background: var(--fc-card-bg-hover);
+  padding: 2px 8px;
+  border-radius: 20px;
+}

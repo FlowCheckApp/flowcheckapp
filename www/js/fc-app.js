@@ -393,42 +393,41 @@ window.FCApp = (function () {
 
     const historyRows = sub.entries.slice().reverse().slice(0, 12).map(e => {
       const d = FCData.parseDateLocal(e.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-        <span style="font-size:13px;color:rgba(255,255,255,0.6)">${d}</span>
-        <span style="font-size:13px;font-weight:600;color:#fff">${FCData.formatCurrency(e.amount)}</span>
+      return `<div class="fcs-history-row">
+        <span class="fcs-row-lbl">${d}</span>
+        <span class="fcs-row-val">${FCData.formatCurrency(e.amount)}</span>
       </div>`;
     }).join('');
 
     const body = document.getElementById('sub-detail-body');
     if (body) body.innerHTML = `
-      <div style="display:flex;flex-direction:column;align-items:center;padding:24px 0 20px">
+      <div class="fcs-sheet-header">
         <div style="font-size:48px;margin-bottom:10px">${subIcon(sub.name)}</div>
-        <div style="font-size:20px;font-weight:700;color:#fff;margin-bottom:4px">${esc(_cleanTxnName({ name: sub.name }))}</div>
-        <div style="font-size:32px;font-weight:800;color:#fff;margin-bottom:2px">${FCData.formatCurrency(sub.amount)}<span style="font-size:16px;font-weight:500;color:rgba(255,255,255,0.5)">/${sub.freq}</span></div>
-        <div style="font-size:12px;color:rgba(255,255,255,0.4)">${FCData.formatCurrency(Math.round(annualEst))}/year estimated</div>
+        <div style="font-size:20px;font-weight:700;color:var(--fc-text);margin-bottom:4px">${esc(_cleanTxnName({ name: sub.name }))}</div>
+        <div style="font-size:32px;font-weight:800;color:var(--fc-text);margin-bottom:2px">${FCData.formatCurrency(sub.amount)}<span style="font-size:16px;font-weight:500;color:var(--fc-text-muted)">/${sub.freq}</span></div>
+        <div class="fcs-sub">${FCData.formatCurrency(Math.round(annualEst))}/year estimated</div>
       </div>
-      <div style="background:rgba(255,255,255,0.04);border-radius:16px;padding:4px 16px;margin-bottom:16px">
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-          <span style="font-size:13px;color:rgba(255,255,255,0.5)">Frequency</span>
-          <span style="font-size:13px;font-weight:600;color:#fff">${freqLabel}</span>
+      <div class="fcs-list-card" style="margin-bottom:16px">
+        <div class="fcs-detail-row">
+          <span class="fcs-row-lbl">Frequency</span>
+          <span class="fcs-row-val">${freqLabel}</span>
         </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-          <span style="font-size:13px;color:rgba(255,255,255,0.5)">Last charge</span>
-          <span style="font-size:13px;font-weight:600;color:#fff">${lastLabel}</span>
+        <div class="fcs-detail-row">
+          <span class="fcs-row-lbl">Last charge</span>
+          <span class="fcs-row-val">${lastLabel}</span>
         </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0">
-          <span style="font-size:13px;color:rgba(255,255,255,0.5)">Next estimated</span>
+        <div class="fcs-detail-row no-border">
+          <span class="fcs-row-lbl">Next estimated</span>
           <span style="font-size:13px;font-weight:600;color:var(--fc-warning)">${nextLabel}</span>
         </div>
       </div>
       <div style="margin-bottom:16px">
-        <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.35);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px">Charge history</div>
-        <div style="background:rgba(255,255,255,0.04);border-radius:16px;padding:4px 16px">
-          ${historyRows || '<div style="padding:12px 0;text-align:center;color:rgba(255,255,255,0.3);font-size:13px">No history available</div>'}
+        <div class="fc-eyebrow" style="margin-bottom:8px">Charge history</div>
+        <div class="fcs-list-card">
+          ${historyRows || '<div style="padding:12px 0;text-align:center;" class="fcs-sub">No history available</div>'}
         </div>
       </div>
-      <a href="${cancelUrl}" target="_blank" rel="noopener noreferrer"
-         style="display:block;text-align:center;padding:14px;background:rgba(255,69,58,0.12);border:1px solid rgba(255,69,58,0.25);border-radius:14px;color:var(--fc-danger);font-size:15px;font-weight:600;text-decoration:none;margin-bottom:8px">
+      <a href="${cancelUrl}" target="_blank" rel="noopener noreferrer" class="fcs-cancel-btn">
         Manage / Cancel Subscription
       </a>
     `;
@@ -1054,25 +1053,13 @@ window.FCApp = (function () {
       // Derive a left-border accent color from the insight's text color
       const borderColor = ins.color || 'rgba(26,196,240,0.8)';
       return `
-      <div style="display:flex;align-items:flex-start;gap:11px;padding:12px 14px;
-                  background:${ins.bg};
-                  border:1px solid rgba(255,255,255,0.06);
-                  border-left:3px solid ${borderColor};
-                  border-radius:14px;
-                  box-shadow:inset 0 1px 0 rgba(255,255,255,0.04)">
-        <div style="width:32px;height:32px;border-radius:10px;
-                    background:rgba(255,255,255,0.06);
-                    display:flex;align-items:center;justify-content:center;
-                    font-size:16px;flex-shrink:0;line-height:1;
-                    margin-top:1px">${esc(ins.icon)}</div>
+      <div class="fcs-insight-card" style="background:${ins.bg};border-left:3px solid ${borderColor}">
+        <div class="fcs-icon">${esc(ins.icon)}</div>
         <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:600;color:#fff;line-height:1.35;margin-bottom:2px">
-            ${esc(ins.text)}
-          </div>
-          ${ins.sub ? `<div style="font-size:11px;color:rgba(255,255,255,0.4);line-height:1.4;margin-top:3px">${esc(ins.sub)}</div>` : ''}
+          <div class="fcs-row-val" style="line-height:1.35;margin-bottom:2px">${esc(ins.text)}</div>
+          ${ins.sub ? `<div class="fcs-sub" style="line-height:1.4;margin-top:3px">${esc(ins.sub)}</div>` : ''}
         </div>
-        <div style="width:6px;height:6px;border-radius:50%;background:${borderColor};
-                    flex-shrink:0;margin-top:5px;opacity:0.8"></div>
+        <div style="width:6px;height:6px;border-radius:50%;background:${borderColor};flex-shrink:0;margin-top:5px;opacity:0.8"></div>
       </div>`;
     }).join('');
 
@@ -1680,7 +1667,7 @@ window.FCApp = (function () {
         { label: 'Emrg. Fund',   ok: !!state.goals.find(g => /emergency|rainy|reserve/i.test(g.name) && (g.pct || 0) >= 50) },
       ];
       factEl.innerHTML = factors.map(f => `
-        <div style="display:flex;align-items:center;gap:5px;background:rgba(255,255,255,0.04);border-radius:8px;padding:5px 9px">
+        <div class="fcs-factor-pill">
           <span style="color:${f.ok ? 'var(--fc-success)' : 'var(--fc-warning)'};font-size:11px">${f.ok ? '✓' : '!'}</span>
           <span style="font-size:11px;font-weight:500;color:${f.ok ? 'var(--fc-text-muted)' : 'var(--fc-warning)'}">${f.label}</span>
         </div>`).join('');
@@ -1832,8 +1819,8 @@ window.FCApp = (function () {
             <span style="font-size:11px;font-weight:700;color:${esc(offer.color)};text-transform:uppercase;letter-spacing:0.06em">${esc(offer.badge)}</span>
             <span style="font-size:10px;color:rgba(255,255,255,0.3);margin-left:auto;font-weight:500">Partner</span>
           </div>
-          <div style="font-size:17px;font-weight:700;color:white;line-height:1.3;margin-bottom:6px">${esc(headline)}</div>
-          <div style="font-size:13px;color:rgba(255,255,255,0.5);line-height:1.4;margin-bottom:14px">${esc(offer.sub)}</div>
+          <div style="font-size:17px;font-weight:700;color:var(--fc-text);line-height:1.3;margin-bottom:6px">${esc(headline)}</div>
+          <div style="font-size:13px;color:var(--fc-text-muted);line-height:1.4;margin-bottom:14px">${esc(offer.sub)}</div>
           <button onclick="FCApp.openOffer('${esc(offer.id)}')"
             style="background:${esc(offer.color)};color:white;border:none;border-radius:10px;padding:10px 20px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:6px">
             ${esc(offer.cta)}
@@ -1842,7 +1829,7 @@ window.FCApp = (function () {
         </div>
         <div style="width:44px;height:44px;border-radius:12px;background:${esc(offer.color)}22;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">${esc(offer.icon)}</div>
       </div>
-      <p style="margin:12px 0 0;font-size:11px;color:rgba(255,255,255,0.2);line-height:1.4">
+      <p class="fcs-disclosure" style="margin:12px 0 0">
         FlowCheck may earn a commission if you open an account. This doesn't affect our recommendations or your costs.
       </p>`;
     el.dataset.offerId = offer.id;
@@ -2075,20 +2062,20 @@ window.FCApp = (function () {
       const statusColor = isOver ? 'var(--fc-danger)' : isUnder ? 'var(--fc-warning)' : 'var(--fc-success)';
       return `
         <div>
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px">
-            <div style="display:flex;align-items:center;gap:7px">
+          <div class="fcs-bw-row-header">
+            <div class="fcs-bw-row-lhs">
               <span style="font-size:16px">${icon}</span>
               <div>
-                <div style="font-size:13px;font-weight:600;color:#fff">${label}</div>
-                <div style="font-size:11px;color:rgba(255,255,255,0.4)">Target: ${target}% · ${FCData.formatCurrency(Math.round(actual))}</div>
+                <div class="fcs-row-val">${label}</div>
+                <div class="fcs-sub">Target: ${target}% · ${FCData.formatCurrency(Math.round(actual))}</div>
               </div>
             </div>
-            <div style="text-align:right">
+            <div class="fcs-bw-row-rhs">
               <div style="font-size:16px;font-weight:800;color:${color}">${pct}%</div>
               <div style="font-size:10px;color:${statusColor};font-weight:600">${status}</div>
             </div>
           </div>
-          <div class="dash-bar-track" style="background:rgba(255,255,255,0.07)">
+          <div class="dash-bar-track fcs-bar-track">
             <div class="dash-bar-fill" style="width:${barPct}%;background:${isOver ? 'var(--fc-danger)' : color}"></div>
           </div>
           <div style="height:6px;position:relative;margin-top:2px">
@@ -2173,15 +2160,11 @@ window.FCApp = (function () {
       const annualCost = FCData.formatCurrency(Math.round(z.amount * 12));
       const encoded   = encodeURIComponent(z.name);
       return `
-        <div onclick="FCApp.showSubDetail('${encoded}')"
-             style="display:flex;align-items:center;gap:12px;padding:10px 12px;
-                    background:rgba(255,255,255,0.04);border-radius:12px;
-                    border:1px solid rgba(255,255,255,0.06);cursor:pointer;
-                    -webkit-tap-highlight-color:transparent">
+        <div onclick="FCApp.showSubDetail('${encoded}')" class="fcs-list-row">
           <span style="font-size:20px;flex-shrink:0">${icon}</span>
           <div style="flex:1;min-width:0">
-            <div style="font-size:13px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(name)}</div>
-            <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:1px">${FCData.formatCurrency(z.amount)}/${z.freq} · ${annualCost}/yr</div>
+            <div class="fcs-row-val" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(name)}</div>
+            <div class="fcs-sub" style="margin-top:1px">${FCData.formatCurrency(z.amount)}/${z.freq} · ${annualCost}/yr</div>
           </div>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="2.5" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
         </div>`;
@@ -2317,19 +2300,17 @@ window.FCApp = (function () {
 
     if (listEl) {
       listEl.innerHTML = debts.map(d => `
-        <div style="display:flex;align-items:center;justify-content:space-between;
-                    padding:9px 11px;background:rgba(255,255,255,0.04);border-radius:10px;
-                    border:1px solid rgba(255,255,255,0.06)">
+        <div class="fcs-item">
           <div style="display:flex;align-items:center;gap:8px;min-width:0">
             <span style="font-size:16px;flex-shrink:0">${debtTypeIcon(d)}</span>
             <div style="min-width:0">
-              <div style="font-size:13px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px">${esc(d.name)}</div>
-              <div style="font-size:11px;color:rgba(255,255,255,0.38)">~${Math.round(d.apr * 100)}% APR est.</div>
+              <div class="fcs-row-val" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px">${esc(d.name)}</div>
+              <div class="fcs-sub">~${Math.round(d.apr * 100)}% APR est.</div>
             </div>
           </div>
           <div style="text-align:right;flex-shrink:0">
-            <div style="font-size:14px;font-weight:700;color:#fff">${FCData.formatCurrency(Math.round(d.balance))}</div>
-            <div style="font-size:11px;color:rgba(255,255,255,0.38)">${FCData.formatCurrency(Math.round(d.minPay))}/mo min</div>
+            <div style="font-size:14px;font-weight:700;color:var(--fc-text)">${FCData.formatCurrency(Math.round(d.balance))}</div>
+            <div class="fcs-sub">${FCData.formatCurrency(Math.round(d.minPay))}/mo min</div>
           </div>
         </div>`).join('');
     }
@@ -2339,15 +2320,13 @@ window.FCApp = (function () {
     if (compEl) {
       function methodCard(label, data, color, isWinner) {
         return `
-          <div style="background:${isWinner ? 'rgba(52,199,89,0.08)' : 'rgba(255,255,255,0.04)'};
-                      border:1px solid ${isWinner ? 'rgba(52,199,89,0.25)' : 'rgba(255,255,255,0.07)'};
-                      border-radius:12px;padding:12px;text-align:center">
+          <div class="fcs-method-card${isWinner ? ' winner' : ''}">
             ${isWinner ? '<div style="font-size:9px;font-weight:700;color:var(--fc-success);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:4px">★ Recommended</div>' : '<div style="margin-bottom:4px;height:13px"></div>'}
             <div style="font-size:14px;font-weight:700;color:${color};margin-bottom:2px">${label}</div>
-            <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:8px">${label === 'Avalanche' ? 'Highest APR first' : 'Smallest balance first'}</div>
-            <div style="font-size:20px;font-weight:800;color:#fff;margin-bottom:1px">${monthsLabel(data.months)}</div>
-            <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:6px">to debt free</div>
-            <div style="font-size:13px;font-weight:700;color:${isWinner ? 'var(--fc-success)' : 'rgba(255,255,255,0.6)'}">
+            <div class="fcs-sub" style="margin-bottom:8px">${label === 'Avalanche' ? 'Highest APR first' : 'Smallest balance first'}</div>
+            <div style="font-size:20px;font-weight:800;color:var(--fc-text);margin-bottom:1px">${monthsLabel(data.months)}</div>
+            <div class="fcs-sub" style="margin-bottom:6px">to debt free</div>
+            <div style="font-size:13px;font-weight:700;color:${isWinner ? 'var(--fc-success)' : 'var(--fc-text-muted)'}">
               ${FCData.formatCurrency(Math.round(data.totalInterest))} interest
             </div>
           </div>`;
@@ -2762,29 +2741,28 @@ window.FCApp = (function () {
           <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px">
             <div style="flex:1;min-width:0;padding-right:10px">
               ${isTop ? `<div style="font-size:10px;font-weight:700;color:${card.color};text-transform:uppercase;letter-spacing:0.07em;margin-bottom:4px">★ Top Pick</div>` : ''}
-              <div style="font-size:15px;font-weight:700;color:#fff;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(card.name)}</div>
-              <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px">${esc(feeStr)}</div>
+              <div style="font-size:15px;font-weight:700;color:var(--fc-text);line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(card.name)}</div>
+              <div class="fcs-sub" style="margin-top:2px">${esc(feeStr)}</div>
             </div>
-            <div style="flex-shrink:0;background:${card.color}1A;border:1px solid ${card.color}44;
-                        border-radius:10px;padding:6px 10px;text-align:center">
+            <div style="flex-shrink:0;background:${card.color}1A;border:1px solid ${card.color}44;border-radius:10px;padding:6px 10px;text-align:center">
               <div style="font-size:20px;font-weight:800;color:${card.color};line-height:1">${card.topRate}x</div>
               <div style="font-size:9px;color:rgba(255,255,255,0.45);margin-top:1px;text-transform:capitalize">${esc(card.topBucket)}</div>
             </div>
           </div>
 
           <!-- Why it fits -->
-          <div style="background:rgba(255,255,255,0.05);border-radius:10px;padding:10px 12px;margin-bottom:12px">
-            <div style="font-size:10px;font-weight:600;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:3px">Why it fits you</div>
-            <div style="font-size:13px;color:rgba(255,255,255,0.82);line-height:1.45">${esc(matchText)}</div>
+          <div class="fcs-why-box">
+            <div class="fc-eyebrow" style="margin-bottom:3px">Why it fits you</div>
+            <div style="font-size:13px;color:var(--fc-text-muted);line-height:1.45">${esc(matchText)}</div>
           </div>
 
           <!-- Estimated rewards -->
           <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:14px">
             <div>
-              <div style="font-size:11px;color:rgba(255,255,255,0.38);margin-bottom:3px">${card.fee > 0 ? 'Est. net annual value' : 'Est. annual cash back'}</div>
+              <div class="fcs-sub" style="margin-bottom:3px">${card.fee > 0 ? 'Est. net annual value' : 'Est. annual cash back'}</div>
               <div style="font-size:24px;font-weight:800;color:${card.color};line-height:1">${netStr}</div>
             </div>
-            ${card.fee > 0 ? `<div style="font-size:11px;color:rgba(255,255,255,0.32);text-align:right;line-height:1.5">After<br>$${card.fee} fee</div>` : ''}
+            ${card.fee > 0 ? `<div class="fcs-sub" style="text-align:right;line-height:1.5">After<br>$${card.fee} fee</div>` : ''}
           </div>
 
           <!-- Apply CTA -->
@@ -2797,7 +2775,7 @@ window.FCApp = (function () {
           </a>
 
           <!-- Disclosure -->
-          <div style="font-size:10px;color:rgba(255,255,255,0.18);text-align:center;margin-top:8px;line-height:1.4">
+          <div class="fcs-disclosure">
             Partner offer · FlowCheck may earn a referral fee
           </div>
         </div>`;
@@ -3078,8 +3056,7 @@ window.FCApp = (function () {
     if (factorsEl) {
       const factors = state.user.credit_factors || [];
       factorsEl.innerHTML = factors.slice(0, 3).map(f =>
-        `<div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);
-          border-radius:999px;padding:4px 10px;font-size:11px;color:rgba(255,255,255,0.55)">${esc(f)}</div>`
+        `<div class="fcs-factor-chip">${esc(f)}</div>`
       ).join('');
     }
 
@@ -3390,7 +3367,7 @@ window.FCApp = (function () {
         };
       } else {
         // Many accounts — show a subtle scroll indicator pill
-        dots.innerHTML = `<span id="acct-dot-count" style="font-size:10px;font-weight:600;color:rgba(255,255,255,0.35);letter-spacing:0.06em;background:rgba(255,255,255,0.06);padding:2px 8px;border-radius:20px">1 of ${total}</span>`;
+        dots.innerHTML = `<span id="acct-dot-count" class="fcs-acct-counter">1 of ${total}</span>`;
         wrap.onscroll = () => {
           const active = Math.min(Math.round(wrap.scrollLeft / CARD_W), total - 1);
           const countEl = document.getElementById('acct-dot-count');
@@ -3542,7 +3519,7 @@ window.FCApp = (function () {
         <div style="display:flex;align-items:center;gap:8px;min-width:0">
           <div style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0"></div>
           <span style="font-size:11px;color:var(--fc-text-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1">${esc(icon)} ${esc(cat)}</span>
-          <span style="font-size:11px;font-weight:600;color:white;flex-shrink:0">${pct}%</span>
+          <span class="fcs-row-val" style="flex-shrink:0">${pct}%</span>
         </div>`;
     }).join('');
   }
@@ -4810,11 +4787,11 @@ window.FCApp = (function () {
         const budColor = budPct > 90 ? 'var(--fc-danger)' : budPct > 70 ? 'var(--fc-warning)' : col;
         const statusBadge = budLim > 0
           ? isOver
-            ? `<span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:99px;background:rgba(255,69,58,0.15);color:var(--fc-danger);white-space:nowrap">OVER</span>`
+            ? `<span class="fcs-badge fcs-badge--over">OVER</span>`
             : budPct > 80
-              ? `<span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:99px;background:rgba(255,159,10,0.15);color:var(--fc-warning);white-space:nowrap">${budPct}%</span>`
-              : `<span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:99px;background:rgba(52,199,89,0.12);color:var(--fc-success);white-space:nowrap">${budPct}%</span>`
-          : `<span style="font-size:9px;font-weight:500;padding:2px 6px;border-radius:99px;background:rgba(255,255,255,0.06);color:var(--fc-text-faint);cursor:pointer;white-space:nowrap" onclick="event.stopPropagation();FCApp.openCategoryBudgetSheet('${esc(cat)}',0)">+ Budget</span>`;
+              ? `<span class="fcs-badge fcs-badge--warn">${budPct}%</span>`
+              : `<span class="fcs-badge fcs-badge--ok">${budPct}%</span>`
+          : `<span class="fcs-badge fcs-badge--add" onclick="event.stopPropagation();FCApp.openCategoryBudgetSheet('${esc(cat)}',0)">+ Budget</span>`;
         const budSubline = budLim > 0
           ? isOver
             ? `<span style="font-size:10px;color:var(--fc-danger)">${FCData.formatCurrency(amount - budLim)} over ${FCData.formatCurrency(budLim)} limit</span>`
@@ -4826,11 +4803,11 @@ window.FCApp = (function () {
           <div class="fc-category-row" style="cursor:pointer;${rowBg ? `background:${rowBg};` : ''}${rowBorder}border-radius:8px" onclick="FCApp.openCategoryBudgetSheet('${esc(cat)}',${budLim})" role="button" aria-label="Edit ${cat} budget">
             <div style="width:34px;height:34px;border-radius:10px;background:${col}22;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0">${emoji}</div>
             <div style="flex:1;min-width:0">
-              <div style="font-size:14px;font-weight:500;color:white">${esc(cat)}</div>
+              <div style="font-size:14px;font-weight:500;color:var(--fc-text)">${esc(cat)}</div>
               ${budSubline ? `<div style="margin-top:1px">${budSubline}</div>` : ''}
             </div>
             <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
-              <span style="font-size:14px;font-weight:700;color:${isOver ? 'var(--fc-danger)' : 'white'}">${FCData.formatCurrency(amount)}</span>
+              <span style="font-size:14px;font-weight:700;color:${isOver ? 'var(--fc-danger)' : 'var(--fc-text)'}">${FCData.formatCurrency(amount)}</span>
               <div style="display:flex;align-items:center;gap:4px">
                 <span style="font-size:10px;color:var(--fc-text-faint)">${p}%</span>
                 ${statusBadge}
@@ -4871,7 +4848,7 @@ window.FCApp = (function () {
           <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.04)">
             <div style="width:38px;text-align:center">
               <div style="font-size:10px;color:var(--fc-text-faint);font-weight:500">${label}</div>
-              <div style="font-size:15px;font-weight:700;color:white">${d.getDate()}</div>
+              <div style="font-size:15px;font-weight:700;color:var(--fc-text)">${d.getDate()}</div>
             </div>
             <div style="flex:1">
               ${dueBills.map(b => `
@@ -4933,13 +4910,13 @@ window.FCApp = (function () {
         return `
           <div style="margin-bottom:10px">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-              <span style="font-size:13px;font-weight:500;color:white">${shortName}</span>
+              <span style="font-size:13px;font-weight:500;color:var(--fc-text)">${shortName}</span>
               <div style="text-align:right;flex-shrink:0;margin-left:8px">
-                <span style="font-size:13px;font-weight:700;color:white">${FCData.formatCurrency(data.total)}</span>
+                <span style="font-size:13px;font-weight:700;color:var(--fc-text)">${FCData.formatCurrency(data.total)}</span>
                 <span style="font-size:11px;color:var(--fc-text-faint);margin-left:5px">${data.count}×</span>
               </div>
             </div>
-            <div style="height:4px;background:rgba(255,255,255,0.07);border-radius:99px;overflow:hidden">
+            <div class="fcs-bar-track" style="height:4px">
               <div style="height:100%;width:${pct}%;background:${barColor};border-radius:99px;transition:width 0.4s ease"></div>
             </div>
           </div>`;
@@ -5142,7 +5119,7 @@ window.FCApp = (function () {
       return `<div style="flex-shrink:0;width:68px;scroll-snap-align:start;border-radius:14px;background:${cardBg};border:${border};padding:10px 6px 8px;text-align:center;cursor:${isFut?'default':'pointer'}" ${!isFut ? `onclick="FCApp._showMonthBudgetDetail(${i},${year})"` : ''}>
         <div style="font-size:9px;font-weight:700;color:${isCur?'var(--fc-accent)':'var(--fc-text-faint)'};letter-spacing:0.5px;text-transform:uppercase;margin-bottom:5px">${name}</div>
         <div style="font-size:13px;font-weight:800;color:${amtCol};margin-bottom:5px;letter-spacing:-0.02em">${amtTxt}</div>
-        <div style="height:3px;background:rgba(255,255,255,0.07);border-radius:99px;overflow:hidden;margin-bottom:3px">
+        <div class="fcs-bar-track" style="height:3px;margin-bottom:3px">
           <div style="height:100%;width:${isFut?0:pct}%;background:${color};border-radius:99px"></div>
         </div>
         <div style="font-size:9px;font-weight:600;color:${color}">${isFut?'':pct+'%'}</div>
@@ -5330,7 +5307,7 @@ window.FCApp = (function () {
       summaryEl.innerHTML = `
         <div class="fc-card" style="margin:0 16px 4px;padding:18px;background:linear-gradient(135deg,rgba(26,196,240,0.1),rgba(37,99,235,0.1))">
           <div class="fc-eyebrow">Total Savings</div>
-          <div style="font-size:32px;font-weight:800;letter-spacing:-0.03em;color:white;margin-top:2px">${FCData.formatCurrency(total)}</div>
+          <div style="font-size:32px;font-weight:800;letter-spacing:-0.03em;color:var(--fc-text);margin-top:2px">${FCData.formatCurrency(total)}</div>
           <div style="font-size:12px;color:var(--fc-text-faint);margin-top:4px">${savingsAccts.length} account${savingsAccts.length !== 1 ? 's' : ''}</div>
         </div>`;
     }
@@ -5384,7 +5361,7 @@ window.FCApp = (function () {
       summaryEl.innerHTML = `
         <div class="fc-card" style="margin:0 16px 4px;padding:18px;background:linear-gradient(135deg,rgba(255,69,58,0.1),rgba(37,99,235,0.08))">
           <div class="fc-eyebrow">Total Debt</div>
-          <div class="fc-amount" style="font-size:32px;font-weight:800;letter-spacing:-0.03em;color:white;margin-top:2px">−${FCData.formatCurrency(totalDebt)}</div>
+          <div class="fc-amount" style="font-size:32px;font-weight:800;letter-spacing:-0.03em;color:var(--fc-text);margin-top:2px">−${FCData.formatCurrency(totalDebt)}</div>
           ${totalLimit > 0 ? `
           <div style="margin-top:12px">
             <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--fc-text-faint);margin-bottom:5px">
@@ -6842,7 +6819,7 @@ window.FCApp = (function () {
           <div style="width:56px;height:56px;border-radius:18px;background:linear-gradient(145deg,rgba(26,196,240,0.10),rgba(37,99,235,0.06));border:0.5px solid rgba(26,196,240,0.18);display:flex;align-items:center;justify-content:center;margin-bottom:4px;box-shadow:0 6px 20px rgba(0,0,0,0.28)">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="rgba(26,196,240,0.7)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
           </div>
-          <div style="font-size:15px;font-weight:700;color:white;letter-spacing:-0.02em">You're all caught up</div>
+          <div style="font-size:15px;font-weight:700;color:var(--fc-text);letter-spacing:-0.02em">You're all caught up</div>
           <div style="font-size:13px;color:rgba(255,255,255,0.35);line-height:1.5;max-width:220px">We'll notify you about bills, budget alerts, and account activity</div>
         </div>`;
       return;
@@ -7016,9 +6993,9 @@ window.FCApp = (function () {
       if (!items.length && state.user?.plaid_institution) {
         const legacyName = esc(state.user.plaid_institution);
         listEl.innerHTML = `
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.06)">
+          <div class="fcs-detail-row no-border">
             <div style="min-width:0;flex:1;margin-right:12px">
-              <div style="font-size:15px;font-weight:600;color:white;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${legacyName}</div>
+              <div style="font-size:15px;font-weight:600;color:var(--fc-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${legacyName}</div>
               <div style="font-size:12px;color:var(--fc-text-faint);margin-top:3px;display:flex;align-items:center;gap:5px">
                 <span style="width:6px;height:6px;background:var(--fc-success);border-radius:50%;display:inline-block;flex-shrink:0"></span>
                 Connected &amp; syncing
@@ -7043,9 +7020,9 @@ window.FCApp = (function () {
         const name   = esc(item.institution || 'Bank Account');
         const itemId = esc(item.item_id || item.id || '');
         return `
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.06)">
+          <div class="fcs-detail-row">
             <div style="min-width:0;flex:1;margin-right:12px">
-              <div style="font-size:15px;font-weight:600;color:white;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${name}</div>
+              <div style="font-size:15px;font-weight:600;color:var(--fc-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${name}</div>
               <div style="font-size:12px;color:var(--fc-text-faint);margin-top:3px;display:flex;align-items:center;gap:5px">
                 <span style="width:6px;height:6px;background:var(--fc-success);border-radius:50%;display:inline-block;flex-shrink:0"></span>
                 Connected &amp; syncing
@@ -7068,7 +7045,7 @@ window.FCApp = (function () {
             ${isTimeout ? 'Connection timed out — server may be waking up' : 'Could not load banks'}
           </div>
           <button onclick="FCApp.showBankSheet()" type="button"
-            style="margin-top:8px;padding:8px 16px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);border-radius:10px;color:var(--fc-text);font-size:13px;cursor:pointer">
+            style="margin-top:8px;padding:8px 16px;background:var(--fc-card-bg-hover);border:1px solid var(--fc-border-strong);border-radius:10px;color:var(--fc-text);font-size:13px;cursor:pointer">
             Try Again
           </button>`;
       }
