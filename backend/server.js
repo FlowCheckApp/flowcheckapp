@@ -430,87 +430,340 @@ app.get('/open', (req, res) => {
 });
 
 /* ─────────────────────────────────────────────────────────────
-   GET /r/:code  — referral landing page
-   Shared by users as: https://getflowcheck.app/r/FLOWXXXXXX
-   Tries to open the app directly via custom scheme. If not
-   installed, shows download page with the referral code preserved.
-   Analytics: tracks referral_opened event.
+   GET /r/:code  — legacy referral URL, 301-redirects to /invite/:code
+   Old shares (getflowcheck.app/r/FLOWXXXXXX) remain working forever.
    ─────────────────────────────────────────────────────────────── */
 app.get('/r/:code', (req, res) => {
   const rawCode = (req.params.code || '').toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 16);
-  if (!rawCode || !/^FLOW/.test(rawCode)) {
+  if (!rawCode || !/^FLOW[A-Z0-9-]{4,12}$/.test(rawCode)) {
+    return res.redirect(302, `${BACKEND_URL}/open`);
+  }
+  res.redirect(301, `${BACKEND_URL}/invite/${rawCode}`);
+});
+
+/* ─────────────────────────────────────────────────────────────
+   GET /invite/:code  — primary referral landing page
+   Shared as: https://getflowcheck.app/invite/FLOWXXXXXX
+   - Fetches referrer first name for personalization
+   - Auto-attempts app open via custom URL scheme on page load
+   - Loading → success/install states (no click required)
+   - Apple Smart App Banner for native UX
+   - Full OG / Twitter card meta for rich link previews
+   - App Store fallback if not installed
+   ─────────────────────────────────────────────────────────────── */
+app.get('/invite/:code', async (req, res) => {
+  const rawCode = (req.params.code || '').toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 16);
+  if (!rawCode || !/^FLOW[A-Z0-9-]{4,12}$/.test(rawCode)) {
     return res.redirect(302, `${BACKEND_URL}/open`);
   }
 
-  // Log referral_opened analytics event (best-effort, non-blocking)
+  // Log analytics (non-blocking)
   db.collection('referral_opens').add({
     code:       rawCode,
+    source:     'invite_page',
     timestamp:  admin.firestore.FieldValue.serverTimestamp(),
     user_agent: (req.headers['user-agent'] || '').slice(0, 200),
   }).catch(() => {});
 
-  const appScheme = `flowcheck://referral?code=${encodeURIComponent(rawCode)}`;
-  const storeUrl  = 'https://apps.apple.com/app/flowcheck/id6742624701';
+  // Fetch referrer first name for personalised headline (best-effort, max 800ms)
+  let referrerFirstName = null;
+  try {
+    const codeDoc = await Promise.race([
+      db.collection('referrals').doc(rawCode).get(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 800)),
+    ]);
+    if (codeDoc.exists) {
+      const referrerSnap = await db.collection('users').doc(codeDoc.data().uid).get();
+      if (referrerSnap.exists) {
+        const fullName = referrerSnap.data().name || referrerSnap.data().displayName || '';
+        referrerFirstName = fullName.split(/\s+/)[0] || null;
+      }
+    }
+  } catch (_) {}
 
-  res.setHeader('Content-Type', 'text/html');
+  const safeFirstName = referrerFirstName ? _htmlEscape(referrerFirstName) : null;
+  const inviteUrl    = `${BACKEND_URL}/invite/${rawCode}`;
+  const appScheme    = `flowcheck://referral?code=${encodeURIComponent(rawCode)}`;
+  const storeUrl     = 'https://apps.apple.com/app/flowcheck/id6742624701';
+
+  const ogTitle = safeFirstName
+    ? `${safeFirstName} invited you to FlowCheck`
+    : 'You\'re invited to FlowCheck';
+  const ogDesc  = 'Connect your bank and you both get 1 free month of Pro. No credit card required.';
+
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.send(`<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Join FlowCheck — Free Month of Pro</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>${ogTitle} — 1 Month of Pro Free</title>
+
+  <!-- Open Graph — rich previews in iMessage, Twitter, Slack, etc. -->
+  <meta property="og:title"       content="${ogTitle}">
+  <meta property="og:description" content="${ogDesc}">
+  <meta property="og:image"       content="${BACKEND_URL}/og-invite.png">
+  <meta property="og:url"         content="${inviteUrl}">
+  <meta property="og:type"        content="website">
+  <meta property="og:site_name"   content="FlowCheck">
+  <meta name="twitter:card"        content="summary_large_image">
+  <meta name="twitter:title"       content="${ogTitle}">
+  <meta name="twitter:description" content="${ogDesc}">
+  <meta name="twitter:image"       content="${BACKEND_URL}/og-invite.png">
+
+  <!-- Apple Smart App Banner — shows native "Open" prompt in Safari -->
+  <meta name="apple-itunes-app" content="app-id=6742624701, app-argument=${appScheme}">
+
   <style>
-    *{box-sizing:border-box}
-    body{margin:0;background:#0a1520;color:#fff;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display',sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;text-align:center;padding:32px 24px}
-    .logo{display:block;width:88px;height:88px;border-radius:22px;margin:0 auto 20px;box-shadow:0 12px 40px rgba(26,196,240,0.35)}
-    .badge{display:inline-block;background:rgba(26,196,240,0.12);border:1px solid rgba(26,196,240,0.25);border-radius:20px;padding:5px 14px;font-size:12px;font-weight:600;color:#1ac4f0;letter-spacing:0.04em;margin-bottom:16px}
-    h1{font-size:26px;font-weight:800;margin:0 0 10px;letter-spacing:-0.02em;line-height:1.2}
-    .sub{color:rgba(255,255,255,.5);font-size:15px;margin:0 0 28px;line-height:1.55;max-width:300px}
-    .code-box{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:18px 28px;margin-bottom:24px;display:inline-block}
-    .code-label{font-size:11px;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:0.1em;margin:0 0 8px}
-    .code{font-size:30px;font-weight:800;letter-spacing:0.14em;color:#1ac4f0;margin:0}
-    .perks{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:14px;padding:18px 22px;margin-bottom:28px;text-align:left;width:100%;max-width:320px}
-    .perk{font-size:14px;color:rgba(255,255,255,.75);margin:8px 0;display:flex;align-items:center;gap:12px;line-height:1.3}
-    .perk-icon{color:#1ac4f0;font-size:16px;flex-shrink:0}
-    .btn{display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:17px;padding:17px 32px;border-radius:14px;text-decoration:none;margin-bottom:14px;box-shadow:0 6px 24px rgba(26,196,240,0.3);letter-spacing:-0.01em;width:100%;max-width:320px}
-    .btn:active{opacity:0.88}
-    .secondary{display:block;color:rgba(255,255,255,.3);font-size:13px;text-decoration:none;margin-top:4px}
-    .secondary:active{color:rgba(255,255,255,.5)}
-    .disclaimer{font-size:11px;color:rgba(255,255,255,.2);margin-top:32px;max-width:280px;line-height:1.5}
+    *,*::before,*::after{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    :root{
+      --cyan:#1ac4f0;--blue:#2563eb;--bg:#060e18;--surface:rgba(255,255,255,0.04);
+      --border:rgba(255,255,255,0.08);--text:rgba(255,255,255,0.92);
+      --muted:rgba(255,255,255,0.45);--faint:rgba(255,255,255,0.22);
+    }
+    html{height:100%;overscroll-behavior:none}
+    body{
+      margin:0;min-height:100%;background:var(--bg);color:var(--text);
+      font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',sans-serif;
+      display:flex;flex-direction:column;align-items:center;
+      padding:env(safe-area-inset-top,20px) 24px env(safe-area-inset-bottom,32px);
+      position:relative;overflow-x:hidden;
+    }
+
+    /* Ambient glow background — matches FlowCheck app aesthetic */
+    .glow-top{
+      position:fixed;top:-160px;left:50%;transform:translateX(-50%);
+      width:600px;height:600px;border-radius:50%;pointer-events:none;
+      background:radial-gradient(circle,rgba(26,196,240,0.13) 0%,transparent 65%);
+      filter:blur(70px);
+    }
+    .glow-bot{
+      position:fixed;bottom:-180px;right:-80px;
+      width:440px;height:440px;border-radius:50%;pointer-events:none;
+      background:radial-gradient(circle,rgba(37,99,235,0.11) 0%,transparent 65%);
+      filter:blur(80px);
+    }
+
+    /* Page content sits above glows */
+    .content{
+      position:relative;z-index:1;width:100%;max-width:360px;
+      display:flex;flex-direction:column;align-items:center;
+      padding-top:48px;
+    }
+
+    /* App icon */
+    .icon-wrap{
+      width:84px;height:84px;border-radius:22px;
+      background:linear-gradient(145deg,#1ee8ff,var(--blue));
+      display:flex;align-items:center;justify-content:center;
+      box-shadow:0 0 0 1px rgba(26,196,240,0.25),
+                 0 0 0 5px rgba(26,196,240,0.06),
+                 0 16px 48px rgba(26,196,240,0.32),
+                 0 4px 16px rgba(0,0,0,0.5);
+      margin-bottom:24px;
+      animation:iconIn .55s cubic-bezier(.22,1,.36,1) both;
+    }
+    @keyframes iconIn{from{opacity:0;transform:scale(.7) translateY(12px)}to{opacity:1;transform:none}}
+
+    /* Sender badge */
+    .sender{
+      display:inline-flex;align-items:center;gap:6px;
+      background:rgba(26,196,240,0.10);border:1px solid rgba(26,196,240,0.20);
+      border-radius:20px;padding:5px 14px 5px 10px;
+      font-size:12px;font-weight:600;color:var(--cyan);letter-spacing:0.03em;
+      margin-bottom:18px;
+      animation:fadeUp .4s .15s cubic-bezier(.22,1,.36,1) both;
+    }
+    .sender-dot{width:6px;height:6px;border-radius:50%;background:var(--cyan);flex-shrink:0}
+
+    /* Headline */
+    h1{
+      font-size:28px;font-weight:800;letter-spacing:-.03em;line-height:1.15;
+      text-align:center;margin:0 0 12px;
+      animation:fadeUp .4s .22s cubic-bezier(.22,1,.36,1) both;
+    }
+    h1 span{
+      background:linear-gradient(135deg,var(--cyan),var(--blue));
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+      background-clip:text;
+    }
+    .sub{
+      font-size:15px;color:var(--muted);line-height:1.55;text-align:center;
+      margin:0 0 28px;max-width:280px;
+      animation:fadeUp .4s .28s cubic-bezier(.22,1,.36,1) both;
+    }
+
+    /* Feature list */
+    .features{
+      width:100%;background:var(--surface);border:1px solid var(--border);
+      border-radius:16px;padding:6px 0;margin-bottom:24px;
+      animation:fadeUp .4s .34s cubic-bezier(.22,1,.36,1) both;
+    }
+    .feature{
+      display:flex;align-items:center;gap:12px;
+      padding:11px 18px;font-size:14px;color:rgba(255,255,255,.80);
+    }
+    .feature+.feature{border-top:1px solid var(--border)}
+    .feature-icon{
+      width:32px;height:32px;border-radius:10px;flex-shrink:0;
+      display:flex;align-items:center;justify-content:center;font-size:16px;
+    }
+    .check{margin-left:auto;color:var(--cyan);font-size:15px;font-weight:700;flex-shrink:0}
+
+    /* Code pill */
+    .code-pill{
+      background:var(--surface);border:1px solid var(--border);
+      border-radius:14px;padding:14px 24px;margin-bottom:28px;
+      display:flex;align-items:center;gap:16px;width:100%;
+      animation:fadeUp .4s .40s cubic-bezier(.22,1,.36,1) both;
+    }
+    .code-label{font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px}
+    .code-value{font-size:20px;font-weight:800;letter-spacing:.12em;color:var(--cyan)}
+
+    /* CTA buttons */
+    .cta-wrap{width:100%;display:flex;flex-direction:column;align-items:center;gap:12px;
+      animation:fadeUp .4s .46s cubic-bezier(.22,1,.36,1) both}
+
+    /* State: attempting to open app */
+    #state-opening{display:flex;flex-direction:column;align-items:center;gap:10px}
+    .spin{
+      width:22px;height:22px;border:2.5px solid rgba(26,196,240,0.25);
+      border-top-color:var(--cyan);border-radius:50%;
+      animation:spin .7s linear infinite;display:inline-block;
+    }
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .opening-text{font-size:14px;color:var(--muted)}
+
+    /* State: install from App Store */
+    #state-install{display:none;flex-direction:column;align-items:center;gap:0;width:100%}
+    .btn-primary{
+      display:flex;align-items:center;justify-content:center;
+      width:100%;max-width:320px;padding:17px 28px;border-radius:14px;
+      background:linear-gradient(135deg,var(--cyan),var(--blue));
+      color:#fff;font-weight:700;font-size:17px;letter-spacing:-.01em;
+      text-decoration:none;border:none;cursor:pointer;
+      box-shadow:0 6px 24px rgba(26,196,240,0.30);
+      transition:opacity .15s;
+    }
+    .btn-primary:active{opacity:.85}
+    .btn-secondary{
+      display:block;color:var(--faint);font-size:13px;
+      text-decoration:none;padding:12px;
+    }
+    .btn-secondary:active{color:rgba(255,255,255,.5)}
+
+    /* Footer */
+    .footer{
+      margin-top:32px;font-size:11px;color:var(--faint);
+      line-height:1.55;text-align:center;max-width:280px;
+    }
+    @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
   </style>
 </head>
 <body>
-  <img src="/flowcheck-icon.png" class="logo" alt="FlowCheck">
-  <div class="badge">🎁 You're invited</div>
-  <h1>Get 1 month of<br>FlowCheck Pro free</h1>
-  <p class="sub">Your friend shared FlowCheck with you. Sign up and you both get Pro — no card required.</p>
-  <div class="code-box">
-    <p class="code-label">Your referral code</p>
-    <p class="code">${rawCode}</p>
+  <div class="glow-top" aria-hidden="true"></div>
+  <div class="glow-bot" aria-hidden="true"></div>
+
+  <div class="content">
+    <div class="icon-wrap" aria-hidden="true">
+      <svg width="36" height="36" viewBox="0 0 24 24" fill="white" aria-hidden="true">
+        <path d="M4 4h16v3H4zm0 6h11v3H4zm0 6h7v3H4z"/>
+      </svg>
+    </div>
+
+    ${safeFirstName
+      ? `<div class="sender"><span class="sender-dot"></span>${safeFirstName} invited you</div>`
+      : `<div class="sender"><span class="sender-dot"></span>You're invited</div>`
+    }
+
+    <h1>Get 1 month of<br><span>FlowCheck Pro</span> free</h1>
+    <p class="sub">Connect your bank and you both unlock Pro — real-time sync, AI insights, and more. No credit card required.</p>
+
+    <div class="features">
+      <div class="feature">
+        <div class="feature-icon" style="background:rgba(26,196,240,0.12)">💳</div>
+        <span>Unlimited bank accounts</span>
+        <span class="check">✓</span>
+      </div>
+      <div class="feature">
+        <div class="feature-icon" style="background:rgba(37,99,235,0.12)">📊</div>
+        <span>Financial Health Score</span>
+        <span class="check">✓</span>
+      </div>
+      <div class="feature">
+        <div class="feature-icon" style="background:rgba(26,196,240,0.10)">🧠</div>
+        <span>AI spending insights</span>
+        <span class="check">✓</span>
+      </div>
+      <div class="feature">
+        <div class="feature-icon" style="background:rgba(52,199,89,0.12)">🔔</div>
+        <span>Bill tracking &amp; reminders</span>
+        <span class="check">✓</span>
+      </div>
+    </div>
+
+    <div class="code-pill" aria-label="Your referral code: ${rawCode}">
+      <div>
+        <div class="code-label">Your referral code</div>
+        <div class="code-value">${rawCode}</div>
+      </div>
+    </div>
+
+    <div class="cta-wrap">
+      <div id="state-opening">
+        <span class="spin" aria-hidden="true"></span>
+        <p class="opening-text">Opening FlowCheck…</p>
+      </div>
+      <div id="state-install">
+        <a class="btn-primary" href="${storeUrl}" id="store-btn">
+          Download FlowCheck Free →
+        </a>
+        <a class="btn-secondary" href="${appScheme}" id="reopen-btn">Already installed? Open app</a>
+      </div>
+    </div>
+
+    <p class="footer">
+      FlowCheck is not a bank. Not financial advice.<br>
+      Code applied automatically at signup. One use per account.
+    </p>
   </div>
-  <div class="perks">
-    <div class="perk"><span class="perk-icon">✦</span>Unlimited bank accounts</div>
-    <div class="perk"><span class="perk-icon">✦</span>Financial Health Score</div>
-    <div class="perk"><span class="perk-icon">✦</span>AI spending insights</div>
-    <div class="perk"><span class="perk-icon">✦</span>Bill tracking &amp; reminders</div>
-  </div>
-  <a class="btn" id="open-btn" href="${storeUrl}">Open FlowCheck →</a>
-  <a class="secondary" href="${storeUrl}">Download on the App Store</a>
-  <p class="disclaimer">FlowCheck is not a bank. Not financial advice. Code expires after first bank connection.</p>
+
   <script>
-    // Try to open the app if installed. Button defaults to App Store href.
-    // On tap: attempt custom scheme, fall back to App Store after 2.5s if no blur.
-    document.getElementById('open-btn').addEventListener('click', function(e) {
-      e.preventDefault();
-      var launched = false;
-      var fallback = setTimeout(function() {
-        if (!launched) window.location.href = '${storeUrl}';
-      }, 2500);
-      window.addEventListener('blur', function() {
-        launched = true;
-        clearTimeout(fallback);
-      }, { once: true });
+    // Step 1: fire the custom URL scheme immediately — no user interaction needed.
+    // If the app is installed, iOS hands off immediately and this page blurs.
+    // If not installed, the page stays visible and we transition to the install state.
+    var launched = false;
+    var TIMEOUT  = 2600; // ms to wait before concluding app is not installed
+
+    window.addEventListener('blur', function() {
+      launched = true;
+      clearTimeout(installTimer);
+    }, { once: true });
+
+    var installTimer = setTimeout(function() {
+      if (!launched) showInstall();
+    }, TIMEOUT);
+
+    // Fire deep link after a short paint delay so the page renders first
+    setTimeout(function() {
       window.location.href = '${appScheme}';
+    }, 80);
+
+    function showInstall() {
+      document.getElementById('state-opening').style.display = 'none';
+      document.getElementById('state-install').style.display = 'flex';
+    }
+
+    // "Already installed? Open app" — retry the deep link on tap
+    document.getElementById('reopen-btn').addEventListener('click', function(e) {
+      e.preventDefault();
+      window.location.href = '${appScheme}';
+      setTimeout(function() { showInstall(); }, 2600);
+    });
+
+    // App Store button — try scheme one final time (for when user just installed)
+    document.getElementById('store-btn').addEventListener('click', function(e) {
+      // Let the href navigate to App Store — no override needed
     });
   </script>
 </body>

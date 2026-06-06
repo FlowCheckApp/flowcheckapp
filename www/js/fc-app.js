@@ -8460,7 +8460,7 @@ window.FCApp = (function () {
 
     // Use the backend referral landing page — reliable, no Firebase Dynamic Links,
     // never redirects to random sites. Tries to open the app, falls back to App Store.
-    const referralUrl = `${FC_CONFIG.app.apiBase}/r/${encodeURIComponent(code)}`;
+    const referralUrl = `https://getflowcheck.app/invite/${encodeURIComponent(code)}`;
     const shareText   = `Join me on FlowCheck — we both get 1 free month of Pro! 💰`;
     haptic('medium');
 
