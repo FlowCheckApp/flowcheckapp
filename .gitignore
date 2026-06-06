@@ -53,3 +53,4 @@ yarn.lock
 .vercel
 node_modules/
 ios/App/App/public/
+GoogleService-Info 2.plist
