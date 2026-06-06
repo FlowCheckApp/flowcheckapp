@@ -216,6 +216,9 @@ window.FCAuth = (function () {
     await prefSet('biometric_email', email);
     await prefSet('biometric_enabled', true);
 
+    // Security alert email — non-blocking, at most once per day per user
+    authedFetch(`${window.FC_CONFIG?.app?.apiBase}/auth/login-event`, { method: 'POST' }).catch(() => {});
+
     haptic('medium');
     return cred.user;
   }
@@ -235,6 +238,8 @@ window.FCAuth = (function () {
     if (_auth.currentUser) {
       await _auth.currentUser.getIdToken(true);
       haptic('medium');
+      // Security alert email — non-blocking, at most once per day per user
+      authedFetch(`${window.FC_CONFIG?.app?.apiBase}/auth/login-event`, { method: 'POST' }).catch(() => {});
       return _auth.currentUser;
     }
     throw new Error('Firebase session expired — please sign in with your password');

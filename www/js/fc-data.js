@@ -1104,6 +1104,15 @@ window.FCData = (function () {
       .collection('notifications').doc(notifId).update({ read: true });
   }
 
+  /** Delete a single notification */
+  async function deleteNotification(notifId) {
+    const user = FCAuth.currentUser();
+    const db   = FCAuth.db();
+    if (!user || !db) return;
+    await db.collection('users').doc(user.uid)
+      .collection('notifications').doc(notifId).delete();
+  }
+
   /** Mark all notifications read in Firestore */
   async function markAllNotificationsRead() {
     const user = FCAuth.currentUser();
@@ -1165,6 +1174,7 @@ window.FCData = (function () {
     listenToNotifications,
     markNotificationRead,
     markAllNotificationsRead,
+    deleteNotification,
     detachAllListeners,
     updateUserField,
     markBillPaid,

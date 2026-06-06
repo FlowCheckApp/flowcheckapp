@@ -6448,26 +6448,15 @@ window._btnLoad = _btnLoad;
 
 /* ── Keyboard avoidance — native-feel input lifting ── */
 (function() {
-  if (!window.visualViewport) return;
-
   const AUTH_SCREENS = new Set(['login','register','forgot-password','verify-email']);
+  let _kbOpen  = false;
   let _kbTimer;
-  let _kbOpen = false;
-  // Capture the full-screen height BEFORE any keyboard interaction.
-  // Capacitor sets resize:"native" which means window.innerHeight shrinks
-  // with the keyboard — comparing vv.height against this baseline is how
-  // we correctly measure keyboard height in both resize modes.
-  const _fullH = window.innerHeight;
 
   function _screenEl() {
     const s = document.body.dataset.screen;
     return document.querySelector(`.fc-screen[data-screen="${s}"]`);
   }
-
-  function _isAuth() {
-    return AUTH_SCREENS.has(document.body.dataset.screen);
-  }
-
+  function _isAuth() { return AUTH_SCREENS.has(document.body.dataset.screen); }
   function _scrollableParent(el) {
     let node = el ? el.parentElement : null;
     while (node && node !== document.body) {
@@ -6482,70 +6471,75 @@ window._btnLoad = _btnLoad;
     const active = document.activeElement;
     if (!active || (active.tagName !== 'INPUT' && active.tagName !== 'TEXTAREA')) return;
     if (!_kbOpen) return;
-
     const container = _scrollableParent(active);
     if (!container) return;
 
-    const vv  = window.visualViewport;
-    // True keyboard height: delta from full-screen height to current visible
-    // viewport. Works with resize:"native" (window.innerHeight already shrunk)
-    // because vv.height always equals the true visible area above the keyboard.
-    const kbH = Math.max(0, _fullH - vv.height - vv.offsetTop);
+    // With resize:"native" the WebView has already shrunk to fit above the
+    // keyboard, so vv.height IS the usable area — no kbH calculation needed.
+    const vvH     = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    const padding = _isAuth() ? 100 : 20;
 
-    // Expand bottom padding so the auth screen can scroll past the keyboard.
-    // kbH is 0 with resize:native (WebView already shrank), so we use a
-    // generous fixed value to ensure there's always room to scroll to.
-    if (_isAuth()) {
-      container.style.paddingBottom = Math.max(kbH, 80) + 'px';
-    }
+    if (_isAuth()) container.style.paddingBottom = Math.max(80, padding) + 'px';
 
     const rect = active.getBoundingClientRect();
-    // 120px clearance: keeps the focused field AND the next field visible.
-    const padding    = _isAuth() ? 120 : 24;
-    // vv.height is the actual visible area above the keyboard in both
-    // resize modes — use it directly rather than innerHeight - kbH.
-    const visibleBot = vv.height - padding;
-
-    if (rect.bottom > visibleBot) {
-      container.scrollTop += rect.bottom - visibleBot;
+    if (rect.bottom > vvH - padding) {
+      container.scrollTop += rect.bottom - (vvH - padding);
     }
   }
 
-  function _onViewportResize() {
+  function _onKeyboardHide() {
+    _kbOpen = false;
+    document.body.classList.remove('fc-keyboard-open');
     clearTimeout(_kbTimer);
-    const vv  = window.visualViewport;
-    // Use _fullH baseline so this works with Capacitor resize:"native".
-    const kbH = Math.max(0, _fullH - vv.height - vv.offsetTop);
+    _kbTimer = setTimeout(() => {
+      const el = _screenEl();
+      if (!el) return;
+      if (_isAuth()) el.style.paddingBottom = '';
+      el.scrollTop = 0;
+    }, 100);
+  }
 
-    if (kbH > 100) {
+  // ── Primary path: Capacitor Keyboard plugin (fires AFTER animation) ──────
+  // keyboardDidShow fires once the keyboard is fully open and the WebView has
+  // finished resizing. This is the only safe moment to scroll — calling
+  // _scrollToActive any earlier races the iOS animation and causes the "jumps
+  // high then snaps down" artifact.
+  const KbPlugin = window.Capacitor?.Plugins?.Keyboard;
+  if (KbPlugin) {
+    KbPlugin.addListener('keyboardWillShow', () => {
       _kbOpen = true;
       document.body.classList.add('fc-keyboard-open');
-      requestAnimationFrame(_scrollToActive);
-    } else if (_kbOpen) {
-      _kbOpen = false;
-      document.body.classList.remove('fc-keyboard-open');
-      // Wait for keyboard dismiss animation (~280ms) then reset cleanly.
-      _kbTimer = setTimeout(() => {
-        const el = _screenEl();
-        if (!el) return;
-        if (_isAuth() || AUTH_SCREENS.has(document.body.dataset.screen)) {
-          el.style.paddingBottom = '';
-        }
-        el.scrollTop = 0;
-      }, 280);
-    }
+    });
+    KbPlugin.addListener('keyboardDidShow', _scrollToActive);
+    KbPlugin.addListener('keyboardWillHide', _onKeyboardHide);
+  } else if (window.visualViewport) {
+    // ── Fallback: visualViewport (web / simulator) ────────────────────────
+    // Debounce so we only scroll after the viewport STOPS changing, not while
+    // it's still mid-animation (which is what caused the double-jump).
+    const _fullH = window.innerHeight;
+    let _resizeTimer;
+    window.visualViewport.addEventListener('resize', () => {
+      const kbH = Math.max(0, _fullH - window.visualViewport.height);
+      if (kbH > 100) {
+        _kbOpen = true;
+        document.body.classList.add('fc-keyboard-open');
+        clearTimeout(_resizeTimer);
+        _resizeTimer = setTimeout(_scrollToActive, 80);
+      } else if (_kbOpen) {
+        clearTimeout(_resizeTimer);
+        _onKeyboardHide();
+      }
+    }, { passive: true });
   }
 
-  // focusin fires before the keyboard opens. Run immediately if keyboard is
-  // already open (field switch), then again after iOS animation (~400ms).
+  // ── Field switch while keyboard is already open ───────────────────────────
+  // Don't fire on initial focus — let keyboardDidShow handle that. Only fire
+  // when the keyboard is already open so a tap to the next field scrolls it in.
   document.addEventListener('focusin', (e) => {
     if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') return;
+    if (!_kbOpen) return;
     requestAnimationFrame(_scrollToActive);
-    setTimeout(_scrollToActive, 420);
   }, { passive: true });
-
-  window.visualViewport.addEventListener('resize', _onViewportResize, { passive: true });
-  window.visualViewport.addEventListener('scroll', _onViewportResize, { passive: true });
 })();
 
 /* ── Wire btn-login and btn-register to use premium loading state ── */

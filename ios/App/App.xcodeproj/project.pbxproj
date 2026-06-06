@@ -16,6 +16,7 @@
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
 		CA7E054C2FD3C49F00CA8E63 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = CA7E054B2FD3C49F00CA8E63 /* GoogleService-Info.plist */; };
+		CA7E054F2FD443BD00CA8E63 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = CA7E054E2FD443BD00CA8E63 /* FirebaseMessaging */; };
 		FC001B02FC00001001FCSEC /* SecurityChecker.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC001B01FC00001001FCSEC /* SecurityChecker.swift */; };
 		FC001B04FC00001001FCATT /* AppAttestManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC001B03FC00001001FCATT /* AppAttestManager.swift */; };
 		FC001B06FC00001001FCBIO /* BiometricPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC001B05FC00001001FCBIO /* BiometricPlugin.swift */; };
@@ -49,6 +50,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CA7E054F2FD443BD00CA8E63 /* FirebaseMessaging in Frameworks */,
 				4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -114,6 +116,7 @@
 			name = App;
 			packageProductDependencies = (
 				4D22ABE82AF431CB00220026 /* CapApp-SPM */,
+				CA7E054E2FD443BD00CA8E63 /* FirebaseMessaging */,
 			);
 			productName = App;
 			productReference = 504EC3041FED79650016851F /* App.app */;
@@ -147,6 +150,7 @@
 			mainGroup = 504EC2FB1FED79650016851F;
 			packageReferences = (
 				D4C12C0A2AAA248700AAC8A2 /* XCLocalSwiftPackageReference "CapApp-SPM" */,
+				CA7E054D2FD443BD00CA8E63 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 			);
 			productRefGroup = 504EC3051FED79650016851F /* Products */;
 			projectDirPath = "";
@@ -417,11 +421,27 @@
 		};
 /* End XCLocalSwiftPackageReference section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		CA7E054D2FD443BD00CA8E63 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 12.14.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
 		4D22ABE82AF431CB00220026 /* CapApp-SPM */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = D4C12C0A2AAA248700AAC8A2 /* XCLocalSwiftPackageReference "CapApp-SPM" */;
 			productName = "CapApp-SPM";
+		};
+		CA7E054E2FD443BD00CA8E63 /* FirebaseMessaging */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = CA7E054D2FD443BD00CA8E63 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseMessaging;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

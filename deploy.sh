@@ -59,7 +59,9 @@ git add \
   www/ \
   backend/ \
   ios/App/App/public/ \
+  ios/App/App/AppDelegate.swift \
   ios/App/App.xcodeproj/project.pbxproj \
+  ios/App/App.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved \
   ios/App/App/GoogleService-Info.plist \
   capacitor.config.json \
   firestore.rules \

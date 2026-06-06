@@ -2,6 +2,8 @@ import UIKit
 import Capacitor
 import WebKit
 import UserNotifications
+import FirebaseCore
+import FirebaseMessaging
 
 // ─────────────────────────────────────────────────────────────────────────────
 // AppDelegate — FlowCheck iOS application lifecycle
@@ -45,6 +47,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // Must be set before the app finishes launching so we receive the
         // willPresent callback for foreground pushes.
         UNUserNotificationCenter.current().delegate = self
+
+        // ── 1a. Firebase initialization ─────────────────────────────────────
+        // Must be called before any Firebase service is used. Reads credentials
+        // from GoogleService-Info.plist. FirebaseMessaging then swizzles
+        // didRegisterForRemoteNotificationsWithDeviceToken so Capacitor's
+        // push plugin receives FCM registration tokens instead of raw APNs tokens.
+        FirebaseApp.configure()
+        Messaging.messaging().delegate = self
 
         // ── 1b. Window background — matches --fc-bg (#060e18) so the native
         //        UIWindow never bleeds white/light into the safe-area edges.
@@ -182,13 +192,19 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
     /// Called when a push arrives while the app is in the foreground.
     /// Without this, iOS silences foreground pushes entirely.
-    /// We show the banner + play sound so the user sees it even in-app.
+    /// Only show the banner when there is actual alert content — silent data
+    /// pushes (content-available only) should not pop a banner.
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
-        // Show banner + sound + badge update in foreground (iOS 14+)
+        let hasAlert = notification.request.content.title.isEmpty == false ||
+                       notification.request.content.body.isEmpty  == false
+        guard hasAlert else {
+            completionHandler([])  // silent push — no banner, no sound
+            return
+        }
         if #available(iOS 14.0, *) {
             completionHandler([.banner, .sound, .badge])
         } else {
@@ -196,16 +212,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }
     }
 
-    /// Called when the user taps a notification (foreground or background).
-    /// Capacitor's ApplicationDelegateProxy automatically forwards this to the
-    /// PushNotifications plugin, which fires pushNotificationActionPerformed in JS.
-    func userNotificationCenter(
-        _ center: UNUserNotificationCenter,
-        didReceive response: UNNotificationResponse,
-        withCompletionHandler completionHandler: @escaping () -> Void
-    ) {
-        completionHandler()
-    }
+    // NOTE: Do NOT implement userNotificationCenter:didReceive:withCompletionHandler here.
+    // Capacitor's PushNotificationsPlugin intercepts this via method swizzling to fire
+    // pushNotificationActionPerformed in JavaScript. Explicitly implementing it in
+    // AppDelegate overrides the swizzle and silently breaks notification tap routing.
 
     // MARK: - Badge Management
 
@@ -316,6 +326,24 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             application,
             continue: userActivity,
             restorationHandler: restorationHandler
+        )
+    }
+}
+
+// MARK: - MessagingDelegate
+// Called when the FCM registration token is refreshed. Capacitor's push plugin
+// also receives this token via the registration event, but this delegate fires
+// immediately on launch when a token is already available — catching the case
+// where the plugin listener isn't attached yet.
+extension AppDelegate: MessagingDelegate {
+    func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
+        guard let token = fcmToken else { return }
+        // Forward to Capacitor so the JS `registration` event fires with the
+        // real FCM token (not the raw APNs hex string).
+        NotificationCenter.default.post(
+            name: Notification.Name("FCMToken"),
+            object: nil,
+            userInfo: ["token": token]
         )
     }
 }

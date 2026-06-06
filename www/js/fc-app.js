@@ -6812,24 +6812,20 @@ window.FCApp = (function () {
     const markAllBtn = document.getElementById('notif-mark-all-btn');
     const unread     = (notifs || []).filter(n => !n.read).length;
     if (badge) {
-      badge.textContent = unread > 9 ? '9+' : String(unread);
+      // Show as a plain dot — no number, less aggressive than a red badge count
+      badge.textContent = '';
       badge.style.display = unread > 0 ? 'flex' : 'none';
     }
     if (markAllBtn) markAllBtn.style.display = unread > 0 ? '' : 'none';
 
-    // Sync the native iOS app icon badge number to match in-app unread count.
-    // AppDelegate clears it to 0 on foreground; this keeps it accurate when
-    // the user has unread items and then re-backgrounds.
+    // Sync native iOS app icon badge
     try {
       const Push = window.Capacitor?.Plugins?.PushNotifications;
       if (Push && typeof Push.setBadgeNumber === 'function') {
         Push.setBadgeNumber({ badgeNumber: unread }).catch(() => {});
-      } else if (Push && typeof Push.checkPermissions === 'function') {
-        // Fallback: use LocalNotifications badge API
+      } else {
         const Local = window.Capacitor?.Plugins?.LocalNotifications;
-        if (Local && typeof Local.setBadge === 'function') {
-          Local.setBadge({ count: unread }).catch(() => {});
-        }
+        if (Local && typeof Local.setBadge === 'function') Local.setBadge({ count: unread }).catch(() => {});
       }
     } catch (_) {}
   }

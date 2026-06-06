@@ -342,6 +342,7 @@ app.use('/notifications/mark-all-read', generalLimiter);
 app.use('/notifications/',              generalLimiter); // covers /notifications/:id/read
 app.use('/email/',                      strictLimiter);  // covers welcome, test, etc.
 app.use('/auth/otp',                    strictLimiter);  // OTP send + verify
+app.use('/auth/login-event',            generalLimiter); // login security alerts
 app.use('/api/referral',                generalLimiter); // referral generate/apply/activate/stats
 // /unsubscribe uses its own _unsubLimiter defined inline (no auth — uid in URL)
 
@@ -2188,7 +2189,8 @@ async function _sendMonthlySummaryForUser(uid, userData, cutoffStr, monthLabel) 
   const email = userData.email;
   if (!email || !_resendApiKey) return;
 
-  const name = _htmlEscape((userData.display_name || userData.name || 'Friend').split(' ')[0]);
+  const name    = _htmlEscape((userData.display_name || userData.name || 'Friend').split(' ')[0]);
+  const userRef = db.collection('users').doc(uid);
 
   // Last day of the previous month = day before cutoffStr's month rolled over
   const endDate = new Date(cutoffStr); endDate.setMonth(endDate.getMonth() + 1); endDate.setDate(0);
@@ -2233,6 +2235,28 @@ async function _sendMonthlySummaryForUser(uid, userData, cutoffStr, monthLabel) 
   const savedColor = savedAmt >= 0 ? '#059669' : '#dc2626';
   const savedLabel = savedAmt >= 0 ? `Saved ${_fmt(savedAmt)}` : `Overspent ${_fmt(Math.abs(savedAmt))}`;
 
+  // ── Net worth delta ──────────────────────────────────────────
+  let acctSnap;
+  try { acctSnap = await userRef.collection('accounts').get(); } catch (_) {}
+  const currentNW = acctSnap
+    ? acctSnap.docs.reduce((s, d) => {
+        const a = d.data();
+        const bal = a.balance_current ?? 0;
+        return (a.type === 'credit' || a.type === 'loan' || a.type === 'mortgage') ? s - bal : s + bal;
+      }, 0)
+    : null;
+  const prevNW    = typeof userData.last_nw_monthly === 'number' ? userData.last_nw_monthly : null;
+  const nwDelta   = currentNW !== null && prevNW !== null ? currentNW - prevNW : null;
+  const nwColor   = nwDelta === null ? '#374151' : nwDelta >= 0 ? '#059669' : '#dc2626';
+  const nwSection = currentNW !== null ? `
+    <div style="background:#f0fffe;border-radius:12px;padding:16px 20px;margin-bottom:24px">
+      <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Net Worth</div>
+      <div style="display:flex;align-items:baseline;gap:10px">
+        <div style="font-size:26px;font-weight:800;color:#0a1520">${_fmt(currentNW)}</div>
+        ${nwDelta !== null ? `<div style="font-size:14px;font-weight:600;color:${nwColor}">${nwDelta >= 0 ? '+' : ''}${_fmt(nwDelta)} vs last month</div>` : ''}
+      </div>
+    </div>` : '';
+
   if (userData.fcm_token) {
     _sendFCM(uid, userData.fcm_token, {
       title: `📅 Your ${monthLabel} Summary`,
@@ -2264,6 +2288,7 @@ async function _sendMonthlySummaryForUser(uid, userData, cutoffStr, monthLabel) 
           <span style="font-size:15px;font-weight:700;color:${savedColor}">${savedLabel}</span>
           <span style="font-size:13px;color:#9ca3af"> last month</span>
         </div>
+        ${nwSection}
         ${topCats ? `
         <div style="margin-bottom:24px">
           <div style="font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px">Top Spending Categories</div>
@@ -2282,6 +2307,61 @@ async function _sendMonthlySummaryForUser(uid, userData, cutoffStr, monthLabel) 
     </div>
     </body></html>
   `, uid);
+
+  // ── Post-send: update snapshots + maybe send health score change email ──
+  const fsUpdates = {};
+  if (currentNW !== null) fsUpdates.last_nw_monthly = currentNW;
+
+  const newScore = _computeSimpleHealthScore(totalIncome, totalSpent, currentNW ?? 0, userData.streak || 0);
+  const prevScore = typeof userData.last_health_score === 'number' ? userData.last_health_score : null;
+  fsUpdates.last_health_score    = newScore;
+  fsUpdates.last_health_score_at = admin.firestore.FieldValue.serverTimestamp();
+
+  if (Object.keys(fsUpdates).length > 0) {
+    userRef.update(fsUpdates).catch(() => {});
+  }
+
+  // Health score change email — only when diff >= 5 points and alerts are on
+  if (prevScore !== null && Math.abs(newScore - prevScore) >= 5 && userData.email_alerts_enabled !== false) {
+    const improved = newScore > prevScore;
+    const diff     = Math.abs(newScore - prevScore);
+    _sendEmail(email, `${improved ? '📈' : '📉'} Your financial health score ${improved ? 'improved' : 'dropped'} by ${diff} points`, `
+      <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+      <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
+        <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:32px;text-align:center">
+          ${LOGO_IMG}
+          <div style="font-size:40px;margin-bottom:8px">${improved ? '📈' : '📉'}</div>
+          <h1 style="color:#fff;font-size:20px;font-weight:700;margin:0 0 4px">Financial Health Score Update</h1>
+          <p style="color:rgba(255,255,255,0.55);font-size:14px;margin:0">Your score for ${_htmlEscape(monthLabel)}</p>
+        </div>
+        <div style="padding:28px 32px">
+          <div style="background:#f9fafb;border-radius:12px;padding:20px;margin-bottom:20px;text-align:center">
+            <div style="display:flex;justify-content:center;align-items:center;gap:20px">
+              <div>
+                <div style="font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">Last month</div>
+                <div style="font-size:28px;font-weight:800;color:#6b7280">${prevScore}</div>
+              </div>
+              <div style="font-size:24px;color:${improved ? '#059669' : '#dc2626'}">→</div>
+              <div>
+                <div style="font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">This month</div>
+                <div style="font-size:36px;font-weight:900;color:${improved ? '#059669' : '#dc2626'}">${newScore}</div>
+              </div>
+            </div>
+            <div style="margin-top:12px;font-size:14px;font-weight:600;color:${improved ? '#059669' : '#dc2626'}">${improved ? '+' : '-'}${diff} points</div>
+          </div>
+          <p style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 20px">
+            ${improved
+              ? `Great work! Your score improved this month — driven by your savings rate and spending discipline.`
+              : `Your score dipped this month. Open FlowCheck to see your spending breakdown and find areas to trim.`}
+          </p>
+          <a href="https://getflowcheck.app" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">See My Full Report →</a>
+        </div>
+        <div style="padding:14px 32px;border-top:1px solid #f3f4f6;text-align:center">
+          <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · <a href="${_unsubUrl(uid, 'weekly')}" style="color:#9ca3af">Unsubscribe from monthly summaries</a></p>
+        </div>
+      </div></body></html>
+    `, uid).catch(e => console.error('[email health-score]', e.message));
+  }
 }
 
 // ── Cron: daily bill reminders at 09:00 UTC ─────────────────
@@ -2790,6 +2870,186 @@ async function _sendYearInReviewForUser(uid, userData, year, yearStart, yearEnd)
   `, uid);
 }
 
+/* ─────────────────────────────────────────────────────────────
+   SUBSCRIPTION DETECTION (server-side port of client _detectSubscriptions)
+   ───────────────────────────────────────────────────────────── */
+
+const _SUB_SRV_EXCLUDE_RE = /\b(transfer|refund|payment|wire|deposit|withdrawal|atm|cash|venmo|zelle|cashapp|paypal|apple pay|google pay|paycheck|salary|direct dep|rent|mortgage|hoa|loan|insurance premium|amazon prime\*|prime\*delivery|grocery|gas|uber eats|doordash|grubhub|postmates|instacart|lyft|uber(?! eats))\b/i;
+const _SUB_SRV_KNOWN_RE   = /\b(netflix|hulu|disney\+|hbomax|hbo max|max\b|peacock|paramount\+|apple tv|spotify|tidal|amazon music|youtube premium|google one|icloud|dropbox|box\.com|adobe|figma|canva|github|heroku|aws|azure|gcp|google cloud|nordvpn|expressvpn|surfshark|duolingo|headspace|calm|babbel|masterclass|skillshare|linkedin premium|audible|kindle unlimited|new york times|nytimes|wsj|washington post|the atlantic|medium|substack|patreon|onlyfans|crunchyroll|funimation|vrv|nintendo online|xbox game pass|playstation plus|ps plus|ea play|geforce now|twitch|discord nitro|slack|notion|monday\.com|asana|trello|zoom|lastpass|1password|dashlane|lifelock|identityguard|simplisafe|ring|vivint|planet fitness|orangetheory|equinox|peloton|beachbody|apple one|apple music|apple arcade|apple fitness|apple news\+)\b/i;
+const _SUB_SRV_GOOD_CATS  = new Set(['subscription', 'subscriptions', 'streaming', 'software', 'entertainment', 'music', 'video games', 'cloud services', 'saas', 'education']);
+
+function _normSubKey(s) {
+  return (s || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 16);
+}
+
+/**
+ * Detect subscription renewals and price changes from the last 90 days of
+ * transactions. Sends email/notification only for NEW subs or price changes.
+ * Renewal state stored in users/{uid}.detected_subs to prevent re-alerting.
+ */
+async function _detectAndEmailSubscriptions(uid, userRef, userData, fcmToken) {
+  const ninetyAgo = new Date(); ninetyAgo.setDate(ninetyAgo.getDate() - 90);
+  const cutoff = ninetyAgo.toISOString().slice(0, 10);
+
+  const snap = await userRef.collection('transactions')
+    .where('date', '>=', cutoff)
+    .where('pending', '==', false)
+    .where('isCredit', '==', false)
+    .get();
+
+  if (snap.empty) return;
+
+  // Group by normalized merchant name
+  const map = {};
+  snap.docs.forEach(d => {
+    const t = d.data();
+    if (!t.date || !t.name) return;
+    if (_SUB_SRV_EXCLUDE_RE.test(t.name)) return;
+
+    const rawCat  = (t.category && t.category[0]) || '';
+    const normCat = rawCat.toLowerCase();
+    const hardExclude = new Set(['transfer', 'loan', 'bank fees', 'grocery', 'groceries',
+      'gas stations', 'restaurants', 'coffee shop', 'auto and transport', 'healthcare', 'medical']);
+    if (hardExclude.has(normCat) || normCat.includes('transfer')) return;
+
+    const isKnown = _SUB_SRV_KNOWN_RE.test(t.name) || _SUB_SRV_KNOWN_RE.test(t.merchant_name || '');
+    const isSubCat = _SUB_SRV_GOOD_CATS.has(normCat);
+    if (!isKnown && !isSubCat) return;
+
+    const key = _normSubKey(t.merchant_name || t.name);
+    if (!key) return;
+    if (!map[key]) map[key] = { name: t.merchant_name || t.name, entries: [] };
+    if (t.merchant_name) map[key].name = t.merchant_name;
+    map[key].entries.push({ amount: t.amount, ts: new Date(t.date).getTime(), date: t.date });
+  });
+
+  const prevSubs = userData.detected_subs || {};
+  const updates  = {};
+
+  for (const [key, data] of Object.entries(map)) {
+    if (data.entries.length < 2) continue;
+    data.entries.sort((a, b) => a.ts - b.ts);
+
+    const gaps = [];
+    for (let i = 1; i < data.entries.length; i++)
+      gaps.push((data.entries[i].ts - data.entries[i - 1].ts) / 86400000);
+    const avgGap = gaps.reduce((a, b) => a + b, 0) / gaps.length;
+
+    const isMonthly = avgGap >= 21 && avgGap <= 40;
+    const isWeekly  = avgGap >= 5  && avgGap <= 9;
+    const isAnnual  = avgGap >= 330 && avgGap <= 370;
+    const freq = isMonthly ? 'monthly' : isWeekly ? 'weekly' : isAnnual ? 'annual' : null;
+    if (!freq) continue;
+
+    const sorted = [...data.entries].sort((a, b) => a.amount - b.amount);
+    const mid    = Math.floor(sorted.length / 2);
+    const medAmt = sorted.length % 2 === 0
+      ? (sorted[mid - 1].amount + sorted[mid].amount) / 2
+      : sorted[mid].amount;
+    if (medAmt < 0.99 || medAmt > 500) continue;
+
+    const stdDev = Math.sqrt(data.entries.reduce((s, e) => s + Math.pow(e.amount - medAmt, 2), 0) / data.entries.length);
+    if (stdDev / medAmt > 0.25) continue;
+
+    const displayName = _htmlEscape(data.name);
+    const prior       = prevSubs[key];
+
+    if (!prior) {
+      // New subscription detected
+      const title = `🔄 New subscription detected: ${data.name}`;
+      const body  = `${data.name} — ${_fmt(medAmt)}/${freq}`;
+      await _saveNotification(uid, { title, body, type: 'subscription_renewal', data: { merchant: data.name, amount: String(medAmt), freq } });
+      if (fcmToken) _sendFCM(uid, fcmToken, { title, body, type: 'subscription_renewal', channelId: 'flowcheck_default' }).catch(() => {});
+      if (userData.email && userData.email_alerts_enabled !== false) {
+        _sendEmail(userData.email, `🔄 New subscription: ${data.name} — ${_fmt(medAmt)}/${freq}`, `
+          <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+          <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
+            <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:32px;text-align:center">
+              ${LOGO_IMG}
+              <div style="font-size:32px;margin-bottom:8px">🔄</div>
+              <h1 style="color:#fff;font-size:20px;font-weight:700;margin:0 0 4px">Subscription Spotted</h1>
+              <p style="color:rgba(255,255,255,0.55);font-size:14px;margin:0">FlowCheck found a recurring charge on your account</p>
+            </div>
+            <div style="padding:28px 32px">
+              <div style="background:#f0fffe;border-radius:12px;padding:18px 20px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center">
+                <div>
+                  <div style="font-size:16px;font-weight:700;color:#0a1520">${displayName}</div>
+                  <div style="font-size:13px;color:#6b7280;margin-top:2px">${freq.charAt(0).toUpperCase() + freq.slice(1)} charge</div>
+                </div>
+                <div style="font-size:22px;font-weight:800;color:#1ac4f0">${_fmt(medAmt)}</div>
+              </div>
+              <p style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 20px">We detected this as a recurring ${freq} charge. Open FlowCheck to add it as a tracked bill or mark it as expected.</p>
+              <a href="https://getflowcheck.app" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">View in FlowCheck →</a>
+            </div>
+            <div style="padding:14px 32px;border-top:1px solid #f3f4f6;text-align:center">
+              <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · <a href="${_unsubUrl(uid, 'alerts', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe from alerts</a></p>
+            </div>
+          </div></body></html>`, uid).catch(e => console.error('[email sub-new]', e.message));
+      }
+      updates[key] = { amount: medAmt, freq, first_detected: new Date().toISOString().slice(0, 10) };
+    } else if (Math.abs(medAmt - prior.amount) / prior.amount > 0.05) {
+      // Price change detected (> 5%)
+      const delta     = medAmt - prior.amount;
+      const sign      = delta > 0 ? '+' : '';
+      const changeDir = delta > 0 ? 'increased' : 'decreased';
+      const title = `💡 Price change: ${data.name}`;
+      const body  = `${data.name} ${changeDir} from ${_fmt(prior.amount)} → ${_fmt(medAmt)}/${freq}`;
+      await _saveNotification(uid, { title, body, type: 'subscription_price_change', data: { merchant: data.name, old_amount: String(prior.amount), new_amount: String(medAmt) } });
+      if (fcmToken) _sendFCM(uid, fcmToken, { title, body, type: 'subscription_price_change', channelId: 'flowcheck_alerts' }).catch(() => {});
+      if (userData.email && userData.email_alerts_enabled !== false) {
+        _sendEmail(userData.email, `💡 ${data.name} price ${delta > 0 ? 'increased' : 'decreased'}: ${_fmt(prior.amount)} → ${_fmt(medAmt)}`, `
+          <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+          <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
+            <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:32px;text-align:center">
+              ${LOGO_IMG}
+              <div style="font-size:32px;margin-bottom:8px">${delta > 0 ? '📈' : '📉'}</div>
+              <h1 style="color:#fff;font-size:20px;font-weight:700;margin:0 0 4px">Subscription Price Change</h1>
+              <p style="color:rgba(255,255,255,0.55);font-size:14px;margin:0">${displayName} ${changeDir} its price</p>
+            </div>
+            <div style="padding:28px 32px">
+              <div style="background:#f9fafb;border-radius:12px;padding:18px 20px;margin-bottom:20px">
+                <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+                  <span style="font-size:13px;color:#6b7280">Previous</span>
+                  <span style="font-size:15px;font-weight:600;color:#374151;text-decoration:line-through">${_fmt(prior.amount)}/${freq}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between">
+                  <span style="font-size:13px;color:#6b7280">New price</span>
+                  <span style="font-size:18px;font-weight:800;color:${delta > 0 ? '#dc2626' : '#059669'}">${_fmt(medAmt)}/${freq} (${sign}${_fmt(Math.abs(delta))})</span>
+                </div>
+              </div>
+              <p style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 20px">
+                ${delta > 0 ? 'Your subscription cost went up. If this doesn\'t look right, check your account with the provider.' : 'Your subscription cost went down — no action needed.'}
+              </p>
+              <a href="https://getflowcheck.app" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">View in FlowCheck →</a>
+            </div>
+            <div style="padding:14px 32px;border-top:1px solid #f3f4f6;text-align:center">
+              <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · <a href="${_unsubUrl(uid, 'alerts', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe from alerts</a></p>
+            </div>
+          </div></body></html>`, uid).catch(e => console.error('[email sub-price]', e.message));
+      }
+      updates[key] = { ...prior, amount: medAmt };
+    }
+  }
+
+  if (Object.keys(updates).length > 0) {
+    const merged = { ...prevSubs, ...updates };
+    await userRef.update({ detected_subs: merged }).catch(() => {});
+  }
+}
+
+/**
+ * Compute a simple 0–100 financial health score from monthly data.
+ * Used by the monthly cron to detect significant score changes.
+ */
+function _computeSimpleHealthScore(income, spent, netWorth, streak) {
+  const savingsRate  = income > 0 ? Math.max(0, Math.min(1, (income - spent) / income)) : 0;
+  const savingsScore = Math.round(savingsRate * 40);                                    // 0–40
+  const nwScore      = netWorth > 10000 ? 30 : netWorth > 0 ? 20 : netWorth > -5000 ? 10 : 0; // 0–30
+  const incomeScore  = income > 0 ? 20 : 10;                                            // 10–20
+  const streakScore  = Math.min(10, Math.round((streak || 0) / 30 * 10));               // 0–10
+  return Math.min(100, savingsScore + nwScore + incomeScore + streakScore);
+}
+
 /**
  * Verify a Plaid webhook JWT using Node 18 native crypto.subtle (ES256).
  * Returns the parsed payload on success, throws on failure.
@@ -3200,6 +3460,16 @@ async function _webhookSyncItem(itemId, retryCount = 0) {
               break; // one duplicate alert per sync
             }
           }
+        }
+
+        // ── 1f. Subscription renewal / price-change detection ────────────
+        // Only runs when there are new expense transactions — avoids the cost
+        // of a 90-day query on syncs that only bring income or no-ops.
+        const hasNewExpenses = added.some(t => t.amount > 0);
+        if (hasNewExpenses && userData.email && userData.email_alerts_enabled !== false) {
+          await _detectAndEmailSubscriptions(uid, userRef, userData, fcmToken).catch(err =>
+            console.error('[webhook sub-detect]', err.message)
+          );
         }
 
         // ── 2. Budget overage detection ───────────────────────────────
@@ -3846,6 +4116,67 @@ app.use((err, req, res, next) => {
    Codes stored in Firestore: otp_codes/{uid}
    TTL: 10 minutes. Max 5 attempts per code.
    ─────────────────────────────────────────────────────────────── */
+
+/* ─────────────────────────────────────────────────────────────
+   POST /auth/login-event
+   Called by the client after every successful sign-in.
+   Sends a "new sign-in detected" security alert email at most
+   once per calendar day (UTC) per user — rate-limited by the
+   generalLimiter already applied to the /auth prefix.
+   ───────────────────────────────────────────────────────────── */
+app.post('/auth/login-event', requireAuth, async (req, res) => {
+  res.json({ ok: true }); // never block the client — respond first
+  try {
+    const userRef  = db.collection('users').doc(req.uid);
+    const userSnap = await userRef.get();
+    if (!userSnap.exists) return;
+
+    const data = userSnap.data();
+    if (!data.email || !_resendApiKey) return;
+    if (data.notifications_enabled === false) return;
+    if (data.email_alerts_enabled === false) return;
+
+    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD UTC
+    if (data.last_login_alert_date === today) return;    // already sent today
+
+    await userRef.update({ last_login_alert_date: today });
+
+    const name    = _htmlEscape((data.name || 'there').split(' ')[0]);
+    const now     = new Date();
+    const timeStr = now.toLocaleString('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }) + ' UTC';
+
+    _sendEmail(data.email, `🔒 New sign-in to your FlowCheck account`, `
+      <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+      <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
+        <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:32px;text-align:center">
+          ${LOGO_IMG}
+          <div style="font-size:32px;margin-bottom:8px">🔒</div>
+          <h1 style="color:#fff;font-size:20px;font-weight:700;margin:0 0 4px">New sign-in detected</h1>
+          <p style="color:rgba(255,255,255,0.55);font-size:14px;margin:0">Hi ${name} — someone signed in to your account</p>
+        </div>
+        <div style="padding:28px 32px">
+          <div style="background:#f9fafb;border-radius:12px;padding:16px 20px;margin-bottom:20px">
+            <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+              <span style="font-size:13px;color:#6b7280">Time</span>
+              <span style="font-size:13px;font-weight:600;color:#374151">${timeStr}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between">
+              <span style="font-size:13px;color:#6b7280">Account</span>
+              <span style="font-size:13px;font-weight:600;color:#374151">${_htmlEscape(data.email)}</span>
+            </div>
+          </div>
+          <p style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 20px">If this was you, no action is needed. If you didn't sign in, reset your password immediately.</p>
+          <a href="https://getflowcheck.app" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">Open FlowCheck →</a>
+        </div>
+        <div style="padding:14px 32px;border-top:1px solid #f3f4f6;text-align:center">
+          <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · <a href="${_unsubUrl(req.uid, 'alerts', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe from security alerts</a></p>
+        </div>
+      </div></body></html>
+    `, req.uid).catch(e => console.error('[email login-alert]', e.message));
+  } catch (err) {
+    console.error('[auth/login-event]', err.message);
+  }
+});
 
 app.post('/auth/otp/send', requireAuth, async (req, res) => {
   try {

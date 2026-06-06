@@ -59,6 +59,33 @@ window.FCPush = (function () {
     }
   }
 
+  /* ── Save a token to Firestore + backend ────────────────────── */
+  async function _saveToken(token) {
+    if (!token || token === _fcmToken) return;
+    _fcmToken = token;
+    fcLog('FCM token:', token.slice(0, 12) + '…');
+    try {
+      const user = FCAuth.currentUser();
+      const db   = FCAuth.db();
+      if (user && db) {
+        await db.collection('users').doc(user.uid).set({
+          fcm_token:      token,
+          fcm_updated_at: firebase.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true });
+        const idToken     = await user.getIdToken();
+        const registerUrl = (window.FC_CONFIG && FC_CONFIG.notifications && FC_CONFIG.notifications.registerEndpoint)
+                          || 'https://getflowcheck.app/notifications/register';
+        fetch(registerUrl, {
+          method:  'POST',
+          headers: { 'Authorization': `Bearer ${idToken}`, 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ fcm_token: token }),
+        }).catch(err => console.error('[FCPush] Backend token register failed:', err.message));
+      }
+    } catch (err) {
+      console.error('[FCPush] Failed to save FCM token:', err);
+    }
+  }
+
   /* ── Attach Capacitor push listeners ─────────────────────── */
   function _attachListeners() {
     if (_listenersAdded) return;
@@ -67,33 +94,10 @@ window.FCPush = (function () {
     const push = Push();
     if (!push) return;
 
-    // Registration: save FCM token to Firestore AND backend
+    // Primary: Capacitor registration event (fires with FCM token when
+    // FirebaseMessaging is installed, or raw APNs token as fallback)
     push.addListener('registration', async (token) => {
-      _fcmToken = token.value;
-      fcLog('FCM token received');
-      try {
-        const user = FCAuth.currentUser();
-        const db   = FCAuth.db();
-        if (user && db) {
-          // Use set+merge so this works even if the user doc doesn't exist yet
-          // (race condition during fresh signup). update() would throw NOT_FOUND.
-          await db.collection('users').doc(user.uid).set({
-            fcm_token:      _fcmToken,
-            fcm_updated_at: firebase.firestore.FieldValue.serverTimestamp(),
-          }, { merge: true });
-          // Also register with backend (keeps server-side token in sync)
-          const idToken      = await user.getIdToken();
-          const registerUrl  = (window.FC_CONFIG && FC_CONFIG.notifications && FC_CONFIG.notifications.registerEndpoint)
-                             || 'https://getflowcheck.app/notifications/register';
-          fetch(registerUrl, {
-            method:  'POST',
-            headers: { 'Authorization': `Bearer ${idToken}`, 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ fcm_token: _fcmToken }),
-          }).catch(err => console.error('[FCPush] Backend token register failed:', err.message));
-        }
-      } catch (err) {
-        console.error('[FCPush] Failed to save FCM token:', err);
-      }
+      await _saveToken(token.value);
     });
 
     // Foreground notification received
@@ -118,12 +122,26 @@ window.FCPush = (function () {
       const data = action.notification && action.notification.data;
       if (!data) return;
 
-      // Route to the correct tab based on notification type
+      // Full routing map — all notification types → correct tab
       const routeMap = {
-        'bill_due':     'activity',
-        'budget_alert': 'insights',
-        'goal_reached': 'wealth',   // goals live in the Wealth tab
-        'sync_done':    'home',
+        payday:                    'home',
+        early_pay:                 'home',
+        large_txn:                 'activity',
+        low_balance:               'home',
+        budget_alert:              'insights',
+        bill_due:                  'activity',
+        bill_overdue:              'activity',
+        subscription_renewal:      'insights',
+        subscription_price_change: 'insights',
+        savings_milestone:         'wealth',
+        net_worth_change:          'wealth',
+        ai_insight:                'insights',
+        duplicate_charge:          'activity',
+        security:                  'settings',
+        weekly_summary:            'home',
+        monthly_summary:           'home',
+        goal_reached:              'wealth',
+        sync_done:                 'home',
       };
       const tab = routeMap[data.type] || 'home';
       if (window.FCApp && window.FCApp.switchTab) {
