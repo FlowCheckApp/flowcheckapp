@@ -1895,9 +1895,12 @@ window.FCApp = (function () {
     // Wipe per-user localStorage caches (net-worth history, budget alert
     // flags, debt start, milestone flags, RC pro cache, etc.) so they can't
     // leak into the next user's session.
+    // PRESERVE uid-keyed routing flags (fc_ob_done_, fc_pw_seen_) — they are
+    // keyed by UID so they cannot cross-contaminate between users, and they
+    // provide cross-session onboarding + paywall cooldown for the same user.
     try {
       Object.keys(localStorage)
-        .filter(k => k.startsWith('fc_'))
+        .filter(k => k.startsWith('fc_') && !k.startsWith('fc_ob_done_') && !k.startsWith('fc_pw_seen_'))
         .forEach(k => localStorage.removeItem(k));
     } catch (_) { /* localStorage unavailable in strict CSP — safe to ignore */ }
 
@@ -5762,15 +5765,16 @@ window.FCApp = (function () {
       setScreen('app');
       _renderHome();
       // Show paywall if user hasn't subscribed yet.
-      // Only consult RC if it's already configured — don't await configure() here
-      // because it can hang on a cold device and delay the user seeing their data.
+      // Bank connection is a high-intent moment, but we still respect the cooldown
+      // so users who've already seen the paywall today aren't shown it again
+      // just for linking an additional account (bug: second-bank paywall spam).
       const _isProAfterLink = FCPurchases.isConfigured()
         ? await FCPurchases.checkProStatus().catch(e => { fcLog('[RC] checkProStatus failed:', e?.message); return false; })
         : false;
-      if (!_isProAfterLink) {
-        // Give the user a moment to see their home screen before the paywall appears.
+      const _plaidLinkUid = FCAuth.currentUser?.()?.uid;
+      if (!_isProAfterLink && _shouldShowPaywall(_plaidLinkUid)) {
         // 1.4s lets the success toast finish and the first render settle.
-        setTimeout(() => showPaywall(), 1400);
+        setTimeout(() => { if (state.screen === 'app') showPaywall(); }, 1400);
       }
     } catch (err) {
       if (err.message !== 'cancelled') {
@@ -6066,10 +6070,14 @@ window.FCApp = (function () {
     return Promise.resolve(window.confirm(title + '\n\n' + message));
   }
 
-  /** Mark onboarding as complete in Firestore (called on skip or bank connect) */
+  /** Mark onboarding as complete in Firestore + localStorage (called on skip or bank connect) */
   async function _markOnboardingComplete(skipped = false) {
+    const uid = FCAuth.currentUser && FCAuth.currentUser()?.uid;
+    // Write localStorage immediately — before the async Firestore write — so that
+    // if the user closes the app during the write, the flag is already set and
+    // onAuthStateChanged won't route them back to onboarding on next cold start.
+    if (uid) _markOnboardingLocalCache(uid);
     try {
-      const uid = FCAuth.currentUser && FCAuth.currentUser()?.uid;
       const db  = FCAuth.db && FCAuth.db();
       if (uid && db) {
         await db.collection('users').doc(uid).update({ onboarding_complete: true });
@@ -6122,24 +6130,28 @@ window.FCApp = (function () {
     _skippingOnboarding = true;
     haptic('light');
 
-    // Mark onboarding complete (best-effort — never block navigation on this)
+    // Mark onboarding complete (best-effort — never block navigation on this).
+    // localStorage write happens synchronously inside _markOnboardingComplete().
     _markOnboardingComplete(true).catch(() => {});
 
-    // Show paywall immediately — don't await any RevenueCat calls here because
-    // configure() can hang on a cold-start device and trap the user.
-    // The paywall's _loadPaywallOfferings() handles RC async on its own.
-    // For the rare case the user is already Pro (e.g. reinstall), they can
-    // tap "Restore Purchase" on the paywall and skip straight into the app.
+    // Always navigate to the dashboard first — users need to see their home
+    // screen before encountering the paywall. Blocking the flow here with a
+    // non-dismissible paywall (old behaviour) felt jarring and hurt conversion.
+    setScreen('app');
+    _renderHome();
+    setTimeout(() => _doSync(false), 800);
+
+    // Check pro status async; if not Pro, show a contextual paywall from the
+    // dashboard (which has the X close button). Respects the 24h cooldown so
+    // the paywall doesn't appear again if they've already seen it today.
+    const uid = FCAuth.currentUser?.()?.uid;
     const _cachedPro = FCPurchases.isConfigured()
       ? await FCPurchases.checkProStatus().catch(() => false)
       : false;
 
-    if (_cachedPro) {
-      setScreen('app');
-      _renderHome();
-      setTimeout(() => _doSync(false), 800);
-    } else {
-      showPaywall();
+    if (!_cachedPro && _shouldShowPaywall(uid)) {
+      // Give user a moment to see the dashboard before the paywall slides in.
+      setTimeout(() => { if (state.screen === 'app') showPaywall(); }, 1800);
     }
 
     setTimeout(() => { _skippingOnboarding = false; }, 1500);
@@ -6599,7 +6611,21 @@ window.FCApp = (function () {
     // Observe Firebase auth state
     FCAuth.onAuthStateChanged(async user => {
       if (user) {
-        fcLog('[FCApp] onAuthStateChanged — user:', user.uid, '| listenersAttached:', _listenersAttached);
+        // ── UID change guard ────────────────────────────────────────────────
+        // Firebase fires onAuthStateChanged on token refresh, network reconnect,
+        // and any other auth-adjacent event — not just actual sign-in/out.
+        // Without this guard, every token refresh wipes state and re-runs
+        // routing, which causes the paywall to reappear on app foreground and
+        // onboarding to restart mid-flow.
+        //
+        // Only run the full routing + wipe when the UID actually changes.
+        // Same UID = token refresh or reconnect — return immediately.
+        if (user.uid === _currentUid) {
+          fcLog('[FCApp] onAuthStateChanged — same UID, skipping re-route (token refresh)');
+          return;
+        }
+        _currentUid = user.uid;
+        fcLog('[FCApp] onAuthStateChanged — new UID:', user.uid, '| listenersAttached:', _listenersAttached);
 
         // Wipe ALL state from the previous session FIRST — before any async
         // work. This also resets _listenersAttached, FCPurchases, and FCPush.
@@ -6635,25 +6661,35 @@ window.FCApp = (function () {
           ]);
         } catch (err) {
           fcLog('Failed to load user doc on auth:', err);
-          // Transient Firestore error — fall back to home rather than blank screen.
-          // Seed a minimal user object from Firebase Auth so the greeting shows
-          // the real name rather than falling through to "there".
+          // Transient Firestore error. Check localStorage backup before falling
+          // through to the dashboard — a brand-new user with no Firestore doc
+          // and no localStorage flag should see onboarding, not the dashboard.
           if (!state.user) {
             const authUser = FCAuth.currentUser();
             if (authUser) state.user = { name: authUser.displayName || '', email: authUser.email || '' };
           }
-          setScreen('app');
-          _renderHome();
+          if (_onboardingLocallyCached(user.uid)) {
+            // Previously completed onboarding — safe to show dashboard
+            setScreen('app');
+            _renderHome();
+          } else if (window._fcNewUserFaceIdPending) {
+            // Brand new signup, Firestore just hasn't written the doc yet
+            setScreen('verify-email');
+          } else {
+            // Unknown — send to onboarding rather than dashboard to be safe
+            setScreen('onboarding');
+          }
           return;
         }
-        // needsOnboarding: user exists in Firestore, hasn't completed onboarding,
-        // and hasn't linked a bank (bank link = backward-compat bypass for early users).
-        // If the user closed the app mid-onboarding (onboarding_complete not yet set),
-        // they resume onboarding on next open — never jump to the dashboard.
-        // Treat a missing doc (new user whose Firestore doc isn't created yet)
-        // the same as an incomplete user — always route to onboarding rather
-        // than falling through to the dashboard.
-        const needsOnboarding = !userDoc || (!userDoc.onboarding_complete && !userDoc.plaid_linked);
+
+        // needsOnboarding: user hasn't completed onboarding AND hasn't linked a bank.
+        // localStorage flag is checked alongside Firestore so a mid-flow app-close
+        // (where the Firestore write completed but the app was backgrounded before
+        // the observer fired) doesn't force the user back to slide 1.
+        const firestoreOnboarded = !!(userDoc?.onboarding_complete || userDoc?.plaid_linked);
+        const localOnboarded     = _onboardingLocallyCached(user.uid);
+        const needsOnboarding    = !userDoc ? !localOnboarded : (!firestoreOnboarded && !localOnboarded);
+
         if (needsOnboarding) {
           // New user just registered in this session — show email verification first
           if (window._fcNewUserFaceIdPending) {
@@ -6681,25 +6717,17 @@ window.FCApp = (function () {
             }
           } else {
             // Returning user who closed app before finishing onboarding — resume it.
-            // Never drop them onto the dashboard without completing onboarding.
             setScreen('onboarding');
           }
         } else {
-          // Guard: if paywall is already shown (e.g., user just tapped "Skip" on onboarding),
-          // don't override it — the Firestore write triggers this observer again, but the
-          // user should stay on the paywall until they purchase or dismiss.
-          if (state.screen === 'paywall' || _paywallShownThisSession) return;
-          // Pre-seed state.user from the already-fetched userDoc so the very first
-          // _renderHome() call has the correct name. The listenToUser listener
-          // will overwrite this with the live snapshot moments later.
+          // ── Onboarded user: navigate to dashboard ─────────────────────────
+          // Pre-seed state.user from the already-fetched userDoc so the first
+          // _renderHome() call shows the correct name before the live snapshot.
           if (!state.user && userDoc) state.user = userDoc;
           setScreen('app');
           _renderHome();
           setTimeout(() => _doSync(false), 900);
-          // Native lock screen is handled by AppDelegate on applicationDidBecomeActive
-          // Tag Sentry errors with the user's UID (no email or name)
           if (window.Sentry) Sentry.setUser({ id: user.uid });
-          // Identify user in analytics (no PII — uid only + non-sensitive properties)
           if (typeof FCAnalytics !== 'undefined') {
             FCAnalytics.identify(user.uid, {
               is_pro:          !!(userDoc?.is_pro),
@@ -6707,52 +6735,54 @@ window.FCApp = (function () {
               onboarding_done: !!(userDoc?.onboarding_complete),
             });
           }
-          // Always verify pro status with RC for every onboarded user.
-          // Firestore is_pro can be permanently stale when a cancellation webhook
-          // can't resolve the Firebase UID (anonymous RC subscriber residual).
-          // Skipping this check for is_pro=true users creates a permanent revenue leak.
-          if (userDoc?.onboarding_complete && !_paywallShownThisSession) {
-            FCPurchases.checkProStatus().then(async isPro => {
-              if (isPro) {
-                // RC confirmed Pro — sync local cache if Firestore was behind
-                if (state.user && !state.user.is_pro) {
-                  state.user.is_pro = true;
-                  _refreshAfterPro();
-                }
-                setTimeout(() => _tryStartTour(), 1400);
-              } else if (userDoc?.is_pro) {
-                // Firestore says pro but RC says not — could be an anonymous RC subscriber
-                // whose webhook couldn't map to a Firebase UID. Attempt restore to link
-                // the App Store receipt to the named subscriber before concluding lapsed.
-                try {
-                  const { isPro: restored } = await FCPurchases.restorePurchases();
-                  if (restored) {
-                    if (state.user) state.user.is_pro = true;
-                    _refreshAfterPro();
-                    return;
-                  }
-                } catch (_) {}
-                // Restore didn't recover Pro — subscription has genuinely lapsed
-                if (state.user) state.user.is_pro = false;
-                if (!_paywallShownThisSession) setTimeout(() => showPaywall(), 1200);
-              } else {
-                // RC and Firestore both say not pro — show paywall
-                if (!_paywallShownThisSession) setTimeout(() => showPaywall(), 1200);
+
+          // ── Pro status check + contextual paywall ─────────────────────────
+          // Always verify with RC — Firestore is_pro can be stale after a
+          // lapsed subscription whose webhook couldn't resolve the Firebase UID.
+          // Paywall triggers use _shouldShowPaywall() which enforces both the
+          // per-session guard and the 24h cooldown, so the paywall never fires
+          // on token-refresh events (those are caught by the UID guard above).
+          FCPurchases.checkProStatus().then(async isPro => {
+            if (isPro) {
+              if (state.user && !state.user.is_pro) {
+                state.user.is_pro = true;
+                _refreshAfterPro();
               }
-            }).catch(() => {
-              // RC unavailable — trust Firestore rather than blocking users on a bad connection.
-              if (!userDoc?.is_pro && !_paywallShownThisSession) setTimeout(() => showPaywall(), 1200);
-              else if (userDoc?.is_pro) setTimeout(() => _tryStartTour(), 1400);
-            });
-          }
+              setTimeout(() => _tryStartTour(), 1400);
+            } else if (userDoc?.is_pro) {
+              // Firestore says Pro but RC says not — attempt restore first
+              try {
+                const { isPro: restored } = await FCPurchases.restorePurchases();
+                if (restored) {
+                  if (state.user) state.user.is_pro = true;
+                  _refreshAfterPro();
+                  return;
+                }
+              } catch (_) {}
+              // Subscription lapsed — update local state and show contextual paywall
+              if (state.user) state.user.is_pro = false;
+              if (_shouldShowPaywall(user.uid)) setTimeout(() => showPaywall(), 1200);
+            } else {
+              // RC and Firestore both say not Pro
+              if (_shouldShowPaywall(user.uid)) setTimeout(() => showPaywall(), 1200);
+            }
+          }).catch(() => {
+            // RC unavailable — trust Firestore, show paywall only for free users
+            if (!userDoc?.is_pro) {
+              if (_shouldShowPaywall(user.uid)) setTimeout(() => showPaywall(), 1200);
+            } else {
+              setTimeout(() => _tryStartTour(), 1400);
+            }
+          });
         }
       } else {
-        fcLog('[FCApp] onAuthStateChanged — no user, wiping state and returning to hero');
+        fcLog('[FCApp] onAuthStateChanged — signed out, wiping state');
+        // Reset UID so next sign-in triggers full routing regardless of which
+        // account signs in (could be a different user on the same device).
+        _currentUid = null;
         // _wipeUserState() handles detachAllListeners + _listenersAttached reset
         _wipeUserState();
         setScreen('hero');
-        // Show or hide the Face ID button based on whether biometric is
-        // available AND a previous session exists (email saved in preferences).
         FCAuth.isBiometricEnabled().then(enabled => {
           const wrap = document.getElementById('biometric-login-wrap');
           if (wrap) wrap.style.display = enabled ? '' : 'none';
@@ -7259,17 +7289,71 @@ window.FCApp = (function () {
 
   let _selectedPlan          = 'annual'; // 'annual' | 'monthly'
   let _pwOfferings           = null;
-  let _paywallShownThisSession = false;  // prevents re-trigger mid-session
+  let _paywallShownThisSession = false;  // prevents re-trigger within one running session
+  let _currentUid            = null;     // tracks active UID — guards against token-refresh re-routing
+
+  /* ── Routing persistence helpers ─────────────────────────────
+   *
+   * Onboarding and paywall state are stored in localStorage keyed by UID so
+   * they survive app restarts without requiring a Firestore round-trip.  They
+   * cannot leak between users because the key includes the UID.
+   *
+   * Preserved across _wipeUserState() (which only strips un-keyed fc_ caches).
+   * ─────────────────────────────────────────────────────────── */
+
+  function _markOnboardingLocalCache(uid) {
+    if (!uid) return;
+    try { localStorage.setItem(`fc_ob_done_${uid}`, '1'); } catch (_) {}
+  }
+  function _onboardingLocallyCached(uid) {
+    if (!uid) return false;
+    try { return localStorage.getItem(`fc_ob_done_${uid}`) === '1'; } catch (_) { return false; }
+  }
+
+  function _markPaywallSeen(uid) {
+    if (!uid) return;
+    try { localStorage.setItem(`fc_pw_seen_${uid}`, Date.now().toString()); } catch (_) {}
+  }
+  // 24-hour cooldown — prevents paywall re-appearing on every cold restart
+  function _paywallCooldownActive(uid) {
+    if (!uid) return false;
+    try {
+      const t = parseInt(localStorage.getItem(`fc_pw_seen_${uid}`) || '0');
+      return Date.now() - t < 24 * 3600 * 1000;
+    } catch (_) { return false; }
+  }
+
+  /**
+   * Gate for automatic (non-user-initiated) paywall triggers.
+   * Returns true when it's appropriate to show the paywall:
+   *   - user is not Pro
+   *   - paywall not already shown this session
+   *   - paywall cooldown not active (not seen within last 24h)
+   * For user-initiated shows (tapping a Pro gate card, "Start Trial" button),
+   * call showPaywall() directly — it always shows.
+   */
+  function _shouldShowPaywall(uid) {
+    if (_paywallShownThisSession) return false;
+    if (_paywallCooldownActive(uid)) return false;
+    return true;
+  }
 
   async function showPaywall() {
+    // Mark as seen immediately — both in-session flag and persistent cooldown.
+    // All callers (user-initiated and automatic) go through here so the state
+    // is always consistent. _shouldShowPaywall() guards automatic triggers before
+    // they call showPaywall(); user-initiated calls (onclick, "Start Trial") call
+    // showPaywall() directly and bypass the cooldown check by design.
     _paywallShownThisSession = true;
+    const _pwUid = FCAuth.currentUser?.()?.uid;
+    if (_pwUid) _markPaywallSeen(_pwUid);
+
     if (typeof FCAnalytics !== 'undefined') FCAnalytics.track('paywall_viewed', { source: state.screen });
 
-    // Show X close button only when triggered from inside the app (not from onboarding flow).
-    // During onboarding the user must either buy or tap "Maybe later" — no escape hatch.
-    const canClose = state.screen === 'app';
+    // Always show the X close button — the paywall is always reachable from the
+    // dashboard now (skipOnboarding navigates to app first, then shows paywall).
     const closeBtn = document.getElementById('pw-close-btn');
-    if (closeBtn) closeBtn.style.display = canClose ? 'flex' : 'none';
+    if (closeBtn) closeBtn.style.display = 'flex';
 
     // Reset success overlay in case it was left visible from a previous purchase attempt
     const successOverlay = document.getElementById('pw-success-overlay');
@@ -7280,10 +7364,8 @@ window.FCApp = (function () {
     _loadPaywallOfferings();
   }
 
-  /** Dismiss the paywall and return to the main app (only available when triggered in-app). */
+  /** Dismiss the paywall and return to the dashboard. */
   function closePaywall() {
-    const closeBtn = document.getElementById('pw-close-btn');
-    if (closeBtn) closeBtn.style.display = 'none';
     // Reset success overlay so it doesn't bleed on next open
     const successOverlay = document.getElementById('pw-success-overlay');
     if (successOverlay) successOverlay.classList.remove('visible');
