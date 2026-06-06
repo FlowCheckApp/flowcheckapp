@@ -8461,35 +8461,34 @@ window.FCApp = (function () {
     // Use the backend referral landing page — reliable, no Firebase Dynamic Links,
     // never redirects to random sites. Tries to open the app, falls back to App Store.
     const referralUrl = `https://getflowcheck.app/invite/${encodeURIComponent(code)}`;
-    const shareText   = `Join me on FlowCheck — we both get 1 free month of Pro! 💰`;
+    // NOTE: do NOT embed the URL inside `text`. When both text and url are passed
+    // to the iOS share sheet, Messages scans the entire text string for domains.
+    // "FlowCheck" near ".app" (from getflowcheck.app) causes iMessage to generate
+    // a preview for flowcheck.app (a different domain) instead of ours.
+    // Keeping the URL only in the `url` field forces iMessage to use our link.
+    const shareText = `Use code ${code} when you sign up and we both get 1 free month of Pro — no credit card needed. 💰`;
     haptic('medium');
 
-    // Track analytics
     if (typeof FCAnalytics !== 'undefined') {
       FCAnalytics.track('referral_share_tapped', { code });
     }
 
     try {
-      // In a Capacitor/native context, the Capacitor Share plugin is reliable and
-      // always shares the correct URL. navigator.share on iOS WKWebView CAN share
-      // the capacitor://localhost page URL instead of the provided url — so we
-      // check for the Capacitor plugin FIRST and only fall back to navigator.share
-      // on web where it behaves correctly.
-      const plugins       = window.Capacitor?.Plugins;
-      const isNative      = window.Capacitor?.isNativePlatform?.();
+      const plugins        = window.Capacitor?.Plugins;
+      const isNative       = window.Capacitor?.isNativePlatform?.();
       const capacitorShare = plugins?.Share?.share;
 
       if (isNative && capacitorShare) {
         await capacitorShare({
-          title:       'FlowCheck — Refer a Friend',
-          text:        `${shareText}\n\n${referralUrl}`,
-          url:         referralUrl,
+          title:       'Get 1 month of FlowCheck Pro free',
+          text:        shareText,      // no URL here — avoids iMessage domain mis-detection
+          url:         referralUrl,    // this alone generates the link preview
           dialogTitle: 'Share FlowCheck',
         });
         if (typeof FCAnalytics !== 'undefined') FCAnalytics.track('referral_shared', { code, method: 'capacitor_share' });
       } else if (navigator.share) {
         await navigator.share({
-          title: 'FlowCheck — Refer a Friend',
+          title: 'Get 1 month of FlowCheck Pro free',
           text:  shareText,
           url:   referralUrl,
         });
