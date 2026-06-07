@@ -7492,9 +7492,6 @@ window.FCApp = (function () {
 
       if (isPro) {
         haptic('medium');
-        // Best-effort Firestore cache — rules intentionally block client writes of is_pro
-        // (RevenueCat is the source of truth). Never let this fail the purchase success flow.
-        try { await FCData.updateUserField('is_pro', true); } catch (_) {}
         // Mark onboarding complete so cold-start routing never sends this user
         // back to onboarding. Handles the case where the user purchased directly
         // from the paywall shown during onboarding (startTrialFromOnboarding),
@@ -7539,7 +7536,6 @@ window.FCApp = (function () {
             const isPro2 = await FCPurchases.checkProStatus();
             if (isPro2) {
               haptic('medium');
-              try { await FCData.updateUserField('is_pro', true); } catch (_) {}
               setScreen('app');
               _refreshAfterPro();
               setTimeout(() => _tryStartTour(), 1200);
@@ -7581,7 +7577,6 @@ window.FCApp = (function () {
           const isPro = await FCPurchases.checkProStatus();
           if (isPro) {
             haptic('medium');
-            try { await FCData.updateUserField('is_pro', true); } catch (_) {}
             setScreen('app');
             _refreshAfterPro();
             setTimeout(() => _tryStartTour(), 1200);
@@ -7609,7 +7604,6 @@ window.FCApp = (function () {
       if (isPro) {
         haptic('medium');
         toast('Pro access restored!', 'success');
-        try { await FCData.updateUserField('is_pro', true); } catch (_) {}
         setScreen('app');
         _refreshAfterPro();
       } else {
@@ -8400,7 +8394,7 @@ window.FCApp = (function () {
     // Show "referred by" note if applicable
     const referredBy = document.getElementById('referral-referred-by');
     if (referredBy) {
-      const referrer = state.user?.referred_by;
+      const referrer = state.user?.referred_by_code;
       referredBy.style.display = referrer ? 'block' : 'none';
     }
 
