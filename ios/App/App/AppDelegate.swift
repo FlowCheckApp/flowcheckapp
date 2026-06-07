@@ -25,7 +25,20 @@ import FirebaseMessaging
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
 
-    var window: UIWindow?
+    // window is owned by SceneDelegate in UIScene lifecycle.
+    // Keep the property for Capacitor compatibility — returns the active scene's window.
+    var window: UIWindow? {
+        get {
+            (UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+                .first(where: { $0.activationState == .foregroundActive })
+                ?? UIApplication.shared.connectedScenes
+                    .compactMap { $0 as? UIWindowScene }
+                    .first)
+                .flatMap { ($0.delegate as? SceneDelegate)?.window }
+        }
+        set { /* no-op: SceneDelegate owns the window */ }
+    }
 
     /// Full-screen blur overlay shown immediately on resign-active.
     /// Fires before the OS takes its task-switcher screenshot.
@@ -324,6 +337,24 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         rootVC.present(alert, animated: true)
         NotificationCenter.default.post(name: Notification.Name("FCJailbreakDetected"), object: nil)
     }
+
+    // MARK: - UIScene configuration
+
+    func application(
+        _ application: UIApplication,
+        configurationForConnecting connectingSceneSession: UISceneSession,
+        options: UIScene.ConnectionOptions
+    ) -> UISceneConfiguration {
+        let config = UISceneConfiguration(name: "Default Configuration",
+                                          sessionRole: connectingSceneSession.role)
+        config.delegateClass = SceneDelegate.self
+        return config
+    }
+
+    func application(
+        _ application: UIApplication,
+        didDiscardSceneSessions sceneSessions: Set<UISceneSession>
+    ) { }
 
     // MARK: - Capacitor / URL handling
 

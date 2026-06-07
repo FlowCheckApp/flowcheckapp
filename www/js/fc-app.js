@@ -5476,27 +5476,30 @@ window.FCApp = (function () {
       if (toggle) { toggle.classList.toggle('on', enabled); toggle.setAttribute('aria-checked', enabled); }
     });
 
-    // Notification toggle — reflect both Firestore preference AND actual OS permission
+    // Notification toggle — Preferences is the authoritative local value.
+    // Firestore value is the starting point but may lag after sign-in.
     const notifToggle = document.getElementById('toggle-notifications');
     if (notifToggle) {
-      const firestoreOn = user.notifications_enabled !== false;
-      // Check real OS permission; if denied at OS level, show as off regardless of Firestore
-      (typeof FCPush !== 'undefined' ? FCPush.checkPermissions() : Promise.resolve('unavailable'))
-        .then(osStatus => {
-          const osBlocked = osStatus === 'denied';
-          const notifsOn  = firestoreOn && !osBlocked;
-          notifToggle.classList.toggle('on', notifsOn);
-          notifToggle.setAttribute('aria-checked', String(notifsOn));
-          // If Firestore says on but OS blocked, silently sync Firestore to off
-          if (firestoreOn && osBlocked) {
-            FCData.updateUserField('notifications_enabled', false).catch(() => {});
-          }
-        })
-        .catch(() => {
-          const notifsOn = firestoreOn;
-          notifToggle.classList.toggle('on', notifsOn);
-          notifToggle.setAttribute('aria-checked', String(notifsOn));
-        });
+      const Prefs = window.Capacitor?.Plugins?.Preferences;
+      const _resolveNotifState = async () => {
+        // Local Preferences overrides Firestore if it's been explicitly set
+        let localPref = null;
+        if (Prefs) {
+          try { const r = await Prefs.get({ key: 'fc_notifs_enabled' }); localPref = r?.value; } catch (_) {}
+        }
+        const preferenceOn = localPref !== null ? localPref === 'true' : user.notifications_enabled !== false;
+        const osStatus = await (typeof FCPush !== 'undefined' ? FCPush.checkPermissions() : Promise.resolve('unavailable')).catch(() => 'unavailable');
+        const osBlocked = osStatus === 'denied';
+        const notifsOn  = preferenceOn && !osBlocked;
+        notifToggle.classList.toggle('on', notifsOn);
+        notifToggle.setAttribute('aria-checked', String(notifsOn));
+        // If local preference says on but OS blocked, sync both stores to off
+        if (preferenceOn && osBlocked) {
+          if (Prefs) Prefs.set({ key: 'fc_notifs_enabled', value: 'false' }).catch(() => {});
+          FCData.updateUserField('notifications_enabled', false).catch(() => {});
+        }
+      };
+      _resolveNotifState().catch(() => {});
     }
 
     // Institution
@@ -6348,14 +6351,17 @@ window.FCApp = (function () {
       }
     }
 
-    try {
-      await FCData.updateUserField('notifications_enabled', enable);
-      toast(enable ? 'Notifications enabled' : 'Notifications turned off', 'success');
-    } catch (err) {
-      console.error('[toggleNotifications]', err.message);
-      toast('Could not save notification preference', 'error');
-      return false;
-    }
+    // Persist locally first — Preferences never fails permissions and survives
+    // Firestore connection issues (e.g. auth token not yet propagated after sign-in).
+    const Prefs = window.Capacitor?.Plugins?.Preferences;
+    try { if (Prefs) await Prefs.set({ key: 'fc_notifs_enabled', value: String(enable) }); } catch (_) {}
+
+    // Sync to Firestore best-effort — never fail the UX on a Firestore write error.
+    FCData.updateUserField('notifications_enabled', enable).catch(err => {
+      fcLog('[toggleNotifications] Firestore sync deferred:', err.message);
+    });
+
+    toast(enable ? 'Notifications enabled' : 'Notifications turned off', 'success');
     return true;
   }
 

@@ -236,9 +236,11 @@ window.FCPush = (function () {
   }
 
   /* ── Clear delivered notifications on foreground ─────────── */
-  // AppDelegate also does this natively, but calling from JS ensures
-  // it runs even on simulators / web where the native layer isn't active.
+  // Only safe to call after APNs registration completes (_fcmToken set).
+  // Calling removeAllDeliveredNotifications before capacitorDidRegisterForRemoteNotifications
+  // fires produces a noisy "event not called" error from the Capacitor bridge.
   function clearDeliveredAndBadge() {
+    if (!_fcmToken) return; // skip until APNs registration has completed
     try {
       const push = Push();
       if (push && typeof push.removeAllDeliveredNotifications === 'function') {
