@@ -24,6 +24,9 @@ window.FCData = (function () {
   // not reach Sentry.
   function _listenerErr(name, err) {
     if (!FCAuth.currentUser()) return;
+    // permission-denied during sign-out race is transient — Firebase retries automatically.
+    // Logging it sends noise to Sentry without being actionable.
+    if (err?.code === 'permission-denied') return;
     console.error(`[FCData] ${name} listener error:`, err);
   }
 

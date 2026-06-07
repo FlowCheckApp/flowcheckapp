@@ -6856,9 +6856,10 @@ async function showReferralSheet() {
   const sheet = document.getElementById('fc-referral-sheet');
   if (!sheet) return;
   _sheetOpen = true;
+  // CSS animations (fcOverlayIn + fcSheetUp) fire automatically when display changes.
+  // Don't set opacity inline — that fights the keyframe animation.
+  sheet.classList.remove('fc-sheet--closing');
   sheet.style.display = 'flex';
-  // Small delay so display:flex renders before opacity transition
-  requestAnimationFrame(() => { sheet.style.opacity = '1'; });
 
   // Load stats first, then ensure code exists
   const stats = await loadReferralStats();
@@ -6905,7 +6906,11 @@ function closeReferralSheet() {
   const sheet = document.getElementById('fc-referral-sheet');
   if (!sheet) return;
   _sheetOpen = false;
-  sheet.style.display = 'none';
+  sheet.classList.add('fc-sheet--closing');
+  setTimeout(() => {
+    sheet.style.display = 'none';
+    sheet.classList.remove('fc-sheet--closing');
+  }, 290);
 }
 
 // ── Copy code to clipboard ────────────────────────────────────────────────────
@@ -6943,23 +6948,37 @@ async function shareReferralCode() {
   if (!_referralCode) { await ensureReferralCode(); }
   if (!_referralCode) return;
 
-  const text = `I've been using FlowCheck to track my spending and net worth — it's genuinely great. Use my code ${_referralCode} when you sign up and we both get a free month of Pro. https://flowcheck.app`;
+  const referralUrl = `https://getflowcheck.app/invite/${encodeURIComponent(_referralCode)}`;
+  // Keep URL separate from text — if merged, iMessage scans the text for domains
+  // and may preview flowcheck.app (a different domain) instead of our invite page.
+  const shareText = `Use my code ${_referralCode} when you sign up for FlowCheck — we both get 1 free month of Pro. No credit card needed. 💰`;
 
-  if (navigator.share) {
-    try {
-      await navigator.share({ text, title: 'Join FlowCheck — use my referral code' });
-    } catch (e) {
-      if (e.name !== 'AbortError') copyReferralCode(); // fallback to copy
+  try {
+    const plugins   = window.Capacitor?.Plugins;
+    const isNative  = window.Capacitor?.isNativePlatform?.();
+    const capShare  = plugins?.Share?.share;
+
+    if (isNative && capShare) {
+      await capShare({
+        title:       'Get 1 month of FlowCheck Pro free',
+        text:        shareText,
+        url:         referralUrl,
+        dialogTitle: 'Share FlowCheck',
+      });
+    } else if (navigator.share) {
+      await navigator.share({ title: 'Get 1 month of FlowCheck Pro free', text: shareText, url: referralUrl });
+    } else {
+      copyReferralCode();
     }
-  } else {
-    copyReferralCode();
+  } catch (e) {
+    if (e.name !== 'AbortError') copyReferralCode(); // share dismissed → copy fallback
   }
 }
 
 // ── Apply referral code at signup ─────────────────────────────────────────────
 // Called by handleRegister after user account is created.
 async function applyReferralCodeAfterSignup(code) {
-  if (!code || !/^FLOW-[A-Z0-9]{5}$/i.test(code.trim())) return;
+  if (!code || !/^FLOW[A-Z0-9]{4,8}$/i.test(code.trim())) return;
   try {
     const result = await referralFetch('/api/referral/apply', {
       method: 'POST',

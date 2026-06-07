@@ -29,10 +29,12 @@
   /* --- Status --- */
   --fc-success:         #30d158;
   --fc-success-soft:    rgba(48, 209, 88, 0.14);
+  --fc-success-border:  rgba(48, 209, 88, 0.25);
   --fc-warning:         #ff9f0a;
   --fc-warning-soft:    rgba(255, 159, 10, 0.14);
   --fc-danger:          #ff453a;
   --fc-danger-soft:     rgba(255, 69, 58, 0.14);
+  --fc-danger-border:   rgba(255, 69, 58, 0.25);
 
   /* --- Text --- */
   --fc-text:            #f0f6ff;
@@ -105,10 +107,12 @@
   /* --- Status — slightly richer on white --- */
   --fc-success:         #17a34a;
   --fc-success-soft:    rgba(23, 163, 74, 0.10);
+  --fc-success-border:  rgba(23, 163, 74, 0.22);
   --fc-warning:         #d97706;
   --fc-warning-soft:    rgba(217, 119, 6, 0.10);
   --fc-danger:          #dc2626;
   --fc-danger-soft:     rgba(220, 38, 38, 0.10);
+  --fc-danger-border:   rgba(220, 38, 38, 0.22);
 
   /* --- Text --- */
   --fc-text:            #0d1b2e;

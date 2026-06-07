@@ -951,6 +951,7 @@ app.post('/plaid/exchange-token', requireAuth, _plaidUserLimiter, async (req, re
           const userSnapTrx    = await trx.get(userRef);
           const referrerSnapTrx = await trx.get(referrerRef);
           if (!referralSnap.exists) return;
+          if (userSnapTrx.data()?.referral_activated) return; // idempotency guard inside transaction
 
           const newActivations = (referralSnap.data().activations || 0) + 1;
           const lifetimePro    = newActivations >= 3;
@@ -1585,7 +1586,7 @@ app.post('/credit/manual', requireAuth, async (req, res) => {
    All email automation (bill reminders, weekly summaries, budget
    alerts, welcome emails) is handled entirely in this backend —
    no need to configure automations in the Resend dashboard.
-   Also set: EMAIL_FROM  (e.g. "FlowCheck <noreply@flowcheck.app>")
+   Also set: EMAIL_FROM  (e.g. "FlowCheck <noreply@getflowcheck.app>")
              Must be a verified sender domain in Resend.
    ───────────────────────────────────────────────────────────── */
 const _resendApiKey = process.env.RESEND_API_KEY || null;
@@ -2121,6 +2122,33 @@ try { cron = require('node-cron'); } catch (_) {
 
 /** Format a dollar amount for display */
 const _fmt = (n) => '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/* ── Cron distributed lock ─────────────────────────────────────
+ * Prevents duplicate runs on restart or future scale-out.
+ * Uses a Firestore doc with a lockedAt timestamp. If the lock
+ * is older than ttlMs it is considered stale and overwritten.
+ * Returns true if the lock was acquired, false if already held. */
+async function _acquireCronLock(jobName, ttlMs = 4 * 60 * 60 * 1000) {
+  const lockRef = db.collection('cron_locks').doc(jobName);
+  try {
+    return await db.runTransaction(async (trx) => {
+      const snap = await trx.get(lockRef);
+      if (snap.exists) {
+        const age = Date.now() - snap.data().lockedAt.toMillis();
+        if (age < ttlMs) return false; // lock is current — another instance is running
+      }
+      trx.set(lockRef, { lockedAt: admin.firestore.Timestamp.now(), jobName });
+      return true;
+    });
+  } catch (err) {
+    console.error(`[CronLock] Failed to acquire "${jobName}":`, err.message);
+    return false; // safe default — skip rather than double-run
+  }
+}
+
+async function _releaseCronLock(jobName) {
+  await db.collection('cron_locks').doc(jobName).delete().catch(() => {});
+}
 
 /**
  * Given a bill's stored due_date (YYYY-MM-DD) and frequency, return the
@@ -2658,6 +2686,10 @@ async function _sendMonthlySummaryForUser(uid, userData, cutoffStr, monthLabel) 
 // ── Cron: daily bill reminders at 09:00 UTC ─────────────────
 if (cron) {
   cron.schedule('0 9 * * *', async () => {
+    if (!await _acquireCronLock('bill-reminders')) {
+      console.log('[Cron] bill-reminders: lock held, skipping');
+      return;
+    }
     console.log('[Cron] Running daily bill reminder job…');
     try {
       let lastDoc = null;
@@ -2679,6 +2711,8 @@ if (cron) {
       console.log(`[Cron] Bill reminders: checked ${sent} users`);
     } catch (err) {
       console.error('[Cron] Bill reminder job failed:', err.message);
+    } finally {
+      await _releaseCronLock('bill-reminders');
     }
   }, { timezone: 'UTC' });
   console.log('[Boot] Cron: daily bill reminders scheduled (09:00 UTC)');
@@ -2687,6 +2721,10 @@ if (cron) {
 // ── Cron: weekly summary email every Sunday at 07:00 UTC ────
 if (cron) {
   cron.schedule('0 7 * * 0', async () => {
+    if (!await _acquireCronLock('weekly-summary')) {
+      console.log('[Cron] weekly-summary: lock held, skipping');
+      return;
+    }
     console.log('[Cron] Running weekly summary job…');
     try {
       let lastDoc = null;
@@ -2710,6 +2748,8 @@ if (cron) {
       console.log(`[Cron] Weekly summaries: processed ${sent} users`);
     } catch (err) {
       console.error('[Cron] Weekly summary job failed:', err.message);
+    } finally {
+      await _releaseCronLock('weekly-summary');
     }
   }, { timezone: 'UTC' });
   console.log('[Boot] Cron: weekly summary scheduled (Sunday 07:00 UTC)');
@@ -2718,6 +2758,10 @@ if (cron) {
 // ── Cron: monthly summary on 1st of month at 08:00 UTC ──────
 if (cron) {
   cron.schedule('0 8 1 * *', async () => {
+    if (!await _acquireCronLock('monthly-summary')) {
+      console.log('[Cron] monthly-summary: lock held, skipping');
+      return;
+    }
     console.log('[Cron] Running monthly summary job…');
     try {
       let lastDoc = null;
@@ -2748,6 +2792,8 @@ if (cron) {
       console.log(`[Cron] Monthly summaries: processed ${sent} users`);
     } catch (err) {
       console.error('[Cron] Monthly summary job failed:', err.message);
+    } finally {
+      await _releaseCronLock('monthly-summary');
     }
   }, { timezone: 'UTC' });
   console.log('[Boot] Cron: monthly summary scheduled (1st of month 08:00 UTC)');
@@ -2771,7 +2817,8 @@ if (cron) {
 // Cache Plaid JWK keys in memory (keyed by key_id).
 // Keys rotate infrequently; 1-hour TTL is Plaid's recommendation.
 const _plaidKeyCache = new Map(); // key_id → { jwk, expiresAt }
-const _PLAID_KEY_TTL_MS = 60 * 60 * 1000; // 1 hour
+const _PLAID_KEY_TTL_MS  = 60 * 60 * 1000; // 1 hour
+const _PLAID_KEY_MAX     = 50;              // LRU cap — Plaid key sets are small
 
 /**
  * Fetch and cache a Plaid webhook verification key.
@@ -2782,6 +2829,10 @@ async function _getPlaidWebhookKey(keyId) {
 
   const { data } = await plaid.webhookVerificationKeyGet({ key_id: keyId });
   const jwk = data.key;
+  // Evict oldest entry when cap is reached (Map preserves insertion order)
+  if (_plaidKeyCache.size >= _PLAID_KEY_MAX) {
+    _plaidKeyCache.delete(_plaidKeyCache.keys().next().value);
+  }
   _plaidKeyCache.set(keyId, { jwk, expiresAt: Date.now() + _PLAID_KEY_TTL_MS });
   return jwk;
 }
@@ -2799,6 +2850,10 @@ function _b64url(str) {
 if (cron) {
   cron.schedule('0 11 * * *', async () => {
     if (!_resendApiKey) return;
+    if (!await _acquireCronLock('onboarding-drip')) {
+      console.log('[Cron] onboarding-drip: lock held, skipping');
+      return;
+    }
     console.log('[Cron] Running onboarding drip job…');
     try {
       let lastDoc = null; let sent = 0; const PAGE = 200;
@@ -2823,6 +2878,7 @@ if (cron) {
       } while (true);
       console.log(`[Cron] Onboarding drip: processed ${sent} users`);
     } catch (err) { console.error('[Cron] Onboarding drip failed:', err.message); }
+    finally { await _releaseCronLock('onboarding-drip'); }
   }, { timezone: 'UTC' });
   console.log('[Boot] Cron: onboarding drip scheduled (daily 11:00 UTC)');
 }
@@ -3000,6 +3056,10 @@ async function _runOnboardingDrip(uid, d, drip, ageDays) {
 if (cron) {
   cron.schedule('0 10 * * 3', async () => {
     if (!_resendApiKey) return;
+    if (!await _acquireCronLock('re-engagement')) {
+      console.log('[Cron] re-engagement: lock held, skipping');
+      return;
+    }
     console.log('[Cron] Running re-engagement job…');
     try {
       const cutoff14  = new Date(Date.now() - 14 * 86400000);
@@ -3049,6 +3109,7 @@ if (cron) {
       } while (true);
       console.log(`[Cron] Re-engagement: sent ${sent} emails`);
     } catch (err) { console.error('[Cron] Re-engagement failed:', err.message); }
+    finally { await _releaseCronLock('re-engagement'); }
   }, { timezone: 'UTC' });
   console.log('[Boot] Cron: re-engagement scheduled (Wednesday 10:00 UTC)');
 }
@@ -3057,6 +3118,10 @@ if (cron) {
 if (cron) {
   cron.schedule('0 9 1 1 *', async () => {
     if (!_resendApiKey) return;
+    if (!await _acquireCronLock('year-in-review')) {
+      console.log('[Cron] year-in-review: lock held, skipping');
+      return;
+    }
     console.log('[Cron] Running year-in-review job…');
     const year = new Date().getFullYear() - 1;
     const yearStart = `${year}-01-01`;
@@ -3081,6 +3146,7 @@ if (cron) {
       } while (true);
       console.log(`[Cron] Year-in-review: processed ${sent} users`);
     } catch (err) { console.error('[Cron] Year-in-review failed:', err.message); }
+    finally { await _releaseCronLock('year-in-review'); }
   }, { timezone: 'UTC' });
   console.log('[Boot] Cron: year-in-review scheduled (Jan 1 09:00 UTC)');
 }
@@ -3973,9 +4039,10 @@ function _unsubscribeHtml(success, message) {
  * Flip ENFORCE_UNSUB_SIG=1 once legacy emails are out of the 30-day window. */
 // UNSUB_SECRET must be an independent secret — never fall back to FIREBASE_SERVICE_ACCOUNT
 // Set this in Railway env vars: openssl rand -hex 32
-const UNSUB_SECRET = process.env.UNSUB_SECRET || 'flowcheck-unsub-dev-only-do-not-use-in-prod';
-if (!process.env.UNSUB_SECRET) {
-  console.warn('[Boot] UNSUB_SECRET not set — unsubscribe links use dev fallback. Set this in Railway.');
+const UNSUB_SECRET = process.env.UNSUB_SECRET;
+if (!UNSUB_SECRET) {
+  console.error('[Boot] FATAL: UNSUB_SECRET env var is not set. Set it in Railway: openssl rand -hex 32');
+  process.exit(1);
 }
 // Signatures are always enforced — unsigned legacy links are rejected
 const ENFORCE_UNSUB_SIG = true;

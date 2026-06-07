@@ -22,8 +22,10 @@ window.FCPurchases = (function () {
   'use strict';
 
   /* ── RevenueCat plugin reference ────────────────────────────── */
-  const RC = () => window.Capacitor?.Plugins?.Purchases;
+  const RC  = () => window.Capacitor?.Plugins?.Purchases;
   const CFG = () => window.FC_CONFIG?.revenueCat;
+  // SecureStorage for Keychain-backed pro cache (same plugin as fc-auth.js)
+  const SS  = () => window.Capacitor?.Plugins?.SecureStoragePlugin;
 
   let _configured  = false;
   let _proStatus   = false;
@@ -70,20 +72,20 @@ window.FCPurchases = (function () {
     const cfg    = CFG();
     if (!plugin || !_configured) {
       // Offline/simulator: fall back to cached value so paying users keep access
-      const cached = _readProCache();
+      const cached = await _readProCache();
       if (cached !== null) return cached;
       return false;
     }
     try {
       const { customerInfo } = await plugin.getCustomerInfo();
       _proStatus = customerInfo.entitlements.active[cfg.entitlementId] !== undefined;
-      _writeProCache(_proStatus); // persist for network-error fallback
+      _writeProCache(_proStatus); // persist for network-error fallback (fire-and-forget)
       fcLog('FCPurchases: pro =', _proStatus);
       return _proStatus;
     } catch (err) {
       console.error('[FCPurchases] checkProStatus error:', err.message);
       // Network failure — use last known value so paying users aren't downgraded
-      const cached = _readProCache();
+      const cached = await _readProCache();
       if (cached !== null) {
         fcLog('FCPurchases: RC unreachable, using cached pro =', cached);
         _proStatus = cached;
@@ -93,19 +95,45 @@ window.FCPurchases = (function () {
     }
   }
 
-  function _writeProCache(isPro) {
-    try { localStorage.setItem(_RC_PRO_CACHE_KEY, JSON.stringify({ isPro, ts: Date.now() })); } catch (_) {}
+  async function _writeProCache(isPro) {
+    const value = JSON.stringify({ isPro, ts: Date.now() });
+    try {
+      if (SS()) {
+        await SS().set({ key: _RC_PRO_CACHE_KEY, value });
+      }
+      // Remove any legacy localStorage entry on first Keychain write
+      try { localStorage.removeItem(_RC_PRO_CACHE_KEY); } catch (_) {}
+    } catch (_) {}
   }
 
-  function _readProCache() {
+  async function _readProCache() {
+    const MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days
     try {
+      if (SS()) {
+        const r = await SS().get({ key: _RC_PRO_CACHE_KEY }).catch(() => null);
+        if (r?.value) {
+          const { isPro, ts } = JSON.parse(r.value);
+          if (Date.now() - ts <= MAX_AGE) return isPro;
+          return null; // stale
+        }
+      }
+      // One-time migration: read from localStorage and migrate to Keychain
       const raw = localStorage.getItem(_RC_PRO_CACHE_KEY);
-      if (!raw) return null;
-      const { isPro, ts } = JSON.parse(raw);
-      // Cache valid for 7 days — after that treat as unknown
-      if (Date.now() - ts > 7 * 24 * 60 * 60 * 1000) return null;
-      return isPro;
+      if (raw) {
+        const { isPro, ts } = JSON.parse(raw);
+        if (Date.now() - ts <= MAX_AGE) {
+          _writeProCache(isPro); // migrate to Keychain (async, fire-and-forget)
+          return isPro;
+        }
+        localStorage.removeItem(_RC_PRO_CACHE_KEY);
+      }
+      return null;
     } catch (_) { return null; }
+  }
+
+  async function _clearProCache() {
+    try { if (SS()) await SS().remove({ key: _RC_PRO_CACHE_KEY }).catch(() => {}); } catch (_) {}
+    try { localStorage.removeItem(_RC_PRO_CACHE_KEY); } catch (_) {}
   }
 
   /* ─────────────────────────────────────────────────────────────
@@ -188,12 +216,14 @@ window.FCPurchases = (function () {
    * entitlement checks can't bleed across account boundaries.
    */
   async function reset() {
+    const wasConfigured = _configured;
     _configured = false;
     _proStatus  = false;
     _offerings  = null;
+    await _clearProCache(); // prevent stale entitlement bleeding to the next account
     try {
       const plugin = RC();
-      if (plugin && typeof plugin.logOut === 'function') {
+      if (wasConfigured && plugin && typeof plugin.logOut === 'function') {
         await plugin.logOut().catch(err => {
           // Code 22 = "LogOut was called but the current user is anonymous"
           // This fires on sign-out when RC identity was never set (anonymous RC user).

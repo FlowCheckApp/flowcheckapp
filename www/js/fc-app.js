@@ -640,9 +640,9 @@ window.FCApp = (function () {
         const up      = delta >= 0;
         deltaEl.style.display     = '';
         deltaEl.textContent       = (up ? '↑' : '↓') + ' ' + FCData.formatCurrency(Math.abs(delta));
-        deltaEl.style.background  = up ? 'rgba(52,199,89,0.15)'  : 'rgba(255,69,58,0.12)';
-        deltaEl.style.color       = up ? 'var(--fc-success)'     : 'var(--fc-danger)';
-        deltaEl.style.border      = up ? '1px solid rgba(52,199,89,0.25)' : '1px solid rgba(255,69,58,0.2)';
+        deltaEl.style.background  = up ? 'var(--fc-success-soft)' : 'var(--fc-danger-soft)';
+        deltaEl.style.color       = up ? 'var(--fc-success)'      : 'var(--fc-danger)';
+        deltaEl.style.border      = up ? '1px solid var(--fc-success-border)' : '1px solid var(--fc-danger-border)';
       } else {
         deltaEl.style.display = 'none';
       }
@@ -831,9 +831,9 @@ window.FCApp = (function () {
         const up   = pct > 0;
         deltaEl.style.display    = '';
         deltaEl.textContent      = (up ? '↑' : '↓') + Math.abs(pct) + '%';
-        deltaEl.style.background = up ? 'rgba(255,69,58,0.12)'  : 'rgba(52,199,89,0.12)';
-        deltaEl.style.color      = up ? 'var(--fc-danger)'      : 'var(--fc-success)';
-        deltaEl.style.border     = up ? '1px solid rgba(255,69,58,0.2)' : '1px solid rgba(52,199,89,0.2)';
+        deltaEl.style.background = up ? 'var(--fc-danger-soft)'   : 'var(--fc-success-soft)';
+        deltaEl.style.color      = up ? 'var(--fc-danger)'        : 'var(--fc-success)';
+        deltaEl.style.border     = up ? '1px solid var(--fc-danger-border)' : '1px solid var(--fc-success-border)';
       } else {
         deltaEl.style.display = 'none';
       }
@@ -3126,6 +3126,7 @@ window.FCApp = (function () {
 
   // Called when user taps "Check My Credit Score" — fetches from backend
   async function fetchCreditScore() {
+    const callerUid = FCAuth.currentUser?.()?.uid; // capture before async gap
     const btn = document.getElementById('credit-connect-btn');
     if (btn) { btn.disabled = true; btn.textContent = 'Checking…'; }
 
@@ -3169,6 +3170,9 @@ window.FCApp = (function () {
       }
 
       const data = await resp.json();
+
+      // Guard: abort if user signed out during the fetch
+      if (!callerUid || FCAuth.currentUser?.()?.uid !== callerUid) return;
 
       // Write into state.user so _renderCreditScore picks it up
       if (!state.user) state.user = {};
@@ -4284,7 +4288,7 @@ window.FCApp = (function () {
     return Array.from({ length: n }, (_, i) => {
       const op = (Math.max(0.22, 1 - i * 0.15)).toFixed(2);
       const [w1, w2] = widths[i % widths.length];
-      return `<div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:0.5px solid rgba(255,255,255,0.04)">
+      return `<div class="fcs-skel-row">
         <div class="fc-skel" style="width:32px;height:32px;border-radius:8px;flex-shrink:0;opacity:${op}"></div>
         <div style="flex:1;display:flex;flex-direction:column;gap:5px">
           <div class="fc-skel" style="height:12px;width:${w1}%;opacity:${op}"></div>
@@ -4848,7 +4852,7 @@ window.FCApp = (function () {
         if (!dueBills.length) return null;
 
         return `
-          <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.04)">
+          <div class="fcs-cal-row">
             <div style="width:38px;text-align:center">
               <div style="font-size:10px;color:var(--fc-text-faint);font-weight:500">${label}</div>
               <div style="font-size:15px;font-weight:700;color:var(--fc-text)">${d.getDate()}</div>
@@ -4944,7 +4948,7 @@ window.FCApp = (function () {
         const cancelUrl = _subCancelUrl(s.name);
         const initial   = s.name.charAt(0).toUpperCase();
         return `
-          <div class="fc-list-item" style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.04)">
+          <div class="fc-list-item fcs-zombie-row">
             <div class="fc-list-icon" style="background:rgba(255,69,58,0.10);color:var(--fc-danger);font-weight:700;font-size:14px;width:38px;height:38px;flex-shrink:0">
               ${initial}
             </div>
@@ -5885,9 +5889,6 @@ window.FCApp = (function () {
       // Flag: auth observer will route this new user to Face ID setup first
       window._fcNewUserFaceIdPending = true;
       await FCAuth.signUp(trimmedName, email, password, referralCode);
-      // Clear any stale RevenueCat pro cache from a previous test session
-      // so the paywall always shows correctly for brand-new accounts.
-      try { localStorage.removeItem('fc_pro_status_v1'); } catch (_) {}
       // Fire welcome email — non-blocking, never delays onboarding
       _sendWelcomeEmail().catch(() => {});
       // Apply referral code on the backend — non-blocking, never delays onboarding
@@ -7608,7 +7609,7 @@ window.FCApp = (function () {
       if (isPro) {
         haptic('medium');
         toast('Pro access restored!', 'success');
-        await FCData.updateUserField('is_pro', true);
+        try { await FCData.updateUserField('is_pro', true); } catch (_) {}
         setScreen('app');
         _refreshAfterPro();
       } else {

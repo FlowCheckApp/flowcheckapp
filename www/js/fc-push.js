@@ -79,6 +79,7 @@ window.FCPush = (function () {
           method:  'POST',
           headers: { 'Authorization': `Bearer ${idToken}`, 'Content-Type': 'application/json' },
           body:    JSON.stringify({ fcm_token: token }),
+          signal:  AbortSignal.timeout(10_000),
         }).catch(err => console.error('[FCPush] Backend token register failed:', err.message));
       }
     } catch (err) {

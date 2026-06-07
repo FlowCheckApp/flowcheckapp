@@ -220,3 +220,27 @@
   padding: 2px 8px;
   border-radius: 20px;
 }
+
+/* ── Skeleton row separator (transaction list skeleton) ── */
+.fcs-skel-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 0;
+  border-bottom: 0.5px solid var(--fc-border);
+}
+
+/* ── Cashflow calendar day row ── */
+.fcs-cal-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--fc-border);
+}
+
+/* ── Zombie subscription list item ── */
+.fcs-zombie-row {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--fc-border);
+}
