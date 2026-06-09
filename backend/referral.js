@@ -30,6 +30,25 @@ const router  = express.Router();
 
 module.exports = function makeReferralRouter(admin, db) {
 
+  // ── Per-UID rate limiting for /apply ──────────────────────────────────────
+  // Each UID may call /apply at most 5 times per hour. In-memory; resets on
+  // restart, which is fine — the real abuse guard is /apply's idempotency.
+  const _applyHits = new Map(); // uid → { count, windowStart }
+  const APPLY_MAX  = 5;
+  const APPLY_WIN  = 60 * 60 * 1000; // 1 hour
+
+  function checkApplyRateLimit(uid) {
+    const now   = Date.now();
+    const entry = _applyHits.get(uid);
+    if (!entry || now - entry.windowStart > APPLY_WIN) {
+      _applyHits.set(uid, { count: 1, windowStart: now });
+      return true;
+    }
+    if (entry.count >= APPLY_MAX) return false;
+    entry.count++;
+    return true;
+  }
+
   // ── Middleware: verify Firebase ID token ──────────────────────────────────
   async function requireAuth(req, res, next) {
     const header = req.headers.authorization;
@@ -149,6 +168,10 @@ module.exports = function makeReferralRouter(admin, db) {
     }
 
     const upperCode = code.toUpperCase();
+
+    if (!checkApplyRateLimit(uid)) {
+      return res.status(429).json({ error: 'Too many requests' });
+    }
 
     try {
       const userRef = db.collection('users').doc(uid);
@@ -285,6 +308,7 @@ module.exports = function makeReferralRouter(admin, db) {
               is_pro: true,
               pro_expires_at: admin.firestore.Timestamp.fromDate(forever),
               referral_lifetime_pro: true,
+              referral_activations: newActivations,
             });
           }
           trx.update(referralRef, { activations: newActivations, lifetime_pro: true });
@@ -304,6 +328,7 @@ module.exports = function makeReferralRouter(admin, db) {
               is_pro: true,
               pro_expires_at: admin.firestore.Timestamp.fromDate(newExp),
               referral_pro_months_earned: admin.firestore.FieldValue.increment(1),
+              referral_activations: newActivations,
             });
           }
           trx.update(referralRef, { activations: newActivations });

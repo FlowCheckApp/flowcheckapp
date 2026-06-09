@@ -7053,19 +7053,6 @@ async function applyReferralCodeAfterSignup(code) {
   }
 }
 
-// ── Activate referral after first bank connection ─────────────────────────────
-// Call this from within the Plaid token-exchange success handler.
-async function activateReferral() {
-  try {
-    const result = await referralFetch('/api/referral/activate', { method: 'POST' });
-    console.log('[referral] activate result:', result.status);
-    // Refresh stats
-    await loadReferralStats();
-  } catch (e) {
-    console.warn('[referral] activate error:', e.message);
-  }
-}
-
 // ── Expose on FCApp ───────────────────────────────────────────────────────────
 // FCApp is defined in fc-app.js; we extend it here after load.
 function attachToFCApp() {
@@ -7079,7 +7066,6 @@ function attachToFCApp() {
   FCApp.copyReferralCode         = copyReferralCode;
   FCApp.shareReferralCode        = shareReferralCode;
   FCApp.applyReferralCodeAfterSignup = applyReferralCodeAfterSignup;
-  FCApp.activateReferral         = activateReferral;
   FCApp.loadReferralStats        = loadReferralStats;
 
   // Load stats when settings tab opens

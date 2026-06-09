@@ -983,6 +983,7 @@ app.post('/plaid/exchange-token', requireAuth, _plaidUserLimiter, async (req, re
             trx.update(referrerRef, {
               pro: true, is_pro: true,
               pro_expires_at: TS.fromDate(lifetimePro ? forever : exp),
+              referral_activations: newActivations,
               ...(lifetimePro ? { referral_lifetime_pro: true } : { referral_pro_months_earned: admin.firestore.FieldValue.increment(1) }),
             });
           }
