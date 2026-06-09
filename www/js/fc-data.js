@@ -288,11 +288,17 @@ window.FCData = (function () {
     // The UID guard prevents that race condition.
     const boundUid = user.uid;
 
-    const unsub = db.collection('users').doc(boundUid)
+    // Use `let` so the snapshot closure can call unsub() on UID mismatch,
+    // stopping future callbacks immediately instead of just ignoring them.
+    let unsub;
+    unsub = db.collection('users').doc(boundUid)
       .onSnapshot(snap => {
-        // Reject snapshots that arrive after the user has switched accounts
         const currentUid = FCAuth.currentUser()?.uid;
-        if (!currentUid || currentUid !== boundUid) return;
+        if (!currentUid || currentUid !== boundUid) {
+          // Auth changed — tear down this listener immediately to prevent leaks
+          try { if (unsub) unsub(); } catch (_) {}
+          return;
+        }
         if (snap.exists) callback({ id: snap.id, ...snap.data() });
       }, err => _listenerErr('User', err));
 
@@ -353,11 +359,17 @@ window.FCData = (function () {
     return unsub;
   }
 
+  // Plaid returns many liability type variants — use a Set for fast lookup.
+  // Any type NOT in this set is treated as an asset.
+  const _LIABILITY_TYPES = new Set([
+    'credit', 'loan', 'mortgage',
+    'line of credit', 'overdraft', 'other_liability',
+  ]);
+
   function calcNetWorth(accounts) {
     return accounts.reduce((sum, a) => {
-      const bal = a.balance_current || a.balance || 0;
-      // Liabilities (credit cards, loans) reduce net worth
-      const sign = ['credit', 'loan', 'mortgage'].includes(a.type) ? -1 : 1;
+      const bal  = a.balance_current || a.balance || 0;
+      const sign = _LIABILITY_TYPES.has((a.type || '').toLowerCase()) ? -1 : 1;
       return sum + sign * bal;
     }, 0);
   }
@@ -375,6 +387,18 @@ window.FCData = (function () {
      FIRESTORE — TRANSACTIONS
      ───────────────────────────────────────────────────────────── */
 
+  // Plaid category fragments that reliably indicate inbound money.
+  // Used only for legacy transactions that lack an explicit `isCredit` field.
+  const _INCOME_CATS = new Set([
+    'income', 'payroll', 'wages', 'direct deposit',
+    'transfer in', 'deposit',
+  ]);
+  function _inferIsCredit(data) {
+    const cats = (Array.isArray(data.category) ? data.category : [data.category || ''])
+      .map(c => String(c).toLowerCase());
+    return cats.some(c => _INCOME_CATS.has(c) || c.includes('payroll') || c.includes('income'));
+  }
+
   function listenToTransactions(limitCount, callback) {
     const user = FCAuth.currentUser();
     const db   = FCAuth.db();
@@ -387,11 +411,15 @@ window.FCData = (function () {
       .onSnapshot(snap => {
         const txns = snap.docs.map(d => {
           const data = d.data();
-          // isCredit is stored by the backend (after server fix).
-          // Fallback: raw Plaid negative amount = income (old data compatibility).
+          // isCredit is stored by the backend on all new transactions.
+          // Fallback chain for legacy data:
+          //   1. Signed amount (very old data, before Math.abs normalization) → negative = credit
+          //   2. Category inference (transition-window data: Math.abs stored but no isCredit field)
           const isCredit = data.isCredit !== undefined
             ? data.isCredit
-            : (data.amount < 0);
+            : data.amount < 0
+              ? true
+              : _inferIsCredit(data);
           return {
             id: d.id,
             ...data,
@@ -744,8 +772,8 @@ window.FCData = (function () {
   async function createBill(bill) {
     const user = FCAuth.currentUser();
     const db   = FCAuth.db();
-    if (!user || !db) return;
-    await db.collection('users').doc(user.uid).collection('bills').add({
+    if (!user || !db) throw new Error('Not authenticated');
+    return db.collection('users').doc(user.uid).collection('bills').add({
       name:       bill.name || 'Unnamed Bill',
       amount:     parseFloat(bill.amount) || 0,
       due_date:   bill.due_date || null,
@@ -759,8 +787,8 @@ window.FCData = (function () {
   async function updateBill(billId, fields) {
     const user = FCAuth.currentUser();
     const db   = FCAuth.db();
-    if (!user || !db) return;
-    await db.collection('users').doc(user.uid).collection('bills').doc(billId).update({
+    if (!user || !db) throw new Error('Not authenticated');
+    return db.collection('users').doc(user.uid).collection('bills').doc(billId).update({
       ...fields,
       updated_at: firebase.firestore.FieldValue.serverTimestamp(),
     });
@@ -769,8 +797,8 @@ window.FCData = (function () {
   async function deleteBill(billId) {
     const user = FCAuth.currentUser();
     const db   = FCAuth.db();
-    if (!user || !db) return;
-    await db.collection('users').doc(user.uid).collection('bills').doc(billId).delete();
+    if (!user || !db) throw new Error('Not authenticated');
+    return db.collection('users').doc(user.uid).collection('bills').doc(billId).delete();
   }
 
   // Returns true if the transaction date string falls in the current calendar month
@@ -829,8 +857,8 @@ window.FCData = (function () {
   async function createGoal(goal) {
     const user = FCAuth.currentUser();
     const db   = FCAuth.db();
-    if (!user || !db) return;
-    await db.collection('users').doc(user.uid).collection('goals').add({
+    if (!user || !db) throw new Error('Not authenticated');
+    return db.collection('users').doc(user.uid).collection('goals').add({
       ...goal,
       current:    (goal.current != null && !isNaN(goal.current)) ? parseFloat(goal.current) : 0,
       created_at: firebase.firestore.FieldValue.serverTimestamp(),
@@ -840,8 +868,8 @@ window.FCData = (function () {
   async function updateGoalProgress(goalId, amount) {
     const user = FCAuth.currentUser();
     const db   = FCAuth.db();
-    if (!user || !db) return;
-    await db.collection('users').doc(user.uid).collection('goals').doc(goalId).update({
+    if (!user || !db) throw new Error('Not authenticated');
+    return db.collection('users').doc(user.uid).collection('goals').doc(goalId).update({
       current:    amount,
       updated_at: firebase.firestore.FieldValue.serverTimestamp(),
     });
@@ -850,8 +878,8 @@ window.FCData = (function () {
   async function updateGoal(goalId, fields) {
     const user = FCAuth.currentUser();
     const db   = FCAuth.db();
-    if (!user || !db) return;
-    await db.collection('users').doc(user.uid).collection('goals').doc(goalId).update({
+    if (!user || !db) throw new Error('Not authenticated');
+    return db.collection('users').doc(user.uid).collection('goals').doc(goalId).update({
       ...fields,
       updated_at: firebase.firestore.FieldValue.serverTimestamp(),
     });
@@ -860,8 +888,8 @@ window.FCData = (function () {
   async function deleteGoal(goalId) {
     const user = FCAuth.currentUser();
     const db   = FCAuth.db();
-    if (!user || !db) return;
-    await db.collection('users').doc(user.uid).collection('goals').doc(goalId).delete();
+    if (!user || !db) throw new Error('Not authenticated');
+    return db.collection('users').doc(user.uid).collection('goals').doc(goalId).delete();
   }
 
   async function createManualAccount(account) {

@@ -356,7 +356,7 @@ app.use('/api/referral',                generalLimiter); // referral generate/ap
 
 /* ── Referral router ─────────────────────────────────────────── */
 const makeReferralRouter = require('./referral');
-app.use('/api/referral', makeReferralRouter(admin, db));
+app.use('/api/referral', makeReferralRouter(admin, db, requireAuthStrict));
 
 /* ── Firebase auth middleware ────────────────────────────────── */
 async function requireAuth(req, res, next) {
@@ -374,6 +374,31 @@ async function requireAuth(req, res, next) {
   } catch (err) {
     // On token revocation, purge from cache so the next request re-checks
     _tokenCache.delete(token);
+    const code = err.code || 'unknown';
+    if (code === 'auth/id-token-revoked') {
+      return res.status(401).json({ message: 'Session revoked — please sign in again' });
+    }
+    return res.status(401).json({ message: 'Invalid or expired token' });
+  }
+}
+
+/* ── Strict auth middleware (cache-bypassing) ─────────────────
+   Used for security-critical routes (exchange-token, referral/activate).
+   Always calls verifyIdToken with checkRevoked:true — ignores the
+   14-minute token cache so revoked sessions are rejected immediately.
+   ──────────────────────────────────────────────────────────── */
+async function requireAuthStrict(req, res, next) {
+  const header = req.headers.authorization;
+  if (!header?.startsWith('Bearer ')) {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
+  const token = header.slice(7);
+  try {
+    const decoded = await admin.auth().verifyIdToken(token, true); // checkRevoked always
+    req.uid = decoded.uid;
+    next();
+  } catch (err) {
+    _tokenCache.delete(token); // evict any stale cache entry
     const code = err.code || 'unknown';
     if (code === 'auth/id-token-revoked') {
       return res.status(401).json({ message: 'Session revoked — please sign in again' });
@@ -737,10 +762,10 @@ app.get('/invite/:code', async (req, res) => {
       </div>
     </div>
 
-    <div class="code-pill" aria-label="Your referral code: ${rawCode}">
+    <div class="code-pill" aria-label="Your referral code: ${_htmlEscape(rawCode)}">
       <div>
         <div class="code-label">Your referral code</div>
-        <div class="code-value">${rawCode}</div>
+        <div class="code-value">${_htmlEscape(rawCode)}</div>
       </div>
     </div>
 
@@ -857,7 +882,7 @@ app.get('/plaid/oauth-return', (req, res) => {
 /* ─────────────────────────────────────────────────────────────
    POST /plaid/exchange-token
    ───────────────────────────────────────────────────────────── */
-app.post('/plaid/exchange-token', requireAuth, _plaidUserLimiter, async (req, res) => {
+app.post('/plaid/exchange-token', requireAuthStrict, _plaidUserLimiter, async (req, res) => {
   const { public_token, metadata } = req.body;
   if (!public_token) return res.status(400).json({ message: 'public_token required' });
 
@@ -875,8 +900,16 @@ app.post('/plaid/exchange-token', requireAuth, _plaidUserLimiter, async (req, re
       }
     }
   } catch (gateErr) {
-    console.error('[exchange-token] pro gate check failed:', gateErr.message);
-    // Fail open only if the check itself errors — don't block legitimate users on DB hiccup.
+    // Only fail open for transient Firestore unavailability (network blip, cold start).
+    // For any other error (permission-denied, invalid argument, etc.) fail closed to
+    // prevent free users from bypassing the bank-account limit.
+    const isTransient = ['unavailable', 'deadline-exceeded', 'resource-exhausted']
+      .includes(gateErr.code);
+    if (!isTransient) {
+      console.error('[exchange-token] pro gate check failed (non-transient):', gateErr.code, gateErr.message);
+      return res.status(503).json({ message: 'Service temporarily unavailable. Please try again.' });
+    }
+    console.warn('[exchange-token] pro gate check transient error (failing open):', gateErr.message);
   }
 
   try {
@@ -900,8 +933,12 @@ app.post('/plaid/exchange-token', requireAuth, _plaidUserLimiter, async (req, re
     } catch (lookupErr) {
       console.warn('[exchange-token] institution lookup failed, using client metadata:', lookupErr.message);
     }
+    // Trust institution_id from client as a lookup key (Plaid validates it),
+    // but NEVER trust the client-supplied institution name — use only what
+    // Plaid returns from the server-side lookup.
     if (!institution_id) institution_id = metadata?.institution?.institution_id || '';
-    if (!institution)    institution    = metadata?.institution?.name || '';
+    // institution name intentionally stays '' if Plaid lookup failed.
+    // An empty name is far safer than injecting client-supplied arbitrary text.
 
     // Store access_token in user's plaid_items subcollection (keyed by item_id)
     // This allows multiple banks per user — each bank gets its own doc.
@@ -1066,7 +1103,9 @@ app.post('/plaid/exchange-token', requireAuth, _plaidUserLimiter, async (req, re
               </div></body></html>
             `, req.uid).catch(() => {});
           }
-        } catch (_) {} // email errors never affect the referral grant
+        } catch (emailErr) {
+          console.warn('[referral/auto-activate] email/notification failed:', emailErr.message);
+        }
       }
     } catch (refErr) {
       // Non-fatal — bank is linked, referral reward is best-effort

@@ -28,7 +28,7 @@ const router  = express.Router();
 // Expect admin and db to be injected via module.exports pattern
 // server.js calls: require('./referral')(admin, db)
 
-module.exports = function makeReferralRouter(admin, db) {
+module.exports = function makeReferralRouter(admin, db, requireAuthStrict) {
 
   // ── Per-UID rate limiting for /apply ──────────────────────────────────────
   // Each UID may call /apply at most 5 times per hour. In-memory; resets on
@@ -161,8 +161,9 @@ module.exports = function makeReferralRouter(admin, db) {
     const uid = req.uid;
     const { code } = req.body;
 
-    // Accept both legacy backend format (FLOW-XXXXX) and current client
-    // format (FLOWXXXXXX — FLOW + 6 alphanumeric chars, no dash).
+    // Accept the current format (FLOW + 6 alphanumeric, e.g. FLOWABC123) and the
+    // legacy dashed format (FLOW-XXXXX) for backward-compat with codes already
+    // stored in Firestore. generateCode() only produces the no-dash format now.
     if (!code || typeof code !== 'string' || !/^FLOW[A-Z0-9]{4,8}$|^FLOW-[A-Z0-9]{5}$/.test(code)) {
       return res.status(400).json({ error: 'Invalid code format' });
     }
@@ -239,7 +240,7 @@ module.exports = function makeReferralRouter(admin, db) {
   // their first bank account. Awards 1 free Pro month to both sides.
   // Requires plaid_linked === true so this cannot be triggered by an attacker
   // who hasn't connected a real bank account.
-  router.post('/activate', requireAuth, async (req, res) => {
+  router.post('/activate', requireAuthStrict || requireAuth, async (req, res) => {
     const uid = req.uid;
 
     try {

@@ -169,12 +169,19 @@ service cloud.firestore {
                       && request.resource.data.keys().hasOnly([
                            'name', 'target', 'current', 'emoji',
                            'target_date', 'created_at', 'updated_at',
-                         ]);
+                         ])
+                      && request.resource.data.target is number
+                      && request.resource.data.target > 0
+                      && request.resource.data.target < 1000000000;
         allow update: if isOwner(uid)
                       && request.resource.data.keys().hasOnly([
                            'name', 'target', 'current', 'emoji',
                            'target_date', 'created_at', 'updated_at',
-                         ]);
+                         ])
+                      && (!('target' in request.resource.data)
+                          || (request.resource.data.target is number
+                              && request.resource.data.target > 0
+                              && request.resource.data.target < 1000000000));
         allow delete: if isOwner(uid);
       }
 
@@ -184,11 +191,18 @@ service cloud.firestore {
         allow create: if isOwner(uid)
                       && request.resource.data.keys().hasOnly([
                            'category', 'limit', 'period', 'created_at', 'updated_at',
-                         ]);
+                         ])
+                      && request.resource.data.limit is number
+                      && request.resource.data.limit >= 0
+                      && request.resource.data.limit < 1000000000;
         allow update: if isOwner(uid)
                       && request.resource.data.keys().hasOnly([
                            'category', 'limit', 'period', 'created_at', 'updated_at',
-                         ]);
+                         ])
+                      && (!('limit' in request.resource.data)
+                          || (request.resource.data.limit is number
+                              && request.resource.data.limit >= 0
+                              && request.resource.data.limit < 1000000000));
         allow delete: if isOwner(uid);
       }
 

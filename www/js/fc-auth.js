@@ -140,12 +140,14 @@ window.FCAuth = (function () {
       const plugin = BiometricAuth();
       if (!plugin) return false;
 
-      // @aparajita/capacitor-biometric-auth
+      // Detect which biometric plugin API is installed at runtime:
+      // @aparajita/capacitor-biometric-auth uses checkBiometry()
+      // capacitor-native-biometric uses isAvailable()
+      // Both branches are intentionally kept for plugin-version flexibility.
       if (plugin.checkBiometry) {
         const result = await plugin.checkBiometry();
         return result && result.isAvailable;
       }
-      // capacitor-native-biometric
       if (plugin.isAvailable) {
         const result = await plugin.isAvailable();
         return result && result.isAvailable;

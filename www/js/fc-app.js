@@ -546,23 +546,21 @@ window.FCApp = (function () {
   /* ── Net Worth History (Firestore sparkline, localStorage for instant render) ── */
   // localStorage key kept for same-session immediate sparkline draw;
   // Firestore is the durable store that survives reinstall/device switch.
-  function _nwHistoryKey() {
-    return state.user?.uid ? `fc_nw_history_${state.user.uid}` : null;
-  }
-
   function _snapshotNetWorth(netWorth) {
-    if (!state.user || !state.user.plaid_linked) return;
+    // Capture uid before any async gap to avoid races with sign-out
+    const uid = state.user?.uid;
+    if (!uid || !state.user?.plaid_linked) return;
 
     const today = new Date().toISOString().split('T')[0];
 
     // Firestore write — best-effort, never blocks the UI
     FCData.saveNetWorthSnapshot(today, netWorth).catch(() => {});
 
-    // One-time cleanup of legacy localStorage net worth data (financial data must not be in localStorage)
+    // One-time cleanup of legacy localStorage net worth data
     try {
-      const key = _nwHistoryKey();
       if (localStorage.getItem('fc_nw_history')) localStorage.removeItem('fc_nw_history');
-      if (key && localStorage.getItem(key)) localStorage.removeItem(key);
+      const legacyKey = `fc_nw_history_${uid}`;
+      if (localStorage.getItem(legacyKey)) localStorage.removeItem(legacyKey);
     } catch (_) {}
 
     _drawNetWorthSparkline(state.nwHistory);
@@ -4659,14 +4657,9 @@ window.FCApp = (function () {
     const periodTxns  = _getPeriodTxns();
     const periodLabel = _PERIOD_LABELS[state.period] || 'this month';
 
-    // Exclude transfers & loan payments from spending so they don't pollute categories/totals
-    const _SPEND_SKIP = new Set(['transfer', 'loan', 'loan payments', 'credit card payment', 'transfer in', 'transfer out']);
-    const periodSpendTxns = periodTxns.filter(t => {
-      if (t.isCredit) return false;
-      const raw = (t.category && t.category[0]) || t.category || '';
-      const norm = FCData.normalizePlaidCategory(raw).toLowerCase();
-      return !_SPEND_SKIP.has(norm) && !norm.includes('transfer');
-    });
+    // Use the shared _isSpendTxn filter so insights and activity screens
+    // always agree on what counts as spending (avoids set-divergence bugs).
+    const periodSpendTxns = periodTxns.filter(_isSpendTxn);
     const periodSpend  = periodSpendTxns.reduce((s, t) => s + (t.amount || 0), 0);
     const periodIncome = periodTxns.filter(_isIncomeTxn).reduce((s, t) => s + (t.amount || 0), 0);
 
