@@ -136,8 +136,8 @@ window.FCApp = (function () {
     if (t.customName) return t.customName;
     if (t.merchant_name) {
       const mn = t.merchant_name.trim();
-      // A leading digit block followed by noise chars = raw bank string slipped through
-      const isGarbled = /^\d{3,}[\s&@#*|_\-!%^()[\]{}]/.test(mn) || /^[A-Z0-9]{8,}\s*$/.test(mn);
+      // Any string starting with 3+ digits = raw bank reference slipped through
+      const isGarbled = /^\d{3,}/.test(mn) || /^[A-Z0-9]{8,}\s*$/.test(mn);
       if (!isGarbled) return mn;
     }
     let name = (t.name || 'Transaction').trim();
@@ -153,7 +153,10 @@ window.FCApp = (function () {
     //    "04/15 MERCHANT" → "MERCHANT"
     name = name.replace(/^\d{2}\/\d{2}\s+/, '');
     name = name.replace(/^\d{4}\s+\d{4,}\s+/, '');
-    name = name.replace(/^\d{4}[\s&@#*|_\-!%^()[\]{}]*/, '');
+    // Strip any digit-prefix + noise chars (e.g. "9264&@#", "92640 ")
+    name = name.replace(/^\d+[\s&@#*|_\-!%^()[\]{}]+/, '');
+    // Nuclear fallback: if still starts with digit-noise, extract first word-like token after
+    if (/^\d/.test(name)) name = name.replace(/^[\d\s&@#*|_\-!%^()[\]{}]+/, '');
 
     // 3. Strip POS terminal noise: "SQ *", "TST* ", "SP * ", "AMZN*", "AMZN Mktp"
     name = name.replace(/^(?:SQ|TST|TST\*|SP|PP|LN|SQU)\s*\*\s*/i, '');
@@ -4613,7 +4616,11 @@ window.FCApp = (function () {
       const bar = document.getElementById(barId);
       const val = document.getElementById(valId);
       if (bar) { bar.style.width = Math.round(score / max * 100) + '%'; bar.style.background = color; }
-      if (val)   val.textContent = Math.round(score / max * 100);
+      if (val) {
+        const pct = Math.round(score / max * 100);
+        val.textContent = pct >= 90 ? '✓' : pct === 0 ? '—' : pct;
+        val.style.color = pct >= 90 ? 'var(--fc-success)' : pct === 0 ? 'var(--fc-text-faint)' : '';
+      }
     };
     setBar('ins-bar-spending', 'ins-val-spending', spendScore, 34, spendScore >= 25 ? 'linear-gradient(90deg,var(--fc-accent),var(--fc-electric))' : 'linear-gradient(90deg,var(--fc-warning),#ff6b00)');
     setBar('ins-bar-savings',  'ins-val-savings',  savingsScore, 33, 'linear-gradient(90deg,var(--fc-success),var(--fc-accent))');

@@ -704,7 +704,7 @@ window.FCData = (function () {
     if (cat.includes('child') || cat.includes('kid'))   return '👶';
     if (cat.includes('tax'))       return '📋';
     if (cat.includes('parking'))   return '🅿️';
-    if (cat.includes('service'))   return '⚙️';
+    if (cat.includes('service'))   return '🔧';
     if (cat.includes('fee') || cat.includes('bank')) return '🏦';
 
     // Fallback to generic card icon — never show a raw letter
