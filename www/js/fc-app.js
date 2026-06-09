@@ -129,12 +129,17 @@ window.FCApp = (function () {
   }
 
   // ── Transaction display-name cleaner ─────────────────────────────
-  // Plaid's `merchant_name` is already clean — use it whenever present.
-  // For raw `name` strings we strip bank-specific noise patterns so that
-  // "DEBIT PURCHASE 0523 9264 CENEX #4 HELENA MT" → "Cenex"
+  // Plaid's `merchant_name` is usually clean, but occasionally Plaid sets it
+  // to the same raw bank string as `name` (e.g. "9264&@#anthropic").
+  // Detect garbled merchant_name values and fall through to the full cleaner.
   function _cleanTxnName(t) {
-    if (t.customName)    return t.customName;
-    if (t.merchant_name) return t.merchant_name;
+    if (t.customName) return t.customName;
+    if (t.merchant_name) {
+      const mn = t.merchant_name.trim();
+      // A leading digit block followed by noise chars = raw bank string slipped through
+      const isGarbled = /^\d{3,}[\s&@#*|_\-!%^()[\]{}]/.test(mn) || /^[A-Z0-9]{8,}\s*$/.test(mn);
+      if (!isGarbled) return mn;
+    }
     let name = (t.name || 'Transaction').trim();
 
     // 1. Strip full bank prefix phrases (case-insensitive)
@@ -2399,10 +2404,20 @@ window.FCApp = (function () {
       const remaining  = FCData.formatCurrency(Math.abs(netWorth));
 
       const circumference = 144.5;
-      if (ringEl) ringEl.style.strokeDashoffset = circumference - (circumference * pct / 100);
-      if (pctEl)  pctEl.textContent = pct + '%';
-      if (titleEl) titleEl.textContent = 'Paying down your debt';
-      if (subEl)   subEl.textContent   = `${remaining} left · debt-free progress`;
+      if (ringEl) {
+        ringEl.style.strokeDashoffset = circumference - (circumference * pct / 100);
+        ringEl.style.stroke = pct > 20 ? 'var(--fc-success)' : 'var(--fc-warning)';
+      }
+      if (pctEl)   pctEl.textContent  = pct + '%';
+      // More motivating framing: celebrate progress made, not distance remaining
+      const motivator = pct === 0  ? 'Every payment chips away at this'
+                      : pct < 10   ? `${pct}% eliminated — momentum is building`
+                      : pct < 25   ? `${pct}% down — you\'re making real progress`
+                      : pct < 50   ? `${pct}% gone — almost halfway there!`
+                      : pct < 75   ? `${pct}% paid off — over halfway! Keep going`
+                      : `${pct}% eliminated — the finish line is close`;
+      if (titleEl) titleEl.textContent = 'Debt payoff journey';
+      if (subEl)   subEl.textContent   = `${remaining} remaining · ${motivator}`;
       if (badgeEl) badgeEl.style.display = 'none';
       section.style.display = '';
       return;
@@ -3244,14 +3259,23 @@ window.FCApp = (function () {
     if (avatarEl) avatarEl.textContent = avatarLetter2;
 
     if (subEl) {
-      // Show contextual subtitle: safe-to-spend if connected, else prompt
+      const textEl = document.getElementById('home-greeting-sub-text');
       if (state.user?.plaid_linked && safeToSpend != null && safeToSpend > 0) {
-        subEl.textContent = `${_fmtCompact(safeToSpend)} safe to spend this month`;
+        if (textEl) textEl.textContent = `${_fmtCompact(safeToSpend)} safe to spend`;
+        subEl.style.display = '';
+      } else if (state.user?.plaid_linked && safeToSpend != null && safeToSpend <= 0) {
+        if (textEl) textEl.textContent = 'Spending exceeds cash on hand';
+        subEl.style.borderColor = 'rgba(255,69,58,0.28)';
+        subEl.style.background  = 'rgba(255,69,58,0.08)';
+        const dot = subEl.querySelector('.dash-safe-dot');
+        const txt = subEl.querySelector('.dash-safe-text');
+        if (dot) dot.style.cssText = 'background:var(--fc-danger);box-shadow:0 0 6px rgba(255,69,58,0.9)';
+        if (txt) txt.style.color   = 'var(--fc-danger)';
         subEl.style.display = '';
       } else if (state.user?.plaid_linked) {
         subEl.style.display = 'none';
       } else {
-        subEl.textContent  = 'Connect a bank to see your full picture';
+        if (textEl) textEl.textContent = 'Connect a bank to get started';
         subEl.style.display = '';
       }
     }
@@ -3317,15 +3341,37 @@ window.FCApp = (function () {
       (_PILL_ORDER[a.type] ?? 6) - (_PILL_ORDER[b.type] ?? 6)
     );
 
+    // Institution brand colors — overrides type-based accent for known banks
+    const _INST_ACCENT = (instName) => {
+      const n = (instName || '').toLowerCase();
+      if (n.includes('discover'))           return { accent:'#FF6600', iconBg:'rgba(255,102,0,0.14)',  border:'rgba(255,102,0,0.22)'  };
+      if (n.includes('capital one'))        return { accent:'#C0392B', iconBg:'rgba(192,57,43,0.14)',  border:'rgba(192,57,43,0.22)'  };
+      if (n.includes('chase') || n.includes('jpmorgan')) return { accent:'#117ACA', iconBg:'rgba(17,122,202,0.14)', border:'rgba(17,122,202,0.22)' };
+      if (n.includes('bank of america') || n.includes('bofa')) return { accent:'#E31837', iconBg:'rgba(227,24,55,0.14)', border:'rgba(227,24,55,0.22)' };
+      if (n.includes('wells fargo'))        return { accent:'#D71E28', iconBg:'rgba(215,30,40,0.14)',  border:'rgba(215,30,40,0.22)'  };
+      if (n.includes('american express') || n.includes('amex')) return { accent:'#007BC1', iconBg:'rgba(0,123,193,0.14)', border:'rgba(0,123,193,0.22)' };
+      if (n.includes('citi') || n.includes('citibank'))  return { accent:'#003B93', iconBg:'rgba(0,59,147,0.14)',  border:'rgba(0,59,147,0.22)'  };
+      if (n.includes('sofi'))               return { accent:'#6A29FF', iconBg:'rgba(106,41,255,0.14)', border:'rgba(106,41,255,0.22)' };
+      if (n.includes('ally'))               return { accent:'#8B14BF', iconBg:'rgba(139,20,191,0.14)', border:'rgba(139,20,191,0.22)' };
+      if (n.includes('td bank') || n.includes('td ameritrade')) return { accent:'#34B233', iconBg:'rgba(52,178,51,0.14)', border:'rgba(52,178,51,0.22)' };
+      if (n.includes('us bank') || n.includes('usbank'))  return { accent:'#8B0000', iconBg:'rgba(139,0,0,0.14)', border:'rgba(139,0,0,0.22)' };
+      if (n.includes('pnc'))                return { accent:'#F58025', iconBg:'rgba(245,128,37,0.14)', border:'rgba(245,128,37,0.22)' };
+      if (n.includes('fidelity'))           return { accent:'#538131', iconBg:'rgba(83,129,49,0.14)',  border:'rgba(83,129,49,0.22)'  };
+      if (n.includes('vanguard'))           return { accent:'#A8192E', iconBg:'rgba(168,25,46,0.14)',  border:'rgba(168,25,46,0.22)'  };
+      if (n.includes('schwab'))             return { accent:'#0E3C6E', iconBg:'rgba(14,60,110,0.14)',  border:'rgba(14,60,110,0.22)'  };
+      return null; // fall through to type-based theme
+    };
+
     inner.innerHTML = sortedAccts.map(acct => {
       const rawType   = acct.type || 'other';
-      // Detect savings subtype within depository
       const isSavings = rawType === 'depository' &&
         (acct.subtype || '').toLowerCase().includes('saving');
       const type      = isSavings ? 'savings' : rawType;
-      const theme     = _TYPE_THEME[type] || _TYPE_THEME.other;
+      const typeTheme = _TYPE_THEME[type] || _TYPE_THEME.other;
+      const instOver  = _INST_ACCENT(acct.institution_name);
+      // Institution brand colors take priority over type colors for accent/icon/border
+      const theme     = instOver ? { ...typeTheme, ...instOver } : typeTheme;
       const icon      = _TYPE_ICONS[type]  || _TYPE_ICONS.other;
-      // Use type (not rawType) so savings accounts get 'Savings' label, not 'Checking'
       const meta      = _ACCT_TYPE_META[type] || _ACCT_TYPE_META.other;
 
       const bal    = acct.balance_current ?? acct.balance ?? 0;
@@ -3739,12 +3785,12 @@ window.FCApp = (function () {
     return insights;
   }
 
-  // Color config per insight type
+  // Color + icon config per insight type
   const _FOCUS_COLORS = {
-    danger: { bar: 'var(--fc-danger)', dot: 'var(--fc-danger)', label: 'rgba(255,69,58,0.85)',  border: 'rgba(255,69,58,0.28)',  bg: 'rgba(255,69,58,0.08)'  },
-    warn:   { bar: 'var(--fc-warning)', dot: 'var(--fc-warning)', label: 'rgba(255,159,10,0.85)', border: 'rgba(255,159,10,0.28)', bg: 'rgba(255,159,10,0.06)' },
-    info:   { bar: 'var(--fc-electric)', dot: '#60a5fa', label: 'rgba(96,165,250,0.85)', border: 'rgba(37,99,235,0.28)',  bg: 'rgba(37,99,235,0.06)'  },
-    good:   { bar: 'var(--fc-success)', dot: 'var(--fc-success)', label: 'rgba(52,199,89,0.85)',  border: 'rgba(52,199,89,0.28)',  bg: 'rgba(52,199,89,0.06)'  },
+    danger: { bar:'var(--fc-danger)',   label:'rgba(255,69,58,0.90)',  border:'rgba(255,69,58,0.28)',  bg:'rgba(255,69,58,0.08)',  iconBg:'rgba(255,69,58,0.15)',  icon:'⚠️' },
+    warn:   { bar:'var(--fc-warning)',  label:'rgba(255,159,10,0.90)', border:'rgba(255,159,10,0.28)', bg:'rgba(255,159,10,0.06)', iconBg:'rgba(255,159,10,0.14)', icon:'🔔' },
+    info:   { bar:'var(--fc-electric)', label:'rgba(96,165,250,0.90)', border:'rgba(37,99,235,0.28)',  bg:'rgba(37,99,235,0.06)',  iconBg:'rgba(37,99,235,0.14)',  icon:'💡' },
+    good:   { bar:'var(--fc-success)',  label:'rgba(52,199,89,0.90)',  border:'rgba(52,199,89,0.28)',  bg:'rgba(52,199,89,0.06)',  iconBg:'rgba(52,199,89,0.14)',  icon:'✨' },
   };
 
   function _renderTodaysFocus() {
@@ -3780,19 +3826,13 @@ window.FCApp = (function () {
     const counter     = document.getElementById('focus-counter');
     const nextBtn     = document.getElementById('todays-focus-next-btn');
 
-    if (card)      { card.style.setProperty('--focus-border', c.border); card.querySelector('.dash-focus-card::before'); }
-    if (leftBar)   leftBar.style.background = `linear-gradient(180deg, ${c.bar} 0%, ${c.bar}99 100%)`;
-    if (dot)       { dot.style.background = c.dot; dot.style.animationName = 'none'; void dot.offsetWidth; dot.style.animationName = 'focusPulse'; }
-    if (labelEl)   { labelEl.textContent = insight.label; labelEl.style.color = c.label; }
-    if (bodyEl)    bodyEl.textContent = insight.body;
-    if (actionText) actionText.style.color = c.label;
-    if (actionText) actionText.textContent = insight.action;
-
-    // Apply card background/border via inline style
-    if (card) {
-      card.style.background = c.bg;
-      card.style.border     = `0.5px solid ${c.border}`;
-    }
+    const iconEl = document.getElementById('focus-icon');
+    if (card)    { card.style.background = c.bg; card.style.border = `0.5px solid ${c.border}`; }
+    if (leftBar) leftBar.style.background = `linear-gradient(180deg, ${c.bar} 0%, transparent 100%)`;
+    if (iconEl)  { iconEl.textContent = c.icon; iconEl.style.background = c.iconBg; }
+    if (labelEl) { labelEl.textContent = insight.label; labelEl.style.color = c.label; }
+    if (bodyEl)     bodyEl.textContent = insight.body;
+    if (actionText) { actionText.style.color = c.label; actionText.textContent = insight.action; }
 
     // Counter badge: "2 / 3"
     if (counter && _focusInsights.length > 1) {
@@ -3841,6 +3881,21 @@ window.FCApp = (function () {
     const netWorth = FCData.calcNetWorth(state.accounts);
     const nwEl     = document.getElementById('hero-networth');
     if (nwEl) animateNumber(nwEl, netWorth, '$');
+
+    // Color-code the hero card based on NW sign: cyan glow for positive, red for negative
+    const nwCard = document.querySelector('.dash-nw-card');
+    if (nwCard) {
+      if (netWorth < 0) {
+        nwCard.style.borderColor = 'rgba(255,69,58,0.26)';
+        nwCard.style.setProperty('--nw-glow-color', 'rgba(255,69,58,0.22)');
+      } else {
+        nwCard.style.borderColor = '';
+        nwCard.style.setProperty('--nw-glow-color', '');
+      }
+    }
+    // NW tag shows context when negative
+    const nwTag = document.querySelector('.dash-nw-tag');
+    if (nwTag) nwTag.textContent = netWorth < 0 ? 'NET WORTH (NEGATIVE)' : 'NET WORTH';
 
     // Assets vs Liabilities breakdown below net worth
     const assetsEl  = document.getElementById('hero-assets');
@@ -3894,12 +3949,14 @@ window.FCApp = (function () {
                 <div class="fc-list-title">${esc(b.name)}</div>
                 <div class="fc-list-meta" style="color:${esc(color)};font-weight:${days !== null && days <= 1 ? 600 : 400}">${esc(label)}</div>
               </div>
-              <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+              <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
                 <div class="fc-list-amount">${FCData.formatCurrency(b.amount)}</div>
                 <button
                   onclick="event.stopPropagation();FCApp.quickPayBill('${esc(b.id)}')"
-                  style="width:28px;height:28px;border-radius:50%;background:rgba(52,199,89,0.12);border:1px solid rgba(52,199,89,0.3);color:var(--fc-success);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0"
-                  title="Mark as paid" type="button" aria-label="Mark ${esc(b.name)} as paid">✓</button>
+                  style="width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.10);color:rgba(255,255,255,0.40);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s"
+                  title="Mark as paid" type="button" aria-label="Mark ${esc(b.name)} as paid">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+                </button>
               </div>
             </div>`;
         }).join('') +

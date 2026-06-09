@@ -3814,12 +3814,31 @@ body {
     @keyframes dashNWIn{from{opacity:0;transform:translateY(10px) scale(.97)}to{opacity:1;transform:none}}
 
     /* ── Greeting header ────────────────────────────────────────── */
-    .dash-greeting{display:flex;align-items:center;justify-content:space-between;padding:20px 20px 14px}
+    .dash-greeting{display:flex;align-items:center;justify-content:space-between;padding:20px 20px 16px}
     .dash-greeting-left{flex:1;min-width:0}
-    .dash-tod{font-size:11px;color:rgba(255,255,255,0.40);font-weight:600;letter-spacing:0.07em;margin-bottom:4px;text-transform:uppercase}
+    .dash-tod{font-size:11px;color:rgba(255,255,255,0.38);font-weight:600;letter-spacing:0.08em;margin-bottom:3px;text-transform:uppercase}
     .dash-name{font-size:36px;font-weight:900;color:#fff;letter-spacing:-0.05em;line-height:1.0;margin:0}
-    .dash-safe{font-size:12.5px;color:var(--fc-accent);font-weight:600;margin-top:7px;letter-spacing:-0.01em;display:flex;align-items:center;gap:6px}
-    .dash-safe::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--fc-accent);box-shadow:0 0 8px rgba(26,196,240,0.8);flex-shrink:0;animation:fcSyncDotPulse 2.5s ease-in-out infinite}
+    /* Safe-to-spend pill — more tactile, pill-shaped */
+    .dash-safe{
+      display:inline-flex;align-items:center;gap:7px;
+      margin-top:9px;
+      background:rgba(26,196,240,0.10);
+      border:0.5px solid rgba(26,196,240,0.25);
+      border-radius:999px;
+      padding:5px 12px 5px 8px;
+      width:fit-content;
+    }
+    .dash-safe-dot{
+      width:7px;height:7px;border-radius:50%;
+      background:var(--fc-accent);
+      box-shadow:0 0 6px rgba(26,196,240,0.9);
+      flex-shrink:0;
+      animation:fcSyncDotPulse 2.5s ease-in-out infinite;
+    }
+    .dash-safe-text{
+      font-size:12.5px;color:var(--fc-accent);font-weight:700;
+      letter-spacing:-0.01em;white-space:nowrap;
+    }
     /* Avatar — gradient ring */
     .dash-avatar{
       width:42px;height:42px;border-radius:50%;
@@ -3881,27 +3900,39 @@ body {
       pointer-events:none;
       animation:dashAurora2 9s 2s ease-in-out infinite;
     }
-    .dash-nw-tag{font-size:10px;color:rgba(255,255,255,0.35);font-weight:700;letter-spacing:.12em;margin-bottom:8px;text-transform:uppercase;position:relative;z-index:1}
+    .dash-nw-tag{font-size:10px;color:rgba(255,255,255,0.45);font-weight:700;letter-spacing:.10em;margin-bottom:10px;text-transform:uppercase;position:relative;z-index:1;display:flex;align-items:center;gap:8px}
+    /* Subtle line after the tag text */
+    .dash-nw-tag::after{content:'';flex:1;height:0.5px;background:rgba(255,255,255,0.07);display:block}
     .dash-nw-row{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:4px;position:relative;z-index:1}
     .dash-nw-amount{font-size:50px;font-weight:900;color:#fff;letter-spacing:-2.8px;line-height:1;font-variant-numeric:tabular-nums;animation:dashNWIn .55s cubic-bezier(.22,1,.36,1) both}
     .dash-nw-pill{display:inline-flex;align-items:center;gap:3px;background:rgba(52,199,89,0.12);border:0.5px solid rgba(52,199,89,0.28);border-radius:20px;padding:5px 10px;font-size:11px;font-weight:700;color:var(--fc-success);flex-shrink:0;margin-bottom:6px}
     .dash-nw-pill.neg{background:rgba(255,69,58,0.12);border-color:rgba(255,69,58,0.28);color:var(--fc-danger)}
-    .dash-nw-footer{display:flex;border-top:0.5px solid rgba(255,255,255,0.07);padding-top:14px;margin-top:4px;position:relative;z-index:1}
-    .dash-nw-foot{flex:1;display:flex;flex-direction:column;gap:4px;text-align:center}
+    .dash-nw-footer{display:flex;border-top:0.5px solid rgba(255,255,255,0.08);padding-top:15px;margin-top:6px;position:relative;z-index:1}
+    .dash-nw-foot{flex:1;display:flex;flex-direction:column;gap:5px;text-align:center}
     .dash-nw-foot:not(:last-child){border-right:0.5px solid rgba(255,255,255,0.07)}
-    .dash-nf-lbl{font-size:9px;color:rgba(255,255,255,0.30);font-weight:700;letter-spacing:.10em;text-transform:uppercase}
-    .dash-nf-val{font-size:16px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-0.03em}
+    .dash-nf-lbl{font-size:10px;color:rgba(255,255,255,0.42);font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+    .dash-nf-val{font-size:17px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-0.03em}
     .dash-green{color:var(--fc-success)}.dash-red{color:var(--fc-danger)}
 
     /* ── Period scrubber ────────────────────────────────────────── */
     .dash-scrubber{
       background:rgba(255,255,255,0.04);border:0.5px solid rgba(255,255,255,0.09);
-      border-radius:13px;padding:3px;display:flex;gap:2px;margin-bottom:14px;
-      position:relative;z-index:1;box-shadow:inset 0 1px 0 rgba(0,0,0,0.12);
+      border-radius:13px;padding:3px;display:flex;gap:0;margin-bottom:16px;
+      position:relative;z-index:1;box-shadow:inset 0 1px 0 rgba(0,0,0,0.14);
     }
-    .dash-scrub-btn{flex:1;border:none;background:none;color:rgba(255,255,255,0.40);font-size:12px;font-weight:600;padding:7px 0;border-radius:10px;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;transition:background .18s,color .18s;min-height:32px}
-    .dash-scrub-btn:active{opacity:.65}
-    .dash-scrub-btn.active,.dash-scrub-btn[aria-selected="true"]{background:rgba(26,196,240,0.20);color:var(--fc-accent);box-shadow:0 1px 6px rgba(26,196,240,0.14),inset 0 0.5px 0 rgba(26,196,240,0.25)}
+    .dash-scrub-btn{
+      flex:1;border:none;background:none;color:rgba(255,255,255,0.38);
+      font-size:12px;font-weight:600;padding:7px 0;border-radius:10px;
+      cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;
+      transition:color .2s;min-height:34px;position:relative;z-index:1;
+    }
+    .dash-scrub-btn:active{opacity:.7}
+    .dash-scrub-btn.active,.dash-scrub-btn[aria-selected="true"]{
+      color:var(--fc-accent);font-weight:700;
+      background:rgba(26,196,240,0.18);
+      border-radius:10px;
+      box-shadow:0 1px 8px rgba(26,196,240,0.18),inset 0 1px 0 rgba(26,196,240,0.18);
+    }
 
     /* ── Quick-stat strip — 3 premium cards ─────────────────────── */
     .dash-stats{display:flex;gap:10px;padding:0 16px;margin-bottom:24px}
@@ -3910,8 +3941,8 @@ body {
       background:linear-gradient(160deg,rgba(13,26,46,0.98) 0%,rgba(7,15,26,0.99) 100%);
       border:0.5px solid rgba(255,255,255,0.09);
       border-radius:18px;
-      padding:16px 14px 14px;
-      display:flex;flex-direction:column;gap:6px;
+      padding:14px 13px 13px;
+      display:flex;flex-direction:column;gap:5px;
       cursor:pointer;-webkit-tap-highlight-color:transparent;
       transition:transform .14s cubic-bezier(.34,1.56,.64,1),opacity .10s;
       box-shadow:0 4px 20px rgba(0,0,0,0.42),inset 0 1px 0 rgba(255,255,255,0.05),inset 0 -1px 0 rgba(0,0,0,0.18);
@@ -3923,10 +3954,20 @@ body {
     }
     .dash-stat:nth-child(1)::before{background:linear-gradient(90deg,var(--fc-accent),rgba(26,196,240,0.2))}
     .dash-stat:nth-child(2)::before{background:linear-gradient(90deg,var(--fc-warning),rgba(255,159,10,0.2))}
-    /* Bills top bar: color set dynamically via --bills-bar-color CSS var from JS */
     #dash-stat-bills::before{background:linear-gradient(90deg,var(--bills-bar-color,rgba(255,255,255,0.14)),transparent)}
     .dash-stat:active{transform:scale(0.95);opacity:.85}
-    .dash-sp-lbl{font-size:9px;color:rgba(255,255,255,0.40);font-weight:700;letter-spacing:.10em;text-transform:uppercase}
+
+    /* Stat icon badge */
+    .dash-stat-icon{
+      display:flex;align-items:center;justify-content:center;
+      width:26px;height:26px;border-radius:8px;
+      margin-bottom:2px;flex-shrink:0;
+    }
+    .dash-stat-icon--cash{background:rgba(26,196,240,0.12);color:var(--fc-accent)}
+    .dash-stat-icon--spent{background:rgba(255,159,10,0.12);color:var(--fc-warning)}
+    .dash-stat-icon--bills{background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.45)}
+
+    .dash-sp-lbl{font-size:9px;color:rgba(255,255,255,0.38);font-weight:700;letter-spacing:.10em;text-transform:uppercase}
     .dash-sp-val{font-size:20px;font-weight:800;color:#fff;font-variant-numeric:tabular-nums;line-height:1.1;letter-spacing:-0.038em}
 
     /* ── Account carousel ───────────────────────────────────────── */
@@ -4014,10 +4055,10 @@ body {
     .dash-apply-btn:active{background:rgba(255,255,255,0.18)}
 
     /* ── Transaction list rows (rendered by JS) ────────────────── */
-    .fc-home-txn{display:flex;align-items:center;gap:12px;padding:13px 16px;border-bottom:.5px solid rgba(255,255,255,0.04);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .12s}
+    .fc-home-txn{display:flex;align-items:center;gap:13px;padding:13px 17px;border-bottom:.5px solid rgba(255,255,255,0.045);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .12s}
     .fc-home-txn:last-child{border-bottom:none}
     .fc-home-txn:active{background:rgba(255,255,255,0.05)}
-    .fc-home-txn-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+    .fc-home-txn-icon{width:42px;height:42px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,0.25)}
     .fc-txn-name{font-size:13.5px;font-weight:500;color:var(--fc-text,#fff);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .fc-txn-meta{font-size:11px;color:var(--fc-text-faint);margin-top:1px}
     .fc-txn-amt{font-size:14px;font-weight:700;color:rgba(255,255,255,0.85);font-variant-numeric:tabular-nums}
@@ -4041,17 +4082,14 @@ body {
       position:absolute;left:0;top:0;bottom:0;width:4px;
       border-radius:22px 0 0 22px;
     }
-    .dash-focus-header{display:flex;align-items:center;gap:8px;margin-bottom:10px}
-    .dash-focus-dot{
-      width:8px;height:8px;border-radius:50%;flex-shrink:0;
-      animation:focusPulse 2s ease-in-out infinite;
-    }
-    @keyframes focusPulse{
-      0%,100%{box-shadow:0 0 0 0 currentColor;opacity:1}
-      50%{box-shadow:0 0 0 5px transparent;opacity:.8}
+    .dash-focus-header{display:flex;align-items:center;gap:9px;margin-bottom:11px}
+    .dash-focus-icon{
+      width:28px;height:28px;border-radius:9px;flex-shrink:0;
+      display:flex;align-items:center;justify-content:center;
+      background:rgba(255,255,255,0.08);font-size:14px;line-height:1;
     }
     .dash-focus-label{
-      font-size:9px;font-weight:800;letter-spacing:.13em;
+      font-size:10px;font-weight:800;letter-spacing:.11em;
       text-transform:uppercase;
     }
     .dash-focus-counter{
@@ -4061,14 +4099,17 @@ body {
       border-radius:999px;padding:2px 8px;
     }
     .dash-focus-body{
-      font-size:15px;font-weight:700;color:#fff;
-      line-height:1.45;margin-bottom:8px;padding-right:6px;
-      letter-spacing:-0.01em;
+      font-size:14.5px;font-weight:600;color:rgba(255,255,255,0.92);
+      line-height:1.50;margin-bottom:12px;padding-right:4px;
+      letter-spacing:-0.005em;
     }
     .dash-focus-action{
       font-size:12px;font-weight:700;
-      display:flex;align-items:center;gap:4px;
-      opacity:.85;
+      display:inline-flex;align-items:center;gap:5px;
+      padding:5px 10px 5px 8px;
+      border-radius:999px;
+      background:rgba(255,255,255,0.07);
+      border:0.5px solid rgba(255,255,255,0.10);
     }
     .dash-focus-empty{text-align:center;padding:14px 0;color:rgba(255,255,255,0.28);font-size:13px}
 
@@ -4094,14 +4135,14 @@ body {
       padding:15px 17px 13px;
       box-shadow:0 4px 20px rgba(0,0,0,0.38),inset 0 1px 0 rgba(255,255,255,0.055),inset 0 -1px 0 rgba(0,0,0,0.16);
     }
-    .dash-pulse-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}
-    .dash-pulse-label{font-size:9px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:rgba(255,255,255,0.36)}
-    .dash-pulse-amounts{font-size:12px;font-weight:600;color:rgba(255,255,255,0.52)}
+    .dash-pulse-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+    .dash-pulse-label{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,0.42)}
+    .dash-pulse-amounts{font-size:13px;font-weight:600;color:rgba(255,255,255,0.55)}
     .dash-pulse-amounts span{font-weight:800;color:#fff}
-    .dash-pulse-track{height:6px;border-radius:3px;background:rgba(255,255,255,0.07);overflow:hidden;transform:translateZ(0);-webkit-mask-image:-webkit-radial-gradient(white,black)}
-    .dash-pulse-fill{height:100%;border-radius:3px;transition:width .9s cubic-bezier(0.34,1.56,0.64,1);min-width:0}
-    .dash-pulse-footer{display:flex;align-items:center;justify-content:space-between;margin-top:9px}
-    .dash-pulse-sub{font-size:10px;font-weight:600;color:rgba(255,255,255,0.36);letter-spacing:0.01em}
+    .dash-pulse-track{height:8px;border-radius:4px;background:rgba(255,255,255,0.07);overflow:hidden;transform:translateZ(0);-webkit-mask-image:-webkit-radial-gradient(white,black)}
+    .dash-pulse-fill{height:100%;border-radius:4px;transition:width .9s cubic-bezier(0.34,1.56,0.64,1);min-width:0}
+    .dash-pulse-footer{display:flex;align-items:center;justify-content:space-between;margin-top:10px}
+    .dash-pulse-sub{font-size:11px;font-weight:600;color:rgba(255,255,255,0.40);letter-spacing:0.01em}
 
     /* ── Stat card sub-label ────────────────────────────────────── */
     .dash-sp-sub{font-size:9.5px;color:rgba(255,255,255,0.30);font-weight:500;letter-spacing:0.01em;line-height:1.2;min-height:12px}
@@ -4403,7 +4444,10 @@ body {
     <div class="dash-greeting-left">
       <div class="dash-tod" id="home-greeting-date">Good morning</div>
       <h1 class="dash-name" id="home-greeting-title">there</h1>
-      <div class="dash-safe" id="home-greeting-sub" style="display:none"></div>
+      <div class="dash-safe" id="home-greeting-sub" style="display:none">
+        <span class="dash-safe-dot"></span>
+        <span class="dash-safe-text" id="home-greeting-sub-text"></span>
+      </div>
     </div>
     <div style="display:flex;align-items:center;gap:10px">
       <!-- Privacy mode toggle (eye icon) -->
@@ -4459,26 +4503,35 @@ body {
       <span id="hero-delta" class="dash-nw-pill fc-amount" style="display:none">+$0</span>
     </div>
     <!-- Sparkline -->
-    <svg id="hero-sparkline" viewBox="0 0 320 52" width="100%" height="52"
-         preserveAspectRatio="none" style="display:block;margin:8px 0 6px" aria-hidden="true">
+    <svg id="hero-sparkline" viewBox="0 0 320 80" width="100%" height="80"
+         preserveAspectRatio="none" style="display:block;margin:10px 0 8px" aria-hidden="true">
       <defs>
         <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%"   stop-color="#1ac4f0" stop-opacity="0.35"/>
+          <stop offset="0%"   stop-color="#1ac4f0" stop-opacity="0.45"/>
+          <stop offset="70%"  stop-color="#1ac4f0" stop-opacity="0.08"/>
           <stop offset="100%" stop-color="#1ac4f0" stop-opacity="0"/>
         </linearGradient>
         <filter id="sparkGlow">
-          <feGaussianBlur stdDeviation="2" result="b"/>
+          <feGaussianBlur stdDeviation="2.5" result="b"/>
+          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+        <filter id="dotGlow">
+          <feGaussianBlur stdDeviation="3" result="b"/>
           <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
         </filter>
       </defs>
       <path id="sparkline-area"
-            d="M0,44 C30,42 50,34 80,30 C110,26 140,34 170,20 C200,8 230,18 260,10 C290,2 310,6 320,3 L320,52 L0,52 Z"
+            d="M0,66 C30,64 50,52 80,46 C110,40 140,52 170,30 C200,12 230,28 260,15 C290,3 310,9 320,5 L320,80 L0,80 Z"
             fill="url(#sparkGrad)"/>
       <path id="sparkline-line"
-            d="M0,44 C30,42 50,34 80,30 C110,26 140,34 170,20 C200,8 230,18 260,10 C290,2 310,6 320,3"
-            stroke="#1ac4f0" stroke-width="2.2" fill="none" stroke-linecap="round" filter="url(#sparkGlow)"/>
-      <circle id="sparkline-dot-bg" cx="320" cy="3" r="6"   fill="#1ac4f0" opacity="0.28"/>
-      <circle id="sparkline-dot"    cx="320" cy="3" r="3.5" fill="#1ac4f0"/>
+            d="M0,66 C30,64 50,52 80,46 C110,40 140,52 170,30 C200,12 230,28 260,15 C290,3 310,9 320,5"
+            stroke="#1ac4f0" stroke-width="2.5" fill="none" stroke-linecap="round" filter="url(#sparkGlow)"/>
+      <circle id="sparkline-dot-bg" cx="320" cy="5" r="8"   fill="#1ac4f0" opacity="0.22" filter="url(#dotGlow)"/>
+      <circle id="sparkline-pulse"  cx="320" cy="5" r="5"   fill="none" stroke="#1ac4f0" stroke-width="1.5" opacity="0">
+        <animate attributeName="r" values="4;10;4" dur="2.8s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="0.5;0;0.5" dur="2.8s" repeatCount="indefinite"/>
+      </circle>
+      <circle id="sparkline-dot"    cx="320" cy="5" r="3.5" fill="#1ac4f0"/>
     </svg>
     <!-- Period scrubber -->
     <div class="dash-scrubber" role="tablist" aria-label="Time period">
@@ -4529,11 +4582,17 @@ body {
        ══════════════════════════════════════════════════════════════ -->
   <div class="dash-stats fc-fade-up" style="animation-delay:.055s">
     <button class="dash-stat" onclick="FCApp.switchTab('activity')" aria-label="Cash balance">
+      <span class="dash-stat-icon dash-stat-icon--cash">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+      </span>
       <span class="dash-sp-lbl">Cash</span>
       <span class="dash-sp-val" id="fch-qs-cash">—</span>
       <span class="dash-sp-sub" id="fch-qs-cash-sub"></span>
     </button>
     <button class="dash-stat" onclick="FCApp.switchTab('insights')" aria-label="Monthly spending">
+      <span class="dash-stat-icon dash-stat-icon--spent">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+      </span>
       <span class="dash-sp-lbl">Spent</span>
       <span class="dash-sp-val" id="fch-qs-spent">—</span>
       <span class="dash-sp-sub" id="fch-qs-spent-sub"></span>
@@ -4542,6 +4601,9 @@ body {
             id="dash-stat-bills"
             onclick="FCApp.switchTab('activity');FCApp.switchActivitySegment&&FCApp.switchActivitySegment('bills')"
             aria-label="Upcoming bills">
+      <span class="dash-stat-icon dash-stat-icon--bills">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/></svg>
+      </span>
       <span class="dash-sp-lbl">Bills</span>
       <span class="dash-sp-val" id="fch-qs-bills">—</span>
       <span class="dash-sp-sub" id="fch-qs-bills-sub"></span>
@@ -4561,7 +4623,7 @@ body {
     <div id="todays-focus-card" class="dash-focus-card" onclick="FCApp._focusCardTap()">
       <div class="dash-focus-left-bar"></div>
       <div class="dash-focus-header">
-        <span class="dash-focus-dot"></span>
+        <span class="dash-focus-icon" id="focus-icon" aria-hidden="true"></span>
         <span class="dash-focus-label">Action Required</span>
         <span class="dash-focus-counter" id="focus-counter" style="display:none"></span>
       </div>
