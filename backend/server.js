@@ -1597,7 +1597,30 @@ if (_resendApiKey) {
 }
 
 const EMAIL_FROM = process.env.EMAIL_FROM || 'FlowCheck <noreply@getflowcheck.app>';
-const LOGO_IMG   = `<img src="${BACKEND_URL}/flowcheck-icon.png" width="64" height="64" style="border-radius:16px;display:block;margin:0 auto 20px;box-shadow:0 4px 20px rgba(26,196,240,0.25)" alt="FlowCheck">`;
+// Logo block — always shows "FlowCheck" wordmark as text fallback when images are blocked.
+// Wrapped in a table for maximum email-client compatibility (Outlook, Apple Mail, Gmail).
+const LOGO_IMG = `<table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto 28px;border-collapse:collapse">
+  <tr><td align="center" style="padding:0">
+    <img src="${BACKEND_URL}/flowcheck-icon.png" width="56" height="56"
+         style="border-radius:14px;display:block;margin:0 auto 12px;
+                box-shadow:0 8px 28px rgba(26,196,240,0.35),0 0 0 1px rgba(26,196,240,0.18)"
+         alt="FlowCheck">
+    <div style="font-size:18px;font-weight:800;color:#ffffff;letter-spacing:-0.02em;
+                font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif">
+      FlowCheck
+    </div>
+  </td></tr>
+</table>`;
+
+// Convert YYYY-MM-DD to "June 11, 2026" for use in email body copy
+function _fmtDate(isoDate) {
+  if (!isoDate) return '';
+  const [y, m, d] = String(isoDate).slice(0, 10).split('-').map(Number);
+  if (!y || !m || !d) return isoDate;
+  const months = ['January','February','March','April','May','June',
+                  'July','August','September','October','November','December'];
+  return `${months[m - 1]} ${d}, ${y}`;
+}
 
 async function _sendEmail(to, subject, html, uid = null) {
   if (!_resendApiKey) {
@@ -2262,25 +2285,43 @@ async function _sendBillRemindersForUser(uid, userData) {
         await _saveNotification(uid, { title: overdueTitle, body: overdueBody, type: 'bill_overdue', data: { bill_id: doc.id } });
       }
       if (email && _resendApiKey && alertsOn) {
+        const overdueAmtStr = _fmt(bill.amount || 0);
         _sendEmail(email, overdueTitle, `
-          <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-          <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
-            <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:32px;text-align:center">
-              ${LOGO_IMG}
-              <h1 style="color:#fff;font-size:22px;font-weight:700;margin:0 0 6px">Payment Overdue</h1>
-              <p style="color:rgba(255,255,255,0.6);font-size:14px;margin:0">${safeBill} · ${_fmt(bill.amount || 0)}</p>
-            </div>
-            <div style="background:#fee2e2;border-left:4px solid #dc2626;padding:16px 28px">
-              <p style="font-size:15px;color:#991b1b;font-weight:600;margin:0">${_fmt(bill.amount || 0)} was due ${overdueDays} day${overdueDays > 1 ? 's' : ''} ago.</p>
-            </div>
-            <div style="padding:24px 28px">
-              <p style="font-size:14px;color:#6b7280;margin:0 0 20px">Late payments can affect your credit score. Open FlowCheck to mark it paid or update the due date.</p>
-              <a href="${BACKEND_URL}/open" style="display:inline-block;background:#dc2626;color:#ffffff;font-weight:700;font-size:14px;padding:12px 24px;border-radius:8px;text-decoration:none">Mark as Paid →</a>
-            </div>
-            <div style="padding:14px 28px;border-top:1px solid #f3f4f6">
-              <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · <a href="${_unsubUrl(uid, 'alerts', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe from bill alerts</a></p>
-            </div>
-          </div></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Payment Overdue</title></head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
+<div style="display:none;max-height:0;overflow:hidden;font-size:1px;color:#f3f4f6">${safeBill} (${overdueAmtStr}) is ${overdueDays} day${overdueDays > 1 ? 's' : ''} overdue — action needed.</div>
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:32px 16px">
+<tr><td align="center">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%">
+  <tr><td style="background:linear-gradient(160deg,#1a0505 0%,#2d0a0a 100%);border-radius:16px 16px 0 0;padding:36px 40px 32px;text-align:center;border-bottom:3px solid #dc2626">
+    ${LOGO_IMG}
+    <h1 style="color:#fff;font-size:22px;font-weight:800;margin:0 0 6px;letter-spacing:-0.02em">Payment Overdue</h1>
+    <p style="color:rgba(255,255,255,0.55);font-size:15px;margin:0">${safeBill} · ${overdueAmtStr}</p>
+  </td></tr>
+  <tr><td style="background:#fff;padding:0">
+    <div style="background:#fef2f2;border-left:4px solid #dc2626;padding:16px 36px">
+      <p style="font-size:15px;color:#991b1b;font-weight:700;margin:0">
+        ⚠️ ${overdueAmtStr} was due ${overdueDays} day${overdueDays > 1 ? 's' : ''} ago
+      </p>
+    </div>
+  </td></tr>
+  <tr><td style="background:#fff;padding:28px 36px">
+    <p style="font-size:15px;color:#374151;line-height:1.7;margin:0 0 24px">
+      Your <strong>${safeBill}</strong> payment hasn't been marked as paid. If it has cleared your account, mark it paid in FlowCheck to keep your records accurate.
+    </p>
+    <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
+      <a href="${BACKEND_URL}/open?ref=bill_overdue" style="display:inline-block;background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff;font-weight:700;font-size:15px;padding:15px 36px;border-radius:12px;text-decoration:none;letter-spacing:-0.01em">Mark as Paid in FlowCheck →</a>
+    </td></tr></table>
+  </td></tr>
+  <tr><td style="background:#fff;border-radius:0 0 16px 16px;border-top:1px solid #f3f4f6;padding:18px 36px;text-align:center">
+    <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · Your money, clearly. · <a href="${_unsubUrl(uid, 'alerts', BACKEND_URL)}" style="color:#9ca3af;text-decoration:none">Unsubscribe from bill alerts</a></p>
+  </td></tr>
+</table>
+</td></tr></table>
+</body></html>
         `, uid).catch(e => console.error('[email bill-overdue]', e.message));
       }
       continue; // don't double-send an upcoming reminder for overdue bills
@@ -2288,31 +2329,46 @@ async function _sendBillRemindersForUser(uid, userData) {
 
     // Email — only if alerts not unsubscribed
     if (email && _resendApiKey && alertsOn) {
-      const amountStr = _fmt(bill.amount || 0);
+      const amountStr  = _fmt(bill.amount || 0);
+      const dueFriendly = _fmtDate(effectiveDue); // "June 11, 2026" instead of "2026-06-11"
+      const urgency    = daysUntil === 1
+        ? `<div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:14px 20px;border-radius:0 8px 8px 0;margin-bottom:24px">
+             <p style="font-size:14px;color:#92400e;font-weight:600;margin:0">⏰ Due tomorrow — ${dueFriendly}</p>
+           </div>`
+        : `<div style="background:#eff6ff;border-left:4px solid #3b82f6;padding:14px 20px;border-radius:0 8px 8px 0;margin-bottom:24px">
+             <p style="font-size:14px;color:#1e40af;font-weight:600;margin:0">📅 Due in 2 days — ${dueFriendly}</p>
+           </div>`;
       _sendEmail(email, title, `
-        <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-        <div style="max-width:520px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
-          <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:32px;text-align:center">
-            ${LOGO_IMG}
-            <h1 style="color:#ffffff;font-size:22px;font-weight:700;margin:0 0 6px">${safeBill} due ${dayLabel}</h1>
-            <p style="color:rgba(255,255,255,0.6);font-size:15px;margin:0">${amountStr} · ${due}</p>
-          </div>
-          <div style="padding:28px 32px">
-            <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 24px">
-              Just a heads up — your <strong>${safeBill}</strong> payment of <strong>${amountStr}</strong> is due ${dayLabel}.
-              Make sure you have sufficient funds in your account.
-            </p>
-            <a href="${BACKEND_URL}/open" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#ffffff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
-              Review in FlowCheck →
-            </a>
-          </div>
-          <div style="padding:16px 32px;border-top:1px solid #f3f4f6;text-align:center">
-            <p style="font-size:11px;color:#9ca3af;margin:0">
-              FlowCheck · <a href="${_unsubUrl(uid, 'alerts')}" style="color:#9ca3af">Unsubscribe</a>
-            </p>
-          </div>
-        </div>
-        </body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${safeBill} due ${dayLabel}</title></head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
+<div style="display:none;max-height:0;overflow:hidden;font-size:1px;color:#f3f4f6">${amountStr} payment reminder for ${safeBill} — tap to review.</div>
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:32px 16px">
+<tr><td align="center">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%">
+  <tr><td style="background:linear-gradient(160deg,#060e18 0%,#0d2240 100%);border-radius:16px 16px 0 0;padding:36px 40px 32px;text-align:center">
+    ${LOGO_IMG}
+    <h1 style="color:#fff;font-size:24px;font-weight:800;margin:0 0 6px;letter-spacing:-0.025em">${safeBill}</h1>
+    <p style="color:rgba(255,255,255,0.55);font-size:32px;font-weight:800;margin:4px 0 0;letter-spacing:-0.04em">${amountStr}</p>
+  </td></tr>
+  <tr><td style="background:#fff;padding:32px 36px">
+    ${urgency}
+    <p style="font-size:15px;color:#374151;line-height:1.7;margin:0 0 28px">
+      Your <strong>${safeBill}</strong> payment of <strong>${amountStr}</strong> is coming up ${dayLabel}.
+      Open FlowCheck to confirm your balance or mark it paid once it clears.
+    </p>
+    <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
+      <a href="${BACKEND_URL}/open?ref=bill_reminder" style="display:inline-block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:15px 36px;border-radius:12px;text-decoration:none;letter-spacing:-0.01em">Review in FlowCheck →</a>
+    </td></tr></table>
+  </td></tr>
+  <tr><td style="background:#fff;border-radius:0 0 16px 16px;border-top:1px solid #f3f4f6;padding:18px 36px;text-align:center">
+    <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · Your money, clearly. · <a href="${_unsubUrl(uid, 'alerts', BACKEND_URL)}" style="color:#9ca3af;text-decoration:none">Unsubscribe from bill alerts</a></p>
+  </td></tr>
+</table>
+</td></tr></table>
+</body></html>
       `, uid).catch(e => console.error('[email bill-reminder]', e.message));
     }
   }
@@ -4504,32 +4560,43 @@ app.post('/auth/login-event', requireAuth, async (req, res) => {
     const timeStr = now.toLocaleString('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }) + ' UTC';
 
     _sendEmail(data.email, `🔒 New sign-in to your FlowCheck account`, `
-      <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-      <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
-        <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:32px;text-align:center">
-          ${LOGO_IMG}
-          <div style="font-size:32px;margin-bottom:8px">🔒</div>
-          <h1 style="color:#fff;font-size:20px;font-weight:700;margin:0 0 4px">New sign-in detected</h1>
-          <p style="color:rgba(255,255,255,0.55);font-size:14px;margin:0">Hi ${name} — someone signed in to your account</p>
-        </div>
-        <div style="padding:28px 32px">
-          <div style="background:#f9fafb;border-radius:12px;padding:16px 20px;margin-bottom:20px">
-            <div style="display:flex;justify-content:space-between;margin-bottom:6px">
-              <span style="font-size:13px;color:#6b7280">Time</span>
-              <span style="font-size:13px;font-weight:600;color:#374151">${timeStr}</span>
-            </div>
-            <div style="display:flex;justify-content:space-between">
-              <span style="font-size:13px;color:#6b7280">Account</span>
-              <span style="font-size:13px;font-weight:600;color:#374151">${_htmlEscape(data.email)}</span>
-            </div>
-          </div>
-          <p style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 20px">If this was you, no action is needed. If you didn't sign in, reset your password immediately.</p>
-          <a href="${BACKEND_URL}/open" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">Open FlowCheck →</a>
-        </div>
-        <div style="padding:14px 32px;border-top:1px solid #f3f4f6;text-align:center">
-          <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · <a href="${_unsubUrl(req.uid, 'alerts', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe from security alerts</a></p>
-        </div>
-      </div></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>New sign-in to FlowCheck</title></head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
+<div style="display:none;max-height:0;overflow:hidden;font-size:1px;color:#f3f4f6">A new sign-in was detected on your FlowCheck account — ${timeStr}.</div>
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:32px 16px">
+<tr><td align="center">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%">
+  <tr><td style="background:linear-gradient(160deg,#060e18 0%,#0d2240 100%);border-radius:16px 16px 0 0;padding:36px 40px 32px;text-align:center">
+    ${LOGO_IMG}
+    <h1 style="color:#fff;font-size:22px;font-weight:800;margin:0 0 6px;letter-spacing:-0.02em">🔒 New sign-in detected</h1>
+    <p style="color:rgba(255,255,255,0.55);font-size:14px;margin:0">Hi ${name}, we noticed a new sign-in to your account</p>
+  </td></tr>
+  <tr><td style="background:#fff;padding:28px 36px">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border-radius:12px;margin-bottom:24px">
+      <tr>
+        <td style="padding:14px 20px;font-size:13px;color:#6b7280;width:60px">Time</td>
+        <td style="padding:14px 20px;font-size:13px;font-weight:600;color:#374151;text-align:right">${timeStr}</td>
+      </tr>
+      <tr style="border-top:1px solid #f3f4f6">
+        <td style="padding:14px 20px;font-size:13px;color:#6b7280">Account</td>
+        <td style="padding:14px 20px;font-size:13px;font-weight:600;color:#374151;text-align:right">${_htmlEscape(data.email)}</td>
+      </tr>
+    </table>
+    <p style="font-size:15px;color:#374151;line-height:1.7;margin:0 0 24px">
+      If this was you, no action is needed. If you didn't sign in, change your password immediately to protect your account.
+    </p>
+    <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
+      <a href="${BACKEND_URL}/open?ref=login_alert" style="display:inline-block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:15px 36px;border-radius:12px;text-decoration:none;letter-spacing:-0.01em">Open FlowCheck →</a>
+    </td></tr></table>
+  </td></tr>
+  <tr><td style="background:#fff;border-radius:0 0 16px 16px;border-top:1px solid #f3f4f6;padding:18px 36px;text-align:center">
+    <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · Your money, clearly. · <a href="${_unsubUrl(req.uid, 'alerts', BACKEND_URL)}" style="color:#9ca3af;text-decoration:none">Unsubscribe from security alerts</a></p>
+  </td></tr>
+</table>
+</td></tr></table>
+</body></html>
     `, req.uid).catch(e => console.error('[email login-alert]', e.message));
   } catch (err) {
     console.error('[auth/login-event]', err.message);
