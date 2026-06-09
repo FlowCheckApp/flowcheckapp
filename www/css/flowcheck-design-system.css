@@ -1508,7 +1508,11 @@ body.fc-theme {
 .fc-stat-value,
 .fc-list-amount,
 .fc-display,
-.fc-num {
+.fc-num,
+.dash-nw-amount,
+.dash-nf-val,
+.wealth-hero-amount,
+.wealth-hero-stat-val {
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1, "ss01" 1;
   -webkit-font-smoothing: antialiased;
@@ -2122,5 +2126,15 @@ body.fc-theme {
       inset 0 -1px 0 rgba(0,0,0,0.20),
       0 0 44px rgba(26,196,240,0.07),
       0 12px 32px rgba(0,0,0,0.36);
+  }
+}
+
+/* ── Universal reduced-motion kill switch ───────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

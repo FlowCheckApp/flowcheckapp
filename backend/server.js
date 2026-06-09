@@ -61,6 +61,7 @@ const {
 const REQUIRED = [
   'PLAID_CLIENT_ID', 'PLAID_SECRET', 'PLAID_ENV',
   'FIREBASE_PROJECT_ID', 'FIREBASE_SERVICE_ACCOUNT',
+  'RC_WEBHOOK_SECRET',
 ];
 for (const key of REQUIRED) {
   if (!process.env[key]) { console.error(`[Boot] Missing required env var: ${key}`); process.exit(1); }
@@ -1293,7 +1294,7 @@ app.get('/plaid/sync', requireAuth, perUserLimiter(30), async (req, res) => {
    Revokes Plaid item, wipes all financial data, sets
    plaid_linked: false. Compliant with Plaid ToS + CCPA.
    ───────────────────────────────────────────────────────────── */
-app.delete('/plaid/disconnect', requireAuth, async (req, res) => {
+app.delete('/plaid/disconnect', requireAuthStrict, async (req, res) => {
   const uid     = req.uid;
   const userRef = db.collection('users').doc(uid);
 
@@ -1365,7 +1366,7 @@ app.delete('/plaid/disconnect', requireAuth, async (req, res) => {
    Revokes a single Plaid item, deletes its accounts + transactions.
    If this was the last item, sets plaid_linked: false.
    ───────────────────────────────────────────────────────────── */
-app.delete('/plaid/disconnect/:itemId', requireAuth, async (req, res) => {
+app.delete('/plaid/disconnect/:itemId', requireAuthStrict, async (req, res) => {
   const uid    = req.uid;
   const itemId = req.params.itemId;
   const userRef = db.collection('users').doc(uid);
@@ -1450,7 +1451,7 @@ app.delete('/plaid/disconnect/:itemId', requireAuth, async (req, res) => {
    Full CCPA-compliant account erasure.
    Removes: Plaid item, all Firestore data, Firebase Auth user.
    ───────────────────────────────────────────────────────────── */
-app.delete('/user/account', requireAuth, async (req, res) => {
+app.delete('/user/account', requireAuthStrict, async (req, res) => {
   const uid = req.uid;
   try {
     // 1. Revoke all Plaid items — new subcollection + legacy doc

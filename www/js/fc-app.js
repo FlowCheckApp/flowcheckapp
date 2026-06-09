@@ -1088,16 +1088,16 @@ window.FCApp = (function () {
   // Flags are backed by localStorage so app restarts don't re-trigger alerts
   // within the same calendar month.
   function _getBudgetAlerted(level) {
-    const d = new Date();
-    // Include year so alerts reset each January (not stuck across calendar years)
-    const key = `fc_budget_alerted_${level}_${d.getFullYear()}_${d.getMonth()}`;
+    const uid = FCAuth.currentUser?.()?.uid || state.user?.uid || '';
+    const d   = new Date();
+    const key = `fc_budget_alerted_${uid}_${level}_${d.getFullYear()}_${d.getMonth()}`;
     return localStorage.getItem(key) === '1';
   }
   function _setBudgetAlerted(level) {
-    const d = new Date();
-    const key = `fc_budget_alerted_${level}_${d.getFullYear()}_${d.getMonth()}`;
+    const uid = FCAuth.currentUser?.()?.uid || state.user?.uid || '';
+    const d   = new Date();
+    const key = `fc_budget_alerted_${uid}_${level}_${d.getFullYear()}_${d.getMonth()}`;
     localStorage.setItem(key, '1');
-    // Clean up keys from other months/years
     Object.keys(localStorage)
       .filter(k => k.startsWith('fc_budget_alerted_') && k !== key)
       .forEach(k => localStorage.removeItem(k));
@@ -1124,6 +1124,7 @@ window.FCApp = (function () {
     let title, body;
     if (pct >= 100 && !_getBudgetAlerted(100)) {
       _setBudgetAlerted(100);
+      haptic('heavy');
       title = 'Budget exceeded 🚨';
       body  = `You've spent ${FCData.formatCurrency(monthSpend)} — over your ${FCData.formatCurrency(budgetLimit)} budget.`;
     } else if (pct >= 80 && !_getBudgetAlerted(80)) {
@@ -1355,6 +1356,20 @@ window.FCApp = (function () {
   function _renderBillsList() {
     const container = document.getElementById('bills-full-list');
     if (!container) return;
+
+    if (state.initialLoading && state.user?.plaid_linked) {
+      const skRow = (w1, w2) => `
+        <div class="fc-sk-row" style="padding:12px 0">
+          <div class="fc-sk fc-sk--avatar" style="width:44px;height:44px;border-radius:14px"></div>
+          <div class="fc-sk-row-body">
+            <div class="fc-sk fc-sk--text-md" style="width:${w1}%"></div>
+            <div class="fc-sk fc-sk--text-sm" style="width:${w2}%;margin-top:4px"></div>
+          </div>
+          <div class="fc-sk fc-sk--text-md" style="width:56px;align-self:center"></div>
+        </div>`;
+      container.innerHTML = `<div class="fc-sk-list">${skRow(55,38)}${skRow(65,30)}${skRow(48,42)}${skRow(72,35)}</div>`;
+      return;
+    }
 
     const byDue  = (a, b) => (FCData.daysUntil(a.due_date) ?? 999) - (FCData.daysUntil(b.due_date) ?? 999);
     const unpaid = state.bills.filter(b => b.status !== 'paid').sort(byDue);
@@ -1862,8 +1877,11 @@ window.FCApp = (function () {
   function _wipeUserState() {
     fcLog('[FCApp] _wipeUserState — clearing all user state and listeners');
 
-    // Detach all Firestore listeners first — prevents stale data firing
-    // for a signed-out user when onAuthStateChanged triggers wipe.
+    // Detach all Firestore listeners — prevents stale data firing after sign-out.
+    // 1. App-level unsubscribes collected in _firestoreListeners
+    _firestoreListeners.forEach(unsub => { try { unsub(); } catch (_) {} });
+    _firestoreListeners = [];
+    // 2. FCData module listeners (canonical path — covers all listenTo* calls)
     try { if (typeof FCData !== 'undefined') FCData.detachAllListeners(); } catch (_) {}
 
     // CRITICAL: reset the guard so _attachDataListeners() re-attaches for the
@@ -1966,6 +1984,8 @@ window.FCApp = (function () {
    *  (e.g. the Financial Health Score card and the settings Upgrade row). */
   function _refreshAfterPro() {
     if (state.user) state.user.is_pro = true;
+    // Nuke any lingering gate overlays before re-renders so they can't flash back
+    document.querySelectorAll('.fc-pro-gate').forEach(el => el.remove());
     try { _renderHome();       } catch (_) {}
     try { _renderActivity();   } catch (_) {}
     try { _renderInsights();   } catch (_) {}
@@ -2438,8 +2458,9 @@ window.FCApp = (function () {
     const remaining = FCData.formatCurrency(Math.round(next - netWorth));
 
     // Check if milestone was just crossed (netWorth >= prev milestone for first time)
-    const celebKey   = `fc_milestone_${next}`;
-    const prevKey    = `fc_milestone_prev_${next}`;
+    const _msUid   = FCAuth.currentUser?.()?.uid || state.user?.uid || '';
+    const celebKey = `fc_milestone_${_msUid}_${next}`;
+    const prevKey  = `fc_milestone_prev_${_msUid}_${next}`;
     const celebrated = localStorage.getItem(celebKey) === '1';
     const prevNW     = parseFloat(localStorage.getItem(prevKey) || '0');
     const justCrossed = prevNW < next && netWorth >= next;
@@ -2451,6 +2472,7 @@ window.FCApp = (function () {
     if (justCrossed && !celebrated) {
       localStorage.setItem(celebKey, '1');
       showBadge = true;
+      haptic('success');
       // Confetti burst
       const canvas = document.getElementById('milestone-confetti');
       if (canvas) {
@@ -3131,9 +3153,11 @@ window.FCApp = (function () {
 
     // Log click (for your own analytics — no PII sent anywhere)
     try {
-      const log = JSON.parse(localStorage.getItem('fc_offer_clicks') || '[]');
+      const _ofUid = FCAuth.currentUser?.()?.uid || state.user?.uid || '';
+      const _ofKey = `fc_offer_clicks_${_ofUid}`;
+      const log    = JSON.parse(localStorage.getItem(_ofKey) || '[]');
       log.push({ id: offerId, ts: Date.now() });
-      localStorage.setItem('fc_offer_clicks', JSON.stringify(log.slice(-50)));
+      localStorage.setItem(_ofKey, JSON.stringify(log.slice(-50)));
     } catch (_) {}
 
     haptic('light');
@@ -5734,7 +5758,7 @@ window.FCApp = (function () {
       await FCData.syncTransactions();
       state.lastSyncAt = Date.now();
       _syncSucceeded = true;
-      haptic('light');
+      haptic('medium');
       if (islandText) {
         islandText.classList.add('fc-fade');
         setTimeout(() => {
@@ -5785,11 +5809,19 @@ window.FCApp = (function () {
 
   async function startPlaidLink() {
     haptic('light');
-    // Free plan: 1 bank only. Show the paywall instead of opening Plaid Link
-    // when a free user tries to add a second bank (bug #9).
-    if (state.user?.plaid_linked && !_isPro()) {
-      showPaywall();
-      return;
+    // Free plan: gate at 1 bank. Use live RC status + actual item count so the
+    // check can't be bypassed by a stale cache (bug #9).
+    try {
+      const [isLivePro, items] = await Promise.all([
+        FCPurchases.checkProStatus().catch(() => _isPro()),
+        FCData.getPlaidItems().catch(() => (state.user?.plaid_linked ? [{}] : [])),
+      ]);
+      if (!isLivePro && items.length >= 1) {
+        showPaywall();
+        return;
+      }
+    } catch (_) {
+      if (state.user?.plaid_linked && !_isPro()) { showPaywall(); return; }
     }
     const btn = document.getElementById('btn-plaid-link');
     if (btn) { btn.disabled = true; btn.textContent = 'Connecting…'; }
@@ -6069,7 +6101,7 @@ window.FCApp = (function () {
 
   async function handleSignOut() {
     haptic('light');
-    const confirmed = await _confirmDialog('Sign out', 'Are you sure you want to sign out?');
+    const confirmed = await _confirmDialog('Sign out', 'Are you sure you want to sign out?', 'Sign Out');
     if (!confirmed) return;
 
     fcLog('[FCApp] handleSignOut — signing out uid:', FCAuth.currentUser()?.uid);
@@ -6126,9 +6158,28 @@ window.FCApp = (function () {
     return map[err.code] || err.message || 'Something went wrong';
   }
 
-  function _confirmDialog(title, message) {
-    // Native confirm on web; could be replaced with a custom modal
-    return Promise.resolve(window.confirm(title + '\n\n' + message));
+  function _confirmDialog(title, message, confirmText) {
+    confirmText = confirmText || title;
+    return new Promise(resolve => {
+      const overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;align-items:flex-end;justify-content:center';
+      overlay.innerHTML = `
+        <div style="background:var(--fc-bg-elevated,#0b1826);border-radius:24px 24px 0 0;padding:24px 24px calc(24px + env(safe-area-inset-bottom,0));width:100%;max-width:480px;border-top:1px solid var(--fc-border,rgba(255,255,255,0.07))">
+          <div style="font-size:17px;font-weight:700;color:var(--fc-text,#f0f6ff);margin-bottom:8px;text-align:center">${title.replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}</div>
+          <div style="font-size:14px;color:var(--fc-text-muted,rgba(240,246,255,0.58));line-height:1.5;margin-bottom:24px;text-align:center">${message.replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}</div>
+          <button id="_fc-dlg-confirm" style="width:100%;padding:16px;border-radius:14px;border:none;background:var(--fc-danger,#ff453a);color:#fff;font-size:16px;font-weight:600;cursor:pointer;margin-bottom:10px">${confirmText.replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}</button>
+          <button id="_fc-dlg-cancel" style="width:100%;padding:14px;border-radius:14px;border:1px solid var(--fc-border,rgba(255,255,255,0.07));background:transparent;color:var(--fc-text-muted,rgba(240,246,255,0.58));font-size:15px;font-weight:500;cursor:pointer">Cancel</button>
+        </div>`;
+      document.body.appendChild(overlay);
+      const cleanup = ok => {
+        haptic(ok ? 'heavy' : 'light');
+        overlay.remove();
+        resolve(ok);
+      };
+      overlay.querySelector('#_fc-dlg-confirm').addEventListener('click', () => cleanup(true));
+      overlay.querySelector('#_fc-dlg-cancel').addEventListener('click', () => cleanup(false));
+      overlay.addEventListener('click', e => { if (e.target === overlay) cleanup(false); });
+    });
   }
 
   /** Mark onboarding as complete in Firestore + localStorage (called on skip or bank connect) */
@@ -6209,11 +6260,6 @@ window.FCApp = (function () {
     const _cachedPro = FCPurchases.isConfigured()
       ? await FCPurchases.checkProStatus().catch(() => false)
       : false;
-
-    if (!_cachedPro && _shouldShowPaywall(uid)) {
-      // Give user a moment to see the dashboard before the paywall slides in.
-      setTimeout(() => { if (state.screen === 'app') showPaywall(); }, 1800);
-    }
 
     setTimeout(() => { _skippingOnboarding = false; }, 1500);
   }
@@ -6380,12 +6426,6 @@ window.FCApp = (function () {
     }
   }
 
-  /** No-op — skip removed, trial required */
-  function skipEmailVerification() {
-    window._fcVerifyEmailPending = false;
-    setScreen('faceid-setup');
-  }
-
   /* ─────────────────────────────────────────────────────────────
      TOGGLE CONTROLS (Settings)
      ───────────────────────────────────────────────────────────── */
@@ -6469,6 +6509,8 @@ window.FCApp = (function () {
   // listener emits. Writing serverTimestamp() itself triggers another emit
   // before the value resolves, so without a guard the streak resets every time.
   let _streakCheckedThisSession = false;
+  // Collect any app-level unsubscribe functions (safety net alongside FCData.detachAllListeners)
+  let _firestoreListeners = [];
 
   function _attachDataListeners() {
     if (_listenersAttached) {
@@ -7095,15 +7137,18 @@ window.FCApp = (function () {
     FCData.markNotificationRead(notifId).catch(() => {});
     // Route to relevant tab
     const routeMap = {
-      bill_due:     'activity',
+      bill_due:     'activity',  // bills are a segment inside the activity tab
       budget_alert: 'insights',
-      goal_reached: 'wealth',  // goals live in the Wealth tab
+      goal_reached: 'wealth',
       sync_done:    'home',
     };
     const tab = routeMap[type] || 'home';
     closeNotificationCenter();
     // Switch tab after notification center close animation (~200ms)
-    setTimeout(() => switchTab(tab), 220);
+    setTimeout(() => {
+      switchTab(tab);
+      if (type === 'bill_due') switchActivitySegment('bills');
+    }, 220);
     haptic('light');
   }
 
@@ -7825,7 +7870,7 @@ window.FCApp = (function () {
 
   async function deleteGoalById() {
     if (!_editingGoalId) return;
-    const confirmed = await _confirmDialog('Delete Goal', 'Are you sure? This cannot be undone.');
+    const confirmed = await _confirmDialog('Delete Goal', 'Are you sure? This cannot be undone.', 'Delete Goal');
     if (!confirmed) return;
 
     try {
@@ -7989,7 +8034,7 @@ window.FCApp = (function () {
 
   async function deleteBillById() {
     if (!_editingBillId) return;
-    const confirmed = await _confirmDialog('Delete Bill', 'Delete this bill? This cannot be undone.');
+    const confirmed = await _confirmDialog('Delete Bill', 'Delete this bill? This cannot be undone.', 'Delete Bill');
     if (!confirmed) return;
 
     try {
@@ -8114,11 +8159,12 @@ window.FCApp = (function () {
      ───────────────────────────────────────────────────────────── */
 
   async function quickPayBill(billId) {
-    haptic('medium');
     try {
       await FCData.markBillPaid(billId);
+      haptic('success');
       toast('Bill marked as paid ✓', 'success');
     } catch (err) {
+      haptic('heavy');
       toast('Could not update bill', 'error');
     }
   }
@@ -8673,7 +8719,6 @@ window.FCApp = (function () {
     skipOnboarding,
     handleVerifyEmailCheck,
     resendVerificationEmail,
-    skipEmailVerification,
     otpBoxInput,
     otpBoxKeydown,
     handleOtpPaste,
