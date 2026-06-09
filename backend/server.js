@@ -4667,7 +4667,7 @@ app.post('/auth/otp/send', requireAuth, async (req, res) => {
     });
 
     const name = await _resolveDisplayName(req.uid);
-    await _sendEmail(email, `${code} is your FlowCheck verification code`, `
+    const sent = await _sendEmail(email, `${code} is your FlowCheck verification code`, `
       <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
       <div style="max-width:480px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
         <div style="background:linear-gradient(135deg,#060e18,#0d2035);padding:36px 32px;text-align:center">
@@ -4686,6 +4686,11 @@ app.post('/auth/otp/send', requireAuth, async (req, res) => {
         </div>
       </div></body></html>
     `);
+
+    if (!sent) {
+      console.error('[auth/otp/send] _sendEmail returned false — RESEND_API_KEY may not be configured');
+      return res.status(503).json({ message: 'Email service unavailable — please try again in a moment' });
+    }
 
     res.json({ ok: true });
   } catch (err) {

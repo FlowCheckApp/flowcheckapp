@@ -6222,6 +6222,38 @@ window.FCApp = (function () {
      OTP EMAIL VERIFICATION (verify-email screen)
      ───────────────────────────────────────────────────────────── */
 
+  /**
+   * Request the backend to generate and send an OTP to the current user.
+   * Shows an error on the verify-email screen if the send fails so the
+   * user knows to tap "Resend Code" rather than waiting indefinitely.
+   */
+  async function _sendOtpCode() {
+    try {
+      const token = await FCAuth.getIdToken();
+      const resp  = await fetch(`${FC_CONFIG.app.apiBase}/auth/otp/send`, {
+        method:  'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        signal:  AbortSignal.timeout(15_000),
+      });
+      if (!resp.ok) {
+        const data = await resp.json().catch(() => ({}));
+        // Show the error inline on the verify-email screen
+        const errEl = document.getElementById('verify-email-err');
+        if (errEl) {
+          errEl.textContent = data.message || 'Could not send verification code — tap Resend Code to try again.';
+          errEl.style.display = '';
+        }
+      }
+    } catch (err) {
+      // Network error or timeout — show inline message
+      const errEl = document.getElementById('verify-email-err');
+      if (errEl) {
+        errEl.textContent = 'Could not send verification code. Check your connection and tap Resend Code.';
+        errEl.style.display = '';
+      }
+    }
+  }
+
   /** Reads the 6 OTP box values into a string */
   function _getOtpValue() {
     return Array.from(document.querySelectorAll('.fc-otp-box'))
@@ -6315,15 +6347,18 @@ window.FCApp = (function () {
 
   /** Resend Code button — 60s cooldown */
   async function resendVerificationEmail() {
-    const btn = document.getElementById('btn-resend-verify');
+    const btn   = document.getElementById('btn-resend-verify');
+    const errEl = document.getElementById('verify-email-err');
     if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+    if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
     try {
       const token = await FCAuth.getIdToken();
       const resp  = await fetch(`${FC_CONFIG.app.apiBase}/auth/otp/send`, {
-        method: 'POST',
+        method:  'POST',
         headers: { 'Authorization': `Bearer ${token}` },
+        signal:  AbortSignal.timeout(15_000),
       });
-      const data = await resp.json();
+      const data = await resp.json().catch(() => ({}));
       if (resp.ok) {
         toast('New code sent — check your inbox!', 'success');
         _clearOtpBoxes(true);
@@ -6335,11 +6370,12 @@ window.FCApp = (function () {
           btn.textContent = `Resend in ${secs}s`;
         }, 1000);
       } else {
-        toast(data.message || 'Could not resend — try again.', 'error');
+        const msg = data.message || 'Could not send code — please try again.';
+        toast(msg, 'error');
         if (btn) { btn.disabled = false; btn.textContent = 'Resend Code'; }
       }
     } catch (_) {
-      toast('Could not resend. Try again in a moment.', 'error');
+      toast('Could not reach the server. Check your connection and try again.', 'error');
       if (btn) { btn.disabled = false; btn.textContent = 'Resend Code'; }
     }
   }
@@ -6753,7 +6789,12 @@ window.FCApp = (function () {
             _renderHome();
           } else if (window._fcNewUserFaceIdPending) {
             // Brand new signup, Firestore just hasn't written the doc yet
+            window._fcNewUserFaceIdPending = false;
+            window._fcVerifyEmailPending = true;
             setScreen('verify-email');
+            const addrEl = document.getElementById('verify-email-addr');
+            if (addrEl) addrEl.textContent = user.email || '';
+            _sendOtpCode(); // send the code even on Firestore error
           } else {
             // Unknown — send to onboarding rather than dashboard to be safe
             setScreen('onboarding');
@@ -6779,17 +6820,14 @@ window.FCApp = (function () {
               setScreen('verify-email');
               const addrEl = document.getElementById('verify-email-addr');
               if (addrEl) addrEl.textContent = user.email || '';
-              // Send OTP and schedule follow-up email (non-blocking)
-              FCAuth.getIdToken().then(token => {
-                fetch(`${FC_CONFIG.app.apiBase}/auth/otp/send`, {
-                  method: 'POST',
-                  headers: { 'Authorization': `Bearer ${token}` },
-                }).catch(() => {});
+              // Send OTP — show an error on the verify-email screen if it fails
+              _sendOtpCode();
+              // Schedule follow-up email (non-blocking, failure is fine)
+              FCAuth.getIdToken().then(token =>
                 fetch(`${FC_CONFIG.app.apiBase}/email/signup-followup/schedule`, {
-                  method: 'POST',
-                  headers: { 'Authorization': `Bearer ${token}` },
-                }).catch(() => {});
-              }).catch(() => {});
+                  method: 'POST', headers: { 'Authorization': `Bearer ${token}` },
+                }).catch(() => {})
+              ).catch(() => {});
             } else {
               // Apple Sign In / already verified — go straight to face ID setup
               setScreen('faceid-setup');
