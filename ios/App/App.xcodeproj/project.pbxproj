@@ -15,6 +15,7 @@
 		504EC30F1FED79650016851F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30E1FED79650016851F /* Assets.xcassets */; };
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
+		CA45D9B52FD8EB6F0025A30C /* client_305596636244-cm6pso8lktggro1ib31amuck49od8i4f.apps.googleusercontent.com.plist in Resources */ = {isa = PBXBuildFile; fileRef = CA45D9B42FD8EB6F0025A30C /* client_305596636244-cm6pso8lktggro1ib31amuck49od8i4f.apps.googleusercontent.com.plist */; };
 		CA7E054C2FD3C49F00CA8E63 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = CA7E054B2FD3C49F00CA8E63 /* GoogleService-Info.plist */; };
 		CA7E054F2FD443BD00CA8E63 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = CA7E054E2FD443BD00CA8E63 /* FirebaseMessaging */; };
 		FC001B02FC00001001FCSEC /* SecurityChecker.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC001B01FC00001001FCSEC /* SecurityChecker.swift */; };
@@ -36,6 +37,7 @@
 		504EC3131FED79650016851F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
+		CA45D9B42FD8EB6F0025A30C /* client_305596636244-cm6pso8lktggro1ib31amuck49od8i4f.apps.googleusercontent.com.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "client_305596636244-cm6pso8lktggro1ib31amuck49od8i4f.apps.googleusercontent.com.plist"; sourceTree = "<group>"; };
 		CA51EE6B2FBCB24900C17D00 /* App.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.entitlements; sourceTree = "<group>"; };
 		CA7E05442FD1241300CA8E63 /* AppDebug.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AppDebug.entitlements; sourceTree = "<group>"; };
 		CA7E054B2FD3C49F00CA8E63 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
@@ -80,6 +82,7 @@
 		504EC3061FED79650016851F /* App */ = {
 			isa = PBXGroup;
 			children = (
+				CA45D9B42FD8EB6F0025A30C /* client_305596636244-cm6pso8lktggro1ib31amuck49od8i4f.apps.googleusercontent.com.plist */,
 				CA7E054B2FD3C49F00CA8E63 /* GoogleService-Info.plist */,
 				CA7E05442FD1241300CA8E63 /* AppDebug.entitlements */,
 				CA51EE6B2FBCB24900C17D00 /* App.entitlements */,
@@ -174,6 +177,7 @@
 				504EC30F1FED79650016851F /* Assets.xcassets in Resources */,
 				50379B232058CBB4000EE86E /* capacitor.config.json in Resources */,
 				504EC30D1FED79650016851F /* Main.storyboard in Resources */,
+				CA45D9B52FD8EB6F0025A30C /* client_305596636244-cm6pso8lktggro1ib31amuck49od8i4f.apps.googleusercontent.com.plist in Resources */,
 				CA7E054C2FD3C49F00CA8E63 /* GoogleService-Info.plist in Resources */,
 				2FAD9763203C412B000D30F8 /* config.xml in Resources */,
 				FCPRV0012FC00001000FCPRV /* PrivacyInfo.xcprivacy in Resources */,
@@ -348,14 +352,15 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = App/AppDebug.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 29;
 				INFOPLIST_FILE = App/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.finance";
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 2.0.0;
 				OTHER_SWIFT_FLAGS = "$(inherited) \"-D\" \"COCOAPODS\" \"-DDEBUG\"";
 				PRODUCT_BUNDLE_IDENTIFIER = com.brandon.flowcheck;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -375,14 +380,15 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 29;
 				INFOPLIST_FILE = App/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.finance";
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 2.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.brandon.flowcheck;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";

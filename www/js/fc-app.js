@@ -5533,6 +5533,9 @@ window.FCApp = (function () {
     const devRow = document.getElementById('dev-test-email-row');
     if (devRow) devRow.style.display = FC_CONFIG.app.env === 'development' ? 'flex' : 'none';
 
+    const versionEl = document.getElementById('settings-version');
+    if (versionEl) versionEl.textContent = FC_CONFIG.app.version || '2.0.0';
+
     const nameEl  = document.getElementById('settings-name');
     const emailEl = document.getElementById('settings-email');
     const initEl  = document.getElementById('settings-avatar');
@@ -6235,6 +6238,45 @@ window.FCApp = (function () {
     showPaywall();
   }
 
+  /**
+   * Demo mode — for App Review testers who cannot connect a real bank.
+   * Populates state with realistic sample data so all app features are visible.
+   */
+  async function startDemoMode() {
+    haptic('medium');
+    _markOnboardingComplete(false).catch(() => {});
+
+    const demoUser = Object.assign({}, state.user || {}, {
+      name:                 'Demo User',
+      plaid_linked:         true,
+      plaid_institution:    'Demo Bank',
+      is_pro:               true,
+      onboarding_complete:  true,
+      streak:               7,
+      net_worth:            24318.42,
+      notifications_enabled: false,
+    });
+    state.user = demoUser;
+    state.accounts = [
+      { account_id: 'demo-chk', name: 'Demo Checking', type: 'depository', subtype: 'checking', balances: { current: 3241.87, available: 3100.00 }, mask: '4242' },
+      { account_id: 'demo-sav', name: 'Demo Savings',  type: 'depository', subtype: 'savings',  balances: { current: 12800.00, available: 12800.00 }, mask: '8888' },
+      { account_id: 'demo-cc',  name: 'Demo Visa',     type: 'credit',     subtype: 'credit card', balances: { current: -723.55 }, mask: '1111' },
+    ];
+    state.transactions = [
+      { transaction_id: 't1', name: 'Whole Foods Market',    amount: 87.43, date: '2026-06-08', category: ['Food and Drink', 'Groceries'],           account_id: 'demo-chk' },
+      { transaction_id: 't2', name: 'Netflix',               amount: 15.99, date: '2026-06-07', category: ['Service', 'Subscription'],                account_id: 'demo-cc'  },
+      { transaction_id: 't3', name: 'Uber',                  amount: 23.50, date: '2026-06-06', category: ['Travel', 'Ride Share'],                   account_id: 'demo-chk' },
+      { transaction_id: 't4', name: 'Spotify',               amount: 9.99,  date: '2026-06-05', category: ['Service', 'Subscription'],                account_id: 'demo-cc'  },
+      { transaction_id: 't5', name: 'Starbucks',             amount: 6.75,  date: '2026-06-05', category: ['Food and Drink', 'Coffee Shop'],          account_id: 'demo-chk' },
+      { transaction_id: 't6', name: 'Amazon',                amount: 134.99, date: '2026-06-04', category: ['Shops', 'Online Marketplaces'],           account_id: 'demo-cc'  },
+      { transaction_id: 't7', name: 'Direct Deposit',        amount: -2800.00, date: '2026-06-01', category: ['Transfer', 'Payroll'],                  account_id: 'demo-chk' },
+    ];
+
+    setScreen('app');
+    _renderHome();
+    toast('Demo mode active — all features unlocked', 'success');
+  }
+
   /** User tapped "Skip for now" on the last onboarding slide */
   let _skippingOnboarding = false;
   async function skipOnboarding() {
@@ -6672,16 +6714,15 @@ window.FCApp = (function () {
       focused.blur();
     }, { passive: true });
 
-    // ── Hide Google Sign In on native when plugin is not installed ──
-    // The GoogleAuth Capacitor plugin requires a separate Xcode config.
-    // If it's absent on native we just remove the button so users don't
-    // see a confusing error banner.
+    // ── Show Google Sign In only when the plugin is confirmed available ──
+    // Buttons start hidden (display:none in HTML). Only reveal on web or when
+    // the GoogleAuth Capacitor plugin is present and configured.
     const _isNativePlatform = window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform();
     const _hasGooglePlugin  = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.GoogleAuth;
-    if (_isNativePlatform && !_hasGooglePlugin) {
+    if (!_isNativePlatform || _hasGooglePlugin) {
       ['btn-login-google', 'btn-register-google'].forEach(id => {
         const el = document.getElementById(id);
-        if (el) el.style.display = 'none';
+        if (el) el.style.display = '';
       });
     }
 
@@ -7512,10 +7553,6 @@ window.FCApp = (function () {
 
     if (typeof FCAnalytics !== 'undefined') FCAnalytics.track('paywall_viewed', { source: state.screen });
 
-    // Paywall is a hard gate — no dismiss button. Users must subscribe or restore.
-    const closeBtn = document.getElementById('pw-close-btn');
-    if (closeBtn) closeBtn.style.display = 'none';
-
     // Reset success overlay in case it was left visible from a previous purchase attempt
     const successOverlay = document.getElementById('pw-success-overlay');
     if (successOverlay) successOverlay.classList.remove('visible');
@@ -7565,7 +7602,7 @@ window.FCApp = (function () {
         // Update CTA & terms text to reflect live price
         const termsEl = document.getElementById('pw-terms-text');
         if (termsEl && _selectedPlan === 'annual') {
-          termsEl.textContent = `Then ${price}/year. Cancel anytime in App Store settings.`;
+          termsEl.textContent = `Payment charged to your Apple ID at purchase confirmation. Subscription auto-renews at ${price}/year unless canceled at least 24 hours before the end of the current period. Manage or cancel in App Store Account Settings. Any unused trial is forfeited upon purchase.`;
         }
       }
       if (monthly) {
@@ -7597,10 +7634,10 @@ window.FCApp = (function () {
 
     if (plan === 'annual') {
       if (btn)   btn.textContent   = 'Start My Free Week →';
-      if (terms) terms.textContent = `Then ${annualPrice}/year. Cancel anytime in App Store settings.`;
+      if (terms) terms.textContent = `Payment charged to your Apple ID at purchase confirmation. Subscription auto-renews at ${annualPrice}/year unless canceled at least 24 hours before the end of the current period. Manage or cancel in App Store Account Settings. Any unused trial is forfeited upon purchase.`;
     } else {
       if (btn)   btn.textContent   = 'Start Monthly Plan';
-      if (terms) terms.textContent = `${monthlyPrice}/month. Cancel anytime in App Store settings.`;
+      if (terms) terms.textContent = `Payment charged to your Apple ID at purchase confirmation. Subscription auto-renews at ${monthlyPrice}/month unless canceled at least 24 hours before the end of the current period. Manage or cancel in App Store Account Settings.`;
     }
   }
 
@@ -8717,6 +8754,7 @@ window.FCApp = (function () {
     // Onboarding
     startTrialFromOnboarding,
     skipOnboarding,
+    startDemoMode,
     handleVerifyEmailCheck,
     resendVerificationEmail,
     otpBoxInput,

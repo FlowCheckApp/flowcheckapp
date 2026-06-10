@@ -2154,9 +2154,9 @@ body {
       <div class="fc-auth-divider" style="margin:14px 0 10px"><span>or continue with</span></div>
     </div>
 
-    <!-- Google Sign In -->
+    <!-- Google Sign In — hidden until JS confirms plugin available -->
     <button class="fc-auth-google-btn fc-auth-field-enter" id="btn-login-google"
-            onclick="FCApp.handleGoogleSignIn()" type="button">
+            onclick="FCApp.handleGoogleSignIn()" type="button" style="display:none">
       <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
         <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
         <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
@@ -2245,9 +2245,9 @@ body {
 
     <div id="register-error" class="fc-auth-error fc-auth-field-enter" role="alert"></div>
 
-    <!-- Google Sign In -->
+    <!-- Google Sign In — hidden until JS confirms plugin available -->
     <button class="fc-auth-google-btn fc-auth-field-enter" id="btn-register-google"
-            onclick="FCApp.handleGoogleSignIn()" type="button">
+            onclick="FCApp.handleGoogleSignIn()" type="button" style="display:none">
       <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
         <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
         <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
@@ -3030,7 +3030,7 @@ body {
   <!-- Top bar: back button + progress rail -->
   <div style="position:absolute;top:calc(env(safe-area-inset-top,44px) + 10px);left:0;right:0;display:flex;align-items:center;padding:0 16px;gap:12px;z-index:4">
     <button id="ob-back-btn" onclick="obPrev()" type="button"
-            style="display:none;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.07);
+            style="display:none;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,0.07);
                    border:none;color:rgba(255,255,255,0.55);cursor:pointer;flex-shrink:0;
                    display:none;align-items:center;justify-content:center;
                    -webkit-tap-highlight-color:transparent;transition:background .15s"
@@ -3183,7 +3183,7 @@ body {
     </div>
 
     <!-- ══ SLIDE 3 — ACCOUNT LINKING ══════════════════════════════ -->
-    <div class="fc-ob-slide" id="ob-slide-3" style="justify-content:center;padding-top:0">
+    <div class="fc-ob-slide" id="ob-slide-4" style="justify-content:center;padding-top:0">
 
       <!-- Unlock icon -->
       <div aria-hidden="true" style="position:relative;width:80px;height:80px;margin-bottom:22px;flex-shrink:0">
@@ -3234,8 +3234,8 @@ body {
       </div>
     </div>
 
-    <!-- ══ SLIDE 4 — AHA MOMENT: Your financial picture ═════════ -->
-    <div class="fc-ob-slide" id="ob-slide-4" style="justify-content:center;padding-top:0">
+    <!-- ══ SLIDE 4 — AHA MOMENT / PAYWALL: Your financial picture ═════════ -->
+    <div class="fc-ob-slide" id="ob-slide-3" style="justify-content:center;padding-top:0">
 
       <!-- Animated insight cards -->
       <div class="fc-ob-art" style="height:220px">
@@ -3303,13 +3303,20 @@ body {
                    box-shadow:0 8px 30px rgba(26,196,240,0.35),0 2px 8px rgba(0,0,0,0.25)">
       Continue
     </button>
-    <!-- Connect bank (slide 3) -->
+    <!-- Connect bank (slide 4) -->
     <button id="btn-plaid-link" class="fc-btn fc-btn--primary fc-btn--block"
             onclick="FCApp.startPlaidLink()" type="button"
             style="font-size:17px;height:56px;display:none;margin-bottom:0;border-radius:18px;
                    background:linear-gradient(135deg,var(--fc-accent),var(--fc-electric));
                    box-shadow:0 8px 30px rgba(26,196,240,0.35),0 2px 8px rgba(0,0,0,0.25)">
       Connect My Bank
+    </button>
+    <!-- Demo mode — for App Review testers without a real bank account -->
+    <button id="btn-demo-mode" type="button" onclick="FCApp.startDemoMode()"
+            style="display:none;background:none;border:none;color:rgba(255,255,255,0.28);
+                   font-size:12px;padding:14px 8px;cursor:pointer;-webkit-tap-highlight-color:transparent;
+                   min-height:44px">
+      Use Demo Account
     </button>
     <!-- Trial CTA (slide 4) -->
     <button id="ob-trial-btn" class="fc-btn fc-btn--primary fc-btn--block"
@@ -3323,7 +3330,7 @@ body {
     <!-- Legal note (slide 4) -->
     <p id="ob-legal-note" style="display:none;font-size:10px;color:rgba(255,255,255,0.20);text-align:center;
                                   margin-top:10px;line-height:1.65;padding:0 6px">
-      Subscription auto-renews after 7-day trial. Cancel any time in iOS Settings before trial ends.
+      Payment charged to your Apple ID at confirmation. Subscription auto-renews unless canceled at least 24 hours before the end of the current period. Manage or cancel in App Store Account Settings. Any unused trial is forfeited upon purchase.
       <a href="#" onclick="FCApp.openUrl('/legal/terms.html');return false" style="color:rgba(255,255,255,0.36)">Terms</a>
       &amp;
       <a href="#" onclick="FCApp.openUrl('/legal/privacy.html');return false" style="color:rgba(255,255,255,0.36)">Privacy</a>.
@@ -3469,9 +3476,11 @@ body {
     var plaidBtn  = document.getElementById('btn-plaid-link');
     var trialBtn  = document.getElementById('ob-trial-btn');
     var legalNote = document.getElementById('ob-legal-note');
+    var demoBtn   = document.getElementById('btn-demo-mode');
 
     [nextBtn, plaidBtn, trialBtn].forEach(function(b){ if(b) b.style.display='none'; });
     if (legalNote) legalNote.style.display = 'none';
+    if (demoBtn)   demoBtn.style.display   = 'none';
 
     if (i === 0) {
       if (nextBtn) { nextBtn.style.display = ''; nextBtn.textContent = 'Continue'; }
@@ -3482,10 +3491,11 @@ body {
     } else if (i === 2) {
       // AI slide — button appears after animation (handled by _runAiAnimation)
     } else if (i === 3) {
-      if (plaidBtn) plaidBtn.style.display = '';
-    } else if (i === 4) {
       if (trialBtn) trialBtn.style.display = '';
       if (legalNote) legalNote.style.display = '';
+    } else if (i === 4) {
+      if (plaidBtn) plaidBtn.style.display = '';
+      if (demoBtn)  demoBtn.style.display  = '';
     }
   }
 
@@ -3610,20 +3620,6 @@ body {
     <div style="position:absolute;bottom:0;right:0;width:220px;height:220px;background:radial-gradient(ellipse,rgba(26,196,240,0.09),transparent 60%);border-radius:50%"></div>
   </div>
 
-  <!-- Close button — shown when paywall is opened from inside the app -->
-  <button id="pw-close-btn" onclick="FCApp.closePaywall()" type="button"
-          style="position:absolute;top:calc(env(safe-area-inset-top) + 12px);right:16px;
-                 z-index:10;width:32px;height:32px;border-radius:50%;
-                 background:rgba(255,255,255,0.10);border:1px solid rgba(255,255,255,0.12);
-                 display:none;align-items:center;justify-content:center;
-                 cursor:pointer;-webkit-tap-highlight-color:transparent"
-          aria-label="Close">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)"
-         stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
-      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-    </svg>
-  </button>
-
   <div style="position:relative;z-index:1;padding:calc(env(safe-area-inset-top) + 20px) 22px 0;display:flex;flex-direction:column;align-items:center">
 
     <!-- Logo -->
@@ -3728,18 +3724,18 @@ body {
       </div>
     </div>
 
-    <!-- Legal disclosure -->
+    <!-- Legal disclosure — Apple-required subscription language -->
     <p class="fc-pw-terms">
-      <span id="pw-terms-text">Then $34.99/year. Cancel anytime in App Store settings.</span>
+      <span id="pw-terms-text">Payment charged to your Apple ID at purchase confirmation. Subscription auto-renews at $34.99/year unless canceled at least 24 hours before the end of the current period. Manage or cancel anytime in App Store Account Settings. Any unused free trial is forfeited upon purchase.</span>
     </p>
 
     <!-- Footer links — required by App Store guidelines -->
     <div class="fc-pw-footer">
       <a href="#" onclick="FCApp.paywallRestore(); return false">Restore</a>
       <span class="fc-pw-footer-sep">·</span>
-      <a href="#" onclick="FCApp.openUrl(FC_CONFIG && FC_CONFIG.app.termsUrl); return false">Terms</a>
+      <a href="#" onclick="FCApp.openUrl('/legal/terms.html'); return false">Terms</a>
       <span class="fc-pw-footer-sep">·</span>
-      <a href="#" onclick="FCApp.openUrl(FC_CONFIG && FC_CONFIG.app.privacyUrl); return false">Privacy</a>
+      <a href="#" onclick="FCApp.openUrl('/legal/privacy.html'); return false">Privacy</a>
     </div>
 
     <div style="height:calc(env(safe-area-inset-bottom) + 4px)"></div>
@@ -5574,7 +5570,7 @@ body {
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-muted)" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
           </div>
           <div class="fc-settings-label">Version</div>
-          <div class="fc-settings-value">2.0.0</div>
+          <div class="fc-settings-value" id="settings-version">2.0.0</div>
         </div>
 
         <div class="fc-settings-row" onclick="FCApp.sendTestEmail()" role="button" tabindex="0" style="cursor:pointer;display:none" id="dev-test-email-row">
