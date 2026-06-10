@@ -5709,6 +5709,7 @@ window.FCApp = (function () {
       }
     }
     if (state.screen !== 'app') return;
+    if (_isDemoMode) return;
 
     if (!FC_CONFIG.app.backendConfigured) {
       fcLog('Sync skipped — backendConfigured is false');
@@ -6244,6 +6245,7 @@ window.FCApp = (function () {
    */
   async function startDemoMode() {
     haptic('medium');
+    _isDemoMode = true;
     _markOnboardingComplete(false).catch(() => {});
 
     const demoUser = Object.assign({}, state.user || {}, {
@@ -6565,6 +6567,7 @@ window.FCApp = (function () {
     _listenersAttached = true;
     state.initialLoading = true;
     FCData.listenToUser(user => {
+      if (_isDemoMode) return;
       state.user = user;
       if (state.screen === 'app') _renderSettings();
       _updateGreeting();
@@ -6573,6 +6576,7 @@ window.FCApp = (function () {
     });
 
     FCData.listenToAccounts(accounts => {
+      if (_isDemoMode) return;
       state.initialLoading = false;
       state.accounts = accounts;
       if (state.tab === 'home') _renderHome();
@@ -6582,6 +6586,7 @@ window.FCApp = (function () {
     });
 
     FCData.listenToTransactions(500, transactions => {
+      if (_isDemoMode) return;
       state.initialLoading = false;
       state.transactions = transactions;
       // Re-render home so "Recent Activity" and "Safe to Spend" update immediately
@@ -6593,6 +6598,7 @@ window.FCApp = (function () {
     });
 
     FCData.listenToBills(bills => {
+      if (_isDemoMode) return;
       state.bills = bills;
       if (state.tab === 'home') _renderHome();
       if (state.tab === 'activity' && _activitySegment === 'bills') _renderBillsList();
@@ -6867,7 +6873,7 @@ window.FCApp = (function () {
           // and no localStorage flag should see onboarding, not the dashboard.
           if (!state.user) {
             const authUser = FCAuth.currentUser();
-            if (authUser) state.user = { name: authUser.displayName || '', email: authUser.email || '' };
+            if (authUser && !_isDemoMode) state.user = { name: authUser.displayName || '', email: authUser.email || '' };
           }
           if (_onboardingLocallyCached(user.uid)) {
             // Previously completed onboarding — safe to show dashboard
@@ -6928,9 +6934,14 @@ window.FCApp = (function () {
           }
         } else {
           // ── Onboarded user: navigate to dashboard ─────────────────────────
+          // Demo accounts always get fake data — never hit the real backend.
+          if (_DEMO_EMAILS.includes(user.email)) {
+            startDemoMode();
+            return;
+          }
           // Pre-seed state.user from the already-fetched userDoc so the first
           // _renderHome() call shows the correct name before the live snapshot.
-          if (!state.user && userDoc) state.user = userDoc;
+          if (!state.user && userDoc && !_isDemoMode) state.user = userDoc;
           setScreen('app');
           _renderHome();
           setTimeout(() => _doSync(false), 900);
@@ -7501,6 +7512,7 @@ window.FCApp = (function () {
   let _pwOfferings           = null;
   // Accounts that skip OTP and Plaid — used by App Review testers
   const _DEMO_EMAILS = ['reviewer@flowcheck.app'];
+  let _isDemoMode = false;
 
   let _paywallShownThisSession = false;  // prevents re-trigger within one running session
   let _currentUid            = null;     // tracks active UID — guards against token-refresh re-routing
