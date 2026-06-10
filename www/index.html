@@ -3822,7 +3822,7 @@ body {
     .dash-greeting{display:flex;align-items:center;justify-content:space-between;padding:20px 20px 16px}
     .dash-greeting-left{flex:1;min-width:0}
     .dash-tod{font-size:11px;color:rgba(255,255,255,0.38);font-weight:600;letter-spacing:0.08em;margin-bottom:3px;text-transform:uppercase}
-    .dash-name{font-size:36px;font-weight:900;color:#fff;letter-spacing:-0.05em;line-height:1.0;margin:0}
+    .dash-name{font-size:38px;font-weight:900;color:#fff;letter-spacing:-0.05em;line-height:1.0;margin:0}
     /* Safe-to-spend pill — more tactile, pill-shaped */
     .dash-safe{
       display:inline-flex;align-items:center;gap:7px;
@@ -3859,8 +3859,8 @@ body {
 
     /* ── Section header row ─────────────────────────────────────── */
     .dash-sec-hdr{display:flex;align-items:center;justify-content:space-between;padding:0 18px;margin-bottom:12px}
-    .dash-sec-title{font-size:14px;font-weight:700;color:rgba(255,255,255,0.82);letter-spacing:-0.018em}
-    .dash-sec-link{font-size:12px;font-weight:600;color:rgba(26,196,240,0.9);border:none;background:none;cursor:pointer;padding:4px 0;-webkit-tap-highlight-color:transparent;transition:opacity .15s}
+    .dash-sec-title{font-size:15px;font-weight:700;color:rgba(255,255,255,0.88);letter-spacing:-0.020em}
+    .dash-sec-link{font-size:13px;font-weight:600;color:var(--fc-accent);border:none;background:none;cursor:pointer;padding:4px 0;-webkit-tap-highlight-color:transparent;transition:opacity .15s}
     .dash-sec-link:active{opacity:.65}
 
     /* ── Base card ──────────────────────────────────────────────── */
@@ -3909,14 +3909,14 @@ body {
     /* Subtle line after the tag text */
     .dash-nw-tag::after{content:'';flex:1;height:0.5px;background:rgba(255,255,255,0.07);display:block}
     .dash-nw-row{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:4px;position:relative;z-index:1}
-    .dash-nw-amount{font-size:50px;font-weight:900;color:#fff;letter-spacing:-2.8px;line-height:1;font-variant-numeric:tabular-nums;animation:dashNWIn .55s cubic-bezier(.22,1,.36,1) both}
+    .dash-nw-amount{font-size:58px;font-weight:900;color:#fff;letter-spacing:-3.2px;line-height:1;font-variant-numeric:tabular-nums;animation:dashNWIn .55s cubic-bezier(.22,1,.36,1) both}
     .dash-nw-pill{display:inline-flex;align-items:center;gap:3px;background:rgba(52,199,89,0.12);border:0.5px solid rgba(52,199,89,0.28);border-radius:20px;padding:5px 10px;font-size:11px;font-weight:700;color:var(--fc-success);flex-shrink:0;margin-bottom:6px}
     .dash-nw-pill.neg{background:rgba(255,69,58,0.12);border-color:rgba(255,69,58,0.28);color:var(--fc-danger)}
     .dash-nw-footer{display:flex;border-top:0.5px solid rgba(255,255,255,0.08);padding-top:15px;margin-top:6px;position:relative;z-index:1}
     .dash-nw-foot{flex:1;display:flex;flex-direction:column;gap:5px;text-align:center}
     .dash-nw-foot:not(:last-child){border-right:0.5px solid rgba(255,255,255,0.07)}
     .dash-nf-lbl{font-size:10px;color:rgba(255,255,255,0.42);font-weight:600;letter-spacing:.06em;text-transform:uppercase}
-    .dash-nf-val{font-size:17px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-0.03em}
+    .dash-nf-val{font-size:18px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-0.03em}
     .dash-green{color:var(--fc-success)}.dash-red{color:var(--fc-danger)}
 
     /* ── Period scrubber ────────────────────────────────────────── */
@@ -3946,7 +3946,7 @@ body {
       background:linear-gradient(160deg,rgba(13,26,46,0.98) 0%,rgba(7,15,26,0.99) 100%);
       border:0.5px solid rgba(255,255,255,0.09);
       border-radius:18px;
-      padding:14px 13px 13px;
+      padding:15px 14px 14px;
       display:flex;flex-direction:column;gap:5px;
       cursor:pointer;-webkit-tap-highlight-color:transparent;
       transition:transform .14s cubic-bezier(.34,1.56,.64,1),opacity .10s;
@@ -3955,7 +3955,7 @@ body {
     }
     /* Colored top accent bar on each stat card */
     .dash-stat::before{
-      content:'';position:absolute;top:0;left:0;right:0;height:2.5px;border-radius:18px 18px 0 0;
+      content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:18px 18px 0 0;
     }
     .dash-stat:nth-child(1)::before{background:linear-gradient(90deg,var(--fc-accent),rgba(26,196,240,0.2))}
     .dash-stat:nth-child(2)::before{background:linear-gradient(90deg,var(--fc-warning),rgba(255,159,10,0.2))}
@@ -3965,15 +3965,15 @@ body {
     /* Stat icon badge */
     .dash-stat-icon{
       display:flex;align-items:center;justify-content:center;
-      width:26px;height:26px;border-radius:8px;
-      margin-bottom:2px;flex-shrink:0;
+      width:28px;height:28px;border-radius:8px;
+      margin-bottom:3px;flex-shrink:0;
     }
-    .dash-stat-icon--cash{background:rgba(26,196,240,0.12);color:var(--fc-accent)}
-    .dash-stat-icon--spent{background:rgba(255,159,10,0.12);color:var(--fc-warning)}
-    .dash-stat-icon--bills{background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.45)}
+    .dash-stat-icon--cash{background:rgba(26,196,240,0.14);color:var(--fc-accent)}
+    .dash-stat-icon--spent{background:rgba(255,159,10,0.14);color:var(--fc-warning)}
+    .dash-stat-icon--bills{background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.50)}
 
-    .dash-sp-lbl{font-size:9px;color:rgba(255,255,255,0.38);font-weight:700;letter-spacing:.10em;text-transform:uppercase}
-    .dash-sp-val{font-size:20px;font-weight:800;color:#fff;font-variant-numeric:tabular-nums;line-height:1.1;letter-spacing:-0.038em}
+    .dash-sp-lbl{font-size:10px;color:rgba(255,255,255,0.40);font-weight:700;letter-spacing:.09em;text-transform:uppercase}
+    .dash-sp-val{font-size:22px;font-weight:800;color:#fff;font-variant-numeric:tabular-nums;line-height:1.1;letter-spacing:-0.04em}
 
     /* ── Account carousel ───────────────────────────────────────── */
     .dash-acct-scroll{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:none;-ms-overflow-style:none;scroll-snap-type:x mandatory;padding-left:16px;margin-bottom:4px}
@@ -4068,7 +4068,7 @@ body {
     .fc-txn-meta{font-size:11px;color:var(--fc-text-faint);margin-top:1px}
     .fc-txn-amt{font-size:14px;font-weight:700;color:rgba(255,255,255,0.85);font-variant-numeric:tabular-nums}
     .fc-txn-credit{color:var(--fc-success)!important}
-    .fc-txn-chev{stroke:rgba(255,255,255,0.2)}
+    .fc-txn-chev{stroke:rgba(255,255,255,0.12);display:none}
 
     /* ── Today's Focus card ────────────────────────────────────── */
     .dash-focus-card{
@@ -4137,20 +4137,25 @@ body {
       background:linear-gradient(160deg,rgba(13,26,46,0.98) 0%,rgba(7,15,26,0.99) 100%);
       border:0.5px solid rgba(255,255,255,0.09);
       border-radius:20px;
-      padding:15px 17px 13px;
+      padding:16px 18px 14px;
       box-shadow:0 4px 20px rgba(0,0,0,0.38),inset 0 1px 0 rgba(255,255,255,0.055),inset 0 -1px 0 rgba(0,0,0,0.16);
+      transition:border-color .3s,box-shadow .3s;
+    }
+    .dash-pulse.dash-pulse--danger{
+      border-color:rgba(255,69,58,0.28);
+      box-shadow:0 4px 20px rgba(0,0,0,0.38),0 0 0 0.5px rgba(255,69,58,0.15),inset 0 1px 0 rgba(255,255,255,0.055);
     }
     .dash-pulse-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
     .dash-pulse-label{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,0.42)}
     .dash-pulse-amounts{font-size:13px;font-weight:600;color:rgba(255,255,255,0.55)}
     .dash-pulse-amounts span{font-weight:800;color:#fff}
-    .dash-pulse-track{height:8px;border-radius:4px;background:rgba(255,255,255,0.07);overflow:hidden;transform:translateZ(0);-webkit-mask-image:-webkit-radial-gradient(white,black)}
-    .dash-pulse-fill{height:100%;border-radius:4px;transition:width .9s cubic-bezier(0.34,1.56,0.64,1);min-width:0}
-    .dash-pulse-footer{display:flex;align-items:center;justify-content:space-between;margin-top:10px}
-    .dash-pulse-sub{font-size:11px;font-weight:600;color:rgba(255,255,255,0.40);letter-spacing:0.01em}
+    .dash-pulse-track{height:9px;border-radius:5px;background:rgba(255,255,255,0.07);overflow:hidden;transform:translateZ(0);-webkit-mask-image:-webkit-radial-gradient(white,black)}
+    .dash-pulse-fill{height:100%;border-radius:5px;transition:width .9s cubic-bezier(0.34,1.56,0.64,1);min-width:0}
+    .dash-pulse-footer{display:flex;align-items:center;justify-content:space-between;margin-top:11px}
+    .dash-pulse-sub{font-size:11.5px;font-weight:600;color:rgba(255,255,255,0.42);letter-spacing:0.01em}
 
     /* ── Stat card sub-label ────────────────────────────────────── */
-    .dash-sp-sub{font-size:9.5px;color:rgba(255,255,255,0.30);font-weight:500;letter-spacing:0.01em;line-height:1.2;min-height:12px}
+    .dash-sp-sub{font-size:10.5px;color:rgba(255,255,255,0.38);font-weight:500;letter-spacing:0.01em;line-height:1.2;min-height:13px}
 
     /* ── Bills card total row ───────────────────────────────────── */
     .fc-bills-total{display:flex;align-items:center;justify-content:space-between;padding:11px 17px 13px;border-top:.5px solid rgba(255,255,255,0.055)}

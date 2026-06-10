@@ -132,10 +132,12 @@
   --fc-shadow-glow:     0 0 24px rgba(13, 173, 212, 0.14);
 }
 
-/* Light mode body — clean minimal gradient, no color blobs */
+/* Light mode body — clean warm-white with very subtle top accent bloom */
 [data-theme="light"] body.fc-theme {
   background: var(--fc-bg);
-  background-image: none;
+  background-image:
+    radial-gradient(ellipse 70% 35% at 20% -5%, rgba(13,173,212,0.07) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 30% at 85% 5%,  rgba(29,78,216,0.05) 0%, transparent 55%);
 }
 
 [data-theme="light"] html {
@@ -921,7 +923,7 @@ body.fc-theme {
    and border colors used in the view-specific inline styles.
    ============================================================ */
 
-/* ── Card reset — all dark glass → clean white ────────────── */
+/* ── Card reset — all dark glass → clean white with real elevation ──────── */
 [data-theme="light"] .dash-nw-card,
 [data-theme="light"] .dash-stat,
 [data-theme="light"] .dash-card,
@@ -941,8 +943,8 @@ body.fc-theme {
 [data-theme="light"] #view-insights .fc-card,
 [data-theme="light"] .fc-card {
   background: #ffffff !important;
-  border: 1px solid rgba(13,27,46,0.09) !important;
-  box-shadow: 0 1px 3px rgba(13,27,46,0.07), 0 6px 20px rgba(13,27,46,0.06) !important;
+  border: 1px solid rgba(13,27,46,0.08) !important;
+  box-shadow: 0 1px 2px rgba(13,27,46,0.05), 0 4px 16px rgba(13,27,46,0.08), 0 12px 32px rgba(13,27,46,0.04) !important;
 }
 
 /* ── Account carousel — soft tinted cards ─────────────────── */
@@ -967,9 +969,9 @@ body.fc-theme {
 
 /* ── Hero card net worth ──────────────────────────────────── */
 [data-theme="light"] .dash-nw-card {
-  background: linear-gradient(155deg, #f0f8ff 0%, #eef5fb 100%) !important;
-  border-color: rgba(13,173,212,0.22) !important;
-  box-shadow: 0 1px 3px rgba(13,27,46,0.06), 0 8px 28px rgba(13,27,46,0.08), 0 0 0 0.5px rgba(13,173,212,0.14) !important;
+  background: linear-gradient(155deg, #ebf7ff 0%, #eaf3fb 60%, #f0f5fa 100%) !important;
+  border-color: rgba(13,173,212,0.28) !important;
+  box-shadow: 0 2px 8px rgba(13,27,46,0.07), 0 12px 36px rgba(13,27,46,0.09), 0 0 0 0.5px rgba(13,173,212,0.18) !important;
 }
 [data-theme="light"] .dash-nw-card::before,
 [data-theme="light"] .dash-nw-card::after { display: none; }
@@ -997,24 +999,39 @@ body.fc-theme {
 /* ── Greeting ────────────────────────────────────────────── */
 [data-theme="light"] .dash-tod  { color: rgba(13,27,46,0.42) !important; }
 [data-theme="light"] .dash-name { color: #0a1520 !important; }
-[data-theme="light"] .dash-safe { color: var(--fc-accent) !important; }
-[data-theme="light"] .dash-safe::before { background: var(--fc-accent) !important; box-shadow: 0 0 6px rgba(13,173,212,0.7) !important; }
+[data-theme="light"] .dash-safe {
+  color: var(--fc-accent) !important;
+  background: rgba(13,173,212,0.08) !important;
+  border-color: rgba(13,173,212,0.22) !important;
+}
+[data-theme="light"] .dash-safe-dot { background: var(--fc-accent) !important; box-shadow: 0 0 6px rgba(13,173,212,0.7) !important; }
+[data-theme="light"] .dash-safe-text { color: var(--fc-accent) !important; }
+/* Privacy toggle in light */
+[data-theme="light"] #fc-privacy-toggle { background: rgba(13,27,46,0.06) !important; }
+[data-theme="light"] #fc-privacy-toggle svg { stroke: rgba(13,27,46,0.50) !important; }
 
 /* ── Quick stats ─────────────────────────────────────────── */
 [data-theme="light"] .dash-stat {
   background: #ffffff !important;
-  border-color: rgba(13,27,46,0.09) !important;
-  box-shadow: 0 1px 3px rgba(13,27,46,0.07), 0 4px 14px rgba(13,27,46,0.06) !important;
+  border-color: rgba(13,27,46,0.08) !important;
+  box-shadow: 0 1px 3px rgba(13,27,46,0.07), 0 6px 20px rgba(13,27,46,0.08) !important;
 }
-[data-theme="light"] .dash-sp-lbl { color: rgba(13,27,46,0.42) !important; }
+[data-theme="light"] .dash-sp-lbl { color: rgba(13,27,46,0.45) !important; }
 [data-theme="light"] .dash-sp-val { color: #0a1520 !important; }
-[data-theme="light"] .dash-sp-sub { color: rgba(13,27,46,0.36) !important; }
+[data-theme="light"] .dash-sp-sub { color: rgba(13,27,46,0.40) !important; }
+[data-theme="light"] .dash-stat-icon--cash  { background: rgba(13,173,212,0.12) !important; }
+[data-theme="light"] .dash-stat-icon--spent { background: rgba(217,119,6,0.10)  !important; }
+[data-theme="light"] .dash-stat-icon--bills { background: rgba(13,27,46,0.06)   !important; color: rgba(13,27,46,0.50) !important; }
 
 /* ── Month Pulse bar ─────────────────────────────────────── */
 [data-theme="light"] .dash-pulse {
   background: #ffffff !important;
   border-color: rgba(13,27,46,0.09) !important;
-  box-shadow: 0 1px 3px rgba(13,27,46,0.06), 0 6px 20px rgba(13,27,46,0.05) !important;
+  box-shadow: 0 1px 3px rgba(13,27,46,0.06), 0 6px 20px rgba(13,27,46,0.07) !important;
+}
+[data-theme="light"] .dash-pulse.dash-pulse--danger {
+  border-color: rgba(220,38,38,0.28) !important;
+  box-shadow: 0 1px 3px rgba(13,27,46,0.06), 0 6px 20px rgba(220,38,38,0.10), 0 0 0 0.5px rgba(220,38,38,0.12) !important;
 }
 [data-theme="light"] .dash-pulse-label    { color: rgba(13,27,46,0.40) !important; }
 [data-theme="light"] .dash-pulse-amounts  { color: rgba(13,27,46,0.52) !important; }
@@ -1024,7 +1041,7 @@ body.fc-theme {
 [data-theme="light"] #fch-cashflow        { color: #0a1520 !important; }
 
 /* ── Section headers ─────────────────────────────────────── */
-[data-theme="light"] .dash-sec-title { color: rgba(13,27,46,0.75) !important; }
+[data-theme="light"] .dash-sec-title { color: rgba(13,27,46,0.82) !important; }
 [data-theme="light"] .dash-sec-link  { color: var(--fc-accent) !important; }
 
 /* ── Transaction / list rows ─────────────────────────────── */
@@ -1039,6 +1056,12 @@ body.fc-theme {
 [data-theme="light"] .fc-txn-amt   { color: rgba(13,27,46,0.80) !important; }
 [data-theme="light"] .fc-txn-chev  { stroke: rgba(13,27,46,0.20) !important; }
 
+/* ── Bills total row ─────────────────────────────────────── */
+[data-theme="light"] .fc-bills-total     { border-top-color: rgba(13,27,46,0.07) !important; }
+[data-theme="light"] .fc-bills-total-lbl { color: rgba(13,27,46,0.40) !important; }
+[data-theme="light"] .fc-bills-total-amt { color: #0a1520 !important; }
+[data-theme="light"] .fc-txn-meta        { color: rgba(13,27,46,0.40) !important; }
+
 /* ── Health row ──────────────────────────────────────────── */
 [data-theme="light"] .dash-health {
   background: linear-gradient(135deg, rgba(13,173,212,0.07), rgba(29,78,216,0.05)) !important;
@@ -1049,8 +1072,11 @@ body.fc-theme {
 
 /* ── Today's Focus ───────────────────────────────────────── */
 [data-theme="light"] .dash-focus-body   { color: #0a1520 !important; }
-[data-theme="light"] .dash-focus-label  { color: rgba(13,27,46,0.50) !important; }
+[data-theme="light"] .dash-focus-label  { color: rgba(13,27,46,0.52) !important; }
 [data-theme="light"] .dash-focus-counter{ color: rgba(13,27,46,0.40) !important; background: rgba(13,27,46,0.06) !important; }
+[data-theme="light"] .dash-focus-action { background: rgba(13,27,46,0.05) !important; border-color: rgba(13,27,46,0.10) !important; color: rgba(13,27,46,0.65) !important; }
+[data-theme="light"] .dash-focus-icon   { background: rgba(13,27,46,0.06) !important; }
+[data-theme="light"] .dash-focus-card   { border-color: rgba(13,27,46,0.09) !important; }
 
 /* ── Smart insights ──────────────────────────────────────── */
 [data-theme="light"] .dash-ins-toggle:active { background: rgba(13,27,46,0.03) !important; }
@@ -1211,8 +1237,8 @@ body.fc-theme {
 [data-theme="light"] .act-title     { color: #0a1520 !important; }
 
 /* ── Carousel dots ──────────────────────────────────────── */
-[data-theme="light"] .dash-dot { background: rgba(13,27,46,0.18) !important; }
-[data-theme="light"] .dash-dot.active { background: var(--fc-accent) !important; }
+[data-theme="light"] .dash-dot       { background: rgba(13,27,46,0.16) !important; }
+[data-theme="light"] .dash-dot.active{ background: var(--fc-accent) !important; box-shadow: 0 0 6px rgba(13,173,212,0.40) !important; }
 
 /* ── Empty states ───────────────────────────────────────── */
 [data-theme="light"] .dash-empty { color: rgba(13,27,46,0.44) !important; }

@@ -3890,8 +3890,8 @@ window.FCApp = (function () {
   }
 
   function _renderHome() {
-    // Update island text based on bank link status
-    if (state.user && !state.user.plaid_linked) {
+    // Update island text based on bank link status — only when truly no accounts at all
+    if (state.user && !state.user.plaid_linked && state.accounts.length === 0) {
       _setIslandText('Connect a bank to start');
     }
 
@@ -3918,9 +3918,9 @@ window.FCApp = (function () {
         nwCard.style.setProperty('--nw-glow-color', '');
       }
     }
-    // NW tag shows context when negative
+    // NW tag — always "NET WORTH", negative signaled by border color + red delta pill
     const nwTag = document.querySelector('.dash-nw-tag');
-    if (nwTag) nwTag.textContent = netWorth < 0 ? 'NET WORTH (NEGATIVE)' : 'NET WORTH';
+    if (nwTag) nwTag.textContent = 'NET WORTH';
 
     // Assets vs Liabilities breakdown below net worth
     const assetsEl  = document.getElementById('hero-assets');
@@ -3978,9 +3978,10 @@ window.FCApp = (function () {
                 <div class="fc-list-amount">${FCData.formatCurrency(b.amount)}</div>
                 <button
                   onclick="event.stopPropagation();FCApp.quickPayBill('${esc(b.id)}')"
-                  style="width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.10);color:rgba(255,255,255,0.40);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s"
-                  title="Mark as paid" type="button" aria-label="Mark ${esc(b.name)} as paid">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+                  style="width:36px;height:36px;border-radius:50%;background:rgba(48,209,88,0.10);border:1.5px solid rgba(48,209,88,0.28);color:var(--fc-success);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .18s;-webkit-tap-highlight-color:transparent"
+                  title="Mark as paid" type="button" aria-label="Mark ${esc(b.name)} as paid"
+                  onmousedown="this.style.transform='scale(0.88)'" onmouseup="this.style.transform=''" ontouchstart="this.style.transform='scale(0.88)'" ontouchend="this.style.transform=''">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
                 </button>
               </div>
             </div>`;
@@ -4120,6 +4121,8 @@ window.FCApp = (function () {
         const fillColor  = incomeOk && pulsePct >= 90 ? 'var(--fc-danger)'
                          : incomeOk && pulsePct >= 70 ? 'var(--fc-warning)'
                          : 'linear-gradient(90deg,var(--fc-accent),var(--fc-electric))';
+        if (incomeOk && pulsePct >= 90) pulseRow.classList.add('dash-pulse--danger');
+        else pulseRow.classList.remove('dash-pulse--danger');
 
         if (pulseSpentEl)  pulseSpentEl.textContent  = _fmtCompact(monthSpend);
         // Only show income denominator when it's reliably detected
@@ -4220,7 +4223,7 @@ window.FCApp = (function () {
         <div class="fc-grow">
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
             <span class="fc-eyebrow">Goal</span>
-            <span style="color:${pct >= 100 ? 'var(--fc-success)' : pct >= 75 ? 'var(--fc-accent)' : pct >= 10 ? 'var(--fc-accent)' : 'var(--fc-text-faint)'};font-size:10px;font-weight:600">${pct >= 100 ? 'Complete 🎉' : pct >= 75 ? 'Almost there' : pct >= 10 ? 'In progress' : pct > 0 ? 'Just started' : 'New goal'}</span>
+            <span style="color:${pct >= 100 ? 'var(--fc-success)' : pct >= 75 ? 'var(--fc-accent)' : pct >= 25 ? 'var(--fc-accent)' : pct >= 5 ? 'var(--fc-warning)' : 'var(--fc-text-faint)'};font-size:10px;font-weight:600">${pct >= 100 ? 'Complete 🎉' : pct >= 75 ? 'Almost there' : pct >= 25 ? 'In progress' : pct >= 5 ? 'Building momentum' : pct > 0 ? 'Getting started' : 'New goal'}</span>
           </div>
           <div class="fc-h3" style="font-size:16px;margin-bottom:2px">${g.name}</div>
           <div class="fc-xs">${current} of ${target}</div>
