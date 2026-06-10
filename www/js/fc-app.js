@@ -787,7 +787,7 @@ window.FCApp = (function () {
     const avgH   = buckets.filter(b => b.total > 0).reduce((s, b) => s + b.total, 0) / (buckets.filter(b => b.total > 0).length || 1);
     const avgY   = H - Math.max(Math.round((avgH / maxVal) * (H - 10)), 1);
     const refLine = avgH > 0
-      ? `<line x1="${GAP}" y1="${avgY}" x2="${W - GAP}" y2="${avgY}" stroke="rgba(255,255,255,0.08)" stroke-width="1" stroke-dasharray="3 3"/>`
+      ? `<line x1="${GAP}" y1="${avgY}" x2="${W - GAP}" y2="${avgY}" style="stroke:var(--fc-border)" stroke-width="1" stroke-dasharray="3 3"/>`
       : '';
 
     const bars = buckets.map((b, i) => {
@@ -2195,7 +2195,7 @@ window.FCApp = (function () {
             <div class="fcs-row-val" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(name)}</div>
             <div class="fcs-sub" style="margin-top:1px">${FCData.formatCurrency(z.amount)}/${z.freq} · ${annualCost}/yr</div>
           </div>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="2.5" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
         </div>`;
     }).join('');
 
@@ -2941,7 +2941,7 @@ window.FCApp = (function () {
             <stop offset="100%" stop-color="#ff453a" stop-opacity="0"/>
           </linearGradient>
         </defs>
-        ${minVal < 0 ? `<line x1="${PAD}" y1="${zeroY.toFixed(1)}" x2="${W-PAD}" y2="${zeroY.toFixed(1)}" stroke="rgba(255,255,255,0.12)" stroke-width="1" stroke-dasharray="4 3"/>` : ''}
+        ${minVal < 0 ? `<line x1="${PAD}" y1="${zeroY.toFixed(1)}" x2="${W-PAD}" y2="${zeroY.toFixed(1)}" style="stroke:var(--fc-border)" stroke-width="1" stroke-dasharray="4 3"/>` : ''}
         <path d="${areaPath}" fill="url(#${gradId})"/>
         <polyline points="${pts}" fill="none" stroke="${lineColor}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
         <!-- Low-point dot -->
@@ -4213,12 +4213,12 @@ window.FCApp = (function () {
         <div style="width:64px;height:64px;position:relative;flex-shrink:0">
           <svg width="64" height="64" viewBox="0 0 64 64" aria-label="${pct}%" aria-hidden="true">
             <defs><linearGradient id="ring" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#1ac4f0"/><stop offset="100%" stop-color="#60a5fa"/></linearGradient></defs>
-            <circle cx="32" cy="32" r="27" stroke="rgba(255,255,255,0.08)" stroke-width="6" fill="none"/>
+            <circle cx="32" cy="32" r="27" style="stroke:var(--fc-border)" stroke-width="6" fill="none"/>
             <circle cx="32" cy="32" r="27" stroke="url(#ring)" stroke-width="6" fill="none"
                     stroke-dasharray="${dash}" stroke-dashoffset="${offset}"
                     stroke-linecap="round" transform="rotate(-90 32 32)"/>
           </svg>
-          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:white;font-size:13px;font-weight:700;line-height:1">${pct}%</div>
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--fc-text);font-size:13px;font-weight:700;line-height:1">${pct}%</div>
         </div>
         <div class="fc-grow">
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
@@ -4804,7 +4804,7 @@ window.FCApp = (function () {
 
     if (!periodSpendTxns.length) {
       container.innerHTML = `<div style="color:var(--fc-text-faint);text-align:center;padding:32px 0;font-size:14px">No spending data for ${periodLabel}</div>`;
-      if (donutSvg)    donutSvg.innerHTML = '<circle cx="60" cy="60" r="46" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="16"/>';
+      if (donutSvg)    donutSvg.innerHTML = '<circle cx="60" cy="60" r="46" fill="none" style="stroke:var(--fc-border)" stroke-width="16"/>';
       if (donutCenterEl) donutCenterEl.textContent = '—';
       if (donutLegend) donutLegend.innerHTML = '';
     } else {
@@ -5258,12 +5258,12 @@ window.FCApp = (function () {
                     <stop offset="0%" stop-color="#1ac4f0"/><stop offset="100%" stop-color="#60a5fa"/>
                   </linearGradient>
                 </defs>
-                <circle cx="32" cy="32" r="27" stroke="rgba(255,255,255,0.08)" stroke-width="6" fill="none"/>
+                <circle cx="32" cy="32" r="27" style="stroke:var(--fc-border)" stroke-width="6" fill="none"/>
                 <circle cx="32" cy="32" r="27" stroke="${color}" stroke-width="6" fill="none"
                         stroke-dasharray="${dash}" stroke-dashoffset="${offset}"
                         stroke-linecap="round" transform="rotate(-90 32 32)"/>
               </svg>
-              <div style="position:absolute;inset:0;display:grid;place-items:center;color:white;font-size:12px;font-weight:700">${pct}%</div>
+              <div style="position:absolute;inset:0;display:grid;place-items:center;color:var(--fc-text);font-size:12px;font-weight:700">${pct}%</div>
             </div>
             <div class="fc-grow">
               <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
