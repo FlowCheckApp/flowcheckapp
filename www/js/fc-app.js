@@ -6873,11 +6873,15 @@ window.FCApp = (function () {
           } else if (window._fcNewUserFaceIdPending) {
             // Brand new signup, Firestore just hasn't written the doc yet
             window._fcNewUserFaceIdPending = false;
-            window._fcVerifyEmailPending = true;
-            setScreen('verify-email');
-            const addrEl = document.getElementById('verify-email-addr');
-            if (addrEl) addrEl.textContent = user.email || '';
-            _sendOtpCode(); // send the code even on Firestore error
+            if (_DEMO_EMAILS.includes(user.email)) {
+              setScreen('faceid-setup');
+            } else {
+              window._fcVerifyEmailPending = true;
+              setScreen('verify-email');
+              const addrEl = document.getElementById('verify-email-addr');
+              if (addrEl) addrEl.textContent = user.email || '';
+              _sendOtpCode(); // send the code even on Firestore error
+            }
           } else {
             // Unknown — send to onboarding rather than dashboard to be safe
             setScreen('onboarding');
@@ -6897,7 +6901,7 @@ window.FCApp = (function () {
           // New user just registered in this session — show email verification first
           if (window._fcNewUserFaceIdPending) {
             window._fcNewUserFaceIdPending = false;
-            if (!user.emailVerified) {
+            if (!user.emailVerified && !_DEMO_EMAILS.includes(user.email)) {
               // Email/password signup: show OTP verification screen
               window._fcVerifyEmailPending = true;
               setScreen('verify-email');
@@ -7492,6 +7496,9 @@ window.FCApp = (function () {
 
   let _selectedPlan          = 'annual'; // 'annual' | 'monthly'
   let _pwOfferings           = null;
+  // Accounts that skip OTP and Plaid — used by App Review testers
+  const _DEMO_EMAILS = ['reviewer@flowcheck.app'];
+
   let _paywallShownThisSession = false;  // prevents re-trigger within one running session
   let _currentUid            = null;     // tracks active UID — guards against token-refresh re-routing
 
