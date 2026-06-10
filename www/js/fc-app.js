@@ -6258,19 +6258,22 @@ window.FCApp = (function () {
     });
     state.user = demoUser;
     state.accounts = [
-      { account_id: 'demo-chk', name: 'Demo Checking', type: 'depository', subtype: 'checking', balances: { current: 3241.87, available: 3100.00 }, mask: '4242' },
-      { account_id: 'demo-sav', name: 'Demo Savings',  type: 'depository', subtype: 'savings',  balances: { current: 12800.00, available: 12800.00 }, mask: '8888' },
-      { account_id: 'demo-cc',  name: 'Demo Visa',     type: 'credit',     subtype: 'credit card', balances: { current: -723.55 }, mask: '1111' },
+      { account_id: 'demo-chk', name: 'Demo Checking', official_name: 'Demo Checking Account', type: 'depository', subtype: 'checking', balance_current: 3241.87, balance_available: 3100.00, mask: '4242', institution_name: 'Demo Bank' },
+      { account_id: 'demo-sav', name: 'Demo Savings',  official_name: 'Demo Savings Account',  type: 'depository', subtype: 'savings',  balance_current: 12800.00, balance_available: 12800.00, mask: '8888', institution_name: 'Demo Bank' },
+      { account_id: 'demo-cc',  name: 'Demo Visa',     official_name: 'Demo Visa Card',        type: 'credit',     subtype: 'credit card', balance_current: 723.55, balance_available: null, mask: '1111', institution_name: 'Demo Bank' },
     ];
     state.transactions = [
-      { transaction_id: 't1', name: 'Whole Foods Market',    amount: 87.43, date: '2026-06-08', category: ['Food and Drink', 'Groceries'],           account_id: 'demo-chk' },
-      { transaction_id: 't2', name: 'Netflix',               amount: 15.99, date: '2026-06-07', category: ['Service', 'Subscription'],                account_id: 'demo-cc'  },
-      { transaction_id: 't3', name: 'Uber',                  amount: 23.50, date: '2026-06-06', category: ['Travel', 'Ride Share'],                   account_id: 'demo-chk' },
-      { transaction_id: 't4', name: 'Spotify',               amount: 9.99,  date: '2026-06-05', category: ['Service', 'Subscription'],                account_id: 'demo-cc'  },
-      { transaction_id: 't5', name: 'Starbucks',             amount: 6.75,  date: '2026-06-05', category: ['Food and Drink', 'Coffee Shop'],          account_id: 'demo-chk' },
-      { transaction_id: 't6', name: 'Amazon',                amount: 134.99, date: '2026-06-04', category: ['Shops', 'Online Marketplaces'],           account_id: 'demo-cc'  },
-      { transaction_id: 't7', name: 'Direct Deposit',        amount: -2800.00, date: '2026-06-01', category: ['Transfer', 'Payroll'],                  account_id: 'demo-chk' },
+      { transaction_id: 't1', name: 'Whole Foods Market', amount: 87.43,   date: '2026-06-08', category: ['Food and Drink', 'Groceries'],        account_id: 'demo-chk', isCredit: false },
+      { transaction_id: 't2', name: 'Netflix',            amount: 15.99,   date: '2026-06-07', category: ['Service', 'Subscription'],             account_id: 'demo-cc',  isCredit: false },
+      { transaction_id: 't3', name: 'Uber',               amount: 23.50,   date: '2026-06-06', category: ['Travel', 'Ride Share'],                account_id: 'demo-chk', isCredit: false },
+      { transaction_id: 't4', name: 'Spotify',            amount: 9.99,    date: '2026-06-05', category: ['Service', 'Subscription'],             account_id: 'demo-cc',  isCredit: false },
+      { transaction_id: 't5', name: 'Starbucks',          amount: 6.75,    date: '2026-06-05', category: ['Food and Drink', 'Coffee Shop'],       account_id: 'demo-chk', isCredit: false },
+      { transaction_id: 't6', name: 'Amazon',             amount: 134.99,  date: '2026-06-04', category: ['Shops', 'Online Marketplaces'],        account_id: 'demo-cc',  isCredit: false },
+      { transaction_id: 't7', name: 'Shell Gas Station',  amount: 58.20,   date: '2026-06-03', category: ['Travel', 'Gas Stations'],              account_id: 'demo-chk', isCredit: false },
+      { transaction_id: 't8', name: 'Chipotle',           amount: 14.35,   date: '2026-06-02', category: ['Food and Drink', 'Restaurants'],       account_id: 'demo-chk', isCredit: false },
+      { transaction_id: 't9', name: 'Direct Deposit',     amount: -3200.00, date: '2026-06-01', category: ['Transfer', 'Payroll'],                 account_id: 'demo-chk', isCredit: true  },
     ];
+    state.bills = [];
 
     setScreen('app');
     _renderHome();
