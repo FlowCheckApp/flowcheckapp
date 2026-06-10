@@ -7567,6 +7567,13 @@ window.FCApp = (function () {
     const successOverlay = document.getElementById('pw-success-overlay');
     if (successOverlay) successOverlay.classList.remove('visible');
 
+    // Demo button only visible for App Review accounts — hidden for all real users
+    const demoBtn = document.getElementById('pw-demo-btn');
+    if (demoBtn) {
+      const email = FCAuth.currentUser?.()?.email || '';
+      demoBtn.style.display = _DEMO_EMAILS.includes(email) ? 'block' : 'none';
+    }
+
     setScreen('paywall');
     haptic('light');
     _loadPaywallOfferings();
