@@ -577,7 +577,7 @@ body.fc-theme {
   background: none; border: none;
   color: rgba(255,255,255,0.36);
   font-size: 14px; font-weight: 500; font-family: inherit;
-  cursor: pointer; padding: 10px 0;
+  cursor: pointer; padding: 10px 0; min-height: 44px;
   -webkit-tap-highlight-color: transparent;
   transition: color 0.15s;
 }
@@ -726,7 +726,7 @@ body.fc-keyboard-open .fc-auth-screen { padding-top: calc(env(safe-area-inset-to
   background: radial-gradient(circle, rgba(37,99,235,0.22) 0%, transparent 65%);
   animation: heroOrbDrift 12s 2s ease-in-out infinite reverse;
 }
-.fc-hero-orb--mid-purple {
+.fc-hero-orb--mid-electric {
   width: 240px; height: 240px; bottom: 140px; left: -60px;
   background: radial-gradient(circle, rgba(37,99,235,0.14) 0%, transparent 60%);
   animation: heroOrbDrift 10s 1s ease-in-out infinite;
@@ -811,12 +811,8 @@ body.fc-keyboard-open .fc-auth-screen { padding-top: calc(env(safe-area-inset-to
   animation: fcFadeUp 0.55s 0.35s var(--fc-ease-out) both;
 }
 .fc-hero-signin-link {
-  background: none; border: none; color: rgba(255,255,255,0.44);
-  font-size: 14px; font-weight: 600; cursor: pointer; padding: 10px 0;
-  font-family: inherit; -webkit-tap-highlight-color: transparent;
   animation: fcFadeUp 0.55s 0.42s var(--fc-ease-out) both;
 }
-.fc-hero-signin-link:active { color: rgba(255,255,255,0.75); }
 .fc-hero-legal {
   font-size: 11px; color: rgba(255,255,255,0.22); text-align: center;
   margin-top: 14px; line-height: 1.7; padding: 0 8px;
@@ -2069,7 +2065,7 @@ body {
 <section class="fc-screen fc-hero-screen" data-screen="hero" aria-label="Welcome to FlowCheck">
   <div class="fc-hero-orb fc-hero-orb--top-cyan"></div>
   <div class="fc-hero-orb fc-hero-orb--bottom-blue"></div>
-  <div class="fc-hero-orb fc-hero-orb--mid-purple"></div>
+  <div class="fc-hero-orb fc-hero-orb--mid-electric"></div>
   <div class="fc-hero-particles" aria-hidden="true">
     <div class="fc-hero-particle"></div><div class="fc-hero-particle"></div>
     <div class="fc-hero-particle"></div><div class="fc-hero-particle"></div>
@@ -2091,10 +2087,12 @@ body {
   </div>
   <div class="fc-hero-cta">
     <button class="fc-btn fc-btn--primary fc-btn--block fc-hero-btn-get-started"
-            onclick="FCApp.setScreen('register')" type="button">
+            onclick="haptic('light');FCApp.setScreen('register')" type="button">
       Get Started — It's Free
     </button>
-    <button class="fc-hero-signin-link" onclick="FCApp.setScreen('login')" type="button">
+    <button class="fc-btn fc-btn--ghost fc-btn--block fc-hero-signin-link"
+            onclick="FCApp.setScreen('login')" type="button"
+            style="min-height:44px;margin-top:10px">
       I already have an account
     </button>
     <p class="fc-hero-legal">
@@ -2353,15 +2351,20 @@ body {
              autocomplete="one-time-code" data-index="0"
              oninput="FCApp.otpBoxInput(this)" onkeydown="FCApp.otpBoxKeydown(event,this)">
       <input class="fc-otp-box" type="tel" inputmode="numeric" maxlength="1" pattern="[0-9]"
-             data-index="1" oninput="FCApp.otpBoxInput(this)" onkeydown="FCApp.otpBoxKeydown(event,this)">
+             autocomplete="one-time-code" data-index="1"
+             oninput="FCApp.otpBoxInput(this)" onkeydown="FCApp.otpBoxKeydown(event,this)">
       <input class="fc-otp-box" type="tel" inputmode="numeric" maxlength="1" pattern="[0-9]"
-             data-index="2" oninput="FCApp.otpBoxInput(this)" onkeydown="FCApp.otpBoxKeydown(event,this)">
+             autocomplete="one-time-code" data-index="2"
+             oninput="FCApp.otpBoxInput(this)" onkeydown="FCApp.otpBoxKeydown(event,this)">
       <input class="fc-otp-box" type="tel" inputmode="numeric" maxlength="1" pattern="[0-9]"
-             data-index="3" oninput="FCApp.otpBoxInput(this)" onkeydown="FCApp.otpBoxKeydown(event,this)">
+             autocomplete="one-time-code" data-index="3"
+             oninput="FCApp.otpBoxInput(this)" onkeydown="FCApp.otpBoxKeydown(event,this)">
       <input class="fc-otp-box" type="tel" inputmode="numeric" maxlength="1" pattern="[0-9]"
-             data-index="4" oninput="FCApp.otpBoxInput(this)" onkeydown="FCApp.otpBoxKeydown(event,this)">
+             autocomplete="one-time-code" data-index="4"
+             oninput="FCApp.otpBoxInput(this)" onkeydown="FCApp.otpBoxKeydown(event,this)">
       <input class="fc-otp-box" type="tel" inputmode="numeric" maxlength="1" pattern="[0-9]"
-             data-index="5" oninput="FCApp.otpBoxInput(this)" onkeydown="FCApp.otpBoxKeydown(event,this)">
+             autocomplete="one-time-code" data-index="5"
+             oninput="FCApp.otpBoxInput(this)" onkeydown="FCApp.otpBoxKeydown(event,this)">
     </div>
 
     <div id="verify-email-err"
@@ -2385,7 +2388,15 @@ body {
       </button>
     </div>
 
-    <p class="fc-auth-field-enter" style="font-size:11px;color:rgba(255,255,255,0.20);text-align:center;margin-top:14px;line-height:1.65;padding:0 8px">
+    <button type="button"
+            onclick="(function(){var e=document.getElementById('verify-email-addr');if(e&&document.getElementById('reg-email'))document.getElementById('reg-email').value=e.textContent.trim();FCApp.setScreen('register');})()"
+            style="background:none;border:none;color:var(--fc-text-faint);font-size:12px;
+                   font-weight:500;cursor:pointer;padding:8px 0;margin-top:6px;
+                   -webkit-tap-highlight-color:transparent;min-height:44px;font-family:inherit">
+      Wrong email? Go back
+    </button>
+
+    <p class="fc-auth-field-enter" style="font-size:11px;color:rgba(255,255,255,0.20);text-align:center;margin-top:6px;line-height:1.65;padding:0 8px">
       Can't find it? Check your spam folder. Verification keeps your account secure.
     </p>
 
@@ -2450,15 +2461,15 @@ body {
 
     <!-- Trust badges — accented, not gray -->
     <div style="display:flex;flex-wrap:wrap;gap:7px;justify-content:center;margin-bottom:32px">
-      <div style="display:flex;align-items:center;gap:5px;background:rgba(48,209,88,0.08);border:1px solid rgba(48,209,88,0.22);border-radius:999px;padding:6px 13px">
+      <div class="fc-faceid-badge-green" style="display:flex;align-items:center;gap:5px;background:rgba(48,209,88,0.08);border:1px solid rgba(48,209,88,0.22);border-radius:999px;padding:6px 13px">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#30d158" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
         <span style="font-size:11px;font-weight:600;color:rgba(48,209,88,0.88)">On-Device Only</span>
       </div>
-      <div style="display:flex;align-items:center;gap:5px;background:rgba(26,196,240,0.08);border:1px solid rgba(26,196,240,0.20);border-radius:999px;padding:6px 13px">
+      <div class="fc-faceid-badge-cyan" style="display:flex;align-items:center;gap:5px;background:rgba(26,196,240,0.08);border:1px solid rgba(26,196,240,0.20);border-radius:999px;padding:6px 13px">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#1ac4f0" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
         <span style="font-size:11px;font-weight:600;color:rgba(26,196,240,0.88)">Secure Enclave</span>
       </div>
-      <div style="display:flex;align-items:center;gap:5px;background:rgba(48,209,88,0.08);border:1px solid rgba(48,209,88,0.22);border-radius:999px;padding:6px 13px">
+      <div class="fc-faceid-badge-green" style="display:flex;align-items:center;gap:5px;background:rgba(48,209,88,0.08);border:1px solid rgba(48,209,88,0.22);border-radius:999px;padding:6px 13px">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#30d158" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
         <span style="font-size:11px;font-weight:600;color:rgba(48,209,88,0.88)">Zero-Knowledge</span>
       </div>
@@ -2527,7 +2538,7 @@ body {
 
     <!-- Value-prop tiles -->
     <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:24px;text-align:left">
-      <div style="display:flex;align-items:center;gap:12px;background:rgba(26,196,240,0.05);border:1px solid rgba(26,196,240,0.12);border-radius:14px;padding:11px 14px">
+      <div class="fc-notif-tile-cyan" style="display:flex;align-items:center;gap:12px;background:rgba(26,196,240,0.05);border:1px solid rgba(26,196,240,0.12);border-radius:14px;padding:11px 14px">
         <div style="width:34px;height:34px;border-radius:10px;background:rgba(26,196,240,0.12);border:1px solid rgba(26,196,240,0.20);display:flex;align-items:center;justify-content:center;flex-shrink:0">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1ac4f0" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
         </div>
@@ -2536,7 +2547,7 @@ body {
           <div style="font-size:11px;color:rgba(255,255,255,0.38);margin-top:1px">24h before any bill is charged</div>
         </div>
       </div>
-      <div style="display:flex;align-items:center;gap:12px;background:rgba(255,176,32,0.05);border:1px solid rgba(255,176,32,0.12);border-radius:14px;padding:11px 14px">
+      <div class="fc-notif-tile-amber" style="display:flex;align-items:center;gap:12px;background:rgba(255,176,32,0.05);border:1px solid rgba(255,176,32,0.12);border-radius:14px;padding:11px 14px">
         <div style="width:34px;height:34px;border-radius:10px;background:rgba(255,176,32,0.12);border:1px solid rgba(255,176,32,0.20);display:flex;align-items:center;justify-content:center;flex-shrink:0">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffb020" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
         </div>
@@ -2545,7 +2556,7 @@ body {
           <div style="font-size:11px;color:rgba(255,255,255,0.38);margin-top:1px">Know before you overspend, not after</div>
         </div>
       </div>
-      <div style="display:flex;align-items:center;gap:12px;background:rgba(52,199,89,0.05);border:1px solid rgba(52,199,89,0.12);border-radius:14px;padding:11px 14px">
+      <div class="fc-notif-tile-green" style="display:flex;align-items:center;gap:12px;background:rgba(52,199,89,0.05);border:1px solid rgba(52,199,89,0.12);border-radius:14px;padding:11px 14px">
         <div style="width:34px;height:34px;border-radius:10px;background:rgba(52,199,89,0.12);border:1px solid rgba(52,199,89,0.20);display:flex;align-items:center;justify-content:center;flex-shrink:0">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34c759" stroke-width="2" stroke-linecap="round" aria-hidden="true"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
         </div>
@@ -2557,15 +2568,15 @@ body {
     </div>
 
     <!-- Primary CTA -->
-    <button id="btn-notif-allow" onclick="allowNotifPermission()" type="button"
+    <button id="btn-notif-allow" onclick="FCApp.allowNotifPermission()" type="button"
             class="fc-btn fc-btn--primary fc-btn--block"
             style="font-size:17px;height:56px;border-radius:17px;margin-bottom:0">
       Allow Notifications
     </button>
 
-    <button onclick="skipNotifPermission()" type="button"
+    <button onclick="FCApp.skipNotifPermission()" type="button"
             class="fc-auth-skip" style="width:100%;margin-top:4px;font-size:14px">
-      Not now — I'll decide later
+      Not now
     </button>
 
     <p style="font-size:11px;color:rgba(255,255,255,0.22);margin:14px 0 0;line-height:1.5">
@@ -2587,7 +2598,7 @@ body {
           style="position:absolute;top:calc(env(safe-area-inset-top,0px) + 16px);left:20px;
                  background:none;border:none;padding:8px;cursor:pointer;
                  display:flex;align-items:center;gap:6px;
-                 color:var(--fc-text-secondary);font-size:14px;font-weight:500">
+                 color:var(--fc-text-muted);font-size:14px;font-weight:500">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <path d="M19 12H5M12 5l-7 7 7 7"/>
     </svg>
@@ -2748,9 +2759,13 @@ body {
   from { opacity: 0; transform: translateY(18px); }
   to   { opacity: 1; transform: translateY(0); }
 }
-/* Exiting slide */
+/* Exiting slide (forward) */
 .fc-ob-slide.exit {
   opacity: 0; transform: translate3d(-40px, 0, 0) scale(0.97); pointer-events: none;
+}
+/* Exiting slide (backward — slides right) */
+.fc-ob-slide.exit-back {
+  opacity: 0; transform: translate3d(40px, 0, 0) scale(0.97); pointer-events: none;
 }
 /* Question slides vertically center */
 .fc-ob-slide.fc-ob-question { justify-content: center; }
@@ -3033,13 +3048,13 @@ body {
     <button id="ob-back-btn" onclick="obPrev()" type="button"
             style="display:none;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,0.07);
                    border:none;color:rgba(255,255,255,0.55);cursor:pointer;flex-shrink:0;
-                   display:none;align-items:center;justify-content:center;
+                   align-items:center;justify-content:center;
                    -webkit-tap-highlight-color:transparent;transition:background .15s"
             aria-label="Go back">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
     </button>
     <div class="fc-ob-progress-rail" style="position:relative;top:auto;left:auto;right:auto;flex:1;margin:0" aria-hidden="true">
-      <div class="fc-ob-progress-fill" id="ob-progress-fill" style="width:20%"></div>
+      <div class="fc-ob-progress-fill" id="ob-progress-fill" style="width:0%"></div>
     </div>
   </div>
 
@@ -3183,7 +3198,56 @@ body {
       </div>
     </div>
 
-    <!-- ══ SLIDE 3 — ACCOUNT LINKING ══════════════════════════════ -->
+    <!-- ══ SLIDE 3 — AHA MOMENT / PAYWALL: Your financial picture ═════════ -->
+    <div class="fc-ob-slide" id="ob-slide-3" style="justify-content:center;padding-top:0">
+
+      <!-- Animated insight cards -->
+      <div class="fc-ob-art" style="height:220px">
+        <div class="fc-ob-glow" style="background:radial-gradient(ellipse at 50% 50%,rgba(26,196,240,0.22),transparent 62%)"></div>
+        <div style="position:relative;z-index:2;width:100%;max-width:305px;display:flex;flex-direction:column;gap:8px">
+
+          <div class="ob-insight-card" id="ob-insight-0" style="animation-delay:0.1s">
+            <div style="width:36px;height:36px;border-radius:10px;background:rgba(255,69,58,0.14);border:1px solid rgba(255,69,58,0.22);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ff453a" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+            </div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:700;color:#fff;line-height:1.25">Spending by category, ranked</div>
+              <div style="font-size:11px;color:rgba(255,255,255,0.42);margin-top:2px">See exactly where your money goes each month</div>
+            </div>
+          </div>
+
+          <div class="ob-insight-card" id="ob-insight-1" style="animation-delay:0.25s">
+            <div style="width:36px;height:36px;border-radius:10px;background:rgba(255,176,32,0.14);border:1px solid rgba(255,176,32,0.22);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ffb020" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+            </div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:700;color:#fff;line-height:1.25">Subscriptions, surfaced automatically</div>
+              <div style="font-size:11px;color:rgba(255,255,255,0.42);margin-top:2px">Find recurring charges you forgot about</div>
+            </div>
+          </div>
+
+          <div class="ob-insight-card" id="ob-insight-2" style="animation-delay:0.4s">
+            <div style="width:36px;height:36px;border-radius:10px;background:rgba(52,199,89,0.14);border:1px solid rgba(52,199,89,0.22);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#34c759" stroke-width="2" stroke-linecap="round" aria-hidden="true"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+            </div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:700;color:#fff;line-height:1.25">AI savings opportunities</div>
+              <div style="font-size:11px;color:rgba(255,255,255,0.42);margin-top:2px">Personalized tips based on your real patterns</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <h1 class="fc-ob-title" style="margin-top:6px;margin-bottom:8px">
+        Here's what you'll<br><span class="fc-ob-title-grad">uncover.</span>
+      </h1>
+      <p class="fc-ob-desc fc-ob-desc-sm" style="margin-bottom:0">
+        Connect your bank and FlowCheck surfaces insights like these — automatically.
+      </p>
+    </div>
+
+    <!-- ══ SLIDE 4 — ACCOUNT LINKING ══════════════════════════════ -->
     <div class="fc-ob-slide" id="ob-slide-4" style="justify-content:center;padding-top:0">
 
       <!-- Unlock icon -->
@@ -3235,55 +3299,6 @@ body {
       </div>
     </div>
 
-    <!-- ══ SLIDE 4 — AHA MOMENT / PAYWALL: Your financial picture ═════════ -->
-    <div class="fc-ob-slide" id="ob-slide-3" style="justify-content:center;padding-top:0">
-
-      <!-- Animated insight cards -->
-      <div class="fc-ob-art" style="height:220px">
-        <div class="fc-ob-glow" style="background:radial-gradient(ellipse at 50% 50%,rgba(26,196,240,0.22),transparent 62%)"></div>
-        <div style="position:relative;z-index:2;width:100%;max-width:305px;display:flex;flex-direction:column;gap:8px">
-
-          <div class="ob-insight-card" id="ob-insight-0" style="animation-delay:0.1s">
-            <div style="width:36px;height:36px;border-radius:10px;background:rgba(255,69,58,0.14);border:1px solid rgba(255,69,58,0.22);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ff453a" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-            </div>
-            <div style="flex:1;min-width:0">
-              <div style="font-size:13px;font-weight:700;color:#fff;line-height:1.25">You spent $412 on food delivery</div>
-              <div style="font-size:11px;color:rgba(255,255,255,0.42);margin-top:2px">This month alone — 32% over budget</div>
-            </div>
-          </div>
-
-          <div class="ob-insight-card" id="ob-insight-1" style="animation-delay:0.25s">
-            <div style="width:36px;height:36px;border-radius:10px;background:rgba(255,176,32,0.14);border:1px solid rgba(255,176,32,0.22);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ffb020" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-            </div>
-            <div style="flex:1;min-width:0">
-              <div style="font-size:13px;font-weight:700;color:#fff;line-height:1.25">4 subscriptions detected</div>
-              <div style="font-size:11px;color:rgba(255,255,255,0.42);margin-top:2px">Netflix, Spotify, Adobe, Hulu — $67/mo</div>
-            </div>
-          </div>
-
-          <div class="ob-insight-card" id="ob-insight-2" style="animation-delay:0.4s">
-            <div style="width:36px;height:36px;border-radius:10px;background:rgba(52,199,89,0.14);border:1px solid rgba(52,199,89,0.22);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#34c759" stroke-width="2" stroke-linecap="round" aria-hidden="true"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
-            </div>
-            <div style="flex:1;min-width:0">
-              <div style="font-size:13px;font-weight:700;color:#fff;line-height:1.25">You could save $187/month</div>
-              <div style="font-size:11px;color:rgba(255,255,255,0.42);margin-top:2px">AI found 3 easy wins in your spending</div>
-            </div>
-          </div>
-
-        </div>
-      </div>
-
-      <h1 class="fc-ob-title" style="margin-top:6px;margin-bottom:8px">
-        Your financial<br><span class="fc-ob-title-grad">picture is ready.</span>
-      </h1>
-      <p class="fc-ob-desc fc-ob-desc-sm" style="margin-bottom:0">
-        AI found real opportunities in your spending. Start saving smarter today.
-      </p>
-    </div>
-
   </div><!-- /fc-ob-slides -->
 
   <!-- Step dots (5 total) -->
@@ -3314,9 +3329,10 @@ body {
     </button>
     <!-- Demo mode — for App Review testers without a real bank account -->
     <button id="btn-demo-mode" type="button" onclick="FCApp.startDemoMode()"
-            style="display:none;background:none;border:none;color:rgba(255,255,255,0.28);
-                   font-size:12px;padding:14px 8px;cursor:pointer;-webkit-tap-highlight-color:transparent;
-                   min-height:44px">
+            style="display:none;background:none;border:none;color:rgba(255,255,255,0.42);
+                   font-size:13px;font-weight:500;padding:14px 8px;cursor:pointer;
+                   -webkit-tap-highlight-color:transparent;min-height:44px;font-family:inherit;
+                   text-decoration:underline;text-underline-offset:3px">
       Use Demo Account
     </button>
     <!-- Trial CTA (slide 4) -->
@@ -3382,6 +3398,10 @@ body {
   display: flex; align-items: center; gap: 12px;
   background: rgba(255,255,255,0.055); border: 1px solid rgba(255,255,255,0.09);
   border-radius: 16px; padding: 12px 14px;
+  opacity: 0; transform: translateX(24px) scale(0.96);
+}
+/* Animation only fires when the parent slide is active — prevents page-load firing */
+.fc-ob-slide.active .ob-insight-card {
   animation: obInsightFlyIn 0.5s var(--ob-spring) both;
 }
 @keyframes obInsightFlyIn {
@@ -3415,6 +3435,35 @@ body {
   background: rgba(10,21,32,0.04) !important;
   border-color: rgba(10,21,32,0.08) !important;
 }
+
+/* ── Verify email: kill dark cyan top gradient in light mode ── */
+[data-theme="light"] .fc-screen[data-screen="verify-email"] {
+  background: var(--fc-bg) !important;
+}
+
+/* ── Face ID trust badges: make visible in light mode ── */
+[data-theme="light"] .fc-faceid-badge-green {
+  background: rgba(48,209,88,0.12) !important;
+  border-color: rgba(48,209,88,0.30) !important;
+}
+[data-theme="light"] .fc-faceid-badge-cyan {
+  background: rgba(26,196,240,0.12) !important;
+  border-color: rgba(26,196,240,0.28) !important;
+}
+
+/* ── Notification value-prop tiles: visible in light mode ── */
+[data-theme="light"] .fc-notif-tile-cyan {
+  background: rgba(26,196,240,0.10) !important;
+  border-color: rgba(26,196,240,0.22) !important;
+}
+[data-theme="light"] .fc-notif-tile-amber {
+  background: rgba(255,176,32,0.10) !important;
+  border-color: rgba(255,176,32,0.22) !important;
+}
+[data-theme="light"] .fc-notif-tile-green {
+  background: rgba(52,199,89,0.10) !important;
+  border-color: rgba(52,199,89,0.22) !important;
+}
 </style>
 
 <script>
@@ -3446,7 +3495,7 @@ body {
 
   function _updateProgress(i) {
     var fill = document.getElementById('ob-progress-fill');
-    if (fill) fill.style.width = ((i + 1) / _totalSlides * 100) + '%';
+    if (fill) fill.style.width = (i / (_totalSlides - 1) * 100) + '%';
     for (var s = 0; s < _totalSlides; s++) {
       var dot = document.getElementById('ob-step-' + s);
       if (dot) dot.classList.toggle('active', s === i);
@@ -3500,8 +3549,25 @@ body {
     }
   }
 
+  var _goalSteps = {
+    save_more:       ['Analyzing your income patterns', 'Identifying savings opportunities', 'Calculating your savings potential', 'Your savings plan is ready'],
+    pay_debt:        ['Calculating debt payoff timeline', 'Identifying high-interest accounts', 'Building your debt strategy', 'Your payoff plan is ready'],
+    track_spending:  ['Analyzing spending categories', 'Building your spending timeline', 'Setting up smart alerts', 'Your tracker is ready'],
+    build_wealth:    ['Calculating net worth baseline', 'Analyzing investment potential', 'Building wealth projections', 'Your wealth plan is ready'],
+    stop_waste:      ['Scanning for unused subscriptions', 'Identifying recurring waste', 'Building your savings list', 'Found ways to cut costs'],
+    freedom:         ['Calculating your financial timeline', 'Modeling your freedom number', 'Setting milestone checkpoints', 'Your path is mapped'],
+  };
+
   function _runAiAnimation() {
     if (_aiDone) { _showNextAfterAi(); return; }
+
+    // Update step texts to match the selected goal
+    var steps = (_selectedGoal && _goalSteps[_selectedGoal]) || ['Analyzing your goals', 'Preparing your insights', 'Optimizing your dashboard', 'Enabling smart tracking'];
+    for (var k = 0; k < 4; k++) {
+      var textEl = document.querySelector('#ob-ai-step-' + k + ' .ob-ai-step-text');
+      if (textEl) textEl.textContent = steps[k];
+    }
+
     // 4 steps × 450ms = 1.8s total — snappy, not sluggish
     var delays = [0, 450, 900, 1350];
     var nextBtn = document.getElementById('ob-next-btn');
@@ -3571,14 +3637,6 @@ body {
           .update({ goals: [goal] }).catch(function(){});
       }
     } catch(_) {}
-  };
-
-  /* ── Public: obSelectPlan (kept for compatibility) ── */
-  window.obSelectPlan = function(plan) {
-    var monthly = document.getElementById('ob-plan-monthly');
-    var annual  = document.getElementById('ob-plan-annual');
-    if (monthly) monthly.classList.toggle('selected', plan === 'monthly');
-    if (annual)  annual.classList.toggle('selected', plan === 'annual');
   };
 
   /* ── Watch for screen entry to reset state ── */
@@ -3908,9 +3966,9 @@ body {
     .dash-nw-tag{font-size:10px;color:rgba(255,255,255,0.45);font-weight:700;letter-spacing:.10em;margin-bottom:10px;text-transform:uppercase;position:relative;z-index:1;display:flex;align-items:center;gap:8px}
     /* Subtle line after the tag text */
     .dash-nw-tag::after{content:'';flex:1;height:0.5px;background:rgba(255,255,255,0.07);display:block}
-    .dash-nw-row{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:4px;position:relative;z-index:1}
-    .dash-nw-amount{font-size:58px;font-weight:900;color:#fff;letter-spacing:-3.2px;line-height:1;font-variant-numeric:tabular-nums;animation:dashNWIn .55s cubic-bezier(.22,1,.36,1) both}
-    .dash-nw-pill{display:inline-flex;align-items:center;gap:3px;background:rgba(52,199,89,0.12);border:0.5px solid rgba(52,199,89,0.28);border-radius:20px;padding:5px 10px;font-size:11px;font-weight:700;color:var(--fc-success);flex-shrink:0;margin-bottom:6px}
+    .dash-nw-row{display:flex;flex-direction:column;align-items:flex-start;gap:6px;margin-bottom:4px;position:relative;z-index:1}
+    .dash-nw-amount{font-size:clamp(42px,14vw,58px);font-weight:900;color:#fff;letter-spacing:-3.2px;line-height:1;font-variant-numeric:tabular-nums;animation:dashNWIn .55s cubic-bezier(.22,1,.36,1) both}
+    .dash-nw-pill{display:inline-flex;align-items:center;gap:3px;background:rgba(52,199,89,0.12);border:0.5px solid rgba(52,199,89,0.28);border-radius:20px;padding:5px 10px;font-size:11px;font-weight:700;color:var(--fc-success);flex-shrink:0}
     .dash-nw-pill.neg{background:rgba(255,69,58,0.12);border-color:rgba(255,69,58,0.28);color:var(--fc-danger)}
     .dash-nw-footer{display:flex;border-top:0.5px solid rgba(255,255,255,0.08);padding-top:15px;margin-top:6px;position:relative;z-index:1}
     .dash-nw-foot{flex:1;display:flex;flex-direction:column;gap:5px;text-align:center}
@@ -4960,20 +5018,20 @@ body {
                 <stop offset="100%" stop-color="#60a5fa"/>
               </linearGradient>
             </defs>
-            <circle cx="28" cy="28" r="23" stroke="rgba(255,255,255,0.07)" stroke-width="5" fill="none"/>
+            <circle cx="28" cy="28" r="23" stroke="var(--fc-border)" stroke-width="5" fill="none"/>
             <circle id="milestone-ring" cx="28" cy="28" r="23" stroke="url(#msGrad)" stroke-width="5" fill="none"
                     stroke-dasharray="144.5" stroke-dashoffset="144.5" stroke-linecap="round" transform="rotate(-90 28 28)"/>
           </svg>
-          <div id="milestone-ring-pct" style="position:absolute;inset:0;display:grid;place-items:center;font-size:12px;font-weight:800;color:#fff"></div>
+          <div id="milestone-ring-pct" style="position:absolute;inset:0;display:grid;place-items:center;font-size:12px;font-weight:800;color:var(--fc-text)"></div>
         </div>
         <!-- Text -->
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
-            <span style="font-size:9px;font-weight:700;letter-spacing:.09em;color:rgba(255,255,255,0.38);text-transform:uppercase">Net Worth Milestone</span>
+            <span style="font-size:9px;font-weight:700;letter-spacing:.09em;color:var(--fc-text-faint);text-transform:uppercase">Net Worth Milestone</span>
             <span id="milestone-badge" style="font-size:10px;font-weight:700;color:#FFD60A;display:none">🏆 Reached!</span>
           </div>
-          <div id="milestone-title" style="font-size:16px;font-weight:700;color:#fff;margin-bottom:2px"></div>
-          <div id="milestone-sub"   style="font-size:12px;color:rgba(255,255,255,0.45);line-height:1.4"></div>
+          <div id="milestone-title" style="font-size:16px;font-weight:700;color:var(--fc-text);margin-bottom:2px"></div>
+          <div id="milestone-sub"   style="font-size:12px;color:var(--fc-text-muted);line-height:1.4"></div>
         </div>
       </div>
     </div>
@@ -6115,14 +6173,13 @@ async function handleNotifToggle(el) {
 }
 
 /* ── Notification permission onboarding screen ───────────── */
-async function allowNotifPermission() {
+FCApp.allowNotifPermission = async function() {
   const btn = document.getElementById('btn-notif-allow');
   if (btn) { btn.disabled = true; btn.textContent = 'Enabling…'; }
   try {
     if (window.FCPush) {
       await FCPush.requestAndRegister().catch(() => {});
       await FCPush.requestLocalPermission().catch(() => {});
-      // Persist preference if user doc is ready
       try {
         const db   = FCAuth.db && FCAuth.db();
         const user = FCAuth.currentUser && FCAuth.currentUser();
@@ -6136,10 +6193,9 @@ async function allowNotifPermission() {
   } catch (_) {}
   if (btn) { btn.disabled = false; btn.textContent = 'Allow Notifications'; }
   FCApp.setScreen('onboarding');
-}
+};
 
-function skipNotifPermission() {
-  // Persist explicit opt-out so the notification toggle starts in the right state
+FCApp.skipNotifPermission = function() {
   try {
     const db   = FCAuth.db && FCAuth.db();
     const user = FCAuth.currentUser && FCAuth.currentUser();
@@ -6150,7 +6206,7 @@ function skipNotifPermission() {
     }
   } catch (_) {}
   FCApp.setScreen('onboarding');
-}
+};
 
 /* ── Add Apple sign-in handler to FCApp ──────────────────── */
 FCApp.handleAppleSignIn = async function() {

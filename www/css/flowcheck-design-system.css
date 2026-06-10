@@ -197,6 +197,16 @@
 [data-theme="light"] .fc-hero-screen {
   background: var(--fc-bg) !important;
 }
+[data-theme="light"] .fc-hero-headline { color: #0a1520 !important; }
+[data-theme="light"] .fc-hero-headline-grad {
+  background: linear-gradient(135deg, #0a1520 15%, var(--fc-accent) 80%) !important;
+  -webkit-background-clip: text !important; background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+}
+[data-theme="light"] .fc-hero-sub { color: rgba(10,21,32,0.52) !important; }
+[data-theme="light"] .fc-hero-wordmark { color: rgba(10,21,32,0.55) !important; }
+[data-theme="light"] .fc-hero-legal { color: rgba(10,21,32,0.38) !important; }
+[data-theme="light"] .fc-hero-legal a { color: rgba(10,21,32,0.55) !important; }
 
 /* Light mode OTP boxes */
 [data-theme="light"] .fc-otp-box {

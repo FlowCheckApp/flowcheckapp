@@ -6007,7 +6007,7 @@ window.FCApp = (function () {
       if (window.Sentry) Sentry.captureException(err, { tags: { flow: 'register' } });
       haptic('heavy');
     } finally {
-      _setLoading('btn-register', false, 'Start Free Trial');
+      _setLoading('btn-register', false, 'Create Account');
     }
   }
 
@@ -6069,6 +6069,7 @@ window.FCApp = (function () {
 
     try {
       await FCAuth.sendPasswordReset(email);
+      haptic('medium');
 
       // Show success state
       const sentEl = document.getElementById('fp-sent-email');
@@ -6213,9 +6214,9 @@ window.FCApp = (function () {
    * permission screen (new users only) before onboarding.
    */
   async function handleBiometricSetup() {
+    haptic('medium');
     try {
       if (FCAuth.setBiometricEnabled) await FCAuth.setBiometricEnabled(true);
-      haptic('medium');
     } catch (_) {
       // Biometrics unavailable on this device — silently skip
     }
@@ -6238,7 +6239,7 @@ window.FCApp = (function () {
   function startTrialFromOnboarding() {
     haptic('medium');
     // Pre-select whichever plan the user picked on the onboarding slide
-    _selectedPlan = window._obSelectedPlan || 'monthly';
+    _selectedPlan = 'monthly';
     showPaywall();
   }
 
