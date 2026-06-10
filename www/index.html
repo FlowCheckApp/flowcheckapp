@@ -3738,6 +3738,14 @@ body {
       <a href="#" onclick="FCApp.openUrl('/legal/privacy.html'); return false">Privacy</a>
     </div>
 
+    <!-- App Review demo bypass — tester can explore without a real bank account -->
+    <button id="pw-demo-btn" type="button" onclick="FCApp.startDemoMode()"
+            style="background:none;border:none;color:rgba(255,255,255,0.22);font-size:11px;
+                   padding:10px 16px;cursor:pointer;-webkit-tap-highlight-color:transparent;
+                   min-height:44px;display:block;margin:0 auto">
+      App Review: Use Demo Account
+    </button>
+
     <div style="height:calc(env(safe-area-inset-bottom) + 4px)"></div>
   </div>
 
