@@ -37,7 +37,7 @@ public class CapacitorGoogleAuth: CAPPlugin, CAPBridgedPlugin {
             if gid.hasPreviousSignIn() {
                 gid.restorePreviousSignIn { user, error in
                     if let error = error { call.reject(error.localizedDescription); return }
-                    if let user = user { self.resolve(user: user, call: call) }
+                    if let user = user { self.resolve(user: user, serverAuthCode: nil, call: call) }
                 }
             } else {
                 guard let vc = self.bridge?.viewController else {
@@ -47,7 +47,9 @@ public class CapacitorGoogleAuth: CAPPlugin, CAPBridgedPlugin {
                     if let error = error {
                         call.reject(error.localizedDescription, "\((error as NSError).code)"); return
                     }
-                    if let user = result?.user { self.resolve(user: user, call: call) }
+                    if let user = result?.user {
+                        self.resolve(user: user, serverAuthCode: result?.serverAuthCode, call: call)
+                    }
                 }
             }
         }
@@ -101,14 +103,14 @@ public class CapacitorGoogleAuth: CAPPlugin, CAPBridgedPlugin {
         GIDSignIn.sharedInstance.handle(url)
     }
 
-    private func resolve(user: GIDGoogleUser, call: CAPPluginCall) {
+    private func resolve(user: GIDGoogleUser, serverAuthCode: String?, call: CAPPluginCall) {
         var data: [String: Any] = [
             "authentication": [
                 "accessToken":  user.accessToken.tokenString,
                 "idToken":      user.idToken?.tokenString ?? NSNull(),
                 "refreshToken": user.refreshToken.tokenString,
             ],
-            "serverAuthCode": user.serverAuthCode ?? NSNull(),
+            "serverAuthCode": serverAuthCode ?? NSNull(),
             "email":          user.profile?.email      ?? NSNull(),
             "familyName":     user.profile?.familyName ?? NSNull(),
             "givenName":      user.profile?.givenName  ?? NSNull(),
