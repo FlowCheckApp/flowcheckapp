@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Terms of Service — FlowCheck</title>
+  <meta name="description" content="FlowCheck Terms of Service — the rules for using the app." />
+  <link rel="icon" href="favicon.ico" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --navy: #0a1520; --navy-2: #0f1e2e; --cyan: #1ac4f0; --purple: #6b3fe0; --white: #ffffff; --gray-1: #e8edf2; --gray-2: #9aaabb; --gray-3: #4a6077; }
+    html { scroll-behavior: smooth; }
+    body { font-family: 'Inter', -apple-system, sans-serif; background: var(--navy); color: var(--white); line-height: 1.7; }
+    nav { position: sticky; top: 0; z-index: 100; display: flex; align-items: center; justify-content: space-between; padding: 0 40px; height: 64px; background: rgba(10,21,32,0.9); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .nav-logo { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 18px; color: var(--white); text-decoration: none; }
+    .nav-logo-mark { width: 28px; height: 28px; border-radius: 7px; background: linear-gradient(135deg, var(--cyan), var(--purple)); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 900; color: #0a1520; }
+    .nav-back { font-size: 14px; color: var(--gray-2); text-decoration: none; }
+    .nav-back:hover { color: var(--white); }
+    .page-hero { padding: 80px 40px 60px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .page-badge { display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--cyan); margin-bottom: 16px; }
+    h1 { font-size: clamp(32px, 5vw, 52px); font-weight: 900; letter-spacing: -0.03em; margin-bottom: 16px; }
+    .page-meta { font-size: 14px; color: var(--gray-3); }
+    .doc-layout { max-width: 900px; margin: 0 auto; padding: 60px 40px 100px; display: grid; grid-template-columns: 220px 1fr; gap: 60px; align-items: start; }
+    @media (max-width: 768px) { .doc-layout { grid-template-columns: 1fr; padding: 40px 20px 80px; } .toc { display: none; } nav { padding: 0 20px; } .page-hero { padding: 60px 20px 40px; } }
+    .toc { position: sticky; top: 80px; }
+    .toc h4 { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--gray-3); margin-bottom: 16px; }
+    .toc ul { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+    .toc a { font-size: 13px; color: var(--gray-3); text-decoration: none; padding: 4px 0; display: block; transition: color 0.2s; }
+    .toc a:hover { color: var(--cyan); }
+    .doc-content h2 { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; margin: 48px 0 16px; color: var(--white); }
+    .doc-content h2:first-child { margin-top: 0; }
+    .doc-content h3 { font-size: 16px; font-weight: 700; margin: 24px 0 10px; color: var(--gray-1); }
+    .doc-content p { font-size: 15px; color: var(--gray-2); margin-bottom: 16px; line-height: 1.8; }
+    .doc-content ul, .doc-content ol { padding-left: 24px; margin-bottom: 16px; }
+    .doc-content li { font-size: 15px; color: var(--gray-2); margin-bottom: 8px; line-height: 1.7; }
+    .doc-content strong { color: var(--white); font-weight: 600; }
+    .doc-content a { color: var(--cyan); }
+    .highlight-box { background: rgba(26,196,240,0.06); border: 1px solid rgba(26,196,240,0.2); border-radius: 12px; padding: 20px 24px; margin: 24px 0; }
+    .highlight-box p { margin: 0; color: var(--gray-1); }
+    .highlight-box strong { color: var(--cyan); }
+    .warning-box { background: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.2); border-radius: 12px; padding: 20px 24px; margin: 24px 0; }
+    .warning-box p { margin: 0; color: var(--gray-1); }
+    .section-divider { border: none; border-top: 1px solid rgba(255,255,255,0.06); margin: 40px 0; }
+    footer { padding: 40px; text-align: center; border-top: 1px solid rgba(255,255,255,0.06); font-size: 13px; color: var(--gray-3); }
+    footer a { color: var(--gray-3); text-decoration: none; margin: 0 8px; }
+    footer a:hover { color: var(--white); }
+  </style>
+</head>
+<body>
+<nav style="position:sticky;top:0;z-index:9999;background:rgba(10,21,32,0.97);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,0.06);padding:14px 20px;display:flex;align-items:center;gap:10px"><button onclick="history.back()" style="background:none;border:none;color:#1ac4f0;font-size:15px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;padding:0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>FlowCheck</button></nav>
+
+<nav>
+  <a href="index.html" class="nav-logo">
+    <div class="nav-logo-mark">F</div>
+    FlowCheck
+  </a>
+  <a href="index.html" class="nav-back">← Back to Home</a>
+</nav>
+
+<div class="page-hero">
+  <div class="page-badge">Legal</div>
+  <h1>Terms of Service</h1>
+  <p class="page-meta">Last updated: June 2, 2026 · Effective: June 2, 2026</p>
+</div>
+
+<div class="doc-layout">
+  <aside class="toc">
+    <h4>Contents</h4>
+    <ul>
+      <li><a href="#acceptance">Acceptance</a></li>
+      <li><a href="#description">Service Description</a></li>
+      <li><a href="#eligibility">Eligibility</a></li>
+      <li><a href="#account">Your Account</a></li>
+      <li><a href="#subscriptions">Subscriptions</a></li>
+      <li><a href="#acceptable-use">Acceptable Use</a></li>
+      <li><a href="#financial-info">Financial Information</a></li>
+      <li><a href="#third-party">Third-Party Services</a></li>
+      <li><a href="#ip">Intellectual Property</a></li>
+      <li><a href="#disclaimer">Disclaimers</a></li>
+      <li><a href="#liability">Limitation of Liability</a></li>
+      <li><a href="#indemnification">Indemnification</a></li>
+      <li><a href="#termination">Termination</a></li>
+      <li><a href="#governing-law">Governing Law</a></li>
+      <li><a href="#changes">Changes to Terms</a></li>
+      <li><a href="#contact">Contact</a></li>
+    </ul>
+  </aside>
+
+  <div class="doc-content">
+
+    <div class="highlight-box">
+      <p><strong>Plain English summary:</strong> Use FlowCheck for your personal finances only. Don't abuse the service. Pay for Pro if you want Pro features. We provide the best app we can but cannot guarantee financial outcomes. You can cancel and delete your account any time.</p>
+    </div>
+
+    <h2 id="acceptance">1. Acceptance of Terms</h2>
+    <p>By downloading, installing, or using the FlowCheck mobile application or any related services (collectively, the "Service"), you agree to be bound by these Terms of Service ("Terms"). If you do not agree to these Terms, do not use the Service.</p>
+    <p>These Terms constitute a legally binding agreement between you and FlowCheck ("Company," "we," "our," or "us"). By accessing or using our Service, you confirm that you have read, understood, and agree to be bound by these Terms and our <a href="privacy.html">Privacy Policy</a>, which is incorporated herein by reference.</p>
+
+    <h2 id="description">2. Description of Service</h2>
+    <p>FlowCheck is a personal finance management application that allows users to:</p>
+    <ul>
+      <li>Connect bank accounts and financial institutions via Plaid's secure connection</li>
+      <li>View account balances and transaction history</li>
+      <li>Track spending by category and time period</li>
+      <li>Set and monitor budgets and financial goals</li>
+      <li>View credit score information powered by Experian</li>
+      <li>Track bills, subscriptions, and recurring charges</li>
+      <li>Detect and review zombie subscriptions (forgotten recurring charges)</li>
+      <li>View a personalized Financial Health Score</li>
+      <li>Manage a debt payoff planner</li>
+      <li>Receive financial insights, budget alerts, and push notifications</li>
+      <li>Manage your profile, including name, email address, and notification preferences</li>
+    </ul>
+    <p>We reserve the right to modify, suspend, or discontinue any part of the Service at any time with reasonable notice.</p>
+
+    <h2 id="eligibility">3. Eligibility</h2>
+    <p>You must be at least 18 years old to use FlowCheck. By using the Service, you represent and warrant that:</p>
+    <ul>
+      <li>You are at least 18 years of age</li>
+      <li>You have the legal capacity to enter into binding contracts</li>
+      <li>You are a resident of the United States (or a jurisdiction where the Service is available)</li>
+      <li>Your use of the Service does not violate any applicable law or regulation</li>
+    </ul>
+
+    <h2 id="account">4. Your Account</h2>
+    <h3>4.1 Account Creation</h3>
+    <p>You must create an account to use FlowCheck. You agree to provide accurate, current, and complete information during registration and to keep your information updated.</p>
+
+    <h3>4.2 Account Security</h3>
+    <p>You are responsible for maintaining the confidentiality of your account credentials and for all activities that occur under your account. You agree to immediately notify us at <a href="mailto:security@getflowcheck.app">security@getflowcheck.app</a> of any unauthorized use of your account or any other security breach.</p>
+
+    <h3>4.3 One Account Per Person</h3>
+    <p>Each user may maintain only one account. Creating multiple accounts is prohibited.</p>
+
+    <h2 id="subscriptions">5. Subscriptions and Payments</h2>
+
+    <h3>5.1 Free Tier</h3>
+    <p>FlowCheck offers a free tier with limited features. No payment information is required for the free tier.</p>
+
+    <h3>5.2 FlowCheck Pro</h3>
+    <p>FlowCheck Pro is a paid subscription offering additional features. Subscriptions are offered on a monthly ($4.99/month) or annual ($34.99/year) basis, with prices subject to change. All payments are processed through Apple's App Store.</p>
+
+    <h3>5.3 Free Trial</h3>
+    <p>We may offer a free trial period for FlowCheck Pro. At the end of the trial, your subscription will automatically renew at the applicable subscription rate unless you cancel before the trial period ends.</p>
+
+    <h3>5.4 Billing and Renewal</h3>
+    <p>Subscriptions automatically renew at the end of each billing period. Your Apple ID will be charged for renewal within 24 hours before the end of the current period. You can manage and cancel subscriptions through your Apple ID Account Settings.</p>
+
+    <h3>5.5 Subscription Management</h3>
+    <p>All subscriptions are managed through Apple's App Store via RevenueCat. You can manage, upgrade, downgrade, or cancel your subscription at any time by going to <strong>Settings → Apple ID → Subscriptions</strong> on your device, or within the FlowCheck app at <strong>Settings → FlowCheck Pro → Manage</strong>.</p>
+
+    <h3>5.6 Restore Purchases</h3>
+    <p>If you have previously purchased FlowCheck Pro and it is not reflected in the app, use the <strong>Restore Purchases</strong> option on the paywall screen. Purchases are tied to your Apple ID and can be restored on any device signed in with the same Apple ID.</p>
+
+    <h3>5.7 Refunds</h3>
+    <p>All purchases are processed by Apple and subject to <a href="https://www.apple.com/legal/internet-services/itunes/us/terms.html" target="_blank">Apple's refund policies</a>. FlowCheck does not process refunds directly. To request a refund, visit <a href="https://reportaproblem.apple.com" target="_blank">reportaproblem.apple.com</a> or contact Apple Support. You may also contact us at <a href="mailto:support@getflowcheck.app">support@getflowcheck.app</a> and we will assist you in the process.</p>
+
+    <h3>5.8 Cancellation</h3>
+    <p>You may cancel your subscription at any time through your Apple ID Account Settings. Cancellation takes effect at the end of the current billing period — you retain access to Pro features until then. Canceling does not delete your account or data.</p>
+
+    <h2 id="acceptable-use">6. Acceptable Use</h2>
+    <p>You agree to use the Service only for lawful personal finance management purposes. You must not:</p>
+    <ul>
+      <li>Use the Service for any commercial, business, or revenue-generating purpose</li>
+      <li>Attempt to access accounts, financial data, or systems other than your own</li>
+      <li>Reverse engineer, decompile, or disassemble any part of the app</li>
+      <li>Scrape, crawl, or systematically extract data from the Service</li>
+      <li>Circumvent, disable, or interfere with security features of the Service</li>
+      <li>Use the Service to commit fraud or engage in any illegal financial activity</li>
+      <li>Upload or transmit viruses or malicious code</li>
+      <li>Impersonate any person or entity</li>
+      <li>Share your account with others or resell access to the Service</li>
+    </ul>
+
+    <h2 id="financial-info">7. Financial Information Disclaimer</h2>
+
+    <div class="warning-box">
+      <p><strong>Important:</strong> FlowCheck is a financial tracking and budgeting tool, not a licensed financial advisor, broker, or credit counselor. Nothing in FlowCheck constitutes financial advice.</p>
+    </div>
+
+    <p>The information provided through FlowCheck — including account balances, transaction data, spending insights, budget analysis, credit scores, and financial projections — is provided for informational purposes only. You acknowledge and agree that:</p>
+    <ul>
+      <li>FlowCheck does not provide investment advice, tax advice, legal advice, or financial planning services</li>
+      <li>Financial data displayed may be delayed or subject to errors from your financial institutions or Plaid</li>
+      <li>Credit scores displayed are provided by Experian and may differ from scores used by lenders</li>
+      <li>Budget suggestions and insights are algorithmic and do not account for your complete financial situation</li>
+      <li>You should consult qualified financial professionals for significant financial decisions</li>
+    </ul>
+
+    <h2 id="third-party">8. Third-Party Services</h2>
+    <p>FlowCheck integrates with third-party services including Plaid, Experian, Firebase (Google), Apple App Store, and RevenueCat. Your use of these third-party services is subject to their respective terms of service and privacy policies. We are not responsible for the practices, content, or availability of third-party services.</p>
+    <p>In particular, your bank connection is governed by Plaid's <a href="https://plaid.com/legal/" target="_blank">Terms of Service</a> and End User License Agreement, which you accept when you connect your bank account through FlowCheck.</p>
+
+    <h2 id="ip">9. Intellectual Property</h2>
+    <p>The Service and all of its contents, features, and functionality (including but not limited to the design, graphics, code, text, and user interface) are owned by FlowCheck and are protected by copyright, trademark, and other intellectual property laws.</p>
+    <p>We grant you a limited, non-exclusive, non-transferable, revocable license to use the Service for your personal, non-commercial use. You may not copy, modify, distribute, sell, or lease any part of the Service without our prior written consent.</p>
+    <p>You retain all rights to the financial data and content you provide. By using the Service, you grant us a limited license to process and display your data solely to provide the Service features to you.</p>
+
+    <h2 id="disclaimer">10. Disclaimers and Warranties</h2>
+    <p><strong>THE SERVICE IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED.</strong> To the fullest extent permitted by law, FlowCheck disclaims all warranties, including but not limited to:</p>
+    <ul>
+      <li>Implied warranties of merchantability, fitness for a particular purpose, and non-infringement</li>
+      <li>Warranties that the Service will be uninterrupted, error-free, or secure</li>
+      <li>Warranties that data displayed will be accurate, complete, or current</li>
+      <li>Warranties regarding the accuracy of credit scores, financial insights, or projections</li>
+    </ul>
+
+    <h2 id="liability">11. Limitation of Liability</h2>
+    <p>TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, FLOWCHECK AND ITS OFFICERS, DIRECTORS, EMPLOYEES, AND AGENTS SHALL NOT BE LIABLE FOR:</p>
+    <ul>
+      <li>Any indirect, incidental, special, consequential, or punitive damages</li>
+      <li>Loss of profits, revenue, data, or financial opportunity</li>
+      <li>Any financial decisions made based on information displayed in the app</li>
+      <li>Any unauthorized access to or alteration of your data by third parties</li>
+      <li>Any errors or omissions in financial data provided by Plaid, Experian, or your financial institutions</li>
+    </ul>
+    <p>In any event, our total liability to you for all claims shall not exceed the greater of (a) the amounts you paid to FlowCheck in the 12 months preceding the claim, or (b) $50.</p>
+
+    <h2 id="indemnification">12. Indemnification</h2>
+    <p>You agree to defend, indemnify, and hold harmless FlowCheck and its officers, directors, employees, and agents from any claims, damages, losses, liabilities, and expenses (including reasonable attorneys' fees) arising from your use of the Service, your violation of these Terms, or your violation of any third-party rights.</p>
+
+    <h2 id="termination">13. Termination and Account Deletion</h2>
+    <p>You may permanently delete your account at any time by navigating to <strong>Settings → Delete My Account &amp; Data</strong> within the app. Account deletion is irreversible and will permanently erase your profile, linked account data, transaction history, goals, budgets, and all other personal data stored by FlowCheck. This satisfies Apple's requirement for apps to offer in-app account deletion.</p>
+    <p>Deleting your account does not automatically cancel an active App Store subscription — you must cancel separately through your Apple ID Account Settings.</p>
+    <p>We may suspend or terminate your access to the Service immediately, without prior notice, if we reasonably believe you have violated these Terms, engaged in fraudulent activity, or if required by law. Upon termination, your right to use the Service ceases immediately.</p>
+
+    <h2 id="governing-law">14. Governing Law and Dispute Resolution</h2>
+    <p>These Terms are governed by the laws of the State of Delaware, United States, without regard to conflict of law principles. Any disputes arising from these Terms or your use of the Service shall be resolved through binding arbitration in accordance with the American Arbitration Association rules, rather than in court, except that either party may seek injunctive relief in court for intellectual property infringement.</p>
+    <p>You waive any right to participate in class action lawsuits or class-wide arbitration. If any provision of this arbitration clause is found unenforceable, that provision shall be severed and the remainder shall remain in full force.</p>
+
+    <h2 id="changes">15. Changes to These Terms</h2>
+    <p>We may modify these Terms at any time. When we make material changes, we will notify you via email or an in-app notification at least 30 days before the changes take effect. Your continued use of the Service after the effective date of revised Terms constitutes acceptance of the changes.</p>
+    <p>If you do not agree to the revised Terms, you must stop using the Service and delete your account before the effective date.</p>
+
+    <h2 id="contact">16. Contact Us</h2>
+    <p>If you have questions about these Terms of Service, please contact us:</p>
+    <ul>
+      <li><strong>Email:</strong> <a href="mailto:legal@getflowcheck.app">legal@getflowcheck.app</a></li>
+      <li><strong>Support:</strong> <a href="support.html">getflowcheck.app/support</a></li>
+      <li><strong>General:</strong> <a href="mailto:hello@getflowcheck.app">hello@getflowcheck.app</a></li>
+    </ul>
+  </div>
+</div>
+
+<footer>
+  <p>© 2026 FlowCheck · <a href="index.html">Home</a> · <a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a> · <a href="support.html">Support</a></p>
+</footer>
+
+</body>
+</html>
