@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy — FlowCheck</title>
+  <meta name="description" content="FlowCheck Privacy Policy — how we collect, use, and protect your financial data." />
+  <link rel="icon" href="favicon.ico" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --navy: #0a1520; --navy-2: #0f1e2e; --cyan: #1ac4f0; --purple: #2563eb;
+      --white: #ffffff; --gray-1: #e8edf2; --gray-2: #9aaabb; --gray-3: #4a6077;
+    }
+    html { scroll-behavior: smooth; }
+    body { font-family: 'Inter', -apple-system, sans-serif; background: var(--navy); color: var(--white); line-height: 1.7; }
+
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 40px; height: 64px;
+      background: rgba(10,21,32,0.9); backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .nav-logo { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 18px; color: var(--white); text-decoration: none; }
+    .nav-logo-mark { width: 28px; height: 28px; border-radius: 7px; background: linear-gradient(135deg, var(--cyan), var(--purple)); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 900; color: #0a1520; }
+    .nav-back { font-size: 14px; color: var(--gray-2); text-decoration: none; }
+    .nav-back:hover { color: var(--white); }
+
+    .page-hero {
+      padding: 80px 40px 60px;
+      text-align: center;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .page-badge { display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--cyan); margin-bottom: 16px; }
+    h1 { font-size: clamp(32px, 5vw, 52px); font-weight: 900; letter-spacing: -0.03em; margin-bottom: 16px; }
+    .page-meta { font-size: 14px; color: var(--gray-3); }
+
+    .doc-layout {
+      max-width: 900px; margin: 0 auto; padding: 60px 40px 100px;
+      display: grid; grid-template-columns: 220px 1fr; gap: 60px; align-items: start;
+    }
+    @media (max-width: 768px) {
+      .doc-layout { grid-template-columns: 1fr; padding: 40px 20px 80px; }
+      .toc { display: none; }
+      nav { padding: 0 20px; }
+      .page-hero { padding: 60px 20px 40px; }
+    }
+
+    .toc { position: sticky; top: 80px; }
+    .toc h4 { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--gray-3); margin-bottom: 16px; }
+    .toc ul { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+    .toc a { font-size: 13px; color: var(--gray-3); text-decoration: none; padding: 4px 0; display: block; transition: color 0.2s; }
+    .toc a:hover { color: var(--cyan); }
+
+    .doc-content h2 {
+      font-size: 24px; font-weight: 800; letter-spacing: -0.02em;
+      margin: 48px 0 16px; padding-top: 8px;
+      color: var(--white);
+    }
+    .doc-content h2:first-child { margin-top: 0; }
+    .doc-content h3 { font-size: 17px; font-weight: 700; margin: 28px 0 10px; color: var(--gray-1); }
+    .doc-content p { font-size: 15px; color: var(--gray-2); margin-bottom: 16px; line-height: 1.8; }
+    .doc-content ul, .doc-content ol { padding-left: 24px; margin-bottom: 16px; }
+    .doc-content li { font-size: 15px; color: var(--gray-2); margin-bottom: 8px; line-height: 1.7; }
+    .doc-content strong { color: var(--white); font-weight: 600; }
+    .doc-content a { color: var(--cyan); }
+    .highlight-box {
+      background: rgba(26,196,240,0.06); border: 1px solid rgba(26,196,240,0.2);
+      border-radius: 12px; padding: 20px 24px; margin: 24px 0;
+    }
+    .highlight-box p { margin: 0; color: var(--gray-1); }
+    .highlight-box strong { color: var(--cyan); }
+    .section-divider { border: none; border-top: 1px solid rgba(255,255,255,0.06); margin: 40px 0; }
+
+    footer {
+      padding: 40px; text-align: center;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      font-size: 13px; color: var(--gray-3);
+    }
+    footer a { color: var(--gray-3); text-decoration: none; margin: 0 8px; }
+    footer a:hover { color: var(--white); }
+  </style>
+</head>
+<body>
+<nav style="position:sticky;top:0;z-index:9999;background:rgba(10,21,32,0.97);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,0.06);padding:14px 20px;display:flex;align-items:center;gap:10px"><button onclick="history.back()" style="background:none;border:none;color:#1ac4f0;font-size:15px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;padding:0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>FlowCheck</button></nav>
+
+<nav>
+  <a href="index.html" class="nav-logo">
+    <div class="nav-logo-mark">F</div>
+    FlowCheck
+  </a>
+  <a href="index.html" class="nav-back">← Back to Home</a>
+</nav>
+
+<div class="page-hero">
+  <div class="page-badge">Legal</div>
+  <h1>Privacy Policy</h1>
+  <p class="page-meta">Last updated: June 2, 2026 · Effective: June 2, 2026</p>
+</div>
+
+<div class="doc-layout">
+  <aside class="toc">
+    <h4>Contents</h4>
+    <ul>
+      <li><a href="#overview">Overview</a></li>
+      <li><a href="#information">Information We Collect</a></li>
+      <li><a href="#plaid">Plaid & Bank Data</a></li>
+      <li><a href="#experian">Credit Score</a></li>
+      <li><a href="#firebase">Firebase</a></li>
+      <li><a href="#notifications">Notifications</a></li>
+      <li><a href="#revenuecat">RevenueCat</a></li>
+      <li><a href="#how-we-use">How We Use Data</a></li>
+      <li><a href="#sharing">Data Sharing</a></li>
+      <li><a href="#security">Security</a></li>
+      <li><a href="#retention">Data Retention</a></li>
+      <li><a href="#ccpa">CCPA Rights</a></li>
+      <li><a href="#gdpr">GDPR Rights</a></li>
+      <li><a href="#children">Children's Privacy</a></li>
+      <li><a href="#changes">Changes to This Policy</a></li>
+      <li><a href="#contact">Contact Us</a></li>
+    </ul>
+  </aside>
+
+  <div class="doc-content">
+
+    <div class="highlight-box">
+      <p><strong>The short version:</strong> We collect only what we need to run FlowCheck. We never sell your financial data. Your bank credentials never touch our servers. You can delete everything at any time.</p>
+    </div>
+
+    <h2 id="overview">1. Overview</h2>
+    <p>FlowCheck ("we," "our," or "us") is a personal finance application ("App") operated by FlowCheck. This Privacy Policy explains how we collect, use, disclose, and protect your information when you use our mobile application and related services (collectively, the "Service").</p>
+    <p>By using FlowCheck, you agree to the collection and use of information in accordance with this policy. If you do not agree, please do not use our Service.</p>
+
+    <h2 id="information">2. Information We Collect</h2>
+
+    <h3>2.1 Account Information</h3>
+    <p>When you create a FlowCheck account, we collect:</p>
+    <ul>
+      <li>Email address (for account authentication and notifications)</li>
+      <li>Display name and optional phone number (set by you in Profile settings)</li>
+      <li>Authentication identifiers (Firebase Auth UID)</li>
+      <li>Device token for push notifications (optional, if you grant permission)</li>
+      <li>Profile picture or avatar initial (generated from your name; custom photos stored only if you provide them)</li>
+    </ul>
+    <p>You can update your name, email address, and phone number at any time through <strong>Settings → Edit Profile</strong>. Email address changes require recent re-authentication for your security and trigger a Firebase email verification to the new address.</p>
+
+    <h3>2.2 Financial Data (via Plaid)</h3>
+    <p>If you choose to connect a bank account, we receive the following data <strong>from Plaid</strong> on your behalf:</p>
+    <ul>
+      <li>Account balances (checking, savings, credit, investment)</li>
+      <li>Transaction history (merchant name, amount, date, category)</li>
+      <li>Account metadata (institution name, account type, last 4 digits of account number)</li>
+    </ul>
+    <p><strong>We never receive or store your bank username, password, or full account numbers.</strong> These credentials are handled exclusively by Plaid's secure infrastructure.</p>
+
+    <h3>2.3 Manually Entered Data</h3>
+    <p>You may optionally enter:</p>
+    <ul>
+      <li>Manual account balances (savings accounts, debts not connected via Plaid)</li>
+      <li>Financial goals (name, target amount, target date)</li>
+      <li>Bill reminders (name, amount, due date)</li>
+      <li>Monthly budget limits by category</li>
+      <li>A manually entered credit score (from your bank or credit monitoring service)</li>
+    </ul>
+
+    <h3>2.4 Device & Usage Data</h3>
+    <p>We may automatically collect:</p>
+    <ul>
+      <li>Device type, operating system version, and app version</li>
+      <li>Crash reports and error logs (for debugging purposes)</li>
+      <li>App feature usage patterns (aggregated, not personally identifiable)</li>
+      <li>IP address (used for fraud prevention only, not stored long-term)</li>
+    </ul>
+
+    <h2 id="plaid">3. Plaid — Bank Connection</h2>
+    <p>FlowCheck uses <strong>Plaid Technologies, Inc.</strong> to securely connect to your financial institutions. When you connect a bank account:</p>
+    <ul>
+      <li>You authenticate directly with Plaid — your credentials never reach FlowCheck servers</li>
+      <li>Plaid provides us with an access token, which we store securely on our backend (never in the app or on your device)</li>
+      <li>We use this token only to sync your accounts and transactions</li>
+      <li>You may connect multiple financial institutions simultaneously. Each connection is managed independently — disconnecting one bank does not affect your other connected banks.</li>
+      <li>When you disconnect a bank, we immediately revoke that bank's Plaid access token and delete all accounts and transaction history associated with it from our systems. If you disconnect all banks, your Plaid-linked status is fully cleared.</li>
+      <li>When you delete your account, all Plaid connections are revoked and all associated financial data is deleted across all linked banks.</li>
+    </ul>
+    <p>Plaid's data practices are governed by their own privacy policy, available at <a href="https://plaid.com/legal/privacy-policy/" target="_blank">plaid.com/legal/privacy-policy</a>. By using the bank connection feature, you agree to Plaid's <a href="https://plaid.com/legal/end-user-privacy-policy/" target="_blank">End User Privacy Policy</a>.</p>
+
+    <h2 id="experian">4. Credit Score</h2>
+    <p>FlowCheck allows you to manually enter a credit score you already know from your bank, credit card issuer, or credit monitoring service (such as Credit Karma, Experian app, or your bank's app). FlowCheck does not retrieve credit reports or contact any credit bureau directly.</p>
+    <ul>
+      <li>The score you enter is stored in your FlowCheck account and used only to display your financial health score within the app</li>
+      <li>FlowCheck never performs credit inquiries (hard or soft) on your behalf</li>
+      <li>No Social Security Number or personal identifying information is required or requested</li>
+      <li>Your manually entered credit score is deleted when you delete your FlowCheck account</li>
+    </ul>
+
+    <h2 id="firebase">5. Firebase (Google)</h2>
+    <p>FlowCheck uses <strong>Google Firebase</strong> for the following purposes:</p>
+    <ul>
+      <li><strong>Firebase Authentication:</strong> Securely manages your account login (email/password and Apple Sign-In). Firebase handles credential storage and session management.</li>
+      <li><strong>Firestore Database:</strong> Stores your account data, financial summaries, goals, bills, and app preferences in a secure, encrypted database. Access is restricted by Firebase Security Rules — only you can read your own data.</li>
+      <li><strong>Firebase Cloud Messaging (FCM):</strong> Used to deliver budget alerts and bill reminders to your device (only if you grant notification permission).</li>
+    </ul>
+    <p>Google's data practices for Firebase are governed by the <a href="https://policies.google.com/privacy" target="_blank">Google Privacy Policy</a>. Your data is stored in the United States on Google Cloud infrastructure.</p>
+
+    <h2 id="notifications">5a. Notification Center & History</h2>
+    <p>FlowCheck includes an in-app notification center that displays a history of alerts sent to you, such as bill reminders, budget alerts, and sync confirmations. Specifically:</p>
+    <ul>
+      <li><strong>Notification history</strong> is stored in your personal Firestore database (in a <code>notifications</code> subcollection under your user record). Only you can access it.</li>
+      <li>Each record contains the notification title, body, type (e.g., "bill_due"), read/unread status, and a server-generated timestamp.</li>
+      <li>Notifications are retained for the life of your account. When you delete your account, all notification history is deleted as part of the full data erasure process.</li>
+      <li>Push notification delivery tokens (FCM tokens) are registered on our backend to route alerts to the correct device. If your device token changes (e.g., app reinstall), the old token is automatically replaced. Tokens are removed when your account is deleted.</li>
+    </ul>
+    <p>You can revoke push notification permission at any time through iOS Settings → FlowCheck → Notifications. This stops future push delivery but does not delete existing notification history from the app.</p>
+
+    <h2 id="revenuecat">6. RevenueCat — Subscriptions</h2>
+    <p>FlowCheck uses <strong>RevenueCat</strong> to manage in-app subscriptions (FlowCheck Pro). RevenueCat receives:</p>
+    <ul>
+      <li>A random anonymous user ID (not your email or name)</li>
+      <li>Subscription status and product identifiers from Apple's App Store</li>
+      <li>Purchase timestamps for subscription management</li>
+    </ul>
+    <p>RevenueCat does not receive your financial data. Their privacy policy is at <a href="https://www.revenuecat.com/privacy" target="_blank">revenuecat.com/privacy</a>. All payment processing is handled by Apple — FlowCheck never touches your payment card information.</p>
+
+    <h2 id="posthog">7. PostHog — Analytics</h2>
+    <p>FlowCheck uses <strong>PostHog</strong> to collect anonymous app usage analytics. This helps us understand how the app is being used so we can fix bugs and improve the experience.</p>
+    <p>PostHog receives:</p>
+    <ul>
+      <li>A random anonymous user ID (your Firebase UID — not your email or name)</li>
+      <li>App interaction events such as which screens are viewed and which tabs are visited</li>
+      <li>Non-financial app events such as paywall views and feature engagement</li>
+      <li>Device type and app version</li>
+    </ul>
+    <p><strong>PostHog does not receive any of the following:</strong> your name, email address, bank account data, transaction history, balances, or any other financial information. We have explicitly disabled automatic data capture and only send carefully selected non-sensitive events.</p>
+    <p>PostHog data is stored on PostHog's US-based infrastructure. Their privacy policy is at <a href="https://posthog.com/privacy" target="_blank">posthog.com/privacy</a>.</p>
+
+    <h2 id="how-we-use">8. How We Use Your Information</h2>
+    <p>We use the information we collect to:</p>
+    <ul>
+      <li>Provide, operate, and improve the FlowCheck app and services</li>
+      <li>Display your accounts, transactions, balances, and financial summaries</li>
+      <li>Send budget alerts, bill reminders, and important account notifications</li>
+      <li>Authenticate you securely and prevent unauthorized access</li>
+      <li>Respond to your support requests and inquiries</li>
+      <li>Detect and prevent fraud, security threats, and abuse</li>
+      <li>Comply with legal obligations</li>
+    </ul>
+    <p>We do <strong>not</strong> use your data for advertising, behavioral profiling, or selling to third parties.</p>
+
+    <h2 id="sharing">9. Data Sharing & Disclosure</h2>
+    <p>We do not sell, rent, or trade your personal information. We share data only in the following limited circumstances:</p>
+    <ul>
+      <li><strong>Service Providers:</strong> We share data with Plaid, Firebase (Google), RevenueCat, and PostHog solely to operate the features described in this policy. Each provider is bound by data processing agreements and their own privacy policies.</li>
+      <li><strong>Legal Requirements:</strong> We may disclose information if required by law, court order, or to protect the rights, safety, or property of FlowCheck, our users, or the public.</li>
+      <li><strong>Business Transfer:</strong> If FlowCheck is acquired or merges with another company, your data may be transferred. We will notify you and give you the opportunity to delete your account before any such transfer is finalized.</li>
+    </ul>
+
+    <h2 id="security">9. Security</h2>
+    <p>We implement industry-standard security measures to protect your data:</p>
+    <ul>
+      <li>All data in transit is encrypted using TLS 1.2 or higher (HTTPS)</li>
+      <li>All data at rest is encrypted using AES-256 encryption</li>
+      <li>Firebase Security Rules restrict database access to authenticated users and only their own data</li>
+      <li>Plaid access tokens are stored only on our backend servers, never in the app or on your device</li>
+      <li>Our backend API requires authentication (Firebase ID token) on every request</li>
+      <li>Rate limiting is applied to all API endpoints to prevent abuse</li>
+      <li>The app uses biometric authentication (Face ID / Touch ID) to prevent unauthorized device access</li>
+    </ul>
+    <p>While we take strong precautions, no system is completely secure. If you become aware of any security issue, please contact us immediately at <a href="mailto:security@getflowcheck.app">security@getflowcheck.app</a>.</p>
+
+    <h2 id="retention">10. Data Retention</h2>
+    <p>We retain your data for as long as your account is active or as needed to provide the Service. When you delete your account:</p>
+    <ul>
+      <li>Your Plaid connections are immediately revoked and all synced financial data (accounts and transactions) is deleted for every connected bank</li>
+      <li>Your Firestore data (goals, bills, budgets, settings, notification history) is deleted within 30 days</li>
+      <li>Your push notification device token (FCM token) is removed immediately</li>
+      <li>Your Firebase Auth account is deleted immediately</li>
+      <li>Transaction data cached for the purposes of displaying your history is deleted within 30 days</li>
+      <li>Backup copies may persist for up to 90 days in encrypted backup storage before being permanently purged</li>
+    </ul>
+
+    <hr class="section-divider" />
+
+    <h2 id="ccpa">11. Your Rights Under CCPA (California Residents)</h2>
+    <p>If you are a California resident, the California Consumer Privacy Act (CCPA) grants you specific rights regarding your personal information:</p>
+    <ul>
+      <li><strong>Right to Know:</strong> You may request information about the categories and specific pieces of personal data we have collected about you.</li>
+      <li><strong>Right to Delete:</strong> You may request that we delete your personal data. You can do this at any time through Settings → Delete Account in the app.</li>
+      <li><strong>Right to Opt-Out of Sale:</strong> We do not sell personal information. There is nothing to opt out of.</li>
+      <li><strong>Right to Non-Discrimination:</strong> We will not discriminate against you for exercising any CCPA rights.</li>
+    </ul>
+    <p>To exercise your CCPA rights, contact us at <a href="mailto:privacy@getflowcheck.app">privacy@getflowcheck.app</a> or via our <a href="support.html">Support page</a>. We will respond to verified requests within 45 days.</p>
+
+    <h2 id="gdpr">12. Your Rights Under GDPR (EU/EEA Residents)</h2>
+    <p>If you are located in the European Union or European Economic Area, you have the following rights under the General Data Protection Regulation (GDPR):</p>
+    <ul>
+      <li><strong>Right of Access:</strong> Request a copy of the personal data we hold about you.</li>
+      <li><strong>Right to Rectification:</strong> Request correction of inaccurate personal data.</li>
+      <li><strong>Right to Erasure ("Right to Be Forgotten"):</strong> Request deletion of your personal data (available in-app via Settings → Delete Account).</li>
+      <li><strong>Right to Restriction of Processing:</strong> Request that we restrict how we process your data in certain circumstances.</li>
+      <li><strong>Right to Data Portability:</strong> Request a copy of your data in a structured, machine-readable format.</li>
+      <li><strong>Right to Object:</strong> Object to processing of your personal data for legitimate interests.</li>
+      <li><strong>Right to Withdraw Consent:</strong> Where processing is based on consent, you may withdraw it at any time without affecting the lawfulness of prior processing.</li>
+    </ul>
+    <p>The lawful bases for our data processing are: <strong>contract performance</strong> (providing the app features you've signed up for), <strong>legitimate interests</strong> (security, fraud prevention, and service improvement), and <strong>legal obligation</strong> (compliance with applicable laws).</p>
+    <p>To exercise GDPR rights, contact: <a href="mailto:privacy@getflowcheck.app">privacy@getflowcheck.app</a>. You also have the right to lodge a complaint with your local Data Protection Authority.</p>
+
+    <h2 id="children">13. Children's Privacy</h2>
+    <p>FlowCheck is not directed to children under the age of 13 (or under 16 in the EU). We do not knowingly collect personal information from children. If you believe a child has provided us with personal information, please contact us immediately at <a href="mailto:privacy@getflowcheck.app">privacy@getflowcheck.app</a> and we will delete such information promptly.</p>
+
+    <h2 id="changes">14. Changes to This Privacy Policy</h2>
+    <p>We may update this Privacy Policy from time to time to reflect changes in our practices, technology, legal requirements, or other factors. When we make material changes, we will:</p>
+    <ul>
+      <li>Update the "Last Updated" date at the top of this policy</li>
+      <li>Notify you via email (if you have provided one) or via an in-app notification</li>
+      <li>Where required by law, obtain your consent before making changes effective</li>
+    </ul>
+    <p>Your continued use of FlowCheck after any changes constitutes acceptance of the updated policy.</p>
+
+    <h2 id="contact">15. Contact Us</h2>
+    <p>If you have questions, concerns, or requests regarding this Privacy Policy or our data practices, please reach out:</p>
+    <ul>
+      <li><strong>Email:</strong> <a href="mailto:privacy@getflowcheck.app">privacy@getflowcheck.app</a></li>
+      <li><strong>Support:</strong> <a href="support.html">getflowcheck.app/support</a></li>
+      <li><strong>General:</strong> <a href="mailto:hello@getflowcheck.app">hello@getflowcheck.app</a></li>
+    </ul>
+    <p>We aim to respond to all privacy inquiries within 5 business days.</p>
+
+  </div>
+</div>
+
+<footer>
+  <p>© 2026 FlowCheck · <a href="index.html">Home</a> · <a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a> · <a href="support.html">Support</a></p>
+</footer>
+
+</body>
+</html>

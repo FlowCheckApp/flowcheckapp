@@ -4375,6 +4375,7 @@ body {
       box-shadow:0 6px 24px rgba(0,0,0,0.35),inset 0 1px 0 rgba(255,255,255,0.05);
       border-radius:22px;
     }
+    .ins-section-head{padding:20px 20px 4px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;color:rgba(255,255,255,0.22)}
 
     /* Category rows — slightly more breathing room */
     .fc-category-row{padding:11px 0;border-bottom:0.5px solid rgba(255,255,255,0.04)}
@@ -5257,24 +5258,48 @@ body {
         </div>
         <div id="insights-budget-pace" style="font-size:11px;color:var(--fc-text-faint);margin-top:6px;line-height:1.4"></div>
 
-        <!-- Footer: savings bar + budget health (hidden bars kept for JS compat) -->
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.06)">
-          <div style="display:flex;align-items:center;gap:5px">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--fc-success)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
-            <span style="font-size:10px;color:var(--fc-text-faint);font-weight:500;text-transform:uppercase;letter-spacing:0.3px">Savings Rate</span>
-          </div>
-          <div style="display:flex;align-items:center;gap:10px">
-            <div style="width:60px;height:3px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden">
-              <div id="savings-bar" style="height:100%;background:var(--fc-success);border-radius:2px;width:0%;transition:width 0.9s cubic-bezier(0.25,0.1,0.25,1)"></div>
-            </div>
-            <div style="display:flex;align-items:center;gap:6px">
-              <span style="font-size:10px;color:var(--fc-text-faint);font-weight:500;text-transform:uppercase;letter-spacing:0.3px">Health</span>
-              <span id="insights-budget-health" style="font-size:13px;font-weight:700;color:var(--fc-success)">—</span>
-              <div style="display:none"><div id="insights-budget-health-bar"></div></div>
-            </div>
-          </div>
-        </div>
+        <!-- JS-compat placeholders (not rendered) -->
+        <div style="display:none"><div id="savings-bar"></div><div id="insights-budget-health"></div><div id="insights-budget-health-bar"></div></div>
         <div id="savings-meta" style="display:none"></div>
+      </article>
+    </section>
+
+    <!-- ── Spending by Category ───────────────────────────────────── -->
+    <section class="fc-section" style="padding-bottom:0">
+      <article class="fc-card" style="margin-bottom:10px;padding:20px 20px 16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <h2 class="fc-h3" style="margin:0">Categories</h2>
+          <span style="font-size:11px;color:var(--fc-text-faint)" id="insights-cat-period">this month</span>
+        </div>
+        <!-- Hidden JS-compat placeholders for donut (removed from UI) -->
+        <div style="display:none">
+          <svg id="insights-donut-svg" aria-hidden="true"></svg>
+          <div id="insights-donut-center-amt"></div>
+          <div id="insights-donut-legend"></div>
+        </div>
+        <!-- Category rows -->
+        <div id="insights-categories">
+          <div style="color:var(--fc-text-faint);text-align:center;padding:28px 0;font-size:14px">Connect a bank to see your spending</div>
+        </div>
+      </article>
+    </section>
+
+    <div class="ins-section-head">Trends</div>
+
+    <!-- ── Net Worth Trend ───────────────────────────────────────── -->
+    <section class="fc-section" style="padding-bottom:0">
+      <article class="fc-card" style="margin-bottom:10px" id="insights-nw-card">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px">
+          <div>
+            <div class="fc-eyebrow" style="margin-bottom:4px">Net Worth Trend</div>
+            <div id="insights-nw-value" style="font-size:26px;font-weight:800;letter-spacing:-0.03em;color:white">—</div>
+          </div>
+          <span id="insights-nw-delta" style="font-size:12px;font-weight:600;padding:5px 11px;border-radius:999px;display:none;margin-top:4px"></span>
+        </div>
+        <svg id="insights-nw-sparkline" viewBox="0 0 280 56" width="100%" style="display:block;overflow:visible;margin-bottom:4px" aria-label="Net worth history" role="img">
+          <text x="50%" y="32" text-anchor="middle" fill="rgba(255,255,255,0.1)" font-size="11" font-family="-apple-system,sans-serif">No history yet — check back tomorrow</text>
+        </svg>
+        <div style="font-size:11px;color:var(--fc-text-faint);margin-top:2px" id="insights-nw-range"></div>
       </article>
     </section>
 
@@ -5307,50 +5332,7 @@ body {
       </article>
     </section>
 
-    <!-- ── Spending by Category ───────────────────────────────────── -->
-    <section class="fc-section" style="padding-bottom:0">
-      <article class="fc-card" style="margin-bottom:10px;padding:20px 20px 16px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
-          <h2 class="fc-h3" style="margin:0">Spending Breakdown</h2>
-          <span style="font-size:11px;color:var(--fc-text-faint)" id="insights-cat-period">this month</span>
-        </div>
-        <!-- Donut centred above legend for more visual impact -->
-        <div style="display:flex;flex-direction:column;align-items:center;margin-bottom:20px">
-          <div style="position:relative;flex-shrink:0;width:148px;height:148px">
-            <svg id="insights-donut-svg" viewBox="0 0 120 120" width="148" height="148" style="overflow:visible;transform:rotate(-90deg)" aria-label="Spending donut chart" role="img">
-              <circle cx="60" cy="60" r="46" fill="none" style="stroke:var(--fc-border)" stroke-width="14"/>
-            </svg>
-            <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none">
-              <div id="insights-donut-center-amt" style="font-size:18px;font-weight:800;color:var(--fc-text);letter-spacing:-0.03em;line-height:1">—</div>
-              <div style="font-size:10px;color:var(--fc-text-faint);font-weight:500;margin-top:3px;text-transform:uppercase;letter-spacing:0.04em">spent</div>
-            </div>
-          </div>
-          <!-- Legend: 2-column grid below the donut -->
-          <div id="insights-donut-legend" style="display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;margin-top:16px;width:100%"></div>
-        </div>
-        <!-- Category rows -->
-        <div id="insights-categories">
-          <div style="color:var(--fc-text-faint);text-align:center;padding:28px 0;font-size:14px">Connect a bank to see your spending</div>
-        </div>
-      </article>
-    </section>
-
-    <!-- ── Net Worth Trend ───────────────────────────────────────── -->
-    <section class="fc-section" style="padding-bottom:0">
-      <article class="fc-card" style="margin-bottom:10px" id="insights-nw-card">
-        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px">
-          <div>
-            <div class="fc-eyebrow" style="margin-bottom:4px">Net Worth Trend</div>
-            <div id="insights-nw-value" style="font-size:26px;font-weight:800;letter-spacing:-0.03em;color:white">—</div>
-          </div>
-          <span id="insights-nw-delta" style="font-size:12px;font-weight:600;padding:5px 11px;border-radius:999px;display:none;margin-top:4px"></span>
-        </div>
-        <svg id="insights-nw-sparkline" viewBox="0 0 280 56" width="100%" style="display:block;overflow:visible;margin-bottom:4px" aria-label="Net worth history" role="img">
-          <text x="50%" y="32" text-anchor="middle" fill="rgba(255,255,255,0.1)" font-size="11" font-family="-apple-system,sans-serif">No history yet — check back tomorrow</text>
-        </svg>
-        <div style="font-size:11px;color:var(--fc-text-faint);margin-top:2px" id="insights-nw-range"></div>
-      </article>
-    </section>
+    <div class="ins-section-head">Upcoming</div>
 
     <!-- ── Cash Flow — Next 7 Days ───────────────────────────────── -->
     <section class="fc-section" style="padding-bottom:0">

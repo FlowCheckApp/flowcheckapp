@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Support & FAQ — FlowCheck</title>
+  <meta name="description" content="FlowCheck Support — get help with connecting your bank, subscriptions, account issues, and more." />
+  <link rel="icon" href="favicon.ico" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --navy: #0a1520; --navy-2: #0f1e2e; --navy-3: #152030; --cyan: #1ac4f0; --purple: #6b3fe0; --white: #ffffff; --gray-1: #e8edf2; --gray-2: #9aaabb; --gray-3: #4a6077; --green: #22c55e; }
+    html { scroll-behavior: smooth; }
+    body { font-family: 'Inter', -apple-system, sans-serif; background: var(--navy); color: var(--white); line-height: 1.7; }
+
+    nav { position: sticky; top: 0; z-index: 100; display: flex; align-items: center; justify-content: space-between; padding: 0 40px; height: 64px; background: rgba(10,21,32,0.9); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .nav-logo { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 18px; color: var(--white); text-decoration: none; }
+    .nav-logo-mark { width: 28px; height: 28px; border-radius: 7px; background: linear-gradient(135deg, var(--cyan), var(--purple)); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 900; color: #0a1520; }
+    .nav-back { font-size: 14px; color: var(--gray-2); text-decoration: none; }
+    .nav-back:hover { color: var(--white); }
+
+    .page-hero { padding: 80px 40px 60px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .page-badge { display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--cyan); margin-bottom: 16px; }
+    h1 { font-size: clamp(32px, 5vw, 52px); font-weight: 900; letter-spacing: -0.03em; margin-bottom: 16px; }
+    .page-sub { font-size: 17px; color: var(--gray-2); max-width: 500px; margin: 0 auto 32px; }
+
+    /* SEARCH BAR */
+    .search-wrap { max-width: 480px; margin: 0 auto; position: relative; }
+    .search-input {
+      width: 100%; padding: 14px 20px 14px 48px;
+      border-radius: 14px; border: 1px solid rgba(255,255,255,0.12);
+      background: var(--navy-2); color: var(--white);
+      font-size: 15px; font-family: inherit; outline: none;
+      transition: border-color 0.2s;
+    }
+    .search-input:focus { border-color: rgba(26,196,240,0.4); }
+    .search-input::placeholder { color: var(--gray-3); }
+    .search-icon { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); font-size: 18px; pointer-events: none; }
+
+    /* MAIN LAYOUT */
+    .support-layout { max-width: 1100px; margin: 0 auto; padding: 60px 40px 100px; display: grid; grid-template-columns: 240px 1fr; gap: 60px; align-items: start; }
+    @media (max-width: 768px) { .support-layout { grid-template-columns: 1fr; padding: 40px 20px 80px; gap: 40px; } nav { padding: 0 20px; } .page-hero { padding: 60px 20px 40px; } }
+
+    /* SIDEBAR */
+    .sidebar { position: sticky; top: 80px; }
+    .sidebar h4 { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--gray-3); margin-bottom: 12px; margin-top: 24px; }
+    .sidebar h4:first-child { margin-top: 0; }
+    .sidebar ul { list-style: none; display: flex; flex-direction: column; gap: 2px; }
+    .sidebar a { font-size: 13px; color: var(--gray-3); text-decoration: none; padding: 5px 0; display: block; transition: color 0.2s; }
+    .sidebar a:hover { color: var(--cyan); }
+
+    /* CONTACT CARDS */
+    .contact-cards { display: flex; flex-direction: column; gap: 10px; margin-bottom: 32px; }
+    .contact-card { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 12px; background: var(--navy-2); border: 1px solid rgba(255,255,255,0.06); text-decoration: none; transition: border-color 0.2s; }
+    .contact-card:hover { border-color: rgba(26,196,240,0.3); }
+    .contact-card-icon { font-size: 20px; width: 36px; text-align: center; }
+    .contact-card-text { flex: 1; }
+    .contact-card-label { font-size: 13px; font-weight: 600; color: var(--white); }
+    .contact-card-sub { font-size: 12px; color: var(--gray-3); }
+
+    /* FAQ CONTENT */
+    .faq-content { }
+    .faq-section { margin-bottom: 56px; }
+    .faq-section-title {
+      font-size: 22px; font-weight: 800; letter-spacing: -0.02em;
+      margin-bottom: 20px; padding-bottom: 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      display: flex; align-items: center; gap: 12px;
+    }
+    .faq-section-icon { font-size: 24px; }
+
+    /* ACCORDION */
+    .faq-list { display: flex; flex-direction: column; gap: 8px; }
+    details {
+      background: var(--navy-2); border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 12px; overflow: hidden;
+      transition: border-color 0.2s;
+    }
+    details[open] { border-color: rgba(26,196,240,0.2); }
+    summary {
+      padding: 18px 20px; cursor: pointer; list-style: none;
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 15px; font-weight: 600; color: var(--white);
+      gap: 16px;
+    }
+    summary::-webkit-details-marker { display: none; }
+    summary::after {
+      content: '+'; font-size: 20px; font-weight: 400; color: var(--gray-3);
+      flex-shrink: 0; transition: transform 0.2s;
+    }
+    details[open] summary::after { content: '−'; color: var(--cyan); }
+    .faq-answer {
+      padding: 0 20px 20px;
+      font-size: 14px; color: var(--gray-2); line-height: 1.8;
+    }
+    .faq-answer p { margin-bottom: 12px; }
+    .faq-answer p:last-child { margin-bottom: 0; }
+    .faq-answer ul { padding-left: 20px; margin-bottom: 12px; }
+    .faq-answer li { margin-bottom: 6px; }
+    .faq-answer a { color: var(--cyan); }
+    .faq-answer strong { color: var(--white); }
+    .faq-answer code { background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 13px; }
+
+    /* STATUS INDICATOR */
+    .status-bar {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 16px; border-radius: 10px;
+      background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.2);
+      margin-bottom: 20px;
+    }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); animation: pulse-green 2s ease-in-out infinite; flex-shrink: 0; }
+    @keyframes pulse-green { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.6;transform:scale(0.8)} }
+    .status-text { font-size: 13px; color: var(--gray-1); font-weight: 500; }
+
+    footer { padding: 40px; text-align: center; border-top: 1px solid rgba(255,255,255,0.06); font-size: 13px; color: var(--gray-3); }
+    footer a { color: var(--gray-3); text-decoration: none; margin: 0 8px; }
+    footer a:hover { color: var(--white); }
+  </style>
+</head>
+<body>
+<nav style="position:sticky;top:0;z-index:9999;background:rgba(10,21,32,0.97);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,0.06);padding:14px 20px;display:flex;align-items:center;gap:10px"><button onclick="history.back()" style="background:none;border:none;color:#1ac4f0;font-size:15px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;padding:0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>FlowCheck</button></nav>
+
+<nav>
+  <a href="index.html" class="nav-logo">
+    <div class="nav-logo-mark">F</div>
+    FlowCheck
+  </a>
+  <a href="index.html" class="nav-back">← Back to Home</a>
+</nav>
+
+<div class="page-hero">
+  <div class="page-badge">Help Center</div>
+  <h1>How can we help?</h1>
+  <p class="page-sub">Find answers to common questions or get in touch with our team.</p>
+  <div class="search-wrap">
+    <span class="search-icon">🔍</span>
+    <input class="search-input" type="text" placeholder="Search for help…" oninput="filterFAQ(this.value)" />
+  </div>
+</div>
+
+<div class="support-layout">
+  <aside class="sidebar">
+    <div class="status-bar">
+      <div class="status-dot"></div>
+      <span class="status-text">All systems operational</span>
+    </div>
+
+    <div class="contact-cards">
+      <a href="mailto:support@getflowcheck.app" class="contact-card">
+        <div class="contact-card-icon">✉️</div>
+        <div class="contact-card-text">
+          <div class="contact-card-label">Email Support</div>
+          <div class="contact-card-sub">Replies within 24 hours</div>
+        </div>
+      </a>
+    </div>
+
+    <h4>Topics</h4>
+    <ul>
+      <li><a href="#bank-connection">Bank Connection</a></li>
+      <li><a href="#account">Account & Security</a></li>
+      <li><a href="#transactions">Transactions</a></li>
+      <li><a href="#budgets">Budgets & Goals</a></li>
+      <li><a href="#credit">Credit Score</a></li>
+      <li><a href="#subscriptions">Pro Subscription</a></li>
+      <li><a href="#privacy">Privacy & Data</a></li>
+      <li><a href="#technical">Technical Issues</a></li>
+    </ul>
+
+    <h4>Legal</h4>
+    <ul>
+      <li><a href="privacy.html">Privacy Policy</a></li>
+      <li><a href="terms.html">Terms of Service</a></li>
+      <li><a href="privacy.html#ccpa">CCPA Rights</a></li>
+      <li><a href="privacy.html#gdpr">GDPR Rights</a></li>
+    </ul>
+  </aside>
+
+  <div class="faq-content" id="faq-content">
+
+    <!-- BANK CONNECTION -->
+    <div class="faq-section" id="bank-connection">
+      <div class="faq-section-title"><span class="faq-section-icon">🏦</span> Bank Connection</div>
+      <div class="faq-list">
+        <details>
+          <summary>How do I connect my bank account?</summary>
+          <div class="faq-answer">
+            <p>Tap the <strong>Connect Bank</strong> button on the home screen. FlowCheck uses Plaid — the same technology used by major fintech apps — to securely connect to your bank. You'll see a Plaid-hosted screen where you can search for your bank and log in with your banking credentials.</p>
+            <p>Your bank username and password <strong>never reach FlowCheck's servers</strong>. Plaid handles authentication directly and gives us a secure token to read your data.</p>
+          </div>
+        </details>
+        <details>
+          <summary>Which banks are supported?</summary>
+          <div class="faq-answer">
+            <p>FlowCheck supports over <strong>12,000 banks and credit unions</strong> in the United States via Plaid, including all major institutions like Chase, Bank of America, Wells Fargo, Citi, Capital One, Ally, and thousands of regional banks and credit unions.</p>
+            <p>If you can't find your bank, try searching by the bank's full legal name or the name on your bank's website. Contact us at <a href="mailto:support@getflowcheck.app">support@getflowcheck.app</a> if your bank isn't supported.</p>
+          </div>
+        </details>
+        <details>
+          <summary>Can I connect multiple bank accounts?</summary>
+          <div class="faq-answer">
+            <p><strong>FlowCheck Free</strong> supports 1 bank connection. <strong>FlowCheck Pro</strong> supports unlimited bank connections.</p>
+            <p>You can connect checking, savings, credit cards, and investment accounts from different institutions. Each will appear separately in your accounts list and contribute to your net worth calculation.</p>
+          </div>
+        </details>
+        <details>
+          <summary>My bank connection stopped syncing. How do I fix it?</summary>
+          <div class="faq-answer">
+            <p>Bank connections can break when you change your banking password or your bank requires re-authentication for security reasons. To fix it:</p>
+            <ul>
+              <li>Go to <strong>Settings → Bank Accounts</strong></li>
+              <li>Tap <strong>Disconnect</strong> next to the affected account</li>
+              <li>Reconnect your bank by tapping <strong>Connect Bank</strong> on the home screen</li>
+            </ul>
+            <p>If the issue persists, try force-closing the app and relaunching. If it still doesn't work, contact us at <a href="mailto:support@getflowcheck.app">support@getflowcheck.app</a>.</p>
+          </div>
+        </details>
+        <details>
+          <summary>How do I disconnect my bank account?</summary>
+          <div class="faq-answer">
+            <p>Go to <strong>Settings → Bank Accounts → Disconnect</strong>. This will immediately revoke FlowCheck's access to your bank and delete all synced transaction and account data from our servers. This action cannot be undone — you'll need to reconnect if you want to restore access.</p>
+          </div>
+        </details>
+        <details>
+          <summary>How often does FlowCheck sync my transactions?</summary>
+          <div class="faq-answer">
+            <p>FlowCheck syncs when you open the app and also runs a background sync periodically. You can also manually trigger a sync by pulling down to refresh on the home screen. Most banks update transactions within 1-3 business days of the purchase date.</p>
+          </div>
+        </details>
+      </div>
+    </div>
+
+    <!-- ACCOUNT & SECURITY -->
+    <div class="faq-section" id="account">
+      <div class="faq-section-title"><span class="faq-section-icon">🔒</span> Account & Security</div>
+      <div class="faq-list">
+        <details>
+          <summary>How do I set up Face ID?</summary>
+          <div class="faq-answer">
+            <p>FlowCheck automatically locks when you leave the app and uses Face ID or Touch ID to re-authenticate. This is enabled by default on supported devices. Make sure Face ID is set up in your iPhone's Settings → Face ID & Passcode, and that FlowCheck has permission to use Face ID (Settings → FlowCheck → Face ID).</p>
+          </div>
+        </details>
+        <details>
+          <summary>How do I reset my password?</summary>
+          <div class="faq-answer">
+            <p>On the sign-in screen, tap <strong>Forgot Password</strong> and enter your email address. We'll send a password reset link. If you signed in with Apple, you manage your credentials through Apple's system — FlowCheck does not have access to Apple passwords.</p>
+          </div>
+        </details>
+        <details>
+          <summary>How do I delete my account?</summary>
+          <div class="faq-answer">
+            <p>Go to <strong>Settings → Delete Account</strong> in the app. This will permanently:</p>
+            <ul>
+              <li>Revoke all Plaid bank connections and delete synced financial data</li>
+              <li>Delete all your data from our Firestore database (goals, bills, budgets, etc.)</li>
+              <li>Delete your Firebase Auth account</li>
+              <li>Cancel your Pro subscription (if active)</li>
+            </ul>
+            <p>This action <strong>cannot be undone</strong>. Data is permanently deleted within 30 days per our <a href="privacy.html">Privacy Policy</a>.</p>
+          </div>
+        </details>
+        <details>
+          <summary>Is FlowCheck safe? How is my data protected?</summary>
+          <div class="faq-answer">
+            <p>Yes. Security is our top priority:</p>
+            <ul>
+              <li><strong>TLS encryption</strong> on all data in transit</li>
+              <li><strong>AES-256 encryption</strong> on all data at rest (Firebase/Google infrastructure)</li>
+              <li><strong>Your bank credentials never touch our servers</strong> — handled exclusively by Plaid</li>
+              <li><strong>Firebase Security Rules</strong> mean only you can access your own data</li>
+              <li><strong>Face ID / Touch ID</strong> protects the app on your device</li>
+              <li>We <strong>never sell your data</strong> to advertisers or data brokers</li>
+            </ul>
+          </div>
+        </details>
+      </div>
+    </div>
+
+    <!-- TRANSACTIONS -->
+    <div class="faq-section" id="transactions">
+      <div class="faq-section-title"><span class="faq-section-icon">💳</span> Transactions</div>
+      <div class="faq-list">
+        <details>
+          <summary>Why are some transactions missing?</summary>
+          <div class="faq-answer">
+            <p>Most banks have a 1-3 business day delay before transactions appear in Plaid. Pending transactions may also show differently depending on your bank. Try tapping the sync button on the home screen. If transactions are consistently missing, contact your bank or <a href="mailto:support@getflowcheck.app">contact us</a>.</p>
+          </div>
+        </details>
+        <details>
+          <summary>Why are transaction categories wrong?</summary>
+          <div class="faq-answer">
+            <p>Transaction categories are assigned automatically based on merchant data from Plaid. Occasionally a category may be incorrect. We use this data to build your spending insights and budget tracking, so we aim to keep it as accurate as possible. If you consistently see wrong categories, <a href="mailto:support@getflowcheck.app">let us know</a> — we're continuously improving our categorization.</p>
+          </div>
+        </details>
+        <details>
+          <summary>How far back does transaction history go?</summary>
+          <div class="faq-answer">
+            <p><strong>FlowCheck Free:</strong> 90 days of transaction history.</p>
+            <p><strong>FlowCheck Pro:</strong> Full transaction history available through Plaid (typically 12-24 months depending on your bank).</p>
+          </div>
+        </details>
+      </div>
+    </div>
+
+    <!-- BUDGETS & GOALS -->
+    <div class="faq-section" id="budgets">
+      <div class="faq-section-title"><span class="faq-section-icon">🎯</span> Budgets & Goals</div>
+      <div class="faq-list">
+        <details>
+          <summary>How do I set up a budget?</summary>
+          <div class="faq-answer">
+            <p>Go to the <strong>Insights</strong> tab and scroll to the Budget section. Tap any category to set a monthly spending limit. FlowCheck will track your spending against each category and alert you when you're approaching your limit (at 80%) or have exceeded it (at 100%).</p>
+          </div>
+        </details>
+        <details>
+          <summary>How do budget alerts work?</summary>
+          <div class="faq-answer">
+            <p>When your spending in any category reaches 80% or 100% of your budget, FlowCheck sends you a push notification (if you've enabled notifications). Make sure you've granted FlowCheck notification permission in your iPhone Settings. Alerts are sent once per threshold per month to avoid being spammy.</p>
+          </div>
+        </details>
+        <details>
+          <summary>How do I create a savings goal?</summary>
+          <div class="faq-answer">
+            <p>Tap the <strong>Goals</strong> tab in the app. Tap the <strong>+</strong> button to create a new goal. Enter a name, target amount, and optional target date. Goals show a visual progress ring that fills as you manually update your progress. Tap any goal to edit or mark a contribution.</p>
+          </div>
+        </details>
+      </div>
+    </div>
+
+    <!-- CREDIT SCORE -->
+    <div class="faq-section" id="credit">
+      <div class="faq-section-title"><span class="faq-section-icon">⭐</span> Credit Score</div>
+      <div class="faq-list">
+        <details>
+          <summary>How does the credit score feature work?</summary>
+          <div class="faq-answer">
+            <p>FlowCheck retrieves your credit score from <strong>Experian</strong> via a secure API connection through our backend server. When you tap "Check My Credit Score," we make a soft inquiry to Experian's credit bureau and display your score, risk classification, and the factors affecting it.</p>
+            <p><strong>Important:</strong> This is a <strong>soft pull</strong> — it does not affect your credit score in any way.</p>
+          </div>
+        </details>
+        <details>
+          <summary>Does checking my score in FlowCheck hurt my credit?</summary>
+          <div class="faq-answer">
+            <p>No. FlowCheck performs a <strong>soft inquiry</strong> only. Soft inquiries are invisible to lenders and have zero impact on your credit score. Only hard inquiries (like applying for a loan or credit card) affect your score.</p>
+          </div>
+        </details>
+        <details>
+          <summary>Why is my score different from what my bank shows?</summary>
+          <div class="faq-answer">
+            <p>Different sources use different credit scoring models and different credit bureaus. FlowCheck uses Experian data with the VantageScore or FICO model. Your bank might use TransUnion or Equifax with a different model version. Small differences are normal. The important thing to watch is the trend over time, not the exact number.</p>
+          </div>
+        </details>
+        <details>
+          <summary>How often can I refresh my credit score?</summary>
+          <div class="faq-answer">
+            <p>Your score is cached for 24 hours to protect your credit profile and manage API costs. You can refresh it once every 24 hours. <strong>FlowCheck Pro</strong> may offer more frequent updates in future releases.</p>
+          </div>
+        </details>
+        <details>
+          <summary>I'm getting an error when checking my credit score. What should I do?</summary>
+          <div class="faq-answer">
+            <p>Credit score retrieval can occasionally fail due to temporary Experian service issues or connectivity problems. Try again in a few minutes. If the problem persists for more than 24 hours, contact us at <a href="mailto:support@getflowcheck.app">support@getflowcheck.app</a>.</p>
+            <p>You can also manually enter your known credit score as a fallback — go to the Credit tab and look for the manual entry option.</p>
+          </div>
+        </details>
+      </div>
+    </div>
+
+    <!-- PRO SUBSCRIPTION -->
+    <div class="faq-section" id="subscriptions">
+      <div class="faq-section-title"><span class="faq-section-icon">⚡</span> Pro Subscription</div>
+      <div class="faq-list">
+        <details>
+          <summary>What's included in FlowCheck Pro?</summary>
+          <div class="faq-answer">
+            <p>FlowCheck Pro ($4.99/month or $34.99/year) includes:</p>
+            <ul>
+              <li>Unlimited bank account connections</li>
+              <li>Full transaction history (vs. 90 days on free)</li>
+              <li>Advanced spending insights and analytics</li>
+              <li>Credit score monitoring (Experian)</li>
+              <li>Smart budget alerts (push + email)</li>
+              <li>Subscription Hunter</li>
+              <li>Cash flow forecasting</li>
+              <li>Unlimited savings goals</li>
+            </ul>
+          </div>
+        </details>
+        <details>
+          <summary>How do I start the free trial?</summary>
+          <div class="faq-answer">
+            <p>Open the app and tap <strong>Upgrade to Pro</strong> (or tap any Pro-locked feature). You'll see the paywall with the free trial offer. Tap <strong>Start Free Trial</strong> — your Apple ID will be used for payment but you won't be charged until the trial ends. Cancel anytime through your iPhone Settings before the trial ends to avoid being charged.</p>
+          </div>
+        </details>
+        <details>
+          <summary>How do I cancel my Pro subscription?</summary>
+          <div class="faq-answer">
+            <p>All subscriptions are managed through Apple. To cancel:</p>
+            <ul>
+              <li>Open your iPhone <strong>Settings</strong></li>
+              <li>Tap your Apple ID at the top</li>
+              <li>Go to <strong>Subscriptions</strong></li>
+              <li>Find <strong>FlowCheck</strong> and tap <strong>Cancel Subscription</strong></li>
+            </ul>
+            <p>You'll keep Pro access until the end of your current billing period. We do not offer refunds for partial periods, but we will never charge you after cancellation.</p>
+          </div>
+        </details>
+        <details>
+          <summary>I was charged but the app still shows as free. What happened?</summary>
+          <div class="faq-answer">
+            <p>This can happen if there's a delay in the App Store confirming your purchase. Try:</p>
+            <ul>
+              <li>Pull down to refresh on the home screen</li>
+              <li>Go to Settings → tap your name → tap <strong>Restore Purchases</strong></li>
+              <li>Force close and reopen the app</li>
+            </ul>
+            <p>If the issue persists after 24 hours, contact us at <a href="mailto:support@getflowcheck.app">support@getflowcheck.app</a> with your Apple ID (not your password) and approximate purchase date.</p>
+          </div>
+        </details>
+      </div>
+    </div>
+
+    <!-- PRIVACY & DATA -->
+    <div class="faq-section" id="privacy">
+      <div class="faq-section-title"><span class="faq-section-icon">🛡️</span> Privacy & Data</div>
+      <div class="faq-list">
+        <details>
+          <summary>Does FlowCheck sell my financial data?</summary>
+          <div class="faq-answer">
+            <p><strong>No. Never.</strong> We do not sell, rent, or share your financial data with advertisers, data brokers, or any third party for commercial purposes. Your financial information is used only to power the features you see in the app. See our <a href="privacy.html">Privacy Policy</a> for full details.</p>
+          </div>
+        </details>
+        <details>
+          <summary>How do I request a copy of my data?</summary>
+          <div class="faq-answer">
+            <p>Email us at <a href="mailto:privacy@getflowcheck.app">privacy@getflowcheck.app</a> with the subject line "Data Access Request" and the email address associated with your account. We'll respond within 30 days with a summary of the data we hold about you, as required by CCPA and GDPR.</p>
+          </div>
+        </details>
+        <details>
+          <summary>How do I exercise my CCPA or GDPR rights?</summary>
+          <div class="faq-answer">
+            <p>Email <a href="mailto:privacy@getflowcheck.app">privacy@getflowcheck.app</a> with your specific request. You can:</p>
+            <ul>
+              <li><strong>Delete your data</strong> — Also available in-app at Settings → Delete Account</li>
+              <li><strong>Access your data</strong> — Request a copy of all data we hold</li>
+              <li><strong>Correct your data</strong> — Request corrections to inaccurate data</li>
+              <li><strong>Opt out of processing</strong> — Request restrictions on how we use your data</li>
+            </ul>
+            <p>We respond to all privacy requests within 30 days. See our <a href="privacy.html">Privacy Policy</a> for full details.</p>
+          </div>
+        </details>
+      </div>
+    </div>
+
+    <!-- TECHNICAL -->
+    <div class="faq-section" id="technical">
+      <div class="faq-section-title"><span class="faq-section-icon">⚙️</span> Technical Issues</div>
+      <div class="faq-list">
+        <details>
+          <summary>The app is loading slowly or freezing. How do I fix it?</summary>
+          <div class="faq-answer">
+            <p>Try these steps in order:</p>
+            <ul>
+              <li>Force close the app (swipe up from home screen on iPhone) and reopen it</li>
+              <li>Check your internet connection — FlowCheck requires a network connection to sync</li>
+              <li>Restart your iPhone</li>
+              <li>Check if there's an app update available in the App Store</li>
+              <li>If none of these help, delete and reinstall the app (your data is stored in the cloud and will be restored when you sign back in)</li>
+            </ul>
+          </div>
+        </details>
+        <details>
+          <summary>I'm not receiving push notifications.</summary>
+          <div class="faq-answer">
+            <p>Make sure FlowCheck has notification permission:</p>
+            <ul>
+              <li>Go to iPhone <strong>Settings → FlowCheck → Notifications</strong></li>
+              <li>Make sure <strong>Allow Notifications</strong> is turned on</li>
+              <li>Enable <strong>Alerts</strong>, <strong>Badges</strong>, and <strong>Sounds</strong> as desired</li>
+            </ul>
+            <p>Also check that your iPhone is not in Focus mode or Do Not Disturb, which can block notifications from some apps.</p>
+          </div>
+        </details>
+        <details>
+          <summary>How do I update FlowCheck?</summary>
+          <div class="faq-answer">
+            <p>Open the App Store, tap your profile icon in the top right, scroll down to find FlowCheck, and tap <strong>Update</strong>. Alternatively, enable automatic updates in Settings → App Store → App Updates.</p>
+          </div>
+        </details>
+        <details>
+          <summary>I found a bug or have a feature request.</summary>
+          <div class="faq-answer">
+            <p>We love hearing from users! Send bug reports and feature requests to <a href="mailto:support@getflowcheck.app">support@getflowcheck.app</a>. For bugs, please include:</p>
+            <ul>
+              <li>iPhone model and iOS version</li>
+              <li>FlowCheck version (visible in Settings)</li>
+              <li>Description of what happened and what you expected to happen</li>
+              <li>Steps to reproduce the issue (if possible)</li>
+            </ul>
+          </div>
+        </details>
+      </div>
+    </div>
+
+    <!-- CONTACT CTA -->
+    <div style="background:var(--navy-2);border:1px solid rgba(255,255,255,0.07);border-radius:20px;padding:36px;text-align:center;margin-top:20px;">
+      <div style="font-size:36px;margin-bottom:16px;">💬</div>
+      <h3 style="font-size:20px;font-weight:800;margin-bottom:10px;">Still need help?</h3>
+      <p style="font-size:15px;color:var(--gray-2);max-width:380px;margin:0 auto 24px;">Our support team responds to every email within 24 hours, Monday through Friday.</p>
+      <a href="mailto:support@getflowcheck.app" style="display:inline-block;padding:14px 28px;border-radius:12px;background:linear-gradient(135deg,var(--cyan),var(--purple));color:var(--navy);font-weight:800;font-size:15px;text-decoration:none;">Email Support →</a>
+    </div>
+
+  </div>
+</div>
+
+<footer>
+  <p>© 2025 FlowCheck · <a href="index.html">Home</a> · <a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a> · <a href="support.html">Support</a></p>
+</footer>
+
+<script>
+  function filterFAQ(query) {
+    const q = query.toLowerCase().trim();
+    const sections = document.querySelectorAll('.faq-section');
+    if (!q) {
+      sections.forEach(s => s.style.display = '');
+      document.querySelectorAll('details').forEach(d => d.style.display = '');
+      return;
+    }
+    sections.forEach(section => {
+      const items = section.querySelectorAll('details');
+      let any = false;
+      items.forEach(item => {
+        const text = item.textContent.toLowerCase();
+        const match = text.includes(q);
+        item.style.display = match ? '' : 'none';
+        if (match) { any = true; item.open = true; }
+      });
+      section.style.display = any ? '' : 'none';
+    });
+  }
+</script>
+</body>
+</html>

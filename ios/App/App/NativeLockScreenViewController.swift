@@ -49,18 +49,17 @@ final class NativeLockScreenViewController: UIViewController {
         super.viewDidAppear(animated)
         startPulse()
 
-        // Subtle fade+lift entry so the lock screen feels like it rises into view
-        // rather than snapping on instantly (presented with animated:false for blur continuity).
         view.alpha     = 0
-        view.transform = CGAffineTransform(translationX: 0, y: 18)
-        UIView.animate(withDuration: 0.28, delay: 0,
-                       usingSpringWithDamping: 0.82, initialSpringVelocity: 0.4,
+        view.transform = CGAffineTransform(translationX: 0, y: 14)
+        UIView.animate(withDuration: 0.22, delay: 0,
+                       usingSpringWithDamping: 0.88, initialSpringVelocity: 0.3,
                        options: []) {
             self.view.alpha     = 1
             self.view.transform = .identity
-        } completion: { _ in
-            // Trigger Face ID after the entry animation completes so the system
-            // dialog doesn't overlay mid-animation.
+        }
+        // Fire Face ID 95ms in — mid-animation, so the dialog appears as the
+        // screen finishes settling. Feels instant vs waiting for completion.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.095) {
             self.authenticate()
         }
     }
