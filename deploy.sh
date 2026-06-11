@@ -34,21 +34,30 @@ warn() { echo -e "${RED}  ✗ $1${RST}"; }
 echo -e "\n${CYN}━━━ FlowCheck Deploy ━━━━━━━━━━━━━━━━━━━━━━━━${RST}"
 echo -e "${DIM}  $MSG${RST}"
 
-# ── 1. Copy web files into iOS bundle ───────────────────────────
-# Direct copy instead of `npx cap sync ios` — faster and avoids SPM
+# ── 1. Copy web files into iOS + Android bundles ────────────────
+# Direct copy instead of `npx cap sync` — faster and avoids SPM
 # resolution delays. Copies exactly what the app needs.
-step "Copying web files → iOS bundle"
-PUBLIC="$ROOT/ios/App/App/public"
+step "Copying web files → iOS + Android bundles"
+IOS_PUBLIC="$ROOT/ios/App/App/public"
+ANDROID_PUBLIC="$ROOT/android/app/src/main/assets/public"
 
-cp -r "$ROOT/www/css"        "$PUBLIC/"
-cp -r "$ROOT/www/js"         "$PUBLIC/"
-cp    "$ROOT/www/index.html" "$PUBLIC/index.html"
-# Optional dirs — skip silently if absent
-[[ -d "$ROOT/www/legal"  ]] && cp -r "$ROOT/www/legal"  "$PUBLIC/" || true
-[[ -d "$ROOT/www/assets" ]] && cp -r "$ROOT/www/assets" "$PUBLIC/" || true
-[[ -d "$ROOT/www/fonts"  ]] && cp -r "$ROOT/www/fonts"  "$PUBLIC/" || true
+_sync_web() {
+  local DEST="$1"
+  cp -r "$ROOT/www/css"        "$DEST/"
+  cp -r "$ROOT/www/js"         "$DEST/"
+  cp    "$ROOT/www/index.html" "$DEST/index.html"
+  [[ -d "$ROOT/www/legal"  ]] && cp -r "$ROOT/www/legal"  "$DEST/" || true
+  [[ -d "$ROOT/www/assets" ]] && cp -r "$ROOT/www/assets" "$DEST/" || true
+  [[ -d "$ROOT/www/fonts"  ]] && cp -r "$ROOT/www/fonts"  "$DEST/" || true
+}
 
-ok "Web files synced"
+_sync_web "$IOS_PUBLIC"
+ok "iOS bundle synced"
+
+if [[ -d "$ROOT/android" ]]; then
+  _sync_web "$ANDROID_PUBLIC"
+  ok "Android bundle synced"
+fi
 
 # ── 2. Git commit + push ─────────────────────────────────────────
 step "Git commit & push"
@@ -63,7 +72,12 @@ git add \
   ios/App/App.xcodeproj/project.pbxproj \
   ios/App/App.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved \
   ios/App/App/GoogleService-Info.plist \
+  ios/App/App/Info.plist \
+  android/app/src/main/assets/public/ \
+  android/app/google-services.json \
   capacitor.config.json \
+  package.json \
+  package-lock.json \
   firestore.rules \
   firestore.indexes.json \
   deploy.sh 2>/dev/null || true
