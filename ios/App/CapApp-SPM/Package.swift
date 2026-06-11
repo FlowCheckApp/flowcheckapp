@@ -26,18 +26,11 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "CapacitorGoogleAuth",
-            dependencies: [
-                .product(name: "Capacitor", package: "capacitor-swift-pm"),
-                .product(name: "GoogleSignIn", package: "GoogleSignIn-iOS"),
-            ],
-            path: "Sources/CapacitorGoogleAuth"
-        ),
-        .target(
             name: "CapApp-SPM",
             dependencies: [
                 .product(name: "Capacitor", package: "capacitor-swift-pm"),
                 .product(name: "Cordova", package: "capacitor-swift-pm"),
+                .product(name: "GoogleSignIn", package: "GoogleSignIn-iOS"),
                 .product(name: "CapacitorCommunityAppleSignIn", package: "CapacitorCommunityAppleSignIn"),
                 .product(name: "CapacitorApp", package: "CapacitorApp"),
                 .product(name: "CapacitorHaptics", package: "CapacitorHaptics"),
@@ -47,7 +40,6 @@ let package = Package(
                 .product(name: "CapacitorPushNotifications", package: "CapacitorPushNotifications"),
                 .product(name: "RevenuecatPurchasesCapacitor", package: "RevenuecatPurchasesCapacitor"),
                 .product(name: "CapacitorSecureStoragePlugin", package: "CapacitorSecureStoragePlugin"),
-                "CapacitorGoogleAuth",
             ]
         )
     ]
