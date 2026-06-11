@@ -3300,7 +3300,10 @@ window.FCApp = (function () {
       } else if (state.user?.plaid_linked) {
         subEl.style.display = 'none';
       } else {
-        if (textEl) textEl.textContent = 'Connect a bank to get started';
+        // Personalize with their onboarding goal if we have one
+        const _goalLabels = { save_more: 'Save more every month', pay_debt: 'Pay off debt faster', track_spending: 'Track every dollar', build_wealth: 'Build long-term wealth', stop_waste: 'Cut the waste', freedom: 'Reach financial freedom' };
+        const _userGoal   = (state.user?.goals || [])[0];
+        if (textEl) textEl.textContent = _userGoal ? `Goal: ${_goalLabels[_userGoal] || 'Reach your goals'}` : 'Connect a bank to get started';
         subEl.style.display = '';
       }
     }
@@ -6197,6 +6200,8 @@ window.FCApp = (function () {
     // if the user closes the app during the write, the flag is already set and
     // onAuthStateChanged won't route them back to onboarding on next cold start.
     if (uid) _markOnboardingLocalCache(uid);
+    // Clear mid-flow progress now that onboarding is done
+    try { localStorage.removeItem('fc_ob_progress'); } catch (_) {}
     try {
       const db  = FCAuth.db && FCAuth.db();
       if (uid && db) {
@@ -6238,7 +6243,7 @@ window.FCApp = (function () {
    */
   function startTrialFromOnboarding() {
     haptic('medium');
-    // Pre-select whichever plan the user picked on the onboarding slide
+    if (_isPro()) { obNext(); return; }   // already Pro — skip to bank slide
     _selectedPlan = 'monthly';
     showPaywall();
   }
@@ -6691,6 +6696,12 @@ window.FCApp = (function () {
     FCAuth.init();
     _initPullToRefresh();
 
+    // Hide iOS-only auth options on Android
+    const platform = window.Capacitor?.getPlatform?.() || 'web';
+    if (platform === 'android') {
+      document.querySelectorAll('.fc-auth-apple-btn').forEach(el => el.style.display = 'none');
+    }
+
     // Jailbreak / root warning — non-blocking, shows advisory to user.
     // Financial apps on jailbroken devices are at elevated risk from keyloggers
     // and credential-stealing tweaks. We warn but don't hard-block (App Store policy).
@@ -6726,18 +6737,6 @@ window.FCApp = (function () {
       // Dismiss
       focused.blur();
     }, { passive: true });
-
-    // ── Show Google Sign In only when the plugin is confirmed available ──
-    // Buttons start hidden (display:none in HTML). Only reveal on web or when
-    // the GoogleAuth Capacitor plugin is present and configured.
-    const _isNativePlatform = window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform();
-    const _hasGooglePlugin  = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.GoogleAuth;
-    if (!_isNativePlatform || _hasGooglePlugin) {
-      ['btn-login-google', 'btn-register-google'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.style.display = '';
-      });
-    }
 
     // Period scrubber buttons have onclick="FCApp.switchPeriod(...)" — no extra wiring needed here.
 
@@ -6914,6 +6913,10 @@ window.FCApp = (function () {
           // New user just registered in this session — show email verification first
           if (window._fcNewUserFaceIdPending) {
             window._fcNewUserFaceIdPending = false;
+            // Brand-new signup — clear any stale paywall cooldown so they always
+            // see the trial offer on onboarding slide 3.
+            try { localStorage.removeItem(`fc_pw_seen_${user.uid}`); } catch (_) {}
+            _paywallShownThisSession = false;
             if (!user.emailVerified && !_DEMO_EMAILS.includes(user.email)) {
               // Email/password signup: show OTP verification screen
               window._fcVerifyEmailPending = true;
@@ -6929,7 +6932,8 @@ window.FCApp = (function () {
                 }).catch(() => {})
               ).catch(() => {});
             } else {
-              // Apple Sign In / already verified — go straight to face ID setup
+              // Google / Apple — email already verified, go straight to Face ID setup
+              _sendWelcomeEmail().catch(() => {});
               setScreen('faceid-setup');
             }
           } else {
@@ -8092,6 +8096,14 @@ window.FCApp = (function () {
       } else {
         await FCData.createBill(fields);
         toast('Bill added!', 'success');
+        // Re-prompt for notifications on first bill — the value prop is now obvious
+        // ("get notified when this bill is due"). Only fires if they skipped during onboarding.
+        if (!state.user?.notifications_enabled && (state.bills || []).length === 0) {
+          setTimeout(() => {
+            FCPush.requestAndRegister().catch(() => {});
+            FCPush.requestLocalPermission().catch(() => {});
+          }, 1200);
+        }
       }
       closeBillSheet();
       haptic('medium');
