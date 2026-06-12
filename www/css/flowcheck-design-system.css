@@ -1499,6 +1499,46 @@ body.fc-theme {
 [data-theme="light"] [style*="color:#1ac4f0"],
 [data-theme="light"] [style*="color:var(--fc-accent)"] { color: var(--fc-accent) !important; }
 
+/* ── Light mode: card gradient overrides ─────────────────────
+   These cards use hardcoded dark gradients in their styles.
+   !important + high specificity required to beat inline styles. */
+[data-theme="light"] .dash-stat,
+[data-theme="light"] .dash-txn-card,
+[data-theme="light"] .dash-bills-card,
+[data-theme="light"] .dash-focus-card,
+[data-theme="light"] .dash-ins,
+[data-theme="light"] .fc-stat,
+[data-theme="light"] .fc-goal-card,
+[data-theme="light"] .fc-acct-card {
+  background: #ffffff !important;
+  border: 1px solid rgba(13,27,46,0.08) !important;
+  box-shadow: 0 1px 3px rgba(13,27,46,0.06), 0 6px 20px rgba(13,27,46,0.07) !important;
+}
+
+[data-theme="light"] .ins-health-card {
+  background: linear-gradient(145deg,#ebf7ff,#eaf3fb) !important;
+  border-color: rgba(13,173,212,0.25) !important;
+  box-shadow: 0 2px 8px rgba(13,27,46,0.07), 0 12px 32px rgba(13,27,46,0.08) !important;
+}
+
+[data-theme="light"] .wealth-hero {
+  background: linear-gradient(155deg,#ebf7ff,#eaf3fb) !important;
+  border-color: rgba(13,173,212,0.18) !important;
+  box-shadow: 0 2px 8px rgba(13,27,46,0.07), 0 12px 32px rgba(13,27,46,0.07) !important;
+}
+
+/* Transaction chevron — white stroke invisible on white bg */
+[data-theme="light"] .fc-txn-chev { stroke: rgba(13,27,46,0.20) !important; }
+
+/* Activity + bills + insights cards — need specificity over inline style */
+[data-theme="light"] #activity-list .fc-card,
+[data-theme="light"] #bills-full-list .fc-card,
+[data-theme="light"] #view-insights .fc-card {
+  background: #ffffff !important;
+  border: 1px solid rgba(13,27,46,0.08) !important;
+  box-shadow: 0 1px 3px rgba(13,27,46,0.06), 0 4px 14px rgba(13,27,46,0.05) !important;
+}
+
 
 /* ============================================================
    PREMIUM POLISH v4 — Enterprise UX layer

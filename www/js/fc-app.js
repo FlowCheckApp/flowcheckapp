@@ -376,6 +376,7 @@ window.FCApp = (function () {
     const sheet = document.getElementById('sub-detail-sheet');
     if (!sheet) return;
     sheet.style.display = 'flex';
+    _focusTraps['sub-detail-sheet'] = _trapFocus(sheet);
 
     // Estimate next charge date from last date + frequency
     function nextChargeDate(lastDate, freq) {
@@ -458,6 +459,8 @@ window.FCApp = (function () {
   function closeSubDetail() {
     const sheet = document.getElementById('sub-detail-sheet');
     if (!sheet) return;
+    _focusTraps['sub-detail-sheet']?.();
+    delete _focusTraps['sub-detail-sheet'];
     sheet.classList.add('fc-sheet--closing');
     setTimeout(() => { sheet.style.display = 'none'; sheet.classList.remove('fc-sheet--closing'); }, 280);
   }
@@ -1515,6 +1518,28 @@ window.FCApp = (function () {
      ───────────────────────────────────────────────────────────── */
 
   let _toastTimer = null;
+
+  // Lightweight focus trap — keeps keyboard navigation inside modal sheets.
+  // Returns a cleanup function; call it when the sheet closes.
+  function _trapFocus(el) {
+    const focusable = 'button:not([disabled]),input:not([disabled]),textarea:not([disabled]),select:not([disabled]),a[href],[tabindex]:not([tabindex="-1"])';
+    const nodes = () => [...el.querySelectorAll(focusable)].filter(n => n.offsetParent !== null);
+    const handler = e => {
+      if (e.key !== 'Tab') return;
+      const items = nodes();
+      if (!items.length) return;
+      const first = items[0], last = items[items.length - 1];
+      if (e.shiftKey ? document.activeElement === first : document.activeElement === last) {
+        e.preventDefault();
+        (e.shiftKey ? last : first).focus();
+      }
+    };
+    el.addEventListener('keydown', handler);
+    nodes()[0]?.focus();
+    return () => el.removeEventListener('keydown', handler);
+  }
+  // Store cleanup refs keyed by sheet element id
+  const _focusTraps = {};
 
   function toast(message, type, duration) {
     const el = document.getElementById('fc-toast');
@@ -4352,7 +4377,7 @@ window.FCApp = (function () {
     } else {
       _renderGreeting(null);
       if (safeEl)   safeEl.textContent  = '—';
-      if (metaEl)   metaEl.textContent  = 'Connect a bank';
+      if (metaEl)   metaEl.innerHTML    = '<span style="color:var(--fc-accent);font-weight:600;cursor:pointer" onclick="FCApp.startPlaidLink()">+ Connect a bank</span>';
       if (barEl)    barEl.style.width   = '0%';
       if (spentLbl) spentLbl.textContent = '$0';
       if (billsLbl) billsLbl.textContent = '$0';
@@ -5778,11 +5803,15 @@ window.FCApp = (function () {
     }
 
     try {
-      await FCData.syncTransactions();
+      const syncResult = await FCData.syncTransactions();
       state.lastSyncAt = Date.now();
       _syncSucceeded = true;
       _lastSyncFailed = false;
       haptic('medium');
+      // Surface bank reconnect prompt if any item requires re-authentication
+      if (syncResult?.item_errors?.some(e => e.error_code === 'ITEM_LOGIN_REQUIRED')) {
+        toast('One of your banks needs to be reconnected — tap to fix', 'error', 8000);
+      }
       if (islandText) {
         islandText.classList.add('fc-fade');
         setTimeout(() => {

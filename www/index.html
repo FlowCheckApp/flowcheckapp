@@ -2088,7 +2088,7 @@ body {
   <div class="fc-hero-cta">
     <button class="fc-btn fc-btn--primary fc-btn--block fc-hero-btn-get-started"
             onclick="FCApp.haptic('light');FCApp.setScreen('register')" type="button">
-      Get Started — It's Free
+      Start Your Free Trial
     </button>
     <button class="fc-btn fc-btn--ghost fc-btn--block fc-hero-signin-link"
             onclick="FCApp.setScreen('login')" type="button"
@@ -2239,7 +2239,7 @@ body {
 
     <div class="fc-auth-field-enter" style="text-align:center;margin-bottom:18px">
       <h1 class="fc-auth-title">Create your account</h1>
-      <p class="fc-auth-subtitle">Free to start — no credit card needed</p>
+      <p class="fc-auth-subtitle">7-day free trial · no credit card needed</p>
     </div>
 
     <div id="register-error" class="fc-auth-error fc-auth-field-enter" role="alert"></div>
@@ -3471,6 +3471,23 @@ body {
   background: rgba(52,199,89,0.10) !important;
   border-color: rgba(52,199,89,0.22) !important;
 }
+
+/* ── Light mode: stat section cards ── */
+[data-theme="light"] .fc-stat-section-card,
+[data-theme="light"] .dash-stat-row .fc-card,
+[data-theme="light"] #view-wealth .fc-card,
+[data-theme="light"] #view-settings .fc-card {
+  background: #ffffff !important;
+  border: 1px solid rgba(13,27,46,0.08) !important;
+  box-shadow: 0 1px 3px rgba(13,27,46,0.06), 0 4px 14px rgba(13,27,46,0.05) !important;
+}
+/* Overrides for any remaining inline-style dark gradients */
+[data-theme="light"] [style*="linear-gradient(145deg,#0d1b2e"],
+[data-theme="light"] [style*="linear-gradient(145deg, #0d1b2e"],
+[data-theme="light"] [style*="linear-gradient(155deg,rgba(12,24"],
+[data-theme="light"] [style*="linear-gradient(160deg,rgba(13,26"] {
+  background: #ffffff !important;
+}
 </style>
 
 <script>
@@ -3767,6 +3784,12 @@ body {
         <div class="fc-pw-feature-check" aria-hidden="true">✓</div>
       </li>
     </ul>
+
+    <!-- Free tier context — sets expectation before asking for money -->
+    <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:12px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);margin-bottom:14px">
+      <span style="font-size:13px;color:rgba(240,246,255,0.40);font-weight:600;white-space:nowrap">Free plan:</span>
+      <span style="font-size:13px;color:rgba(240,246,255,0.55)">1 bank account · basic transactions only</span>
+    </div>
 
     <!-- Plan selector -->
     <div class="fc-pw-plans" id="pw-plans" role="radiogroup" aria-label="Choose a plan">

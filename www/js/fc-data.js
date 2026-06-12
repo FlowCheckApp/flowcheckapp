@@ -226,7 +226,7 @@ window.FCData = (function () {
       fcLog('Sync skipped — backend not configured yet (set backendConfigured: true in fc-config.js)');
       return;
     }
-    await _authedFetch(FC_CONFIG.plaid.syncEndpoint);
+    return await _authedFetch(FC_CONFIG.plaid.syncEndpoint);
   }
 
   /**
