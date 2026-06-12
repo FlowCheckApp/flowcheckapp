@@ -1447,6 +1447,7 @@ window.FCApp = (function () {
   }
 
   const _TAB_ORDER = ['home', 'activity', 'insights', 'wealth', 'settings'];
+  let _tabFadeTimer = null; // tracks the outgoing-view fade timeout so rapid taps can cancel it
 
   function switchTab(tabId) {
     if (state.tab === tabId) return;
@@ -1454,32 +1455,47 @@ window.FCApp = (function () {
     const prev = state.tab;
     state.tab  = tabId;
 
-    // Slide direction based on tab order
+    // Cancel any in-flight fade-out from a previous switch (rapid-tap race fix)
+    if (_tabFadeTimer) {
+      clearTimeout(_tabFadeTimer);
+      _tabFadeTimer = null;
+      // If there's a half-deactivated view, clean it up immediately
+      document.querySelectorAll('.fc-view').forEach(v => {
+        if (!v.classList.contains('active')) {
+          v.style.opacity = '';
+          v.style.transition = '';
+          v.classList.remove('fc-slide-right', 'fc-slide-left');
+        }
+      });
+    }
+
     const prevIdx = _TAB_ORDER.indexOf(prev);
     const nextIdx = _TAB_ORDER.indexOf(tabId);
     const slideClass = nextIdx > prevIdx ? 'fc-slide-right' : 'fc-slide-left';
 
-    const target  = document.getElementById('view-' + tabId);
+    const target   = document.getElementById('view-' + tabId);
     const outgoing = prev ? document.getElementById('view-' + prev) : null;
 
+    // Mark outgoing tab as fc-loaded — suppresses fc-fade-up replay on return
+    if (outgoing) outgoing.classList.add('fc-loaded');
+
     // ── Activate target FIRST (no flash between deactivate+activate) ──────
-    // Reset scroll before it becomes visible so it enters at top.
     if (target) target.scrollTop = 0;
     if (target) target.classList.add('active', slideClass);
 
-    // Deactivate outgoing AFTER target is active — avoids single-frame blank
-    // Fade outgoing view out over 200ms before removing it from the layout
+    // Fade outgoing view out, then remove from layout
     if (outgoing) {
       outgoing.style.opacity = '0';
       outgoing.style.transition = 'opacity 0.2s ease';
-      setTimeout(() => {
+      _tabFadeTimer = setTimeout(() => {
+        _tabFadeTimer = null;
         outgoing.classList.remove('active', 'fc-slide-right', 'fc-slide-left');
         outgoing.style.opacity = '';
         outgoing.style.transition = '';
       }, 200);
     }
 
-    // Clean up animation class once the slide completes (240ms + 10ms buffer)
+    // Clean up slide class once animation completes (240ms + 20ms buffer)
     if (target) {
       setTimeout(() => target.classList.remove('fc-slide-right', 'fc-slide-left'), 260);
     }
@@ -1504,10 +1520,12 @@ window.FCApp = (function () {
         else _renderActivity();
       }, ANIM_MS);
     } else if (tabId === 'insights') {
-      // requestAnimationFrame inside the timeout ensures the DOM write lands in
-      // the first frame AFTER the animation class is removed — prevents layout
-      // thrash and the "shake" artifact on WKWebView.
-      setTimeout(() => requestAnimationFrame(_renderInsights), ANIM_MS);
+      // rAF inside the timeout ensures DOM write lands after animation — prevents
+      // the "shake" artifact on WKWebView. Scroll is re-pinned after render.
+      setTimeout(() => requestAnimationFrame(() => {
+        _renderInsights();
+        if (target) target.scrollTop = 0;
+      }), ANIM_MS);
     } else if (tabId === 'goals') {
       setTimeout(_renderGoals, ANIM_MS);
     } else if (tabId === 'wealth') {
@@ -3322,36 +3340,13 @@ window.FCApp = (function () {
     const name      = rawName.split(' ')[0] || authUser2?.email?.split('@')[0] || '';
 
     if (dateEl) dateEl.textContent = tod;
-    titleEl.textContent = name || tod.split(' ')[1]; // "Good evening" → "evening" if truly no name
+    titleEl.textContent = name || 'Welcome back';
 
     // Avatar initial
     const avatarLetter2 = name.charAt(0).toUpperCase() || (authUser2?.email || '').charAt(0).toUpperCase() || '?';
     if (avatarEl) avatarEl.textContent = avatarLetter2;
 
-    if (subEl) {
-      const textEl = document.getElementById('home-greeting-sub-text');
-      if (state.user?.plaid_linked && safeToSpend != null && safeToSpend > 0) {
-        if (textEl) textEl.textContent = `${_fmtCompact(safeToSpend)} safe to spend`;
-        subEl.style.display = '';
-      } else if (state.user?.plaid_linked && safeToSpend != null && safeToSpend <= 0) {
-        if (textEl) textEl.textContent = 'Spending exceeds cash on hand';
-        subEl.style.borderColor = 'rgba(255,69,58,0.28)';
-        subEl.style.background  = 'rgba(255,69,58,0.08)';
-        const dot = subEl.querySelector('.dash-safe-dot');
-        const txt = subEl.querySelector('.dash-safe-text');
-        if (dot) dot.style.cssText = 'background:var(--fc-danger);box-shadow:0 0 6px rgba(255,69,58,0.9)';
-        if (txt) txt.style.color   = 'var(--fc-danger)';
-        subEl.style.display = '';
-      } else if (state.user?.plaid_linked) {
-        subEl.style.display = 'none';
-      } else {
-        // Personalize with their onboarding goal if we have one
-        const _goalLabels = { save_more: 'Save more every month', pay_debt: 'Pay off debt faster', track_spending: 'Track every dollar', build_wealth: 'Build long-term wealth', stop_waste: 'Cut the waste', freedom: 'Reach financial freedom' };
-        const _userGoal   = (state.user?.goals || [])[0];
-        if (textEl) textEl.textContent = _userGoal ? `Goal: ${_goalLabels[_userGoal] || 'Reach your goals'}` : 'Connect a bank to get started';
-        subEl.style.display = '';
-      }
-    }
+    // home-greeting-sub is now a hidden compat element — skip visual mutations
   }
 
   /* ─────────────────────────────────────────────────────────────
@@ -3503,6 +3498,63 @@ window.FCApp = (function () {
     } else if (dots) {
       dots.style.display = 'none';
     }
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     RENDER: ACCOUNT ROWS (v2 compact list)
+     ───────────────────────────────────────────────────────────── */
+  function _renderAccountRows() {
+    const section   = document.getElementById('home-acct-rows-section');
+    const container = document.getElementById('home-account-rows');
+    if (!section || !container) return;
+
+    if (!state.accounts.length) {
+      section.style.display = 'none';
+      return;
+    }
+    section.style.display = '';
+
+    const _PILL_ORDER = { depository: 0, savings: 1, credit: 2, investment: 3, loan: 4, mortgage: 5, other: 6 };
+    const sorted = [...state.accounts].sort((a, b) =>
+      (_PILL_ORDER[a.type] ?? 6) - (_PILL_ORDER[b.type] ?? 6)
+    );
+
+    const typeLabel = t => ({ depository:'Checking', savings:'Savings', credit:'Credit Card', investment:'Investment', loan:'Loan', mortgage:'Mortgage' }[t] || 'Account');
+    const typeColor = t => ({ depository:'rgba(55,138,221,0.18)', savings:'rgba(29,158,117,0.18)', credit:'rgba(216,90,48,0.18)', investment:'rgba(96,165,250,0.18)', loan:'rgba(255,159,10,0.18)', mortgage:'rgba(255,159,10,0.18)' }[t] || 'rgba(255,255,255,0.07)');
+    const typeAccent = t => ({ depository:'#378ADD', savings:'#1D9E75', credit:'#D85A30', investment:'#60a5fa', loan:'var(--fc-warning)', mortgage:'var(--fc-warning)' }[t] || '#888');
+    const typeIcon = t => ({ depository:'🏦', savings:'💰', credit:'💳', investment:'📈', loan:'🏠', mortgage:'🏠' }[t] || '🏦');
+
+    const shown = sorted.slice(0, 4);
+    const extra = sorted.length - shown.length;
+    const isDebtType = t => ['credit','loan','mortgage'].includes(t);
+
+    container.innerHTML = shown.map(a => {
+      const type   = (a.type === 'depository' && (a.subtype||'').toLowerCase().includes('saving')) ? 'savings' : (a.type || 'other');
+      const bal    = a.balance_current ?? a.balance ?? 0;
+      const isDebt = isDebtType(type);
+      const name   = esc(a.name || a.official_name || typeLabel(type));
+      const mask   = a.mask ? ` ••${esc(a.mask)}` : '';
+      const balFmt = FCData.formatCurrency(Math.abs(bal));
+      const balColor = isDebt ? 'var(--fc-danger)' : 'var(--fc-text)';
+      const balPrefix = isDebt ? '−' : (bal < 0 ? '−' : '');
+      return `<div class="dash-acct-row" onclick="FCApp.switchTab('wealth')" role="button" tabindex="0" aria-label="${name} ${balFmt}">
+        <div class="dash-acct-row-icon" style="background:${typeColor(type)};color:${typeAccent(type)}">${typeIcon(type)}</div>
+        <div class="dash-acct-row-body">
+          <div class="dash-acct-row-name">${name}</div>
+          <div class="dash-acct-row-type">${typeLabel(type)}${mask}</div>
+        </div>
+        <div class="dash-acct-row-bal" style="color:${balColor}">${balPrefix}${balFmt}</div>
+      </div>`;
+    }).join('') +
+      (extra > 0
+        ? `<div class="dash-acct-row-cta" onclick="FCApp.switchTab('wealth')" role="button" tabindex="0">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+            View ${extra} more account${extra !== 1 ? 's' : ''}
+          </div>`
+        : `<div class="dash-acct-row-cta" onclick="FCApp.startPlaidLink()" role="button" tabindex="0">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+            Add account
+          </div>`);
   }
 
   /* ─────────────────────────────────────────────────────────────
@@ -4295,106 +4347,73 @@ window.FCApp = (function () {
         </div>`;
     }
 
-    // ── Financial Health Score ────────────────────────────────────
-    const healthScore = _calcHealthScore(monthIncome, monthSpend, unpaidBillsTotal, overdueCount);
-    _renderHomeHealthScore(healthScore, monthIncome, monthSpend, unpaidBillsTotal, overdueCount);
-
-    // ── Credit Score card ────────────────────────────────────────
-    _renderCreditScore();
-
-    // ── 50/30/20 Budget Wizard ───────────────────────────────────
-    _renderBudgetWizard(monthIncome, monthSpend);
-
-    // ── Zombie Subscription Finder ────────────────────────────────
-    _renderZombieSubscriptions();
-
-    // ── Debt Payoff Planner ───────────────────────────────────────
-    _renderDebtPayoffPlanner();
-
-    // ── Cash Flow Forecast ────────────────────────────────────────
-    _renderCashFlowForecast();
-
-    // ── Net Worth Milestone ───────────────────────────────────────
-    _renderNetWorthMilestone(netWorth);
-
     // ── Today's Focus card ────────────────────────────────────────
     _renderTodaysFocus();
 
     // ── Recent transactions preview ───────────────────────────────
     _renderRecentTransactions();
 
-    // ── Spending bar chart (period-aware) ────────────────────────
-    _renderSpendingChart();
-
-    // ── Smart Insights ───────────────────────────────────────────
-    _renderSmartInsights();
+    // ── Account rows (compact list) ───────────────────────────────
+    _renderAccountRows();
 
     // ── Net worth sparkline snapshot ─────────────────────────────
     _snapshotNetWorth(netWorth);
 
-    // ── Safe to Spend card ───────────────────────────────────────
+    // ── Safe to Spend hero ───────────────────────────────────────
     const safeEl    = document.getElementById('stat-safe-to-spend');
     const metaEl    = document.getElementById('safe-spend-meta');
     const barEl     = document.getElementById('safe-spend-bar');
     const spentLbl  = document.getElementById('safe-spent-label');
     const billsLbl  = document.getElementById('safe-bills-label');
 
-    // ── Account pills ──────────────────────────────────────────
-    _renderAccountPills();
-
     if (state.user && state.user.plaid_linked) {
       const buffer        = cash * 0.10;
       const safeToSpend   = Math.max(0, cash - unpaidBillsTotal - buffer);
 
-      // ── Greeting with safe-to-spend context ─────────────────
       _renderGreeting(safeToSpend);
-      // Bug fix: don't double-count unpaidBills — they may already be in monthSpendRaw
-      // if the ACH debit has cleared. Use only monthSpendRaw for committed spend.
-      const committed     = monthSpendRaw;
-      // isOver: month spending has blown past the current cash balance
-      const isOver        = cash > 0 && committed >= cash;
 
-      // Bar: when not over, tracks committed-vs-cash; when over, stays solid red
+      const committed     = monthSpendRaw;
+      const isOver        = cash > 0 && committed >= cash;
       const barPct        = cash > 0 ? Math.min(Math.round((committed / cash) * 100), 100) : 100;
       const barColor      = isOver             ? 'var(--fc-danger)'
                           : barPct > 85        ? 'var(--fc-danger)'
                           : barPct > 65        ? 'var(--fc-warning)'
                           : 'linear-gradient(90deg,var(--fc-accent),var(--fc-electric))';
 
-      // Card label flips when over: "Safe to Spend" → "Cash Balance"
       const cardLabelEl = document.getElementById('safe-spend-card-label');
       if (cardLabelEl) cardLabelEl.textContent = isOver ? 'Cash Balance' : 'Safe to Spend';
 
-      // Value: when over, show real cash on hand; otherwise show safe-to-spend
-      if (safeEl) animateNumber(safeEl, isOver ? Math.max(0, cash) : safeToSpend, '$');
+      if (safeEl) {
+        safeEl.classList.remove('dash-hero-amount--empty');
+        animateNumber(safeEl, isOver ? Math.max(0, cash) : safeToSpend, '$');
+      }
 
-      // Meta: context-appropriate message
       if (metaEl) metaEl.textContent = isOver
         ? 'Month spend exceeds cash on hand'
         : `${Math.round(barPct)}% of cash committed`;
 
-      if (barEl)  { barEl.style.width = barPct + '%'; barEl.style.background = barColor; }
+      if (barEl) { barEl.style.width = barPct + '%'; barEl.style.background = barColor; }
 
-      // ── Circular ring — update percentage and color ──────────
       const ringCircle = document.getElementById('safe-spend-ring');
       const ringPctEl  = document.getElementById('safe-spend-ring-pct');
       if (ringCircle) {
         const circumference = 201;
-        const ringOffset    = circumference - (circumference * barPct / 100);
-        ringCircle.style.strokeDashoffset = ringOffset;
+        ringCircle.style.strokeDashoffset = circumference - (circumference * barPct / 100);
         ringCircle.style.stroke = isOver || barPct > 85 ? 'var(--fc-danger)'
                                 : barPct > 65           ? '#ffb020'
                                 : 'url(#safeGrad)';
       }
       if (ringPctEl) ringPctEl.textContent = barPct + '%';
 
-      // SPENT label shows filtered month spend (no transfers)
       if (spentLbl) spentLbl.textContent = FCData.formatCurrency(monthSpend);
       if (billsLbl) billsLbl.textContent = FCData.formatCurrency(unpaidBillsTotal);
     } else {
       _renderGreeting(null);
-      if (safeEl)   safeEl.textContent  = '—';
-      if (metaEl)   metaEl.innerHTML    = '<span style="color:var(--fc-accent);font-weight:600;cursor:pointer" onclick="FCApp.startPlaidLink()">+ Connect a bank</span>';
+      if (safeEl) {
+        safeEl.textContent = '—';
+        safeEl.classList.add('dash-hero-amount--empty');
+      }
+      if (metaEl) metaEl.innerHTML = '<span style="color:var(--fc-accent);font-weight:600;cursor:pointer" onclick="FCApp.startPlaidLink()">+ Connect a bank</span>';
       if (barEl)    barEl.style.width   = '0%';
       if (spentLbl) spentLbl.textContent = '$0';
       if (billsLbl) billsLbl.textContent = '$0';

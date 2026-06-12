@@ -4531,16 +4531,6 @@ body {
 
   <!-- ── Hidden compat elements — JS targets these IDs ──────────── -->
   <div aria-hidden="true" style="display:none">
-    <div id="safe-to-spend-card">
-      <svg><circle id="safe-spend-ring" stroke-dasharray="201" stroke-dashoffset="201"/></svg>
-      <span id="safe-spend-ring-pct">0%</span>
-      <span id="safe-spend-card-label">Safe to Spend</span>
-      <span id="stat-safe-to-spend">—</span>
-      <span id="safe-spend-meta"></span>
-      <div id="safe-spend-bar" style="width:0%"></div>
-      <span id="safe-spent-label">$0</span>
-      <span id="safe-bills-label">$0</span>
-    </div>
     <span id="stat-cash">$0</span>
     <span id="stat-account-count">0 accounts</span>
     <span id="stat-income">$0</span>
@@ -4553,42 +4543,52 @@ body {
     <div id="home-month-progress" style="width:0%"></div>
   </div>
 
-  <!-- ── GREETING HEADER — avatar only, no duplicate bell ─────── -->
-  <div class="dash-greeting fc-fade-up">
-    <div class="dash-greeting-left">
-      <div class="dash-tod" id="home-greeting-date">Good morning</div>
-      <h1 class="dash-name" id="home-greeting-title">there</h1>
-      <div class="dash-safe" id="home-greeting-sub" style="display:none">
-        <span class="dash-safe-dot"></span>
-        <span class="dash-safe-text" id="home-greeting-sub-text"></span>
+  <!-- ── DASHBOARD HERO v2 — Safe to Spend primary ─────────── -->
+  <div class="dash-hero fc-fade-up">
+    <div class="dash-hero-top">
+      <div>
+        <div class="dash-hero-tod" id="home-greeting-date">Good evening</div>
+        <div class="dash-hero-name" id="home-greeting-title">Brandon</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button id="fc-privacy-toggle"
+                onclick="FCApp.togglePrivacyMode()"
+                aria-label="Hide balances"
+                aria-pressed="false"
+                style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;
+                       border-radius:50%;border:none;background:rgba(255,255,255,0.06);
+                       cursor:pointer;transition:background .15s;-webkit-tap-highlight-color:transparent;
+                       flex-shrink:0">
+          <svg id="fc-privacy-eye-open" width="18" height="18" viewBox="0 0 24 24" fill="none"
+               stroke="var(--fc-text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+          <svg id="fc-privacy-eye-closed" width="18" height="18" viewBox="0 0 24 24" fill="none"
+               stroke="var(--fc-accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+               style="display:none">
+            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+            <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+            <line x1="1" y1="1" x2="23" y2="23"/>
+          </svg>
+        </button>
+        <div class="dash-avatar" id="home-user-avatar">B</div>
       </div>
     </div>
-    <div style="display:flex;align-items:center;gap:10px">
-      <!-- Privacy mode toggle (eye icon) -->
-      <button id="fc-privacy-toggle"
-              onclick="FCApp.togglePrivacyMode()"
-              aria-label="Hide balances"
-              aria-pressed="false"
-              style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;
-                     border-radius:50%;border:none;background:rgba(255,255,255,0.06);
-                     cursor:pointer;transition:background .15s;-webkit-tap-highlight-color:transparent;
-                     flex-shrink:0">
-        <!-- Eye-open SVG (shown when privacy is OFF) -->
-        <svg id="fc-privacy-eye-open" width="18" height="18" viewBox="0 0 24 24" fill="none"
-             stroke="var(--fc-text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-          <circle cx="12" cy="12" r="3"/>
-        </svg>
-        <!-- Eye-closed SVG (shown when privacy is ON) -->
-        <svg id="fc-privacy-eye-closed" width="18" height="18" viewBox="0 0 24 24" fill="none"
-             stroke="var(--fc-accent,var(--fc-accent))" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-             style="display:none">
-          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
-          <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
-          <line x1="1" y1="1" x2="23" y2="23"/>
-        </svg>
-      </button>
-      <div class="dash-avatar" id="home-user-avatar">B</div>
+    <!-- Safe to Spend — primary hero metric -->
+    <div class="dash-hero-metric">
+      <div class="dash-hero-label" id="safe-spend-card-label">Safe to Spend</div>
+      <div class="dash-hero-amount fc-amount" id="stat-safe-to-spend" data-anim-val="0">—</div>
+      <div class="dash-hero-sub" id="safe-spend-meta">Connect a bank to get started</div>
+    </div>
+    <!-- JS data anchors — kept hidden for backward compat -->
+    <div style="display:none" aria-hidden="true">
+      <div id="safe-spend-bar" style="width:0%"></div>
+      <span id="safe-spent-label">$0</span>
+      <span id="safe-bills-label">$0</span>
+      <span id="safe-spend-ring"></span>
+      <span id="safe-spend-ring-pct"></span>
+      <div id="home-greeting-sub"><span id="home-greeting-sub-text"></span></div>
     </div>
   </div>
 
@@ -4674,55 +4674,36 @@ body {
   </div>
 
   <!-- ══════════════════════════════════════════════════════════════
-       MONTH PULSE — spend vs income progress bar
-       Shown only when bank connected; hidden otherwise
+       MONTHLY SPENDING CARD v2
        ══════════════════════════════════════════════════════════════ -->
-  <div id="dash-pulse-row" class="dash-pulse fc-fade-up" style="animation-delay:.050s;display:none">
-    <div class="dash-pulse-hdr">
-      <span class="dash-pulse-label">Spending this month</span>
-      <span class="dash-pulse-amounts"><span id="dash-pulse-spent">$0</span><span id="dash-pulse-of"> of </span><span id="dash-pulse-income">—</span></span>
+  <div id="dash-pulse-row" class="dash-spend-card fc-fade-up" style="animation-delay:.050s;display:none">
+    <div class="dash-spend-header">
+      <div>
+        <div class="dash-spend-label">Spent This Month</div>
+        <div class="dash-spend-amount fc-amount" id="dash-pulse-spent">$0</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:13px;font-weight:600;color:var(--fc-text-muted);line-height:1.3;font-variant-numeric:tabular-nums">
+          <span id="dash-pulse-of"></span><span id="dash-pulse-income"></span>
+        </div>
+        <div style="font-size:10px;color:var(--fc-text-faint);margin-top:2px;letter-spacing:.02em">income this month</div>
+      </div>
     </div>
-    <div class="dash-pulse-track">
-      <div id="dash-pulse-fill" class="dash-pulse-fill" style="width:0%"></div>
+    <div class="dash-spend-track">
+      <div id="dash-pulse-fill" class="dash-spend-fill" style="width:0%"></div>
     </div>
-    <div class="dash-pulse-footer">
-      <span id="dash-pulse-days" class="dash-pulse-sub">—</span>
-      <span id="dash-pulse-projected" class="dash-pulse-sub" style="display:none"></span>
+    <div class="dash-spend-footer">
+      <span id="dash-pulse-days" class="dash-spend-days">—</span>
+      <span id="dash-pulse-projected" class="dash-spend-proj" style="display:none"></span>
     </div>
   </div>
 
-  <!-- ══════════════════════════════════════════════════════════════
-       QUICK-STAT STRIP — Cash · Spent · Bills
-       Bills top-bar color is set dynamically by JS
-       ══════════════════════════════════════════════════════════════ -->
-  <div class="dash-stats fc-fade-up" style="animation-delay:.055s">
-    <button class="dash-stat" onclick="FCApp.switchTab('activity')" aria-label="Cash balance">
-      <span class="dash-stat-icon dash-stat-icon--cash">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
-      </span>
-      <span class="dash-sp-lbl">Cash</span>
-      <span class="dash-sp-val" id="fch-qs-cash">—</span>
-      <span class="dash-sp-sub" id="fch-qs-cash-sub"></span>
-    </button>
-    <button class="dash-stat" onclick="FCApp.switchTab('insights')" aria-label="Monthly spending">
-      <span class="dash-stat-icon dash-stat-icon--spent">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
-      </span>
-      <span class="dash-sp-lbl">Spent</span>
-      <span class="dash-sp-val" id="fch-qs-spent">—</span>
-      <span class="dash-sp-sub" id="fch-qs-spent-sub"></span>
-    </button>
-    <button class="dash-stat"
-            id="dash-stat-bills"
-            onclick="FCApp.switchTab('activity');FCApp.switchActivitySegment&&FCApp.switchActivitySegment('bills')"
-            aria-label="Upcoming bills">
-      <span class="dash-stat-icon dash-stat-icon--bills">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/></svg>
-      </span>
-      <span class="dash-sp-lbl">Bills</span>
-      <span class="dash-sp-val" id="fch-qs-bills">—</span>
-      <span class="dash-sp-sub" id="fch-qs-bills-sub"></span>
-    </button>
+  <!-- JS data anchors for stat IDs — visual cards removed in v2 -->
+  <div style="display:none" aria-hidden="true">
+    <span id="fch-qs-cash">—</span><span id="fch-qs-cash-sub"></span>
+    <span id="fch-qs-spent">—</span><span id="fch-qs-spent-sub"></span>
+    <span id="fch-qs-bills">—</span><span id="fch-qs-bills-sub"></span>
+    <div id="dash-stat-bills"></div>
   </div>
 
   <!-- ══════════════════════════════════════════════════════════════
@@ -4776,31 +4757,21 @@ body {
     }
     .fc-skel-txn:last-child{border-bottom:none}
   </style>
-  <div id="home-acct-skeleton" class="dash-section fc-fade-up" style="animation-delay:.07s;display:none">
-    <div class="dash-sec-hdr" style="margin-bottom:10px">
-      <span class="dash-sec-title">Accounts</span>
-    </div>
-    <div style="overflow:hidden;padding-left:16px">
-      <div style="display:flex;gap:11px;padding:2px 20px 6px 0">
-        <div class="fc-skel fc-skel-acct"></div>
-        <div class="fc-skel fc-skel-acct" style="opacity:.6"></div>
-      </div>
-    </div>
-  </div>
-
   <!-- ══════════════════════════════════════════════════════════════
-       ACCOUNTS CAROUSEL
+       ACCOUNTS — compact rows v2
        ══════════════════════════════════════════════════════════════ -->
-  <div class="dash-section fc-fade-up" style="animation-delay:.07s">
+  <div id="home-acct-rows-section" class="dash-section fc-fade-up" style="animation-delay:.07s;display:none">
     <div class="dash-sec-hdr" style="margin-bottom:10px">
       <span class="dash-sec-title">Accounts</span>
       <button class="dash-sec-link" onclick="FCApp.switchTab('wealth')" type="button">Manage</button>
     </div>
-    <div id="home-account-pills" style="display:none" class="dash-acct-scroll" aria-label="Connected accounts">
-      <div id="home-account-pills-inner" class="dash-acct-inner"></div>
-    </div>
-    <!-- Smart dots: max 5 shown, count badge used when more -->
-    <div class="dash-dots" id="acct-dots" style="display:none"></div>
+    <div id="home-account-rows" class="dash-acct-rows-wrap"></div>
+  </div>
+  <!-- JS compat: old carousel + skeleton IDs kept hidden -->
+  <div style="display:none" aria-hidden="true">
+    <div id="home-acct-skeleton"></div>
+    <div id="home-account-pills"><div id="home-account-pills-inner"></div></div>
+    <div id="acct-dots"></div>
   </div>
 
   <!-- ══════════════════════════════════════════════════════════════
@@ -4866,7 +4837,7 @@ body {
   <!-- ══════════════════════════════════════════════════════════════
        FINANCIAL HEALTH SCORE
        ══════════════════════════════════════════════════════════════ -->
-  <section class="dash-section fc-fade-up" style="animation-delay:.12s" id="health-score-card">
+  <section class="dash-section fc-fade-up" style="animation-delay:.12s;display:none" id="health-score-card">
     <div class="dash-health" onclick="FCApp.switchTab('insights')" role="button" aria-label="Financial health score">
       <!-- Ring gauge: track + animated progress arc, number centered inside -->
       <div style="position:relative;width:64px;height:64px;flex-shrink:0">
@@ -4892,7 +4863,7 @@ body {
   <!-- ══════════════════════════════════════════════════════════════
        SMART INSIGHTS — collapsible
        ══════════════════════════════════════════════════════════════ -->
-  <section id="smart-insights-section" class="dash-section fc-fade-up" style="animation-delay:.13s">
+  <section id="smart-insights-section" class="dash-section fc-fade-up" style="animation-delay:.13s;display:none">
     <div class="dash-ins">
       <div class="dash-ins-toggle" onclick="FCApp.toggleInsights(this)" role="button" tabindex="0" aria-expanded="false">
         <span style="font-size:14px;font-weight:700;color:#fff">Smart Insights</span>
@@ -4911,7 +4882,7 @@ body {
   <!-- ══════════════════════════════════════════════════════════════
        SPENDING CHART
        ══════════════════════════════════════════════════════════════ -->
-  <section id="spending-chart-section" class="dash-section fc-fade-up" style="animation-delay:.14s">
+  <section id="spending-chart-section" class="dash-section fc-fade-up" style="animation-delay:.14s;display:none">
     <div class="dash-card dash-section-inner" style="padding:16px 16px 10px">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px">
         <div>

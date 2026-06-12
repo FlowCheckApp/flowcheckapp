@@ -2250,6 +2250,13 @@ body.fc-theme {
   }
 }
 
+/* Suppress per-section entry animations on tab return — view slide handles it */
+.fc-view.fc-loaded .fc-fade-up {
+  animation: none;
+  opacity: 1;
+  transform: none;
+}
+
 /* ── Universal reduced-motion kill switch ───────────────────── */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
@@ -2259,3 +2266,216 @@ body.fc-theme {
     scroll-behavior: auto !important;
   }
 }
+
+/* ════════════════════════════════════════════════════════════
+   DASHBOARD V2 — Hero · Spending Card · Account Rows
+   ════════════════════════════════════════════════════════════ */
+
+/* Hero — Safe to Spend as primary metric */
+.dash-hero {
+  padding: 52px 20px 28px;
+  position: relative;
+}
+.dash-hero::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 0.5px;
+  background: var(--fc-border);
+}
+.dash-hero-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 28px;
+}
+.dash-hero-tod {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fc-text-faint);
+  margin-bottom: 3px;
+}
+.dash-hero-name {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--fc-text);
+  letter-spacing: -0.02em;
+}
+.dash-hero-metric { padding-bottom: 4px; }
+.dash-hero-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fc-accent);
+  margin-bottom: 6px;
+}
+.dash-hero-amount {
+  font-size: 52px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: var(--fc-text);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  margin-bottom: 10px;
+  transition: color 0.3s, font-size 0.2s;
+}
+.dash-hero-amount--empty {
+  font-size: 28px !important;
+  color: var(--fc-text-faint) !important;
+  letter-spacing: 0 !important;
+  font-weight: 600 !important;
+}
+.dash-hero-sub {
+  font-size: 13px;
+  color: var(--fc-text-muted);
+  line-height: 1.4;
+}
+
+/* NW card secondary treatment */
+.dash-nw-card { margin-top: 12px; }
+#hero-sparkline { height: 56px !important; }
+
+/* Spending Card v2 */
+.dash-spend-card {
+  margin: 0 16px 4px;
+  padding: 16px 18px 14px;
+  background: var(--fc-card-bg);
+  border: 0.5px solid var(--fc-border);
+  border-radius: var(--fc-r-xl);
+}
+.dash-spend-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.dash-spend-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fc-text-faint);
+  margin-bottom: 4px;
+}
+.dash-spend-amount {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--fc-text);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.dash-spend-track {
+  height: 3px;
+  background: rgba(255,255,255,0.07);
+  border-radius: 99px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+.dash-spend-fill {
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--fc-accent), var(--fc-electric));
+  transition: width 0.7s var(--fc-ease-out);
+}
+.dash-spend-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.dash-spend-days { font-size: 12px; color: var(--fc-text-muted); }
+.dash-spend-proj { font-size: 12px; color: var(--fc-text-faint); text-align: right; }
+
+/* Account Rows */
+.dash-acct-rows-wrap {
+  background: var(--fc-card-bg);
+  border: 0.5px solid var(--fc-border);
+  border-radius: var(--fc-r-xl);
+  overflow: hidden;
+}
+.dash-acct-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 16px;
+  cursor: pointer;
+  transition: background 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  border-bottom: 0.5px solid var(--fc-border);
+}
+.dash-acct-row:last-child { border-bottom: none; }
+.dash-acct-row:active { background: rgba(255,255,255,0.04); }
+.dash-acct-row-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.dash-acct-row-body { flex: 1; min-width: 0; }
+.dash-acct-row-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fc-text);
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dash-acct-row-type { font-size: 12px; color: var(--fc-text-faint); }
+.dash-acct-row-bal {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--fc-text);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  letter-spacing: -0.02em;
+}
+.dash-acct-row-cta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 13px 16px;
+  cursor: pointer;
+  color: var(--fc-accent);
+  font-size: 13px;
+  font-weight: 600;
+  transition: background 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.dash-acct-row-cta:active { background: rgba(255,255,255,0.04); }
+
+/* Today's Focus — elevated signature treatment */
+.dash-focus-card {
+  border-color: rgba(26,196,240,0.2) !important;
+  background: linear-gradient(145deg,
+    rgba(26,196,240,0.06) 0%,
+    rgba(37,99,235,0.04) 100%) !important;
+}
+.dash-focus-left-bar {
+  background: linear-gradient(180deg, var(--fc-accent), var(--fc-electric)) !important;
+}
+
+/* Light mode compat */
+[data-theme="light"] .dash-hero-tod    { color: rgba(13,27,46,0.45) !important; }
+[data-theme="light"] .dash-hero-name   { color: #0a1520 !important; }
+[data-theme="light"] .dash-hero-amount { color: #0a1520 !important; }
+[data-theme="light"] .dash-hero-sub    { color: rgba(13,27,46,0.55) !important; }
+[data-theme="light"] .dash-hero-label  { color: var(--fc-accent) !important; }
+[data-theme="light"] .dash-spend-card  { background: rgba(13,27,46,0.04) !important; border-color: rgba(13,27,46,0.08) !important; }
+[data-theme="light"] .dash-spend-label  { color: rgba(13,27,46,0.40) !important; }
+[data-theme="light"] .dash-spend-amount { color: #0a1520 !important; }
+[data-theme="light"] .dash-spend-days   { color: rgba(13,27,46,0.55) !important; }
+[data-theme="light"] .dash-spend-proj   { color: rgba(13,27,46,0.40) !important; }
+[data-theme="light"] .dash-spend-track  { background: rgba(13,27,46,0.08) !important; }
+[data-theme="light"] .dash-acct-rows-wrap { background: rgba(13,27,46,0.03) !important; border-color: rgba(13,27,46,0.08) !important; }
+[data-theme="light"] .dash-acct-row       { border-bottom-color: rgba(13,27,46,0.06) !important; }
+[data-theme="light"] .dash-acct-row:active { background: rgba(13,27,46,0.04) !important; }
+[data-theme="light"] .dash-acct-row-name  { color: #0a1520 !important; }
+[data-theme="light"] .dash-acct-row-type  { color: rgba(13,27,46,0.45) !important; }
+[data-theme="light"] .dash-acct-row-bal   { color: #0a1520 !important; }
