@@ -10,7 +10,7 @@
     var mq = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)');
     var light = p === 'light' || (p === 'system' && mq && mq.matches);
     document.documentElement.setAttribute('data-theme', light ? 'light' : 'dark');
-    var bg = light ? '#f2f4f8' : '#060e18';
+    var bg = light ? '#f0f3f7' : '#060e18';
     document.documentElement.style.backgroundColor = bg;
   })();
 </script>
@@ -1110,21 +1110,6 @@ body.fc-keyboard-open .fc-auth-screen { padding-top: calc(env(safe-area-inset-to
 .fc-settings-value { color: var(--fc-text-faint); font-size: 13px; }
 
 /* Toggle switch — div variant (Settings page) */
-.fc-toggle {
-  width: 44px; height: 26px; border-radius: 999px;
-  background: rgba(255,255,255,0.12);
-  position: relative; cursor: pointer; flex-shrink: 0;
-  transition: background 0.2s;
-}
-.fc-toggle::after {
-  content: ''; position: absolute;
-  top: 3px; left: 3px;
-  width: 20px; height: 20px;
-  border-radius: 50%; background: white;
-  transition: transform 0.2s var(--fc-ease-spring);
-}
-.fc-toggle.on { background: var(--fc-accent); }
-.fc-toggle.on::after { transform: translateX(18px); }
 
 /* Toggle switch — label/input/span variant (Onboarding preferences slide) */
 label.fc-toggle {
@@ -1266,7 +1251,8 @@ label.fc-toggle input[type="checkbox"]:checked ~ .fc-toggle-track::after {
 .fc-btn, .fc-card-header, .fc-card-action, .fc-settings-row,
 .fc-iconbtn, .fc-scrubber button, .fc-tab, .fc-chip,
 .fc-ai-cta, .fc-ob-cta, .fc-skip-btn, .fc-forgot-btn,
-.fc-auth-link button, button, a[role="tab"] {
+.fc-auth-link button, button, a[role="tab"],
+.fc-home-txn, .dash-txn, .fc-list-item {
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
@@ -1343,7 +1329,7 @@ label.fc-toggle input[type="checkbox"]:checked ~ .fc-toggle-track::after {
 .fc-settings-row { transition: opacity 0.1s; }
 .fc-hero:active, .fc-ai-card:active, .fc-goal-card:active { transform: scale(0.985); }
 .fc-stat:active          { transform: scale(0.96); }
-.fc-settings-row:active  { opacity: 0.5; }
+.fc-settings-row:active  { opacity: 0.7; }
 
 /* ── Button press depth ──────────────────────────────────── */
 .fc-btn { transition: transform 0.12s ease, opacity 0.12s; }
@@ -5098,6 +5084,7 @@ body {
     </div>
   </section>
 
+  <p style="font-size:10px;color:var(--fc-text-faint);text-align:center;padding:4px 24px 16px;margin:0;opacity:0.6">FlowCheck is not a bank · Not financial advice</p>
   </div><!-- /view-home -->
 
 
@@ -5221,6 +5208,7 @@ body {
           </svg>
           <div class="ins-health-grade">
             <div class="ins-health-grade-letter" id="ins-health-grade">—</div>
+            <div id="ins-health-trend" style="display:none;font-size:9px;font-weight:600;text-align:center;letter-spacing:-0.01em;margin-top:1px"></div>
             <div class="ins-health-grade-sub" id="ins-health-score-num">Score</div>
           </div>
         </div>
@@ -5413,6 +5401,7 @@ body {
       </article>
     </section>
 
+  <p style="font-size:10px;color:var(--fc-text-faint);text-align:center;padding:4px 24px 16px;margin:0;opacity:0.6">FlowCheck is not a bank · Not financial advice</p>
   </div><!-- /view-insights -->
 
 

@@ -654,7 +654,7 @@ body.fc-theme {
   transition: transform 0.17s var(--fc-ease-spring), filter 0.2s;
   will-change: transform;
 }
-.fc-nav-item:active { transform: scale(0.88); opacity: 0.6; }
+.fc-nav-item:active { transform: scale(0.92); opacity: 0.7; }
 
 /* Active tab indicator — glowing capsule */
 .fc-nav-item.active::before {
@@ -729,7 +729,7 @@ body.fc-theme {
    ============================================================ */
 .fc-section       { padding: 14px 16px 0; }
 .fc-section--first { padding-top: 4px; }
-.fc-greeting      { padding: 16px 24px 6px; }
+.fc-greeting      { padding: 16px 20px 6px; }
 .fc-greeting h1   { line-height: 1.10; }
 .fc-greeting p    { color: var(--fc-text-muted); font-size: 13px; margin: 8px 0 0; }
 
@@ -2196,6 +2196,9 @@ body.fc-theme {
 
 /* ── Reduced motion — universal off switch ─────────────────── */
 /* (Already set above, but re-enforce for new animations) */
+/* ── Quick-pay bill button — CSS :active replaces inline handlers */
+.fc-qp-btn:active { transform: scale(0.88); }
+
 /* ── Delta chips — theme-aware spend comparison badges ──────── */
 .fc-delta--up   { background: rgba(255,69,58,0.12);  color: var(--fc-danger);  border: 1px solid rgba(255,69,58,0.25); }
 .fc-delta--down { background: rgba(52,199,89,0.12);   color: var(--fc-success); border: 1px solid rgba(52,199,89,0.25); }

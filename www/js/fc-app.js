@@ -3946,7 +3946,9 @@ window.FCApp = (function () {
     const streakChipEl = document.getElementById('streak-chip');
     if (streakChipEl && state.user) {
       const days = Math.max(1, state.user.streak || 1);
-      streakChipEl.textContent = `Day ${days}`;
+      const fire = days >= 7 ? '🔥 ' : '';
+      streakChipEl.textContent = `${fire}Day ${days}`;
+      streakChipEl.title = days >= 100 ? '100-day legend 🔥' : days >= 30 ? '30-day streak!' : days >= 7 ? '7-day streak!' : '';
     }
 
     // Net worth
@@ -4036,8 +4038,7 @@ window.FCApp = (function () {
                 <button
                   onclick="event.stopPropagation();FCApp.quickPayBill('${esc(b.id)}')"
                   style="width:36px;height:36px;border-radius:50%;background:rgba(48,209,88,0.10);border:1.5px solid rgba(48,209,88,0.28);color:var(--fc-success);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .18s;-webkit-tap-highlight-color:transparent"
-                  title="Mark as paid" type="button" aria-label="Mark ${esc(b.name)} as paid"
-                  onmousedown="this.style.transform='scale(0.88)'" onmouseup="this.style.transform=''" ontouchstart="this.style.transform='scale(0.88)'" ontouchend="this.style.transform=''">
+                  title="Mark as paid" type="button" aria-label="Mark ${esc(b.name)} as paid" class="fc-qp-btn">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
                 </button>
               </div>
@@ -4717,6 +4718,39 @@ window.FCApp = (function () {
     // Subtitle
     const sub = document.getElementById('ins-health-subtitle');
     if (sub) sub.textContent = hasData ? `${total}/100 — ${gradeMap[1]}` : 'Connect a bank to see your score';
+
+    // EA-4: trend vs last month — compute last month's score with same algorithm
+    const trendEl = document.getElementById('ins-health-trend');
+    if (trendEl && hasData) {
+      const lmStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const lmEnd   = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+      const lmTxns  = (state.transactions || []).filter(t => {
+        const d = FCData.parseDateLocal(t.date);
+        return d >= lmStart && d <= lmEnd;
+      });
+      if (lmTxns.length >= 5) {
+        const lmSpend  = lmTxns.filter(t => !t.isCredit && _isSpendTxn(t)).reduce((s, t) => s + (t.amount || 0), 0);
+        const lmIncome = lmTxns.filter(_isIncomeTxn).reduce((s, t) => s + (t.amount || 0), 0);
+        const lmBudget = budget;
+        const lmDenom  = lmBudget > 0 ? lmBudget : (lmIncome > 0 ? lmIncome : null);
+        const lmRatio  = lmDenom ? lmSpend / lmDenom : 0.5;
+        let lmSS = lmRatio <= 0.75 ? 34 : lmRatio >= 1.5 ? 0 : Math.round(34 * (1.5 - lmRatio) / 0.75);
+        const lmSavRate = lmIncome > 0 ? (lmIncome - lmSpend) / lmIncome : null;
+        let lmSavScore  = lmSavRate === null ? 16 : lmSavRate >= 0.2 ? 33 : lmSavRate > 0 ? Math.round(33 * lmSavRate / 0.2) : 0;
+        const lmTotal   = Math.min(100, lmSS + lmSavScore + nwScore);
+        const diff      = total - lmTotal;
+        const lmGrade   = lmTotal >= 90 ? 'A+' : lmTotal >= 80 ? 'A' : lmTotal >= 70 ? 'B+' : lmTotal >= 60 ? 'B' : lmTotal >= 50 ? 'C+' : lmTotal >= 40 ? 'C' : 'D';
+        if (Math.abs(diff) >= 3) {
+          trendEl.textContent = diff > 0 ? `↑ from ${lmGrade}` : `↓ from ${lmGrade}`;
+          trendEl.style.color = diff > 0 ? 'var(--fc-success)' : 'var(--fc-danger)';
+          trendEl.style.display = '';
+        } else {
+          trendEl.style.display = 'none';
+        }
+      } else {
+        trendEl.style.display = 'none';
+      }
+    }
   }
 
   /* ─────────────────────────────────────────────────────────────
@@ -9009,7 +9043,28 @@ window.FCApp = (function () {
     },
     _focusCardTap() {
       const card = document.getElementById('todays-focus-card');
-      if (card && typeof card._focusTap === 'function') card._focusTap();
+      if (!card) return;
+      // Show "Done ✓" resolution state for 1.8s, then advance to next insight
+      const bodyEl = document.getElementById('focus-body');
+      const actionEl = document.getElementById('focus-action');
+      if (bodyEl) {
+        const prevText = bodyEl.textContent;
+        bodyEl.textContent = 'Done ✓';
+        bodyEl.style.color = 'var(--fc-success)';
+        if (actionEl) actionEl.style.opacity = '0';
+        haptic('medium');
+        setTimeout(() => {
+          bodyEl.style.color = '';
+          if (actionEl) actionEl.style.opacity = '';
+          if (_focusInsights.length > 1) {
+            _focusIdx = (_focusIdx + 1) % _focusInsights.length;
+            _applyFocusInsight(_focusIdx);
+          } else {
+            bodyEl.textContent = prevText;
+          }
+        }, 1800);
+      }
+      if (typeof card._focusTap === 'function') card._focusTap();
     },
     // Referral sheet
     showReferralSheet,
