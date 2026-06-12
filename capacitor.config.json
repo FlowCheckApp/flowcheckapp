@@ -5,11 +5,19 @@
   "server": {
     "androidScheme": "https"
   },
+  "android": {
+    "backgroundColor": "#0a1520"
+  },
   "plugins": {
     "Keyboard": {
       "resize": "native",
       "style": "default",
       "resizeOnFullScreen": true
+    },
+    "StatusBar": {
+      "backgroundColor": "#0a1520",
+      "style": "DARK",
+      "overlaysWebView": false
     },
     "GoogleAuth": {
       "scopes": ["profile", "email"],

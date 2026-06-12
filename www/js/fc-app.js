@@ -1468,8 +1468,15 @@ window.FCApp = (function () {
     if (target) target.classList.add('active', slideClass);
 
     // Deactivate outgoing AFTER target is active — avoids single-frame blank
+    // Fade outgoing view out over 200ms before removing it from the layout
     if (outgoing) {
-      outgoing.classList.remove('active', 'fc-slide-right', 'fc-slide-left');
+      outgoing.style.opacity = '0';
+      outgoing.style.transition = 'opacity 0.2s ease';
+      setTimeout(() => {
+        outgoing.classList.remove('active', 'fc-slide-right', 'fc-slide-left');
+        outgoing.style.opacity = '';
+        outgoing.style.transition = '';
+      }, 200);
     }
 
     // Clean up animation class once the slide completes (240ms + 10ms buffer)
@@ -3665,7 +3672,7 @@ window.FCApp = (function () {
         return;
       }
       if (skeleton) skeleton.style.display = 'none';
-      container.innerHTML = '<div style="color:var(--fc-text-faint);font-size:13px;padding:14px 0;text-align:center">No transactions yet</div>';
+      container.innerHTML = '<div class="fc-empty"><div class="fc-empty-icon">💳</div><div class="fc-empty-title">No transactions yet</div><div class="fc-empty-sub">Your recent activity will appear here</div></div>';
       return;
     }
     if (skeleton) skeleton.style.display = 'none';
@@ -3925,8 +3932,7 @@ window.FCApp = (function () {
     const abs  = Math.abs(val);
     const sign = val < 0 ? '−$' : '$';
     if (abs >= 1000000) return sign + (abs / 1000000).toFixed(1) + 'M';
-    if (abs >= 10000)   return sign + (abs / 1000).toFixed(1)    + 'K';
-    if (abs >= 1000)    return sign + (abs / 1000).toFixed(1)    + 'K';
+    if (abs >= 100000)  return sign + (abs / 1000).toFixed(0)    + 'K';
     return FCData.formatCurrency(val);
   }
 
@@ -3999,7 +4005,7 @@ window.FCApp = (function () {
         .slice(0, 3);
 
       if (!upcoming.length) {
-        billsEl.innerHTML = '<div style="color:var(--fc-text-faint);font-size:13px;padding:12px 0">All clear — no upcoming bills.</div>';
+        billsEl.innerHTML = '<div class="fc-empty"><div class="fc-empty-icon">✅</div><div class="fc-empty-title">All clear</div><div class="fc-empty-sub">No upcoming bills</div></div>';
       } else {
         const allUnpaid = state.bills.filter(b => b.status !== 'paid');
         billsEl.innerHTML = upcoming.map(b => {
@@ -4844,7 +4850,7 @@ window.FCApp = (function () {
     const donutLegend   = document.getElementById('insights-donut-legend');
 
     if (!periodSpendTxns.length) {
-      container.innerHTML = `<div style="color:var(--fc-text-faint);text-align:center;padding:32px 0;font-size:14px">No spending data for ${periodLabel}</div>`;
+      container.innerHTML = `<div class="fc-empty"><div class="fc-empty-icon">📊</div><div class="fc-empty-title">No spending data</div><div class="fc-empty-sub">for ${periodLabel}</div></div>`;
       if (donutSvg)    donutSvg.innerHTML = '<circle cx="60" cy="60" r="46" fill="none" style="stroke:var(--fc-border)" stroke-width="16"/>';
       if (donutCenterEl) donutCenterEl.textContent = '—';
       if (donutLegend) donutLegend.innerHTML = '';
@@ -6865,6 +6871,22 @@ window.FCApp = (function () {
           if (data?.url) _handleDeepLink(data.url);
         }).catch(() => {});
       }
+      // AND-1: Android hardware back button — close sheets, nav home, then exit
+      if (_capAppPlugin.addListener) {
+        _capAppPlugin.addListener('backButton', () => {
+          const openSheet = document.querySelector('.fc-sheet-overlay[style*="block"]');
+          if (openSheet) { openSheet.style.display = 'none'; return; }
+          if (state.tab !== 'home') { switchTab('home'); return; }
+          _capAppPlugin.exitApp?.();
+        });
+      }
+    }
+
+    // AND-4: Android status bar color — match app background
+    const _statusBar = window.Capacitor?.Plugins?.StatusBar;
+    if (_statusBar && window.Capacitor?.getPlatform?.() === 'android') {
+      _statusBar.setBackgroundColor?.({ color: '#0a1520' }).catch(() => {});
+      _statusBar.setStyle?.({ style: 'DARK' }).catch(() => {});
     }
 
     // Native layer owns privacy blur + lock screen on iOS.
