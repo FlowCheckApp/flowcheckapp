@@ -536,7 +536,7 @@ body.fc-theme {
   transform: scale(0.95);
 }
 .fc-stat-label {
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.10em;
   text-transform: uppercase;
@@ -633,7 +633,7 @@ body.fc-theme {
   padding-top: 8px;
   color: var(--fc-text-faint);
   text-decoration: none;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.02em;
   transition: color 0.18s var(--fc-ease-out),
@@ -2196,6 +2196,36 @@ body.fc-theme {
 
 /* ── Reduced motion — universal off switch ─────────────────── */
 /* (Already set above, but re-enforce for new animations) */
+/* ── Delta chips — theme-aware spend comparison badges ──────── */
+.fc-delta--up   { background: rgba(255,69,58,0.12);  color: var(--fc-danger);  border: 1px solid rgba(255,69,58,0.25); }
+.fc-delta--down { background: rgba(52,199,89,0.12);   color: var(--fc-success); border: 1px solid rgba(52,199,89,0.25); }
+
+/* ── Android ripple — touch feedback for Android WebView ────── */
+@keyframes fcRipple {
+  from { transform: scale(0); opacity: 0.5; }
+  to   { transform: scale(2.5); opacity: 0; }
+}
+.fc-android .fc-list-item,
+.fc-android .fc-btn,
+.fc-android .fc-card[role="button"] { position: relative; overflow: hidden; }
+.fc-android .fc-ripple-dot {
+  position: absolute;
+  border-radius: 50%;
+  width: 80px; height: 80px;
+  margin: -40px 0 0 -40px;
+  background: rgba(255,255,255,0.18);
+  pointer-events: none;
+  animation: fcRipple 0.4s ease-out forwards;
+}
+
+/* ── Android font weights — Android renders heavier than iOS ── */
+.fc-android h1, .fc-android h2, .fc-android h3,
+.fc-android .fc-display, .fc-android .fc-title,
+.fc-android .fc-heading { font-weight: calc(var(--fw, 900) - 100); }
+.fc-android .fc-stat-value   { font-weight: 800; }
+.fc-android .fc-nav-item      { font-weight: 500; }
+.fc-android .dash-nw-amount   { font-weight: 800; }
+
 @media (prefers-reduced-motion: reduce) {
   .fc-sk,
   .fc-num-enter,

@@ -833,7 +833,7 @@ window.FCApp = (function () {
         const isLast  = i === buckets.length - 1;
         if (!b.label || (!isFirst && !isLast && i % step !== 0)) return '';
         const xPct = ((GAP + i * (barW + GAP) + barW / 2) / W * 100).toFixed(1);
-        return `<span style="position:absolute;left:${xPct}%;transform:translateX(-50%);font-size:9px;color:rgba(255,255,255,0.35);font-weight:500;white-space:nowrap">${b.label}</span>`;
+        return `<span style="position:absolute;left:${xPct}%;transform:translateX(-50%);font-size:9px;color:var(--fc-text-faint);font-weight:500;white-space:nowrap">${b.label}</span>`;
       }).join('');
       labelsEl.style.position = 'relative';
       labelsEl.style.height   = '14px';
@@ -1413,7 +1413,7 @@ window.FCApp = (function () {
         : `<span style="color:${color};font-size:12px;font-weight:${days !== null && days <= 3 ? 600 : 400}">${label}</span>`;
 
       return `
-        <div class="fc-list-item" style="cursor:pointer" onclick="FCApp.editBill('${b.id}')" role="button">
+        <div class="fc-list-item" data-bill-id="${b.id}" style="cursor:pointer" onclick="FCApp.editBill('${b.id}')" role="button">
           <div class="fc-list-icon" style="background:${bg};color:white;font-weight:700;font-size:16px">
             ${esc(b.icon || b.name.charAt(0))}
           </div>
@@ -3954,6 +3954,16 @@ window.FCApp = (function () {
     const nwEl     = document.getElementById('hero-networth');
     if (nwEl) animateNumber(nwEl, netWorth, '$');
 
+    // TS-2: Last synced timestamp below hero
+    const syncEl = document.getElementById('hero-sync-time');
+    if (syncEl && state.lastSyncAt) {
+      const mins = Math.floor((Date.now() - state.lastSyncAt) / 60000);
+      syncEl.textContent = mins < 1 ? 'Updated just now'
+        : mins < 60 ? `Updated ${mins} min ago`
+        : `Updated at ${new Date(state.lastSyncAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`;
+      syncEl.style.display = '';
+    }
+
     // Color-code the hero card based on NW sign: cyan glow for positive, red for negative
     const nwCard = document.querySelector('.dash-nw-card');
     if (nwCard) {
@@ -3986,7 +3996,7 @@ window.FCApp = (function () {
     // Cash stat
     const cash   = FCData.calcCash(state.accounts);
     const cashEl = document.getElementById('stat-cash');
-    if (cashEl) cashEl.textContent = _fmtCompact(cash);
+    if (cashEl) animateNumber(cashEl, cash, '$');
 
     // Account count
     const acctEl = document.getElementById('stat-account-count');
@@ -4013,7 +4023,7 @@ window.FCApp = (function () {
           const { label, color } = FCData.billDueLabelAndColor(days !== null ? days : 999);
           const bg = b.color || FCData.categoryColor(b.category || 'Service');
           return `
-            <div class="fc-list-item" style="cursor:pointer" onclick="FCApp.switchTab('activity');FCApp.switchActivitySegment('bills')" role="button">
+            <div class="fc-list-item" data-bill-id="${esc(b.id)}" style="cursor:pointer" onclick="FCApp.switchTab('activity');FCApp.switchActivitySegment('bills')" role="button">
               <div class="fc-list-icon" style="background:${esc(bg)};color:white;font-weight:700;font-size:16px">
                 ${esc(b.icon || b.name.charAt(0))}
               </div>
@@ -4066,7 +4076,7 @@ window.FCApp = (function () {
     const unpaidBills = state.bills.filter(b => b.status !== 'paid');
     const unpaidBillsTotal = unpaidBills.reduce((s, b) => s + (b.amount || 0), 0);
     const billsStatEl = document.getElementById('stat-bills');
-    if (billsStatEl) billsStatEl.textContent = _fmtCompact(unpaidBillsTotal);
+    if (billsStatEl) animateNumber(billsStatEl, unpaidBillsTotal, '$');
     // Quick-stat strip: bills
     const qsBills = document.getElementById('fch-qs-bills');
     if (qsBills) {
@@ -4757,11 +4767,13 @@ window.FCApp = (function () {
         if (lastMoSpend > 0) {
           const delta = periodSpend - lastMoSpend;
           const pct   = Math.round(Math.abs(delta) / lastMoSpend * 100);
-          spendDeltaEl.style.display    = '';
-          spendDeltaEl.textContent      = delta >= 0 ? `+${pct}% vs last mo` : `−${pct}% vs last mo`;
-          spendDeltaEl.style.background = delta >= 0 ? 'rgba(255,69,58,0.12)' : 'rgba(52,199,89,0.12)';
-          spendDeltaEl.style.color      = delta >= 0 ? 'var(--fc-danger)' : 'var(--fc-success)';
-          spendDeltaEl.style.border     = delta >= 0 ? '1px solid rgba(255,69,58,0.25)' : '1px solid rgba(52,199,89,0.25)';
+          spendDeltaEl.style.display = '';
+          spendDeltaEl.textContent   = delta >= 0 ? `+${pct}% vs last mo` : `−${pct}% vs last mo`;
+          spendDeltaEl.style.background = '';
+          spendDeltaEl.style.color      = '';
+          spendDeltaEl.style.border     = '';
+          spendDeltaEl.classList.remove('fc-delta--up', 'fc-delta--down');
+          spendDeltaEl.classList.add(delta >= 0 ? 'fc-delta--up' : 'fc-delta--down');
         } else {
           spendDeltaEl.style.display = 'none';
         }
@@ -5384,7 +5396,7 @@ window.FCApp = (function () {
         const sign  = delta >= 0 ? '+' : '−';
         const color = delta >= 0 ? 'rgba(52,199,89,0.15)' : 'rgba(255,69,58,0.12)';
         const textColor = delta >= 0 ? 'var(--fc-success)' : 'var(--fc-danger)';
-        dlEl.innerHTML = `<span>${sign}${FCData.formatCurrency(Math.abs(delta))}</span><span style="font-weight:500;color:rgba(255,255,255,0.4)">vs last month</span>`;
+        dlEl.innerHTML = `<span>${sign}${FCData.formatCurrency(Math.abs(delta))}</span><span style="font-weight:500;color:var(--fc-text-faint)">vs last month</span>`;
         dlEl.style.cssText += `;background:${color};color:${textColor}`;
         dlEl.style.display = 'inline-flex';
       }
@@ -6746,10 +6758,23 @@ window.FCApp = (function () {
     FCAuth.init();
     _initPullToRefresh();
 
-    // Hide iOS-only auth options on Android
+    // Hide iOS-only auth options on Android; add platform class for CSS targeting
     const platform = window.Capacitor?.getPlatform?.() || 'web';
     if (platform === 'android') {
+      document.documentElement.classList.add('fc-android');
       document.querySelectorAll('.fc-auth-apple-btn').forEach(el => el.style.display = 'none');
+      // AND-2: Material-style ripple on interactive elements
+      document.addEventListener('touchstart', (e) => {
+        const target = e.target.closest('.fc-list-item, .fc-btn, .fc-card[role="button"]');
+        if (!target) return;
+        const rect = target.getBoundingClientRect();
+        const dot = document.createElement('span');
+        dot.className = 'fc-ripple-dot';
+        dot.style.left = (e.touches[0].clientX - rect.left) + 'px';
+        dot.style.top  = (e.touches[0].clientY - rect.top)  + 'px';
+        target.appendChild(dot);
+        setTimeout(() => dot.remove(), 420);
+      }, { passive: true });
     }
 
     // Jailbreak / root warning — non-blocking, shows advisory to user.
@@ -7154,7 +7179,7 @@ window.FCApp = (function () {
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="rgba(26,196,240,0.7)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
           </div>
           <div style="font-size:15px;font-weight:700;color:var(--fc-text);letter-spacing:-0.02em">You're all caught up</div>
-          <div style="font-size:13px;color:rgba(255,255,255,0.35);line-height:1.5;max-width:220px">We'll notify you about bills, budget alerts, and account activity</div>
+          <div style="font-size:13px;color:var(--fc-text-faint);line-height:1.5;max-width:220px">We'll notify you about bills, budget alerts, and account activity</div>
         </div>`;
       return;
     }
@@ -7216,7 +7241,7 @@ window.FCApp = (function () {
                       letter-spacing:-0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
             ${esc(n.title || '')}
           </div>
-          <div style="font-size:12px;color:rgba(255,255,255,0.38);margin-top:3px;line-height:1.45">
+          <div style="font-size:12px;color:var(--fc-text-faint);margin-top:3px;line-height:1.45">
             ${esc(n.body || '')}
           </div>
           <div style="font-size:10px;font-weight:600;color:rgba(255,255,255,0.22);margin-top:5px;letter-spacing:0.02em">
@@ -8324,11 +8349,20 @@ window.FCApp = (function () {
      ───────────────────────────────────────────────────────────── */
 
   async function quickPayBill(billId) {
+    // Immediate visual — slide row out before the Firestore listener removes it
+    const rows = document.querySelectorAll(`[data-bill-id="${CSS.escape(billId)}"]`);
+    rows.forEach(row => {
+      row.style.transition = 'opacity 0.25s ease, transform 0.25s ease';
+      row.style.opacity    = '0';
+      row.style.transform  = 'translateX(16px)';
+    });
+    haptic('heavy');
     try {
       await FCData.markBillPaid(billId);
       haptic('success');
-      toast('Bill marked as paid ✓', 'success');
+      toast('Bill paid ✓', 'success');
     } catch (err) {
+      rows.forEach(row => { row.style.opacity = ''; row.style.transform = ''; });
       haptic('heavy');
       toast('Could not update bill', 'error');
     }

@@ -894,11 +894,11 @@ body.fc-keyboard-open .fc-auth-screen { padding-top: calc(env(safe-area-inset-to
 
 /* ── Tab slide transitions — single authoritative definition ── */
 @keyframes fcSlideInFromRight {
-  from { transform: translateX(28px); opacity: 0; }
+  from { transform: translateX(52px); opacity: 0; }
   to   { transform: translateX(0);    opacity: 1; }
 }
 @keyframes fcSlideInFromLeft {
-  from { transform: translateX(-28px); opacity: 0; }
+  from { transform: translateX(-52px); opacity: 0; }
   to   { transform: translateX(0);     opacity: 1; }
 }
 .fc-view.active.fc-slide-right {
@@ -4684,6 +4684,7 @@ body {
         <span id="fch-cashflow" class="dash-nf-val fc-amount">—</span>
       </div>
     </div>
+    <div id="hero-sync-time" style="font-size:10px;color:var(--fc-text-faint);text-align:center;margin-top:10px;display:none"></div>
   </div>
 
   <!-- ══════════════════════════════════════════════════════════════
@@ -5872,6 +5873,11 @@ body {
               type="button">
         + Add Another Bank
       </button>
+    </div>
+    <!-- TS-1: Security trust signal -->
+    <div style="display:flex;align-items:center;gap:8px;margin-top:18px;padding-top:14px;border-top:0.5px solid var(--fc-border)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2" stroke-linecap="round" flex-shrink="0" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      <span style="font-size:11px;color:var(--fc-text-faint);line-height:1.4">256-bit encryption · Read-only access · We never store your credentials</span>
     </div>
     <button class="fc-sheet-cancel" onclick="FCApp.closeBankSheet()" type="button">Cancel</button>
   </div>
