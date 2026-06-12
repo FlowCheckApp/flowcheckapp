@@ -75,6 +75,9 @@ git add \
   ios/App/App/Info.plist \
   android/app/src/main/assets/public/ \
   android/app/google-services.json \
+  android/app/build.gradle \
+  android/app/src/main/AndroidManifest.xml \
+  android/app/proguard-rules.pro \
   capacitor.config.json \
   package.json \
   package-lock.json \

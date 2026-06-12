@@ -44,13 +44,15 @@ window.FCPurchases = (function () {
   async function configure(appUserID = null) {
     const plugin = RC();
     const cfg    = CFG();
-    if (!plugin || !cfg?.apiKey) {
+    const platform = window.Capacitor?.getPlatform?.() || 'web';
+    const apiKey   = platform === 'android' ? (cfg.apiKeyAndroid || cfg.apiKey) : cfg.apiKey;
+    if (!plugin || !apiKey) {
       fcLog('FCPurchases: Purchases plugin or apiKey not available — IAP disabled');
       return;
     }
     if (_configured) return;
     try {
-      const opts = { apiKey: cfg.apiKey };
+      const opts = { apiKey };
       if (appUserID) opts.appUserID = String(appUserID);
       await plugin.configure(opts);
       _configured = true;

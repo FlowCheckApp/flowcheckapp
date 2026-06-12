@@ -69,7 +69,8 @@ window.FC_CONFIG = {
        flowcheck.pro.annual  — $34.99/yr (7-day free trial)
      ─────────────────────────────────────────────────────────── */
   revenueCat: {
-    apiKey:        'appl_uXPDYRZDWiuLWcHfmesBUwKHmOQ',
+    apiKey:        'appl_uXPDYRZDWiuLWcHfmesBUwKHmOQ',  // iOS
+    apiKeyAndroid: 'REPLACE_WITH_GOOG_ANDROID_RC_KEY',   // Android — get from RevenueCat dashboard → Android app
     appId:         'app4590b0f1ba',
     entitlementId: 'premium',
   },

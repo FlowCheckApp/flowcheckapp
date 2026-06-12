@@ -31,6 +31,7 @@ window.FCApp = (function () {
 
   // Tracks which specific item is being disconnected (null = disconnect all)
   let _pendingDisconnectItemId = null;
+  let _lastSyncFailed = false;
 
   // Transaction edit state
   let _editingTxnId = null;
@@ -270,7 +271,16 @@ window.FCApp = (function () {
     return n || t.name;
   }
 
+  let _subDetectCache = null;
+  let _subDetectCacheTxLen = -1;
+  let _subDetectCacheBillLen = -1;
+
   function _detectSubscriptions() {
+    const txLen   = state.transactions.length;
+    const billLen = state.bills.length;
+    if (_subDetectCache !== null && _subDetectCacheTxLen === txLen && _subDetectCacheBillLen === billLen) {
+      return _subDetectCache;
+    }
     const map = {};
     for (const t of state.transactions) {
       if (t.isCredit || !t.date || !t.name) continue;
@@ -350,7 +360,10 @@ window.FCApp = (function () {
         lastDate: mostRecent.date,
       });
     }
-    return detected.sort((a, b) => b.amount - a.amount);
+    _subDetectCache = detected.sort((a, b) => b.amount - a.amount);
+    _subDetectCacheTxLen   = state.transactions.length;
+    _subDetectCacheBillLen = state.bills.length;
+    return _subDetectCache;
   }
 
   // Show subscription detail bottom sheet
@@ -5752,14 +5765,14 @@ window.FCApp = (function () {
     if (_syncBtn) _syncBtn.classList.add('is-busy');
 
     // Idle text depends on whether a bank is linked
-    const _idleText = () => (state.user && state.user.plaid_linked) ? 'All caught up' : 'Connect a bank to start';
+    const _idleText = () => (state.user && state.user.plaid_linked) ? 'All caught up' : 'Connect a bank to see your spending';
 
     // Fade island text to "Syncing…" without jarring jump
     const islandText = document.getElementById('islandText');
     if (islandText) {
       islandText.classList.add('fc-fade');
       setTimeout(() => {
-        islandText.textContent = 'Syncing…';
+        islandText.innerHTML = 'Syncing<span class="fc-sync-dot" aria-hidden="true"></span>';
         islandText.classList.remove('fc-fade');
       }, 200);
     }
@@ -5768,6 +5781,7 @@ window.FCApp = (function () {
       await FCData.syncTransactions();
       state.lastSyncAt = Date.now();
       _syncSucceeded = true;
+      _lastSyncFailed = false;
       haptic('medium');
       if (islandText) {
         islandText.classList.add('fc-fade');
@@ -5785,6 +5799,7 @@ window.FCApp = (function () {
           // Background syncs fail silently — keep island neutral
           // User-initiated syncs show "Sync failed" briefly
           islandText.textContent = showToast ? 'Sync failed' : _idleText();
+          _lastSyncFailed = true;
           islandText.classList.remove('fc-fade');
         }, 200);
       }
@@ -6738,6 +6753,18 @@ window.FCApp = (function () {
       focused.blur();
     }, { passive: true });
 
+    // ── Keyboard scroll-to-input (Capacitor Keyboard plugin) ─────
+    // On notched iPhones the keyboard can cover the focused input.
+    // scrollIntoView centers it above the keyboard automatically.
+    const _kbPlugin = window.Capacitor?.Plugins?.Keyboard;
+    if (_kbPlugin?.addListener) {
+      _kbPlugin.addListener('keyboardWillShow', () => {
+        setTimeout(() => {
+          document.activeElement?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 50);
+      });
+    }
+
     // Period scrubber buttons have onclick="FCApp.switchPeriod(...)" — no extra wiring needed here.
 
     // Activity search
@@ -7496,8 +7523,13 @@ window.FCApp = (function () {
         if (!user || typeof user.getIdToken !== 'function') return;
         try {
           await user.getIdToken(true);
+          // Retry a background sync if the last one failed (e.g. app was backgrounded mid-sync)
+          if (_lastSyncFailed && state.user?.plaid_linked && state.screen === 'app') {
+            manualSync(false);
+          }
         } catch (err) {
           console.warn('[FCApp] Token revoked on resume — signing out:', err.code || err.message);
+          toast('Your session expired — please sign in again', 'info', 5000);
           try { FCData.detachAllListeners(); } catch (_) {}
           try { await FCAuth.signOut(); } catch (_) {}
           try {

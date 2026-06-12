@@ -2087,7 +2087,7 @@ body {
   </div>
   <div class="fc-hero-cta">
     <button class="fc-btn fc-btn--primary fc-btn--block fc-hero-btn-get-started"
-            onclick="haptic('light');FCApp.setScreen('register')" type="button">
+            onclick="FCApp.haptic('light');FCApp.setScreen('register')" type="button">
       Get Started — It's Free
     </button>
     <button class="fc-btn fc-btn--ghost fc-btn--block fc-hero-signin-link"
@@ -2283,12 +2283,19 @@ body {
       <div class="fc-input-wrap">
         <input id="reg-password" class="fc-input" type="password" autocomplete="new-password"
                placeholder="At least 8 characters" enterkeyhint="go" minlength="8" style="padding-right:50px"
-               onkeydown="if(event.key==='Enter'){document.getElementById('btn-register').click()}">
+               onkeydown="if(event.key==='Enter'){document.getElementById('btn-register').click()}"
+               oninput="(function(v){var s=document.getElementById('pw-strength');if(!s)return;var l=v.length;var strong=l>=8&&/[A-Z]/.test(v)&&/[0-9]/.test(v);var ok=l>=8;s.style.display=l>0?'flex':'none';s.children[0].style.background=l>=8?'var(--fc-success)':'var(--fc-danger)';s.children[1].style.background=ok?'var(--fc-success)':'rgba(255,255,255,0.1)';s.children[2].style.background=strong?'var(--fc-success)':'rgba(255,255,255,0.1)';s.children[3].textContent=strong?'Strong':ok?'OK — add a number or capital for stronger':'Too short';})(this.value)">
         <button class="fc-input-eye" onclick="togglePasswordVisibility('reg-password',this)" type="button" aria-label="Show password">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
           </svg>
         </button>
+      </div>
+      <div id="pw-strength" style="display:none;align-items:center;gap:4px;margin-top:8px;padding:0 2px">
+        <div style="height:3px;flex:1;border-radius:99px;background:rgba(255,255,255,0.1);transition:background 0.25s"></div>
+        <div style="height:3px;flex:1;border-radius:99px;background:rgba(255,255,255,0.1);transition:background 0.25s"></div>
+        <div style="height:3px;flex:1;border-radius:99px;background:rgba(255,255,255,0.1);transition:background 0.25s"></div>
+        <span id="pw-strength-label" style="font-size:11px;color:rgba(240,246,255,0.45);margin-left:6px;min-width:80px"></span>
       </div>
     </div>
 
