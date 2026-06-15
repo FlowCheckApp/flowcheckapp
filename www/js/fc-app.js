@@ -10455,7 +10455,8 @@ window.FCApp = (function () {
 // app feel instant — the user sees the splash immediately while
 // Firebase init, auth check, and data listeners start in the background.
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => requestAnimationFrame(() => FCApp.boot()));
+  document.addEventListener('DOMContentLoaded', () => { window._fcAppStartedAt = Date.now(); requestAnimationFrame(() => FCApp.boot()); });
 } else {
+  window._fcAppStartedAt = Date.now();
   requestAnimationFrame(() => FCApp.boot());
 }

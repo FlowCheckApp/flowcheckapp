@@ -252,7 +252,11 @@ window.FCDebug = (function () {
       msg.includes('ResizeObserver loop') ||    // benign browser noise
       msg.includes('Non-Error promise rejection') ||
       msg.includes('cancelled') ||              // Plaid user-cancelled
-      msg.includes('AbortError')               // share sheet dismissed
+      msg.includes('AbortError') ||             // share sheet dismissed
+      msg.includes('Failed to fetch') ||        // Railway cold-start / offline
+      msg.includes('NetworkError') ||           // WKWebView network failure
+      msg.includes('Load failed') ||            // iOS WKWebView fetch timeout
+      msg.includes('fetch') && msg.includes('network') // generic fetch network error
     );
 
     window.addEventListener('unhandledrejection', e => {
@@ -260,8 +264,9 @@ window.FCDebug = (function () {
       if (_isSilentError(msg)) return;
       // Log to device console (shows in Xcode / Safari Web Inspector)
       console.error('[FCApp] Unhandled rejection:', msg);
-      // Only show toast if FCApp is booted and visible to user
-      if (window.FCApp?.toast) {
+      // Only show toast if FCApp is booted, visible, and past the cold-start window (3s)
+      const appReady = window.FCApp?.toast && window._fcAppStartedAt && (Date.now() - window._fcAppStartedAt > 3000);
+      if (appReady) {
         FCApp.toast('Something went wrong — please try again', 'error', 4000);
       }
     });
