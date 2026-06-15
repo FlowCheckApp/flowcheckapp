@@ -904,7 +904,7 @@ body.fc-keyboard-open .fc-auth-screen { padding-top: calc(env(safe-area-inset-to
 }
 
 /* Dynamic Island */
-.fc-island { display: flex; justify-content: center; padding: 10px 0 0; flex-shrink: 0; }
+.fc-island { display: flex; justify-content: center; padding: 4px 0 0; flex-shrink: 0; }
 .fc-island-pill {
   background: #000; padding: 6px 16px; border-radius: 999px;
   display: inline-flex; align-items: center; gap: 8px;
@@ -4040,10 +4040,10 @@ body {
     @keyframes dashNWIn{from{opacity:0;transform:translateY(10px) scale(.97)}to{opacity:1;transform:none}}
 
     /* ── Greeting header ────────────────────────────────────────── */
-    .dash-greeting{display:flex;align-items:center;justify-content:space-between;padding:20px 20px 16px}
+    .dash-greeting{display:flex;align-items:center;justify-content:space-between;padding:12px 20px 10px}
     .dash-greeting-left{flex:1;min-width:0}
-    .dash-tod{font-size:11px;color:rgba(255,255,255,0.38);font-weight:600;letter-spacing:0.08em;margin-bottom:3px;text-transform:uppercase}
-    .dash-name{font-size:38px;font-weight:900;color:#fff;letter-spacing:-0.05em;line-height:1.0;margin:0}
+    .dash-tod{font-size:11px;color:rgba(255,255,255,0.38);font-weight:600;letter-spacing:0.08em;margin-bottom:2px;text-transform:uppercase}
+    .dash-name{font-size:32px;font-weight:900;color:#fff;letter-spacing:-0.04em;line-height:1.05;margin:0}
     /* Safe-to-spend pill — more tactile, pill-shaped */
     .dash-safe{
       display:inline-flex;align-items:center;gap:7px;
@@ -4992,9 +4992,9 @@ body {
       </div>
       <div style="text-align:right">
         <div style="font-size:13px;font-weight:600;color:var(--fc-text-muted);line-height:1.3;font-variant-numeric:tabular-nums">
-          <span id="dash-pulse-of"></span><span id="dash-pulse-income"></span>
+          <span id="dash-pulse-income"></span>
         </div>
-        <div style="font-size:10px;color:var(--fc-text-faint);margin-top:2px;letter-spacing:.02em">income this month</div>
+        <div id="dash-pulse-income-label" style="font-size:10px;color:var(--fc-text-faint);margin-top:2px;letter-spacing:.02em">monthly income</div>
       </div>
     </div>
     <div class="dash-spend-track">
@@ -5572,7 +5572,7 @@ body {
 
     /* Net Worth card (right column) */
     .ins-nw-card{background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.08);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:8px;cursor:pointer;-webkit-tap-highlight-color:transparent}
-    .ins-nw-amount{font-size:24px;font-weight:900;letter-spacing:-0.04em;color:var(--fc-text);line-height:1;font-variant-numeric:tabular-nums}
+    .ins-nw-amount{font-size:clamp(15px,4.4vw,22px);font-weight:900;letter-spacing:-0.04em;color:var(--fc-text);line-height:1;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
     .ins-nw-sparkline-wrap{flex:1;min-height:40px}
 
     /* Cash Flow Forecast */

@@ -334,8 +334,8 @@ body.fc-theme {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 18px;
-  padding-top: calc(env(safe-area-inset-top) + 12px);
+  padding: 8px 18px;
+  padding-top: calc(env(safe-area-inset-top) + 8px);
   background: rgba(6, 14, 24, 0.7);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
   backdrop-filter: saturate(180%) blur(20px);
@@ -2332,6 +2332,46 @@ body.fc-theme {
   font-size: 13px;
   color: var(--fc-text-muted);
   line-height: 1.4;
+}
+
+/* Safe to Spend gradient card treatment */
+.dash-sts-card {
+  margin: 0 0 4px;
+  padding: 16px 18px 14px;
+  background: linear-gradient(145deg, rgba(26,196,240,0.09) 0%, rgba(37,99,235,0.07) 100%);
+  border: 0.5px solid rgba(26,196,240,0.22);
+  border-radius: 22px;
+  box-shadow: 0 0 32px rgba(26,196,240,0.07) inset, 0 6px 20px rgba(0,0,0,0.28);
+  position: relative;
+}
+.dash-sts-illus {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+  opacity: 0.95;
+}
+.dash-sts-subtitle {
+  font-size: 12px;
+  color: var(--fc-text-faint);
+  margin-top: 2px;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+.dash-sts-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(48,209,88,0.12);
+  border: 0.5px solid rgba(48,209,88,0.28);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--fc-success);
+  margin-bottom: 10px;
 }
 
 /* NW card secondary treatment */

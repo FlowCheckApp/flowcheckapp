@@ -3335,12 +3335,13 @@ window.FCApp = (function () {
     const hour = new Date().getHours();
     const tod  = hour < 5 ? 'Good night' : hour < 12 ? 'Good morning'
                : hour < 17 ? 'Good afternoon' : 'Good evening';
-    // Resolution: Firestore 'name' → Firebase Auth displayName → email prefix → blank
-    // Firebase Auth displayName is set via updateProfile() on email signup and is
-    // available immediately — before the Firestore listener delivers its first snapshot.
+    // Resolution: Firestore 'name' → Firebase Auth displayName → blank (never email prefix)
     const authUser2 = window.FCAuth && FCAuth.currentUser ? FCAuth.currentUser() : null;
-    const rawName   = state.user?.name || authUser2?.displayName || state.user?.email?.split('@')[0] || '';
-    const name      = rawName.split(' ')[0] || authUser2?.email?.split('@')[0] || '';
+    const rawName   = (state.user?.name || authUser2?.displayName || '').trim();
+    // Take first word, capitalize, ignore if it looks like an email prefix (contains dot/number)
+    const firstName = rawName.split(' ')[0] || '';
+    const safeName  = /[.\d]/.test(firstName) ? '' : firstName;
+    const name      = safeName ? safeName.charAt(0).toUpperCase() + safeName.slice(1) : '';
 
     if (dateEl) dateEl.textContent = tod;
     titleEl.textContent = (name || 'Welcome back') + ' 👋';
@@ -4272,16 +4273,14 @@ window.FCApp = (function () {
         else pulseRow.classList.remove('dash-pulse--danger');
 
         if (pulseSpentEl)  pulseSpentEl.textContent  = _fmtCompact(monthSpend);
-        // Only show income denominator when it's reliably detected
-        const pulseOfEl = document.getElementById('dash-pulse-of');
+        const pulseIncomeLabelEl = document.getElementById('dash-pulse-income-label');
         if (pulseIncomeEl) {
           if (incomeOk) {
             pulseIncomeEl.textContent = _fmtCompact(monthIncome);
-            if (pulseOfEl) pulseOfEl.textContent = ' of ';
+            if (pulseIncomeLabelEl) pulseIncomeLabelEl.style.display = '';
           } else {
-            // Hide "of $X" when income isn't reliably detected
             pulseIncomeEl.textContent = '';
-            if (pulseOfEl) pulseOfEl.textContent = '';
+            if (pulseIncomeLabelEl) pulseIncomeLabelEl.style.display = 'none';
           }
         }
         if (pulseFill) {
@@ -4531,7 +4530,10 @@ window.FCApp = (function () {
         if (histKeys.length >= 2) {
           const prev2 = hist[histKeys[histKeys.length - 2]] ?? 0;
           const delta2 = netWorth - prev2;
-          miniDelta.textContent = (delta2 >= 0 ? '↑ +' : '↓ ') + FCData.formatCurrency(Math.abs(delta2)) + ' this month';
+          const isNegNW2 = netWorth < 0;
+          miniDelta.textContent = delta2 >= 0
+            ? (isNegNW2 ? '↑ Improved ' : '↑ +') + FCData.formatCurrency(Math.abs(delta2)) + ' this month'
+            : '↓ ' + FCData.formatCurrency(Math.abs(delta2)) + ' this month';
           miniDelta.style.color = delta2 >= 0 ? 'var(--fc-success)' : 'var(--fc-danger)';
           miniDelta.style.display = '';
         } else {
@@ -5606,8 +5608,12 @@ window.FCApp = (function () {
 
         if (nwVal)   nwVal.textContent = FCData.formatCurrency(latest);
         if (nwDelta) {
+          const isNegNW  = latest < 0;
+          const deltaLabel = delta >= 0
+            ? (isNegNW ? 'Improved ' : '+') + FCData.formatCurrency(Math.abs(delta))
+            : FCData.formatCurrency(delta);
           nwDelta.style.display    = '';
-          nwDelta.textContent      = (delta >= 0 ? '+' : '') + FCData.formatCurrency(delta);
+          nwDelta.textContent      = deltaLabel;
           nwDelta.style.background = delta >= 0 ? 'rgba(26,196,240,0.12)' : 'rgba(255,69,58,0.12)';
           nwDelta.style.color      = delta >= 0 ? 'var(--fc-accent)' : 'var(--fc-danger)';
           nwDelta.style.border     = delta >= 0 ? '1px solid rgba(26,196,240,0.2)' : '1px solid rgba(255,69,58,0.2)';
@@ -9972,7 +9978,13 @@ window.FCApp = (function () {
   function _maybeShowWelcomeModal() {
     if (_welcomeShown) return;
     if (!state.user) return;
-    if (state.user.welcome_seen) return;
+    // Primary: Firestore flag (cross-device); Fallback: per-uid localStorage (survives network failure)
+    const uid = FCAuth.currentUser ? FCAuth.currentUser()?.uid : null;
+    const localKey = uid ? `fc_ws_${uid}` : null;
+    if (state.user.welcome_seen || (localKey && localStorage.getItem(localKey))) {
+      _welcomeShown = true;
+      return;
+    }
     _welcomeShown = true;
 
     const overlay = document.createElement('div');
@@ -9995,6 +10007,8 @@ window.FCApp = (function () {
       overlay.style.opacity = '0';
       overlay.style.transition = 'opacity .2s ease';
       setTimeout(() => overlay.remove(), 200);
+      // Write localStorage immediately (no network) so re-opens don't re-show the modal
+      if (localKey) { try { localStorage.setItem(localKey, '1'); } catch (_) {} }
       FCData.updateUserField('welcome_seen', true).catch(() => {});
       if (openFeedback) setTimeout(() => showFeedbackScreen(), 220);
     };
