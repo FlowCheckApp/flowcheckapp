@@ -3835,6 +3835,28 @@ window.FCApp = (function () {
       }
     }
 
+    // ── 3b. Projected month-end spend > income by $500+ ─────────
+    {
+      const calTxns   = txns.filter(t => FCData.isCurrentMonth(t.date));
+      const monthSpend = calTxns.filter(t => !t.isCredit && _isSpendTxn(t)).reduce((s,t) => s + (t.amount||0), 0);
+      const monthIncome = calTxns.filter(_isIncomeTxn).reduce((s,t) => s + (t.amount||0), 0);
+      const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      const daysElapsed = now.getDate();
+      if (daysElapsed >= 5 && monthSpend > 0 && monthIncome > 0) {
+        const projected = (monthSpend / daysElapsed) * daysInMonth;
+        const overage   = projected - monthIncome;
+        if (overage > 500 && !(budget > 0 && monthSpend / budget > 0.9)) {
+          insights.push({
+            type: 'danger',
+            label: 'Spending Alert',
+            body: `At this rate you'll spend ${FCData.formatCurrency(projected)} by month end — ${FCData.formatCurrency(overage)} more than your income.`,
+            action: 'See budget',
+            tap: () => FCApp.switchTab('insights')
+          });
+        }
+      }
+    }
+
     // ── 4. Unusual large transaction in last 3 days ──────────────
     const cutoff3d  = new Date(now.getTime() - 3  * 86400000);
     const cutoff60d = new Date(now.getTime() - 60 * 86400000);
@@ -5232,10 +5254,20 @@ window.FCApp = (function () {
       const tcAmt  = document.getElementById('ins-top-cat-amt');  if (tcAmt)  tcAmt.style.display = 'none';
     } else {
       const catMap = {};
+      const _RENT_PATTERN = /apart|rent|realty|property|housing|residen|leas/i;
+      let _utilitiesHasRent = false;
       for (const t of periodSpendTxns) {
         const rawCat = (t.category && t.category[0]) || t.category || 'Other';
-        const cat = FCData.normalizePlaidCategory(rawCat);
+        let cat = FCData.normalizePlaidCategory(rawCat);
+        if (cat === 'Utilities' && _RENT_PATTERN.test(t.merchant_name || t.name || '')) {
+          _utilitiesHasRent = true;
+        }
         catMap[cat] = (catMap[cat] || 0) + t.amount;
+      }
+      // Rename Utilities → "Utilities & Rent" when rent merchants are in the bucket
+      if (_utilitiesHasRent && catMap['Utilities']) {
+        catMap['Utilities & Rent'] = catMap['Utilities'];
+        delete catMap['Utilities'];
       }
       const sorted = Object.entries(catMap).sort((a, b) => b[1] - a[1]).slice(0, 6);
 
@@ -5469,14 +5501,13 @@ window.FCApp = (function () {
 
       // Premium compact merchant list (new v2 format)
       list.innerHTML = top.slice(0, 4).map(([name, data]) => {
-        const shortName = name.length > 18 ? name.substring(0, 18) + '…' : name;
         const initial   = name.replace(/^(the |a )/i, '').charAt(0).toUpperCase();
         const emoji     = (typeof FCData.categoryEmoji === 'function') ? FCData.categoryEmoji('Shopping', name) : '';
         const icon      = emoji || initial;
         return `
           <div class="ins-merchant-row">
             <div class="ins-merchant-icon">${icon}</div>
-            <div class="ins-merchant-name">${esc(shortName)}</div>
+            <div class="ins-merchant-name" style="white-space:normal;word-break:break-word">${esc(name)}</div>
             <div class="ins-merchant-amt">${FCData.formatCurrency(data.total)}</div>
           </div>`;
       }).join('');
@@ -7691,8 +7722,8 @@ window.FCApp = (function () {
       state.user = user;
       if (state.screen === 'app') _renderSettings();
       _updateGreeting();
-      // Increment streak daily
-      _maybeIncrementStreak(user);
+      // Increment streak daily — fire-and-forget, never surface as unhandled rejection
+      _maybeIncrementStreak(user).catch(() => {});
     });
 
     FCData.listenToAccounts(accounts => {
@@ -7722,7 +7753,7 @@ window.FCApp = (function () {
       state.bills = bills;
       if (state.tab === 'home') _renderHome();
       if (state.tab === 'activity' && _activitySegment === 'bills') _renderBillsList();
-      FCPush.scheduleAllBillReminders(bills);
+      FCPush.scheduleAllBillReminders(bills).catch(() => {});
     });
 
     FCData.listenToGoals(goals => {
@@ -7789,12 +7820,12 @@ window.FCApp = (function () {
       await db.collection('users').doc(uid).update({
         streak:           firebase.firestore.FieldValue.increment(1),
         last_streak_date: firebase.firestore.FieldValue.serverTimestamp(),
-      });
+      }).catch(() => {});
     } else if (diff > 1) {
       await db.collection('users').doc(uid).update({
         streak:           1,
         last_streak_date: firebase.firestore.FieldValue.serverTimestamp(),
-      });
+      }).catch(() => {});
     }
   }
 
