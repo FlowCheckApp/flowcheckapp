@@ -1985,28 +1985,8 @@ app.post('/notifications/budget-alert', requireAuth, async (req, res) => {
       _saveNotification(req.uid, { title, body, type: 'budget_alert', data: { category: String(category) } }).catch(() => {});
     }
 
-    // Email — only if notifications enabled and user has an email address
-    if (userData.email && userData.notifications_enabled !== false) {
-      _sendEmail(userData.email, title, `
-        <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-        <div style="max-width:480px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.08)">
-          <div style="background:#fff3cd;border-left:4px solid #ffb020;padding:20px 24px">
-            <h2 style="font-size:18px;font-weight:700;color:#92400e;margin:0 0 6px">⚠️ ${title}</h2>
-            <p style="font-size:15px;color:#78350f;margin:0">${body}</p>
-          </div>
-          <div style="padding:24px">
-            <p style="font-size:14px;color:#6b7280;margin:0 0 20px">Open FlowCheck to review your spending and adjust your budget.</p>
-            <a href="${BACKEND_URL}/open" style="display:inline-block;background:#1ac4f0;color:#0a1520;font-weight:700;font-size:14px;padding:12px 24px;border-radius:8px;text-decoration:none">View in FlowCheck →</a>
-          </div>
-          <div style="padding:16px 24px;border-top:1px solid #f3f4f6">
-            <p style="font-size:11px;color:#9ca3af;margin:0">
-              FlowCheck · <a href="${_unsubUrl(req.uid, 'alerts')}" style="color:#9ca3af">Unsubscribe from alerts</a>
-            </p>
-          </div>
-        </div>
-        </body></html>
-      `).catch(e => console.error('[email budget-alert]', e.message));
-    }
+    // Budget alerts are push-only — email would spam users daily.
+    // Email is reserved for high-urgency one-time events (bill overdue, pro upgrade, etc.)
 
     res.json({ success: true });
   } catch (err) {
@@ -2026,9 +2006,11 @@ app.post('/notifications/budget-alert', requireAuth, async (req, res) => {
 async function _saveNotification(uid, { title, body, type, data = {} }) {
   try {
     const notifRef = db.collection('users').doc(uid).collection('notifications');
-    // Dedup: skip if same type + category already exists in the last 24 hours
-    const dedupKey = `${type}:${data.category || data.bill_id || ''}`;
-    const since    = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    // Dedup: skip if same type + category already exists within the dedup window.
+    // Budget alerts use 7 days (168h) to stop daily spam; all others use 24h.
+    const dedupKey    = `${type}:${data.category || data.bill_id || ''}`;
+    const dedupHours  = type === 'budget_alert' ? 168 : 24;
+    const since       = new Date(Date.now() - dedupHours * 60 * 60 * 1000);
     const existing = await notifRef
       .where('type', '==', type || 'general')
       .where('created_at', '>=', admin.firestore.Timestamp.fromDate(since))
@@ -2274,11 +2256,9 @@ async function _sendBillRemindersForUser(uid, userData) {
 
   const now        = new Date();
   const tomorrow   = new Date(now); tomorrow.setDate(now.getDate() + 1);
-  const dayAfter   = new Date(now); dayAfter.setDate(now.getDate() + 2);
   const fmt        = d => d.toISOString().slice(0, 10);
   const todayStr   = fmt(now);
   const tomorrowStr = fmt(tomorrow);
-  const dayAfterStr = fmt(dayAfter);
 
   let billsSnap;
   try {
@@ -2294,10 +2274,11 @@ async function _sendBillRemindersForUser(uid, userData) {
     if (!bill.due_date || !bill.name) continue;
     const due         = bill.due_date.slice(0, 10);
     const effectiveDue = _effectiveDueDate(due, bill.frequency);
-    if (effectiveDue !== tomorrowStr && effectiveDue !== dayAfterStr) continue;
+    // Only send reminder the day before (D-1). D-2 created duplicate notifications.
+    if (effectiveDue !== tomorrowStr) continue;
 
-    const daysUntil  = effectiveDue === tomorrowStr ? 1 : 2;
-    const dayLabel   = daysUntil === 1 ? 'tomorrow' : 'in 2 days';
+    const daysUntil  = 1;
+    const dayLabel   = 'tomorrow';
     const safeBill   = _htmlEscape(bill.name);
     const title      = `💳 ${safeBill} due ${dayLabel}`;
     const body       = `${_fmt(bill.amount || 0)} will be charged ${dayLabel}. Tap to review.`;

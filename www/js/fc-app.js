@@ -145,9 +145,11 @@ window.FCApp = (function () {
 
     // 1. Strip full bank prefix phrases (case-insensitive)
     name = name.replace(
-      /^(?:DEBIT\s+(?:PURCHASE|CARD\s+PURCHASE)|POS\s+(?:PURCHASE|DEBIT|TERMINAL)|ACH\s+(?:DEBIT|WITHDRAWAL|WEB)|ONLINE\s+(?:PAYMENT|PURCHASE|BANKING\s+PAYMENT)|ELECTRONIC\s+(?:PAYMENT|DEBIT)|CHECK\s+CARD\s+(?:PURCHASE)?|CHECKCARD|VISA\s+(?:PURCHASE|DEBIT|DDA\s+PURCHASE)|MASTERCARD\s+(?:DEBIT|PURCHASE)|RECURRING\s+(?:CARD\s+)?PURCHASE|MOBILE\s+PURCHASE|ATM\s+DEBIT|POINT\s+OF\s+SALE|POS\s+DEBIT\s+VISA)\s*/i,
+      /^(?:DEBIT\s+(?:PURCHASE|CARD\s+PURCHASE)|POS\s+(?:PURCHASE|DEBIT|TERMINAL)|ACH\s+(?:DEBIT|WITHDRAWAL|WEB)|ONLINE\s+(?:PAYMENT|PURCHASE|BANKING\s+PAYMENT)|ELECTRONIC\s+(?:PAYMENT|DEBIT)|CHECK\s+CARD\s+(?:PURCHASE)?|CHECKCARD|VISA\s+(?:PURCHASE|DEBIT|DDA\s+PURCHASE)|MASTERCARD\s+(?:DEBIT|PURCHASE)|RECURRING\s+(?:CARD\s+)?PURCHASE|MOBILE\s+PURCHASE|ATM\s+(?:DEBIT|W\/D|WITHDRAWAL)|POINT\s+OF\s+SALE|POS\s+DEBIT\s+VISA)\s*/i,
       ''
     );
+    // Normalize garbled ATM Fee strings: "Pai ATM Omaha Ne ATM Fee" → "ATM Fee"
+    if (/\bATM\s+Fee\b/i.test(name)) name = 'ATM Fee';
 
     // 2. Strip leading date / terminal / reference token patterns
     //    "0523 9264 MERCHANT" → "MERCHANT"
@@ -257,18 +259,8 @@ window.FCApp = (function () {
   function _cleanSubName(t) {
     // Prefer Plaid-provided merchant_name — it's already clean
     if (t.merchant_name) return t.merchant_name;
-    let n = (t.name || '').trim();
-    // Strip charge codes: "NETFLIX.COM *1234", "SQ *GOLD'S GYM", "AMZN*PRIME"
-    n = n.replace(/\s*[\*#]\s*\S+$/, '').replace(/\s*[\*#]\s*.*$/, '');
-    // Strip TLD suffixes
-    n = n.replace(/\.(com|net|org|io|app|co)\b/gi, '');
-    // Remove all-caps to title case
-    if (n === n.toUpperCase()) {
-      n = n.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
-    }
-    // Strip trailing noise: numbers, dashes, INC, LLC
-    n = n.replace(/\s+(inc\.?|llc\.?|ltd\.?|corp\.?|\d{4,})$/i, '').trim();
-    return n || t.name;
+    // Fall through to the full cleaner so garbled bank strings (e.g. "9264&@#tommys-...") get stripped
+    return _cleanTxnName(t);
   }
 
   let _subDetectCache = null;
@@ -1387,9 +1379,11 @@ window.FCApp = (function () {
       return;
     }
 
-    const byDue  = (a, b) => (FCData.daysUntil(a.due_date) ?? 999) - (FCData.daysUntil(b.due_date) ?? 999);
-    const unpaid = state.bills.filter(b => b.status !== 'paid').sort(byDue);
-    const paid   = state.bills.filter(b => b.status === 'paid').sort(byDue);
+    const byDue    = (a, b) => (FCData.daysUntil(a.due_date) ?? 999) - (FCData.daysUntil(b.due_date) ?? 999);
+    const allUnpaid = state.bills.filter(b => b.status !== 'paid').sort(byDue);
+    const overdue  = allUnpaid.filter(b => (FCData.daysUntil(b.due_date) ?? 0) < 0);
+    const unpaid   = allUnpaid.filter(b => (FCData.daysUntil(b.due_date) ?? 0) >= 0);
+    const paid     = state.bills.filter(b => b.status === 'paid').sort(byDue);
 
     if (!state.bills.length) {
       container.innerHTML = `
@@ -1430,6 +1424,12 @@ window.FCApp = (function () {
 
     let html = '';
 
+    if (overdue.length) {
+      html += `<div class="fc-date-label" style="color:var(--fc-danger)">⚠️ Overdue</div>
+               <article class="fc-card" style="padding:4px 16px;margin-bottom:0;border:0.5px solid rgba(255,69,58,0.22)">
+                 ${overdue.map(renderBillRow).join('')}
+               </article>`;
+    }
     if (unpaid.length) {
       html += `<div class="fc-date-label">Upcoming</div>
                <article class="fc-card" style="padding:4px 16px;margin-bottom:0">
@@ -1455,19 +1455,10 @@ window.FCApp = (function () {
     const prev = state.tab;
     state.tab  = tabId;
 
-    // Cancel any in-flight fade-out from a previous switch (rapid-tap race fix)
-    if (_tabFadeTimer) {
-      clearTimeout(_tabFadeTimer);
-      _tabFadeTimer = null;
-      // If there's a half-deactivated view, clean it up immediately
-      document.querySelectorAll('.fc-view').forEach(v => {
-        if (!v.classList.contains('active')) {
-          v.style.opacity = '';
-          v.style.transition = '';
-          v.classList.remove('fc-slide-right', 'fc-slide-left');
-        }
-      });
-    }
+    // Clean up any in-flight animation classes from a previous rapid tap
+    document.querySelectorAll('.fc-view').forEach(v => {
+      v.classList.remove('fc-slide-right', 'fc-slide-left');
+    });
 
     const prevIdx = _TAB_ORDER.indexOf(prev);
     const nextIdx = _TAB_ORDER.indexOf(tabId);
@@ -1479,23 +1470,20 @@ window.FCApp = (function () {
     // Mark outgoing tab as fc-loaded — suppresses fc-fade-up replay on return
     if (outgoing) outgoing.classList.add('fc-loaded');
 
-    // ── Activate target FIRST (no flash between deactivate+activate) ──────
-    if (target) target.scrollTop = 0;
-    if (target) target.classList.add('active', slideClass);
-
-    // Fade outgoing view out, then remove from layout
+    // ── Deactivate outgoing FIRST to prevent flex-layout conflict ──────────
+    // Two active flex:1 views split the container height 50/50, causing the
+    // infamous "layout jump" glitch. Remove active before adding it to target.
     if (outgoing) {
-      outgoing.style.opacity = '0';
-      outgoing.style.transition = 'opacity 0.2s ease';
-      _tabFadeTimer = setTimeout(() => {
-        _tabFadeTimer = null;
-        outgoing.classList.remove('active', 'fc-slide-right', 'fc-slide-left');
-        outgoing.style.opacity = '';
-        outgoing.style.transition = '';
-      }, 200);
+      outgoing.classList.remove('active', 'fc-slide-right', 'fc-slide-left');
     }
 
-    // Clean up slide class once animation completes (240ms + 20ms buffer)
+    // ── Activate incoming with fade-in animation ───────────────────────────
+    if (target) {
+      target.scrollTop = 0;
+      target.classList.add('active', slideClass);
+    }
+
+    // Clean up animation class after it completes
     if (target) {
       setTimeout(() => target.classList.remove('fc-slide-right', 'fc-slide-left'), 260);
     }
@@ -3340,7 +3328,7 @@ window.FCApp = (function () {
     const name      = rawName.split(' ')[0] || authUser2?.email?.split('@')[0] || '';
 
     if (dateEl) dateEl.textContent = tod;
-    titleEl.textContent = name || 'Welcome back';
+    titleEl.textContent = (name || 'Welcome back') + ' 👋';
 
     // Avatar initial
     const avatarLetter2 = name.charAt(0).toUpperCase() || (authUser2?.email || '').charAt(0).toUpperCase() || '?';
@@ -3956,8 +3944,26 @@ window.FCApp = (function () {
     if (leftBar) leftBar.style.background = `linear-gradient(180deg, ${c.bar} 0%, transparent 100%)`;
     if (iconEl)  { iconEl.textContent = c.icon; iconEl.style.background = c.iconBg; }
     if (labelEl) { labelEl.textContent = insight.label; labelEl.style.color = c.label; }
-    if (bodyEl)     bodyEl.textContent = insight.body;
-    if (actionText) { actionText.style.color = c.label; actionText.textContent = insight.action; }
+
+    // For bill insights, highlight due-day text in large cyan
+    if (bodyEl) {
+      const highlighted = insight.body.replace(
+        /\b(today|tomorrow|in \d+ days?)\b/gi,
+        m => `<span style="color:var(--fc-accent);font-weight:800">${m}</span>`
+      );
+      bodyEl.innerHTML = highlighted;
+    }
+
+    // For "Mark as paid" → filled cyan button; otherwise default ghost pill
+    const actionEl = document.getElementById('focus-action');
+    if (actionText) actionText.textContent = insight.action;
+    if (actionEl && insight.action === 'Mark as paid') {
+      actionEl.style.cssText = 'font-size:13px;font-weight:700;display:inline-flex;align-items:center;gap:5px;padding:9px 16px;border-radius:999px;background:var(--fc-accent);color:#000;border:none;box-shadow:0 4px 14px rgba(26,196,240,0.35)';
+      if (actionText) actionText.style.color = '#000';
+    } else if (actionEl) {
+      actionEl.style.cssText = 'font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:5px;padding:5px 10px 5px 8px;border-radius:999px;background:rgba(255,255,255,0.07);border:0.5px solid rgba(255,255,255,0.10)';
+      if (actionText) actionText.style.color = c.label;
+    }
 
     // Counter badge: "2 / 3"
     if (counter && _focusInsights.length > 1) {
@@ -4085,14 +4091,8 @@ window.FCApp = (function () {
                 <div class="fc-list-title">${esc(b.name)}</div>
                 <div class="fc-list-meta" style="color:${esc(color)};font-weight:${days !== null && days <= 1 ? 600 : 400}">${esc(label)}</div>
               </div>
-              <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+              <div style="flex-shrink:0">
                 <div class="fc-list-amount">${FCData.formatCurrency(b.amount)}</div>
-                <button
-                  onclick="event.stopPropagation();FCApp.quickPayBill('${esc(b.id)}')"
-                  style="width:36px;height:36px;border-radius:50%;background:rgba(48,209,88,0.10);border:1.5px solid rgba(48,209,88,0.28);color:var(--fc-success);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .18s;-webkit-tap-highlight-color:transparent"
-                  title="Mark as paid" type="button" aria-label="Mark ${esc(b.name)} as paid" class="fc-qp-btn">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
-                </button>
               </div>
             </div>`;
         }).join('') +
@@ -4392,6 +4392,32 @@ window.FCApp = (function () {
         ? 'Month spend exceeds cash on hand'
         : `${Math.round(barPct)}% of cash committed`;
 
+      // ── Safe to Spend delta vs last week ─────────────────────────
+      const deltaEl = document.getElementById('safe-spend-delta');
+      if (deltaEl && !isOver) {
+        const oneWeekAgo = new Date(now.getTime() - 7 * 86400000);
+        const lastWeekSpend = (state.transactions || [])
+          .filter(t => !t.isCredit && _isSpendTxn(t) && FCData.parseDateLocal(t.date) >= oneWeekAgo && FCData.parseDateLocal(t.date) <= now)
+          .reduce((s, t) => s + (t.amount || 0), 0);
+        const prevWeekStart = new Date(oneWeekAgo.getTime() - 7 * 86400000);
+        const prevWeekSpend = (state.transactions || [])
+          .filter(t => !t.isCredit && _isSpendTxn(t) && FCData.parseDateLocal(t.date) >= prevWeekStart && FCData.parseDateLocal(t.date) < oneWeekAgo)
+          .reduce((s, t) => s + (t.amount || 0), 0);
+        if (prevWeekSpend > 0 && lastWeekSpend > 0) {
+          const delta = prevWeekSpend - lastWeekSpend; // positive = spent less = more available
+          const sign  = delta >= 0 ? '+' : '';
+          const color = delta >= 0 ? 'rgba(48,209,88,0.12)' : 'rgba(255,69,58,0.10)';
+          const borderColor = delta >= 0 ? 'rgba(48,209,88,0.28)' : 'rgba(255,69,58,0.25)';
+          const textColor   = delta >= 0 ? 'var(--fc-success)' : 'var(--fc-danger)';
+          deltaEl.textContent = `${sign}${FCData.formatCurrency(Math.abs(delta))} vs last week`;
+          deltaEl.style.cssText = `display:inline-flex;align-items:center;gap:4px;background:${color};border:0.5px solid ${borderColor};border-radius:999px;padding:4px 10px;font-size:11px;font-weight:700;color:${textColor};margin-bottom:8px`;
+        } else {
+          deltaEl.style.display = 'none';
+        }
+      } else if (deltaEl) {
+        deltaEl.style.display = 'none';
+      }
+
       if (barEl) { barEl.style.width = barPct + '%'; barEl.style.background = barColor; }
 
       const ringCircle = document.getElementById('safe-spend-ring');
@@ -4418,6 +4444,100 @@ window.FCApp = (function () {
       if (spentLbl) spentLbl.textContent = '$0';
       if (billsLbl) billsLbl.textContent = '$0';
     }
+
+    // ── Mini cards: Financial Health + Net Worth side-by-side ─────
+    (function () {
+      const miniSection = document.getElementById('dash-mini-cards');
+      if (!miniSection) return;
+
+      const hasData = state.user?.plaid_linked && state.accounts.length > 0;
+      if (!hasData) { miniSection.classList.remove('visible'); return; }
+      miniSection.classList.add('visible');
+
+      // Health score (reuse same algorithm as _renderHealthScore)
+      const accts2    = state.accounts || [];
+      const txns2     = (state.transactions || []).filter(t => FCData.isCurrentMonth(t.date));
+      const budget2   = (state.budgets?.['total']?.limit) || 3000;
+      const spent2    = txns2.filter(t => !t.isCredit && _isSpendTxn(t)).reduce((s, t) => s + (t.amount || 0), 0);
+      const income2   = txns2.filter(_isIncomeTxn).reduce((s, t) => s + (t.amount || 0), 0);
+      const sRatio2   = budget2 > 0 ? spent2 / budget2 : 0.5;
+      let ss2 = sRatio2 <= 0.75 ? 34 : sRatio2 >= 1.5 ? 0 : Math.round(34 * (1.5 - sRatio2) / 0.75);
+      const savRate2  = _incomeIsReliable(income2, spent2) ? (income2 - spent2) / income2 : null;
+      let savScore2   = savRate2 === null ? 16 : savRate2 >= 0.2 ? 33 : savRate2 > 0 ? Math.round(33 * savRate2 / 0.2) : 0;
+      const assets2   = accts2.filter(a => a.type === 'depository' || a.type === 'investment').reduce((s, a) => s + (a.balance_current || a.balance || 0), 0);
+      const debts2    = accts2.filter(a => a.type === 'credit' || a.type === 'loan').reduce((s, a) => s + Math.max(0, a.balance_current || a.balance || 0), 0);
+      const nw2       = assets2 - debts2;
+      let nwScore2    = nw2 > 50000 ? 33 : nw2 > 10000 ? Math.round(33 * nw2 / 50000) : nw2 > 0 ? Math.round(20 * nw2 / 10000) : nw2 === 0 ? 10 : Math.max(0, Math.round(10 + nw2 / 5000));
+      const total2    = Math.min(100, ss2 + savScore2 + nwScore2);
+      const gradeMap2 = total2 >= 90 ? ['A+','Excellent'] : total2 >= 80 ? ['A','Great'] : total2 >= 70 ? ['B','Good'] : total2 >= 60 ? ['C','Fair'] : total2 >= 50 ? ['D','Needs Work'] : ['F','At Risk'];
+      const ringColor2 = total2 >= 70 ? 'var(--fc-accent)' : total2 >= 50 ? 'var(--fc-warning)' : 'var(--fc-danger)';
+      const gradeColor2 = total2 >= 70 ? 'var(--fc-success)' : total2 >= 50 ? 'var(--fc-warning)' : 'var(--fc-danger)';
+
+      const homeRing  = document.getElementById('home-health-ring');
+      const homeScore = document.getElementById('home-health-ring-score');
+      const homeGrade = document.getElementById('home-health-grade');
+      const homeDelta = document.getElementById('home-health-delta');
+      if (homeRing) { homeRing.style.strokeDashoffset = 113 * (1 - total2 / 100); homeRing.style.stroke = ringColor2; }
+      if (homeScore) homeScore.textContent = total2;
+      if (homeGrade) { homeGrade.textContent = gradeMap2[1]; homeGrade.style.color = gradeColor2; }
+      if (homeDelta) {
+        homeDelta.style.display = 'none'; // trend computation requires prev month data
+      }
+
+      // Mini NW card
+      const miniNw  = document.getElementById('home-mini-nw');
+      const miniDelta = document.getElementById('home-mini-nw-delta');
+      if (miniNw) animateNumber(miniNw, netWorth, '$');
+      if (miniDelta) {
+        const hist = state.nwHistory || {};
+        const histKeys = Object.keys(hist).sort();
+        if (histKeys.length >= 2) {
+          const prev2 = hist[histKeys[histKeys.length - 2]] ?? 0;
+          const delta2 = netWorth - prev2;
+          miniDelta.textContent = (delta2 >= 0 ? '↑ +' : '↓ ') + FCData.formatCurrency(Math.abs(delta2)) + ' this month';
+          miniDelta.style.color = delta2 >= 0 ? 'var(--fc-success)' : 'var(--fc-danger)';
+          miniDelta.style.display = '';
+        } else {
+          miniDelta.style.display = 'none';
+        }
+      }
+
+      // Mini sparkline
+      (function () {
+        const svg2  = document.getElementById('home-mini-sparkline');
+        const line2 = document.getElementById('home-mini-sparkline-line');
+        const dot2  = document.getElementById('home-mini-sparkline-dot');
+        if (!svg2 || !line2) return;
+        const hist2 = state.nwHistory || {};
+        const keys2 = Object.keys(hist2).sort();
+        const vals2 = keys2.map(k => hist2[k]);
+        if (vals2.length < 2) { line2.setAttribute('d', 'M0,24 L120,24'); return; }
+        const W2 = 120, H2 = 28, pad2 = 3;
+        const min2 = Math.min(...vals2), max2 = Math.max(...vals2);
+        const rng2 = max2 - min2 || 1;
+        const toY2 = v => pad2 + (H2 - 2 * pad2) * (1 - (v - min2) / rng2);
+        const toX2 = i => (i / (vals2.length - 1)) * W2;
+        const pts2 = vals2.map((v, i) => [toX2(i), toY2(v)]);
+        let d2 = `M${pts2[0][0].toFixed(1)},${pts2[0][1].toFixed(1)}`;
+        for (let i2 = 1; i2 < pts2.length; i2++) {
+          const [x0, y0] = pts2[i2 - 1], [x1, y1] = pts2[i2];
+          const cx2 = (x0 + x1) / 2;
+          d2 += ` C${cx2.toFixed(1)},${y0.toFixed(1)} ${cx2.toFixed(1)},${y1.toFixed(1)} ${x1.toFixed(1)},${y1.toFixed(1)}`;
+        }
+        line2.setAttribute('d', d2);
+        const lp2 = pts2[pts2.length - 1];
+        if (dot2) { dot2.setAttribute('cx', lp2[0].toFixed(1)); dot2.setAttribute('cy', lp2[1].toFixed(1)); }
+        const isPos2 = vals2[vals2.length - 1] >= vals2[0];
+        line2.setAttribute('stroke', isPos2 ? '#1ac4f0' : 'var(--fc-danger)');
+        if (dot2) dot2.setAttribute('fill', isPos2 ? '#1ac4f0' : 'var(--fc-danger)');
+      })();
+    })();
+
+    // V3 home enhancements
+    _renderDailyBrief();
+    _renderPriorityActions();
+    _renderCashRunway();
+    _renderTimeline();
   }
 
   /* ─────────────────────────────────────────────────────────────
@@ -4474,6 +4594,10 @@ window.FCApp = (function () {
       container.innerHTML = `<div class="dash-txn-card">${_skeletonTxnRows(7)}</div>`;
       return;
     }
+
+    // V3: spending trends + recurring banner
+    _renderSpendingTrends();
+    _renderRecurringBanner();
 
     // Apply period filter
     const _now2 = new Date(); _now2.setHours(0,0,0,0);
@@ -4710,8 +4834,18 @@ window.FCApp = (function () {
     // Color ring by score
     ring.style.stroke = total >= 70 ? 'var(--fc-accent)' : total >= 50 ? 'var(--fc-warning)' : '#ff3b30';
 
-    gradeEl.textContent  = hasData ? gradeMap[0] : '—';
-    scoreEl.textContent  = hasData ? total        : 'Score';
+    // Left: big number + /100
+    gradeEl.textContent = hasData ? total : '—';
+    if (scoreEl) { scoreEl.textContent = '/100'; scoreEl.style.display = hasData ? '' : 'none'; }
+    // Ring center: grade letter (A, B, C) — not the number (avoids duplication)
+    const ringScoreEl = document.getElementById('ins-ring-score');
+    if (ringScoreEl) {
+      ringScoreEl.textContent = hasData ? gradeMap[0] : '—';
+      ringScoreEl.style.color = total >= 70 ? 'var(--fc-accent)' : total >= 50 ? 'var(--fc-warning)' : '#ff3b30';
+      // Hide the "/100" sub-label inside the ring since we're showing a letter now
+      const ringNum = ringScoreEl.parentElement?.querySelector('.ins-ring-num');
+      if (ringNum) ringNum.style.display = 'none';
+    }
 
     // Sub-metric bars (normalize to 0-100 for display)
     const setBar = (barId, valId, score, max, color) => {
@@ -4728,15 +4862,35 @@ window.FCApp = (function () {
     setBar('ins-bar-savings',  'ins-val-savings',  savingsScore, 33, 'linear-gradient(90deg,var(--fc-success),var(--fc-accent))');
     setBar('ins-bar-networth', 'ins-val-networth', nwScore, 33, nwScore >= 20 ? 'linear-gradient(90deg,var(--fc-warning),var(--fc-electric))' : 'linear-gradient(90deg,#ff3b30,var(--fc-warning))');
 
+    // Debt sub-metric: based on credit utilization (0-100 mapped to visual bar)
+    const totalCreditLimit = accts.filter(a => a.type === 'credit')
+      .reduce((s, a) => s + (a.balance_limit || a.balances?.limit || 0), 0);
+    const totalCreditUsed  = accts.filter(a => a.type === 'credit')
+      .reduce((s, a) => s + Math.max(0, a.balance_current || a.balance || 0), 0);
+    const utilPct = totalCreditLimit > 0 ? Math.round((totalCreditUsed / totalCreditLimit) * 100) : null;
+    // Score: 100 = 0% utilization, 0 = 100%+ utilization
+    const debtScore = utilPct !== null ? Math.max(0, Math.round(100 * (1 - utilPct / 100))) : (hasData ? 70 : 0);
+    setBar('ins-bar-debt', 'ins-val-debt', debtScore, 100,
+      debtScore >= 70 ? 'linear-gradient(90deg,var(--fc-success),#1ac4f0)' : debtScore >= 40 ? 'linear-gradient(90deg,var(--fc-warning),#ff6b00)' : 'linear-gradient(90deg,var(--fc-danger),var(--fc-warning))');
+
+    // Cash Flow sub-metric: income vs spending ratio this month
+    const cfRatio = income > 0 ? Math.max(0, Math.min(1, (income - spent) / income)) : null;
+    const cfScore = cfRatio !== null ? Math.round(cfRatio * 100) : (hasData ? 50 : 0);
+    setBar('ins-bar-cashflow', 'ins-val-cashflow', cfScore, 100,
+      cfScore >= 60 ? 'linear-gradient(90deg,var(--fc-electric),var(--fc-accent))' : 'linear-gradient(90deg,var(--fc-warning),var(--fc-danger))');
+
     // Tip
     if (tipEl) {
       tipEl.textContent = tips[0];
       tipEl.style.display = 'block';
     }
 
-    // Subtitle
+    // Subtitle — v2 shows grade label prominently
     const sub = document.getElementById('ins-health-subtitle');
-    if (sub) sub.textContent = hasData ? `${total}/100 — ${gradeMap[1]}` : 'Connect a bank to see your score';
+    if (sub) {
+      sub.textContent = hasData ? gradeMap[1] : 'Connect a bank to see your score';
+      sub.style.color = hasData ? (total >= 70 ? 'var(--fc-success)' : total >= 50 ? 'var(--fc-warning)' : 'var(--fc-danger)') : '';
+    }
 
     // EA-4: trend vs last month — compute last month's score with same algorithm
     const trendEl = document.getElementById('ins-health-trend');
@@ -4776,15 +4930,143 @@ window.FCApp = (function () {
      RENDER: INSIGHTS
      ───────────────────────────────────────────────────────────── */
 
+  /* ─────────────────────────────────────────────────────────────
+     INSIGHTS: THIS WEEK / PERIOD SUMMARY
+     ───────────────────────────────────────────────────────────── */
+  function _renderWeekSummary(periodSpend, periodIncome, periodLabel) {
+    const card = document.getElementById('ins-week-card');
+    if (!card) return;
+
+    const periodLbl = document.getElementById('ins-week-period-label');
+    const label = state.period === '1D' ? 'Today' : state.period === '1W' ? 'Week' : state.period === '1M' ? 'Month' : state.period === '3M' ? '3 Months' : 'Year';
+    if (periodLbl) periodLbl.textContent = label;
+
+    // If bank is connected but no transactions yet — show syncing state, not "Connect a bank"
+    const itemEls0 = document.getElementById('ins-week-item-1');
+    if (state.user?.plaid_linked && state.accounts?.length > 0 && !state.transactions?.length) {
+      if (itemEls0) {
+        const lbl = itemEls0.querySelector('.ins-week-label');
+        const sub = itemEls0.querySelector('.ins-week-sub');
+        const dot = itemEls0.querySelector('.ins-week-dot');
+        if (lbl) lbl.textContent = 'Syncing your transactions…';
+        if (sub) sub.textContent = 'Your recent activity will appear here shortly';
+        if (dot) { dot.style.background = 'rgba(26,196,240,0.15)'; dot.innerHTML = '<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="var(--fc-accent)" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>'; }
+      }
+      ['ins-week-item-2','ins-week-item-3'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+      return;
+    }
+
+    const budget     = state.budgets?.['total']?.limit || 3000;
+    const unpaid     = (state.bills || []).filter(b => b.status !== 'paid');
+    const unpaidTotal = unpaid.reduce((s, b) => s + (b.amount || 0), 0);
+    const cash       = Math.max(0, state.accounts ? state.accounts.filter(a => a.type === 'depository').reduce((s, a) => s + (a.balance_current || a.balance || 0), 0) : 0);
+    const incomeOk   = _incomeIsReliable(periodIncome, periodSpend);
+
+    const items = [];
+
+    // 1. Spending status
+    if (periodSpend > 0 && budget > 0) {
+      const pct = Math.round((periodSpend / budget) * 100);
+      if (pct < 90) {
+        items.push({ ok: true,  title: 'Spending is under control', sub: `You're ${100 - pct}% under budget` });
+      } else if (pct < 110) {
+        items.push({ warn: true, title: 'Spending near budget', sub: `${pct}% of ${FCData.formatCurrency(budget)} used` });
+      } else {
+        items.push({ bad: true, title: 'Over budget this period', sub: `${FCData.formatCurrency(periodSpend - budget)} over the limit` });
+      }
+    } else {
+      items.push({ ok: true, title: 'Tracking your spending', sub: 'Set a budget to see progress' });
+    }
+
+    // 2. Bills status
+    if (unpaid.length === 0) {
+      items.push({ ok: true, title: 'All bills are covered', sub: 'No upcoming bills due' });
+    } else {
+      const afterBills = cash - unpaidTotal;
+      items.push({ ok: afterBills >= 0, warn: afterBills < 0,
+        title: afterBills >= 0 ? 'Bills are covered' : 'Bills exceed cash balance',
+        sub: afterBills >= 0 ? `You have ${FCData.formatCurrency(afterBills)} after bills` : `${FCData.formatCurrency(Math.abs(afterBills))} shortfall` });
+    }
+
+    // 3. Net worth / savings signal
+    if (incomeOk && periodIncome > periodSpend) {
+      const savings = periodIncome - periodSpend;
+      const rate = Math.round((savings / periodIncome) * 100);
+      items.push({ ok: true, title: `Saving ${rate}% of income`, sub: `${FCData.formatCurrency(savings)} saved ${periodLabel}` });
+    } else if (incomeOk && periodSpend > periodIncome) {
+      items.push({ bad: true, title: 'Spending exceeds income', sub: 'Consider reducing discretionary expenses' });
+    } else {
+      const nw = FCData.calcNetWorth ? FCData.calcNetWorth(state.accounts) : 0;
+      if (nw < 0) {
+        items.push({ warn: true, title: 'Debt is slowing you down', sub: 'Paying extra could improve your score' });
+      } else {
+        items.push({ ok: true, title: `Net worth: ${FCData.formatCurrency(nw)}`, sub: 'Building financial strength' });
+      }
+    }
+
+    // Populate up to 3 items
+    const itemEls = [
+      document.getElementById('ins-week-item-1'),
+      document.getElementById('ins-week-item-2'),
+      document.getElementById('ins-week-item-3'),
+    ];
+    items.slice(0, 3).forEach((item, i) => {
+      const el = itemEls[i];
+      if (!el) return;
+      el.style.display = '';
+      const dotEl   = el.querySelector('.ins-week-dot');
+      const titleEl = el.querySelector('.ins-week-label');
+      const subEl   = el.querySelector('.ins-week-sub');
+      if (titleEl) titleEl.textContent = item.title;
+      if (subEl)   subEl.textContent   = item.sub || '';
+      if (dotEl) {
+        const col = item.ok ? 'var(--fc-success)' : item.warn ? 'var(--fc-warning)' : 'var(--fc-danger)';
+        const bg  = item.ok ? 'rgba(52,199,89,0.15)' : item.warn ? 'rgba(255,159,10,0.12)' : 'rgba(255,69,58,0.12)';
+        const icon = item.ok
+          ? `<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="${col}" stroke-width="3" stroke-linecap="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`
+          : item.warn
+          ? `<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="${col}" stroke-width="2.5" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`
+          : `<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="${col}" stroke-width="3" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+        dotEl.style.background = bg;
+        dotEl.innerHTML = icon;
+      }
+    });
+    // Hide unused items
+    for (let i = items.length; i < 3; i++) {
+      if (itemEls[i]) itemEls[i].style.display = 'none';
+    }
+
+    // Recommendation banner — pick the first bad/warn item tip
+    const recBanner = document.getElementById('ins-rec-banner');
+    const recText   = document.getElementById('ins-rec-text');
+    if (recBanner && recText) {
+      const badItem = items.find(i => i.bad);
+      const warnItem = items.find(i => i.warn);
+      const tip = badItem || warnItem;
+      if (tip) {
+        const tips = {
+          'Over budget this period': 'Focus on cutting discretionary spending to stay on track.',
+          'Spending exceeds income': 'Try the 50/30/20 rule: 50% needs, 30% wants, 20% savings.',
+          'Debt is slowing you down': 'Paying extra toward debt could improve your financial health the most.',
+          'Bills exceed cash balance': 'Consider moving funds to cover upcoming bills before their due dates.',
+        };
+        recText.textContent = tips[tip.title] || `${tip.title} — review your finances.`;
+        recBanner.style.display = 'flex';
+      } else {
+        recBanner.style.display = 'none';
+      }
+    }
+  }
+
   function _renderInsights() {
-    // Render health score first (no data dep — uses state directly)
-    _renderHealthScore();
+    // Render health score — isolated so any error doesn't abort the rest of insights
+    try { _renderHealthScore(); } catch(e) { fcLog('[Insights] health score error:', e); }
 
     const container = document.getElementById('insights-categories');
     if (!container) return;
 
-    // Show shimmer while waiting for the first Firestore snapshot.
-    if (state.initialLoading && state.user?.plaid_linked) {
+    // Show shimmer only while truly loading (no accounts yet)
+    if (state.initialLoading && state.user?.plaid_linked && !state.accounts?.length) {
       container.innerHTML = _skeletonCategoryRows(5);
       return;
     }
@@ -4806,61 +5088,40 @@ window.FCApp = (function () {
     const insightsCatPeriod = document.getElementById('insights-cat-period');
     if (insightsCatPeriod) insightsCatPeriod.textContent = periodLabel;
 
-    // ── Spend delta vs previous period ────────────────────────────
-    const spendDeltaEl = document.getElementById('insights-spend-delta');
-    if (spendDeltaEl) {
-      if (state.period === '1M' && state.transactions && state.transactions.length) {
-        const now = new Date();
-        const lmStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        const lmEnd   = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
-        const lastMoSpend = state.transactions
-          .filter(t => _isSpendTxn(t))
-          .filter(t => { const d = FCData.parseDateLocal(t.date || t.authorized_date); return d >= lmStart && d <= lmEnd; })
-          .reduce((s, t) => s + (t.amount || 0), 0);
-        if (lastMoSpend > 0) {
-          const delta = periodSpend - lastMoSpend;
-          const pct   = Math.round(Math.abs(delta) / lastMoSpend * 100);
-          spendDeltaEl.style.display = '';
-          spendDeltaEl.textContent   = delta >= 0 ? `+${pct}% vs last mo` : `−${pct}% vs last mo`;
-          spendDeltaEl.style.background = '';
-          spendDeltaEl.style.color      = '';
-          spendDeltaEl.style.border     = '';
-          spendDeltaEl.classList.remove('fc-delta--up', 'fc-delta--down');
-          spendDeltaEl.classList.add(delta >= 0 ? 'fc-delta--up' : 'fc-delta--down');
-        } else {
-          spendDeltaEl.style.display = 'none';
-        }
-      } else {
-        spendDeltaEl.style.display = 'none';
-      }
-    }
+    // ── This Period Summary (week card) ──────────────────────────
+    _renderWeekSummary(periodSpend, periodIncome, periodLabel);
 
-    // ── Budget progress card ──────────────────────────────────────
+    // ── Spending ring + budget progress ──────────────────────────
     const budgetLimit  = state.budgets && state.budgets['total'] ? state.budgets['total'].limit : 3000;
-    // budgetLimit used locally — accessed via FCApp.getTotalBudgetLimit() for the static Edit button in index.html
     const budgetPct    = Math.min(Math.round((periodSpend / budgetLimit) * 100), 100);
     const budgetColor  = budgetPct > 90 ? 'var(--fc-danger)'
                        : budgetPct > 70 ? 'var(--fc-warning)'
-                       : 'linear-gradient(90deg,var(--fc-accent),var(--fc-electric))';
+                       : null; // null = use gradient
 
-    const pillEl = document.getElementById('insights-budget-pill');
-    if (pillEl) {
-      pillEl.textContent = `${FCData.formatCurrency(periodSpend)} / ${FCData.formatCurrency(budgetLimit)}`;
-      pillEl.style.background = budgetPct > 90 ? 'rgba(255,69,58,0.15)'
-                              : budgetPct > 70 ? 'rgba(255,159,10,0.15)'
-                              : 'rgba(26,196,240,0.12)';
-      pillEl.style.color = budgetPct > 90 ? 'var(--fc-danger)'
-                         : budgetPct > 70 ? 'var(--fc-warning)'
-                         : 'var(--fc-accent)';
+    // Spending circular ring (58px, r=23, circumference≈145)
+    const spendRingEl = document.getElementById('ins-spend-ring');
+    const spendPctEl  = document.getElementById('ins-spend-pct');
+    if (spendRingEl) {
+      const circ = 145;
+      const offset = circ * (1 - budgetPct / 100);
+      spendRingEl.style.strokeDashoffset = offset;
+      spendRingEl.style.stroke = budgetColor || 'url(#spendRingGrad)';
     }
+    if (spendPctEl) spendPctEl.textContent = budgetPct + '%';
+
+    // Bar fill
     const budgetBarEl = document.getElementById('insights-budget-fill');
-    if (budgetBarEl) { budgetBarEl.style.width = budgetPct + '%'; budgetBarEl.style.background = budgetColor; }
+    if (budgetBarEl) {
+      budgetBarEl.style.width = budgetPct + '%';
+      budgetBarEl.style.background = budgetColor || 'linear-gradient(90deg,var(--fc-accent),var(--fc-electric))';
+    }
+
     const remEl = document.getElementById('insights-budget-remaining');
     const remaining = Math.max(0, budgetLimit - periodSpend);
     if (remEl) {
       remEl.textContent = periodSpend > budgetLimit
-        ? `${FCData.formatCurrency(periodSpend - budgetLimit)} over budget`
-        : `${FCData.formatCurrency(remaining)} remaining`;
+        ? `${FCData.formatCurrency(periodSpend - budgetLimit)} over`
+        : `${FCData.formatCurrency(remaining)} left`;
       remEl.style.color = periodSpend > budgetLimit ? 'var(--fc-danger)' : 'var(--fc-text-faint)';
     }
 
@@ -4910,15 +5171,48 @@ window.FCApp = (function () {
     const totalEl = document.getElementById('insights-total-spend');
     if (totalEl) animateNumber(totalEl, periodSpend, '$');
 
+    // ── Budget performance ring (ins-budget-ring) ─────────────────
+    (function () {
+      const ring    = document.getElementById('ins-budget-ring');
+      const pctEl   = document.getElementById('ins-budget-pct');
+      const monthEl = document.getElementById('ins-budget-month');
+      const daysEl  = document.getElementById('ins-budget-days-left');
+      const projEl  = document.getElementById('ins-budget-proj');
+      if (!ring) return;
+      // 64px ring, r=26, circumference≈163
+      const circ2  = 163;
+      const offset2 = circ2 * (1 - budgetPct / 100);
+      ring.style.strokeDashoffset = offset2;
+      const ringCol = budgetPct > 90 ? 'var(--fc-danger)' : budgetPct > 70 ? 'var(--fc-warning)' : 'var(--fc-accent)';
+      ring.style.stroke = ringCol;
+      if (pctEl)   pctEl.textContent = budgetPct + '%';
+      const nowB = new Date();
+      if (monthEl) monthEl.textContent = nowB.toLocaleString('en-US', { month: 'long' });
+      const lastDayB = new Date(nowB.getFullYear(), nowB.getMonth() + 1, 0).getDate();
+      const daysLeftB = lastDayB - nowB.getDate();
+      if (daysEl)  daysEl.textContent = `${daysLeftB} days left`;
+      if (projEl && nowB.getDate() > 3) {
+        const projTotal = Math.round((periodSpend / nowB.getDate()) * lastDayB);
+        const onTrack = projTotal <= budgetLimit;
+        projEl.innerHTML = `On track to finish with <span style="color:${onTrack ? 'var(--fc-success)' : 'var(--fc-danger)'}">${FCData.formatCurrency(Math.abs(budgetLimit - projTotal))} ${onTrack ? 'remaining' : 'over'}</span>`;
+      }
+    })();
+
     const donutSvg      = document.getElementById('insights-donut-svg');
     const donutCenterEl = document.getElementById('insights-donut-center-amt');
     const donutLegend   = document.getElementById('insights-donut-legend');
 
     if (!periodSpendTxns.length) {
-      container.innerHTML = `<div class="fc-empty"><div class="fc-empty-icon">📊</div><div class="fc-empty-title">No spending data</div><div class="fc-empty-sub">for ${periodLabel}</div></div>`;
+      const syncMsg = state.user?.plaid_linked && state.accounts?.length
+        ? 'Syncing transactions — check back soon'
+        : `No spending data for ${periodLabel}`;
+      container.innerHTML = `<div style="color:var(--fc-text-faint);text-align:center;padding:28px 0;font-size:13px">${syncMsg}</div>`;
       if (donutSvg)    donutSvg.innerHTML = '<circle cx="60" cy="60" r="46" fill="none" style="stroke:var(--fc-border)" stroke-width="16"/>';
       if (donutCenterEl) donutCenterEl.textContent = '—';
       if (donutLegend) donutLegend.innerHTML = '';
+      // Clear top category in spending card
+      const tcName = document.getElementById('ins-top-cat-name'); if (tcName) { tcName.textContent = '—'; tcName.style.color = 'var(--fc-text-faint)'; }
+      const tcAmt  = document.getElementById('ins-top-cat-amt');  if (tcAmt)  tcAmt.style.display = 'none';
     } else {
       const catMap = {};
       for (const t of periodSpendTxns) {
@@ -4927,6 +5221,15 @@ window.FCApp = (function () {
         catMap[cat] = (catMap[cat] || 0) + t.amount;
       }
       const sorted = Object.entries(catMap).sort((a, b) => b[1] - a[1]).slice(0, 6);
+
+      // ── Top category label in spending card ──────────────────────
+      if (sorted.length) {
+        const [topCat, topAmt] = sorted[0];
+        const tcName = document.getElementById('ins-top-cat-name');
+        const tcAmt  = document.getElementById('ins-top-cat-amt');
+        if (tcName) { tcName.textContent = topCat; tcName.style.color = 'var(--fc-text-faint)'; }
+        if (tcAmt)  { tcAmt.textContent = FCData.formatCurrency(topAmt); tcAmt.style.display = ''; }
+      }
 
       // ── Donut chart — 120×120, SVG itself rotated -90deg so 0° = top ──
       if (donutSvg && periodSpend > 0) {
@@ -5027,6 +5330,47 @@ window.FCApp = (function () {
     // ── Cash Flow Forecast — next 7 days ─────────────────────────
     const timelineEl = document.getElementById('cashflow-timeline');
     const cfNetEl    = document.getElementById('cashflow-net');
+
+    // Update placeholder text based on sync state
+    const cfPlaceholder = document.getElementById('cashflow-forecast-placeholder');
+    if (cfPlaceholder) {
+      if (state.user?.plaid_linked && state.accounts?.length) {
+        cfPlaceholder.textContent = !state.bills?.length
+          ? 'Add bills to see your 7-day forecast'
+          : '✓ No bills due in the next 7 days';
+        cfPlaceholder.style.color = !state.bills?.length ? 'var(--fc-text-faint)' : 'var(--fc-success)';
+      } else {
+        cfPlaceholder.textContent = 'Connect a bank to see your forecast';
+      }
+    }
+
+    // ── Populate 3-column forecast (income / bills / projected) ──
+    (function () {
+      const incomeEl   = document.getElementById('ins-cf-income');
+      const billsEl    = document.getElementById('ins-cf-bills');
+      const projEl     = document.getElementById('ins-cf-projected');
+      if (!incomeEl) return;
+
+      // Expected income: last known income from recurring paycheck pattern (month-based)
+      const avgMonthlyIncome = periodIncome > 0 ? periodIncome
+        : (state.transactions || []).filter(_isIncomeTxn).reduce((s, t) => s + (t.amount || 0), 0) / 3 || 0;
+      // Bills due in next 7 days
+      const today7 = new Date(); today7.setHours(0, 0, 0, 0);
+      const end7   = new Date(today7.getTime() + 7 * 86400000);
+      const upcoming7 = (state.bills || []).filter(b => {
+        if (b.status === 'paid' || !b.due_date) return false;
+        const bd = FCData.parseDateLocal(b.due_date); bd.setHours(0, 0, 0, 0);
+        return bd >= today7 && bd <= end7;
+      });
+      const billsTotal7 = upcoming7.reduce((s, b) => s + (b.amount || 0), 0);
+      const cash7       = FCData.calcCash ? FCData.calcCash(state.accounts) : 0;
+      const projected   = Math.max(0, cash7 - billsTotal7);
+
+      if (incomeEl) { incomeEl.textContent = avgMonthlyIncome > 0 ? `+${FCData.formatCurrency(avgMonthlyIncome)}` : '—'; }
+      if (billsEl)  { billsEl.textContent  = billsTotal7 > 0 ? `−${FCData.formatCurrency(billsTotal7)}` : 'None'; billsEl.style.color = billsTotal7 > 0 ? 'var(--fc-danger)' : 'var(--fc-success)'; }
+      if (projEl)   { projEl.textContent   = FCData.formatCurrency(projected); projEl.style.color = projected > 1000 ? 'var(--fc-electric)' : projected > 0 ? 'var(--fc-warning)' : 'var(--fc-danger)'; }
+    })();
+
     if (timelineEl) {
       const today   = new Date(); today.setHours(0, 0, 0, 0);
       const msDay   = 86400000;
@@ -5068,6 +5412,8 @@ window.FCApp = (function () {
         cfNetEl.textContent    = forecastNet < 0 ? `−${FCData.formatCurrency(Math.abs(forecastNet))} due` : 'All clear';
         cfNetEl.style.color    = forecastNet < 0 ? 'var(--fc-warning)' : 'var(--fc-success)';
       }
+      const placeholder = document.getElementById('cashflow-forecast-placeholder');
+      if (placeholder) placeholder.style.display = 'none';
       timelineEl.innerHTML = rows.length
         ? rows.join('') + `<div style="font-size:12px;color:var(--fc-text-faint);text-align:center;padding-top:10px">Next 7 days · ${state.bills.filter(b=>b.status!=='paid').length} bill${state.bills.filter(b=>b.status!=='paid').length!==1?'s':''} pending</div>`
         : `<div style="color:var(--fc-success);text-align:center;padding:20px 0;font-size:14px;font-weight:500">✓ No bills due in the next 7 days</div>`;
@@ -5098,30 +5444,23 @@ window.FCApp = (function () {
         .slice(0, 5);
 
       if (!top.length) {
-        if (card) card.style.display = 'none';
+        if (card) card.style.display = '';
+        list.innerHTML = '<div style="color:var(--fc-text-faint);text-align:center;padding:16px 0;font-size:11px">No spending data yet</div>';
         return;
       }
       if (card) card.style.display = '';
-      const maxMerchant = top[0][1].total;
 
-      list.innerHTML = top.map(([name, data], i) => {
-        const pct  = Math.round((data.total / maxMerchant) * 100);
-        const col  = FCData.categoryColor('Shopping'); // use neutral color for merchants
-        const cols = ['var(--fc-accent)','var(--fc-electric)','#ff6b35','#f093fb','#43e97b'];
-        const barColor = cols[i] || 'var(--fc-accent)';
-        const shortName = name.length > 22 ? name.substring(0, 22) + '…' : name;
+      // Premium compact merchant list (new v2 format)
+      list.innerHTML = top.slice(0, 4).map(([name, data]) => {
+        const shortName = name.length > 18 ? name.substring(0, 18) + '…' : name;
+        const initial   = name.replace(/^(the |a )/i, '').charAt(0).toUpperCase();
+        const emoji     = (typeof FCData.categoryEmoji === 'function') ? FCData.categoryEmoji('Shopping', name) : '';
+        const icon      = emoji || initial;
         return `
-          <div style="margin-bottom:10px">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-              <span style="font-size:13px;font-weight:500;color:var(--fc-text)">${shortName}</span>
-              <div style="text-align:right;flex-shrink:0;margin-left:8px">
-                <span style="font-size:13px;font-weight:700;color:var(--fc-text)">${FCData.formatCurrency(data.total)}</span>
-                <span style="font-size:11px;color:var(--fc-text-faint);margin-left:5px">${data.count}×</span>
-              </div>
-            </div>
-            <div class="fcs-bar-track" style="height:4px">
-              <div style="height:100%;width:${pct}%;background:${barColor};border-radius:99px;transition:width 0.4s ease"></div>
-            </div>
+          <div class="ins-merchant-row">
+            <div class="ins-merchant-icon">${icon}</div>
+            <div class="ins-merchant-name">${esc(shortName)}</div>
+            <div class="ins-merchant-amt">${FCData.formatCurrency(data.total)}</div>
           </div>`;
       }).join('');
     })();
@@ -5259,6 +5598,12 @@ window.FCApp = (function () {
         savingsMetaEl.style.color = 'var(--fc-text-faint)';
       }
     }
+
+    // V3 insights enhancements
+    _renderIntelSummary();
+    _renderBehaviorAnalysis();
+    _renderWins();
+    _renderRecommendations();
   }
 
   /* ─────────────────────────────────────────────────────────────
@@ -5354,32 +5699,61 @@ window.FCApp = (function () {
           <div style="font-size:13px">Tap + below to add your first goal</div>
         </div>`;
     } else {
-      container.innerHTML = state.goals.map(g => {
+      container.innerHTML = `
+        <svg width="0" height="0" style="position:absolute">
+          <defs>
+            <linearGradient id="goal-ring-grad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#1ac4f0"/><stop offset="100%" stop-color="#60a5fa"/>
+            </linearGradient>
+          </defs>
+        </svg>` +
+      state.goals.map(g => {
         const pct     = Math.min(g.pct || 0, 100);
-        const dash    = 170;
-        const offset  = dash - (dash * pct / 100);
-        const color   = pct >= 100 ? 'var(--fc-success)' : 'url(#ring-gradient)';
-        const statusColor = pct >= 100 ? 'var(--fc-success)' : pct >= 75 ? 'var(--fc-accent)' : 'var(--fc-text-faint)';
-        const statusLabel = pct >= 100 ? 'COMPLETE' : pct >= 75 ? 'ALMOST' : pct > 0 ? 'ON TRACK' : 'NOT STARTED';
+        const r       = 27;
+        const circ    = 2 * Math.PI * r;
+        const offset  = circ * (1 - pct / 100);
+        const strokeColor = pct >= 100 ? 'var(--fc-success)' : 'url(#goal-ring-grad)';
+        const ringGlow    = pct >= 100 ? '0 0 12px rgba(48,209,88,0.5)' : '0 0 12px rgba(26,196,240,0.4)';
+
+        // Smart status: check if behind schedule
+        let statusLabel, statusBg, statusBorder, statusText;
+        if (pct >= 100) {
+          statusLabel = 'COMPLETE'; statusBg = 'rgba(48,209,88,0.12)'; statusBorder = 'rgba(48,209,88,0.3)'; statusText = 'var(--fc-success)';
+        } else if (g.target_date) {
+          const daysTotal   = Math.max(1, (FCData.parseDateLocal(g.target_date) - new Date()) / 86400000);
+          const expectedPct = Math.max(0, Math.min(100, 100 - (daysTotal / 365) * 100));
+          const isBehind    = pct < expectedPct - 10; // more than 10% behind schedule
+          if (isBehind) {
+            statusLabel = 'BEHIND'; statusBg = 'rgba(255,159,10,0.12)'; statusBorder = 'rgba(255,159,10,0.3)'; statusText = 'var(--fc-warning)';
+          } else if (pct >= 75) {
+            statusLabel = 'ALMOST'; statusBg = 'rgba(26,196,240,0.12)'; statusBorder = 'rgba(26,196,240,0.3)'; statusText = 'var(--fc-accent)';
+          } else {
+            statusLabel = 'ON TRACK'; statusBg = 'rgba(48,209,88,0.10)'; statusBorder = 'rgba(48,209,88,0.25)'; statusText = 'var(--fc-success)';
+          }
+        } else {
+          statusLabel = pct >= 75 ? 'ALMOST' : pct > 0 ? 'ON TRACK' : 'NOT STARTED';
+          statusBg    = pct >= 75 ? 'rgba(26,196,240,0.12)' : pct > 0 ? 'rgba(48,209,88,0.10)' : 'rgba(255,255,255,0.06)';
+          statusBorder= pct >= 75 ? 'rgba(26,196,240,0.3)' : pct > 0 ? 'rgba(48,209,88,0.25)' : 'rgba(255,255,255,0.12)';
+          statusText  = pct >= 75 ? 'var(--fc-accent)' : pct > 0 ? 'var(--fc-success)' : 'var(--fc-text-faint)';
+        }
+
         return `
           <div class="fc-goal-card" style="cursor:pointer" onclick="FCApp.editGoal('${esc(g.id)}')" role="button">
-            <div style="width:56px;height:56px;position:relative;flex-shrink:0">
-              <svg width="56" height="56" viewBox="0 0 64 64" aria-label="${pct}%">
-                <defs>
-                  <linearGradient id="ring-gradient" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0%" stop-color="#1ac4f0"/><stop offset="100%" stop-color="#60a5fa"/>
-                  </linearGradient>
-                </defs>
-                <circle cx="32" cy="32" r="27" style="stroke:var(--fc-border)" stroke-width="6" fill="none"/>
-                <circle cx="32" cy="32" r="27" stroke="${color}" stroke-width="6" fill="none"
-                        stroke-dasharray="${dash}" stroke-dashoffset="${offset}"
-                        stroke-linecap="round" transform="rotate(-90 32 32)"/>
+            <!-- Circular progress ring -->
+            <div style="width:64px;height:64px;position:relative;flex-shrink:0">
+              <svg width="64" height="64" viewBox="0 0 64 64" style="transform:rotate(-90deg)" aria-label="${pct}%">
+                <circle cx="32" cy="32" r="${r}" stroke="rgba(255,255,255,0.08)" stroke-width="6" fill="none"/>
+                <circle cx="32" cy="32" r="${r}" stroke="${strokeColor}" stroke-width="6" fill="none"
+                        stroke-dasharray="${circ.toFixed(1)}" stroke-dashoffset="${offset.toFixed(1)}"
+                        stroke-linecap="round"
+                        style="transition:stroke-dashoffset 1s cubic-bezier(0.22,1,0.36,1);filter:drop-shadow(${ringGlow})"/>
               </svg>
-              <div style="position:absolute;inset:0;display:grid;place-items:center;color:var(--fc-text);font-size:12px;font-weight:700">${pct}%</div>
+              <div style="position:absolute;inset:0;display:grid;place-items:center;font-size:12px;font-weight:800;color:var(--fc-text)">${pct}%</div>
             </div>
             <div class="fc-grow">
-              <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
-                <span style="color:${statusColor};font-size:10px;font-weight:600;letter-spacing:0.05em">${statusLabel}</span>
+              <!-- Status pill -->
+              <div style="margin-bottom:5px">
+                <span style="display:inline-flex;align-items:center;padding:3px 8px;border-radius:999px;background:${statusBg};border:0.5px solid ${statusBorder};color:${statusText};font-size:9px;font-weight:800;letter-spacing:0.08em">${statusLabel}</span>
               </div>
               <div class="fc-h3" style="font-size:15px;margin-bottom:3px">${esc(g.name)}</div>
               <div class="fc-xs">${FCData.formatCurrency(g.current || 0)} of ${FCData.formatCurrency(g.target)}</div>
@@ -5389,11 +5763,8 @@ window.FCApp = (function () {
                 const months    = Math.max(1, Math.ceil((FCData.parseDateLocal(g.target_date) - new Date()) / (1000 * 60 * 60 * 24 * 30.44)));
                 const monthly   = remaining / months;
                 const dateLabel = FCData.parseDateLocal(g.target_date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-                return `<div style="font-size:11px;color:var(--fc-accent);margin-top:2px">${FCData.formatCurrency(monthly)}/mo · ${dateLabel}</div>`;
+                return `<div style="font-size:11px;color:var(--fc-accent);margin-top:3px">${FCData.formatCurrency(monthly)}/mo · ${dateLabel}</div>`;
               })()}
-              <div class="fc-progress-bar" style="margin-top:8px">
-                <div class="fc-progress-fill" style="width:${pct}%;background:${pct >= 100 ? 'var(--fc-success)' : 'linear-gradient(90deg,var(--fc-accent),var(--fc-electric))'}"></div>
-              </div>
             </div>
           </div>`;
       }).join('');
@@ -5449,11 +5820,58 @@ window.FCApp = (function () {
         const sign  = delta >= 0 ? '+' : '−';
         const color = delta >= 0 ? 'rgba(52,199,89,0.15)' : 'rgba(255,69,58,0.12)';
         const textColor = delta >= 0 ? 'var(--fc-success)' : 'var(--fc-danger)';
-        dlEl.innerHTML = `<span>${sign}${FCData.formatCurrency(Math.abs(delta))}</span><span style="font-weight:500;color:var(--fc-text-faint)">vs last month</span>`;
-        dlEl.style.cssText += `;background:${color};color:${textColor}`;
-        dlEl.style.display = 'inline-flex';
+        dlEl.innerHTML = `<span>${sign}${FCData.formatCurrency(Math.abs(delta))}</span><span style="font-weight:500;color:var(--fc-text-faint);margin-left:4px">(${delta >= 0 ? '+' : ''}${liabilities > 0 ? Math.round((delta / Math.max(1, Math.abs(prev))) * 100) : 0}%) this month</span>`;
+        dlEl.style.cssText = `display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px;background:${color};color:${textColor};margin-top:8px`;
+      } else {
+        dlEl.style.display = 'none';
       }
     }
+
+    // ── Wealth sparkline chart ─────────────────────────────────────
+    (function () {
+      const svg  = document.getElementById('wealth-sparkline');
+      const area = document.getElementById('wealth-sparkline-area');
+      const line = document.getElementById('wealth-sparkline-line');
+      const dot  = document.getElementById('wealth-sparkline-dot');
+      if (!svg || !line) return;
+
+      const history = state.nwHistory || {};
+      const keys    = Object.keys(history).sort();
+      const vals    = keys.map(k => history[k]);
+
+      if (vals.length < 2) {
+        // Draw flat placeholder line
+        line.setAttribute('d', 'M0,50 L320,50');
+        if (area) area.setAttribute('d', 'M0,50 L320,50 L320,56 L0,56 Z');
+        if (dot) { dot.setAttribute('cx', '320'); dot.setAttribute('cy', '50'); }
+        return;
+      }
+
+      const W = 320, H = 56, pad = 4;
+      const min = Math.min(...vals), max = Math.max(...vals);
+      const range = max - min || 1;
+      const toY  = v => pad + (H - 2 * pad) * (1 - (v - min) / range);
+      const toX  = i => (i / (vals.length - 1)) * W;
+
+      const pts = vals.map((v, i) => [toX(i), toY(v)]);
+      // Smooth curve via cubic bezier
+      let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+      for (let i = 1; i < pts.length; i++) {
+        const [x0, y0] = pts[i - 1], [x1, y1] = pts[i];
+        const cx = (x0 + x1) / 2;
+        d += ` C${cx.toFixed(1)},${y0.toFixed(1)} ${cx.toFixed(1)},${y1.toFixed(1)} ${x1.toFixed(1)},${y1.toFixed(1)}`;
+      }
+      const lastPt = pts[pts.length - 1];
+      line.setAttribute('d', d);
+      if (area) area.setAttribute('d', `${d} L${lastPt[0].toFixed(1)},${H} L0,${H} Z`);
+      if (dot) { dot.setAttribute('cx', lastPt[0].toFixed(1)); dot.setAttribute('cy', lastPt[1].toFixed(1)); }
+
+      // Color based on trend
+      const isPositive = vals[vals.length - 1] >= vals[0];
+      const strokeColor = isPositive ? '#1ac4f0' : 'var(--fc-danger)';
+      line.setAttribute('stroke', strokeColor);
+      if (dot) dot.setAttribute('fill', strokeColor);
+    })();
   }
 
   function _renderWealth() {
@@ -5508,10 +5926,14 @@ window.FCApp = (function () {
     const summaryEl = document.getElementById('savings-summary');
     if (summaryEl) {
       summaryEl.innerHTML = `
-        <div class="fc-card" style="margin:0 16px 4px;padding:18px;background:linear-gradient(135deg,rgba(26,196,240,0.1),rgba(37,99,235,0.1))">
-          <div class="fc-eyebrow">Total Savings</div>
-          <div style="font-size:32px;font-weight:800;letter-spacing:-0.03em;color:var(--fc-text);margin-top:2px">${FCData.formatCurrency(total)}</div>
-          <div style="font-size:12px;color:var(--fc-text-faint);margin-top:4px">${savingsAccts.length} account${savingsAccts.length !== 1 ? 's' : ''}</div>
+        <div class="fc-card" style="margin:0 16px 4px;padding:20px;background:linear-gradient(135deg,rgba(26,196,240,0.10),rgba(37,99,235,0.08));display:flex;align-items:center;gap:16px">
+          <!-- Money-bag illustration -->
+          <div style="width:56px;height:56px;border-radius:18px;background:rgba(26,196,240,0.12);border:0.5px solid rgba(26,196,240,0.22);display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0">💰</div>
+          <div style="flex:1;min-width:0">
+            <div class="fc-eyebrow" style="margin-bottom:3px">Total Savings</div>
+            <div class="fc-amount" style="font-size:32px;font-weight:800;letter-spacing:-0.03em;color:var(--fc-text)">${FCData.formatCurrency(total)}</div>
+            <div style="font-size:12px;color:var(--fc-text-faint);margin-top:3px">${savingsAccts.length} account${savingsAccts.length !== 1 ? 's' : ''} connected</div>
+          </div>
         </div>`;
     }
 
@@ -5528,19 +5950,43 @@ window.FCApp = (function () {
       return;
     }
 
-    list.innerHTML = savingsAccts.map(a => {
+    // Separate savings vs checking for clearer layout (W4)
+    const isSavingsAcct = a => ['savings','money market','cd','cash management'].includes((a.subtype||'').toLowerCase());
+    const savingsGroup  = savingsAccts.filter(isSavingsAcct);
+    const checkingGroup = savingsAccts.filter(a => !isSavingsAcct(a));
+
+    // Build a map of name → count so we can append mask when names collide (W5)
+    const nameCounts = {};
+    savingsAccts.forEach(a => { nameCounts[a.name || ''] = (nameCounts[a.name || ''] || 0) + 1; });
+    const acctDisplayName = a => {
+      const base = a.name || 'Account';
+      return (nameCounts[base] > 1 && a.mask) ? `${base} ••${a.mask}` : base;
+    };
+
+    const renderAcctRow = (a, isLast) => {
       const bal  = a.balance_current || a.balance || 0;
       const icon = _accountIcon(a);
       const inst = _acctSubtext(a);
-      return `<div class="fc-acct-card">
-        <div class="fc-acct-icon">${icon}</div>
-        <div class="fc-acct-info">
-          <div class="fc-acct-name">${a.name || 'Account'}</div>
-          ${inst ? `<div class="fc-acct-bank">${inst}</div>` : ''}
+      return `<div style="display:flex;align-items:center;gap:13px;padding:14px 16px;${isLast ? '' : 'border-bottom:0.5px solid rgba(255,255,255,0.05)'}">
+        <div style="width:38px;height:38px;border-radius:12px;background:rgba(26,196,240,0.10);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">${icon}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;font-weight:600;color:var(--fc-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(acctDisplayName(a))}</div>
+          ${inst ? `<div style="font-size:11px;color:var(--fc-text-faint);margin-top:1px">${esc(inst)}</div>` : ''}
         </div>
-        <div class="fc-acct-bal fc-amount">${FCData.formatCurrency(bal)}</div>
+        <div class="fc-amount" style="font-size:15px;font-weight:700;color:var(--fc-text);font-variant-numeric:tabular-nums;flex-shrink:0">${FCData.formatCurrency(bal)}</div>
       </div>`;
-    }).join('');
+    };
+
+    const renderGroup = (accounts, label) => {
+      if (!accounts.length) return '';
+      return `
+        <div style="font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--fc-text-faint);margin:12px 16px 6px">${label}</div>
+        <div class="fc-card" style="margin:0 16px;padding:0;overflow:hidden">
+          ${accounts.map((a, i) => renderAcctRow(a, i === accounts.length - 1)).join('')}
+        </div>`;
+    };
+
+    list.innerHTML = renderGroup(savingsGroup, 'Savings') + renderGroup(checkingGroup, 'Checking');
   }
 
   function _renderDebt() {
@@ -5552,21 +5998,78 @@ window.FCApp = (function () {
              ['credit card', 'line of credit', 'mortgage', 'auto', 'student', 'home equity'].includes(sub);
     });
 
-    const totalDebt = debtAccts.reduce((s, a) => s + Math.max(0, a.balance_current || a.balance || 0), 0);
-    const creditCards = debtAccts.filter(a => a.type === 'credit' || (a.subtype || '').toLowerCase() === 'credit card');
+    const totalDebt    = debtAccts.reduce((s, a) => s + Math.max(0, a.balance_current || a.balance || 0), 0);
+    const creditCards  = debtAccts.filter(a => a.type === 'credit' || ['credit card','line of credit'].includes((a.subtype||'').toLowerCase()));
+    const loans        = debtAccts.filter(a => a.type === 'loan' || ['mortgage','auto','student','home equity'].includes((a.subtype||'').toLowerCase()));
+    const otherDebt    = debtAccts.filter(a => !creditCards.includes(a) && !loans.includes(a));
+
+    const ccTotal      = creditCards.reduce((s, a) => s + Math.max(0, a.balance_current || a.balance || 0), 0);
+    const loansTotal   = loans.reduce((s, a) => s + Math.max(0, a.balance_current || a.balance || 0), 0);
+    const otherTotal   = otherDebt.reduce((s, a) => s + Math.max(0, a.balance_current || a.balance || 0), 0);
+
     const totalLimit  = creditCards.reduce((s, a) => s + (a.balance_limit || a.balances?.limit || 0), 0);
-    const totalUsed   = creditCards.reduce((s, a) => s + Math.max(0, a.balance_current || a.balance || 0), 0);
-    const utilPct     = totalLimit > 0 ? Math.round((totalUsed / totalLimit) * 100) : 0;
+    const utilPct     = totalLimit > 0 ? Math.round((ccTotal / totalLimit) * 100) : 0;
 
     const summaryEl = document.getElementById('debt-summary');
-    if (summaryEl) {
+    if (summaryEl && totalDebt > 0) {
+      // Donut chart data
+      const segments = [
+        { label: 'Credit Cards', value: ccTotal,    color: '#ff453a' },
+        { label: 'Loans',        value: loansTotal,  color: '#ff9f0a' },
+        { label: 'Other',        value: otherTotal,  color: '#636366' },
+      ].filter(s => s.value > 0);
+
+      // Build SVG donut
+      let donutSvg = '';
+      if (segments.length > 0) {
+        const R = 42, r = 26, cx = 52, cy = 52;
+        const circ = 2 * Math.PI * R;
+        let cumAngle = -90; // start at top
+        const arcs = segments.map(seg => {
+          const pct    = totalDebt > 0 ? seg.value / totalDebt : 0;
+          const angle  = pct * 360;
+          const startA = (cumAngle * Math.PI) / 180;
+          const endA   = ((cumAngle + angle) * Math.PI) / 180;
+          const x1 = cx + R * Math.cos(startA), y1 = cy + R * Math.sin(startA);
+          const x2 = cx + R * Math.cos(endA),   y2 = cy + R * Math.sin(endA);
+          const large = angle > 180 ? 1 : 0;
+          // Inner arc (reversed)
+          const ix1 = cx + r * Math.cos(endA),  iy1 = cy + r * Math.sin(endA);
+          const ix2 = cx + r * Math.cos(startA), iy2 = cy + r * Math.sin(startA);
+          const path = `M${x1.toFixed(1)},${y1.toFixed(1)} A${R},${R} 0 ${large},1 ${x2.toFixed(1)},${y2.toFixed(1)} L${ix1.toFixed(1)},${iy1.toFixed(1)} A${r},${r} 0 ${large},0 ${ix2.toFixed(1)},${iy2.toFixed(1)} Z`;
+          cumAngle += angle;
+          return `<path d="${path}" fill="${seg.color}" opacity="0.88"/>`;
+        });
+        donutSvg = `
+          <svg viewBox="0 0 104 104" width="104" height="104" style="flex-shrink:0" aria-hidden="true">
+            ${arcs.join('')}
+            <circle cx="${cx}" cy="${cy}" r="${r}" fill="var(--fc-bg-elevated,#0b1826)"/>
+            <text x="${cx}" y="${cy - 4}" text-anchor="middle" fill="white" font-size="11" font-weight="800" font-family="inherit">${segments.length > 0 ? '−' : ''}${totalDebt >= 1000 ? `$${(totalDebt/1000).toFixed(0)}K` : `$${Math.round(totalDebt)}`}</text>
+            <text x="${cx}" y="${cy + 9}" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-size="8" font-family="inherit">total</text>
+          </svg>`;
+      }
+
       const utilColor = utilPct > 30 ? 'var(--fc-danger)' : utilPct > 10 ? 'var(--fc-warning)' : 'var(--fc-success)';
       summaryEl.innerHTML = `
-        <div class="fc-card" style="margin:0 16px 4px;padding:18px;background:linear-gradient(135deg,rgba(255,69,58,0.1),rgba(37,99,235,0.08))">
-          <div class="fc-eyebrow">Total Debt</div>
-          <div class="fc-amount" style="font-size:32px;font-weight:800;letter-spacing:-0.03em;color:var(--fc-text);margin-top:2px">−${FCData.formatCurrency(totalDebt)}</div>
+        <div class="fc-card" style="margin:0 16px 4px;padding:18px;background:linear-gradient(135deg,rgba(255,69,58,0.08),rgba(37,99,235,0.06))">
+          <div style="display:flex;align-items:center;gap:16px">
+            ${donutSvg}
+            <div style="flex:1;min-width:0">
+              <div class="fc-eyebrow" style="margin-bottom:4px">Total Debt</div>
+              <div class="fc-amount" style="font-size:28px;font-weight:800;letter-spacing:-0.03em;color:var(--fc-danger)">−${FCData.formatCurrency(totalDebt)}</div>
+              <!-- Legend -->
+              <div style="margin-top:10px;display:flex;flex-direction:column;gap:4px">
+                ${segments.map(s => `
+                  <div style="display:flex;align-items:center;gap:6px">
+                    <div style="width:8px;height:8px;border-radius:2px;background:${s.color};flex-shrink:0"></div>
+                    <span style="font-size:11px;color:var(--fc-text-faint);flex:1">${s.label}</span>
+                    <span class="fc-amount" style="font-size:11px;font-weight:700;color:var(--fc-text)">${FCData.formatCurrency(s.value)}</span>
+                  </div>`).join('')}
+              </div>
+            </div>
+          </div>
           ${totalLimit > 0 ? `
-          <div style="margin-top:12px">
+          <div style="margin-top:14px;padding-top:12px;border-top:0.5px solid rgba(255,255,255,0.07)">
             <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--fc-text-faint);margin-bottom:5px">
               <span>Credit Utilization</span>
               <span style="color:${utilColor};font-weight:600">${utilPct}%</span>
@@ -5575,6 +6078,8 @@ window.FCApp = (function () {
             <div style="font-size:11px;color:var(--fc-text-faint);margin-top:5px">Keep below 30% for a healthy credit score</div>
           </div>` : ''}
         </div>`;
+    } else if (summaryEl) {
+      summaryEl.innerHTML = '';
     }
 
     const list = document.getElementById('debt-list');
@@ -5596,12 +6101,18 @@ window.FCApp = (function () {
       const util  = limit > 0 ? Math.round((bal / limit) * 100) : null;
       const uColor = util !== null ? (util > 30 ? 'var(--fc-danger)' : util > 10 ? 'var(--fc-warning)' : 'var(--fc-success)') : '';
       const icon  = _accountIcon(a);
-      const inst  = a.institution_name || a.official_name || (a.manual ? 'Manual entry' : '');
+      const inst  = _cleanInstitutionName(a.institution_name || a.official_name || '') || (a.manual ? 'Manual entry' : '');
+      // Humanize raw Plaid account names for loans (e.g. "DEALER-UB" → "Auto Loan")
+      const sub = (a.subtype || '').toLowerCase();
+      const rawName = (a.name || '').toLowerCase();
+      const displayName = (sub === 'auto' || rawName.includes('dealer') || rawName.includes('auto'))
+        ? 'Auto Loan'
+        : (sub === 'student' ? 'Student Loan' : (sub === 'mortgage' ? 'Mortgage' : (a.name || 'Account')));
       return `<div class="fc-acct-card">
         <div class="fc-acct-icon">${icon}</div>
         <div class="fc-acct-info">
-          <div class="fc-acct-name">${a.name || 'Account'}</div>
-          ${inst ? `<div class="fc-acct-bank">${inst}</div>` : ''}
+          <div class="fc-acct-name">${esc(displayName)}</div>
+          ${inst ? `<div class="fc-acct-bank">${esc(inst)}</div>` : ''}
         </div>
         <div style="text-align:right;flex-shrink:0">
           <div class="fc-acct-bal fc-amount" style="color:var(--fc-danger)">−${FCData.formatCurrency(bal)}</div>
@@ -5609,6 +6120,449 @@ window.FCApp = (function () {
         </div>
       </div>`;
     }).join('');
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     V3 RENDER FUNCTIONS
+     ───────────────────────────────────────────────────────────── */
+
+  function _renderDailyBrief() {
+    const el     = document.getElementById('home-daily-brief');
+    const textEl = document.getElementById('home-brief-text');
+    if (!el || !textEl) return;
+
+    const txns     = state.transactions || [];
+    const accounts = state.accounts    || [];
+    const bills    = state.bills       || [];
+
+    if (!accounts.length && !txns.length) { el.style.display = 'none'; return; }
+
+    const today = new Date(); today.setHours(0,0,0,0);
+    const dayName = today.toLocaleDateString('en-US', { weekday: 'long' });
+
+    const todayTxns  = txns.filter(t => t.date && FCData.parseDateLocal(t.date).getTime() >= today.getTime() && _isSpendTxn(t));
+    const todaySpend = todayTxns.reduce((s, t) => s + (t.amount || 0), 0);
+    const biggestToday = todayTxns.sort((a, b) => b.amount - a.amount)[0];
+
+    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    const monthSpend = txns
+      .filter(t => t.date && FCData.parseDateLocal(t.date) >= monthStart && _isSpendTxn(t))
+      .reduce((s, t) => s + (t.amount || 0), 0);
+
+    const nextBill = bills
+      .filter(b => b.status !== 'paid' && FCData.daysUntil(b.due_date) !== null && FCData.daysUntil(b.due_date) >= 0)
+      .sort((a, b) => FCData.daysUntil(a.due_date) - FCData.daysUntil(b.due_date))[0];
+
+    let brief = '';
+    if (todaySpend > 0 && biggestToday) {
+      brief = `Happy ${dayName}. You've spent ${FCData.formatCurrency(todaySpend)} today — ${esc(_cleanTxnName(biggestToday.name))} was your biggest charge (${FCData.formatCurrency(biggestToday.amount)}).`;
+    } else {
+      brief = `Happy ${dayName}. No spending recorded yet today.`;
+    }
+
+    if (nextBill) {
+      const days = FCData.daysUntil(nextBill.due_date);
+      if (days === 0)      brief += ` ${esc(nextBill.name)} (${FCData.formatCurrency(nextBill.amount)}) is due today.`;
+      else if (days === 1) brief += ` ${esc(nextBill.name)} (${FCData.formatCurrency(nextBill.amount)}) is due tomorrow.`;
+      else if (days <= 7)  brief += ` ${esc(nextBill.name)} (${FCData.formatCurrency(nextBill.amount)}) is due in ${days} days.`;
+    }
+
+    if (monthSpend > 0) brief += ` You're at ${FCData.formatCurrency(monthSpend)} spent this month.`;
+
+    textEl.textContent = brief;
+    el.style.display = '';
+  }
+
+  function _renderPriorityActions() {
+    const el     = document.getElementById('home-priority-actions');
+    const listEl = document.getElementById('home-actions-list');
+    if (!el || !listEl) return;
+
+    const bills    = state.bills    || [];
+    const accounts = state.accounts || [];
+    const actions  = [];
+
+    bills.filter(b => {
+      const d = FCData.daysUntil(b.due_date);
+      return d !== null && d < 0 && b.status !== 'paid';
+    }).forEach(b => actions.push({ priority: 'high', icon: '🔴', title: `${b.name} payment overdue`, sub: FCData.formatCurrency(b.amount) + ' past due' }));
+
+    bills.filter(b => FCData.daysUntil(b.due_date) === 0 && b.status !== 'paid')
+      .forEach(b => actions.push({ priority: 'high', icon: '⚠️', title: `${b.name} due today`, sub: FCData.formatCurrency(b.amount) }));
+
+    bills.filter(b => { const d = FCData.daysUntil(b.due_date); return d !== null && d > 0 && d <= 3 && b.status !== 'paid'; })
+      .forEach(b => {
+        const d = FCData.daysUntil(b.due_date);
+        actions.push({ priority: 'medium', icon: '📅', title: `${b.name} due in ${d} day${d !== 1 ? 's' : ''}`, sub: FCData.formatCurrency(b.amount) });
+      });
+
+    if (accounts.length === 0) {
+      actions.push({ priority: 'medium', icon: '🏦', title: 'Connect your bank account', sub: 'See your spending and net worth' });
+    }
+
+    if (!actions.length) { el.style.display = 'none'; return; }
+
+    const bgMap     = { high: 'rgba(255,69,58,0.08)',   medium: 'rgba(255,159,10,0.08)'  };
+    const borderMap = { high: 'rgba(255,69,58,0.20)',   medium: 'rgba(255,159,10,0.20)'  };
+    const dotMap    = { high: 'var(--fc-danger)',        medium: 'var(--fc-warning)'      };
+
+    listEl.innerHTML = actions.slice(0, 3).map(a => `
+      <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:14px;
+                  background:${bgMap[a.priority]};border:0.5px solid ${borderMap[a.priority]};cursor:pointer"
+           role="button" onclick="FCApp.switchTab('activity')">
+        <div style="font-size:16px;flex-shrink:0">${a.icon}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:600;color:var(--fc-text)">${esc(a.title)}</div>
+          <div style="font-size:11px;color:var(--fc-text-muted);margin-top:1px">${esc(a.sub)}</div>
+        </div>
+        <div style="width:6px;height:6px;border-radius:3px;background:${dotMap[a.priority]};flex-shrink:0"></div>
+      </div>`).join('');
+
+    el.style.display = '';
+  }
+
+  function _renderCashRunway() {
+    const el = document.getElementById('home-cash-runway');
+    if (!el) return;
+
+    const accounts = state.accounts     || [];
+    const txns     = state.transactions || [];
+    if (!accounts.length || !txns.length) { el.style.display = 'none'; return; }
+
+    const cash = FCData.calcCash(accounts);
+    if (cash <= 0) { el.style.display = 'none'; return; }
+
+    const cutoff     = new Date(Date.now() - 30 * 86400000);
+    const recent30   = txns.filter(t => _isSpendTxn(t) && FCData.parseDateLocal(t.date) >= cutoff);
+    const dailySpend = recent30.reduce((s, t) => s + (t.amount || 0), 0) / 30;
+    if (dailySpend <= 0) { el.style.display = 'none'; return; }
+
+    const days   = Math.round(cash / dailySpend);
+    const daysEl = document.getElementById('home-runway-days');
+    const subEl  = document.getElementById('home-runway-sub');
+    const barEl  = document.getElementById('home-runway-bar');
+
+    if (daysEl) daysEl.textContent = days + (days === 1 ? ' day' : ' days');
+    if (subEl)  subEl.textContent  = `${FCData.formatCurrency(cash)} cash · ${FCData.formatCurrency(dailySpend)}/day avg (last 30 days)`;
+
+    const pct = Math.min(100, Math.round((days / 90) * 100));
+    if (barEl) {
+      barEl.style.width      = pct + '%';
+      barEl.style.background = days < 14
+        ? 'var(--fc-danger)'
+        : days < 30
+        ? 'var(--fc-warning)'
+        : 'linear-gradient(90deg,var(--fc-electric),var(--fc-accent))';
+    }
+
+    el.style.display = '';
+  }
+
+  function _renderTimeline() {
+    const el     = document.getElementById('home-timeline');
+    const listEl = document.getElementById('home-timeline-list');
+    if (!el || !listEl) return;
+
+    const bills = state.bills || [];
+    const items = bills
+      .filter(b => { const d = FCData.daysUntil(b.due_date); return d !== null && d >= 0 && d <= 14 && b.status !== 'paid'; })
+      .map(b => ({ days: FCData.daysUntil(b.due_date), icon: b.icon || '💳', label: b.name, amount: b.amount,
+                   color: FCData.daysUntil(b.due_date) <= 1 ? 'var(--fc-danger)' : FCData.daysUntil(b.due_date) <= 3 ? 'var(--fc-warning)' : 'var(--fc-text-muted)' }))
+      .sort((a, b) => a.days - b.days)
+      .slice(0, 5);
+
+    if (!items.length) { el.style.display = 'none'; return; }
+
+    const dayLabel = d => d === 0 ? 'Today' : d === 1 ? 'Tomorrow' : `In ${d} days`;
+
+    listEl.innerHTML = items.map((item, i) => `
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;${i > 0 ? 'border-top:0.5px solid var(--fc-border)' : ''}">
+        <div style="width:36px;height:36px;border-radius:10px;background:rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">${item.icon}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:600;color:var(--fc-text)">${esc(item.label)}</div>
+          <div style="font-size:11px;color:${item.color};margin-top:1px;font-weight:${item.days <= 1 ? 600 : 400}">${dayLabel(item.days)}</div>
+        </div>
+        <div style="font-size:14px;font-weight:700;color:var(--fc-danger);font-variant-numeric:tabular-nums;flex-shrink:0">−${FCData.formatCurrency(item.amount)}</div>
+      </div>`).join('');
+
+    el.style.display = '';
+  }
+
+  function _renderSpendingTrends() {
+    const el = document.getElementById('act-spending-trends');
+    if (!el) return;
+
+    const txns = state.transactions || [];
+    if (!txns.length) { el.style.display = 'none'; return; }
+
+    const now = new Date(); now.setHours(0,0,0,0);
+    const weeks = Array.from({ length: 6 }, (_, i) => {
+      const w     = 5 - i;
+      const start = new Date(now.getTime() - (w + 1) * 7 * 86400000);
+      const end   = new Date(now.getTime() - w * 7 * 86400000);
+      const total = txns
+        .filter(t => { if (!_isSpendTxn(t)) return false; const d = FCData.parseDateLocal(t.date); return d >= start && d < end; })
+        .reduce((s, t) => s + (t.amount || 0), 0);
+      return { label: start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), total };
+    });
+
+    const max = Math.max(...weeks.map(w => w.total), 1);
+    const thisWeek = weeks[weeks.length - 1]?.total || 0;
+
+    const totalEl  = document.getElementById('act-trends-total');
+    const barsEl   = document.getElementById('act-trends-bars');
+    const labelsEl = document.getElementById('act-trends-labels');
+
+    if (totalEl) totalEl.textContent = FCData.formatCurrency(thisWeek) + ' this week';
+
+    if (barsEl) {
+      barsEl.innerHTML = weeks.map((w, i) => {
+        const pct    = Math.max(8, (w.total / max) * 100);
+        const isLast = i === weeks.length - 1;
+        return `<div style="flex:1;height:100%;display:flex;align-items:flex-end">
+          <div style="width:100%;height:${pct.toFixed(0)}%;border-radius:4px 4px 0 0;
+               background:${isLast ? 'var(--fc-accent)' : 'rgba(255,255,255,0.14)'};
+               transition:height .6s var(--fc-ease-out)"></div>
+        </div>`;
+      }).join('');
+    }
+
+    if (labelsEl) {
+      labelsEl.innerHTML = weeks.map((w, i) => {
+        const isLast = i === weeks.length - 1;
+        return `<div style="flex:1;text-align:center;font-size:8px;color:${isLast ? 'var(--fc-accent)' : 'var(--fc-text-faint)'};font-weight:${isLast ? 700 : 400}">
+          ${isLast ? 'Now' : w.label.split(' ')[1]}
+        </div>`;
+      }).join('');
+    }
+
+    el.style.display = '';
+  }
+
+  function _renderRecurringBanner() {
+    const el = document.getElementById('act-recurring-banner');
+    if (!el) return;
+
+    const subs = _detectSubscriptions(state.transactions || []);
+    if (!subs || !subs.length) { el.style.display = 'none'; return; }
+
+    const total    = subs.reduce((s, sub) => s + (sub.amount || 0), 0);
+    const titleEl  = document.getElementById('act-recurring-title');
+    const subEl    = document.getElementById('act-recurring-sub');
+
+    if (titleEl) titleEl.textContent = `${subs.length} recurring charge${subs.length !== 1 ? 's' : ''} detected`;
+    if (subEl)   subEl.textContent   = `${FCData.formatCurrency(total)}/mo · Tap to review in Bills`;
+
+    el.style.display = '';
+  }
+
+  function _renderIntelSummary() {
+    const el = document.getElementById('ins-intel-summary');
+    if (!el) return;
+
+    const txns = state.transactions || [];
+    if (!txns.length) { el.style.display = 'none'; return; }
+
+    const now             = new Date();
+    const thisMonthStart  = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastMonthStart  = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastMonthEnd    = new Date(now.getFullYear(), now.getMonth(), 0);
+
+    const thisTxns   = txns.filter(t => FCData.parseDateLocal(t.date) >= thisMonthStart);
+    const lastTxns   = txns.filter(t => { const d = FCData.parseDateLocal(t.date); return d >= lastMonthStart && d <= lastMonthEnd; });
+
+    const thisSpend  = thisTxns.filter(_isSpendTxn).reduce((s, t) => s + t.amount, 0);
+    const lastSpend  = lastTxns.filter(_isSpendTxn).reduce((s, t) => s + t.amount, 0);
+    const thisIncome = thisTxns.filter(_isIncomeTxn).reduce((s, t) => s + t.amount, 0);
+    const lastIncome = lastTxns.filter(_isIncomeTxn).reduce((s, t) => s + t.amount, 0);
+
+    const spendDelta  = lastSpend  > 0 ? Math.round(((thisSpend  - lastSpend)  / lastSpend)  * 100) : null;
+    // Suppress income delta before the 25th — partial month vs full month comparison is misleading
+    const incomeDelta = (lastIncome > 0 && now.getDate() >= 25) ? Math.round(((thisIncome - lastIncome) / lastIncome) * 100) : null;
+
+    const nw   = FCData.calcNetWorth(state.accounts || []);
+    const cash = FCData.calcCash(state.accounts || []);
+
+    const metrics = [
+      { label: 'Spending',  value: FCData.formatCurrency(thisSpend),  delta: spendDelta,  invert: true,  icon: '💸' },
+      { label: 'Income',    value: FCData.formatCurrency(thisIncome), delta: incomeDelta, invert: false, icon: '💰' },
+      { label: 'Cash',      value: FCData.formatCurrency(cash),       delta: null,        invert: false, icon: '🏦' },
+      { label: 'Net Worth', value: FCData.formatCurrency(nw),         delta: null,        invert: false, icon: '📊' },
+    ];
+
+    const deltaHtml = (d, invert) => {
+      if (d === null) return '';
+      const good  = invert ? d < 0 : d > 0;
+      const color = good ? 'var(--fc-success)' : d === 0 ? 'var(--fc-text-faint)' : 'var(--fc-danger)';
+      const arrow = d > 0 ? '↑' : d < 0 ? '↓' : '→';
+      return `<div style="margin-top:4px"><span style="font-size:10px;color:${color};font-weight:700">${arrow}${Math.abs(d)}%</span> <span style="font-size:9px;color:var(--fc-text-faint)">vs last mo</span></div>`;
+    };
+
+    el.innerHTML = `
+      <div style="padding:16px;border-radius:18px;background:rgba(255,255,255,0.04);border:0.5px solid rgba(255,255,255,0.08);margin:0 16px 10px">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.10em;text-transform:uppercase;color:var(--fc-text-faint);margin-bottom:12px">Monthly Intelligence</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          ${metrics.map(m => `
+            <div style="padding:12px;border-radius:14px;background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.06)">
+              <div style="font-size:11px;color:var(--fc-text-faint);margin-bottom:4px">${m.icon} ${m.label}</div>
+              <div style="font-size:17px;font-weight:800;color:var(--fc-text);font-variant-numeric:tabular-nums;letter-spacing:-0.03em">${m.value}</div>
+              ${deltaHtml(m.delta, m.invert)}
+            </div>`).join('')}
+        </div>
+      </div>`;
+    el.style.display = '';
+  }
+
+  function _renderBehaviorAnalysis() {
+    const el = document.getElementById('ins-behavior-analysis');
+    if (!el) return;
+
+    const txns      = state.transactions || [];
+    const spendTxns = txns.filter(_isSpendTxn);
+    if (spendTxns.length < 5) { el.style.display = 'none'; return; }
+
+    const isWeekend = d => { const day = FCData.parseDateLocal(d).getDay(); return day === 0 || day === 6; };
+    const weekendTxns  = spendTxns.filter(t => isWeekend(t.date));
+    const weekdayTxns  = spendTxns.filter(t => !isWeekend(t.date));
+    const weekendAvg   = weekendTxns.length ? weekendTxns.reduce((s, t) => s + t.amount, 0) / weekendTxns.length : 0;
+    const weekdayAvg   = weekdayTxns.length ? weekdayTxns.reduce((s, t) => s + t.amount, 0) / weekdayTxns.length : 0;
+
+    const merchantTotals = {};
+    spendTxns.forEach(t => {
+      const name = _cleanTxnName(t.name);
+      merchantTotals[name] = (merchantTotals[name] || 0) + t.amount;
+    });
+    const topMerchant = Object.entries(merchantTotals).sort((a, b) => b[1] - a[1])[0];
+
+    const dayTotals  = [0,0,0,0,0,0,0];
+    spendTxns.forEach(t => { dayTotals[FCData.parseDateLocal(t.date).getDay()] += t.amount; });
+    const dayNames   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const topDayIdx  = dayTotals.indexOf(Math.max(...dayTotals));
+
+    const insights = [];
+    if (weekendAvg > weekdayAvg * 1.2 && weekdayAvg > 0) {
+      insights.push({ icon: '📅', text: `You spend ${Math.round(((weekendAvg - weekdayAvg) / weekdayAvg) * 100)}% more per transaction on weekends` });
+    } else if (weekdayAvg > weekendAvg * 1.2 && weekendAvg > 0) {
+      insights.push({ icon: '💼', text: 'Weekdays are your biggest spending driver' });
+    }
+    if (topMerchant) {
+      insights.push({ icon: '🏪', text: `Top merchant: ${topMerchant[0]} (${FCData.formatCurrency(topMerchant[1])})` });
+    }
+    if (dayTotals[topDayIdx] > 0) {
+      insights.push({ icon: '📆', text: `${dayNames[topDayIdx]}s are your highest-spending day` });
+    }
+
+    if (!insights.length) { el.style.display = 'none'; return; }
+
+    el.innerHTML = `
+      <div style="padding:16px;border-radius:18px;background:rgba(255,255,255,0.04);border:0.5px solid rgba(255,255,255,0.08);margin:0 16px 10px">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.10em;text-transform:uppercase;color:var(--fc-text-faint);margin-bottom:12px">Behavior Analysis</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          ${insights.map(ins => `
+            <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,0.03)">
+              <span style="font-size:15px;flex-shrink:0">${ins.icon}</span>
+              <span style="font-size:13px;color:var(--fc-text-muted)">${esc(ins.text)}</span>
+            </div>`).join('')}
+        </div>
+      </div>`;
+    el.style.display = '';
+  }
+
+  function _renderWins() {
+    const el = document.getElementById('ins-wins');
+    if (!el) return;
+
+    const txns     = state.transactions || [];
+    const accounts = state.accounts     || [];
+    const bills    = state.bills        || [];
+    const wins     = [];
+
+    const now            = new Date();
+    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastMonthEnd   = new Date(now.getFullYear(), now.getMonth(), 0);
+
+    const thisSpend = txns.filter(t => FCData.parseDateLocal(t.date) >= thisMonthStart && _isSpendTxn(t)).reduce((s, t) => s + t.amount, 0);
+    const lastSpend = txns.filter(t => { const d = FCData.parseDateLocal(t.date); return d >= lastMonthStart && d <= lastMonthEnd && _isSpendTxn(t); }).reduce((s, t) => s + t.amount, 0);
+
+    if (lastSpend > 0 && thisSpend < lastSpend * 0.90) {
+      wins.push({ icon: '📉', text: `Spending is ${Math.round(((lastSpend - thisSpend) / lastSpend) * 100)}% lower than last month` });
+    }
+    const nw = FCData.calcNetWorth(accounts);
+    if (nw > 0) wins.push({ icon: '💪', text: `Positive net worth of ${FCData.formatCurrency(nw)}` });
+
+    const overdue = bills.filter(b => { const d = FCData.daysUntil(b.due_date); return d !== null && d < 0 && b.status !== 'paid'; });
+    if (bills.length > 0 && overdue.length === 0) wins.push({ icon: '✅', text: 'All bills are up to date' });
+
+    const streak = state.user?.streak || 0;
+    if (streak >= 7) wins.push({ icon: '🔥', text: `${streak}-day streak — keep it up!` });
+
+    if (!wins.length) { el.style.display = 'none'; return; }
+
+    el.innerHTML = `
+      <div style="padding:16px;border-radius:18px;background:rgba(48,209,88,0.07);border:0.5px solid rgba(48,209,88,0.22);margin:0 16px 10px">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.10em;text-transform:uppercase;color:var(--fc-success);margin-bottom:12px">Wins</div>
+        <div style="display:flex;flex-direction:column;gap:7px">
+          ${wins.map(w => `
+            <div style="display:flex;align-items:center;gap:10px">
+              <span style="font-size:15px;flex-shrink:0">${w.icon}</span>
+              <span style="font-size:13px;color:var(--fc-text)">${esc(w.text)}</span>
+            </div>`).join('')}
+        </div>
+      </div>`;
+    el.style.display = '';
+  }
+
+  function _renderRecommendations() {
+    const el = document.getElementById('ins-recommendations');
+    if (!el) return;
+
+    const txns      = state.transactions || [];
+    const bills     = state.bills        || [];
+    const goals     = state.goals        || [];
+    const spendTxns = txns.filter(_isSpendTxn);
+    const recs      = [];
+
+    const weekendSpend = spendTxns.filter(t => { const d = FCData.parseDateLocal(t.date).getDay(); return d === 0 || d === 6; }).reduce((s, t) => s + t.amount, 0);
+    const totalSpend   = spendTxns.reduce((s, t) => s + t.amount, 0);
+    if (totalSpend > 0 && weekendSpend > totalSpend * 0.45) {
+      recs.push({ icon: '📅', title: 'Weekend spending is high', detail: 'Over 45% of your spending happens on weekends. Consider setting a weekend limit.' });
+    }
+
+    const subs = _detectSubscriptions(txns);
+    if (subs && subs.length > 3) {
+      const subsTotal = subs.reduce((s, sub) => s + (sub.amount || 0), 0);
+      recs.push({ icon: '🔄', title: `Review ${subs.length} recurring charges`, detail: `${FCData.formatCurrency(subsTotal)}/mo in detected subscriptions — any you can cancel?` });
+    }
+
+    if (goals.length === 0) {
+      recs.push({ icon: '🎯', title: 'Set a savings goal', detail: 'Users with goals save 34% more on average. Add one on the Wealth tab.' });
+    }
+
+    const urgentBills = bills.filter(b => { const d = FCData.daysUntil(b.due_date); return d !== null && d <= 7 && b.status !== 'paid'; });
+    if (urgentBills.length) {
+      const urgTotal = urgentBills.reduce((s, b) => s + b.amount, 0);
+      recs.push({ icon: '📆', title: `${urgentBills.length} bill${urgentBills.length !== 1 ? 's' : ''} due this week`, detail: `${FCData.formatCurrency(urgTotal)} in upcoming payments — make sure funds are ready.` });
+    }
+
+    if (!recs.length) { el.style.display = 'none'; return; }
+
+    el.innerHTML = `
+      <div style="padding:16px;border-radius:18px;background:rgba(255,255,255,0.04);border:0.5px solid rgba(255,255,255,0.08);margin:0 16px 10px">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.10em;text-transform:uppercase;color:var(--fc-text-faint);margin-bottom:12px">Recommendations</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          ${recs.map((r, i) => `
+            <div style="display:flex;align-items:flex-start;gap:10px;padding:12px;border-radius:14px;background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.06)">
+              <div style="width:28px;height:28px;border-radius:8px;background:rgba(26,196,240,0.12);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">${r.icon}</div>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:13px;font-weight:600;color:var(--fc-text);margin-bottom:3px">${esc(r.title)}</div>
+                <div style="font-size:11px;color:var(--fc-text-muted);line-height:1.45">${esc(r.detail)}</div>
+              </div>
+              <div style="font-size:9px;font-weight:700;background:rgba(26,196,240,0.12);color:var(--fc-accent);padding:3px 7px;border-radius:6px;flex-shrink:0">#${i + 1}</div>
+            </div>`).join('')}
+        </div>
+      </div>`;
+    el.style.display = '';
   }
 
   /* Helper called by CTA button after paywall success */

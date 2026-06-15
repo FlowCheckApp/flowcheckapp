@@ -892,20 +892,14 @@ body.fc-keyboard-open .fc-auth-screen { padding-top: calc(env(safe-area-inset-to
 .fc-view.fc-slide-right,
 .fc-view.fc-slide-left { will-change: transform, opacity; }
 
-/* ── Tab slide transitions — single authoritative definition ── */
-@keyframes fcSlideInFromRight {
-  from { transform: translateX(52px); opacity: 0; }
-  to   { transform: translateX(0);    opacity: 1; }
+/* ── Tab transitions — fade-in only, no layout conflict ── */
+@keyframes fcTabFadeIn {
+  from { opacity: 0; transform: translateY(5px) scale(0.995); }
+  to   { opacity: 1; transform: translateY(0)   scale(1);     }
 }
-@keyframes fcSlideInFromLeft {
-  from { transform: translateX(-52px); opacity: 0; }
-  to   { transform: translateX(0);     opacity: 1; }
-}
-.fc-view.active.fc-slide-right {
-  animation: fcSlideInFromRight 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
+.fc-view.active.fc-slide-right,
 .fc-view.active.fc-slide-left {
-  animation: fcSlideInFromLeft 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: fcTabFadeIn 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 /* Dynamic Island */
@@ -4576,10 +4570,105 @@ body {
       </div>
     </div>
     <!-- Safe to Spend — primary hero metric -->
-    <div class="dash-hero-metric">
+    <div class="dash-hero-metric dash-sts-card">
       <div class="dash-hero-label" id="safe-spend-card-label">Safe to Spend</div>
       <div class="dash-hero-amount fc-amount" id="stat-safe-to-spend" data-anim-val="0">—</div>
+      <div class="dash-sts-subtitle">Available after bills and goals</div>
+      <div id="safe-spend-delta" class="dash-sts-delta" style="display:none"></div>
       <div class="dash-hero-sub" id="safe-spend-meta">Connect a bank to get started</div>
+      <!-- Wallet illustration — decorative, aria-hidden -->
+      <div class="dash-sts-illus" aria-hidden="true">
+        <svg width="100" height="92" viewBox="0 0 100 92" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="stsCard1" x1="0" y1="0" x2="0.3" y2="1">
+              <stop offset="0%" stop-color="#1a4a7a"/>
+              <stop offset="100%" stop-color="#0d2340"/>
+            </linearGradient>
+            <linearGradient id="stsCard2" x1="0" y1="0" x2="0.3" y2="1">
+              <stop offset="0%" stop-color="#1e3d60"/>
+              <stop offset="100%" stop-color="#0a1a30"/>
+            </linearGradient>
+            <linearGradient id="stsCardFace" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="rgba(26,196,240,0.32)"/>
+              <stop offset="100%" stop-color="rgba(14,45,80,0.95)"/>
+            </linearGradient>
+            <linearGradient id="stsChk" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#22d3f5"/>
+              <stop offset="100%" stop-color="#1d4ed8"/>
+            </linearGradient>
+            <filter id="stsGlow" x="-80%" y="-80%" width="260%" height="260%">
+              <feGaussianBlur stdDeviation="11"/>
+            </filter>
+            <filter id="stsShadow" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="3" result="b"/>
+              <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+            <filter id="stsChkGlow" x="-60%" y="-60%" width="220%" height="220%">
+              <feGaussianBlur stdDeviation="5" result="b"/>
+              <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+          </defs>
+
+          <!-- Ambient bloom -->
+          <ellipse cx="44" cy="36" rx="30" ry="22" fill="rgba(26,196,240,0.18)" filter="url(#stsGlow)"/>
+
+          <!-- Card 2 — behind, offset up-left -->
+          <rect x="12" y="6" width="54" height="34" rx="7"
+                fill="url(#stsCard2)"
+                stroke="rgba(26,196,240,0.22)" stroke-width="0.8"/>
+
+          <!-- Card 1 — front face, the main card -->
+          <rect x="8" y="14" width="56" height="36" rx="8"
+                fill="url(#stsCardFace)"
+                stroke="rgba(26,196,240,0.70)" stroke-width="1.3"
+                filter="url(#stsShadow)"/>
+
+          <!-- Card shine strip at top -->
+          <rect x="8" y="14" width="56" height="10" rx="8"
+                fill="rgba(255,255,255,0.07)"/>
+
+          <!-- Chip -->
+          <rect x="15" y="22" width="12" height="9" rx="2.5"
+                fill="rgba(255,210,80,0.70)" stroke="rgba(255,180,40,0.50)" stroke-width="0.5"/>
+          <line x1="21" y1="22" x2="21" y2="31" stroke="rgba(200,140,0,0.40)" stroke-width="0.5"/>
+          <line x1="15" y1="26.5" x2="27" y2="26.5" stroke="rgba(200,140,0,0.40)" stroke-width="0.5"/>
+
+          <!-- Card number dots (4 groups) -->
+          <g fill="rgba(255,255,255,0.55)">
+            <circle cx="32" cy="27" r="1.5"/><circle cx="35" cy="27" r="1.5"/>
+            <circle cx="38" cy="27" r="1.5"/><circle cx="41" cy="27" r="1.5"/>
+          </g>
+          <g fill="rgba(255,255,255,0.35)">
+            <circle cx="32" cy="33" r="1.2"/><circle cx="35" cy="33" r="1.2"/>
+            <circle cx="38" cy="33" r="1.2"/><circle cx="41" cy="33" r="1.2"/>
+            <circle cx="45" cy="33" r="1.2"/><circle cx="48" cy="33" r="1.2"/>
+          </g>
+
+          <!-- Card label lines -->
+          <line x1="15" y1="39" x2="30" y2="39"
+                stroke="rgba(255,255,255,0.30)" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="15" y1="43" x2="24" y2="43"
+                stroke="rgba(255,255,255,0.18)" stroke-width="1" stroke-linecap="round"/>
+
+          <!-- Contactless pay symbol -->
+          <path d="M55 26 Q57 28.5 55 31" stroke="rgba(255,255,255,0.50)" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+          <path d="M57.5 23.5 Q61 28.5 57.5 33.5" stroke="rgba(255,255,255,0.35)" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+
+          <!-- Checkmark badge -->
+          <circle cx="66" cy="65" r="17" fill="url(#stsChk)" filter="url(#stsChkGlow)"/>
+          <circle cx="66" cy="65" r="17" fill="none" stroke="rgba(255,255,255,0.30)" stroke-width="1.2"/>
+          <circle cx="66" cy="65" r="12" fill="none" stroke="rgba(255,255,255,0.10)" stroke-width="0.6"/>
+          <polyline points="57.5,65 63,71 74.5,57"
+                    stroke="white" stroke-width="3.0"
+                    stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+          <!-- Floating particles -->
+          <circle cx="4"  cy="8"  r="3.5" fill="rgba(26,196,240,0.85)"/>
+          <circle cx="82" cy="5"  r="2.5" fill="rgba(26,196,240,0.60)"/>
+          <circle cx="88" cy="22" r="1.8" fill="rgba(37,99,235,0.65)"/>
+          <circle cx="3"  cy="52" r="2.0" fill="rgba(26,196,240,0.45)"/>
+        </svg>
+      </div>
     </div>
     <!-- JS data anchors — kept hidden for backward compat -->
     <div style="display:none" aria-hidden="true">
@@ -4604,6 +4693,40 @@ body {
         <div id="home-alert-sub"   style="font-size:11px;color:var(--fc-text-muted);margin-top:1px"></div>
       </div>
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+    </div>
+  </div>
+
+  <!-- ── V3: DAILY FINANCIAL BRIEF ──────────────────────────────── -->
+  <div id="home-daily-brief" style="display:none;padding:0 16px 10px" class="fc-fade-up">
+    <div style="padding:14px 16px;border-radius:18px;background:rgba(255,255,255,0.04);border:0.5px solid rgba(255,255,255,0.08)">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <div style="font-size:15px">✨</div>
+        <div style="font-size:10px;font-weight:700;letter-spacing:.10em;text-transform:uppercase;color:var(--fc-accent)">Daily Brief</div>
+      </div>
+      <div id="home-brief-text" style="font-size:14px;color:var(--fc-text);line-height:1.55"></div>
+    </div>
+  </div>
+
+  <!-- ── V3: PRIORITY ACTIONS ──────────────────────────────────── -->
+  <div id="home-priority-actions" style="display:none;padding:0 16px 10px">
+    <div style="font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--fc-text-faint);margin-bottom:8px;padding-left:2px">Priority Actions</div>
+    <div id="home-actions-list" style="display:flex;flex-direction:column;gap:6px"></div>
+  </div>
+
+  <!-- ── V3: CASH RUNWAY ────────────────────────────────────────── -->
+  <div id="home-cash-runway" style="display:none;padding:0 16px 10px">
+    <div style="padding:16px;border-radius:18px;background:rgba(37,99,235,0.08);border:0.5px solid rgba(37,99,235,0.2)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:18px">🛫</span>
+          <div style="font-size:10px;font-weight:700;letter-spacing:.10em;text-transform:uppercase;color:rgba(100,149,255,0.85)">Cash Runway</div>
+        </div>
+        <div id="home-runway-days" style="font-size:26px;font-weight:900;color:var(--fc-text);letter-spacing:-0.04em;font-variant-numeric:tabular-nums">—</div>
+      </div>
+      <div id="home-runway-sub" style="font-size:11px;color:var(--fc-text-muted);margin-bottom:10px"></div>
+      <div style="height:4px;border-radius:2px;background:rgba(255,255,255,0.08)">
+        <div id="home-runway-bar" style="height:100%;border-radius:2px;background:linear-gradient(90deg,var(--fc-electric),var(--fc-accent));width:0%;transition:width 0.8s var(--fc-ease-out)"></div>
+      </div>
     </div>
   </div>
 
@@ -4658,7 +4781,7 @@ body {
     <!-- Assets / Debt / Savings Rate -->
     <div class="dash-nw-footer">
       <div class="dash-nw-foot">
-        <span class="dash-nf-lbl">Assets</span>
+        <span class="dash-nf-lbl">Cash</span>
         <span id="hero-assets"        class="dash-nf-val dash-green fc-amount">—</span>
       </div>
       <div class="dash-nw-foot">
@@ -4671,6 +4794,74 @@ body {
       </div>
     </div>
     <div id="hero-sync-time" style="font-size:10px;color:var(--fc-text-faint);text-align:center;margin-top:10px;display:none"></div>
+  </div>
+
+  <!-- ── V3: FINANCIAL TIMELINE ─────────────────────────────────── -->
+  <div id="home-timeline" style="display:none;padding:0 16px 10px">
+    <div style="font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--fc-text-faint);margin-bottom:8px;padding-left:2px">Coming Up</div>
+    <div id="home-timeline-list" style="display:flex;flex-direction:column;gap:0;border-radius:18px;overflow:hidden;background:rgba(255,255,255,0.04);border:0.5px solid rgba(255,255,255,0.08)"></div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       FINANCIAL HEALTH + NET WORTH — side-by-side compact cards
+       ══════════════════════════════════════════════════════════════ -->
+  <div id="dash-mini-cards" class="fc-fade-up" style="animation-delay:.045s;padding:0 16px 0">
+    <style>
+      #dash-mini-cards{display:none;gap:10px}
+      #dash-mini-cards.visible{display:flex}
+      .dash-mini-card{flex:1;border-radius:18px;padding:14px;background:rgba(255,255,255,0.04);border:0.5px solid rgba(255,255,255,0.08);min-width:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+      .dash-mini-eyebrow{font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:rgba(255,255,255,0.32);margin-bottom:8px}
+      .dash-mini-health-row{display:flex;align-items:center;gap:10px}
+      .dash-mini-ring-wrap{position:relative;flex-shrink:0;width:46px;height:46px}
+      .dash-mini-ring-inner{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+      .dash-mini-ring-score{font-size:13px;font-weight:900;color:var(--fc-text);font-variant-numeric:tabular-nums}
+      .dash-mini-health-right{}
+      .dash-mini-score-val{font-size:20px;font-weight:900;letter-spacing:-0.04em;color:var(--fc-text);font-variant-numeric:tabular-nums}
+      .dash-mini-score-grade{font-size:12px;font-weight:700;margin-top:1px}
+      .dash-mini-score-delta{font-size:11px;color:var(--fc-success);margin-top:2px}
+      /* NW mini card */
+      .dash-mini-nw-amount{font-size:20px;font-weight:900;letter-spacing:-0.04em;color:var(--fc-text);font-variant-numeric:tabular-nums;margin-bottom:2px}
+      .dash-mini-nw-delta{font-size:11px;font-weight:600;color:var(--fc-success)}
+      .dash-mini-nw-chart{margin-top:8px}
+    </style>
+
+    <!-- Financial Health mini card -->
+    <div class="dash-mini-card" onclick="FCApp.switchTab('insights')">
+      <div class="dash-mini-eyebrow">Financial Health</div>
+      <div class="dash-mini-health-row">
+        <div class="dash-mini-ring-wrap">
+          <svg viewBox="0 0 46 46" width="46" height="46" style="transform:rotate(-90deg)" aria-hidden="true">
+            <circle cx="23" cy="23" r="18" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="4"/>
+            <circle id="home-health-ring" cx="23" cy="23" r="18" fill="none"
+                    stroke="var(--fc-accent)" stroke-width="4" stroke-linecap="round"
+                    stroke-dasharray="113" stroke-dashoffset="113"
+                    style="transition:stroke-dashoffset 1.2s cubic-bezier(0.25,0.1,0.25,1),stroke .5s"/>
+          </svg>
+          <div class="dash-mini-ring-inner">
+            <div class="dash-mini-ring-score" id="home-health-ring-score">—</div>
+          </div>
+        </div>
+        <div class="dash-mini-health-right">
+          <div class="dash-mini-score-grade" id="home-health-grade">—</div>
+          <div class="dash-mini-score-delta" id="home-health-delta" style="display:none"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Net Worth mini card -->
+    <div class="dash-mini-card" onclick="FCApp.switchTab('wealth')">
+      <div class="dash-mini-eyebrow">Net Worth</div>
+      <div class="dash-mini-nw-amount fc-amount" id="home-mini-nw">—</div>
+      <div class="dash-mini-nw-delta" id="home-mini-nw-delta" style="display:none"></div>
+      <div class="dash-mini-nw-chart">
+        <svg id="home-mini-sparkline" viewBox="0 0 120 28" width="100%" height="28"
+             style="overflow:visible;display:block" aria-hidden="true">
+          <path id="home-mini-sparkline-line" d="M0,24 L120,24"
+                stroke="#1ac4f0" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+          <circle id="home-mini-sparkline-dot" cx="120" cy="24" r="3" fill="#1ac4f0"/>
+        </svg>
+      </div>
+    </div>
   </div>
 
   <!-- ══════════════════════════════════════════════════════════════
@@ -5085,21 +5276,46 @@ body {
       <div class="act-search-wrap">
         <div class="fc-search">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>
-          <input id="activity-search" type="search" placeholder="Search transactions…" autocomplete="off">
+          <input id="activity-search" type="search" placeholder="Search by name, amount, or category…" autocomplete="off">
+        </div>
+      </div>
+
+      <!-- V3: Spending Trends mini chart -->
+      <div id="act-spending-trends" style="display:none;padding:0 16px 4px">
+        <div style="padding:14px 14px 10px;border-radius:16px;background:rgba(255,255,255,0.04);border:0.5px solid rgba(255,255,255,0.08)">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <div style="font-size:9px;font-weight:700;letter-spacing:.10em;text-transform:uppercase;color:var(--fc-text-faint)">6-Week Spending</div>
+            <div id="act-trends-total" style="font-size:12px;font-weight:700;color:var(--fc-text);font-variant-numeric:tabular-nums"></div>
+          </div>
+          <div id="act-trends-bars" style="display:flex;align-items:flex-end;gap:3px;height:40px"></div>
+          <div id="act-trends-labels" style="display:flex;gap:3px;margin-top:5px"></div>
+        </div>
+      </div>
+
+      <!-- V3: Recurring Charges Banner -->
+      <div id="act-recurring-banner" style="display:none;padding:0 16px 4px">
+        <div style="padding:12px 14px;border-radius:14px;background:rgba(255,159,10,0.08);border:0.5px solid rgba(255,159,10,0.2);border-left:3px solid var(--fc-warning);display:flex;align-items:center;gap:10px;cursor:pointer;-webkit-tap-highlight-color:transparent" onclick="FCApp.switchActivitySegment('bills')" role="button">
+          <span style="font-size:16px;flex-shrink:0">🔄</span>
+          <div style="flex:1;min-width:0">
+            <div id="act-recurring-title" style="font-size:13px;font-weight:600;color:var(--fc-text)"></div>
+            <div id="act-recurring-sub" style="font-size:11px;color:var(--fc-text-muted);margin-top:1px"></div>
+          </div>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
         </div>
       </div>
 
       <!-- Period filter chips -->
+      <div style="font-size:9px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--fc-text-faint);padding:10px 16px 2px">When</div>
       <div class="act-chip-row" role="group" aria-label="Time period filter">
         <button class="fc-chip fc-chip--active" data-activity-period="all"    onclick="FCApp.filterActivity('all')"   type="button">All</button>
         <button class="fc-chip"                 data-activity-period="today"  onclick="FCApp.filterActivity('today')" type="button">Today</button>
         <button class="fc-chip"                 data-activity-period="week"   onclick="FCApp.filterActivity('week')"  type="button">This Week</button>
         <button class="fc-chip"                 data-activity-period="month"  onclick="FCApp.filterActivity('month')" type="button">This Month</button>
-        <button class="fc-chip"                 data-activity-period="income" onclick="FCApp.filterActivity('income')" type="button">💸 Income</button>
       </div>
 
       <!-- Category filter chips -->
-      <div id="activity-cat-chips" class="act-chip-row" style="padding-top:8px" role="group" aria-label="Category filter">
+      <div style="font-size:9px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--fc-text-faint);padding:8px 16px 2px">Category</div>
+      <div id="activity-cat-chips" class="act-chip-row" style="padding-top:0" role="group" aria-label="Category filter">
         <button class="fc-chip fc-chip--active" data-cat-chip="all"           onclick="FCApp.filterActivityCategory('all')"           type="button">All</button>
         <button class="fc-chip"                 data-cat-chip="food"          onclick="FCApp.filterActivityCategory('food')"          type="button">🍔 Food</button>
         <button class="fc-chip"                 data-cat-chip="transport"     onclick="FCApp.filterActivityCategory('transport')"     type="button">🚗 Transport</button>
@@ -5136,40 +5352,167 @@ body {
   <!-- ────────────────────────────── VIEW: INSIGHTS -->
   <div id="view-insights" class="fc-view" role="tabpanel" style="overflow-y:scroll;-webkit-overflow-scrolling:touch;padding-bottom:100px;overscroll-behavior:contain">
 
-    <!-- Header -->
-    <div style="padding:18px 20px 0;display:flex;align-items:flex-end;justify-content:space-between">
-      <div class="fc-view-title" style="padding:0;margin:0">Insights</div>
-      <!-- Period scrubber — compact pill row -->
-      <div style="display:flex;gap:2px;background:rgba(255,255,255,0.05);border:0.5px solid rgba(255,255,255,0.08);border-radius:10px;padding:3px">
-        <button role="tab" data-period="1D" aria-selected="false" onclick="FCApp.switchPeriod('1D')"
-          style="border:none;background:none;color:rgba(255,255,255,0.38);font-size:11px;font-weight:700;padding:5px 9px;border-radius:7px;cursor:pointer;font-family:inherit;transition:all .15s;-webkit-tap-highlight-color:transparent">1D</button>
-        <button role="tab" data-period="1W" aria-selected="false" onclick="FCApp.switchPeriod('1W')"
-          style="border:none;background:none;color:rgba(255,255,255,0.38);font-size:11px;font-weight:700;padding:5px 9px;border-radius:7px;cursor:pointer;font-family:inherit;transition:all .15s;-webkit-tap-highlight-color:transparent">1W</button>
-        <button role="tab" data-period="1M" aria-selected="true" class="active" onclick="FCApp.switchPeriod('1M')"
-          style="border:none;background:rgba(26,196,240,0.16);color:var(--fc-accent);font-size:11px;font-weight:700;padding:5px 9px;border-radius:7px;cursor:pointer;font-family:inherit;transition:all .15s;-webkit-tap-highlight-color:transparent;border:0.5px solid rgba(26,196,240,0.28)">1M</button>
-        <button role="tab" data-period="3M" aria-selected="false" onclick="FCApp.switchPeriod('3M')"
-          style="border:none;background:none;color:rgba(255,255,255,0.38);font-size:11px;font-weight:700;padding:5px 9px;border-radius:7px;cursor:pointer;font-family:inherit;transition:all .15s;-webkit-tap-highlight-color:transparent">3M</button>
-        <button role="tab" data-period="1Y" aria-selected="false" onclick="FCApp.switchPeriod('1Y')"
-          style="border:none;background:none;color:rgba(255,255,255,0.38);font-size:11px;font-weight:700;padding:5px 9px;border-radius:7px;cursor:pointer;font-family:inherit;transition:all .15s;-webkit-tap-highlight-color:transparent">1Y</button>
+  <style>
+    /* ══════════════════════════════════════════════════════════════
+       INSIGHTS V2 — premium financial intelligence center
+       ══════════════════════════════════════════════════════════════ */
+    #view-insights{overflow-y:scroll;-webkit-overflow-scrolling:touch;padding-bottom:100px;overscroll-behavior:contain}
+
+    /* Header */
+    .ins-header{display:flex;align-items:center;justify-content:space-between;padding:22px 20px 8px}
+    .ins-title{font-size:32px;font-weight:900;color:var(--fc-text);letter-spacing:-0.04em}
+
+    /* Period tabs */
+    .ins-period-tabs{display:flex;gap:2px;background:rgba(255,255,255,0.05);border:0.5px solid rgba(255,255,255,0.08);border-radius:10px;padding:3px}
+    .ins-period-btn{border:none;background:none;color:rgba(255,255,255,0.38);font-size:11px;font-weight:700;padding:5px 9px;border-radius:7px;cursor:pointer;font-family:inherit;transition:all .15s;-webkit-tap-highlight-color:transparent}
+    .ins-period-btn.active{background:rgba(26,196,240,0.18);color:var(--fc-accent);border:0.5px solid rgba(26,196,240,0.30)}
+
+    /* Financial Health hero */
+    .ins-health-hero{margin:0 16px 12px;background:linear-gradient(135deg,rgba(26,196,240,0.08) 0%,rgba(37,99,235,0.06) 100%);border:0.5px solid rgba(26,196,240,0.18);border-radius:20px;padding:20px}
+    .ins-health-hero-row{display:flex;align-items:center;gap:16px}
+    .ins-health-left{flex:1;min-width:0}
+    .ins-health-title-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+    .ins-health-eyebrow{font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--fc-text-faint)}
+    .ins-score-big{font-size:52px;font-weight:900;letter-spacing:-0.05em;color:var(--fc-text);line-height:1;font-variant-numeric:tabular-nums}
+    .ins-score-denom{font-size:18px;font-weight:600;color:var(--fc-text-faint)}
+    .ins-score-grade{font-size:15px;font-weight:700;margin-top:2px}
+    .ins-score-delta{font-size:12px;color:var(--fc-success);margin-top:2px;font-weight:600}
+
+    /* Health ring right side */
+    .ins-ring-wrap{position:relative;flex-shrink:0;width:88px;height:88px}
+    .ins-ring-inner{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+    .ins-ring-grade{font-size:18px;font-weight:900;color:var(--fc-text);line-height:1}
+    .ins-ring-num{font-size:10px;font-weight:600;color:var(--fc-text-faint)}
+
+    /* Sub-metrics below ring area */
+    .ins-health-bars{margin-top:16px;padding-top:14px;border-top:0.5px solid rgba(255,255,255,0.07)}
+    .ins-health-metric{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+    .ins-health-metric:last-child{margin-bottom:0}
+    .ins-health-metric-lbl{font-size:11px;color:var(--fc-text-faint);width:68px;flex-shrink:0}
+    .ins-health-bar-wrap{flex:1;height:4px;border-radius:99px;background:rgba(255,255,255,0.08);overflow:hidden}
+    .ins-health-bar{height:100%;border-radius:99px;transition:width 1s cubic-bezier(0.25,0.1,0.25,1)}
+    .ins-health-val{font-size:11px;font-weight:700;color:var(--fc-text-muted);width:22px;text-align:right;flex-shrink:0}
+
+    /* This Week Summary */
+    .ins-week-card{margin:0 16px 12px;border-radius:18px;overflow:hidden;background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.07)}
+    .ins-week-header{padding:16px 18px 12px;border-bottom:0.5px solid rgba(255,255,255,0.06)}
+    .ins-week-title{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--fc-text-faint)}
+    .ins-week-item{display:flex;align-items:flex-start;gap:10px;padding:11px 18px;border-bottom:0.5px solid rgba(255,255,255,0.04)}
+    .ins-week-item:last-child{border-bottom:none}
+    .ins-week-dot{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;flex-shrink:0;margin-top:1px}
+    .ins-week-body{flex:1;min-width:0}
+    .ins-week-label{font-size:13px;font-weight:600;color:var(--fc-text)}
+    .ins-week-sub{font-size:11px;color:var(--fc-text-muted);margin-top:1px}
+
+    /* Recommendation banner */
+    .ins-rec-banner{margin:0 16px 12px;background:rgba(26,196,240,0.07);border:0.5px solid rgba(26,196,240,0.18);border-radius:14px;padding:13px 16px;display:flex;align-items:center;gap:10px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+    .ins-rec-icon{width:28px;height:28px;border-radius:8px;background:rgba(26,196,240,0.14);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+    .ins-rec-text{flex:1;font-size:13px;color:var(--fc-text-muted);line-height:1.4;min-width:0}
+    .ins-rec-chev{color:var(--fc-accent);flex-shrink:0}
+
+    /* 2-column cards row */
+    .ins-row-2col{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 16px 10px}
+
+    /* Spending card */
+    .ins-spend-card{background:linear-gradient(145deg,rgba(26,196,240,0.10),rgba(37,99,235,0.07));border:0.5px solid rgba(26,196,240,0.20);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:10px}
+    .ins-card-eyebrow{font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--fc-text-faint)}
+    .ins-spend-body{display:flex;align-items:center;justify-content:space-between;gap:8px}
+    .ins-spend-left{}
+    .ins-spend-amount{font-size:26px;font-weight:900;letter-spacing:-0.04em;color:var(--fc-text);line-height:1;font-variant-numeric:tabular-nums}
+    .ins-spend-sub{font-size:10px;color:var(--fc-text-faint);margin-top:3px}
+    /* Ring progress for spending */
+    .ins-spend-ring-wrap{position:relative;flex-shrink:0;width:58px;height:58px}
+    .ins-spend-ring-inner{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+    .ins-spend-ring-pct{font-size:13px;font-weight:800;color:var(--fc-text);line-height:1;font-variant-numeric:tabular-nums}
+    .ins-spend-ring-lbl{font-size:8px;color:var(--fc-text-faint);font-weight:600}
+    /* Budget bar in spending card */
+    .ins-spend-bar-row{display:flex;flex-direction:column;gap:4px}
+    .ins-spend-bar-track{height:3px;border-radius:99px;background:rgba(255,255,255,0.10);overflow:hidden}
+    .ins-spend-bar-fill{height:100%;border-radius:99px;transition:width .9s cubic-bezier(0.25,0.1,0.25,1)}
+    .ins-spend-foot{display:flex;justify-content:space-between;align-items:baseline}
+    .ins-spend-remaining{font-size:10px;color:var(--fc-text-muted);font-weight:600}
+    .ins-top-cat{font-size:10px;color:var(--fc-text-faint)}
+    .ins-top-cat-amt{color:var(--fc-accent);font-weight:700}
+
+    /* Net Worth card (right column) */
+    .ins-nw-card{background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.08);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:8px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+    .ins-nw-amount{font-size:24px;font-weight:900;letter-spacing:-0.04em;color:var(--fc-text);line-height:1;font-variant-numeric:tabular-nums}
+    .ins-nw-sparkline-wrap{flex:1;min-height:40px}
+
+    /* Cash Flow Forecast */
+    .ins-cf-card{margin:0 16px 10px;background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.07);border-radius:18px;padding:18px}
+    .ins-cf-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px}
+    .ins-cf-tag{font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--fc-text-faint);margin-bottom:3px}
+    .ins-cf-title{font-size:17px;font-weight:800;color:var(--fc-text);letter-spacing:-0.02em}
+    .ins-cf-period{font-size:11px;color:var(--fc-text-faint)}
+    .ins-cf-cols{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-bottom:14px}
+    .ins-cf-col{text-align:center;padding:10px 6px;background:rgba(255,255,255,0.04);border-radius:12px}
+    .ins-cf-col-icon{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;margin:0 auto 5px}
+    .ins-cf-col-lbl{font-size:9px;color:var(--fc-text-faint);font-weight:600;letter-spacing:.04em;text-transform:uppercase;margin-bottom:3px}
+    .ins-cf-col-val{font-size:15px;font-weight:800;letter-spacing:-0.03em;font-variant-numeric:tabular-nums}
+    .ins-cf-col-sub{font-size:9px;color:var(--fc-text-faint);margin-top:1px}
+    .ins-cf-sparkline{width:100%;overflow:visible;display:block;margin-top:4px}
+    .ins-cf-sparkline-wrap{margin:8px -18px -18px;overflow:hidden;border-radius:0 0 18px 18px}
+
+    /* Top Merchants (2-col row) */
+    .ins-merchants-card{background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.07);border-radius:18px;padding:16px}
+    .ins-merchants-list{}
+    .ins-merchant-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:0.5px solid rgba(255,255,255,0.04)}
+    .ins-merchant-row:last-child{border-bottom:none}
+    .ins-merchant-icon{width:32px;height:32px;border-radius:10px;background:rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:var(--fc-text-muted);flex-shrink:0}
+    .ins-merchant-name{flex:1;font-size:12px;font-weight:600;color:var(--fc-text);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .ins-merchant-amt{font-size:13px;font-weight:800;color:var(--fc-text);font-variant-numeric:tabular-nums;flex-shrink:0}
+
+    /* Budget performance card (left in 2-col) */
+    .ins-budget-card{background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.07);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:8px}
+    .ins-budget-ring-wrap{position:relative;width:64px;height:64px;flex-shrink:0}
+    .ins-budget-ring-inner{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+    .ins-budget-pct{font-size:16px;font-weight:900;color:var(--fc-text);font-variant-numeric:tabular-nums}
+    .ins-budget-lbl{font-size:8px;color:var(--fc-text-faint);font-weight:600}
+
+    /* Category rows */
+    .ins-categories-card{margin:0 16px 10px;background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.07);border-radius:18px;overflow:hidden}
+    .ins-categories-header{padding:16px 18px 12px;border-bottom:0.5px solid rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:space-between}
+
+    /* Sub-hunter card */
+    #sub-hunter-card{margin:0 16px 10px}
+  </style>
+
+    <!-- ── HEADER ──────────────────────────────────────────────────── -->
+    <div class="ins-header">
+      <div class="ins-title">Insights</div>
+      <div class="ins-period-tabs">
+        <button role="tab" data-period="1D" aria-selected="false" onclick="FCApp.switchPeriod('1D')" class="ins-period-btn">1D</button>
+        <button role="tab" data-period="1W" aria-selected="false" onclick="FCApp.switchPeriod('1W')" class="ins-period-btn">1W</button>
+        <button role="tab" data-period="1M" aria-selected="true"  onclick="FCApp.switchPeriod('1M')" class="ins-period-btn active">1M</button>
+        <button role="tab" data-period="3M" aria-selected="false" onclick="FCApp.switchPeriod('3M')" class="ins-period-btn">3M</button>
+        <button role="tab" data-period="1Y" aria-selected="false" onclick="FCApp.switchPeriod('1Y')" class="ins-period-btn">1Y</button>
       </div>
     </div>
-    <!-- ── Financial Health Score ───────────────────────────────── -->
-    <div class="ins-health-card" id="ins-health-card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-        <div>
-          <div class="fc-eyebrow" style="margin-bottom:2px">Financial Health</div>
-          <div style="font-size:13px;color:rgba(255,255,255,0.45)" id="ins-health-subtitle">Based on your connected accounts</div>
+
+    <!-- ── SECTION 1: FINANCIAL HEALTH HERO ──────────────────────── -->
+    <div class="ins-health-hero" id="ins-health-card">
+      <div class="ins-health-hero-row">
+        <!-- Left: score + label + trend -->
+        <div class="ins-health-left">
+          <div class="ins-health-title-row">
+            <span class="ins-health-eyebrow">Financial Health</span>
+            <span id="ins-health-badge" style="font-size:9px;font-weight:700;padding:2px 8px;border-radius:999px;background:rgba(26,196,240,0.12);color:var(--fc-accent);border:0.5px solid rgba(26,196,240,0.25)">Live</span>
+          </div>
+          <div style="display:flex;align-items:baseline;gap:3px">
+            <span class="ins-score-big" id="ins-health-grade">—</span>
+            <span class="ins-score-denom" id="ins-health-score-num" style="display:none">/100</span>
+          </div>
+          <div class="ins-score-grade" id="ins-health-subtitle">Connect a bank to see your score</div>
+          <div id="ins-health-trend" style="display:none;font-size:12px;font-weight:600;color:var(--fc-success);margin-top:3px"></div>
         </div>
-        <span id="ins-health-badge" style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:999px;background:rgba(26,196,240,0.12);color:var(--fc-accent);border:0.5px solid rgba(26,196,240,0.25)">Live</span>
-      </div>
-      <div class="ins-health-row">
-        <!-- Score ring -->
-        <div class="ins-health-ring-wrap">
-          <svg viewBox="0 0 90 90" width="90" height="90" style="transform:rotate(-90deg);overflow:visible">
-            <circle cx="45" cy="45" r="36" fill="none" style="stroke:var(--fc-border)" stroke-width="8"/>
-            <circle id="ins-health-ring" cx="45" cy="45" r="36" fill="none" stroke="url(#healthGrad)" stroke-width="8"
+        <!-- Right: ring visualization -->
+        <div class="ins-ring-wrap">
+          <svg viewBox="0 0 88 88" width="88" height="88" style="transform:rotate(-90deg);overflow:visible" aria-hidden="true">
+            <circle cx="44" cy="44" r="36" fill="none" style="stroke:rgba(255,255,255,0.08)" stroke-width="7"/>
+            <circle id="ins-health-ring" cx="44" cy="44" r="36" fill="none" stroke="#1ac4f0" stroke-width="7"
                     stroke-linecap="round" stroke-dasharray="226" stroke-dashoffset="226"
-                    style="transition:stroke-dashoffset 1.2s cubic-bezier(0.25,0.1,0.25,1)"/>
+                    style="transition:stroke-dashoffset 1.2s cubic-bezier(0.25,0.1,0.25,1),stroke 0.6s ease"/>
             <defs>
               <linearGradient id="healthGrad" x1="0" y1="0" x2="1" y2="0">
                 <stop offset="0%" stop-color="#1ac4f0"/>
@@ -5177,200 +5520,323 @@ body {
               </linearGradient>
             </defs>
           </svg>
-          <div class="ins-health-grade">
-            <div class="ins-health-grade-letter" id="ins-health-grade">—</div>
-            <div id="ins-health-trend" style="display:none;font-size:9px;font-weight:600;text-align:center;letter-spacing:-0.01em;margin-top:1px"></div>
-            <div class="ins-health-grade-sub" id="ins-health-score-num">Score</div>
-          </div>
-        </div>
-        <!-- Sub-metrics -->
-        <div class="ins-health-metrics">
-          <div class="ins-health-metric">
-            <div class="ins-health-metric-lbl">Spending</div>
-            <div class="ins-health-bar-wrap"><div class="ins-health-bar" id="ins-bar-spending" style="width:0%;background:linear-gradient(90deg,var(--fc-accent),var(--fc-electric))"></div></div>
-            <div class="ins-health-val" id="ins-val-spending">—</div>
-          </div>
-          <div class="ins-health-metric">
-            <div class="ins-health-metric-lbl">Savings</div>
-            <div class="ins-health-bar-wrap"><div class="ins-health-bar" id="ins-bar-savings" style="width:0%;background:linear-gradient(90deg,var(--fc-success),var(--fc-accent))"></div></div>
-            <div class="ins-health-val" id="ins-val-savings">—</div>
-          </div>
-          <div class="ins-health-metric">
-            <div class="ins-health-metric-lbl">Net Worth</div>
-            <div class="ins-health-bar-wrap"><div class="ins-health-bar" id="ins-bar-networth" style="width:0%;background:linear-gradient(90deg,var(--fc-warning),#ff6b00)"></div></div>
-            <div class="ins-health-val" id="ins-val-networth">—</div>
+          <div class="ins-ring-inner">
+            <div class="ins-ring-grade" id="ins-ring-score">—</div>
+            <div class="ins-ring-num">/100</div>
           </div>
         </div>
       </div>
-      <!-- Health tip -->
-      <div id="ins-health-tip" style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.06);font-size:12px;color:rgba(255,255,255,0.45);line-height:1.5;display:none"></div>
+      <!-- Sub-metrics: Spending / Savings / Net Worth / Debt / Cash Flow bars -->
+      <div class="ins-health-bars">
+        <div class="ins-health-metric">
+          <div class="ins-health-metric-lbl">Spending</div>
+          <div class="ins-health-bar-wrap"><div class="ins-health-bar" id="ins-bar-spending" style="width:0%;background:linear-gradient(90deg,var(--fc-accent),var(--fc-electric))"></div></div>
+          <div class="ins-health-val" id="ins-val-spending">—</div>
+        </div>
+        <div class="ins-health-metric">
+          <div class="ins-health-metric-lbl">Savings</div>
+          <div class="ins-health-bar-wrap"><div class="ins-health-bar" id="ins-bar-savings" style="width:0%;background:linear-gradient(90deg,var(--fc-success),var(--fc-accent))"></div></div>
+          <div class="ins-health-val" id="ins-val-savings">—</div>
+        </div>
+        <div class="ins-health-metric">
+          <div class="ins-health-metric-lbl">Net Worth</div>
+          <div class="ins-health-bar-wrap"><div class="ins-health-bar" id="ins-bar-networth" style="width:0%;background:linear-gradient(90deg,var(--fc-warning),#ff6b00)"></div></div>
+          <div class="ins-health-val" id="ins-val-networth">—</div>
+        </div>
+        <div class="ins-health-metric">
+          <div class="ins-health-metric-lbl">Debt</div>
+          <div class="ins-health-bar-wrap"><div class="ins-health-bar" id="ins-bar-debt" style="width:0%;background:linear-gradient(90deg,var(--fc-danger),var(--fc-warning))"></div></div>
+          <div class="ins-health-val" id="ins-val-debt">—</div>
+        </div>
+        <div class="ins-health-metric">
+          <div class="ins-health-metric-lbl">Cash Flow</div>
+          <div class="ins-health-bar-wrap"><div class="ins-health-bar" id="ins-bar-cashflow" style="width:0%;background:linear-gradient(90deg,var(--fc-electric),var(--fc-accent))"></div></div>
+          <div class="ins-health-val" id="ins-val-cashflow">—</div>
+        </div>
+      </div>
     </div>
 
-    <!-- ── Spending Hero ─────────────────────────────────────────── -->
-    <section class="fc-section" style="padding-top:8px;padding-bottom:0">
-      <article class="fc-card" style="background:linear-gradient(145deg,rgba(26,196,240,0.13) 0%,rgba(37,99,235,0.09) 55%,rgba(10,21,32,0.95) 100%);border-color:rgba(26,196,240,0.2);box-shadow:0 0 40px rgba(26,196,240,0.08),0 1px 3px rgba(0,0,0,0.3);margin-bottom:10px;padding:20px">
-
-        <!-- Eyebrow + delta badge -->
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-          <div class="fc-eyebrow">Spending · <span id="insights-period-label">this month</span></div>
-          <span id="insights-spend-delta" style="display:none;font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px"></span>
+    <!-- ── SECTION 2: THIS WEEK SUMMARY ──────────────────────────── -->
+    <div class="ins-week-card" id="ins-week-card">
+      <div class="ins-week-header">
+        <div class="ins-week-title">This <span id="ins-week-period-label">Week</span> Summary</div>
+      </div>
+      <div id="ins-week-item-1" class="ins-week-item">
+        <div class="ins-week-dot" style="background:rgba(52,199,89,0.15)">
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="var(--fc-success)" stroke-width="3" stroke-linecap="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
         </div>
+        <div class="ins-week-body">
+          <div class="ins-week-label">Connect a bank to see your summary</div>
+          <div class="ins-week-sub"></div>
+        </div>
+      </div>
+      <div id="ins-week-item-2" class="ins-week-item" style="display:none">
+        <div class="ins-week-dot"></div>
+        <div class="ins-week-body">
+          <div class="ins-week-label"></div>
+          <div class="ins-week-sub"></div>
+        </div>
+      </div>
+      <div id="ins-week-item-3" class="ins-week-item" style="display:none">
+        <div class="ins-week-dot"></div>
+        <div class="ins-week-body">
+          <div class="ins-week-label"></div>
+          <div class="ins-week-sub"></div>
+        </div>
+      </div>
+    </div>
 
-        <!-- Big spend number -->
-        <div id="insights-total-spend" data-anim-val="0" style="font-size:50px;font-weight:900;letter-spacing:-0.048em;color:white;line-height:1;margin-bottom:16px;font-variant-numeric:tabular-nums">$0</div>
+    <!-- ── Recommendation Banner ──────────────────────────────────── -->
+    <div class="ins-rec-banner" id="ins-rec-banner" style="display:none" onclick="FCApp.switchTab('insights')">
+      <div class="ins-rec-icon">✨</div>
+      <div class="ins-rec-text" id="ins-rec-text">Focus on paying down debt to improve your financial health the most.</div>
+      <svg class="ins-rec-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--fc-accent)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+    </div>
 
-        <!-- 3-column quick stats -->
-        <div style="display:grid;grid-template-columns:1fr 1px 1fr 1px 1fr;margin-bottom:16px;padding:12px 0;border-top:1px solid rgba(255,255,255,0.07);border-bottom:1px solid rgba(255,255,255,0.07)">
-          <div style="text-align:center">
-            <div style="font-size:9px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:var(--fc-text-faint);margin-bottom:5px">Spent</div>
-            <span id="insights-budget-pill" style="font-size:13px;font-weight:700;color:var(--fc-accent)">$0 / $3k</span>
+    <!-- ── SECTION 3: SPENDING + NET WORTH (2 col) ───────────────── -->
+    <div class="ins-row-2col">
+
+      <!-- Spending This Month -->
+      <div class="ins-spend-card">
+        <div class="ins-card-eyebrow">Spending · <span id="insights-period-label">this month</span></div>
+        <div class="ins-spend-body">
+          <div class="ins-spend-left">
+            <div class="ins-spend-amount" id="insights-total-spend" data-anim-val="0">$0</div>
+            <div class="ins-spend-sub">spent</div>
           </div>
-          <div style="background:rgba(255,255,255,0.07);width:1px"></div>
-          <div style="text-align:center">
-            <div style="font-size:9px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:var(--fc-text-faint);margin-bottom:5px">Remaining</div>
-            <span id="insights-budget-remaining" style="font-size:13px;font-weight:700;color:white">$3,000</span>
+          <!-- Circular progress ring -->
+          <div class="ins-spend-ring-wrap">
+            <svg viewBox="0 0 58 58" width="58" height="58" style="transform:rotate(-90deg)" aria-hidden="true">
+              <circle cx="29" cy="29" r="23" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="4.5"/>
+              <circle id="ins-spend-ring" cx="29" cy="29" r="23" fill="none"
+                      stroke="url(#spendRingGrad)" stroke-width="4.5" stroke-linecap="round"
+                      stroke-dasharray="145" stroke-dashoffset="145"
+                      style="transition:stroke-dashoffset .9s cubic-bezier(0.25,0.1,0.25,1),stroke .4s"/>
+              <defs>
+                <linearGradient id="spendRingGrad" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stop-color="#1ac4f0"/><stop offset="100%" stop-color="#2563eb"/>
+                </linearGradient>
+              </defs>
+            </svg>
+            <div class="ins-spend-ring-inner">
+              <div class="ins-spend-ring-pct" id="ins-spend-pct">—</div>
+              <div class="ins-spend-ring-lbl">Used</div>
+            </div>
           </div>
-          <div style="background:rgba(255,255,255,0.07);width:1px"></div>
-          <div style="text-align:center">
-            <div style="font-size:9px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:var(--fc-text-faint);margin-bottom:5px">Savings</div>
-            <span id="savings-rate" style="font-size:13px;font-weight:700;color:var(--fc-success)">—</span>
+        </div>
+        <div class="ins-spend-bar-row">
+          <div class="ins-spend-bar-track">
+            <div class="ins-spend-bar-fill" id="insights-budget-fill" style="width:0%;background:linear-gradient(90deg,var(--fc-accent),var(--fc-electric))"></div>
+          </div>
+          <div class="ins-spend-foot">
+            <span class="ins-spend-remaining" id="insights-budget-remaining">$0 left</span>
+            <span class="ins-top-cat">
+              <span id="ins-top-cat-name" style="color:var(--fc-text-faint)">—</span>
+              <span class="ins-top-cat-amt" id="ins-top-cat-amt" style="display:none"></span>
+            </span>
           </div>
         </div>
-
-        <!-- Budget progress bar -->
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">
-          <span style="font-size:9px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:var(--fc-text-faint)">Monthly Budget</span>
-          <button type="button" onclick="FCApp.openCategoryBudgetSheet('total', FCApp.getTotalBudgetLimit())" style="font-size:10px;font-weight:600;padding:2px 9px;border-radius:99px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);color:var(--fc-text-faint);cursor:pointer;-webkit-tap-highlight-color:transparent">Edit</button>
-        </div>
-        <div class="fc-progress-bar" style="height:6px;border-radius:99px;background:rgba(255,255,255,0.07)">
-          <div id="insights-budget-fill" style="height:6px;border-radius:99px;width:0%;background:linear-gradient(90deg,var(--fc-accent),var(--fc-electric));transition:width 0.9s cubic-bezier(0.25,0.1,0.25,1)"></div>
-        </div>
-        <div id="insights-budget-pace" style="font-size:11px;color:var(--fc-text-faint);margin-top:6px;line-height:1.4"></div>
-
-        <!-- JS-compat placeholders (not rendered) -->
-        <div style="display:none"><div id="savings-bar"></div><div id="insights-budget-health"></div><div id="insights-budget-health-bar"></div></div>
-        <div id="savings-meta" style="display:none"></div>
-      </article>
-    </section>
-
-    <!-- ── Spending by Category ───────────────────────────────────── -->
-    <section class="fc-section" style="padding-bottom:0">
-      <article class="fc-card" style="margin-bottom:10px;padding:20px 20px 16px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-          <h2 class="fc-h3" style="margin:0">Categories</h2>
-          <span style="font-size:11px;color:var(--fc-text-faint)" id="insights-cat-period">this month</span>
-        </div>
-        <!-- Hidden JS-compat placeholders for donut (removed from UI) -->
+        <!-- hidden compat IDs -->
         <div style="display:none">
-          <svg id="insights-donut-svg" aria-hidden="true"></svg>
-          <div id="insights-donut-center-amt"></div>
-          <div id="insights-donut-legend"></div>
+          <span id="insights-budget-pill"></span>
+          <div id="insights-budget-pace"></div>
+          <div id="savings-bar"></div><div id="insights-budget-health"></div><div id="insights-budget-health-bar"></div>
+          <div id="savings-meta"></div><span id="savings-rate"></span>
+          <span id="insights-spend-delta"></span>
         </div>
-        <!-- Category rows -->
-        <div id="insights-categories">
-          <div style="color:var(--fc-text-faint);text-align:center;padding:28px 0;font-size:14px">Connect a bank to see your spending</div>
+      </div>
+
+      <!-- Net Worth -->
+      <div class="ins-nw-card" onclick="FCApp.switchTab('wealth')" id="insights-nw-card">
+        <div class="ins-card-eyebrow">Net Worth</div>
+        <div id="insights-nw-value" class="ins-nw-amount">—</div>
+        <span id="insights-nw-delta" style="font-size:11px;font-weight:600;padding:4px 9px;border-radius:999px;display:none;width:fit-content"></span>
+        <div class="ins-nw-sparkline-wrap">
+          <svg id="insights-nw-sparkline" viewBox="0 0 120 40" width="100%" height="40"
+               style="overflow:visible;display:block" aria-label="Net worth trend" role="img">
+            <text x="50%" y="22" text-anchor="middle" fill="rgba(255,255,255,0.12)" font-size="8" font-family="-apple-system,sans-serif">No data yet</text>
+          </svg>
         </div>
-      </article>
-    </section>
+        <div id="insights-nw-range" style="font-size:9px;color:var(--fc-text-faint)"></div>
+      </div>
+    </div>
 
-    <div class="ins-section-head">Trends</div>
+    <!-- ── SECTION 4: CATEGORIES ──────────────────────────────────── -->
+    <div class="ins-categories-card">
+      <div class="ins-categories-header">
+        <h2 style="margin:0;font-size:14px;font-weight:700;color:var(--fc-text)">Categories</h2>
+        <span style="font-size:11px;color:var(--fc-text-faint)" id="insights-cat-period">this month</span>
+      </div>
+      <!-- Hidden JS-compat placeholders for donut -->
+      <div style="display:none">
+        <svg id="insights-donut-svg" aria-hidden="true"></svg>
+        <div id="insights-donut-center-amt"></div>
+        <div id="insights-donut-legend"></div>
+      </div>
+      <div id="insights-categories" style="padding:4px 18px 8px">
+        <div style="color:var(--fc-text-faint);text-align:center;padding:28px 0;font-size:13px">Connect a bank to see your spending categories</div>
+      </div>
+    </div>
 
-    <!-- ── Net Worth Trend ───────────────────────────────────────── -->
-    <section class="fc-section" style="padding-bottom:0">
-      <article class="fc-card" style="margin-bottom:10px" id="insights-nw-card">
-        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px">
-          <div>
-            <div class="fc-eyebrow" style="margin-bottom:4px">Net Worth Trend</div>
-            <div id="insights-nw-value" style="font-size:26px;font-weight:800;letter-spacing:-0.03em;color:white">—</div>
+    <!-- ── SECTION 5: CASH FLOW FORECAST ──────────────────────────── -->
+    <div class="ins-cf-card" id="cashflow-card">
+      <div class="ins-cf-header">
+        <div>
+          <div class="ins-cf-tag">Forecast</div>
+          <div class="ins-cf-title">Cash Flow</div>
+        </div>
+        <div style="text-align:right">
+          <div class="ins-cf-period">Next 7 days</div>
+          <span id="cashflow-net" style="font-size:12px;font-weight:700;color:var(--fc-success)"></span>
+        </div>
+      </div>
+      <!-- 3 stat columns: income / bills / projected -->
+      <div class="ins-cf-cols">
+        <div class="ins-cf-col">
+          <div class="ins-cf-col-icon" style="background:rgba(52,199,89,0.15)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--fc-success)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
           </div>
-          <span id="insights-nw-delta" style="font-size:12px;font-weight:600;padding:5px 11px;border-radius:999px;display:none;margin-top:4px"></span>
+          <div class="ins-cf-col-lbl">Income</div>
+          <div class="ins-cf-col-val" id="ins-cf-income" style="color:var(--fc-success)">—</div>
+          <div class="ins-cf-col-sub">expected</div>
         </div>
-        <svg id="insights-nw-sparkline" viewBox="0 0 280 56" width="100%" style="display:block;overflow:visible;margin-bottom:4px" aria-label="Net worth history" role="img">
-          <text x="50%" y="32" text-anchor="middle" fill="rgba(255,255,255,0.1)" font-size="11" font-family="-apple-system,sans-serif">No history yet — check back tomorrow</text>
+        <div class="ins-cf-col">
+          <div class="ins-cf-col-icon" style="background:rgba(255,69,58,0.12)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--fc-danger)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+          </div>
+          <div class="ins-cf-col-lbl">Bills</div>
+          <div class="ins-cf-col-val" id="ins-cf-bills" style="color:var(--fc-danger)">—</div>
+          <div class="ins-cf-col-sub">due</div>
+        </div>
+        <div class="ins-cf-col">
+          <div class="ins-cf-col-icon" style="background:rgba(37,99,235,0.15)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--fc-electric)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/></svg>
+          </div>
+          <div class="ins-cf-col-lbl">Projected</div>
+          <div class="ins-cf-col-val" id="ins-cf-projected" style="color:var(--fc-electric)">—</div>
+          <div class="ins-cf-col-sub">balance</div>
+        </div>
+      </div>
+      <!-- Forecast sparkline / bill timeline -->
+      <div id="cashflow-timeline" style="margin-top:6px">
+        <div id="cashflow-forecast-placeholder" style="color:var(--fc-text-faint);text-align:center;padding:16px 0;font-size:13px">Connect a bank to see your forecast</div>
+      </div>
+      <!-- Animated wavy sparkline at card bottom -->
+      <div class="ins-cf-sparkline-wrap">
+        <svg id="ins-cf-sparkline" viewBox="0 0 320 48" width="100%" height="48" preserveAspectRatio="none"
+             style="display:block;overflow:visible" aria-hidden="true">
+          <defs>
+            <linearGradient id="cfSparkGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#1ac4f0" stop-opacity="0.28"/>
+              <stop offset="100%" stop-color="#1ac4f0" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <!-- animated wavy area -->
+          <path id="ins-cf-sparkline-area"
+                d="M0,32 C40,28 60,20 80,24 C100,28 120,36 140,22 C160,8 180,26 200,18 C220,10 240,28 260,20 C280,12 300,22 320,16 L320,48 L0,48 Z"
+                fill="url(#cfSparkGrad)">
+            <animate attributeName="d"
+              values="M0,32 C40,28 60,20 80,24 C100,28 120,36 140,22 C160,8 180,26 200,18 C220,10 240,28 260,20 C280,12 300,22 320,16 L320,48 L0,48 Z;
+                      M0,28 C40,34 60,16 80,28 C100,38 120,20 140,30 C160,38 180,14 200,24 C220,32 240,16 260,28 C280,38 300,16 320,24 L320,48 L0,48 Z;
+                      M0,32 C40,28 60,20 80,24 C100,28 120,36 140,22 C160,8 180,26 200,18 C220,10 240,28 260,20 C280,12 300,22 320,16 L320,48 L0,48 Z"
+              dur="6s" repeatCount="indefinite" calcMode="spline"
+              keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/>
+          </path>
+          <!-- animated wavy line on top -->
+          <path id="ins-cf-sparkline-line"
+                d="M0,32 C40,28 60,20 80,24 C100,28 120,36 140,22 C160,8 180,26 200,18 C220,10 240,28 260,20 C280,12 300,22 320,16"
+                stroke="#1ac4f0" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.7">
+            <animate attributeName="d"
+              values="M0,32 C40,28 60,20 80,24 C100,28 120,36 140,22 C160,8 180,26 200,18 C220,10 240,28 260,20 C280,12 300,22 320,16;
+                      M0,28 C40,34 60,16 80,28 C100,38 120,20 140,30 C160,38 180,14 200,24 C220,32 240,16 260,28 C280,38 300,16 320,24;
+                      M0,32 C40,28 60,20 80,24 C100,28 120,36 140,22 C160,8 180,26 200,18 C220,10 240,28 260,20 C280,12 300,22 320,16"
+              dur="6s" repeatCount="indefinite" calcMode="spline"
+              keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/>
+          </path>
         </svg>
-        <div style="font-size:11px;color:var(--fc-text-faint);margin-top:2px" id="insights-nw-range"></div>
-      </article>
-    </section>
+      </div>
+    </div>
 
-    <!-- ── Month-by-Month Budget Calendar ─────────────────────────── -->
-    <section class="fc-section" style="padding-bottom:0">
-      <article class="fc-card" style="margin-bottom:10px;padding:20px 20px 16px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-          <div>
-            <div class="fc-eyebrow" style="margin-bottom:2px">Budget Calendar</div>
-            <h2 class="fc-h3" style="margin:0">Month by Month</h2>
-          </div>
-          <span id="budget-year-label" style="font-size:13px;font-weight:700;color:var(--fc-text-faint)">2026</span>
-        </div>
-        <!-- Horizontal scroll strip of month cards -->
-        <div id="budget-monthly-grid" style="display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:6px;scroll-snap-type:x mandatory;scrollbar-width:none"></div>
-        <!-- Annual summary -->
-        <div style="margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,0.07)">
-          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px">
-            <span style="font-size:11px;color:var(--fc-text-faint);font-weight:500;text-transform:uppercase;letter-spacing:0.3px">Annual Spending</span>
-            <div style="text-align:right">
-              <span id="budget-annual-spend" style="font-size:16px;font-weight:800;color:white">$0</span>
-              <span id="budget-annual-limit" style="font-size:11px;color:var(--fc-text-faint);margin-left:5px">of $0</span>
+    <!-- ── SECTION 6: BUDGET PERF + TOP MERCHANTS (2 col) ──────────── -->
+    <div class="ins-row-2col" style="align-items:start">
+
+      <!-- Budget Performance -->
+      <div class="ins-budget-card">
+        <div class="ins-card-eyebrow">Budget</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div class="ins-budget-ring-wrap">
+            <svg viewBox="0 0 64 64" width="64" height="64" style="transform:rotate(-90deg)" aria-hidden="true">
+              <circle cx="32" cy="32" r="26" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="5"/>
+              <circle id="ins-budget-ring" cx="32" cy="32" r="26" fill="none"
+                      stroke="var(--fc-accent)" stroke-width="5" stroke-linecap="round"
+                      stroke-dasharray="163" stroke-dashoffset="163"
+                      style="transition:stroke-dashoffset .9s cubic-bezier(0.25,0.1,0.25,1),stroke .4s"/>
+            </svg>
+            <div class="ins-budget-ring-inner">
+              <div class="ins-budget-pct" id="ins-budget-pct">—</div>
+              <div class="ins-budget-lbl">Used</div>
             </div>
           </div>
-          <div class="fc-progress-bar" style="height:5px;border-radius:99px;margin-top:6px">
-            <div id="budget-annual-fill" class="fc-progress-fill" style="width:0%;background:linear-gradient(90deg,var(--fc-accent),var(--fc-electric));border-radius:99px;transition:width 0.9s cubic-bezier(0.25,0.1,0.25,1)"></div>
-          </div>
-          <div id="budget-annual-meta" style="font-size:11px;color:var(--fc-text-faint);margin-top:5px"></div>
-        </div>
-      </article>
-    </section>
-
-    <div class="ins-section-head">Upcoming</div>
-
-    <!-- ── Cash Flow — Next 7 Days ───────────────────────────────── -->
-    <section class="fc-section" style="padding-bottom:0">
-      <article class="fc-card" style="margin-bottom:10px" id="cashflow-card">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-          <div>
-            <div class="fc-eyebrow" style="margin-bottom:4px">Cash Flow</div>
-            <h2 class="fc-h3" style="margin:0">Next 7 Days</h2>
-          </div>
-          <span id="cashflow-net" style="font-size:13px;font-weight:700;padding:5px 12px;border-radius:999px;background:rgba(255,255,255,0.06)"></span>
-        </div>
-        <div id="cashflow-timeline" style="display:flex;flex-direction:column;gap:0">
-          <div style="color:var(--fc-text-faint);text-align:center;padding:20px 0;font-size:14px">Connect a bank to see your forecast</div>
-        </div>
-      </article>
-    </section>
-
-    <!-- ── Top Merchants ─────────────────────────────────────────── -->
-    <section class="fc-section" style="padding-bottom:0">
-      <article class="fc-card" style="margin-bottom:10px" id="top-merchants-card">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-          <div>
-            <div class="fc-eyebrow" style="margin-bottom:4px">Where You Spend</div>
-            <h2 class="fc-h3" style="margin:0">Top Merchants</h2>
-          </div>
-          <span id="top-merchants-period" style="font-size:11px;color:var(--fc-text-faint)">this month</span>
-        </div>
-        <div id="top-merchants-list">
-          <div style="color:var(--fc-text-faint);text-align:center;padding:20px 0;font-size:14px">Connect a bank to see your top merchants</div>
-        </div>
-      </article>
-    </section>
-
-    <!-- ── Subscription Hunter ───────────────────────────────────── -->
-    <section class="fc-section">
-      <article class="fc-card" id="sub-hunter-card" style="margin-bottom:10px;display:none">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-          <div style="width:36px;height:36px;border-radius:10px;background:rgba(255,69,58,0.12);border:1px solid rgba(255,69,58,0.2);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🔍</div>
           <div style="flex:1;min-width:0">
-            <div style="display:flex;align-items:center;gap:6px">
-              <h2 class="fc-h3" style="margin:0">Subscriptions</h2>
-              <span id="sub-hunter-badge" class="fc-pill fc-pill--danger" style="font-size:10px;padding:2px 7px">0</span>
-            </div>
-            <div style="font-size:12px;color:var(--fc-text-faint);margin-top:1px">Recurring charges detected</div>
+            <div style="font-size:11px;font-weight:600;color:var(--fc-text)" id="ins-budget-month"></div>
+            <div style="font-size:10px;color:var(--fc-text-faint);margin-top:2px" id="ins-budget-days-left"></div>
+            <div style="font-size:10px;color:var(--fc-text-muted);margin-top:4px;font-weight:500" id="ins-budget-proj"></div>
           </div>
         </div>
-        <div id="sub-hunter-list" style="display:flex;flex-direction:column;gap:4px"></div>
-      </article>
-    </section>
+        <button type="button" onclick="FCApp.openCategoryBudgetSheet('total', FCApp.getTotalBudgetLimit())"
+                style="width:100%;padding:7px;border-radius:10px;border:0.5px solid rgba(255,255,255,0.10);background:rgba(255,255,255,0.04);color:var(--fc-text-faint);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent">
+          Edit Budget
+        </button>
+      </div>
+
+      <!-- Top Merchants -->
+      <div class="ins-merchants-card" id="top-merchants-card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div class="ins-card-eyebrow">Top Merchants</div>
+          <span id="top-merchants-period" style="font-size:9px;color:var(--fc-text-faint)">this month</span>
+        </div>
+        <div id="top-merchants-list" class="ins-merchants-list">
+          <div style="color:var(--fc-text-faint);text-align:center;padding:16px 0;font-size:11px">Connect a bank</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Subscription Hunter (hidden until detected) ──────────────── -->
+    <article class="fc-card" id="sub-hunter-card" style="display:none;margin:0 16px 10px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <div style="width:36px;height:36px;border-radius:10px;background:rgba(255,69,58,0.12);border:1px solid rgba(255,69,58,0.2);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🔍</div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:6px">
+            <h2 class="fc-h3" style="margin:0">Subscriptions</h2>
+            <span id="sub-hunter-badge" class="fc-pill fc-pill--danger" style="font-size:10px;padding:2px 7px">0</span>
+          </div>
+          <div style="font-size:12px;color:var(--fc-text-faint);margin-top:1px">Recurring charges detected</div>
+        </div>
+      </div>
+      <div id="sub-hunter-list" style="display:flex;flex-direction:column;gap:4px"></div>
+    </article>
+
+    <!-- ── Budget Calendar (hidden, kept for JS compat) ─────────────── -->
+    <div style="display:none" aria-hidden="true">
+      <div id="budget-monthly-grid"></div>
+      <div id="budget-year-label"></div>
+      <div id="budget-annual-spend"></div>
+      <div id="budget-annual-limit"></div>
+      <div id="budget-annual-fill"></div>
+      <div id="budget-annual-meta"></div>
+    </div>
+
+    <!-- ── V3: MONTHLY INTELLIGENCE SUMMARY ──────────────────────── -->
+    <div id="ins-intel-summary" style="display:none"></div>
+
+    <!-- ── V3: BEHAVIOR ANALYSIS ─────────────────────────────────── -->
+    <div id="ins-behavior-analysis" style="display:none"></div>
+
+    <!-- ── V3: WINS ───────────────────────────────────────────────── -->
+    <div id="ins-wins" style="display:none"></div>
+
+    <!-- ── V3: RECOMMENDATIONS ───────────────────────────────────── -->
+    <div id="ins-recommendations" style="display:none"></div>
 
   <p style="font-size:10px;color:var(--fc-text-faint);text-align:center;padding:4px 24px 16px;margin:0;opacity:0.6">FlowCheck is not a bank · Not financial advice</p>
   </div><!-- /view-insights -->
@@ -5378,28 +5844,89 @@ body {
 
   <!-- ────────────────────────────── VIEW: WEALTH -->
   <div id="view-wealth" class="fc-view" role="tabpanel">
-    <div class="fc-view-title">Wealth</div>
 
-    <!-- ── Net Worth Hero ── -->
-    <div class="wealth-hero">
-      <div class="wealth-hero-tag">NET WORTH</div>
-      <div class="wealth-hero-amount fc-amount" id="wealth-hero-nw">$0</div>
-      <div id="wealth-hero-delta" class="wealth-hero-delta" style="display:none"></div>
-      <div class="wealth-hero-stats">
-        <div class="wealth-hero-stat">
-          <div class="wealth-hero-stat-lbl">Assets</div>
-          <div class="wealth-hero-stat-val fc-amount" id="wealth-hero-assets">$0</div>
+  <style>
+    /* ══════════════════════════════════════════════════════════════
+       WEALTH V2 — premium redesign
+       ══════════════════════════════════════════════════════════════ */
+    #view-wealth{overflow-y:scroll;-webkit-overflow-scrolling:touch;padding-bottom:100px;overscroll-behavior:contain}
+
+    .wealth-hero-v2{
+      padding:24px 20px 0;
+      background:linear-gradient(180deg,rgba(26,196,240,0.06) 0%,transparent 100%);
+      border-bottom:0.5px solid rgba(255,255,255,0.06);
+    }
+    .wealth-hero-v2-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px}
+    .wealth-hero-v2-left{}
+    .wealth-hero-v2-tag{font-size:10px;font-weight:700;letter-spacing:.10em;text-transform:uppercase;color:rgba(255,255,255,0.30);margin-bottom:6px}
+    .wealth-hero-v2-amount{font-size:44px;font-weight:900;letter-spacing:-0.05em;color:#fff;line-height:1;font-variant-numeric:tabular-nums}
+    .wealth-hero-v2-delta{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px;margin-top:8px}
+    .wealth-hero-v2-stats{display:grid;grid-template-columns:1fr 0.5px 1fr;margin-top:16px;padding:14px 0}
+    .wealth-hero-v2-divider{background:rgba(255,255,255,0.09)}
+    .wealth-hero-v2-stat{text-align:center;padding:0 12px}
+    .wealth-hero-v2-stat-lbl{font-size:9px;font-weight:700;letter-spacing:.10em;text-transform:uppercase;color:rgba(255,255,255,0.30);margin-bottom:5px}
+    .wealth-hero-v2-stat-val{font-size:20px;font-weight:900;letter-spacing:-0.04em;font-variant-numeric:tabular-nums}
+
+    /* Sparkline in hero */
+    #wealth-hero-sparkline-wrap{padding:2px 0 14px;overflow:hidden}
+
+    /* Time period scrubber inside hero */
+    .wealth-period-row{display:flex;gap:4px;padding:0 0 16px;overflow-x:auto;scrollbar-width:none}
+    .wealth-period-btn{border:none;background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.40);font-size:11px;font-weight:700;padding:5px 12px;border-radius:8px;cursor:pointer;font-family:inherit;transition:all .15s;-webkit-tap-highlight-color:transparent;flex-shrink:0}
+    .wealth-period-btn.active{background:rgba(26,196,240,0.16);color:var(--fc-accent);border:0.5px solid rgba(26,196,240,0.28)}
+  </style>
+
+    <!-- ── Net Worth Hero v2 ── -->
+    <div class="wealth-hero-v2">
+      <div class="wealth-hero-v2-top">
+        <div class="wealth-hero-v2-left">
+          <div class="wealth-hero-v2-tag">Net Worth</div>
+          <div class="wealth-hero-v2-amount fc-amount" id="wealth-hero-nw">$0</div>
+          <div id="wealth-hero-delta" class="wealth-hero-v2-delta" style="display:none"></div>
         </div>
-        <div class="wealth-hero-divider"></div>
-        <div class="wealth-hero-stat">
-          <div class="wealth-hero-stat-lbl">Liabilities</div>
-          <div class="wealth-hero-stat-val fc-amount" id="wealth-hero-liabilities" style="color:rgba(255,255,255,0.6)">$0</div>
+      </div>
+
+      <!-- NW sparkline chart -->
+      <div id="wealth-hero-sparkline-wrap">
+        <svg id="wealth-sparkline" viewBox="0 0 320 56" width="100%" height="56"
+             preserveAspectRatio="none" style="display:block;overflow:visible" aria-hidden="true">
+          <defs>
+            <linearGradient id="wealthSparkGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%"   stop-color="#1ac4f0" stop-opacity="0.35"/>
+              <stop offset="100%" stop-color="#1ac4f0" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <path id="wealth-sparkline-area" d="M0,50 L320,50 L320,56 L0,56 Z" fill="url(#wealthSparkGrad)"/>
+          <path id="wealth-sparkline-line" d="M0,50 L320,50" stroke="#1ac4f0" stroke-width="2" fill="none" stroke-linecap="round"/>
+          <circle id="wealth-sparkline-dot" cx="320" cy="50" r="3.5" fill="#1ac4f0"/>
+        </svg>
+      </div>
+
+      <!-- Period selector -->
+      <div class="wealth-period-row" role="tablist" aria-label="Net worth time period">
+        <button role="tab" data-wealth-period="1W" aria-selected="false" class="wealth-period-btn" onclick="FCApp.switchWealthPeriod && FCApp.switchWealthPeriod('1W')">1W</button>
+        <button role="tab" data-wealth-period="1M" aria-selected="true"  class="wealth-period-btn active" onclick="FCApp.switchWealthPeriod && FCApp.switchWealthPeriod('1M')">1M</button>
+        <button role="tab" data-wealth-period="3M" aria-selected="false" class="wealth-period-btn" onclick="FCApp.switchWealthPeriod && FCApp.switchWealthPeriod('3M')">3M</button>
+        <button role="tab" data-wealth-period="1Y" aria-selected="false" class="wealth-period-btn" onclick="FCApp.switchWealthPeriod && FCApp.switchWealthPeriod('1Y')">1Y</button>
+        <button role="tab" data-wealth-period="ALL" aria-selected="false" class="wealth-period-btn" onclick="FCApp.switchWealthPeriod && FCApp.switchWealthPeriod('ALL')">ALL</button>
+      </div>
+
+      <!-- Assets / Liabilities -->
+      <div class="wealth-hero-v2-stats">
+        <div class="wealth-hero-v2-stat">
+          <div class="wealth-hero-v2-stat-lbl">Assets</div>
+          <div class="wealth-hero-v2-stat-val fc-amount" id="wealth-hero-assets" style="color:var(--fc-success)">$0</div>
+        </div>
+        <div class="wealth-hero-v2-divider"></div>
+        <div class="wealth-hero-v2-stat">
+          <div class="wealth-hero-v2-stat-lbl">Liabilities</div>
+          <div class="wealth-hero-v2-stat-val fc-amount" id="wealth-hero-liabilities" style="color:var(--fc-danger)">$0</div>
         </div>
       </div>
     </div>
 
     <!-- Segment control -->
-    <div class="fc-wealth-segs" style="margin:0 16px 16px">
+    <div class="fc-wealth-segs" style="margin:16px 16px">
       <button class="fc-wealth-seg fc-wealth-seg--active" data-seg="savings" onclick="FCApp.switchWealthSegment('savings')">Savings</button>
       <button class="fc-wealth-seg" data-seg="goals" onclick="FCApp.switchWealthSegment('goals')">Goals</button>
       <button class="fc-wealth-seg" data-seg="debt" onclick="FCApp.switchWealthSegment('debt')">Debt</button>
