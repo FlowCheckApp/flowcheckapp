@@ -4299,8 +4299,11 @@ window.FCApp = (function () {
         if (pulseProjEl && _now3.getDate() > 3) {
           const projected  = Math.round((monthSpend / _now3.getDate()) * lastDay);
           const overBudget = incomeOk && projected > monthIncome;
+          const wayOver    = incomeOk && projected > monthIncome * 1.2;
           pulseProjEl.style.display = '';
-          pulseProjEl.innerHTML = `Est. <span style="${overBudget ? 'color:var(--fc-danger)' : ''}">${_fmtCompact(projected)}</span> by month end`;
+          pulseProjEl.style.color   = wayOver ? 'var(--fc-danger)' : '';
+          pulseProjEl.style.fontWeight = wayOver ? '700' : '';
+          pulseProjEl.innerHTML = (wayOver ? '⚠️ ' : '') + `Est. <span style="${overBudget ? 'color:var(--fc-danger)' : ''}">${_fmtCompact(projected)}</span> by month end`;
         } else if (pulseProjEl) {
           pulseProjEl.style.display = 'none';
         }
