@@ -4770,14 +4770,7 @@ body {
       </circle>
       <circle id="sparkline-dot"    cx="320" cy="5" r="3.5" fill="#1ac4f0"/>
     </svg>
-    <!-- Period scrubber -->
-    <div class="dash-scrubber" role="tablist" aria-label="Time period">
-      <button role="tab" data-period="1D" aria-selected="false" class="dash-scrub-btn" onclick="FCApp.switchPeriod('1D')">1D</button>
-      <button role="tab" data-period="1W" aria-selected="false" class="dash-scrub-btn" onclick="FCApp.switchPeriod('1W')">1W</button>
-      <button role="tab" data-period="1M" aria-selected="true"  class="dash-scrub-btn active" onclick="FCApp.switchPeriod('1M')">1M</button>
-      <button role="tab" data-period="3M" aria-selected="false" class="dash-scrub-btn" onclick="FCApp.switchPeriod('3M')">3M</button>
-      <button role="tab" data-period="1Y" aria-selected="false" class="dash-scrub-btn" onclick="FCApp.switchPeriod('1Y')">1Y</button>
-    </div>
+    <!-- Period scrubber removed — sparkline shows all available history -->
     <!-- Assets / Debt / Savings Rate -->
     <div class="dash-nw-footer">
       <div class="dash-nw-foot">
@@ -5757,47 +5750,43 @@ body {
       </div>
     </div>
 
-    <!-- ── SECTION 6: BUDGET PERF + TOP MERCHANTS (2 col) ──────────── -->
-    <div class="ins-row-2col" style="align-items:start">
-
-      <!-- Budget Performance -->
-      <div class="ins-budget-card">
-        <div class="ins-card-eyebrow">Budget</div>
-        <div style="display:flex;align-items:center;gap:10px">
-          <div class="ins-budget-ring-wrap">
-            <svg viewBox="0 0 64 64" width="64" height="64" style="transform:rotate(-90deg)" aria-hidden="true">
-              <circle cx="32" cy="32" r="26" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="5"/>
-              <circle id="ins-budget-ring" cx="32" cy="32" r="26" fill="none"
-                      stroke="var(--fc-accent)" stroke-width="5" stroke-linecap="round"
-                      stroke-dasharray="163" stroke-dashoffset="163"
-                      style="transition:stroke-dashoffset .9s cubic-bezier(0.25,0.1,0.25,1),stroke .4s"/>
-            </svg>
-            <div class="ins-budget-ring-inner">
-              <div class="ins-budget-pct" id="ins-budget-pct">—</div>
-              <div class="ins-budget-lbl">Used</div>
-            </div>
-          </div>
-          <div style="flex:1;min-width:0">
-            <div style="font-size:11px;font-weight:600;color:var(--fc-text)" id="ins-budget-month"></div>
-            <div style="font-size:10px;color:var(--fc-text-faint);margin-top:2px" id="ins-budget-days-left"></div>
-            <div style="font-size:10px;color:var(--fc-text-muted);margin-top:4px;font-weight:500" id="ins-budget-proj"></div>
+    <!-- ── SECTION 6a: BUDGET PERF (full width) ──────────────────────── -->
+    <div class="ins-budget-card" style="margin:0 16px 10px">
+      <div class="ins-card-eyebrow">Budget</div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="ins-budget-ring-wrap">
+          <svg viewBox="0 0 64 64" width="64" height="64" style="transform:rotate(-90deg)" aria-hidden="true">
+            <circle cx="32" cy="32" r="26" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="5"/>
+            <circle id="ins-budget-ring" cx="32" cy="32" r="26" fill="none"
+                    stroke="var(--fc-accent)" stroke-width="5" stroke-linecap="round"
+                    stroke-dasharray="163" stroke-dashoffset="163"
+                    style="transition:stroke-dashoffset .9s cubic-bezier(0.25,0.1,0.25,1),stroke .4s"/>
+          </svg>
+          <div class="ins-budget-ring-inner">
+            <div class="ins-budget-pct" id="ins-budget-pct">—</div>
+            <div class="ins-budget-lbl">Used</div>
           </div>
         </div>
-        <button type="button" onclick="FCApp.openCategoryBudgetSheet('total', FCApp.getTotalBudgetLimit())"
-                style="width:100%;padding:7px;border-radius:10px;border:0.5px solid rgba(255,255,255,0.10);background:rgba(255,255,255,0.04);color:var(--fc-text-faint);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent">
-          Edit Budget
-        </button>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:11px;font-weight:600;color:var(--fc-text)" id="ins-budget-month"></div>
+          <div style="font-size:10px;color:var(--fc-text-faint);margin-top:2px" id="ins-budget-days-left"></div>
+          <div style="font-size:10px;color:var(--fc-text-muted);margin-top:4px;font-weight:500" id="ins-budget-proj"></div>
+        </div>
       </div>
+      <button type="button" onclick="FCApp.openCategoryBudgetSheet('total', FCApp.getTotalBudgetLimit())"
+              style="width:100%;padding:7px;border-radius:10px;border:0.5px solid rgba(255,255,255,0.10);background:rgba(255,255,255,0.04);color:var(--fc-text-faint);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;margin-top:10px">
+        Edit Budget
+      </button>
+    </div>
 
-      <!-- Top Merchants -->
-      <div class="ins-merchants-card" id="top-merchants-card">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-          <div class="ins-card-eyebrow">Top Merchants</div>
-          <span id="top-merchants-period" style="font-size:9px;color:var(--fc-text-faint)">this month</span>
-        </div>
-        <div id="top-merchants-list" class="ins-merchants-list">
-          <div style="color:var(--fc-text-faint);text-align:center;padding:16px 0;font-size:11px">Connect a bank</div>
-        </div>
+    <!-- ── SECTION 6b: TOP MERCHANTS (full width) ─────────────────────── -->
+    <div class="ins-merchants-card" id="top-merchants-card" style="margin:0 16px 10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div class="ins-card-eyebrow">Top Merchants</div>
+        <span id="top-merchants-period" style="font-size:9px;color:var(--fc-text-faint)">this month</span>
+      </div>
+      <div id="top-merchants-list" class="ins-merchants-list">
+        <div style="color:var(--fc-text-faint);text-align:center;padding:16px 0;font-size:11px">Connect a bank</div>
       </div>
     </div>
 
@@ -5861,7 +5850,7 @@ body {
     .wealth-hero-v2-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px}
     .wealth-hero-v2-left{}
     .wealth-hero-v2-tag{font-size:10px;font-weight:700;letter-spacing:.10em;text-transform:uppercase;color:rgba(255,255,255,0.30);margin-bottom:6px}
-    .wealth-hero-v2-amount{font-size:44px;font-weight:900;letter-spacing:-0.05em;color:#fff;line-height:1;font-variant-numeric:tabular-nums}
+    .wealth-hero-v2-amount{font-size:clamp(32px,9.5vw,44px);font-weight:900;letter-spacing:-0.05em;color:#fff;line-height:1;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:visible}
     .wealth-hero-v2-delta{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px;margin-top:8px}
     .wealth-hero-v2-stats{display:grid;grid-template-columns:1fr 0.5px 1fr;margin-top:16px;padding:14px 0}
     .wealth-hero-v2-divider{background:rgba(255,255,255,0.09)}
@@ -5906,11 +5895,11 @@ body {
 
       <!-- Period selector -->
       <div class="wealth-period-row" role="tablist" aria-label="Net worth time period">
-        <button role="tab" data-wealth-period="1W" aria-selected="false" class="wealth-period-btn" onclick="FCApp.switchWealthPeriod && FCApp.switchWealthPeriod('1W')">1W</button>
-        <button role="tab" data-wealth-period="1M" aria-selected="true"  class="wealth-period-btn active" onclick="FCApp.switchWealthPeriod && FCApp.switchWealthPeriod('1M')">1M</button>
-        <button role="tab" data-wealth-period="3M" aria-selected="false" class="wealth-period-btn" onclick="FCApp.switchWealthPeriod && FCApp.switchWealthPeriod('3M')">3M</button>
-        <button role="tab" data-wealth-period="1Y" aria-selected="false" class="wealth-period-btn" onclick="FCApp.switchWealthPeriod && FCApp.switchWealthPeriod('1Y')">1Y</button>
-        <button role="tab" data-wealth-period="ALL" aria-selected="false" class="wealth-period-btn" onclick="FCApp.switchWealthPeriod && FCApp.switchWealthPeriod('ALL')">ALL</button>
+        <button role="tab" data-period="1W" aria-selected="false" class="wealth-period-btn" onclick="FCApp.switchPeriod('1W')">1W</button>
+        <button role="tab" data-period="1M" aria-selected="true"  class="wealth-period-btn active" onclick="FCApp.switchPeriod('1M')">1M</button>
+        <button role="tab" data-period="3M" aria-selected="false" class="wealth-period-btn" onclick="FCApp.switchPeriod('3M')">3M</button>
+        <button role="tab" data-period="1Y" aria-selected="false" class="wealth-period-btn" onclick="FCApp.switchPeriod('1Y')">1Y</button>
+        <button role="tab" data-period="ALL" aria-selected="false" class="wealth-period-btn" onclick="FCApp.switchPeriod('ALL')">ALL</button>
       </div>
 
       <!-- Assets / Liabilities -->

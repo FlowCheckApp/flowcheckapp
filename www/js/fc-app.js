@@ -257,9 +257,7 @@ window.FCApp = (function () {
 
   // Clean a raw bank transaction name into a readable merchant display name
   function _cleanSubName(t) {
-    // Prefer Plaid-provided merchant_name — it's already clean
-    if (t.merchant_name) return t.merchant_name;
-    // Fall through to the full cleaner so garbled bank strings (e.g. "9264&@#tommys-...") get stripped
+    // Always use the full cleaner — it handles merchant_name with garble detection
     return _cleanTxnName(t);
   }
 
@@ -583,7 +581,7 @@ window.FCApp = (function () {
     if (!linePath || !areaPath) return;
 
     // Filter history to the selected period window
-    const _PERIOD_DAYS = { '1D': 1, '1W': 7, '1M': 30, '3M': 90, '1Y': 365 };
+    const _PERIOD_DAYS = { '1D': 1, '1W': 7, '1M': 30, '3M': 90, '1Y': 365, 'ALL': 0 };
     const windowDays = _PERIOD_DAYS[state.period];
     let allKeys = Object.keys(history).sort();
     if (windowDays) {
@@ -4434,9 +4432,9 @@ window.FCApp = (function () {
       // ── Safe to Spend delta vs last week ─────────────────────────
       const deltaEl = document.getElementById('safe-spend-delta');
       if (deltaEl && !isOver) {
-        const oneWeekAgo = new Date(now.getTime() - 7 * 86400000);
+        const oneWeekAgo = new Date(_now.getTime() - 7 * 86400000);
         const lastWeekSpend = (state.transactions || [])
-          .filter(t => !t.isCredit && _isSpendTxn(t) && FCData.parseDateLocal(t.date) >= oneWeekAgo && FCData.parseDateLocal(t.date) <= now)
+          .filter(t => !t.isCredit && _isSpendTxn(t) && FCData.parseDateLocal(t.date) >= oneWeekAgo && FCData.parseDateLocal(t.date) <= _now)
           .reduce((s, t) => s + (t.amount || 0), 0);
         const prevWeekStart = new Date(oneWeekAgo.getTime() - 7 * 86400000);
         const prevWeekSpend = (state.transactions || [])
@@ -4934,8 +4932,8 @@ window.FCApp = (function () {
     // EA-4: trend vs last month — compute last month's score with same algorithm
     const trendEl = document.getElementById('ins-health-trend');
     if (trendEl && hasData) {
-      const lmStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      const lmEnd   = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+      const lmStart = new Date(_now.getFullYear(), _now.getMonth() - 1, 1);
+      const lmEnd   = new Date(_now.getFullYear(), _now.getMonth(), 0, 23, 59, 59);
       const lmTxns  = (state.transactions || []).filter(t => {
         const d = FCData.parseDateLocal(t.date);
         return d >= lmStart && d <= lmEnd;
@@ -5507,7 +5505,7 @@ window.FCApp = (function () {
         return `
           <div class="ins-merchant-row">
             <div class="ins-merchant-icon">${icon}</div>
-            <div class="ins-merchant-name" style="white-space:normal;word-break:break-word">${esc(name)}</div>
+            <div class="ins-merchant-name">${esc(name)}</div>
             <div class="ins-merchant-amt">${FCData.formatCurrency(data.total)}</div>
           </div>`;
       }).join('');
@@ -5887,7 +5885,7 @@ window.FCApp = (function () {
       if (!svg || !line) return;
 
       const history = state.nwHistory || {};
-      const _WPERIOD_DAYS = { '1W': 7, '1M': 30, '3M': 90, '1Y': 365 };
+      const _WPERIOD_DAYS = { '1W': 7, '1M': 30, '3M': 90, '1Y': 365, 'ALL': 0 };
       const wWindowDays = _WPERIOD_DAYS[state.period];
       let wAllKeys = Object.keys(history).sort();
       if (wWindowDays) {
@@ -6256,7 +6254,7 @@ window.FCApp = (function () {
         actions.push({ priority: 'medium', icon: '📅', title: `${b.name} due in ${d} day${d !== 1 ? 's' : ''}`, sub: FCData.formatCurrency(b.amount) });
       });
 
-    if (accounts.length === 0) {
+    if (accounts.length === 0 && !state.user?.plaid_linked) {
       actions.push({ priority: 'medium', icon: '🏦', title: 'Connect your bank account', sub: 'See your spending and net worth' });
     }
 
