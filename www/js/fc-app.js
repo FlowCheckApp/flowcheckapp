@@ -1245,7 +1245,7 @@ window.FCApp = (function () {
   // Forward (higher) = incoming slides from right; Back (lower) = from left.
   const _SCREEN_ORDER = {
     splash: 0, hero: 0.5, login: 1, register: 2, 'forgot-password': 1.5,
-    'verify-email': 3, 'faceid-setup': 4, 'notif-permission': 4.5, onboarding: 5, paywall: 6, app: 7,
+    'verify-email': 3, 'faceid-setup': 4, 'notif-permission': 4.5, onboarding: 5, paywall: 6, app: 7, feedback: 8,
   };
 
   let _screenTransitioning = false;
@@ -4575,6 +4575,14 @@ window.FCApp = (function () {
     _renderPriorityActions();
     _renderCashRunway();
     _renderTimeline();
+
+    // Feedback banner
+    _renderFeedbackBanner();
+
+    // Welcome modal — show once per user, deferred so home renders first
+    if (state.user && !state.user.welcome_seen && !_welcomeShown) {
+      setTimeout(_maybeShowWelcomeModal, 800);
+    }
   }
 
   /* ─────────────────────────────────────────────────────────────
@@ -9955,6 +9963,241 @@ window.FCApp = (function () {
     if (chev) chev.style.transform = isOpen ? '' : 'rotate(90deg)';
   }
 
+  /* ─────────────────────────────────────────────────────────────
+     WELCOME MODAL
+     ───────────────────────────────────────────────────────────── */
+
+  let _welcomeShown = false;
+
+  function _maybeShowWelcomeModal() {
+    if (_welcomeShown) return;
+    if (!state.user) return;
+    if (state.user.welcome_seen) return;
+    _welcomeShown = true;
+
+    const overlay = document.createElement('div');
+    overlay.id = 'fc-welcome-modal';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:9998;background:rgba(6,14,24,0.88);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;padding:24px;animation:fcFadeIn .28s ease';
+    overlay.innerHTML = `
+      <div style="background:var(--fc-bg-elevated,#0b1826);border-radius:28px;padding:32px 24px 24px;width:100%;max-width:360px;border:0.5px solid var(--fc-border,rgba(255,255,255,0.07));text-align:center">
+        <div style="width:68px;height:68px;background:linear-gradient(135deg,rgba(26,196,240,0.18),rgba(37,99,235,0.12));border-radius:22px;display:flex;align-items:center;justify-content:center;margin:0 auto 22px;border:0.5px solid rgba(26,196,240,0.2)">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="var(--fc-accent,#1ac4f0)" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+        </div>
+        <div style="font-size:22px;font-weight:800;color:var(--fc-text,#f0f6ff);margin-bottom:12px;letter-spacing:-0.03em">Welcome to FlowCheck</div>
+        <div style="font-size:14.5px;color:var(--fc-text-muted,rgba(240,246,255,0.58));line-height:1.65;margin-bottom:28px">FlowCheck is built to help you understand your money, track your progress, and make smarter decisions with confidence. Your feedback helps us improve the experience for everyone.</div>
+        <button id="_fc-welcome-start" style="width:100%;padding:15px;border-radius:14px;border:none;background:var(--fc-accent,#1ac4f0);color:#060e18;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:10px;letter-spacing:-0.01em">Get Started</button>
+        <button id="_fc-welcome-feedback" style="width:100%;padding:14px;border-radius:14px;border:0.5px solid var(--fc-border,rgba(255,255,255,0.07));background:transparent;color:var(--fc-text-muted,rgba(240,246,255,0.58));font-size:15px;font-weight:500;cursor:pointer">Send Feedback</button>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    const dismiss = (openFeedback) => {
+      haptic(openFeedback ? 'medium' : 'light');
+      overlay.style.opacity = '0';
+      overlay.style.transition = 'opacity .2s ease';
+      setTimeout(() => overlay.remove(), 200);
+      FCData.updateUserField('welcome_seen', true).catch(() => {});
+      if (openFeedback) setTimeout(() => showFeedbackScreen(), 220);
+    };
+
+    overlay.querySelector('#_fc-welcome-start').addEventListener('click', () => dismiss(false));
+    overlay.querySelector('#_fc-welcome-feedback').addEventListener('click', () => dismiss(true));
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     FEEDBACK BANNER
+     ───────────────────────────────────────────────────────────── */
+
+  function _renderFeedbackBanner() {
+    const banner = document.getElementById('home-feedback-banner');
+    if (!banner) return;
+    banner.style.display = state.user?.feedback_banner_dismissed ? 'none' : 'block';
+  }
+
+  function dismissFeedbackBanner() {
+    haptic('light');
+    const banner = document.getElementById('home-feedback-banner');
+    if (banner) banner.style.display = 'none';
+    if (state.user) state.user.feedback_banner_dismissed = true;
+    FCData.updateUserField('feedback_banner_dismissed', true).catch(() => {});
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     FEEDBACK SCREEN
+     ───────────────────────────────────────────────────────────── */
+
+  let _feedbackReturnScreen = 'app';
+
+  function showFeedbackScreen(opts) {
+    opts = opts || {};
+    _feedbackReturnScreen = state.screen === 'feedback' ? 'app' : (state.screen || 'app');
+    setScreen('feedback');
+    // Reset form after transition settles
+    setTimeout(() => _initFeedbackForm(opts), 80);
+  }
+
+  function closeFeedbackScreen() {
+    haptic('light');
+    setScreen(_feedbackReturnScreen || 'app');
+  }
+
+  function _initFeedbackForm(opts) {
+    const typeSelect = document.getElementById('fb-type');
+    const priorityInput = document.getElementById('fb-priority');
+    const descInput = document.getElementById('fb-description');
+    const stepsInput = document.getElementById('fb-steps');
+    const emailInput = document.getElementById('fb-email');
+    const diagCheck = document.getElementById('fb-diagnostics');
+    const errorEl = document.getElementById('fb-error');
+    const successEl = document.getElementById('fb-success');
+    const submitBtn = document.getElementById('fb-submit');
+
+    // Reset values
+    if (typeSelect)    typeSelect.value = opts.type || 'bug';
+    if (priorityInput) priorityInput.value = 'medium';
+    if (descInput)     descInput.value = '';
+    if (stepsInput)    stepsInput.value = '';
+    if (diagCheck)     diagCheck.checked = true;
+    _fbSyncDiagToggle(true);
+
+    // Pre-fill email from authenticated user only
+    if (emailInput) {
+      const authUser = FCAuth.currentUser ? FCAuth.currentUser() : null;
+      emailInput.value = authUser?.email || '';
+    }
+
+    // Set priority buttons to medium
+    _fbSetPriority('medium');
+
+    // Clear feedback and success states
+    if (errorEl)   { errorEl.textContent = ''; errorEl.style.display = 'none'; }
+    if (successEl) successEl.style.display = 'none';
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Send Feedback'; submitBtn.style.display = ''; }
+
+    // Scroll form to top
+    const scroll = document.getElementById('feedback-form-scroll');
+    if (scroll) scroll.scrollTop = 0;
+  }
+
+  function _fbSetPriority(val) {
+    const priorityInput = document.getElementById('fb-priority');
+    if (priorityInput) priorityInput.value = val;
+    document.querySelectorAll('[data-fb-priority]').forEach(btn => {
+      const isActive = btn.dataset.fbPriority === val;
+      const colors = {
+        low:    { bg: 'rgba(255,255,255,0.04)', border: 'rgba(255,255,255,0.07)', color: 'var(--fc-text-muted)' },
+        medium: { bg: 'rgba(26,196,240,0.12)',  border: 'rgba(26,196,240,0.4)',   color: 'var(--fc-accent)' },
+        high:   { bg: 'rgba(255,69,58,0.12)',   border: 'rgba(255,69,58,0.4)',    color: 'var(--fc-danger)' },
+      };
+      const active = colors[btn.dataset.fbPriority] || colors.medium;
+      const inactive = colors.low;
+      btn.style.background = isActive ? active.bg : inactive.bg;
+      btn.style.borderColor = isActive ? active.border : inactive.border;
+      btn.style.color = isActive ? active.color : inactive.color;
+    });
+    haptic('selection');
+  }
+
+  function _fbToggleDiag() {
+    const diagCheck = document.getElementById('fb-diagnostics');
+    if (!diagCheck) return;
+    diagCheck.checked = !diagCheck.checked;
+    _fbSyncDiagToggle(diagCheck.checked);
+    haptic('selection');
+  }
+
+  function _fbSyncDiagToggle(on) {
+    const track = document.getElementById('fb-diag-toggle');
+    const knob  = document.getElementById('fb-diag-knob');
+    if (track) track.style.background = on ? 'var(--fc-accent,#1ac4f0)' : 'rgba(255,255,255,0.15)';
+    if (knob)  knob.style.transform   = on ? 'translateX(18px)' : 'translateX(0)';
+  }
+
+  let _feedbackSubmitting = false;
+
+  async function submitFeedback() {
+    if (_feedbackSubmitting) return;
+
+    const db   = FCAuth.db ? FCAuth.db() : null;
+    const user = FCAuth.currentUser ? FCAuth.currentUser() : null;
+
+    const type     = document.getElementById('fb-type')?.value || 'bug';
+    const priority = document.getElementById('fb-priority')?.value || 'medium';
+    const desc     = (document.getElementById('fb-description')?.value || '').trim();
+    const steps    = (document.getElementById('fb-steps')?.value || '').trim();
+    const email    = (document.getElementById('fb-email')?.value || '').trim();
+    const incDiag  = document.getElementById('fb-diagnostics')?.checked !== false;
+
+    const errorEl   = document.getElementById('fb-error');
+    const successEl = document.getElementById('fb-success');
+    const submitBtn = document.getElementById('fb-submit');
+
+    const showErr = (msg) => {
+      if (errorEl)   { errorEl.textContent = msg; errorEl.style.display = 'block'; }
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Send Feedback'; }
+      haptic('error');
+      _feedbackSubmitting = false;
+    };
+
+    // Validation
+    if (!desc || desc.length < 10) {
+      showErr('Please describe the issue in a bit more detail (at least 10 characters).');
+      return;
+    }
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      showErr('Please enter a valid email address, or leave it blank.');
+      return;
+    }
+    if (!db) {
+      showErr("We couldn't send your feedback right now. Please try again.");
+      return;
+    }
+
+    _feedbackSubmitting = true;
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Sending…'; }
+    if (errorEl)   { errorEl.textContent = ''; errorEl.style.display = 'none'; }
+
+    const doc = {
+      feedbackType:     type,
+      priority:         priority,
+      description:      desc,
+      stepsToReproduce: steps || null,
+      contactEmail:     email || null,
+      diagnostics:      incDiag ? _buildFeedbackDiagnostics() : null,
+      createdAt:        firebase.firestore.FieldValue.serverTimestamp(),
+      status:           'new',
+      userId:           user ? user.uid : null,
+      appVersion:       FC_CONFIG?.app?.version || '2.0.0',
+      platform:         (typeof Capacitor !== 'undefined' && Capacitor.getPlatform) ? Capacitor.getPlatform() : 'web',
+    };
+
+    try {
+      await db.collection('feedbackReports').add(doc);
+      _feedbackSubmitting = false;
+      haptic('success');
+      if (submitBtn) submitBtn.style.display = 'none';
+      if (successEl) successEl.style.display = 'flex';
+      setTimeout(() => {
+        closeFeedbackScreen();
+        if (submitBtn) { submitBtn.style.display = ''; submitBtn.disabled = false; submitBtn.textContent = 'Send Feedback'; }
+        if (successEl) successEl.style.display = 'none';
+      }, 2600);
+    } catch (_err) {
+      showErr("We couldn't send your feedback right now. Please try again.");
+    }
+  }
+
+  function _buildFeedbackDiagnostics() {
+    return {
+      appVersion:    FC_CONFIG?.app?.version || '2.0.0',
+      platform:      (typeof Capacitor !== 'undefined' && Capacitor.getPlatform) ? Capacitor.getPlatform() : 'web',
+      currentScreen: state.screen || 'app',
+      currentTab:    state.tab || 'home',
+      timestamp:     new Date().toISOString(),
+      userRef:       (FCAuth.currentUser && FCAuth.currentUser()?.uid) || null,
+      appEnv:        FC_CONFIG?.app?.env || 'production',
+    };
+  }
+
   return {
     boot,
     setScreen,
@@ -10136,6 +10379,13 @@ window.FCApp = (function () {
     saveProfileChanges,
     // Appearance / theme
     setAppearance: (pref) => window._FCSetAppearance && window._FCSetAppearance(pref),
+    // Feedback system
+    showFeedbackScreen,
+    closeFeedbackScreen,
+    dismissFeedbackBanner,
+    submitFeedback,
+    _fbSetPriority,
+    _fbToggleDiag,
   };
 })();
 

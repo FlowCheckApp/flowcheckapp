@@ -144,6 +144,7 @@ body[data-screen="notif-permission"] .fc-screen[data-screen="notif-permission"] 
 body[data-screen="onboarding"]       .fc-screen[data-screen="onboarding"]       { display: flex; }
 body[data-screen="paywall"]         .fc-screen[data-screen="paywall"]         { display: flex; }
 body[data-screen="app"]             .fc-screen[data-screen="app"]             { display: flex; }
+body[data-screen="feedback"]        .fc-screen[data-screen="feedback"]        { display: flex; }
 
 /* Hide the fixed nav bar + its gradient on every screen except the main app.
    Without this, the glass tab bar bleeds through as a dark blur at the bottom
@@ -3865,6 +3866,129 @@ body {
   </div>
 </section>
 
+<!-- ════════════════════════════════════════════ SCREEN: FEEDBACK -->
+<section class="fc-screen" data-screen="feedback" aria-label="Send Feedback"
+         style="flex-direction:column;background:var(--fc-bg,#060e18);overflow:hidden">
+
+  <!-- Header -->
+  <div style="display:flex;align-items:center;padding:calc(env(safe-area-inset-top,20px) + 12px) 16px 12px;flex-shrink:0;border-bottom:0.5px solid var(--fc-border,rgba(255,255,255,0.07))">
+    <button onclick="FCApp.closeFeedbackScreen()" aria-label="Back"
+            style="background:rgba(255,255,255,0.06);border:none;border-radius:10px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;color:var(--fc-text,#f0f6ff)">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+    </button>
+    <div style="flex:1;text-align:center;font-size:17px;font-weight:700;color:var(--fc-text,#f0f6ff)">Send Feedback</div>
+    <div style="width:36px"></div>
+  </div>
+
+  <!-- Scrollable form -->
+  <div id="feedback-form-scroll" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:20px 16px calc(env(safe-area-inset-bottom,0px) + 24px)">
+
+    <!-- Intro -->
+    <p style="font-size:14px;color:var(--fc-text-muted,rgba(240,246,255,0.58));line-height:1.6;margin:0 0 24px">
+      FlowCheck is new, and your feedback helps us improve the experience for everyone.
+    </p>
+
+    <!-- Feedback type -->
+    <div style="margin-bottom:16px">
+      <label for="fb-type" style="display:block;font-size:12px;font-weight:600;color:var(--fc-text-faint,rgba(240,246,255,0.36));text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Feedback Type</label>
+      <div style="position:relative">
+        <select id="fb-type"
+                style="width:100%;padding:13px 40px 13px 14px;background:var(--fc-card-bg,rgba(255,255,255,0.04));border:0.5px solid var(--fc-border,rgba(255,255,255,0.07));border-radius:14px;color:var(--fc-text,#f0f6ff);font-size:15px;-webkit-appearance:none;appearance:none;outline:none;cursor:pointer">
+          <option value="bug">Report a Problem</option>
+          <option value="feature">Feature Request</option>
+          <option value="design">Design Issue</option>
+          <option value="subscription">Account / Subscription Issue</option>
+          <option value="bank">Bank Connection Issue</option>
+          <option value="other">Other</option>
+        </select>
+        <svg style="position:absolute;right:14px;top:50%;transform:translateY(-50%);pointer-events:none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+    </div>
+
+    <!-- Priority -->
+    <div style="margin-bottom:16px">
+      <label for="fb-priority" style="display:block;font-size:12px;font-weight:600;color:var(--fc-text-faint,rgba(240,246,255,0.36));text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Priority</label>
+      <div style="display:flex;gap:8px">
+        <button type="button" data-fb-priority="low"
+                onclick="FCApp._fbSetPriority('low')"
+                style="flex:1;padding:10px 0;border-radius:10px;border:0.5px solid var(--fc-border);background:rgba(255,255,255,0.04);color:var(--fc-text-muted);font-size:13px;font-weight:600;cursor:pointer;transition:all .15s">Low</button>
+        <button type="button" data-fb-priority="medium"
+                onclick="FCApp._fbSetPriority('medium')"
+                style="flex:1;padding:10px 0;border-radius:10px;border:0.5px solid rgba(26,196,240,0.4);background:rgba(26,196,240,0.12);color:var(--fc-accent);font-size:13px;font-weight:600;cursor:pointer;transition:all .15s">Medium</button>
+        <button type="button" data-fb-priority="high"
+                onclick="FCApp._fbSetPriority('high')"
+                style="flex:1;padding:10px 0;border-radius:10px;border:0.5px solid var(--fc-border);background:rgba(255,255,255,0.04);color:var(--fc-text-muted);font-size:13px;font-weight:600;cursor:pointer;transition:all .15s">High</button>
+      </div>
+      <input type="hidden" id="fb-priority" value="medium">
+    </div>
+
+    <!-- Description (required) -->
+    <div style="margin-bottom:16px">
+      <label for="fb-description" style="display:block;font-size:12px;font-weight:600;color:var(--fc-text-faint,rgba(240,246,255,0.36));text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Description <span style="color:var(--fc-danger)">*</span></label>
+      <textarea id="fb-description" rows="4"
+                placeholder="Describe the issue or idea in as much detail as you like…"
+                style="width:100%;padding:13px 14px;background:var(--fc-card-bg,rgba(255,255,255,0.04));border:0.5px solid var(--fc-border,rgba(255,255,255,0.07));border-radius:14px;color:var(--fc-text,#f0f6ff);font-size:15px;line-height:1.55;resize:none;outline:none;box-sizing:border-box;-webkit-appearance:none;font-family:inherit"
+                onfocus="this.style.borderColor='rgba(26,196,240,0.4)'"
+                onblur="this.style.borderColor='rgba(255,255,255,0.07)'"></textarea>
+    </div>
+
+    <!-- Steps to reproduce -->
+    <div style="margin-bottom:16px">
+      <label for="fb-steps" style="display:block;font-size:12px;font-weight:600;color:var(--fc-text-faint,rgba(240,246,255,0.36));text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Steps to Reproduce <span style="color:var(--fc-text-faint);font-weight:400;font-size:11px;text-transform:none;letter-spacing:0">(optional)</span></label>
+      <textarea id="fb-steps" rows="3"
+                placeholder="1. Tap on…&#10;2. Then tap…&#10;3. See error"
+                style="width:100%;padding:13px 14px;background:var(--fc-card-bg,rgba(255,255,255,0.04));border:0.5px solid var(--fc-border,rgba(255,255,255,0.07));border-radius:14px;color:var(--fc-text,#f0f6ff);font-size:15px;line-height:1.55;resize:none;outline:none;box-sizing:border-box;-webkit-appearance:none;font-family:inherit"
+                onfocus="this.style.borderColor='rgba(26,196,240,0.4)'"
+                onblur="this.style.borderColor='rgba(255,255,255,0.07)'"></textarea>
+    </div>
+
+    <!-- Contact email -->
+    <div style="margin-bottom:16px">
+      <label for="fb-email" style="display:block;font-size:12px;font-weight:600;color:var(--fc-text-faint,rgba(240,246,255,0.36));text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Email <span style="color:var(--fc-text-faint);font-weight:400;font-size:11px;text-transform:none;letter-spacing:0">(optional — if you'd like a reply)</span></label>
+      <input id="fb-email" type="email" inputmode="email" autocomplete="email"
+             placeholder="you@example.com"
+             style="width:100%;padding:13px 14px;background:var(--fc-card-bg,rgba(255,255,255,0.04));border:0.5px solid var(--fc-border,rgba(255,255,255,0.07));border-radius:14px;color:var(--fc-text,#f0f6ff);font-size:15px;outline:none;box-sizing:border-box;-webkit-appearance:none;font-family:inherit"
+             onfocus="this.style.borderColor='rgba(26,196,240,0.4)'"
+             onblur="this.style.borderColor='rgba(255,255,255,0.07)'">
+    </div>
+
+    <!-- Diagnostics toggle -->
+    <div style="display:flex;align-items:flex-start;gap:12px;padding:14px;background:rgba(26,196,240,0.05);border:0.5px solid rgba(26,196,240,0.12);border-radius:14px;margin-bottom:24px">
+      <div style="flex:1">
+        <div style="font-size:14px;font-weight:600;color:var(--fc-text);margin-bottom:3px">Include diagnostics</div>
+        <div style="font-size:12px;color:var(--fc-text-muted);line-height:1.5">App version, platform, and current screen name. No financial data, account numbers, or personal information.</div>
+      </div>
+      <label style="flex-shrink:0;cursor:pointer;position:relative;width:44px;height:26px;margin-top:2px">
+        <input id="fb-diagnostics" type="checkbox" checked style="opacity:0;width:0;height:0;position:absolute">
+        <span id="fb-diag-toggle"
+              onclick="FCApp._fbToggleDiag()"
+              style="position:absolute;inset:0;border-radius:13px;background:var(--fc-accent);cursor:pointer;transition:background .2s">
+          <span style="position:absolute;left:3px;top:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:transform .2s;display:block" id="fb-diag-knob"></span>
+        </span>
+      </label>
+    </div>
+
+    <!-- Error message -->
+    <div id="fb-error" style="display:none;background:rgba(255,69,58,0.1);border:0.5px solid rgba(255,69,58,0.25);border-radius:12px;padding:12px 14px;font-size:14px;color:var(--fc-danger);margin-bottom:16px;line-height:1.5"></div>
+
+    <!-- Submit button -->
+    <button id="fb-submit" type="button" onclick="FCApp.submitFeedback()"
+            style="width:100%;padding:16px;border-radius:16px;border:none;background:var(--fc-accent,#1ac4f0);color:#060e18;font-size:16px;font-weight:700;cursor:pointer;transition:opacity .15s;letter-spacing:-0.01em">
+      Send Feedback
+    </button>
+
+    <!-- Success state -->
+    <div id="fb-success" style="display:none;flex-direction:column;align-items:center;padding:32px 16px;text-align:center">
+      <div style="width:60px;height:60px;background:rgba(48,209,88,0.12);border-radius:20px;display:flex;align-items:center;justify-content:center;margin-bottom:16px">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--fc-success)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <div class="fb-success-msg" style="font-size:18px;font-weight:700;color:var(--fc-text);margin-bottom:8px">Thanks — your feedback was sent.</div>
+      <div style="font-size:14px;color:var(--fc-text-muted);line-height:1.5">We read every submission and use it to improve FlowCheck.</div>
+    </div>
+
+  </div><!-- /feedback-form-scroll -->
+</section>
+
 <!-- ════════════════════════════════════════════ SCREEN: APP -->
 <section class="fc-screen" data-screen="app" aria-label="FlowCheck">
 
@@ -5239,6 +5363,25 @@ body {
     </div>
   </section>
 
+  <!-- Feedback banner — dismissible, shown once per user -->
+  <div id="home-feedback-banner" style="display:none;padding:0 16px 16px">
+    <div style="background:rgba(26,196,240,0.06);border:0.5px solid rgba(26,196,240,0.16);border-radius:18px;padding:14px 14px 14px 16px;display:flex;align-items:center;gap:12px;position:relative">
+      <div style="width:36px;height:36px;background:rgba(26,196,240,0.12);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-accent)" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13.5px;font-weight:700;color:var(--fc-text);margin-bottom:2px">Help improve FlowCheck</div>
+        <div style="font-size:12px;color:var(--fc-text-muted);line-height:1.4">Notice something off or have an idea?</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex-shrink:0">
+        <button onclick="FCApp.dismissFeedbackBanner()" aria-label="Dismiss" type="button"
+                style="background:none;border:none;color:var(--fc-text-faint);cursor:pointer;padding:0;line-height:1;font-size:18px">×</button>
+        <button onclick="FCApp.showFeedbackScreen({type:'bug'})" type="button"
+                style="background:rgba(26,196,240,0.12);border:0.5px solid rgba(26,196,240,0.25);border-radius:8px;color:var(--fc-accent);font-size:12px;font-weight:600;padding:5px 10px;cursor:pointer;white-space:nowrap">Report a Problem</button>
+      </div>
+    </div>
+  </div>
+
   <p style="font-size:10px;color:var(--fc-text-faint);text-align:center;padding:4px 24px 16px;margin:0;opacity:0.6">FlowCheck is not a bank · Not financial advice</p>
   </div><!-- /view-home -->
 
@@ -6119,6 +6262,46 @@ body {
       </article>
 
       <!-- Section: Subscription & Support -->
+      <!-- Section: Help & Feedback -->
+      <div class="settings-section-hdr">Help &amp; Feedback</div>
+      <article class="fc-card" style="padding:4px 16px;margin-bottom:10px">
+        <div class="fc-settings-row" onclick="FCApp.showFeedbackScreen({type:'bug'})">
+          <div class="fc-settings-icon" style="background:rgba(255,159,10,0.15)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-warning)" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          </div>
+          <div class="fc-settings-label">Report a Problem</div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+        </div>
+        <div class="fc-settings-row" onclick="FCApp.showFeedbackScreen({type:'feature'})">
+          <div class="fc-settings-icon" style="background:rgba(26,196,240,0.15)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-accent)" stroke-width="2" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          </div>
+          <div class="fc-settings-label">Send Feedback</div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+        </div>
+        <div class="fc-settings-row" onclick="FCApp.openUrl(FC_CONFIG && FC_CONFIG.app.supportUrl)">
+          <div class="fc-settings-icon" style="background:rgba(52,199,89,0.12)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-success)" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </div>
+          <div class="fc-settings-label">Contact Support</div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+        </div>
+        <div class="fc-settings-row" onclick="FCApp.openUrl(FC_CONFIG && FC_CONFIG.app.privacyUrl)">
+          <div class="fc-settings-icon" style="background:rgba(37,99,235,0.15)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-electric)" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+          <div class="fc-settings-label">Privacy Policy</div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+        </div>
+        <div class="fc-settings-row" style="border-bottom:none" onclick="FCApp.openUrl(FC_CONFIG && FC_CONFIG.app.termsUrl)">
+          <div class="fc-settings-icon" style="background:rgba(37,99,235,0.15)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-electric)" stroke-width="2" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          </div>
+          <div class="fc-settings-label">Terms of Service</div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+        </div>
+      </article>
+
       <div class="settings-section-hdr">Subscription &amp; Support</div>
       <article class="fc-card" style="padding:4px 16px;margin-bottom:10px">
         <div class="fc-settings-row" onclick="FCApp.showPaywall()" id="settings-pro-row">
