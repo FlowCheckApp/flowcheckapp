@@ -5015,6 +5015,25 @@ body {
   </div>
 
   <!-- ══════════════════════════════════════════════════════════════
+       UPCOMING BILLS — moved above Today's Focus (time-sensitive)
+       ══════════════════════════════════════════════════════════════ -->
+  <section class="dash-section fc-fade-up" style="animation-delay:.063s" id="home-bills-section">
+    <div class="dash-sec-hdr">
+      <div style="display:flex;align-items:center;gap:7px">
+        <span class="dash-sec-title">Upcoming Bills</span>
+        <span id="bills-badge" class="fc-pill fc-pill--danger" style="padding:2px 7px;font-size:10px;display:none">0</span>
+      </div>
+      <button class="fc-iconbtn" onclick="FCApp.showBillSheet()" type="button" aria-label="Add bill"
+              style="width:24px;height:24px;background:rgba(26,196,240,0.12);color:var(--fc-accent);border-radius:7px;font-size:16px;line-height:1;border:none;cursor:pointer">+</button>
+    </div>
+    <div class="dash-bills-card">
+      <div id="home-bills-list">
+        <div class="dash-empty">Connect a bank to see upcoming bills</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════
        TODAY'S FOCUS — single actionable daily insight
        Driven entirely by JS: FCApp._renderTodaysFocus()
        ══════════════════════════════════════════════════════════════ -->
@@ -5119,25 +5138,6 @@ body {
             <div class="fc-skel" style="width:48px;height:14px;opacity:.6"></div>
           </div>
         </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ══════════════════════════════════════════════════════════════
-       UPCOMING BILLS
-       ══════════════════════════════════════════════════════════════ -->
-  <section class="dash-section fc-fade-up" style="animation-delay:.10s">
-    <div class="dash-sec-hdr">
-      <div style="display:flex;align-items:center;gap:7px">
-        <span class="dash-sec-title">Upcoming Bills</span>
-        <span id="bills-badge" class="fc-pill fc-pill--danger" style="padding:2px 7px;font-size:10px;display:none">0</span>
-      </div>
-      <button class="fc-iconbtn" onclick="FCApp.showBillSheet()" type="button" aria-label="Add bill"
-              style="width:24px;height:24px;background:rgba(26,196,240,0.12);color:var(--fc-accent);border-radius:7px;font-size:16px;line-height:1;border:none;cursor:pointer">+</button>
-    </div>
-    <div class="dash-bills-card">
-      <div id="home-bills-list">
-        <div class="dash-empty">Connect a bank to see upcoming bills</div>
       </div>
     </div>
   </section>
