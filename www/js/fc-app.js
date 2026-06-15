@@ -5026,7 +5026,9 @@ window.FCApp = (function () {
     }
 
     // 3. Net worth / savings signal
-    if (incomeOk && periodIncome > periodSpend) {
+    const realBudget = state.budgets?.['total']?.limit || 0;
+    const isOverBudget = realBudget > 0 && periodSpend >= realBudget;
+    if (incomeOk && periodIncome > periodSpend && !isOverBudget) {
       const savings = periodIncome - periodSpend;
       const rate = Math.round((savings / periodIncome) * 100);
       items.push({ ok: true, title: `Saving ${rate}% of income`, sub: `${FCData.formatCurrency(savings)} saved ${periodLabel}` });
