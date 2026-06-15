@@ -582,7 +582,18 @@ window.FCApp = (function () {
     const deltaEl  = document.getElementById('hero-delta');
     if (!linePath || !areaPath) return;
 
-    const keys   = Object.keys(history).sort();
+    // Filter history to the selected period window
+    const _PERIOD_DAYS = { '1D': 1, '1W': 7, '1M': 30, '3M': 90, '1Y': 365 };
+    const windowDays = _PERIOD_DAYS[state.period];
+    let allKeys = Object.keys(history).sort();
+    if (windowDays) {
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - windowDays);
+      const cutoffStr = cutoff.toISOString().split('T')[0];
+      allKeys = allKeys.filter(k => k >= cutoffStr);
+    }
+
+    const keys   = allKeys;
     const values = keys.map(k => history[k]);
     // Need at least 1 data point to draw; pad to 2 so the bezier always has a path
     if (values.length < 1) return;
@@ -913,15 +924,18 @@ window.FCApp = (function () {
       insights.push({ icon: '📅', text: `${upcoming.name} (${FCData.formatCurrency(upcoming.amount)}) is due ${when}`, color: urgent ? 'var(--fc-danger)' : 'var(--fc-warning)', bg: urgent ? 'rgba(255,69,58,0.08)' : 'rgba(255,176,32,0.06)' });
     }
 
-    // 4. Savings rate (uses filtered spend vs income — accurate comparison)
+    // 4. Savings rate — suppress positive spin when over budget (contradictory messaging)
     if (periodIncome > 0 && periodSpend > 0) {
-      const savingsRate = Math.round(((periodIncome - periodSpend) / periodIncome) * 100);
-      if (savingsRate >= 20) {
-        insights.push({ icon: '🔥', text: `Saving ${savingsRate}% of income ${label} — keep it up!`, color: 'var(--fc-success)', bg: 'rgba(52,199,89,0.08)' });
-      } else if (savingsRate < 0) {
+      const savingsRate  = Math.round(((periodIncome - periodSpend) / periodIncome) * 100);
+      const isOverBudget = hasBudget && (periodSpend / budgetLimit) >= 1.0;
+      if (savingsRate < 0) {
         insights.push({ icon: '📉', text: `Spending ${FCData.formatCurrency(Math.abs(periodIncome - periodSpend))} more than earned ${label}`, color: 'var(--fc-danger)', bg: 'rgba(255,69,58,0.08)' });
-      } else if (savingsRate > 0) {
-        insights.push({ icon: '💰', text: `Saving ${savingsRate}% of income — consider increasing to 20%`, color: 'rgba(255,255,255,0.7)', bg: 'rgba(255,255,255,0.04)' });
+      } else if (!isOverBudget) {
+        if (savingsRate >= 20) {
+          insights.push({ icon: '🔥', text: `Saving ${savingsRate}% of income ${label} — keep it up!`, color: 'var(--fc-success)', bg: 'rgba(52,199,89,0.08)' });
+        } else if (savingsRate > 0) {
+          insights.push({ icon: '💰', text: `Saving ${savingsRate}% of income — consider increasing to 20%`, color: 'rgba(255,255,255,0.7)', bg: 'rgba(255,255,255,0.04)' });
+        }
       }
     }
 
@@ -932,11 +946,14 @@ window.FCApp = (function () {
       const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
       const projected   = dailyAvg * daysInMonth;
       const overProj    = hasBudget && projected > budgetLimit;
+      const severeProj  = periodIncome > 0 && projected > periodIncome * 1.2;
+      const projColor   = severeProj ? 'var(--fc-danger)' : overProj ? 'var(--fc-warning)' : 'rgba(255,255,255,0.65)';
+      const projBg      = severeProj ? 'rgba(255,69,58,0.08)' : overProj ? 'rgba(255,176,32,0.07)' : 'rgba(255,255,255,0.03)';
       insights.push({
-        icon: '📆',
-        text: `Avg ${FCData.formatCurrency(dailyAvg)}/day · projected ${FCData.formatCurrency(projected)} by month end${overProj ? ' ⚠️' : ''}`,
-        color: overProj ? 'var(--fc-warning)' : 'rgba(255,255,255,0.65)',
-        bg: overProj ? 'rgba(255,176,32,0.07)' : 'rgba(255,255,255,0.03)',
+        icon: severeProj ? '🚨' : '📆',
+        text: `Avg ${FCData.formatCurrency(dailyAvg)}/day · projected ${FCData.formatCurrency(projected)} by month end${severeProj ? ' — exceeds income!' : overProj ? ' ⚠️' : ''}`,
+        color: projColor,
+        bg: projBg,
       });
     }
 
@@ -5711,7 +5728,9 @@ window.FCApp = (function () {
         const pct     = Math.min(g.pct || 0, 100);
         const r       = 27;
         const circ    = 2 * Math.PI * r;
-        const offset  = circ * (1 - pct / 100);
+        // W8: ensure minimum visible arc (at least 4% equivalent) when goal is started
+        const drawPct = pct > 0 ? Math.max(pct, 4) : 0;
+        const offset  = circ * (1 - drawPct / 100);
         const strokeColor = pct >= 100 ? 'var(--fc-success)' : 'url(#goal-ring-grad)';
         const ringGlow    = pct >= 100 ? '0 0 12px rgba(48,209,88,0.5)' : '0 0 12px rgba(26,196,240,0.4)';
 
@@ -5731,10 +5750,11 @@ window.FCApp = (function () {
             statusLabel = 'ON TRACK'; statusBg = 'rgba(48,209,88,0.10)'; statusBorder = 'rgba(48,209,88,0.25)'; statusText = 'var(--fc-success)';
           }
         } else {
-          statusLabel = pct >= 75 ? 'ALMOST' : pct > 0 ? 'ON TRACK' : 'NOT STARTED';
-          statusBg    = pct >= 75 ? 'rgba(26,196,240,0.12)' : pct > 0 ? 'rgba(48,209,88,0.10)' : 'rgba(255,255,255,0.06)';
-          statusBorder= pct >= 75 ? 'rgba(26,196,240,0.3)' : pct > 0 ? 'rgba(48,209,88,0.25)' : 'rgba(255,255,255,0.12)';
-          statusText  = pct >= 75 ? 'var(--fc-accent)' : pct > 0 ? 'var(--fc-success)' : 'var(--fc-text-faint)';
+          // W7: without a target date, "ON TRACK" is meaningless — use "IN PROGRESS" instead
+          statusLabel = pct >= 75 ? 'ALMOST' : pct > 0 ? 'IN PROGRESS' : 'NOT STARTED';
+          statusBg    = pct >= 75 ? 'rgba(26,196,240,0.12)' : pct > 0 ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.06)';
+          statusBorder= pct >= 75 ? 'rgba(26,196,240,0.3)' : pct > 0 ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.12)';
+          statusText  = pct >= 75 ? 'var(--fc-accent)' : pct > 0 ? 'var(--fc-text-muted)' : 'var(--fc-text-faint)';
         }
 
         return `
@@ -5836,7 +5856,16 @@ window.FCApp = (function () {
       if (!svg || !line) return;
 
       const history = state.nwHistory || {};
-      const keys    = Object.keys(history).sort();
+      const _WPERIOD_DAYS = { '1W': 7, '1M': 30, '3M': 90, '1Y': 365 };
+      const wWindowDays = _WPERIOD_DAYS[state.period];
+      let wAllKeys = Object.keys(history).sort();
+      if (wWindowDays) {
+        const wCutoff = new Date();
+        wCutoff.setDate(wCutoff.getDate() - wWindowDays);
+        const wCutoffStr = wCutoff.toISOString().split('T')[0];
+        wAllKeys = wAllKeys.filter(k => k >= wCutoffStr);
+      }
+      const keys    = wAllKeys;
       const vals    = keys.map(k => history[k]);
 
       if (vals.length < 2) {
@@ -6655,9 +6684,24 @@ window.FCApp = (function () {
       _resolveNotifState().catch(() => {});
     }
 
-    // Institution
+    // Institution — show all connected banks, not just the legacy single-bank field (S2)
     const institutionEl = document.getElementById('settings-institution');
-    if (institutionEl) institutionEl.textContent = _cleanInstitutionName(user.plaid_institution || '') || 'Not connected';
+    if (institutionEl) {
+      const legacyName = _cleanInstitutionName(user.plaid_institution || '');
+      institutionEl.textContent = legacyName || 'Not connected'; // immediate placeholder
+      FCData.getPlaidItems().then(items => {
+        if (!institutionEl) return;
+        if (items.length === 0 && legacyName) {
+          institutionEl.textContent = legacyName;
+        } else if (items.length === 1) {
+          institutionEl.textContent = _cleanInstitutionName(items[0].institution || '') || 'Connected';
+        } else if (items.length > 1) {
+          institutionEl.textContent = `${items.length} banks`;
+        } else {
+          institutionEl.textContent = 'Not connected';
+        }
+      }).catch(() => {});
+    }
 
     // Streak — minimum Day 1 (new users always get credit for showing up)
     const streakDays = Math.max(1, user.streak || 1);
@@ -6686,9 +6730,7 @@ window.FCApp = (function () {
     if (proRow) {
       proRow.onclick = isPro ? () => _openCancelSheet() : () => showPaywall();
     }
-    // Cancel row visibility also needs the live RC check
-    const cancelRow = document.getElementById('settings-cancel-sub-row');
-    if (cancelRow) cancelRow.style.display = isPro ? 'flex' : 'none';
+    // Cancel row is removed — Manage already opens App Store subscriptions (S3)
 
     // Referral badge — uses referral_activations (the count of friends who connected a bank)
     const refBadge = document.getElementById('settings-referral-badge');
@@ -8217,10 +8259,17 @@ window.FCApp = (function () {
       return map[type] || map.general;
     };
 
+    // N3: Filter out bill_due notifications whose due date has already passed
+    const todayStr = new Date().toISOString().split('T')[0];
+    const active = notifs.filter(n => {
+      if (n.type === 'bill_due' && n.data?.due_date && n.data.due_date < todayStr) return false;
+      return true;
+    });
+
     // Deduplicate: show only the most recent notification per type per day.
     // Prevents budget alert spam when backend sends the same alert multiple times.
     const seen = new Set();
-    const deduped = notifs.filter(n => {
+    const deduped = active.filter(n => {
       const ts = n.created_at ? (n.created_at.toDate ? n.created_at.toDate() : new Date(n.created_at)) : new Date();
       const dayKey = `${n.type || 'general'}_${ts.toISOString().split('T')[0]}`;
       if (seen.has(dayKey)) return false;
@@ -9560,6 +9609,8 @@ window.FCApp = (function () {
     if (state.tab === 'home') _renderHome();
     // Also refresh chart in insights view if that tab is active
     if (state.tab === 'insights') _renderInsights();
+    // Wealth sparkline also responds to period buttons on that tab
+    if (state.tab === 'wealth') _renderWealthHero();
   }
 
   /* ─────────────────────────────────────────────────────────────
