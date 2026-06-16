@@ -7,5 +7,12 @@
       "runtimeArgs": ["-e", "require('http').createServer((req,res)=>{const p='www'+req.url.replace(/\\/$/, '/index.html').split('?')[0];require('fs').readFile(p,(e,d)=>{if(e){res.writeHead(404);res.end('404')}else{const ext=p.split('.').pop();const m={'html':'text/html','css':'text/css','js':'application/javascript','json':'application/json','png':'image/png','svg':'image/svg+xml'}[ext]||'text/plain';res.writeHead(200,{'Content-Type':m});res.end(d)}})}).listen(4322,()=>console.log('ready'))"],
       "port": 4322
     }
+  ,
+    {
+      "name": "flowcheck-website",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["-e", "require('http').createServer((req,res)=>{const base='backend/public';const url=req.url.split('?')[0];const p=base+(url==='/'?'/index.html':url);require('fs').readFile(p,(e,d)=>{if(e){res.writeHead(404);res.end('404')}else{const ext=p.split('.').pop();const m={'html':'text/html','css':'text/css','js':'application/javascript','json':'application/json','png':'image/png','svg':'image/svg+xml'}[ext]||'text/plain';res.writeHead(200,{'Content-Type':m});res.end(d)}})}).listen(4323,()=>console.log('ready'))"],
+      "port": 4323
+    }
   ]
 }

@@ -467,6 +467,14 @@ window.FCAuth = (function () {
     // on the lock screen or as the "last user" hint.
     await secureRemove('biometric_enabled');
     await secureRemove('biometric_email');
+    // Clear the native Google session too — GIDSignIn persists its own cached
+    // session in the Keychain independent of Firebase, so without this a future
+    // "Continue with Google" tap silently restores the previous account instead
+    // of showing the picker (breaks account switching on a shared device).
+    const googlePlugin = Cap() && Cap().GoogleAuth;
+    if (window.Capacitor && window.Capacitor.isNativePlatform() && googlePlugin) {
+      try { await googlePlugin.signOut(); } catch (e) { fcLog('GoogleAuth signOut failed', e); }
+    }
     // Sign out of Firebase
     await _auth.signOut();
     _currentUser = null;
@@ -493,6 +501,19 @@ window.FCAuth = (function () {
   async function setBiometricEnabled(enabled) {
     _biometricAvailable = false; // force re-check on next isBiometricEnabled() call
     await secureSet('biometric_enabled', enabled ? 'true' : 'false');
+  }
+
+  /**
+   * Marks whether a new user is currently mid-setup (Face ID / notifications
+   * screens, or resuming unfinished onboarding). Read directly by
+   * AppDelegate.isOnboardingActive() via the same Keychain service used for
+   * biometric_enabled. While true, the native lock screen never auto-presents
+   * on become-active — without this, the notifications permission dialog or
+   * Plaid Link's in-app browser (both of which trigger become-active) could
+   * surface an unrelated Face ID prompt in the middle of onboarding.
+   */
+  async function setOnboardingActive(active) {
+    await secureSet('onboarding_active', active ? 'true' : 'false');
   }
 
   async function getUserDoc() {
@@ -586,6 +607,7 @@ window.FCAuth = (function () {
     auth,
     isBiometricEnabled,
     setBiometricEnabled,
+    setOnboardingActive,
     checkBiometricAvailable,
     promptBiometric,
     getUserDoc,

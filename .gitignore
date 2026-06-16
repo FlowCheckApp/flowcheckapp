@@ -12,7 +12,14 @@ build/
 
 # ── Capacitor ────────────────────────────────────────────────────
 ios/App/App/capacitor.config.json
-android/
+# Android — track project files, ignore build artifacts
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+android/.idea/
+android/captures/
+android/app/.cxx/
 
 # ── Environment & secrets ────────────────────────────────────────
 .env
@@ -23,6 +30,9 @@ firebase-adminsdk-*.json
 *-service-account.json
 google-services.json
 GoogleService-Info.plist
+# Allow the actual project config files (private repo)
+!ios/App/App/GoogleService-Info.plist
+!android/app/google-services.json
 # Apple private keys (Sign In with Apple, Push certs, etc.)
 *.p8
 *.p12

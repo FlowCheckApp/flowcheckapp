@@ -26,8 +26,8 @@
 	<true/>
 	<key>NSFaceIDUsageDescription</key>
 	<string>FlowCheck uses Face ID to securely unlock your financial data.</string>
-	<key>NSUserNotificationsUsageDescription</key>
-	<string>FlowCheck sends bill reminders and account alerts to help you stay on top of your finances.</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -37,6 +37,14 @@
 			</array>
 			<key>CFBundleURLName</key>
 			<string>com.brandon.flowcheck</string>
+		</dict>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.305596636244-cm6pso8lktggro1ib31amuck49od8i4f</string>
+			</array>
+			<key>CFBundleURLName</key>
+			<string>com.googleusercontent.apps.305596636244-cm6pso8lktggro1ib31amuck49od8i4f</string>
 		</dict>
 	</array>
 	<key>UIBackgroundModes</key>
@@ -64,7 +72,24 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
-	<key></key>
-	<string></string>
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<false/>
+		<key>UISceneConfigurations</key>
+		<dict>
+			<key>UIWindowSceneSessionRoleApplication</key>
+			<array>
+				<dict>
+					<key>UISceneConfigurationName</key>
+					<string>Default Configuration</string>
+					<key>UISceneDelegateClassName</key>
+					<string>$(PRODUCT_MODULE_NAME).SceneDelegate</string>
+					<key>UISceneStoryboardFile</key>
+					<string>Main</string>
+				</dict>
+			</array>
+		</dict>
+	</dict>
 </dict>
 </plist>

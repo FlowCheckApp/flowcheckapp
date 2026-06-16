@@ -33,23 +33,21 @@ public class CapacitorGoogleAuth: CAPPlugin, CAPBridgedPlugin {
 
     @objc func signIn(_ call: CAPPluginCall) {
         DispatchQueue.main.async {
+            // Always present the interactive Google sheet for an explicit button
+            // tap — never silently restorePreviousSignIn() here. That path skips
+            // all UI when GIDSignIn's keychain has a cached session (e.g. from a
+            // prior login), which makes the auth step look bypassed and blocks
+            // switching to a different Google account on a shared device.
+            guard let vc = self.bridge?.viewController else {
+                call.reject("No view controller"); return
+            }
             let gid = GIDSignIn.sharedInstance
-            if gid.hasPreviousSignIn() {
-                gid.restorePreviousSignIn { user, error in
-                    if let error = error { call.reject(error.localizedDescription); return }
-                    if let user = user { self.resolve(user: user, serverAuthCode: nil, call: call) }
+            gid.signIn(withPresenting: vc) { result, error in
+                if let error = error {
+                    call.reject(error.localizedDescription, "\((error as NSError).code)"); return
                 }
-            } else {
-                guard let vc = self.bridge?.viewController else {
-                    call.reject("No view controller"); return
-                }
-                gid.signIn(withPresenting: vc) { result, error in
-                    if let error = error {
-                        call.reject(error.localizedDescription, "\((error as NSError).code)"); return
-                    }
-                    if let user = result?.user {
-                        self.resolve(user: user, serverAuthCode: result?.serverAuthCode, call: call)
-                    }
+                if let user = result?.user {
+                    self.resolve(user: user, serverAuthCode: result?.serverAuthCode, call: call)
                 }
             }
         }

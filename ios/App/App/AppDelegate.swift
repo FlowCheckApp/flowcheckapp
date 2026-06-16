@@ -14,11 +14,15 @@ import FirebaseMessaging
 //   3. Privacy overlay        → UIVisualEffectView blur on resign-active
 //                               (OS-level; fires before task-switcher screenshot)
 //   4. Native lock screen     → NativeLockScreenViewController on become-active
-//                               (Face ID via LAContext; no web layer involved)
+//                               (Face ID via LAContext; no web layer involved).
+//                               Suppressed while isOnboardingActive() is true so
+//                               permission dialogs / Plaid Link don't trigger an
+//                               unrelated Face ID prompt mid-onboarding.
 //   5. App Attest             → attests device to backend after auth
 //
-// Lock screen key in Capacitor Preferences (UserDefaults):
-//   "CapacitorStorage.biometric_enabled" = "true" | "false"
+// Keychain keys (service "cap_sec", written by JS via capacitor-secure-storage-plugin):
+//   "biometric_enabled"  = "true" | "false"  (legacy fallback: CapacitorStorage.biometric_enabled)
+//   "onboarding_active"  = "true" | "false"  (no legacy fallback — defaults to false)
 //
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -130,7 +134,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // Resets the red badge dot and removes stale banners from Notification Center.
         clearBadgeAndDelivered()
 
-        if biometricEnabled && !justUnlocked {
+        if biometricEnabled && !justUnlocked && !isOnboardingActive() {
             // Present the native lock screen. It sits on top of the blur so the
             // transition is seamless — user sees blur → lock screen → Face ID.
             presentNativeLockScreen()
@@ -149,7 +153,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
     @objc private func handleShowLockScreen() {
         // Fired by the JS idle timer via BiometricPlugin.lock()
-        guard isBiometricEnabled() else { return }
+        guard isBiometricEnabled(), !isOnboardingActive() else { return }
         showPrivacyOverlay()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
             self?.presentNativeLockScreen()
@@ -320,6 +324,28 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // Fallback: legacy Capacitor Preferences / NSUserDefaults location
         let legacy = UserDefaults.standard.string(forKey: "CapacitorStorage.biometric_enabled")
         return legacy == "true"
+    }
+
+    /// True while a new user is moving through the post-signup setup sequence
+    /// (Face ID + notifications screens, or resuming unfinished onboarding).
+    /// Written from JS in fc-app.js's auth router and cleared in
+    /// _markOnboardingComplete(). Without this, system permission dialogs and
+    /// Plaid Link's in-app browser — both of which trigger this same
+    /// become-active callback — would surface an unrelated Face ID lock
+    /// screen in the middle of onboarding.
+    private func isOnboardingActive() -> Bool {
+        let query: [String: Any] = [
+            kSecClass as String:       kSecClassGenericPassword,
+            kSecAttrService as String: "cap_sec",
+            kSecAttrAccount as String: "onboarding_active",
+            kSecReturnData as String:  true,
+            kSecMatchLimit as String:  kSecMatchLimitOne,
+        ]
+        var item: AnyObject?
+        guard SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess,
+              let data = item as? Data,
+              let str  = String(data: data, encoding: .utf8) else { return false }
+        return str == "true"
     }
 
     // MARK: - Jailbreak Alert
