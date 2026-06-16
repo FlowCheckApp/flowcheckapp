@@ -903,28 +903,39 @@ body.fc-keyboard-open .fc-auth-screen { padding-top: calc(env(safe-area-inset-to
   animation: fcTabFadeIn 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-/* Dynamic Island */
-.fc-island { display: flex; justify-content: center; padding: 4px 0 0; flex-shrink: 0; }
+/* Status chip — under the header title, safe-area-protected via .fc-header's own padding */
 .fc-island-pill {
-  background: #000; padding: 6px 16px; border-radius: 999px;
-  display: inline-flex; align-items: center; gap: 8px;
+  background: rgba(48,209,88,0.10); border: 1px solid rgba(48,209,88,0.20);
+  padding: 3px 9px; border-radius: 999px;
+  display: inline-flex; align-items: center; gap: 6px;
+  max-width: fit-content;
   transition: background 0.2s;
 }
 .fc-island-dot {
-  width: 6px; height: 6px; border-radius: 50%;
-  background: var(--fc-success); box-shadow: 0 0 8px var(--fc-success);
+  width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+  background: var(--fc-success); box-shadow: 0 0 6px var(--fc-success);
 }
-.fc-island-text { color: white; font-size: 12px; font-weight: 500; }
+.fc-island-text { color: var(--fc-text-muted); font-size: 11px; font-weight: 600; }
+.fc-island-sync { display: inline-flex; align-items: center; gap: 6px; }
+.fc-island-sep { color: var(--fc-text-faint); font-size: 11px; }
+#islandSyncTime { color: var(--fc-text-faint); font-size: 11px; font-weight: 500; }
 
 /* Brand header */
-.fc-brand { display: flex; align-items: center; gap: 8px; }
+.fc-brand { display: flex; align-items: center; gap: 10px; }
 .fc-brand-mark {
-  width: 32px; height: 32px;
+  width: 32px; height: 32px; flex-shrink: 0;
   background: linear-gradient(135deg, var(--fc-accent), var(--fc-electric));
   border-radius: 10px;
   display: flex; align-items: center; justify-content: center;
 }
-.fc-brand-name { color: white; font-size: 17px; font-weight: 700; letter-spacing: -0.02em; }
+.fc-brand-col { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.fc-brand-name { color: white; font-size: 17px; font-weight: 700; letter-spacing: -0.02em; line-height: 1; }
+
+[data-theme="light"] .fc-brand-name { color: #0a1520; }
+[data-theme="light"] .fc-island-pill { background: rgba(48,209,88,0.12); border-color: rgba(48,209,88,0.24); }
+[data-theme="light"] .fc-island-text { color: rgba(10,21,32,0.65); }
+[data-theme="light"] .fc-island-sep,
+[data-theme="light"] #islandSyncTime { color: rgba(10,21,32,0.40); }
 
 /* Icon buttons */
 .fc-iconbtn {
@@ -1242,7 +1253,7 @@ label.fc-toggle input[type="checkbox"]:checked ~ .fc-toggle-track::after {
 * { touch-action: manipulation; }
 
 /* Prevent text selection on all UI chrome */
-.fc-nav, .fc-nav-item, .fc-header, .fc-island, .fc-island-pill,
+.fc-nav, .fc-nav-item, .fc-header, .fc-island-pill,
 .fc-btn, .fc-card-header, .fc-card-action, .fc-settings-row,
 .fc-iconbtn, .fc-scrubber button, .fc-tab, .fc-chip,
 .fc-ai-cta, .fc-ob-cta, .fc-skip-btn, .fc-forgot-btn,
@@ -2463,7 +2474,7 @@ body {
     </div>
 
     <!-- CTA -->
-    <button onclick="FCApp.handleBiometricSetup()" type="button"
+    <button id="btn-faceid-enable" onclick="FCApp.handleBiometricSetup()" type="button"
             class="fc-btn fc-btn--primary fc-btn--block"
             style="font-size:17px;height:56px;border-radius:17px">
       Enable Face ID
@@ -3992,21 +4003,23 @@ body {
 <!-- ════════════════════════════════════════════ SCREEN: APP -->
 <section class="fc-screen" data-screen="app" aria-label="FlowCheck">
 
-  <!-- Dynamic Island -->
-  <div class="fc-island" style="flex-shrink:0">
-    <div class="fc-island-pill">
-      <span class="fc-island-dot"></span>
-      <span class="fc-island-text" id="islandText">All caught up</span>
-    </div>
-  </div>
-
   <!-- Shared header -->
   <header class="fc-header" style="flex-shrink:0">
     <div class="fc-brand">
       <div class="fc-brand-mark">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="white" aria-hidden="true"><path d="M4 4h16v3H4zm0 6h11v3H4zm0 6h7v3H4z"/></svg>
       </div>
-      <span class="fc-brand-name">FlowCheck</span>
+      <div class="fc-brand-col">
+        <span class="fc-brand-name">FlowCheck</span>
+        <div class="fc-island-pill">
+          <span class="fc-island-dot"></span>
+          <span class="fc-island-text" id="islandText">All caught up</span>
+          <span class="fc-island-sync" id="islandSyncWrap" style="display:none">
+            <span class="fc-island-sep">·</span>
+            <span id="islandSyncTime"></span>
+          </span>
+        </div>
+      </div>
     </div>
     <div style="display:flex;gap:6px">
       <button class="fc-iconbtn" aria-label="Sync accounts" id="header-sync-btn" onclick="FCApp.manualSync && FCApp.manualSync()">
@@ -4140,6 +4153,30 @@ body {
     .dash-nf-val{font-size:18px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-0.03em}
     .dash-green{color:var(--fc-success)}.dash-red{color:var(--fc-danger)}
 
+    /* ── Money at a Glance — 4-tile grid ─────────────────────────── */
+    .dash-glance-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 16px}
+    .dash-glance-tile{
+      background:linear-gradient(160deg,rgba(15,28,48,0.98) 0%,rgba(8,17,28,0.98) 100%);
+      border-radius:20px;border:0.5px solid rgba(255,255,255,0.08);
+      padding:16px;cursor:pointer;-webkit-tap-highlight-color:transparent;
+      transition:opacity .15s,transform .15s;
+    }
+    .dash-glance-tile:active{opacity:.88;transform:scale(0.98)}
+    .dash-glance-icon{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:14px;margin-bottom:10px}
+    .dash-glance-label{font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:rgba(255,255,255,0.42);margin-bottom:5px}
+    .dash-glance-amount{font-size:20px;font-weight:900;letter-spacing:-0.03em;color:var(--fc-text);font-variant-numeric:tabular-nums;line-height:1.1}
+    .dash-glance-sub{font-size:11px;color:rgba(255,255,255,0.40);margin-top:4px}
+    .dash-glance-trend{font-size:11px;font-weight:700;margin-top:4px;display:inline-flex;align-items:center;gap:3px}
+    [data-theme="light"] .dash-glance-tile{background:var(--fc-card-bg);border-color:rgba(13,27,46,0.08)}
+    [data-theme="light"] .dash-glance-label{color:rgba(13,27,46,0.45)}
+    [data-theme="light"] .dash-glance-amount{color:#0a1520}
+    [data-theme="light"] .dash-glance-sub{color:rgba(13,27,46,0.42)}
+
+    /* ── Quick Actions — reuses the glance-tile chrome ───────────── */
+    .dash-qa-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 16px}
+    .dash-qa-title{font-size:14px;font-weight:700;color:var(--fc-text);margin-bottom:3px}
+    [data-theme="light"] .dash-qa-title{color:#0a1520}
+
     /* ── Period scrubber ────────────────────────────────────────── */
     .dash-scrubber{
       background:rgba(255,255,255,0.04);border:0.5px solid rgba(255,255,255,0.09);
@@ -4245,6 +4282,24 @@ body {
       border:0.5px solid rgba(255,255,255,0.09);border-radius:22px;overflow:hidden;
       box-shadow:0 6px 24px rgba(0,0,0,0.42),inset 0 1px 0 rgba(255,255,255,0.055),inset 0 -1px 0 rgba(0,0,0,0.18);
     }
+
+    /* ── Single Upcoming Bill card ──────────────────────────────── */
+    .dash-bill-card{
+      margin:0 16px;border-radius:20px;padding:14px 14px 14px 16px;
+      display:flex;align-items:center;gap:12px;
+      cursor:pointer;-webkit-tap-highlight-color:transparent;
+      background:linear-gradient(160deg,rgba(15,28,48,0.98) 0%,rgba(8,17,28,0.98) 100%);
+      border:0.5px solid rgba(255,255,255,0.08);
+      border-left:3px solid var(--fc-accent);
+      transition:opacity .15s,transform .15s;
+    }
+    .dash-bill-card:active{opacity:.88;transform:scale(0.99)}
+    .dash-bill-icon{width:42px;height:42px;border-radius:13px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 3px 10px rgba(0,0,0,0.25)}
+    .dash-bill-body{flex:1;min-width:0}
+    .dash-bill-name{font-size:14px;font-weight:700;color:var(--fc-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .dash-bill-due{font-size:12px;margin-top:2px;font-weight:600}
+    .dash-bill-amount{font-size:15px;font-weight:800;letter-spacing:-0.03em;color:var(--fc-text);font-variant-numeric:tabular-nums;flex-shrink:0}
+    .dash-bill-chevron{flex-shrink:0;color:var(--fc-text-faint)}
 
     /* ── Health score row ───────────────────────────────────────── */
     .dash-health{
@@ -4647,20 +4702,6 @@ body {
     .fc-settings-value{color:rgba(255,255,255,0.38);font-size:13px;font-weight:400}
   </style>
 
-  <!-- ── Hidden compat elements — JS targets these IDs ──────────── -->
-  <div aria-hidden="true" style="display:none">
-    <span id="stat-cash">$0</span>
-    <span id="stat-account-count">0 accounts</span>
-    <span id="stat-income">$0</span>
-    <span id="stat-income-period">this month</span>
-    <span id="stat-bills">$0</span>
-    <span id="bills-due-meta">due soon</span>
-    <span id="stat-subs">$0</span>
-    <span id="fch-savings-rate">—</span>
-    <div id="streak-chip" style="display:none" aria-hidden="true">Day 1</div>
-    <div id="home-month-progress" style="width:0%"></div>
-  </div>
-
   <!-- ── DASHBOARD HERO v2 — Safe to Spend primary ─────────── -->
   <div class="dash-hero fc-fade-up">
     <div class="dash-hero-top">
@@ -4700,99 +4741,6 @@ body {
       <div class="dash-sts-subtitle">Available after bills and goals</div>
       <div id="safe-spend-delta" class="dash-sts-delta" style="display:none"></div>
       <div class="dash-hero-sub" id="safe-spend-meta">Connect a bank to get started</div>
-      <!-- Wallet illustration — decorative, aria-hidden -->
-      <div class="dash-sts-illus" aria-hidden="true">
-        <svg width="100" height="92" viewBox="0 0 100 92" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <linearGradient id="stsCard1" x1="0" y1="0" x2="0.3" y2="1">
-              <stop offset="0%" stop-color="#1a4a7a"/>
-              <stop offset="100%" stop-color="#0d2340"/>
-            </linearGradient>
-            <linearGradient id="stsCard2" x1="0" y1="0" x2="0.3" y2="1">
-              <stop offset="0%" stop-color="#1e3d60"/>
-              <stop offset="100%" stop-color="#0a1a30"/>
-            </linearGradient>
-            <linearGradient id="stsCardFace" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="rgba(26,196,240,0.32)"/>
-              <stop offset="100%" stop-color="rgba(14,45,80,0.95)"/>
-            </linearGradient>
-            <linearGradient id="stsChk" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stop-color="#22d3f5"/>
-              <stop offset="100%" stop-color="#1d4ed8"/>
-            </linearGradient>
-            <filter id="stsGlow" x="-80%" y="-80%" width="260%" height="260%">
-              <feGaussianBlur stdDeviation="11"/>
-            </filter>
-            <filter id="stsShadow" x="-20%" y="-20%" width="140%" height="140%">
-              <feGaussianBlur stdDeviation="3" result="b"/>
-              <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-            </filter>
-            <filter id="stsChkGlow" x="-60%" y="-60%" width="220%" height="220%">
-              <feGaussianBlur stdDeviation="5" result="b"/>
-              <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-            </filter>
-          </defs>
-
-          <!-- Ambient bloom -->
-          <ellipse cx="44" cy="36" rx="30" ry="22" fill="rgba(26,196,240,0.18)" filter="url(#stsGlow)"/>
-
-          <!-- Card 2 — behind, offset up-left -->
-          <rect x="12" y="6" width="54" height="34" rx="7"
-                fill="url(#stsCard2)"
-                stroke="rgba(26,196,240,0.22)" stroke-width="0.8"/>
-
-          <!-- Card 1 — front face, the main card -->
-          <rect x="8" y="14" width="56" height="36" rx="8"
-                fill="url(#stsCardFace)"
-                stroke="rgba(26,196,240,0.70)" stroke-width="1.3"
-                filter="url(#stsShadow)"/>
-
-          <!-- Card shine strip at top -->
-          <rect x="8" y="14" width="56" height="10" rx="8"
-                fill="rgba(255,255,255,0.07)"/>
-
-          <!-- Chip -->
-          <rect x="15" y="22" width="12" height="9" rx="2.5"
-                fill="rgba(255,210,80,0.70)" stroke="rgba(255,180,40,0.50)" stroke-width="0.5"/>
-          <line x1="21" y1="22" x2="21" y2="31" stroke="rgba(200,140,0,0.40)" stroke-width="0.5"/>
-          <line x1="15" y1="26.5" x2="27" y2="26.5" stroke="rgba(200,140,0,0.40)" stroke-width="0.5"/>
-
-          <!-- Card number dots (4 groups) -->
-          <g fill="rgba(255,255,255,0.55)">
-            <circle cx="32" cy="27" r="1.5"/><circle cx="35" cy="27" r="1.5"/>
-            <circle cx="38" cy="27" r="1.5"/><circle cx="41" cy="27" r="1.5"/>
-          </g>
-          <g fill="rgba(255,255,255,0.35)">
-            <circle cx="32" cy="33" r="1.2"/><circle cx="35" cy="33" r="1.2"/>
-            <circle cx="38" cy="33" r="1.2"/><circle cx="41" cy="33" r="1.2"/>
-            <circle cx="45" cy="33" r="1.2"/><circle cx="48" cy="33" r="1.2"/>
-          </g>
-
-          <!-- Card label lines -->
-          <line x1="15" y1="39" x2="30" y2="39"
-                stroke="rgba(255,255,255,0.30)" stroke-width="1.5" stroke-linecap="round"/>
-          <line x1="15" y1="43" x2="24" y2="43"
-                stroke="rgba(255,255,255,0.18)" stroke-width="1" stroke-linecap="round"/>
-
-          <!-- Contactless pay symbol -->
-          <path d="M55 26 Q57 28.5 55 31" stroke="rgba(255,255,255,0.50)" stroke-width="1.2" fill="none" stroke-linecap="round"/>
-          <path d="M57.5 23.5 Q61 28.5 57.5 33.5" stroke="rgba(255,255,255,0.35)" stroke-width="1.2" fill="none" stroke-linecap="round"/>
-
-          <!-- Checkmark badge — positioned below the card to avoid overlap -->
-          <circle cx="68" cy="74" r="15" fill="url(#stsChk)" filter="url(#stsChkGlow)"/>
-          <circle cx="68" cy="74" r="15" fill="none" stroke="rgba(255,255,255,0.30)" stroke-width="1.2"/>
-          <circle cx="68" cy="74" r="10" fill="none" stroke="rgba(255,255,255,0.10)" stroke-width="0.6"/>
-          <polyline points="60,74 65.5,80 76,67"
-                    stroke="white" stroke-width="3.0"
-                    stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-
-          <!-- Floating particles -->
-          <circle cx="4"  cy="8"  r="3.5" fill="rgba(26,196,240,0.85)"/>
-          <circle cx="82" cy="5"  r="2.5" fill="rgba(26,196,240,0.60)"/>
-          <circle cx="88" cy="22" r="1.8" fill="rgba(37,99,235,0.65)"/>
-          <circle cx="3"  cy="52" r="2.0" fill="rgba(26,196,240,0.45)"/>
-        </svg>
-      </div>
     </div>
     <!-- JS data anchors — kept hidden for backward compat -->
     <div style="display:none" aria-hidden="true">
@@ -4805,182 +4753,72 @@ body {
     </div>
   </div>
 
-  <!-- ── URGENT ALERT BANNER ─────────────────────────────────── -->
-  <div id="home-alert-banner" style="display:none;padding:0 16px 10px" class="fc-fade-up">
-    <div id="home-alert-inner" onclick="FCApp._alertBannerTap()" role="button"
-         style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:14px;
-                border:1px solid rgba(255,69,58,0.28);border-left:3px solid var(--fc-danger);
-                background:rgba(255,69,58,0.08);cursor:pointer;transition:opacity .15s">
-      <div id="home-alert-icon" style="font-size:17px;flex-shrink:0">🔴</div>
-      <div style="flex:1;min-width:0">
-        <div id="home-alert-title" style="font-size:13.5px;font-weight:600;color:var(--fc-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
-        <div id="home-alert-sub"   style="font-size:11px;color:var(--fc-text-muted);margin-top:1px"></div>
-      </div>
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+  <!-- ══════════════════════════════════════════════════════════════
+       TODAY'S FOCUS — single actionable daily insight, anchored
+       directly under the hero so there's one attention zone, not two.
+       Driven entirely by JS: FCApp._renderTodaysFocus()
+       ══════════════════════════════════════════════════════════════ -->
+  <div id="todays-focus-section" class="fc-fade-up" style="animation-delay:.045s;display:none;margin:18px 16px 24px">
+    <div class="dash-sec-hdr" style="margin-bottom:8px">
+      <span class="dash-sec-title">Today's Focus</span>
+      <button id="todays-focus-next-btn" class="dash-sec-link" onclick="FCApp.nextFocusInsight()" type="button"
+              style="display:none;font-size:11px;color:rgba(255,255,255,0.35);font-weight:600">Next →</button>
     </div>
-  </div>
-
-  <!-- ── V3: DAILY FINANCIAL BRIEF ──────────────────────────────── -->
-  <div id="home-daily-brief" style="display:none;padding:0 16px 10px" class="fc-fade-up">
-    <div style="padding:14px 16px;border-radius:18px;background:rgba(255,255,255,0.04);border:0.5px solid rgba(255,255,255,0.08)">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-        <div style="font-size:15px">✨</div>
-        <div style="font-size:10px;font-weight:700;letter-spacing:.10em;text-transform:uppercase;color:var(--fc-accent)">Daily Brief</div>
+    <div id="todays-focus-card" class="dash-focus-card" onclick="FCApp._focusCardTap()">
+      <div class="dash-focus-left-bar"></div>
+      <div class="dash-focus-header">
+        <span class="dash-focus-icon" id="focus-icon" aria-hidden="true"></span>
+        <span class="dash-focus-label">Action Required</span>
+        <span class="dash-focus-counter" id="focus-counter" style="display:none"></span>
       </div>
-      <div id="home-brief-text" style="font-size:14px;color:var(--fc-text);line-height:1.55"></div>
-    </div>
-  </div>
-
-  <!-- ── V3: PRIORITY ACTIONS ──────────────────────────────────── -->
-  <div id="home-priority-actions" style="display:none;padding:0 16px 10px">
-    <div style="font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--fc-text-faint);margin-bottom:8px;padding-left:2px">Priority Actions</div>
-    <div id="home-actions-list" style="display:flex;flex-direction:column;gap:6px"></div>
-  </div>
-
-  <!-- ── V3: CASH RUNWAY ────────────────────────────────────────── -->
-  <div id="home-cash-runway" style="display:none;padding:0 16px 10px">
-    <div style="padding:16px;border-radius:18px;background:rgba(37,99,235,0.08);border:0.5px solid rgba(37,99,235,0.2)">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-        <div style="display:flex;align-items:center;gap:8px">
-          <span style="font-size:18px">🛫</span>
-          <div style="font-size:10px;font-weight:700;letter-spacing:.10em;text-transform:uppercase;color:rgba(100,149,255,0.85)">Cash Runway</div>
-        </div>
-        <div id="home-runway-days" style="font-size:26px;font-weight:900;color:var(--fc-text);letter-spacing:-0.04em;font-variant-numeric:tabular-nums">—</div>
-      </div>
-      <div id="home-runway-sub" style="font-size:11px;color:var(--fc-text-muted);margin-bottom:10px"></div>
-      <div style="height:4px;border-radius:2px;background:rgba(255,255,255,0.08)">
-        <div id="home-runway-bar" style="height:100%;border-radius:2px;background:linear-gradient(90deg,var(--fc-electric),var(--fc-accent));width:0%;transition:width 0.8s var(--fc-ease-out)"></div>
+      <div class="dash-focus-body" id="focus-body">Analyzing your finances…</div>
+      <div class="dash-focus-action" id="focus-action">
+        <span id="focus-action-text">View details</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
       </div>
     </div>
   </div>
 
   <!-- ══════════════════════════════════════════════════════════════
-       NET WORTH HERO CARD
+       MONEY AT A GLANCE — Cash / Debt / Cash Flow / Net Worth
        ══════════════════════════════════════════════════════════════ -->
-  <div class="dash-nw-card fc-fade-up" style="animation-delay:.04s">
-    <div class="dash-nw-tag">NET WORTH</div>
-    <div class="dash-nw-row">
-      <div id="hero-networth" class="dash-nw-amount fc-amount" data-anim-val="0">$0</div>
-      <span id="hero-delta" class="dash-nw-pill fc-amount" style="display:none">+$0</span>
+  <section class="dash-section fc-fade-up" style="animation-delay:.05s">
+    <div class="dash-sec-hdr">
+      <span class="dash-sec-title">Money at a Glance</span>
     </div>
-    <!-- Sparkline -->
-    <svg id="hero-sparkline" viewBox="0 0 320 80" width="100%" height="80"
-         preserveAspectRatio="none" style="display:block;margin:10px 0 8px" aria-hidden="true">
-      <defs>
-        <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%"   stop-color="#1ac4f0" stop-opacity="0.45"/>
-          <stop offset="70%"  stop-color="#1ac4f0" stop-opacity="0.08"/>
-          <stop offset="100%" stop-color="#1ac4f0" stop-opacity="0"/>
-        </linearGradient>
-        <filter id="sparkGlow">
-          <feGaussianBlur stdDeviation="2.5" result="b"/>
-          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-        </filter>
-        <filter id="dotGlow">
-          <feGaussianBlur stdDeviation="3" result="b"/>
-          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-        </filter>
-      </defs>
-      <path id="sparkline-area"
-            d="M0,66 C30,64 50,52 80,46 C110,40 140,52 170,30 C200,12 230,28 260,15 C290,3 310,9 320,5 L320,80 L0,80 Z"
-            fill="url(#sparkGrad)"/>
-      <path id="sparkline-line"
-            d="M0,66 C30,64 50,52 80,46 C110,40 140,52 170,30 C200,12 230,28 260,15 C290,3 310,9 320,5"
-            stroke="#1ac4f0" stroke-width="2.5" fill="none" stroke-linecap="round" filter="url(#sparkGlow)"/>
-      <circle id="sparkline-dot-bg" cx="320" cy="5" r="8"   fill="#1ac4f0" opacity="0.22" filter="url(#dotGlow)"/>
-      <circle id="sparkline-pulse"  cx="320" cy="5" r="5"   fill="none" stroke="#1ac4f0" stroke-width="1.5" opacity="0">
-        <animate attributeName="r" values="4;10;4" dur="2.8s" repeatCount="indefinite"/>
-        <animate attributeName="opacity" values="0.5;0;0.5" dur="2.8s" repeatCount="indefinite"/>
-      </circle>
-      <circle id="sparkline-dot"    cx="320" cy="5" r="3.5" fill="#1ac4f0"/>
-    </svg>
-    <!-- Period scrubber removed — sparkline shows all available history -->
-    <!-- Assets / Debt / Savings Rate -->
-    <div class="dash-nw-footer">
-      <div class="dash-nw-foot">
-        <span class="dash-nf-lbl">Cash</span>
-        <span id="hero-assets"        class="dash-nf-val dash-green fc-amount">—</span>
+    <div class="dash-glance-grid">
+      <div class="dash-glance-tile" onclick="FCApp.switchTab('wealth')" role="button">
+        <div class="dash-glance-icon" style="background:rgba(26,196,240,0.14)">💵</div>
+        <div class="dash-glance-label">Cash</div>
+        <div id="glance-cash" class="dash-glance-amount fc-amount">—</div>
+        <div id="glance-cash-sub" class="dash-glance-sub">—</div>
       </div>
-      <div class="dash-nw-foot">
-        <span class="dash-nf-lbl">Debt</span>
-        <span id="hero-liabilities"   class="dash-nf-val dash-red fc-amount">—</span>
+      <div class="dash-glance-tile" onclick="FCApp.switchTab('wealth')" role="button">
+        <div class="dash-glance-icon" style="background:rgba(37,99,235,0.14)">💳</div>
+        <div class="dash-glance-label">Debt</div>
+        <div id="hero-liabilities" class="dash-glance-amount fc-amount">—</div>
+        <div id="glance-debt-sub" class="dash-glance-sub">—</div>
       </div>
-      <div class="dash-nw-foot">
-        <span class="dash-nf-lbl">Cash Flow</span>
-        <span id="fch-cashflow" class="dash-nf-val fc-amount">—</span>
+      <div class="dash-glance-tile" onclick="FCApp.switchTab('insights')" role="button">
+        <div class="dash-glance-icon" style="background:rgba(48,209,88,0.14)">📊</div>
+        <div class="dash-glance-label">Cash Flow</div>
+        <div id="fch-cashflow" class="dash-glance-amount fc-amount">—</div>
+        <div class="dash-glance-sub">This month</div>
+      </div>
+      <div class="dash-glance-tile" onclick="FCApp.switchTab('wealth')" role="button">
+        <div class="dash-glance-icon" style="background:rgba(124,92,255,0.14)">📈</div>
+        <div class="dash-glance-label">Net Worth</div>
+        <div id="hero-networth" class="dash-glance-amount fc-amount" data-anim-val="0">$0</div>
+        <span id="hero-delta" class="dash-glance-trend" style="display:none">+$0</span>
+        <div id="glance-nw-sub" class="dash-glance-sub" style="display:none">Connect a bank</div>
       </div>
     </div>
-    <div id="hero-sync-time" style="font-size:10px;color:var(--fc-text-faint);text-align:center;margin-top:10px;display:none"></div>
-  </div>
-
-  <!-- ── V3: FINANCIAL TIMELINE ─────────────────────────────────── -->
-  <div id="home-timeline" style="display:none;padding:0 16px 10px">
-    <div style="font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--fc-text-faint);margin-bottom:8px;padding-left:2px">Coming Up</div>
-    <div id="home-timeline-list" style="display:flex;flex-direction:column;gap:0;border-radius:18px;overflow:hidden;background:rgba(255,255,255,0.04);border:0.5px solid rgba(255,255,255,0.08)"></div>
-  </div>
+  </section>
 
   <!-- ══════════════════════════════════════════════════════════════
        FINANCIAL HEALTH + NET WORTH — side-by-side compact cards
+       (legacy, replaced by the Money at a Glance grid above — removed)
        ══════════════════════════════════════════════════════════════ -->
-  <div id="dash-mini-cards" class="fc-fade-up" style="animation-delay:.045s;padding:0 16px 0">
-    <style>
-      #dash-mini-cards{display:none;gap:10px}
-      #dash-mini-cards.visible{display:flex}
-      .dash-mini-card{flex:1;border-radius:18px;padding:14px;background:rgba(255,255,255,0.04);border:0.5px solid rgba(255,255,255,0.08);min-width:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
-      .dash-mini-eyebrow{font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:rgba(255,255,255,0.32);margin-bottom:8px}
-      .dash-mini-health-row{display:flex;align-items:center;gap:10px}
-      .dash-mini-ring-wrap{position:relative;flex-shrink:0;width:46px;height:46px}
-      .dash-mini-ring-inner{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
-      .dash-mini-ring-score{font-size:13px;font-weight:900;color:var(--fc-text);font-variant-numeric:tabular-nums}
-      .dash-mini-health-right{}
-      .dash-mini-score-val{font-size:20px;font-weight:900;letter-spacing:-0.04em;color:var(--fc-text);font-variant-numeric:tabular-nums}
-      .dash-mini-score-grade{font-size:12px;font-weight:700;margin-top:1px}
-      .dash-mini-score-delta{font-size:11px;color:var(--fc-success);margin-top:2px}
-      /* NW mini card */
-      .dash-mini-nw-amount{font-size:20px;font-weight:900;letter-spacing:-0.04em;color:var(--fc-text);font-variant-numeric:tabular-nums;margin-bottom:2px}
-      .dash-mini-nw-delta{font-size:11px;font-weight:600;color:var(--fc-success)}
-      .dash-mini-nw-chart{margin-top:8px}
-    </style>
-
-    <!-- Financial Health mini card -->
-    <div class="dash-mini-card" onclick="FCApp.switchTab('insights')">
-      <div class="dash-mini-eyebrow">Financial Health</div>
-      <div class="dash-mini-health-row">
-        <div class="dash-mini-ring-wrap">
-          <svg viewBox="0 0 46 46" width="46" height="46" style="transform:rotate(-90deg)" aria-hidden="true">
-            <circle cx="23" cy="23" r="18" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="4"/>
-            <circle id="home-health-ring" cx="23" cy="23" r="18" fill="none"
-                    stroke="var(--fc-accent)" stroke-width="4" stroke-linecap="round"
-                    stroke-dasharray="113" stroke-dashoffset="113"
-                    style="transition:stroke-dashoffset 1.2s cubic-bezier(0.25,0.1,0.25,1),stroke .5s"/>
-          </svg>
-          <div class="dash-mini-ring-inner">
-            <div class="dash-mini-ring-score" id="home-health-ring-score">—</div>
-          </div>
-        </div>
-        <div class="dash-mini-health-right">
-          <div class="dash-mini-score-grade" id="home-health-grade">—</div>
-          <div class="dash-mini-score-delta" id="home-health-delta" style="display:none"></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Net Worth mini card -->
-    <div class="dash-mini-card" onclick="FCApp.switchTab('wealth')">
-      <div class="dash-mini-eyebrow">Net Worth</div>
-      <div class="dash-mini-nw-amount fc-amount" id="home-mini-nw">—</div>
-      <div class="dash-mini-nw-delta" id="home-mini-nw-delta" style="display:none"></div>
-      <div class="dash-mini-nw-chart">
-        <svg id="home-mini-sparkline" viewBox="0 0 120 28" width="100%" height="28"
-             style="overflow:visible;display:block" aria-hidden="true">
-          <path id="home-mini-sparkline-line" d="M0,24 L120,24"
-                stroke="#1ac4f0" stroke-width="1.5" fill="none" stroke-linecap="round"/>
-          <circle id="home-mini-sparkline-dot" cx="120" cy="24" r="3" fill="#1ac4f0"/>
-        </svg>
-      </div>
-    </div>
-  </div>
-
   <!-- ══════════════════════════════════════════════════════════════
        MONTHLY SPENDING CARD v2
        ══════════════════════════════════════════════════════════════ -->
@@ -5004,59 +4842,32 @@ body {
       <span id="dash-pulse-days" class="dash-spend-days">—</span>
       <span id="dash-pulse-projected" class="dash-spend-proj" style="display:none"></span>
     </div>
-  </div>
-
-  <!-- JS data anchors for stat IDs — visual cards removed in v2 -->
-  <div style="display:none" aria-hidden="true">
-    <span id="fch-qs-cash">—</span><span id="fch-qs-cash-sub"></span>
-    <span id="fch-qs-spent">—</span><span id="fch-qs-spent-sub"></span>
-    <span id="fch-qs-bills">—</span><span id="fch-qs-bills-sub"></span>
-    <div id="dash-stat-bills"></div>
+    <div id="dash-pulse-nobudget" style="display:none;margin-top:10px;padding:10px 12px;border-radius:12px;background:rgba(26,196,240,0.06);border:0.5px solid rgba(26,196,240,0.18);align-items:center;justify-content:space-between;gap:10px">
+      <span style="font-size:12px;color:var(--fc-text-muted);line-height:1.45">Set a budget to see how this month compares.</span>
+      <button onclick="FCApp.openCategoryBudgetSheet('total', FCApp.getTotalBudgetLimit())" type="button" style="flex-shrink:0;font-size:12px;font-weight:700;color:var(--fc-accent);background:none;border:none;cursor:pointer;padding:0">Set budget</button>
+    </div>
   </div>
 
   <!-- ══════════════════════════════════════════════════════════════
-       UPCOMING BILLS — moved above Today's Focus (time-sensitive)
+       UPCOMING BILLS
        ══════════════════════════════════════════════════════════════ -->
   <section class="dash-section fc-fade-up" style="animation-delay:.063s" id="home-bills-section">
     <div class="dash-sec-hdr">
       <div style="display:flex;align-items:center;gap:7px">
-        <span class="dash-sec-title">Upcoming Bills</span>
+        <span class="dash-sec-title">Upcoming Bill</span>
         <span id="bills-badge" class="fc-pill fc-pill--danger" style="padding:2px 7px;font-size:10px;display:none">0</span>
       </div>
       <button class="fc-iconbtn" onclick="FCApp.showBillSheet()" type="button" aria-label="Add bill"
               style="width:24px;height:24px;background:rgba(26,196,240,0.12);color:var(--fc-accent);border-radius:7px;font-size:16px;line-height:1;border:none;cursor:pointer">+</button>
     </div>
-    <div class="dash-bills-card">
-      <div id="home-bills-list">
-        <div class="dash-empty">Connect a bank to see upcoming bills</div>
+    <div id="home-bills-list">
+      <div class="fc-empty" style="padding:24px">
+        <div class="fc-empty-icon">🏦</div>
+        <div class="fc-empty-title">Connect a bank</div>
+        <div class="fc-empty-sub" style="margin-bottom:0">See your upcoming bills here</div>
       </div>
     </div>
   </section>
-
-  <!-- ══════════════════════════════════════════════════════════════
-       TODAY'S FOCUS — single actionable daily insight
-       Driven entirely by JS: FCApp._renderTodaysFocus()
-       ══════════════════════════════════════════════════════════════ -->
-  <div id="todays-focus-section" class="fc-fade-up" style="animation-delay:.063s;display:none">
-    <div class="dash-sec-hdr" style="margin-bottom:8px">
-      <span class="dash-sec-title">Today's Focus</span>
-      <button id="todays-focus-next-btn" class="dash-sec-link" onclick="FCApp.nextFocusInsight()" type="button"
-              style="display:none;font-size:11px;color:rgba(255,255,255,0.35);font-weight:600">Next →</button>
-    </div>
-    <div id="todays-focus-card" class="dash-focus-card" onclick="FCApp._focusCardTap()">
-      <div class="dash-focus-left-bar"></div>
-      <div class="dash-focus-header">
-        <span class="dash-focus-icon" id="focus-icon" aria-hidden="true"></span>
-        <span class="dash-focus-label">Action Required</span>
-        <span class="dash-focus-counter" id="focus-counter" style="display:none"></span>
-      </div>
-      <div class="dash-focus-body" id="focus-body">Analyzing your finances…</div>
-      <div class="dash-focus-action" id="focus-action">
-        <span id="focus-action-text">View details</span>
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
-      </div>
-    </div>
-  </div>
 
   <!-- ══════════════════════════════════════════════════════════════
        SKELETON SHIMMER — shown while accounts/transactions load
@@ -5138,6 +4949,37 @@ body {
             <div class="fc-skel" style="width:48px;height:14px;opacity:.6"></div>
           </div>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       QUICK ACTIONS
+       ══════════════════════════════════════════════════════════════ -->
+  <section class="dash-section fc-fade-up" style="animation-delay:.085s">
+    <div class="dash-sec-hdr">
+      <span class="dash-sec-title">Quick Actions</span>
+    </div>
+    <div class="dash-qa-grid">
+      <div class="dash-glance-tile" onclick="FCApp.openCategoryBudgetSheet('total', FCApp.getTotalBudgetLimit())" role="button">
+        <div class="dash-glance-icon" style="background:rgba(26,196,240,0.14)">📋</div>
+        <div class="dash-qa-title">Budget</div>
+        <div class="dash-glance-sub">Set your monthly limit</div>
+      </div>
+      <div class="dash-glance-tile" onclick="FCApp.switchTab('activity');FCApp.switchActivitySegment('bills')" role="button">
+        <div class="dash-glance-icon" style="background:rgba(37,99,235,0.14)">🧾</div>
+        <div class="dash-qa-title">Bills</div>
+        <div class="dash-glance-sub">Manage upcoming bills</div>
+      </div>
+      <div class="dash-glance-tile" onclick="FCApp.switchTab('wealth');FCApp.switchWealthSegment('goals')" role="button">
+        <div class="dash-glance-icon" style="background:rgba(48,209,88,0.14)">🎯</div>
+        <div class="dash-qa-title">Goals</div>
+        <div class="dash-glance-sub">Track what you're saving for</div>
+      </div>
+      <div class="dash-glance-tile" onclick="FCApp.switchTab('insights')" role="button">
+        <div class="dash-glance-icon" style="background:rgba(124,92,255,0.14)">💡</div>
+        <div class="dash-qa-title">Insights</div>
+        <div class="dash-glance-sub">See your financial health</div>
       </div>
     </div>
   </section>
@@ -6000,6 +5842,9 @@ body {
     .wealth-hero-v2-stat{text-align:center;padding:0 12px}
     .wealth-hero-v2-stat-lbl{font-size:9px;font-weight:700;letter-spacing:.10em;text-transform:uppercase;color:rgba(255,255,255,0.30);margin-bottom:5px}
     .wealth-hero-v2-stat-val{font-size:20px;font-weight:900;letter-spacing:-0.04em;font-variant-numeric:tabular-nums}
+    [data-theme="light"] .wealth-hero-v2-tag,
+    [data-theme="light"] .wealth-hero-v2-stat-lbl{color:rgba(13,27,46,0.45)}
+    [data-theme="light"] .wealth-hero-v2-amount{color:#0a1520}
 
     /* Sparkline in hero */
     #wealth-hero-sparkline-wrap{padding:2px 0 14px;overflow:hidden}
@@ -6088,7 +5933,7 @@ body {
     <!-- ── Goals panel ── -->
     <div class="fc-wealth-panel" id="wealth-panel-goals">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:0 16px 12px">
-        <div style="font-size:12px;color:rgba(255,255,255,0.35);font-weight:500">Track what you're saving toward</div>
+        <div style="font-size:12px;color:var(--fc-text-faint);font-weight:500">Track what you're saving toward</div>
         <button class="fc-btn fc-btn--sm" style="background:rgba(26,196,240,0.12);color:var(--fc-accent);border:0.5px solid rgba(26,196,240,0.22);padding:6px 14px;font-size:12px"
                 onclick="FCApp.showAddGoalSheet()">+ Goal</button>
       </div>
@@ -6904,15 +6749,6 @@ FCApp.skipNotifPermission = function() {
     }
   } catch (_) {}
   FCApp.setScreen('onboarding');
-};
-
-/* ── Add Apple sign-in handler to FCApp ──────────────────── */
-FCApp.handleAppleSignIn = async function() {
-  try {
-    await FCAuth.signInWithApple();
-  } catch (err) {
-    FCApp.toast && FCApp.toast('Apple sign-in failed: ' + err.message, 'error');
-  }
 };
 
 /* ── Onboarding stepper (5 slides: 0=vision, 1=goal, 2=security, 3=permissions, 4=paywall) ── */

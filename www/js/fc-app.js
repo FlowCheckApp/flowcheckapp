@@ -578,7 +578,6 @@ window.FCApp = (function () {
     const dot      = document.getElementById('sparkline-dot');
     const dotBg    = document.getElementById('sparkline-dot-bg');
     const deltaEl  = document.getElementById('hero-delta');
-    if (!linePath || !areaPath) return;
 
     // Filter history to the selected period window
     const _PERIOD_DAYS = { '1D': 1, '1W': 7, '1M': 30, '3M': 90, '1Y': 365, 'ALL': 0 };
@@ -597,61 +596,65 @@ window.FCApp = (function () {
     if (values.length < 1) return;
     const displayValues = values.length === 1 ? [values[0], values[0]] : values;
 
-    const W = 320, H = 60, PAD = 4;
-    const min  = Math.min(...displayValues);
-    const max  = Math.max(...displayValues);
-    // When all values are identical (flat), offset min slightly so the line renders midscreen
-    const range = max - min || Math.abs(max) * 0.01 || 1;
+    // The full sparkline SVG only exists on screens that still render it (e.g. Wealth).
+    // The delta badge below is independent — it can't depend on this block running.
+    if (linePath && areaPath) {
+      const W = 320, H = 60, PAD = 4;
+      const min  = Math.min(...displayValues);
+      const max  = Math.max(...displayValues);
+      // When all values are identical (flat), offset min slightly so the line renders midscreen
+      const range = max - min || Math.abs(max) * 0.01 || 1;
 
-    const toX = (i) => Math.round((i / (displayValues.length - 1)) * W);
-    const toY = (v) => Math.round(PAD + (1 - (v - min) / range) * (H - PAD * 2));
+      const toX = (i) => Math.round((i / (displayValues.length - 1)) * W);
+      const toY = (v) => Math.round(PAD + (1 - (v - min) / range) * (H - PAD * 2));
 
-    // Build smooth cubic bezier path
-    let line = `M${toX(0)},${toY(displayValues[0])}`;
-    for (let i = 1; i < displayValues.length; i++) {
-      const x0 = toX(i - 1), y0 = toY(displayValues[i - 1]);
-      const x1 = toX(i),     y1 = toY(displayValues[i]);
-      const cpX = (x0 + x1) / 2;
-      line += ` C${cpX},${y0} ${cpX},${y1} ${x1},${y1}`;
-    }
-    const lastX = toX(displayValues.length - 1);
-    const lastY = toY(displayValues[displayValues.length - 1]);
-
-    // Thicker line + stronger glow
-    linePath.setAttribute('d', line);
-    linePath.setAttribute('stroke-width', '2.5');
-    areaPath.setAttribute('d', `${line} L${lastX},${H} L0,${H} Z`);
-
-    // Animate the endpoint dot with a CSS pulse
-    if (dot) {
-      dot.setAttribute('cx', lastX);
-      dot.setAttribute('cy', lastY);
-      dot.setAttribute('r', '3.5');
-      // Add pulse ring as sibling element if not already present
-      const sparkSvg = dot.closest('svg');
-      if (sparkSvg) {
-        let pulse = sparkSvg.querySelector('#sparkline-pulse');
-        if (!pulse) {
-          pulse = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-          pulse.setAttribute('id', 'sparkline-pulse');
-          pulse.setAttribute('fill', 'none');
-          pulse.setAttribute('stroke-width', '1.5');
-          pulse.setAttribute('opacity', '0');
-          pulse.style.cssText = 'stroke:var(--fc-accent);animation:sparkPulse 2s ease-out infinite';
-          sparkSvg.appendChild(pulse);
-          // Inject keyframes once
-          if (!document.getElementById('spark-pulse-style')) {
-            const s = document.createElement('style');
-            s.id = 'spark-pulse-style';
-            s.textContent = '@keyframes sparkPulse{0%{r:3.5px;opacity:0.8}100%{r:10px;opacity:0}}';
-            document.head.appendChild(s);
-          }
-        }
-        pulse.setAttribute('cx', lastX);
-        pulse.setAttribute('cy', lastY);
+      // Build smooth cubic bezier path
+      let line = `M${toX(0)},${toY(displayValues[0])}`;
+      for (let i = 1; i < displayValues.length; i++) {
+        const x0 = toX(i - 1), y0 = toY(displayValues[i - 1]);
+        const x1 = toX(i),     y1 = toY(displayValues[i]);
+        const cpX = (x0 + x1) / 2;
+        line += ` C${cpX},${y0} ${cpX},${y1} ${x1},${y1}`;
       }
+      const lastX = toX(displayValues.length - 1);
+      const lastY = toY(displayValues[displayValues.length - 1]);
+
+      // Thicker line + stronger glow
+      linePath.setAttribute('d', line);
+      linePath.setAttribute('stroke-width', '2.5');
+      areaPath.setAttribute('d', `${line} L${lastX},${H} L0,${H} Z`);
+
+      // Animate the endpoint dot with a CSS pulse
+      if (dot) {
+        dot.setAttribute('cx', lastX);
+        dot.setAttribute('cy', lastY);
+        dot.setAttribute('r', '3.5');
+        // Add pulse ring as sibling element if not already present
+        const sparkSvg = dot.closest('svg');
+        if (sparkSvg) {
+          let pulse = sparkSvg.querySelector('#sparkline-pulse');
+          if (!pulse) {
+            pulse = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            pulse.setAttribute('id', 'sparkline-pulse');
+            pulse.setAttribute('fill', 'none');
+            pulse.setAttribute('stroke-width', '1.5');
+            pulse.setAttribute('opacity', '0');
+            pulse.style.cssText = 'stroke:var(--fc-accent);animation:sparkPulse 2s ease-out infinite';
+            sparkSvg.appendChild(pulse);
+            // Inject keyframes once
+            if (!document.getElementById('spark-pulse-style')) {
+              const s = document.createElement('style');
+              s.id = 'spark-pulse-style';
+              s.textContent = '@keyframes sparkPulse{0%{r:3.5px;opacity:0.8}100%{r:10px;opacity:0}}';
+              document.head.appendChild(s);
+            }
+          }
+          pulse.setAttribute('cx', lastX);
+          pulse.setAttribute('cy', lastY);
+        }
+      }
+      if (dotBg) { dotBg.setAttribute('cx', lastX); dotBg.setAttribute('cy', lastY); dotBg.setAttribute('r', '7'); dotBg.setAttribute('opacity', '0.25'); }
     }
-    if (dotBg) { dotBg.setAttribute('cx', lastX); dotBg.setAttribute('cy', lastY); dotBg.setAttribute('r', '7'); dotBg.setAttribute('opacity', '0.25'); }
 
     // Delta badge: compare today vs 30 days ago (or earliest available)
     if (deltaEl && values.length >= 2) {
@@ -3717,7 +3720,7 @@ window.FCApp = (function () {
     const recent = state.transactions
       .filter(t => t.date)
       .sort((a, b) => FCData.parseDateLocal(b.date) - FCData.parseDateLocal(a.date))
-      .slice(0, 5);
+      .slice(0, 3);
 
     const skeleton = document.getElementById('home-txn-skeleton');
     if (!recent.length) {
@@ -3918,7 +3921,8 @@ window.FCApp = (function () {
           label: 'Great Progress',
           body: `You spent only ${FCData.formatCurrency(weekSpend)} this week — you're on track to save this month! 🎉`,
           action: 'See full breakdown',
-          tap: () => FCApp.switchTab('insights')
+          tap: () => FCApp.switchTab('insights'),
+          fallback: true
         });
       } else {
         // Default: net worth update
@@ -3928,7 +3932,8 @@ window.FCApp = (function () {
           label: 'Net Worth',
           body: `Your current net worth is ${FCData.formatCurrency(nw)}. Keep adding accounts for a complete picture.`,
           action: 'View all accounts',
-          tap: () => FCApp.switchTab('wealth')
+          tap: () => FCApp.switchTab('wealth'),
+          fallback: true
         });
       }
     }
@@ -3956,6 +3961,10 @@ window.FCApp = (function () {
 
     _focusInsights = _buildFocusInsights();
     if (!_focusInsights.length) { section.style.display = 'none'; return; }
+    // A single fallback insight (nothing actionable today) just restates what the
+    // Safe-to-Spend delta pill already shows — skip it instead of stacking two
+    // "you're doing fine" messages right under each other.
+    if (_focusInsights.length === 1 && _focusInsights[0].fallback) { section.style.display = 'none'; return; }
 
     // Clamp index
     _focusIdx = Math.min(_focusIdx, _focusInsights.length - 1);
@@ -4038,108 +4047,62 @@ window.FCApp = (function () {
       _setIslandText('Connect a bank to start');
     }
 
-    // Streak chip on home header
-    const streakChipEl = document.getElementById('streak-chip');
-    if (streakChipEl && state.user) {
-      const days = Math.max(1, state.user.streak || 1);
-      const fire = days >= 7 ? '🔥 ' : '';
-      streakChipEl.textContent = `${fire}Day ${days}`;
-      streakChipEl.title = days >= 100 ? '100-day legend 🔥' : days >= 30 ? '30-day streak!' : days >= 7 ? '7-day streak!' : '';
-    }
-
     // Net worth
     const netWorth = FCData.calcNetWorth(state.accounts);
     const nwEl     = document.getElementById('hero-networth');
     if (nwEl) animateNumber(nwEl, netWorth, '$');
 
-    // TS-2: Last synced timestamp below hero
-    const syncEl = document.getElementById('hero-sync-time');
-    if (syncEl && state.lastSyncAt) {
+    // Last synced timestamp — shown in the header status chip
+    const syncWrapEl = document.getElementById('islandSyncWrap');
+    const syncTimeEl = document.getElementById('islandSyncTime');
+    if (syncTimeEl && state.lastSyncAt) {
       const mins = Math.floor((Date.now() - state.lastSyncAt) / 60000);
-      syncEl.textContent = mins < 1 ? 'Updated just now'
+      syncTimeEl.textContent = mins < 1 ? 'Updated just now'
         : mins < 60 ? `Updated ${mins} min ago`
         : `Updated at ${new Date(state.lastSyncAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`;
-      syncEl.style.display = '';
+      if (syncWrapEl) syncWrapEl.style.display = '';
     }
 
-    // Color-code the hero card based on NW sign: cyan glow for positive, red for negative
-    const nwCard = document.querySelector('.dash-nw-card');
-    if (nwCard) {
-      if (netWorth < 0) {
-        nwCard.style.borderColor = 'rgba(255,69,58,0.26)';
-        nwCard.style.setProperty('--nw-glow-color', 'rgba(255,69,58,0.22)');
-      } else {
-        nwCard.style.borderColor = '';
-        nwCard.style.setProperty('--nw-glow-color', '');
-      }
-    }
-    // NW tag — always "NET WORTH", negative signaled by border color + red delta pill
-    const nwTag = document.querySelector('.dash-nw-tag');
-    if (nwTag) nwTag.textContent = 'NET WORTH';
-
-    // Assets vs Liabilities breakdown below net worth
-    const assetsEl  = document.getElementById('hero-assets');
-    const liabsEl   = document.getElementById('hero-liabilities');
-    if (assetsEl || liabsEl) {
-      const assets = state.accounts
-        .filter(a => !['credit','loan','mortgage'].includes(a.type))
-        .reduce((s, a) => s + (a.balance_current || a.balance || 0), 0);
+    // Debt (liabilities) — feeds the Money at a Glance Debt tile
+    const liabsEl = document.getElementById('hero-liabilities');
+    if (liabsEl) {
       const liabs = state.accounts
         .filter(a => ['credit','loan','mortgage'].includes(a.type))
         .reduce((s, a) => s + Math.max(0, a.balance_current || a.balance || 0), 0);
-      if (assetsEl) assetsEl.textContent = FCData.formatCurrency(assets);
-      if (liabsEl)  liabsEl.textContent  = FCData.formatCurrency(liabs);
+      liabsEl.textContent = FCData.formatCurrency(liabs);
     }
 
-    // Cash stat
-    const cash   = FCData.calcCash(state.accounts);
-    const cashEl = document.getElementById('stat-cash');
-    if (cashEl) animateNumber(cashEl, cash, '$');
+    // Cash — feeds Safe to Spend + the Money at a Glance Cash tile
+    const cash = FCData.calcCash(state.accounts);
 
-    // Account count
-    const acctEl = document.getElementById('stat-account-count');
-    if (acctEl) acctEl.textContent = state.accounts.length + ' account' + (state.accounts.length !== 1 ? 's' : '');
-
-    // Quick-stat strip (new dashboard)
-    const qsCash = document.getElementById('fch-qs-cash');
-    if (qsCash) qsCash.textContent = _fmtCompact(cash);
-
-    // Upcoming bills (next 3)
+    // Upcoming bill — single nearest unpaid bill only
     const billsEl = document.getElementById('home-bills-list');
     if (billsEl) {
-      const upcoming = state.bills
+      const nextBillDue = state.bills
         .filter(b => b.status !== 'paid')
-        .sort((a, b) => (FCData.daysUntil(a.due_date) ?? 999) - (FCData.daysUntil(b.due_date) ?? 999))
-        .slice(0, 3);
+        .sort((a, b) => (FCData.daysUntil(a.due_date) ?? 999) - (FCData.daysUntil(b.due_date) ?? 999))[0];
 
-      if (!upcoming.length) {
-        billsEl.innerHTML = '<div class="fc-empty"><div class="fc-empty-icon">✅</div><div class="fc-empty-title">All clear</div><div class="fc-empty-sub">No upcoming bills</div></div>';
+      if (!nextBillDue) {
+        billsEl.innerHTML = state.user?.plaid_linked
+          ? '<div class="fc-empty" style="padding:24px"><div class="fc-empty-icon">✅</div><div class="fc-empty-title">All clear</div><div class="fc-empty-sub" style="margin-bottom:0">No upcoming bills</div></div>'
+          : '<div class="fc-empty" style="padding:24px"><div class="fc-empty-icon">🏦</div><div class="fc-empty-title">Connect a bank</div><div class="fc-empty-sub" style="margin-bottom:0">See your upcoming bills here</div></div>';
       } else {
-        const allUnpaid = state.bills.filter(b => b.status !== 'paid');
-        billsEl.innerHTML = upcoming.map(b => {
-          const days = FCData.daysUntil(b.due_date);
-          const { label, color } = FCData.billDueLabelAndColor(days !== null ? days : 999);
-          const bg = b.color || FCData.categoryColor(b.category || 'Service');
-          return `
-            <div class="fc-list-item" data-bill-id="${esc(b.id)}" style="cursor:pointer" onclick="FCApp.switchTab('activity');FCApp.switchActivitySegment('bills')" role="button">
-              <div class="fc-list-icon" style="background:${esc(bg)};color:white;font-weight:700;font-size:16px">
-                ${esc(b.icon || b.name.charAt(0))}
-              </div>
-              <div class="fc-list-body">
-                <div class="fc-list-title">${esc(b.name)}</div>
-                <div class="fc-list-meta" style="color:${esc(color)};font-weight:${days !== null && days <= 1 ? 600 : 400}">${esc(label)}</div>
-              </div>
-              <div style="flex-shrink:0">
-                <div class="fc-list-amount">${FCData.formatCurrency(b.amount)}</div>
-              </div>
-            </div>`;
-        }).join('') +
-          (allUnpaid.length > 3
-            ? `<div style="text-align:center;padding:10px 0 4px;cursor:pointer;color:var(--fc-accent);font-size:13px;font-weight:500" onclick="FCApp.switchTab('activity');FCApp.switchActivitySegment('bills')">See all ${allUnpaid.length} bills →</div>`
-            : '') +
-          `<div class="fc-bills-total">
-            <span class="fc-bills-total-lbl">Total due</span>
-            <span class="fc-bills-total-amt">${FCData.formatCurrency(allUnpaid.reduce((s,b) => s + (b.amount || 0), 0))}</span>
+        const b = nextBillDue;
+        const days = FCData.daysUntil(b.due_date);
+        const { label, color } = FCData.billDueLabelAndColor(days !== null ? days : 999);
+        const accentColor = days !== null && days <= 0 ? 'var(--fc-danger)'
+                           : days !== null && days <= 3 ? 'var(--fc-warning)'
+                           : 'var(--fc-accent)';
+        const bg = b.color || FCData.categoryColor(b.category || 'Service');
+        billsEl.innerHTML = `
+          <div class="dash-bill-card" style="border-left-color:${accentColor}" data-bill-id="${esc(b.id)}" onclick="FCApp.switchTab('activity');FCApp.switchActivitySegment('bills')" role="button">
+            <div class="dash-bill-icon" style="background:${esc(bg)};color:white">${esc(b.icon || b.name.charAt(0))}</div>
+            <div class="dash-bill-body">
+              <div class="dash-bill-name">${esc(b.name)}</div>
+              <div class="dash-bill-due" style="color:${esc(color)}">${esc(label)}</div>
+            </div>
+            <div class="dash-bill-amount">${FCData.formatCurrency(b.amount)}</div>
+            <svg class="dash-bill-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
           </div>`;
       }
 
@@ -4152,52 +4115,9 @@ window.FCApp = (function () {
       }
     }
 
-    // Subs total — auto-detected recurring transactions + manual subscription bills
-    const subsEl = document.getElementById('stat-subs');
-    if (subsEl) {
-      const detectedSubs = _detectSubscriptions();
-      const autoTotal    = detectedSubs.reduce((s, sub) => s + sub.amount, 0);
-      const billTotal    = state.bills
-        .filter(b => b.category === 'Subscription' || b.type === 'subscription')
-        .reduce((sum, b) => sum + (b.amount || 0), 0);
-      subsEl.textContent = _fmtCompact(autoTotal || billTotal);
-    }
-
-    // Bills due stat
+    // Bills due — unpaidBillsTotal feeds the Safe-to-Spend calculation below
     const unpaidBills = state.bills.filter(b => b.status !== 'paid');
     const unpaidBillsTotal = unpaidBills.reduce((s, b) => s + (b.amount || 0), 0);
-    const billsStatEl = document.getElementById('stat-bills');
-    if (billsStatEl) animateNumber(billsStatEl, unpaidBillsTotal, '$');
-    // Quick-stat strip: bills
-    const qsBills = document.getElementById('fch-qs-bills');
-    if (qsBills) {
-      qsBills.textContent = _fmtCompact(unpaidBillsTotal);
-      qsBills.className = 'dash-sp-val ' + (unpaidBillsTotal > 0 ? 'dash-red' : 'dash-green');
-    }
-
-    // Update bills-due-meta label dynamically — only red if something is actually due soon
-    const billsDueMeta = document.getElementById('bills-due-meta');
-    if (billsDueMeta) {
-      const soonBill = unpaidBills
-        .map(b => ({ ...b, days: FCData.daysUntil(b.due_date) }))
-        .filter(b => b.days !== null && b.days <= 7)
-        .sort((a, b) => a.days - b.days)[0];
-
-      const billsStatCard = billsStatEl?.closest('.fc-stat');
-      if (soonBill) {
-        const urgent = soonBill.days <= 3;
-        billsDueMeta.textContent = soonBill.days === 0 ? 'due today'
-          : soonBill.days === 1 ? 'due tomorrow'
-          : `due in ${soonBill.days}d`;
-        billsDueMeta.className = urgent ? 'fc-stat-meta fc-stat-meta--danger' : 'fc-stat-meta fc-stat-meta--warn';
-      } else if (unpaidBills.length === 0) {
-        billsDueMeta.textContent = 'no bills';
-        billsDueMeta.className   = 'fc-stat-meta';
-      } else {
-        billsDueMeta.textContent = `${unpaidBills.length} unpaid`;
-        billsDueMeta.className   = 'fc-stat-meta';
-      }
-    }
 
     // ── Income / spend for the selected period (shown in stat card) ─
     const periodTxns   = _getPeriodTxns();
@@ -4218,25 +4138,8 @@ window.FCApp = (function () {
     const monthSpend       = calMonthTxns.filter(_isSpendTxn).reduce((s, t) => s + (t.amount || 0), 0);
     // monthSpendRaw: ALL debits including transfers — used only for safe-to-spend committed calculation
     const monthSpendRaw    = calMonthTxns.filter(t => !t.isCredit).reduce((s, t) => s + (t.amount || 0), 0);
-    const overdueCount     = state.bills.filter(b => b.status !== 'paid' && FCData.daysUntil(b.due_date) < 0).length;
 
-    const incomeEl       = document.getElementById('stat-income');
-    if (incomeEl) incomeEl.textContent = _fmtCompact(periodIncome);
-    const incomePeriodEl = document.getElementById('stat-income-period');
-    if (incomePeriodEl) incomePeriodEl.textContent = _PERIOD_LABELS[state.period] || 'this month';
-
-    // Quick-stat strip: spent (period-aware, red when over 80% of income)
-    const qsSpent = document.getElementById('fch-qs-spent');
-    if (qsSpent) {
-      qsSpent.textContent = _fmtCompact(periodSpend);
-      // Only color-code if income is reliably detected; otherwise neutral
-      qsSpent.className = 'dash-sp-val ' + (
-        _incomeIsReliable(periodIncome, periodSpend) && periodSpend / periodIncome > 0.9 ? 'dash-red' :
-        _incomeIsReliable(periodIncome, periodSpend) && periodSpend / periodIncome > 0.7 ? '' : ''
-      );
-    }
-
-    // Cash flow → NW footer — only meaningful when income is detectable
+    // Cash flow → Money at a Glance tile — only meaningful when income is detectable
     const cfEl = document.getElementById('fch-cashflow');
     if (cfEl) {
       if (_incomeIsReliable(monthIncome, monthSpend)) {
@@ -4260,31 +4163,40 @@ window.FCApp = (function () {
     const pulseIncomeEl  = document.getElementById('dash-pulse-income');
     const pulseDaysEl    = document.getElementById('dash-pulse-days');
     const pulseProjEl    = document.getElementById('dash-pulse-projected');
+    const pulseNoBudgetEl = document.getElementById('dash-pulse-nobudget');
 
     if (pulseRow) {
       if (state.user && state.user.plaid_linked) {
         pulseRow.style.display = '';
-        const incomeOk   = _incomeIsReliable(monthIncome, monthSpend);
-        const pulsePct   = incomeOk ? Math.min(Math.round((monthSpend / monthIncome) * 100), 100) : 0;
-        const fillColor  = incomeOk && pulsePct >= 90 ? 'var(--fc-danger)'
-                         : incomeOk && pulsePct >= 70 ? 'var(--fc-warning)'
-                         : 'linear-gradient(90deg,var(--fc-accent),var(--fc-electric))';
-        if (incomeOk && pulsePct >= 90) pulseRow.classList.add('dash-pulse--danger');
+        // Prefer an explicit budget the user set; fall back to detected income;
+        // show the "no budget" empty state only when neither signal exists.
+        const explicitBudget = state.budgets?.['total']?.limit || 0;
+        const incomeOk    = _incomeIsReliable(monthIncome, monthSpend);
+        const compareBase = explicitBudget > 0 ? explicitBudget : (incomeOk ? monthIncome : 0);
+        const hasCompare  = compareBase > 0;
+        const pulsePct    = hasCompare ? Math.min(Math.round((monthSpend / compareBase) * 100), 100) : 0;
+        const fillColor   = hasCompare && pulsePct >= 90 ? 'var(--fc-danger)'
+                          : hasCompare && pulsePct >= 70 ? 'var(--fc-warning)'
+                          : 'linear-gradient(90deg,var(--fc-accent),var(--fc-electric))';
+        if (hasCompare && pulsePct >= 90) pulseRow.classList.add('dash-pulse--danger');
         else pulseRow.classList.remove('dash-pulse--danger');
 
         if (pulseSpentEl)  pulseSpentEl.textContent  = _fmtCompact(monthSpend);
         const pulseIncomeLabelEl = document.getElementById('dash-pulse-income-label');
         if (pulseIncomeEl) {
-          if (incomeOk) {
-            pulseIncomeEl.textContent = _fmtCompact(monthIncome);
-            if (pulseIncomeLabelEl) pulseIncomeLabelEl.style.display = '';
+          if (hasCompare) {
+            pulseIncomeEl.textContent = _fmtCompact(compareBase);
+            if (pulseIncomeLabelEl) {
+              pulseIncomeLabelEl.textContent = explicitBudget > 0 ? 'monthly budget' : 'monthly income';
+              pulseIncomeLabelEl.style.display = '';
+            }
           } else {
             pulseIncomeEl.textContent = '';
             if (pulseIncomeLabelEl) pulseIncomeLabelEl.style.display = 'none';
           }
         }
         if (pulseFill) {
-          pulseFill.style.width      = incomeOk ? pulsePct + '%' : '100%';
+          pulseFill.style.width      = hasCompare ? pulsePct + '%' : '100%';
           pulseFill.style.background = monthSpend > 0 ? fillColor : 'rgba(255,255,255,0.10)';
         }
 
@@ -4298,8 +4210,8 @@ window.FCApp = (function () {
         // Show end-of-month projection only when we have enough days of data
         if (pulseProjEl && _now3.getDate() > 3) {
           const projected  = Math.round((monthSpend / _now3.getDate()) * lastDay);
-          const overBudget = incomeOk && projected > monthIncome;
-          const wayOver    = incomeOk && projected > monthIncome * 1.2;
+          const overBudget = hasCompare && projected > compareBase;
+          const wayOver    = hasCompare && projected > compareBase * 1.2;
           pulseProjEl.style.display = '';
           pulseProjEl.style.color   = wayOver ? 'var(--fc-danger)' : '';
           pulseProjEl.style.fontWeight = wayOver ? '700' : '';
@@ -4307,45 +4219,11 @@ window.FCApp = (function () {
         } else if (pulseProjEl) {
           pulseProjEl.style.display = 'none';
         }
+
+        // No budget set AND no reliable income — explain instead of showing a flat bar
+        if (pulseNoBudgetEl) pulseNoBudgetEl.style.display = hasCompare ? 'none' : 'flex';
       } else {
         pulseRow.style.display = 'none';
-      }
-    }
-
-    // ── Quick-stat sub-labels ───────────────────────────────────
-    const cashSubEl  = document.getElementById('fch-qs-cash-sub');
-    const spentSubEl = document.getElementById('fch-qs-spent-sub');
-    const billsSubEl = document.getElementById('fch-qs-bills-sub');
-
-    if (cashSubEl) {
-      const n = state.accounts.length;
-      cashSubEl.textContent = n ? `${n} account${n !== 1 ? 's' : ''}` : 'connect a bank';
-    }
-    if (spentSubEl) {
-      const incomeOkSub = _incomeIsReliable(monthIncome, monthSpend);
-      if (incomeOkSub && monthSpend > 0) {
-        const spentPct = Math.round((monthSpend / monthIncome) * 100);
-        spentSubEl.textContent = `${spentPct}% of income`;
-        spentSubEl.style.color = spentPct >= 90 ? 'var(--fc-danger)' : spentPct >= 70 ? 'var(--fc-warning)' : '';
-      } else {
-        // For 1W, clarify it can include prior-month transactions
-        const label = state.period === '1W' ? 'last 7 days'
-                    : _PERIOD_LABELS[state.period] || 'this month';
-        spentSubEl.textContent = label;
-        spentSubEl.style.color = '';
-      }
-    }
-    if (billsSubEl) {
-      const billCount = unpaidBills.length;
-      billsSubEl.textContent = billCount ? `${billCount} upcoming` : 'all clear';
-      // Tint bills stat card top bar red only when there are bills due
-      const billsStatCard = document.getElementById('dash-stat-bills');
-      if (billsStatCard) {
-        billsStatCard.style.setProperty('--bills-bar-color',
-          overdueCount > 0 ? 'var(--fc-danger)'
-          : billCount  > 0 ? 'var(--fc-warning)'
-          : 'rgba(255,255,255,0.14)'
-        );
       }
     }
 
@@ -4484,110 +4362,24 @@ window.FCApp = (function () {
       if (billsLbl) billsLbl.textContent = '$0';
     }
 
-    // ── Mini cards: Financial Health + Net Worth side-by-side ─────
-    (function () {
-      const miniSection = document.getElementById('dash-mini-cards');
-      if (!miniSection) return;
-
-      const hasData = state.user?.plaid_linked && state.accounts.length > 0;
-      if (!hasData) { miniSection.classList.remove('visible'); return; }
-      miniSection.classList.add('visible');
-
-      // Health score (reuse same algorithm as _renderHealthScore)
-      const accts2    = state.accounts || [];
-      const txns2     = (state.transactions || []).filter(t => FCData.isCurrentMonth(t.date));
-      const budget2   = (state.budgets?.['total']?.limit) || 3000;
-      const spent2    = txns2.filter(t => !t.isCredit && _isSpendTxn(t)).reduce((s, t) => s + (t.amount || 0), 0);
-      const income2   = txns2.filter(_isIncomeTxn).reduce((s, t) => s + (t.amount || 0), 0);
-      const sRatio2   = budget2 > 0 ? spent2 / budget2 : 0.5;
-      let ss2 = sRatio2 <= 0.75 ? 34 : sRatio2 >= 1.5 ? 0 : Math.round(34 * (1.5 - sRatio2) / 0.75);
-      const savRate2  = _incomeIsReliable(income2, spent2) ? (income2 - spent2) / income2 : null;
-      let savScore2   = savRate2 === null ? 16 : savRate2 >= 0.2 ? 33 : savRate2 > 0 ? Math.round(33 * savRate2 / 0.2) : 0;
-      const assets2   = accts2.filter(a => a.type === 'depository' || a.type === 'investment').reduce((s, a) => s + (a.balance_current || a.balance || 0), 0);
-      const debts2    = accts2.filter(a => a.type === 'credit' || a.type === 'loan').reduce((s, a) => s + Math.max(0, a.balance_current || a.balance || 0), 0);
-      const nw2       = assets2 - debts2;
-      let nwScore2    = nw2 > 50000 ? 33 : nw2 > 10000 ? Math.round(33 * nw2 / 50000) : nw2 > 0 ? Math.round(20 * nw2 / 10000) : nw2 === 0 ? 10 : Math.max(0, Math.round(10 + nw2 / 5000));
-      const total2    = Math.min(100, ss2 + savScore2 + nwScore2);
-      const gradeMap2 = total2 >= 90 ? ['A+','Excellent'] : total2 >= 80 ? ['A','Great'] : total2 >= 70 ? ['B','Good'] : total2 >= 60 ? ['C','Fair'] : total2 >= 50 ? ['D','Needs Work'] : ['F','At Risk'];
-      const ringColor2 = total2 >= 70 ? 'var(--fc-accent)' : total2 >= 50 ? 'var(--fc-warning)' : 'var(--fc-danger)';
-      const gradeColor2 = total2 >= 70 ? 'var(--fc-success)' : total2 >= 50 ? 'var(--fc-warning)' : 'var(--fc-danger)';
-
-      const homeRing  = document.getElementById('home-health-ring');
-      const homeScore = document.getElementById('home-health-ring-score');
-      const homeGrade = document.getElementById('home-health-grade');
-      const homeDelta = document.getElementById('home-health-delta');
-      if (homeRing) { homeRing.style.strokeDashoffset = 113 * (1 - total2 / 100); homeRing.style.stroke = ringColor2; }
-      if (homeScore) homeScore.textContent = total2;
-      if (homeGrade) { homeGrade.textContent = gradeMap2[1]; homeGrade.style.color = gradeColor2; }
-      if (homeDelta) {
-        homeDelta.style.display = 'none'; // trend computation requires prev month data
-      }
-
-      // Mini NW card
-      const miniNw  = document.getElementById('home-mini-nw');
-      const miniDelta = document.getElementById('home-mini-nw-delta');
-      if (miniNw) animateNumber(miniNw, netWorth, '$');
-      if (miniDelta) {
-        const hist = state.nwHistory || {};
-        const histKeys = Object.keys(hist).sort();
-        if (histKeys.length >= 2) {
-          const prev2 = hist[histKeys[histKeys.length - 2]] ?? 0;
-          const delta2 = netWorth - prev2;
-          const isNegNW2 = netWorth < 0;
-          miniDelta.textContent = delta2 >= 0
-            ? (isNegNW2 ? '↑ Improved ' : '↑ +') + FCData.formatCurrency(Math.abs(delta2)) + ' this month'
-            : '↓ ' + FCData.formatCurrency(Math.abs(delta2)) + ' this month';
-          miniDelta.style.color = delta2 >= 0 ? 'var(--fc-success)' : 'var(--fc-danger)';
-          miniDelta.style.display = '';
-        } else {
-          miniDelta.style.display = 'none';
-        }
-      }
-
-      // Mini sparkline
-      (function () {
-        const svg2  = document.getElementById('home-mini-sparkline');
-        const line2 = document.getElementById('home-mini-sparkline-line');
-        const dot2  = document.getElementById('home-mini-sparkline-dot');
-        if (!svg2 || !line2) return;
-        const hist2 = state.nwHistory || {};
-        const keys2 = Object.keys(hist2).sort();
-        const vals2 = keys2.map(k => hist2[k]);
-        if (vals2.length < 2) { line2.setAttribute('d', 'M0,24 L120,24'); return; }
-        const W2 = 120, H2 = 28, pad2 = 3;
-        const min2 = Math.min(...vals2), max2 = Math.max(...vals2);
-        const rng2 = max2 - min2 || 1;
-        const toY2 = v => pad2 + (H2 - 2 * pad2) * (1 - (v - min2) / rng2);
-        const toX2 = i => (i / (vals2.length - 1)) * W2;
-        const pts2 = vals2.map((v, i) => [toX2(i), toY2(v)]);
-        let d2 = `M${pts2[0][0].toFixed(1)},${pts2[0][1].toFixed(1)}`;
-        for (let i2 = 1; i2 < pts2.length; i2++) {
-          const [x0, y0] = pts2[i2 - 1], [x1, y1] = pts2[i2];
-          const cx2 = (x0 + x1) / 2;
-          d2 += ` C${cx2.toFixed(1)},${y0.toFixed(1)} ${cx2.toFixed(1)},${y1.toFixed(1)} ${x1.toFixed(1)},${y1.toFixed(1)}`;
-        }
-        line2.setAttribute('d', d2);
-        const lp2 = pts2[pts2.length - 1];
-        if (dot2) { dot2.setAttribute('cx', lp2[0].toFixed(1)); dot2.setAttribute('cy', lp2[1].toFixed(1)); }
-        const isPos2 = vals2[vals2.length - 1] >= vals2[0];
-        line2.setAttribute('stroke', isPos2 ? '#1ac4f0' : 'var(--fc-danger)');
-        if (dot2) dot2.setAttribute('fill', isPos2 ? '#1ac4f0' : 'var(--fc-danger)');
-      })();
-    })();
-
-    // V3 home enhancements
-    _renderDailyBrief();
-    _renderPriorityActions();
-    _renderCashRunway();
-    _renderTimeline();
+    // ── Money at a Glance: Cash + Debt supporting text ────────────
+    const glanceCashEl    = document.getElementById('glance-cash');
+    const glanceCashSubEl = document.getElementById('glance-cash-sub');
+    if (glanceCashEl) animateNumber(glanceCashEl, cash, '$');
+    if (glanceCashSubEl) {
+      const cashAccts = state.accounts.filter(a => a.type === 'depository').length;
+      glanceCashSubEl.textContent = cashAccts ? `Across ${cashAccts} account${cashAccts !== 1 ? 's' : ''}` : 'Connect a bank';
+    }
+    const glanceDebtSubEl = document.getElementById('glance-debt-sub');
+    if (glanceDebtSubEl) {
+      const debtAccts = state.accounts.filter(a => ['credit','loan','mortgage'].includes(a.type)).length;
+      glanceDebtSubEl.textContent = debtAccts ? `${debtAccts} account${debtAccts !== 1 ? 's' : ''}` : 'No debt linked';
+    }
+    const glanceNwSubEl = document.getElementById('glance-nw-sub');
+    if (glanceNwSubEl) glanceNwSubEl.style.display = state.accounts.length ? 'none' : '';
 
     // Feedback banner
     _renderFeedbackBanner();
-
-    // Welcome modal — show once per user, deferred so home renders first
-    if (state.user && !state.user.welcome_seen && !_welcomeShown) {
-      setTimeout(_maybeShowWelcomeModal, 800);
-    }
   }
 
   /* ─────────────────────────────────────────────────────────────
@@ -6199,172 +5991,6 @@ window.FCApp = (function () {
     }).join('');
   }
 
-  /* ─────────────────────────────────────────────────────────────
-     V3 RENDER FUNCTIONS
-     ───────────────────────────────────────────────────────────── */
-
-  function _renderDailyBrief() {
-    const el     = document.getElementById('home-daily-brief');
-    const textEl = document.getElementById('home-brief-text');
-    if (!el || !textEl) return;
-
-    const txns     = state.transactions || [];
-    const accounts = state.accounts    || [];
-    const bills    = state.bills       || [];
-
-    if (!accounts.length && !txns.length) { el.style.display = 'none'; return; }
-
-    const today = new Date(); today.setHours(0,0,0,0);
-    const dayName = today.toLocaleDateString('en-US', { weekday: 'long' });
-
-    const todayTxns  = txns.filter(t => t.date && FCData.parseDateLocal(t.date).getTime() >= today.getTime() && _isSpendTxn(t));
-    const todaySpend = todayTxns.reduce((s, t) => s + (t.amount || 0), 0);
-    const biggestToday = todayTxns.sort((a, b) => b.amount - a.amount)[0];
-
-    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-    const monthSpend = txns
-      .filter(t => t.date && FCData.parseDateLocal(t.date) >= monthStart && _isSpendTxn(t))
-      .reduce((s, t) => s + (t.amount || 0), 0);
-
-    const nextBill = bills
-      .filter(b => b.status !== 'paid' && FCData.daysUntil(b.due_date) !== null && FCData.daysUntil(b.due_date) >= 0)
-      .sort((a, b) => FCData.daysUntil(a.due_date) - FCData.daysUntil(b.due_date))[0];
-
-    let brief = '';
-    if (todaySpend > 0 && biggestToday) {
-      brief = `Happy ${dayName}. You've spent ${FCData.formatCurrency(todaySpend)} today — ${esc(_cleanTxnName(biggestToday.name))} was your biggest charge (${FCData.formatCurrency(biggestToday.amount)}).`;
-    } else {
-      brief = `Happy ${dayName}. No spending recorded yet today.`;
-    }
-
-    if (nextBill) {
-      const days = FCData.daysUntil(nextBill.due_date);
-      if (days === 0)      brief += ` ${esc(nextBill.name)} (${FCData.formatCurrency(nextBill.amount)}) is due today.`;
-      else if (days === 1) brief += ` ${esc(nextBill.name)} (${FCData.formatCurrency(nextBill.amount)}) is due tomorrow.`;
-      else if (days <= 7)  brief += ` ${esc(nextBill.name)} (${FCData.formatCurrency(nextBill.amount)}) is due in ${days} days.`;
-    }
-
-    if (monthSpend > 0) brief += ` You're at ${FCData.formatCurrency(monthSpend)} spent this month.`;
-
-    textEl.textContent = brief;
-    el.style.display = '';
-  }
-
-  function _renderPriorityActions() {
-    const el     = document.getElementById('home-priority-actions');
-    const listEl = document.getElementById('home-actions-list');
-    if (!el || !listEl) return;
-
-    const bills    = state.bills    || [];
-    const accounts = state.accounts || [];
-    const actions  = [];
-
-    bills.filter(b => {
-      const d = FCData.daysUntil(b.due_date);
-      return d !== null && d < 0 && b.status !== 'paid';
-    }).forEach(b => actions.push({ priority: 'high', icon: '🔴', title: `${b.name} payment overdue`, sub: FCData.formatCurrency(b.amount) + ' past due' }));
-
-    bills.filter(b => FCData.daysUntil(b.due_date) === 0 && b.status !== 'paid')
-      .forEach(b => actions.push({ priority: 'high', icon: '⚠️', title: `${b.name} due today`, sub: FCData.formatCurrency(b.amount) }));
-
-    bills.filter(b => { const d = FCData.daysUntil(b.due_date); return d !== null && d > 0 && d <= 3 && b.status !== 'paid'; })
-      .forEach(b => {
-        const d = FCData.daysUntil(b.due_date);
-        actions.push({ priority: 'medium', icon: '📅', title: `${b.name} due in ${d} day${d !== 1 ? 's' : ''}`, sub: FCData.formatCurrency(b.amount) });
-      });
-
-    if (accounts.length === 0 && !state.user?.plaid_linked) {
-      actions.push({ priority: 'medium', icon: '🏦', title: 'Connect your bank account', sub: 'See your spending and net worth' });
-    }
-
-    if (!actions.length) { el.style.display = 'none'; return; }
-
-    const bgMap     = { high: 'rgba(255,69,58,0.08)',   medium: 'rgba(255,159,10,0.08)'  };
-    const borderMap = { high: 'rgba(255,69,58,0.20)',   medium: 'rgba(255,159,10,0.20)'  };
-    const dotMap    = { high: 'var(--fc-danger)',        medium: 'var(--fc-warning)'      };
-
-    listEl.innerHTML = actions.slice(0, 3).map(a => `
-      <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:14px;
-                  background:${bgMap[a.priority]};border:0.5px solid ${borderMap[a.priority]};cursor:pointer"
-           role="button" onclick="FCApp.switchTab('activity')">
-        <div style="font-size:16px;flex-shrink:0">${a.icon}</div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:600;color:var(--fc-text)">${esc(a.title)}</div>
-          <div style="font-size:11px;color:var(--fc-text-muted);margin-top:1px">${esc(a.sub)}</div>
-        </div>
-        <div style="width:6px;height:6px;border-radius:3px;background:${dotMap[a.priority]};flex-shrink:0"></div>
-      </div>`).join('');
-
-    el.style.display = '';
-  }
-
-  function _renderCashRunway() {
-    const el = document.getElementById('home-cash-runway');
-    if (!el) return;
-
-    const accounts = state.accounts     || [];
-    const txns     = state.transactions || [];
-    if (!accounts.length || !txns.length) { el.style.display = 'none'; return; }
-
-    const cash = FCData.calcCash(accounts);
-    if (cash <= 0) { el.style.display = 'none'; return; }
-
-    const cutoff     = new Date(Date.now() - 30 * 86400000);
-    const recent30   = txns.filter(t => _isSpendTxn(t) && FCData.parseDateLocal(t.date) >= cutoff);
-    const dailySpend = recent30.reduce((s, t) => s + (t.amount || 0), 0) / 30;
-    if (dailySpend <= 0) { el.style.display = 'none'; return; }
-
-    const days   = Math.round(cash / dailySpend);
-    const daysEl = document.getElementById('home-runway-days');
-    const subEl  = document.getElementById('home-runway-sub');
-    const barEl  = document.getElementById('home-runway-bar');
-
-    if (daysEl) daysEl.textContent = days + (days === 1 ? ' day' : ' days');
-    if (subEl)  subEl.textContent  = `${FCData.formatCurrency(cash)} cash · ${FCData.formatCurrency(dailySpend)}/day avg (last 30 days)`;
-
-    const pct = Math.min(100, Math.round((days / 90) * 100));
-    if (barEl) {
-      barEl.style.width      = pct + '%';
-      barEl.style.background = days < 14
-        ? 'var(--fc-danger)'
-        : days < 30
-        ? 'var(--fc-warning)'
-        : 'linear-gradient(90deg,var(--fc-electric),var(--fc-accent))';
-    }
-
-    el.style.display = '';
-  }
-
-  function _renderTimeline() {
-    const el     = document.getElementById('home-timeline');
-    const listEl = document.getElementById('home-timeline-list');
-    if (!el || !listEl) return;
-
-    const bills = state.bills || [];
-    const items = bills
-      .filter(b => { const d = FCData.daysUntil(b.due_date); return d !== null && d >= 0 && d <= 14 && b.status !== 'paid'; })
-      .map(b => ({ days: FCData.daysUntil(b.due_date), icon: b.icon || '💳', label: b.name, amount: b.amount,
-                   color: FCData.daysUntil(b.due_date) <= 1 ? 'var(--fc-danger)' : FCData.daysUntil(b.due_date) <= 3 ? 'var(--fc-warning)' : 'var(--fc-text-muted)' }))
-      .sort((a, b) => a.days - b.days)
-      .slice(0, 5);
-
-    if (!items.length) { el.style.display = 'none'; return; }
-
-    const dayLabel = d => d === 0 ? 'Today' : d === 1 ? 'Tomorrow' : `In ${d} days`;
-
-    listEl.innerHTML = items.map((item, i) => `
-      <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;${i > 0 ? 'border-top:0.5px solid var(--fc-border)' : ''}">
-        <div style="width:36px;height:36px;border-radius:10px;background:rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">${item.icon}</div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:600;color:var(--fc-text)">${esc(item.label)}</div>
-          <div style="font-size:11px;color:${item.color};margin-top:1px;font-weight:${item.days <= 1 ? 600 : 400}">${dayLabel(item.days)}</div>
-        </div>
-        <div style="font-size:14px;font-weight:700;color:var(--fc-danger);font-variant-numeric:tabular-nums;flex-shrink:0">−${FCData.formatCurrency(item.amount)}</div>
-      </div>`).join('');
-
-    el.style.display = '';
-  }
-
   function _renderSpendingTrends() {
     const el = document.getElementById('act-spending-trends');
     if (!el) return;
@@ -6645,6 +6271,7 @@ window.FCApp = (function () {
   /* Helper called by CTA button after paywall success */
   function renderHomeAfterPro() {
     _refreshAfterPro();
+    _scheduleWelcomeModal();
     setTimeout(() => _tryStartTour(), 1200);
   }
 
@@ -7022,10 +6649,17 @@ window.FCApp = (function () {
       // Request push permissions now — user just connected their bank, so
       // the value prop ("get notified about bills and budget alerts") is clear.
       // Slight delay so the success toast is visible first.
-      setTimeout(() => {
-        FCPush.requestAndRegister().catch(() => {});
-        FCPush.requestLocalPermission().catch(() => {});
-      }, 1200);
+      // Skip entirely if the user already explicitly declined on the
+      // notifications onboarding screen — re-asking after an explicit "Not
+      // now" is exactly the surprise-prompt behavior this is meant to avoid.
+      // requestAndRegister() shows the real OS dialog the very first time
+      // it's called, so this would otherwise re-surface it regardless of skip.
+      if (state.user?.notifications_enabled !== false) {
+        setTimeout(() => {
+          FCPush.requestAndRegister().catch(() => {});
+          FCPush.requestLocalPermission().catch(() => {});
+        }, 1200);
+      }
       // Always navigate to the app screen so home refreshes with bank data
       setScreen('app');
       _renderHome();
@@ -7057,29 +6691,80 @@ window.FCApp = (function () {
      AUTH FLOWS
      ───────────────────────────────────────────────────────────── */
 
+  const _GOOGLE_BTN_IDS  = ['btn-login-google','btn-register-google'];
+  const _APPLE_BTN_IDS   = ['btn-login-apple','btn-register-apple'];
+  const _GOOGLE_BTN_HTML = '<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg> Continue with Google';
+  const _APPLE_BTN_HTML  = '<svg width="18" height="18" viewBox="0 0 24 24" fill="black" aria-hidden="true"><path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.7 9.05 7.4c1.42.07 2.4.78 3.28.84 1.22-.24 2.4-1.03 3.7-1.02 1.56.02 2.74.74 3.51 1.9-3.19 1.96-2.67 6.28.51 7.54-.64 1.62-1.5 3.23-3 3.62zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg> Continue with Apple';
+
+  function _resetAuthButtons(ids, html) {
+    ids.forEach(id => {
+      const b = document.getElementById(id);
+      if (b) { b.disabled = false; b.innerHTML = html; }
+    });
+  }
+
+  /** True if a social sign-in failed because the user dismissed the native sheet. */
+  function _isCancelledAuthError(err) {
+    const msg = ((err && err.message) || '').toLowerCase();
+    return msg.includes('cancel') || msg.includes('dismiss') || msg.includes('popup_closed');
+  }
+
   async function handleGoogleSignIn() {
-    // Disable all Google buttons to prevent double-tap
-    ['btn-login-google','btn-register-google'].forEach(id => {
+    _GOOGLE_BTN_IDS.forEach(id => {
       const b = document.getElementById(id);
       if (b) { b.disabled = true; b.textContent = 'Signing in…'; }
     });
     _clearError('login-error');
     _clearError('register-error');
+    const startScreen = state.screen;
     try {
       window._fcNewUserFaceIdPending = true;
       await FCAuth.signInWithGoogle();
       if (typeof FCAnalytics !== 'undefined') FCAnalytics.track('login_success', { method: 'google' });
+      // Leave the button in its loading state — the auth observer is mid-flight
+      // (the Firestore round-trip in onAuthStateChanged) and about to navigate
+      // away. Resetting it here is what made sign-in look "stuck": the button
+      // flashed back to normal while the screen sat still for another second
+      // or two with no visible indication anything was happening. The safety
+      // net below recovers if routing never happens (e.g. offline Firestore read).
+      setTimeout(() => {
+        if (state.screen === startScreen) _resetAuthButtons(_GOOGLE_BTN_IDS, _GOOGLE_BTN_HTML);
+      }, 10000);
     } catch (err) {
       window._fcNewUserFaceIdPending = false;
+      _resetAuthButtons(_GOOGLE_BTN_IDS, _GOOGLE_BTN_HTML);
+      if (_isCancelledAuthError(err)) return; // user dismissed the native sheet — silent
       const msg = _friendlyAuthError(err);
       _showError('login-error', msg);
       _showError('register-error', msg);
       haptic('heavy');
-    } finally {
-      ['btn-login-google','btn-register-google'].forEach(id => {
-        const b = document.getElementById(id);
-        if (b) { b.disabled = false; b.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg> Continue with Google'; }
-      });
+    }
+  }
+
+  async function handleAppleSignIn() {
+    _APPLE_BTN_IDS.forEach(id => {
+      const b = document.getElementById(id);
+      if (b) { b.disabled = true; b.textContent = 'Signing in…'; }
+    });
+    _clearError('login-error');
+    _clearError('register-error');
+    const startScreen = state.screen;
+    try {
+      window._fcNewUserFaceIdPending = true;
+      await FCAuth.signInWithApple();
+      if (typeof FCAnalytics !== 'undefined') FCAnalytics.track('login_success', { method: 'apple' });
+      // See handleGoogleSignIn — same stuck-screen fix, same safety net.
+      setTimeout(() => {
+        if (state.screen === startScreen) _resetAuthButtons(_APPLE_BTN_IDS, _APPLE_BTN_HTML);
+      }, 10000);
+    } catch (err) {
+      window._fcNewUserFaceIdPending = false;
+      _resetAuthButtons(_APPLE_BTN_IDS, _APPLE_BTN_HTML);
+      if (_isCancelledAuthError(err)) return; // user dismissed the native sheet — silent
+      const msg = _friendlyAuthError(err);
+      _showError('login-error', msg);
+      _showError('register-error', msg);
+      haptic('heavy');
     }
   }
 
@@ -7359,6 +7044,8 @@ window.FCApp = (function () {
     // if the user closes the app during the write, the flag is already set and
     // onAuthStateChanged won't route them back to onboarding on next cold start.
     if (uid) _markOnboardingLocalCache(uid);
+    // Lift the native lock-screen suppression now that setup is done.
+    if (FCAuth.setOnboardingActive) FCAuth.setOnboardingActive(false).catch(() => {});
     // Clear mid-flow progress now that onboarding is done
     try { localStorage.removeItem('fc_ob_progress'); } catch (_) {}
     try {
@@ -7374,23 +7061,40 @@ window.FCApp = (function () {
 
   /**
    * Face ID setup screen — user tapped "Enable Face ID".
-   * Saves biometric preference, then routes to the notification
-   * permission screen (new users only) before onboarding.
+   * Fires the real native Face ID prompt immediately so the tap has a visible,
+   * deliberate native response — only persists the preference on success.
+   * Routes to the notification permission screen (new users only) after.
    */
   async function handleBiometricSetup() {
     haptic('medium');
+    const btn = document.getElementById('btn-faceid-enable');
     try {
-      if (FCAuth.setBiometricEnabled) await FCAuth.setBiometricEnabled(true);
-    } catch (_) {
-      // Biometrics unavailable on this device — silently skip
+      const available = await FCAuth.checkBiometricAvailable();
+      if (!available) {
+        // No Face ID hardware/enrollment on this device — nothing to confirm.
+        setScreen('notif-permission');
+        return;
+      }
+      if (btn) { btn.disabled = true; btn.textContent = 'Confirming…'; }
+      await FCAuth.promptBiometric('Enable Face ID for FlowCheck');
+      await FCAuth.setBiometricEnabled(true);
+      setScreen('notif-permission');
+    } catch (err) {
+      // User cancelled the native prompt or it failed — don't enable, and
+      // stay on this screen so they can retry or explicitly tap "Not now".
+      if (btn) { btn.disabled = false; btn.textContent = 'Enable Face ID'; }
+      const msg = (err && err.message || '').toLowerCase();
+      if (!(msg.includes('cancel') || msg.includes('dismiss'))) {
+        toast('Could not confirm Face ID — try again or tap "Not now"', 'error');
+      }
+      haptic('light');
     }
-    setScreen('notif-permission');
   }
 
   /** User tapped "Not now" on the Face ID setup screen. */
-  function skipFaceIdSetup() {
+  async function skipFaceIdSetup() {
     try {
-      if (FCAuth.setBiometricEnabled) FCAuth.setBiometricEnabled(false).catch(() => {});
+      if (FCAuth.setBiometricEnabled) await FCAuth.setBiometricEnabled(false);
     } catch (_) {}
     setScreen('notif-permission');
   }
@@ -7466,6 +7170,7 @@ window.FCApp = (function () {
     // non-dismissible paywall (old behaviour) felt jarring and hurt conversion.
     setScreen('app');
     _renderHome();
+    _scheduleWelcomeModal();
     setTimeout(() => _doSync(false), 800);
 
     // Check pro status async; if not Pro, show a contextual paywall from the
@@ -8080,11 +7785,13 @@ window.FCApp = (function () {
           }
           if (_onboardingLocallyCached(user.uid)) {
             // Previously completed onboarding — safe to show dashboard
+            if (FCAuth.setOnboardingActive) FCAuth.setOnboardingActive(false).catch(() => {});
             setScreen('app');
             _renderHome();
           } else if (window._fcNewUserFaceIdPending) {
             // Brand new signup, Firestore just hasn't written the doc yet
             window._fcNewUserFaceIdPending = false;
+            if (FCAuth.setOnboardingActive) FCAuth.setOnboardingActive(true).catch(() => {});
             if (_DEMO_EMAILS.includes(user.email)) {
               setScreen('faceid-setup');
             } else {
@@ -8096,6 +7803,7 @@ window.FCApp = (function () {
             }
           } else {
             // Unknown — send to onboarding rather than dashboard to be safe
+            if (FCAuth.setOnboardingActive) FCAuth.setOnboardingActive(true).catch(() => {});
             setScreen('onboarding');
           }
           return;
@@ -8108,6 +7816,14 @@ window.FCApp = (function () {
         const firestoreOnboarded = !!(userDoc?.onboarding_complete || userDoc?.plaid_linked);
         const localOnboarded     = _onboardingLocallyCached(user.uid);
         const needsOnboarding    = !userDoc ? !localOnboarded : (!firestoreOnboarded && !localOnboarded);
+
+        // Suppress the native lock screen for the whole post-signup setup window.
+        // The notifications permission dialog and Plaid Link's in-app browser both
+        // trigger applicationDidBecomeActive on the native side, which would
+        // otherwise fire an unrelated Face ID prompt mid-onboarding. Cleared in
+        // _markOnboardingComplete(). Fire-and-forget — seconds of slack before the
+        // next becomeActive event is plenty of time for this write to land.
+        if (FCAuth.setOnboardingActive) FCAuth.setOnboardingActive(needsOnboarding).catch(() => {});
 
         if (needsOnboarding) {
           // New user just registered in this session — show email verification first
@@ -8959,6 +8675,7 @@ window.FCApp = (function () {
           // Fallback if overlay element missing
           toast('Welcome to FlowCheck Pro! 🎉', 'success', 4000);
           setScreen('app');
+          _scheduleWelcomeModal();
         }
       } else {
         // RevenueCat can be slow to reflect the new entitlement — retry once after 3 s
@@ -9309,8 +9026,10 @@ window.FCApp = (function () {
         await FCData.createBill(fields);
         toast('Bill added!', 'success');
         // Re-prompt for notifications on first bill — the value prop is now obvious
-        // ("get notified when this bill is due"). Only fires if they skipped during onboarding.
-        if (!state.user?.notifications_enabled && (state.bills || []).length === 0) {
+        // ("get notified when this bill is due"). Only fires if the user was never
+        // asked (undefined) — an explicit "Not now" (=== false) is respected, not
+        // re-asked, since requestAndRegister() would surface the real OS dialog.
+        if (state.user?.notifications_enabled === undefined && (state.bills || []).length === 0) {
           setTimeout(() => {
             FCPush.requestAndRegister().catch(() => {});
             FCPush.requestLocalPermission().catch(() => {});
@@ -9978,9 +9697,27 @@ window.FCApp = (function () {
 
   let _welcomeShown = false;
 
+  /**
+   * Schedules the one-time welcome modal. Call ONLY from "a new user just
+   * landed on the dashboard for the first time" navigation events (trial
+   * started, onboarding skipped) — never from generic render functions like
+   * _renderHome(), which fires constantly from background syncs, tab
+   * switches, and pro-status refreshes and would otherwise resurface this
+   * over and over, on top of whatever screen happens to be open.
+   */
+  function _scheduleWelcomeModal() {
+    if (state.user && !state.user.welcome_seen && !_welcomeShown) {
+      setTimeout(_maybeShowWelcomeModal, 800);
+    }
+  }
+
   function _maybeShowWelcomeModal() {
     if (_welcomeShown) return;
     if (!state.user) return;
+    // The 800ms deferral means the user may have already navigated away from
+    // the dashboard (or signed out) by the time this fires — don't surface a
+    // full-screen overlay on top of whatever screen they're on now.
+    if (state.screen !== 'app') return;
     // Primary: Firestore flag (cross-device); Fallback: per-uid localStorage (survives network failure)
     const uid = FCAuth.currentUser ? FCAuth.currentUser()?.uid : null;
     const localKey = uid ? `fc_ws_${uid}` : null;
@@ -10012,6 +9749,7 @@ window.FCApp = (function () {
       setTimeout(() => overlay.remove(), 200);
       // Write localStorage immediately (no network) so re-opens don't re-show the modal
       if (localKey) { try { localStorage.setItem(localKey, '1'); } catch (_) {} }
+      if (state.user) state.user.welcome_seen = true;
       FCData.updateUserField('welcome_seen', true).catch(() => {});
       if (openFeedback) setTimeout(() => showFeedbackScreen(), 220);
     };
@@ -10234,7 +9972,7 @@ window.FCApp = (function () {
     disconnectBank,
     deleteAccount,
     // Auth flows
-    handleAppleSignIn: () => FCAuth.signInWithApple(),
+    handleAppleSignIn,
     handleGoogleSignIn,
     handleLogin,
     handleBiometricLogin,
@@ -10344,12 +10082,6 @@ window.FCApp = (function () {
     getTotalBudgetLimit: () => (state.budgets && state.budgets['total'] ? state.budgets['total'].limit : 3000),
     // Dashboard UI
     toggleInsights,
-    // Alert banner tap — routes to the most relevant tab based on alert type
-    _alertBannerTap() {
-      const banner = document.getElementById('home-alert-inner');
-      const tab    = banner?.dataset?.alertTab || 'activity';
-      switchTab(tab);
-    },
     // Today's Focus card
     nextFocusInsight() {
       if (!_focusInsights.length) return;
