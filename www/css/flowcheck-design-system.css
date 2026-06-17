@@ -1539,6 +1539,97 @@ body.fc-theme {
   box-shadow: 0 1px 3px rgba(13,27,46,0.06), 0 4px 14px rgba(13,27,46,0.05) !important;
 }
 
+/* ============================================================
+   LIGHT MODE: Comprehensive inline-style override sweep
+   Covers both static HTML and JS-rendered dynamic content
+   that use hardcoded rgba(255,255,255,...) / color:#fff
+   ============================================================ */
+
+/* ── dash-card + dash-ins children with hardcoded white text ─── */
+/* Cards are white in light mode; all inline white text flips dark */
+[data-theme="light"] .dash-card [style*="color:#fff"],
+[data-theme="light"] .dash-ins   [style*="color:#fff"] {
+  color: #0a1520 !important;
+}
+[data-theme="light"] .dash-card [style*="color:rgba(255,255,255,0.28)"],
+[data-theme="light"] .dash-card [style*="color:rgba(255,255,255,0.25)"],
+[data-theme="light"] .dash-card [style*="color:rgba(255,255,255,0.22)"] {
+  color: rgba(13,27,46,0.34) !important;
+}
+[data-theme="light"] .dash-card [style*="color:rgba(255,255,255,0.38)"],
+[data-theme="light"] .dash-card [style*="color:rgba(255,255,255,0.40)"],
+[data-theme="light"] .dash-card [style*="color:rgba(255,255,255,0.4)"],
+[data-theme="light"] .dash-card [style*="color:rgba(255,255,255,0.42)"],
+[data-theme="light"] .dash-card [style*="color:rgba(255,255,255,0.45)"] {
+  color: rgba(13,27,46,0.50) !important;
+}
+[data-theme="light"] .dash-card [style*="color:rgba(255,255,255,0.50)"],
+[data-theme="light"] .dash-card [style*="color:rgba(255,255,255,0.5)"] {
+  color: rgba(13,27,46,0.55) !important;
+}
+/* Glass sub-containers inside dash-cards: near-invisible on white → soft tint */
+[data-theme="light"] .dash-card [style*="background:rgba(255,255,255,0.04)"] {
+  background: rgba(13,27,46,0.04) !important;
+  border-color: rgba(13,27,46,0.08) !important;
+}
+
+/* ── Activity: transaction icon circles ──────────────────────── */
+/* fc-list-icon uses color:white inline — emoji unaffected (own glyph colors);
+   only text-initial fallbacks benefit from this dark override */
+[data-theme="light"] .fc-list-icon { color: rgba(13,27,46,0.70) !important; }
+
+/* ── Activity: 6-week spending chart (#act-spending-trends) ───── */
+/* Chart container: dark glass card → white card */
+[data-theme="light"] #act-spending-trends [style*="border-radius:16px"] {
+  background: #ffffff !important;
+  border-color: rgba(13,27,46,0.08) !important;
+  box-shadow: 0 1px 3px rgba(13,27,46,0.06), 0 4px 14px rgba(13,27,46,0.04) !important;
+}
+/* Inactive bar fills: near-invisible white → soft dark tint */
+[data-theme="light"] #act-spending-trends [style*="background:rgba(255,255,255,0.14)"] {
+  background: rgba(13,27,46,0.12) !important;
+}
+
+/* ── Wealth: inactive period tab buttons ─────────────────────── */
+[data-theme="light"] #view-wealth [role="tab"] {
+  color: rgba(13,27,46,0.50) !important;
+  background: rgba(13,27,46,0.05) !important;
+}
+[data-theme="light"] #view-wealth [role="tab"].active,
+[data-theme="light"] #view-wealth [role="tab"][aria-selected="true"] {
+  background: rgba(13,173,212,0.14) !important;
+  color: var(--fc-accent) !important;
+}
+
+/* ── Insights: health score ring track (SVG circle) ──────────── */
+/* The track circle uses stroke:rgba(255,255,255,0.08) — invisible on white */
+[data-theme="light"] .ins-health-card circle { stroke: rgba(13,27,46,0.09) !important; }
+
+/* ── Insights: Edit Budget inline button ──────────────────────── */
+[data-theme="light"] #view-insights button[style*="border:0.5px solid rgba(255,255,255"] {
+  border-color: rgba(13,27,46,0.14) !important;
+  background: rgba(13,27,46,0.04) !important;
+  color: rgba(13,27,46,0.65) !important;
+}
+
+/* ── Settings: legal footer inline text ──────────────────────── */
+[data-theme="light"] #view-settings [style*="color:rgba(255,255,255,0.40)"],
+[data-theme="light"] #view-settings [style*="color:rgba(255,255,255,0.4)"] {
+  color: rgba(13,27,46,0.52) !important;
+}
+[data-theme="light"] #view-settings [style*="color:rgba(255,255,255,0.35)"] {
+  color: rgba(13,27,46,0.50) !important;
+}
+[data-theme="light"] #view-settings [style*="color:rgba(255,255,255,0.30)"],
+[data-theme="light"] #view-settings [style*="color:rgba(255,255,255,0.3)"] {
+  color: rgba(13,27,46,0.42) !important;
+}
+[data-theme="light"] #view-settings [style*="color:rgba(255,255,255,0.20)"],
+[data-theme="light"] #view-settings [style*="color:rgba(255,255,255,0.2)"],
+[data-theme="light"] #view-settings [style*="color:rgba(255,255,255,0.15)"] {
+  color: rgba(13,27,46,0.28) !important;
+}
+
 
 /* ============================================================
    PREMIUM POLISH v4 — Enterprise UX layer
