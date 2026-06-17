@@ -40,7 +40,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
         // Cold launch via URL (e.g. OAuth redirect reopening a killed app)
         if let urlContext = connectionOptions.urlContexts.first {
-            ApplicationDelegateProxy.shared.application(UIApplication.shared, open: urlContext.url, options: [:])
+            _ = ApplicationDelegateProxy.shared.application(UIApplication.shared, open: urlContext.url, options: [:])
         }
     }
 
@@ -51,7 +51,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     // iOS routes URL opens here instead. Required for Google/Apple Sign In OAuth redirects.
     func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
         guard let url = URLContexts.first?.url else { return }
-        ApplicationDelegateProxy.shared.application(UIApplication.shared, open: url, options: [:])
+        _ = ApplicationDelegateProxy.shared.application(UIApplication.shared, open: url, options: [:])
     }
     func sceneDidBecomeActive(_ scene: UIScene) {
         // Delegate to AppDelegate's existing didBecomeActive logic

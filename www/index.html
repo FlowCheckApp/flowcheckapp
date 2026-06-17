@@ -3345,7 +3345,7 @@ body {
     <!-- Legal note (slide 4) -->
     <p id="ob-legal-note" style="display:none;font-size:10px;color:rgba(255,255,255,0.20);text-align:center;
                                   margin-top:10px;line-height:1.65;padding:0 6px">
-      Payment charged to your Apple ID at confirmation. Subscription auto-renews unless canceled at least 24 hours before the end of the current period. Manage or cancel in App Store Account Settings. Any unused trial is forfeited upon purchase.
+      7-day free trial, then $34.99/year (or $4.99/month). Payment charged to your Apple ID at confirmation. Subscription auto-renews unless canceled at least 24 hours before the end of the current period. Manage or cancel anytime in App Store Account Settings. Any unused trial is forfeited upon purchase.
       <a href="#" onclick="FCApp.openUrl('/legal/terms.html');return false" style="color:rgba(255,255,255,0.36)">Terms</a>
       &amp;
       <a href="#" onclick="FCApp.openUrl('/legal/privacy.html');return false" style="color:rgba(255,255,255,0.36)">Privacy</a>.
@@ -3776,12 +3776,6 @@ body {
       </li>
     </ul>
 
-    <!-- Free tier context — sets expectation before asking for money -->
-    <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:12px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);margin-bottom:14px">
-      <span style="font-size:13px;color:rgba(240,246,255,0.40);font-weight:600;white-space:nowrap">Free plan:</span>
-      <span style="font-size:13px;color:rgba(240,246,255,0.55)">1 bank account · basic transactions only</span>
-    </div>
-
     <!-- Plan selector -->
     <div class="fc-pw-plans" id="pw-plans" role="radiogroup" aria-label="Choose a plan">
       <!-- Annual — default selected -->
@@ -3815,7 +3809,7 @@ body {
 
     <!-- Primary CTA — shine sweep animation via CSS -->
     <button id="pw-cta-btn" class="fc-pw-cta" onclick="FCApp.paywallPurchase()" type="button">
-      Start My Free Week →
+      Start 7-Day Free Trial
     </button>
 
     <!-- Risk-erasure trust strip — kills the 3 biggest objections -->
@@ -3848,12 +3842,12 @@ body {
       <a href="#" onclick="FCApp.openUrl('/legal/privacy.html'); return false">Privacy</a>
     </div>
 
-    <!-- App Review demo bypass — tester can explore without a real bank account -->
+    <!-- Demo mode — visible only to reviewer@flowcheck.app via JS; default hidden -->
     <button id="pw-demo-btn" type="button" onclick="FCApp.startDemoMode()"
             style="background:none;border:none;color:rgba(255,255,255,0.22);font-size:11px;
                    padding:10px 16px;cursor:pointer;-webkit-tap-highlight-color:transparent;
-                   min-height:44px;display:block;margin:0 auto">
-      App Review: Use Demo Account
+                   min-height:44px;display:none;margin:0 auto">
+      Use Demo Account
     </button>
 
     <div style="height:calc(env(safe-area-inset-bottom) + 4px)"></div>

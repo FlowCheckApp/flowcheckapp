@@ -63,14 +63,14 @@ window.FC_CONFIG = {
      Public iOS SDK key — safe to include in client code.
      App ID: app4590b0f1ba
      Dashboard: https://app.revenuecat.com
-     Entitlement: "pro"
+     Entitlement: "premium"  ← must match RevenueCat dashboard exactly
      Products (configure in App Store Connect + RevenueCat dashboard):
        flowcheck.pro.monthly — $4.99/mo
        flowcheck.pro.annual  — $34.99/yr (7-day free trial)
      ─────────────────────────────────────────────────────────── */
   revenueCat: {
     apiKey:        'appl_uXPDYRZDWiuLWcHfmesBUwKHmOQ',  // iOS
-    apiKeyAndroid: 'REPLACE_WITH_GOOG_ANDROID_RC_KEY',   // Android — get from RevenueCat dashboard → Android app
+    apiKeyAndroid: '',  // Android — not currently supported; set when adding Android build
     appId:         'app4590b0f1ba',
     entitlementId: 'premium',
   },

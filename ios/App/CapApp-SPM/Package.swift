@@ -21,8 +21,7 @@ let package = Package(
         .package(name: "CapacitorPushNotifications", path: "../../../node_modules/@capacitor/push-notifications"),
         .package(name: "RevenuecatPurchasesCapacitor", path: "../../../node_modules/@revenuecat/purchases-capacitor"),
         .package(name: "CapacitorSecureStoragePlugin", path: "../../../node_modules/capacitor-secure-storage-plugin"),
-        // GoogleSignIn-iOS: required by @codetrix-studio/capacitor-google-auth (Plugin.swift imports GoogleSignIn)
-        // cap sync regenerates this file without it — re-added by postinstall script
+        // GoogleSignIn-iOS required by @codetrix-studio/capacitor-google-auth
         .package(url: "https://github.com/google/GoogleSignIn-iOS.git", exact: "7.1.0")
     ],
     targets: [

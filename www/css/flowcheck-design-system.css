@@ -466,7 +466,7 @@ body.fc-theme {
   font-weight: 700;
   border: none;
   cursor: pointer;
-  transition: transform 0.14s var(--fc-ease-spring), opacity 0.12s, box-shadow 0.18s;
+  transition: transform 0.14s var(--fc-ease-spring), opacity 0.12s;
   font-family: inherit;
   letter-spacing: -0.01em;
   position: relative;

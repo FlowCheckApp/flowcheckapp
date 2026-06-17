@@ -1254,6 +1254,18 @@ window.FCApp = (function () {
   let _screenTransitioning = false;
 
   function setScreen(name) {
+    // Auto-skip the Face ID setup screen on devices without biometric hardware
+    if (name === 'faceid-setup') {
+      FCAuth.checkBiometricAvailable().then(available => {
+        if (!available) { _doSetScreen('notif-permission'); return; }
+        _doSetScreen('faceid-setup');
+      }).catch(() => _doSetScreen('faceid-setup'));
+      return;
+    }
+    _doSetScreen(name);
+  }
+
+  function _doSetScreen(name) {
     if (state.screen === name) return;
 
     // Abort any in-flight transition cleanly
@@ -1342,10 +1354,12 @@ window.FCApp = (function () {
 
   let _activitySegment  = 'transactions'; // 'transactions' | 'bills'
   let _activityFilter   = 'all';          // 'all' | 'today' | 'week' | 'month' | 'income'
+  let _activityShowAll  = false;          // true = show all transactions (bypasses 75-item cap)
 
   function filterActivity(filter) {
     if (_activityFilter === filter) return;
     _activityFilter = filter;
+    _activityShowAll = false;
     haptic('light');
     document.querySelectorAll('[data-activity-period]').forEach(btn => {
       const active = btn.dataset.activityPeriod === filter;
@@ -1521,6 +1535,7 @@ window.FCApp = (function () {
     if (tabId === 'home') {
       setTimeout(_renderHome, ANIM_MS);
     } else if (tabId === 'activity') {
+      _activityShowAll = false;
       setTimeout(() => {
         if (_activitySegment === 'bills') _renderBillsList();
         else _renderActivity();
@@ -4524,10 +4539,18 @@ window.FCApp = (function () {
       return;
     }
 
-    const groups = FCData.groupTransactionsByDate(filtered);
+    const PAGE_TXN_LIMIT = 75;
+    const allGroups = FCData.groupTransactionsByDate(filtered);
     let html = '';
+    let renderedCount = 0;
+    let truncated = false;
 
-    for (const [label, txns] of Object.entries(groups)) {
+    for (const [label, txns] of Object.entries(allGroups)) {
+      if (!_activityShowAll && renderedCount >= PAGE_TXN_LIMIT) {
+        truncated = true;
+        break;
+      }
+
       html += `<div class="fc-date-label">${label}</div>
                <article class="fc-card" style="padding:4px 16px;margin-bottom:0">`;
 
@@ -4556,9 +4579,23 @@ window.FCApp = (function () {
       }).join('');
 
       html += '</article>';
+      renderedCount += txns.length;
+    }
+
+    if (truncated) {
+      const remaining = filtered.length - renderedCount;
+      html += `
+        <button onclick="FCApp.showAllActivity()" style="width:100%;padding:14px;background:transparent;border:0.5px solid var(--fc-border);border-radius:14px;color:var(--fc-text-muted);font-size:14px;font-weight:500;cursor:pointer;margin-top:4px">
+          Show ${remaining} more transaction${remaining !== 1 ? 's' : ''}
+        </button>`;
     }
 
     container.innerHTML = html;
+  }
+
+  function showAllActivity() {
+    _activityShowAll = true;
+    _renderActivity();
   }
 
   /* ─────────────────────────────────────────────────────────────
@@ -8312,8 +8349,13 @@ window.FCApp = (function () {
         await FCData.disconnectBank();
       }
 
-      // Close all sheets
-      document.querySelectorAll('.fc-sheet-overlay').forEach(s => { s.style.display = 'none'; });
+      // Close all sheets with animation
+      document.querySelectorAll('.fc-sheet-overlay').forEach(s => {
+        if (s.style.display !== 'none') {
+          s.classList.add('fc-sheet--closing');
+          setTimeout(() => { s.style.display = 'none'; s.classList.remove('fc-sheet--closing'); }, 280);
+        }
+      });
       toast('Bank disconnected', 'success');
       haptic('medium');
 
@@ -8351,7 +8393,12 @@ window.FCApp = (function () {
       await FCData.deleteAccount();
       // Firebase Auth user is now deleted server-side.
       // Sign out locally to clear any cached credentials.
-      document.querySelectorAll('.fc-sheet-overlay').forEach(s => { s.style.display = 'none'; });
+      document.querySelectorAll('.fc-sheet-overlay').forEach(s => {
+        if (s.style.display !== 'none') {
+          s.classList.add('fc-sheet--closing');
+          setTimeout(() => { s.style.display = 'none'; s.classList.remove('fc-sheet--closing'); }, 280);
+        }
+      });
       FCData.detachAllListeners();
       await FCAuth.signOut().catch(() => {});
       // Auth state observer will navigate to login
@@ -8564,10 +8611,12 @@ window.FCApp = (function () {
           const savePct  = Math.round((1 - rawAnnual / fullYear) * 100);
           if (savePct > 0) savingsEl.textContent = `Save ${savePct}%`;
         }
-        // Update CTA & terms text to reflect live price
+        // Update CTA button and terms text to reflect live price
         const termsEl = document.getElementById('pw-terms-text');
-        if (termsEl && _selectedPlan === 'annual') {
-          termsEl.textContent = `Payment charged to your Apple ID at purchase confirmation. Subscription auto-renews at ${price}/year unless canceled at least 24 hours before the end of the current period. Manage or cancel in App Store Account Settings. Any unused trial is forfeited upon purchase.`;
+        const ctaBtn  = document.getElementById('pw-cta-btn');
+        if (_selectedPlan === 'annual') {
+          if (termsEl) termsEl.textContent = `Payment charged to your Apple ID at purchase confirmation. Subscription auto-renews at ${price}/year unless canceled at least 24 hours before the end of the current period. Manage or cancel anytime in App Store Account Settings. Any unused trial is forfeited upon purchase.`;
+          if (ctaBtn && !ctaBtn.disabled) ctaBtn.textContent = 'Start 7-Day Free Trial';
         }
       }
       if (monthly) {
@@ -8598,11 +8647,11 @@ window.FCApp = (function () {
     const monthlyPrice = monthlyPkg?.product?.priceString ?? '$4.99';
 
     if (plan === 'annual') {
-      if (btn)   btn.textContent   = 'Start My Free Week →';
-      if (terms) terms.textContent = `Payment charged to your Apple ID at purchase confirmation. Subscription auto-renews at ${annualPrice}/year unless canceled at least 24 hours before the end of the current period. Manage or cancel in App Store Account Settings. Any unused trial is forfeited upon purchase.`;
+      if (btn)   btn.textContent   = 'Start 7-Day Free Trial';
+      if (terms) terms.textContent = `Payment charged to your Apple ID at purchase confirmation. Subscription auto-renews at ${annualPrice}/year unless canceled at least 24 hours before the end of the current period. Manage or cancel anytime in App Store Account Settings. Any unused trial is forfeited upon purchase.`;
     } else {
       if (btn)   btn.textContent   = 'Start Monthly Plan';
-      if (terms) terms.textContent = `Payment charged to your Apple ID at purchase confirmation. Subscription auto-renews at ${monthlyPrice}/month unless canceled at least 24 hours before the end of the current period. Manage or cancel in App Store Account Settings.`;
+      if (terms) terms.textContent = `Payment charged to your Apple ID at purchase confirmation. Subscription auto-renews at ${monthlyPrice}/month unless canceled at least 24 hours before the end of the current period. Manage or cancel anytime in App Store Account Settings.`;
     }
   }
 
@@ -8705,7 +8754,7 @@ window.FCApp = (function () {
       }
       if (btn) {
         btn.disabled = false;
-        btn.textContent = _selectedPlan === 'annual' ? 'Try Free for 7 Days' : 'Start Monthly Plan';
+        btn.textContent = _selectedPlan === 'annual' ? 'Start 7-Day Free Trial' : 'Start Monthly Plan';
       }
     }
   }
@@ -8757,11 +8806,11 @@ window.FCApp = (function () {
         _refreshAfterPro();
       } else {
         toast('No previous purchase found', 'info');
-        if (btn) { btn.disabled = false; btn.textContent = _selectedPlan === 'annual' ? 'Try Free for 7 Days' : 'Start Monthly Plan'; }
+        if (btn) { btn.disabled = false; btn.textContent = _selectedPlan === 'annual' ? 'Start 7-Day Free Trial' : 'Start Monthly Plan'; }
       }
     } catch (err) {
       toast('Restore failed: ' + err.message, 'error');
-      if (btn) { btn.disabled = false; btn.textContent = _selectedPlan === 'annual' ? 'Try Free for 7 Days' : 'Start Monthly Plan'; }
+      if (btn) { btn.disabled = false; btn.textContent = _selectedPlan === 'annual' ? 'Start 7-Day Free Trial' : 'Start Monthly Plan'; }
     }
   }
 
@@ -9232,6 +9281,7 @@ window.FCApp = (function () {
   function filterActivityCategory(cat) {
     if (_activityCategoryFilter === cat) return;
     _activityCategoryFilter = cat;
+    _activityShowAll = false;
     haptic('light');
 
     // Update chip active state
@@ -10025,6 +10075,7 @@ window.FCApp = (function () {
     editBill,
     switchActivitySegment,
     filterActivity,
+    showAllActivity,
     // Manual accounts
     showManualAccountSheet,
     closeManualAccountSheet,

@@ -12,7 +12,8 @@
     "Keyboard": {
       "resize": "native",
       "style": "default",
-      "resizeOnFullScreen": true
+      "resizeOnFullScreen": true,
+      "hideFormAccessoryBar": true
     },
     "StatusBar": {
       "backgroundColor": "#0a1520",

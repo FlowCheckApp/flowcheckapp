@@ -102,17 +102,6 @@
     .faq-answer strong { color: var(--white); }
     .faq-answer code { background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 13px; }
 
-    /* STATUS INDICATOR */
-    .status-bar {
-      display: flex; align-items: center; gap: 10px;
-      padding: 12px 16px; border-radius: 10px;
-      background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.2);
-      margin-bottom: 20px;
-    }
-    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); animation: pulse-green 2s ease-in-out infinite; flex-shrink: 0; }
-    @keyframes pulse-green { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.6;transform:scale(0.8)} }
-    .status-text { font-size: 13px; color: var(--gray-1); font-weight: 500; }
-
     footer { padding: 40px; text-align: center; border-top: 1px solid rgba(255,255,255,0.06); font-size: 13px; color: var(--gray-3); }
     footer a { color: var(--gray-3); text-decoration: none; margin: 0 8px; }
     footer a:hover { color: var(--white); }
@@ -141,11 +130,6 @@
 
 <div class="support-layout">
   <aside class="sidebar">
-    <div class="status-bar">
-      <div class="status-dot"></div>
-      <span class="status-text">All systems operational</span>
-    </div>
-
     <div class="contact-cards">
       <a href="mailto:support@getflowcheck.app" class="contact-card">
         <div class="contact-card-icon">✉️</div>
