@@ -64,9 +64,9 @@ window.FC_CONFIG = {
      App ID: app4590b0f1ba
      Dashboard: https://app.revenuecat.com
      Entitlement: "premium"  ← must match RevenueCat dashboard exactly
-     Products (configure in App Store Connect + RevenueCat dashboard):
-       flowcheck.pro.monthly — $4.99/mo
-       flowcheck.pro.annual  — $34.99/yr (7-day free trial)
+     Products (App Store Connect + RevenueCat dashboard):
+       premium_monthly — $4.99/mo
+       premium_yearly  — $34.99/yr (7-day free trial)
      ─────────────────────────────────────────────────────────── */
   revenueCat: {
     apiKey:        'appl_uXPDYRZDWiuLWcHfmesBUwKHmOQ',  // iOS
