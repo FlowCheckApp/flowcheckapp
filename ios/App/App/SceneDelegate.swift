@@ -33,9 +33,10 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
         guard let windowScene = scene as? UIWindowScene else { return }
 
-        // Match the app background to --fc-bg (#060e18) so UIWindow edges
-        // never bleed white into safe-area gutters during sheet transitions.
-        window?.backgroundColor = UIColor(red: 6/255, green: 14/255, blue: 24/255, alpha: 1)
+        // Match the default light-mode background (#f2f4f8) so UIWindow edges
+        // don't bleed dark navy into safe-area gutters during sheet transitions.
+        // Users who switch to dark mode see a brief edge flash only during transitions.
+        window?.backgroundColor = UIColor(red: 242/255, green: 244/255, blue: 248/255, alpha: 1)
         window?.windowScene = windowScene
 
         // Cold launch via URL (e.g. OAuth redirect reopening a killed app)

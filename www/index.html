@@ -6,7 +6,7 @@
 <!-- Apply saved theme BEFORE any CSS renders — prevents flash of wrong theme -->
 <script>
   (function(){
-    var p = localStorage.getItem('fc_appearance') || 'dark';
+    var p = localStorage.getItem('fc_appearance') || 'light';
     var mq = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)');
     var light = p === 'light' || (p === 'system' && mq && mq.matches);
     document.documentElement.setAttribute('data-theme', light ? 'light' : 'dark');
@@ -773,14 +773,14 @@ body.fc-keyboard-open .fc-auth-screen { padding-top: calc(env(safe-area-inset-to
   animation: fcLogoIn 0.65s var(--fc-ease-spring) both;
 }
 .fc-hero-wordmark {
-  font-size: 20px; font-weight: 800; color: rgba(255,255,255,0.70); letter-spacing: -0.02em;
+  font-size: 20px; font-weight: 700; color: rgba(255,255,255,0.70); letter-spacing: -0.015em;
   animation: fcFadeUp 0.5s 0.2s var(--fc-ease-out) both;
 }
 /* Hero copy */
 .fc-hero-copy { text-align: center; margin-bottom: 28px; }
 .fc-hero-headline {
-  font-size: 36px; font-weight: 900; color: #fff; letter-spacing: -0.045em;
-  line-height: 1.1; margin: 0 0 14px;
+  font-size: 34px; font-weight: 700; color: #fff; letter-spacing: -0.026em;
+  line-height: 1.12; margin: 0 0 14px;
   animation: fcFadeUp 0.6s 0.15s var(--fc-ease-out) both;
 }
 .fc-hero-headline-grad {
@@ -2448,7 +2448,7 @@ body {
 
   <div style="position:relative;z-index:1;width:100%;max-width:320px" class="fc-stagger">
 
-    <h1 style="font-size:27px;font-weight:800;color:#fff;letter-spacing:-0.038em;margin:0 0 11px;line-height:1.14">
+    <h1 style="font-size:26px;font-weight:700;color:#fff;letter-spacing:-0.022em;margin:0 0 11px;line-height:1.16">
       Enable Face ID
     </h1>
     <p style="font-size:14px;color:rgba(255,255,255,0.48);line-height:1.68;margin:0 0 26px;max-width:280px;margin-left:auto;margin-right:auto">
@@ -2808,7 +2808,7 @@ body {
   text-transform: uppercase; color: rgba(255,255,255,0.32); margin-bottom: 6px;
 }
 .fc-ob-nw-value {
-  font-size: 38px; font-weight: 800; letter-spacing: -0.04em;
+  font-size: 36px; font-weight: 700; letter-spacing: -0.025em;
   color: #fff; line-height: 1; font-variant-numeric: tabular-nums;
 }
 .fc-ob-nw-badge {
@@ -2846,8 +2846,8 @@ body {
 
 /* ── Typography ── */
 .fc-ob-title {
-  font-size: 30px; font-weight: 800; letter-spacing: -0.03em;
-  line-height: 1.16; color: white; margin: 0 0 10px;
+  font-size: 28px; font-weight: 700; letter-spacing: -0.022em;
+  line-height: 1.18; color: white; margin: 0 0 10px;
 }
 .fc-ob-title-xl { font-size: 32px; }
 .fc-ob-title-grad {
@@ -4049,8 +4049,8 @@ body {
     /* ── Greeting header ────────────────────────────────────────── */
     .dash-greeting{display:flex;align-items:center;justify-content:space-between;padding:12px 20px 10px}
     .dash-greeting-left{flex:1;min-width:0}
-    .dash-tod{font-size:11px;color:rgba(255,255,255,0.38);font-weight:600;letter-spacing:0.08em;margin-bottom:2px;text-transform:uppercase}
-    .dash-name{font-size:32px;font-weight:900;color:#fff;letter-spacing:-0.04em;line-height:1.05;margin:0}
+    .dash-tod{font-size:11px;color:rgba(255,255,255,0.38);font-weight:500;letter-spacing:0.04em;margin-bottom:2px;text-transform:uppercase}
+    .dash-name{font-size:28px;font-weight:700;color:#fff;letter-spacing:-0.025em;line-height:1.1;margin:0}
     /* Safe-to-spend pill — more tactile, pill-shaped */
     .dash-safe{
       display:inline-flex;align-items:center;gap:7px;
@@ -4087,7 +4087,7 @@ body {
 
     /* ── Section header row ─────────────────────────────────────── */
     .dash-sec-hdr{display:flex;align-items:center;justify-content:space-between;padding:0 18px;margin-bottom:12px}
-    .dash-sec-title{font-size:15px;font-weight:700;color:rgba(255,255,255,0.88);letter-spacing:-0.020em}
+    .dash-sec-title{font-size:14px;font-weight:600;color:rgba(255,255,255,0.85);letter-spacing:-0.010em}
     .dash-sec-link{font-size:13px;font-weight:600;color:var(--fc-accent);border:none;background:none;cursor:pointer;padding:4px 0;-webkit-tap-highlight-color:transparent;transition:opacity .15s}
     .dash-sec-link:active{opacity:.65}
 
@@ -4137,34 +4137,38 @@ body {
     /* Subtle line after the tag text */
     .dash-nw-tag::after{content:'';flex:1;height:0.5px;background:rgba(255,255,255,0.07);display:block}
     .dash-nw-row{display:flex;flex-direction:column;align-items:flex-start;gap:6px;margin-bottom:4px;position:relative;z-index:1}
-    .dash-nw-amount{font-size:clamp(42px,14vw,58px);font-weight:900;color:#fff;letter-spacing:-3.2px;line-height:1;font-variant-numeric:tabular-nums;animation:dashNWIn .55s cubic-bezier(.22,1,.36,1) both}
-    .dash-nw-pill{display:inline-flex;align-items:center;gap:3px;background:rgba(52,199,89,0.12);border:0.5px solid rgba(52,199,89,0.28);border-radius:20px;padding:5px 10px;font-size:11px;font-weight:700;color:var(--fc-success);flex-shrink:0}
+    .dash-nw-amount{font-size:clamp(38px,12vw,52px);font-weight:700;color:#fff;letter-spacing:-0.025em;line-height:1;font-variant-numeric:tabular-nums;animation:dashNWIn .55s cubic-bezier(.22,1,.36,1) both}
+    .dash-nw-pill{display:inline-flex;align-items:center;gap:3px;background:rgba(52,199,89,0.12);border:0.5px solid rgba(52,199,89,0.28);border-radius:20px;padding:5px 10px;font-size:11px;font-weight:600;color:var(--fc-success);flex-shrink:0}
     .dash-nw-pill.neg{background:rgba(255,69,58,0.12);border-color:rgba(255,69,58,0.28);color:var(--fc-danger)}
     .dash-nw-footer{display:flex;border-top:0.5px solid rgba(255,255,255,0.08);padding-top:15px;margin-top:6px;position:relative;z-index:1}
     .dash-nw-foot{flex:1;display:flex;flex-direction:column;gap:5px;text-align:center}
     .dash-nw-foot:not(:last-child){border-right:0.5px solid rgba(255,255,255,0.07)}
-    .dash-nf-lbl{font-size:10px;color:rgba(255,255,255,0.42);font-weight:600;letter-spacing:.06em;text-transform:uppercase}
-    .dash-nf-val{font-size:18px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-0.03em}
+    .dash-nf-lbl{font-size:10px;color:rgba(255,255,255,0.42);font-weight:500;letter-spacing:.04em;text-transform:uppercase}
+    .dash-nf-val{font-size:17px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-0.02em}
     .dash-green{color:var(--fc-success)}.dash-red{color:var(--fc-danger)}
 
-    /* ── Money at a Glance — 4-tile grid ─────────────────────────── */
+    /* ── Money at a Glance — 4-tile grid (horizontal layout) ─────── */
     .dash-glance-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 16px}
     .dash-glance-tile{
       background:linear-gradient(160deg,rgba(15,28,48,0.98) 0%,rgba(8,17,28,0.98) 100%);
       border-radius:20px;border:0.5px solid rgba(255,255,255,0.08);
-      padding:16px;cursor:pointer;-webkit-tap-highlight-color:transparent;
+      padding:14px 12px;cursor:pointer;-webkit-tap-highlight-color:transparent;
       transition:opacity .15s,transform .15s;
+      display:flex;align-items:center;gap:10px;
     }
     .dash-glance-tile:active{opacity:.88;transform:scale(0.98)}
-    .dash-glance-icon{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:14px;margin-bottom:10px}
-    .dash-glance-label{font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:rgba(255,255,255,0.42);margin-bottom:5px}
-    .dash-glance-amount{font-size:20px;font-weight:900;letter-spacing:-0.03em;color:var(--fc-text);font-variant-numeric:tabular-nums;line-height:1.1}
-    .dash-glance-sub{font-size:11px;color:rgba(255,255,255,0.40);margin-top:4px}
-    .dash-glance-trend{font-size:11px;font-weight:700;margin-top:4px;display:inline-flex;align-items:center;gap:3px}
+    .dash-glance-icon{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+    .dash-glance-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+    .dash-glance-label{font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:rgba(255,255,255,0.42);margin-bottom:2px}
+    .dash-glance-amount{font-size:16px;font-weight:700;letter-spacing:-0.02em;color:var(--fc-text);font-variant-numeric:tabular-nums;line-height:1.1}
+    .dash-glance-sub{font-size:10px;color:rgba(255,255,255,0.40);margin-top:1px}
+    .dash-glance-chev{color:rgba(255,255,255,0.22);flex-shrink:0}
+    .dash-glance-trend{font-size:10px;font-weight:700;margin-top:1px;display:inline-flex;align-items:center;gap:2px}
     [data-theme="light"] .dash-glance-tile{background:var(--fc-card-bg);border-color:rgba(13,27,46,0.08)}
     [data-theme="light"] .dash-glance-label{color:rgba(13,27,46,0.45)}
     [data-theme="light"] .dash-glance-amount{color:#0a1520}
     [data-theme="light"] .dash-glance-sub{color:rgba(13,27,46,0.42)}
+    [data-theme="light"] .dash-glance-chev{color:rgba(13,27,46,0.25)}
 
     /* ── Quick Actions — reuses the glance-tile chrome ───────────── */
     .dash-qa-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 16px}
@@ -4224,8 +4228,8 @@ body {
     .dash-stat-icon--spent{background:rgba(255,159,10,0.14);color:var(--fc-warning)}
     .dash-stat-icon--bills{background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.50)}
 
-    .dash-sp-lbl{font-size:10px;color:rgba(255,255,255,0.40);font-weight:700;letter-spacing:.09em;text-transform:uppercase}
-    .dash-sp-val{font-size:22px;font-weight:800;color:#fff;font-variant-numeric:tabular-nums;line-height:1.1;letter-spacing:-0.04em}
+    .dash-sp-lbl{font-size:10px;color:rgba(255,255,255,0.40);font-weight:500;letter-spacing:.04em;text-transform:uppercase}
+    .dash-sp-val{font-size:20px;font-weight:700;color:#fff;font-variant-numeric:tabular-nums;line-height:1.1;letter-spacing:-0.022em}
 
     /* ── Account carousel ───────────────────────────────────────── */
     .dash-acct-scroll{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:none;-ms-overflow-style:none;scroll-snap-type:x mandatory;padding-left:16px;margin-bottom:4px}
@@ -4597,14 +4601,14 @@ body {
       pointer-events:none;
       animation:dashAurora2 10s 3s ease-in-out infinite;
     }
-    .wealth-hero-tag{font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.32);margin-bottom:8px;position:relative;z-index:1}
-    .wealth-hero-amount{font-size:46px;font-weight:900;letter-spacing:-0.048em;color:#fff;line-height:1;font-variant-numeric:tabular-nums;position:relative;z-index:1}
-    .wealth-hero-delta{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:5px 12px;border-radius:999px;margin-top:10px;position:relative;z-index:1}
+    .wealth-hero-tag{font-size:10px;font-weight:500;letter-spacing:0.05em;text-transform:uppercase;color:rgba(255,255,255,0.32);margin-bottom:8px;position:relative;z-index:1}
+    .wealth-hero-amount{font-size:44px;font-weight:700;letter-spacing:-0.026em;color:#fff;line-height:1;font-variant-numeric:tabular-nums;position:relative;z-index:1}
+    .wealth-hero-delta{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:5px 12px;border-radius:999px;margin-top:10px;position:relative;z-index:1}
     .wealth-hero-stats{display:grid;grid-template-columns:1fr 0.5px 1fr;gap:0;margin-top:20px;padding-top:18px;border-top:0.5px solid rgba(255,255,255,0.08);position:relative;z-index:1}
     .wealth-hero-divider{background:rgba(255,255,255,0.09)}
     .wealth-hero-stat{text-align:center;padding:0 10px}
-    .wealth-hero-stat-lbl{font-size:9px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:rgba(255,255,255,0.30);margin-bottom:5px}
-    .wealth-hero-stat-val{font-size:19px;font-weight:900;color:white;letter-spacing:-0.035em;font-variant-numeric:tabular-nums}
+    .wealth-hero-stat-lbl{font-size:9px;font-weight:500;letter-spacing:0.05em;text-transform:uppercase;color:rgba(255,255,255,0.30);margin-bottom:5px}
+    .wealth-hero-stat-val{font-size:18px;font-weight:700;color:white;letter-spacing:-0.020em;font-variant-numeric:tabular-nums}
 
     /* Segment control */
     .fc-wealth-segs{display:flex;background:rgba(255,255,255,0.05);border:0.5px solid rgba(255,255,255,0.09);border-radius:14px;padding:3px;box-shadow:inset 0 1px 0 rgba(0,0,0,0.15)}
@@ -4730,11 +4734,19 @@ body {
     </div>
     <!-- Safe to Spend — primary hero metric -->
     <div class="dash-hero-metric dash-sts-card">
-      <div class="dash-hero-label" id="safe-spend-card-label">Safe to Spend</div>
+      <div class="dash-hero-label" id="safe-spend-card-label">Available Cash</div>
       <div class="dash-hero-amount fc-amount" id="stat-safe-to-spend" data-anim-val="0">—</div>
-      <div class="dash-sts-subtitle">Available after bills and goals</div>
+      <div class="dash-sts-subtitle">After bills &amp; goals</div>
       <div id="safe-spend-delta" class="dash-sts-delta" style="display:none"></div>
       <div class="dash-hero-sub" id="safe-spend-meta">Connect a bank to get started</div>
+      <div class="dash-sts-footer" onclick="FCApp.switchTab('wealth')" role="button" aria-label="View accounts">
+        <div class="dash-sts-acct-pill">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="3"/><path d="M16 7V5a2 2 0 0 0-4 0v2"/></svg>
+          <span id="hero-acct-count">—</span>
+          <span>· All connected</span>
+        </div>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+      </div>
     </div>
     <!-- JS data anchors — kept hidden for backward compat -->
     <div style="display:none" aria-hidden="true">
@@ -4783,28 +4795,40 @@ body {
     <div class="dash-glance-grid">
       <div class="dash-glance-tile" onclick="FCApp.switchTab('wealth')" role="button">
         <div class="dash-glance-icon" style="background:rgba(26,196,240,0.14)">💵</div>
-        <div class="dash-glance-label">Cash</div>
-        <div id="glance-cash" class="dash-glance-amount fc-amount">—</div>
-        <div id="glance-cash-sub" class="dash-glance-sub">—</div>
+        <div class="dash-glance-body">
+          <div class="dash-glance-label">Cash</div>
+          <div id="glance-cash" class="dash-glance-amount fc-amount">—</div>
+          <div id="glance-cash-sub" class="dash-glance-sub">—</div>
+        </div>
+        <svg class="dash-glance-chev" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
       </div>
       <div class="dash-glance-tile" onclick="FCApp.switchTab('wealth')" role="button">
         <div class="dash-glance-icon" style="background:rgba(37,99,235,0.14)">💳</div>
-        <div class="dash-glance-label">Debt</div>
-        <div id="hero-liabilities" class="dash-glance-amount fc-amount">—</div>
-        <div id="glance-debt-sub" class="dash-glance-sub">—</div>
+        <div class="dash-glance-body">
+          <div class="dash-glance-label">Debt</div>
+          <div id="hero-liabilities" class="dash-glance-amount fc-amount">—</div>
+          <div id="glance-debt-sub" class="dash-glance-sub">—</div>
+        </div>
+        <svg class="dash-glance-chev" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
       </div>
       <div class="dash-glance-tile" onclick="FCApp.switchTab('insights')" role="button">
         <div class="dash-glance-icon" style="background:rgba(48,209,88,0.14)">📊</div>
-        <div class="dash-glance-label">Cash Flow</div>
-        <div id="fch-cashflow" class="dash-glance-amount fc-amount">—</div>
-        <div class="dash-glance-sub">This month</div>
+        <div class="dash-glance-body">
+          <div class="dash-glance-label">Cash Flow</div>
+          <div id="fch-cashflow" class="dash-glance-amount fc-amount">—</div>
+          <div class="dash-glance-sub">This month</div>
+        </div>
+        <svg class="dash-glance-chev" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
       </div>
       <div class="dash-glance-tile" onclick="FCApp.switchTab('wealth')" role="button">
         <div class="dash-glance-icon" style="background:rgba(124,92,255,0.14)">📈</div>
-        <div class="dash-glance-label">Net Worth</div>
-        <div id="hero-networth" class="dash-glance-amount fc-amount" data-anim-val="0">$0</div>
-        <span id="hero-delta" class="dash-glance-trend" style="display:none">+$0</span>
-        <div id="glance-nw-sub" class="dash-glance-sub" style="display:none">Connect a bank</div>
+        <div class="dash-glance-body">
+          <div class="dash-glance-label">Net Worth</div>
+          <div id="hero-networth" class="dash-glance-amount fc-amount" data-anim-val="0">$0</div>
+          <span id="hero-delta" class="dash-glance-trend" style="display:none">+$0</span>
+          <div id="glance-nw-sub" class="dash-glance-sub" style="display:none">Connect a bank</div>
+        </div>
+        <svg class="dash-glance-chev" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
       </div>
     </div>
   </section>
@@ -4818,15 +4842,18 @@ body {
        ══════════════════════════════════════════════════════════════ -->
   <div id="dash-pulse-row" class="dash-spend-card fc-fade-up" style="animation-delay:.050s;display:none">
     <div class="dash-spend-header">
-      <div>
-        <div class="dash-spend-label">Spent This Month</div>
+      <div style="flex:1;min-width:0">
+        <div class="dash-spend-label">Spending This Month</div>
         <div class="dash-spend-amount fc-amount" id="dash-pulse-spent">$0</div>
-      </div>
-      <div style="text-align:right">
-        <div style="font-size:13px;font-weight:600;color:var(--fc-text-muted);line-height:1.3;font-variant-numeric:tabular-nums">
-          <span id="dash-pulse-income"></span>
+        <div style="display:flex;align-items:center;gap:4px;margin-top:2px">
+          <span class="dash-spend-of" id="dash-pulse-of-label" style="display:none">of</span>
+          <span style="font-size:13px;font-weight:600;color:var(--fc-text-muted);font-variant-numeric:tabular-nums" id="dash-pulse-income"></span>
+          <span id="dash-pulse-income-label" style="font-size:10px;color:var(--fc-text-faint);letter-spacing:.02em">monthly income</span>
         </div>
-        <div id="dash-pulse-income-label" style="font-size:10px;color:var(--fc-text-faint);margin-top:2px;letter-spacing:.02em">monthly income</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+        <div class="dash-spend-pct" id="dash-pulse-pct" style="display:none">0%</div>
+        <button onclick="FCApp.switchTab('activity')" type="button" class="dash-spend-breakdown">View breakdown ›</button>
       </div>
     </div>
     <div class="dash-spend-track">
@@ -4948,9 +4975,29 @@ body {
   </section>
 
   <!-- ══════════════════════════════════════════════════════════════
-       QUICK ACTIONS
+       THIS MONTH'S MOVE — insight card from focus engine
        ══════════════════════════════════════════════════════════════ -->
-  <section class="dash-section fc-fade-up" style="animation-delay:.085s">
+  <div id="this-months-move-section" class="dash-move-section fc-fade-up" style="animation-delay:.088s;display:none">
+    <div class="dash-sec-hdr" style="margin:0 0 8px">
+      <span class="dash-sec-title">This Month's Move</span>
+    </div>
+    <div class="dash-move-card">
+      <div class="dash-move-icon-wrap">⭐</div>
+      <div class="dash-move-body">
+        <div class="dash-move-label">This Month's Move</div>
+        <div class="dash-move-text">Analyzing your finances…</div>
+      </div>
+      <button class="dash-move-cta" type="button">
+        See insight
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       QUICK ACTIONS (hidden from Home — use Insights/Bills/Goals tabs directly)
+       ══════════════════════════════════════════════════════════════ -->
+  <section class="dash-section fc-fade-up" style="animation-delay:.085s;display:none">
     <div class="dash-sec-hdr">
       <span class="dash-sec-title">Quick Actions</span>
     </div>
