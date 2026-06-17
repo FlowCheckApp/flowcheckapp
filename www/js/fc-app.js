@@ -1438,6 +1438,16 @@ window.FCApp = (function () {
         ? `<span style="color:var(--fc-success);font-size:12px;font-weight:600">✓ Paid</span>`
         : `<span style="color:${color};font-size:12px;font-weight:${days !== null && days <= 3 ? 600 : 400}">${label}</span>`;
 
+      const checkBtn = b.status !== 'paid'
+        ? `<button onclick="event.stopPropagation();FCApp.quickPayBill('${b.id}')" aria-label="Mark as paid"
+             style="flex-shrink:0;width:36px;height:36px;border-radius:50%;border:2px solid rgba(255,255,255,0.18);background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;margin-left:10px;transition:border-color 0.15s,background 0.15s"
+             onpointerdown="this.style.borderColor='var(--fc-success)';this.style.background='rgba(48,209,88,0.15)'"
+             onpointerup="this.style.borderColor='rgba(255,255,255,0.18)';this.style.background='transparent'"
+             onpointercancel="this.style.borderColor='rgba(255,255,255,0.18)';this.style.background='transparent'">
+             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+           </button>`
+        : '';
+
       return `
         <div class="fc-list-item" data-bill-id="${b.id}" style="cursor:pointer" onclick="FCApp.editBill('${b.id}')" role="button">
           <div class="fc-list-icon" style="background:${bg};color:white;font-weight:700;font-size:16px">
@@ -1451,6 +1461,7 @@ window.FCApp = (function () {
             <div class="fc-list-amount">${FCData.formatCurrency(b.amount)}</div>
             ${statusText}
           </div>
+          ${checkBtn}
         </div>`;
     };
 
