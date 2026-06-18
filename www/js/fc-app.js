@@ -5034,6 +5034,217 @@ window.FCApp = (function () {
     }
   }
 
+  // ─── Today's Move: rules-based single most important action ──────────────
+  function _renderTodaysMove(periodSpend, periodIncome) {
+    const el = document.getElementById('ins-todays-move');
+    if (!el) return;
+    const accounts = state.accounts || [];
+    if (!accounts.length) { el.style.display = 'none'; return; }
+
+    const bills  = state.bills || [];
+    const txns   = state.transactions || [];
+    const budget = (state.budgets?.['total']?.limit) || 0;
+
+    let move = null;
+
+    // Priority 1 — overdue bill
+    const overdue = bills.filter(b => {
+      const d = FCData.daysUntil(b.due_date);
+      return d !== null && d < 0 && b.status !== 'paid';
+    });
+    if (!move && overdue.length) {
+      const b = overdue[0];
+      const daysAgo = Math.abs(FCData.daysUntil(b.due_date));
+      move = {
+        type: 'danger', icon: '⚠️',
+        title: `${b.name} is overdue`,
+        sub: `${FCData.formatCurrency(b.amount)} was due ${daysAgo} day${daysAgo === 1 ? '' : 's'} ago. Pay it now to avoid late fees.`,
+        btn: 'View Bills →', action: () => switchTab('activity'),
+      };
+    }
+
+    // Priority 2 — bill due today or tomorrow
+    if (!move) {
+      const urgent = bills.filter(b => {
+        const d = FCData.daysUntil(b.due_date);
+        return d !== null && d >= 0 && d <= 1 && b.status !== 'paid';
+      });
+      if (urgent.length) {
+        const b = urgent[0];
+        const d = FCData.daysUntil(b.due_date);
+        move = {
+          type: 'warning', icon: '📅',
+          title: d === 0 ? `${b.name} due today` : `${b.name} due tomorrow`,
+          sub: `${FCData.formatCurrency(b.amount)} — make sure funds are ready.`,
+          btn: 'View Bills →', action: () => switchTab('activity'),
+        };
+      }
+    }
+
+    // Priority 3 — over budget
+    if (!move && budget > 0 && periodSpend > budget) {
+      const over = periodSpend - budget;
+      move = {
+        type: 'danger', icon: '💸',
+        title: "You're over budget this month",
+        sub: `${FCData.formatCurrency(over)} over your ${FCData.formatCurrency(budget)} limit. Cut discretionary spending for the rest of the month.`,
+        btn: 'Review Spending →', action: () => switchTab('activity'),
+      };
+    }
+
+    // Priority 4 — near budget (>85%)
+    if (!move && budget > 0 && periodSpend > budget * 0.85) {
+      const pct = Math.round((periodSpend / budget) * 100);
+      move = {
+        type: 'warning', icon: '📊',
+        title: `${pct}% of your monthly budget used`,
+        sub: `${FCData.formatCurrency(budget - periodSpend)} remaining. Pace your spending for the rest of the month.`,
+        btn: null,
+      };
+    }
+
+    // Priority 5 — spending exceeds income
+    if (!move && periodIncome > 0 && periodSpend > periodIncome * 1.05) {
+      move = {
+        type: 'warning', icon: '📉',
+        title: 'Spending exceeds income this month',
+        sub: `You've spent ${FCData.formatCurrency(periodSpend - periodIncome)} more than you've earned. Review your transactions.`,
+        btn: 'Review Activity →', action: () => switchTab('activity'),
+      };
+    }
+
+    // Priority 6 — unreviewed subscriptions
+    if (!move) {
+      try {
+        const subs = _detectSubscriptions(txns).filter(s => !s.tracked);
+        if (subs.length > 2) {
+          const total = subs.reduce((s, sub) => s + (sub.amount || 0), 0);
+          move = {
+            type: 'info', icon: '🔄',
+            title: `${subs.length} recurring charges to review`,
+            sub: `${FCData.formatCurrency(total)}/mo detected. Are all of these worth keeping?`,
+            btn: 'See Subscriptions ↓', action: () => {
+              const card = document.getElementById('sub-hunter-card');
+              if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            },
+          };
+        }
+      } catch(_) {}
+    }
+
+    // Priority 7 — saving well
+    if (!move && periodIncome > 100) {
+      const rate = Math.round(((periodIncome - periodSpend) / periodIncome) * 100);
+      if (rate >= 20) {
+        move = {
+          type: 'success', icon: '🎉',
+          title: `Saving ${rate}% of income this month`,
+          sub: `Great work — you've saved ${FCData.formatCurrency(periodIncome - periodSpend)} so far. Keep the momentum going.`,
+          btn: null,
+        };
+      } else if (rate > 0) {
+        move = {
+          type: 'info', icon: '💡',
+          title: 'On track — small wins add up',
+          sub: `You're saving ${rate}% of income this month. Aim for 20% to build a solid safety net.`,
+          btn: null,
+        };
+      }
+    }
+
+    if (!move) { el.style.display = 'none'; return; }
+
+    const colors = {
+      danger:  { bg: 'rgba(255,69,58,0.10)',  border: 'rgba(255,69,58,0.22)',  iconBg: 'rgba(255,69,58,0.15)',  btnBg: 'rgba(255,69,58,0.12)',  btnColor: 'var(--fc-danger)'  },
+      warning: { bg: 'rgba(255,159,10,0.08)', border: 'rgba(255,159,10,0.20)', iconBg: 'rgba(255,159,10,0.14)', btnBg: 'rgba(255,159,10,0.12)', btnColor: 'var(--fc-warning)' },
+      success: { bg: 'rgba(48,209,88,0.08)',  border: 'rgba(48,209,88,0.18)',  iconBg: 'rgba(48,209,88,0.14)',  btnBg: 'rgba(48,209,88,0.12)',  btnColor: 'var(--fc-success)' },
+      info:    { bg: 'rgba(26,196,240,0.08)', border: 'rgba(26,196,240,0.20)', iconBg: 'rgba(26,196,240,0.14)', btnBg: 'rgba(26,196,240,0.12)', btnColor: 'var(--fc-accent)'  },
+    };
+    const c = colors[move.type] || colors.info;
+
+    el.style.display  = '';
+    el.style.background = c.bg;
+    el.style.border     = `0.5px solid ${c.border}`;
+
+    const iconEl  = document.getElementById('ins-move-icon');
+    const titleEl = document.getElementById('ins-move-title');
+    const subEl   = document.getElementById('ins-move-sub');
+    const btnEl   = document.getElementById('ins-move-btn');
+
+    if (iconEl)  { iconEl.textContent = move.icon; iconEl.style.background = c.iconBg; }
+    if (titleEl)   titleEl.textContent = move.title;
+    if (subEl)     subEl.textContent   = move.sub;
+    if (btnEl) {
+      if (move.btn && move.action) {
+        btnEl.style.display    = '';
+        btnEl.textContent      = move.btn;
+        btnEl.style.background = c.btnBg;
+        btnEl.style.color      = c.btnColor;
+        btnEl.onclick          = move.action;
+      } else {
+        btnEl.style.display = 'none';
+      }
+    }
+  }
+
+  // ─── Monthly Summary: 3-card row (Income / Spending / Cash Flow) ──────────
+  function _renderMonthlySummary(periodSpend, periodIncome) {
+    const now        = new Date();
+    const lmStart    = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lmEnd      = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+    const allTxns    = state.transactions || [];
+
+    const lmTxns    = allTxns.filter(t => { const d = FCData.parseDateLocal(t.date); return d >= lmStart && d <= lmEnd; });
+    const lmSpend   = lmTxns.filter(_isSpendTxn).reduce((s, t) => s + (t.amount || 0), 0);
+    const lmIncome  = lmTxns.filter(_isIncomeTxn).reduce((s, t) => s + Math.abs(t.amount || 0), 0);
+
+    const cashFlow   = periodIncome - periodSpend;
+    const lmCashFlow = lmIncome - lmSpend;
+
+    const _delta = (curr, prev) => {
+      if (!prev || prev === 0) return null;
+      return Math.round(((curr - prev) / Math.abs(prev)) * 100);
+    };
+    const _deltaHtml = (d, invert) => {
+      if (d === null) return '';
+      const good  = invert ? d < 0 : d > 0;
+      const color = good ? 'var(--fc-success)' : d === 0 ? 'var(--fc-text-faint)' : 'var(--fc-danger)';
+      const arrow = d > 0 ? '↑' : d < 0 ? '↓' : '→';
+      return `<span style="color:${color}">${arrow}${Math.abs(d)}% vs last mo</span>`;
+    };
+
+    const incomeVal   = document.getElementById('ins-ms-income-val');
+    const incomeDelta = document.getElementById('ins-ms-income-delta');
+    const spendVal    = document.getElementById('ins-ms-spend-val');
+    const spendDelta  = document.getElementById('ins-ms-spend-delta');
+    const cfVal       = document.getElementById('ins-ms-cf-val');
+    const cfDelta     = document.getElementById('ins-ms-cf-delta');
+
+    if (incomeVal)  incomeVal.textContent = FCData.formatCurrency(periodIncome);
+    if (incomeDelta) {
+      const d = _delta(periodIncome, lmIncome);
+      if (d !== null) { incomeDelta.innerHTML = _deltaHtml(d, false); incomeDelta.style.display = ''; }
+      else incomeDelta.style.display = 'none';
+    }
+
+    if (spendVal)  spendVal.textContent = FCData.formatCurrency(periodSpend);
+    if (spendDelta) {
+      const d = _delta(periodSpend, lmSpend);
+      if (d !== null) { spendDelta.innerHTML = _deltaHtml(d, true); spendDelta.style.display = ''; }
+      else spendDelta.style.display = 'none';
+    }
+
+    if (cfVal) {
+      cfVal.textContent  = (cashFlow >= 0 ? '+' : '') + FCData.formatCurrency(cashFlow);
+      cfVal.style.color  = cashFlow >= 0 ? 'var(--fc-success)' : 'var(--fc-danger)';
+    }
+    if (cfDelta) {
+      const d = lmCashFlow !== 0 ? _delta(cashFlow, lmCashFlow) : null;
+      if (d !== null) { cfDelta.innerHTML = _deltaHtml(d, false); cfDelta.style.display = ''; }
+      else cfDelta.style.display = 'none';
+    }
+  }
+
   function _renderInsights() {
     // Render health score — isolated so any error doesn't abort the rest of insights
     try { _renderHealthScore(); } catch(e) { fcLog('[Insights] health score error:', e); }
@@ -5048,23 +5259,24 @@ window.FCApp = (function () {
     }
 
     // ── Period-aware transactions ─────────────────────────────────
-    // Insights respond to the global period selector (same as home screen)
     const periodTxns  = _getPeriodTxns();
     const periodLabel = _PERIOD_LABELS[state.period] || 'this month';
 
-    // Use the shared _isSpendTxn filter so insights and activity screens
-    // always agree on what counts as spending (avoids set-divergence bugs).
     const periodSpendTxns = periodTxns.filter(_isSpendTxn);
     const periodSpend  = periodSpendTxns.reduce((s, t) => s + (t.amount || 0), 0);
-    const periodIncome = periodTxns.filter(_isIncomeTxn).reduce((s, t) => s + (t.amount || 0), 0);
+    const periodIncome = periodTxns.filter(_isIncomeTxn).reduce((s, t) => s + Math.abs(t.amount || 0), 0);
 
-    // Update the insights period labels
+    // Update the legacy insights period labels (in hidden compat elements)
     const insightsPeriodEl = document.getElementById('insights-period-label');
     if (insightsPeriodEl) insightsPeriodEl.textContent = periodLabel;
     const insightsCatPeriod = document.getElementById('insights-cat-period');
     if (insightsCatPeriod) insightsCatPeriod.textContent = periodLabel;
 
-    // ── This Period Summary (week card) ──────────────────────────
+    // ── V3: New sections ─────────────────────────────────────────
+    try { _renderTodaysMove(periodSpend, periodIncome); } catch(e) { fcLog('[Insights] todays move error:', e); }
+    try { _renderMonthlySummary(periodSpend, periodIncome); } catch(e) { fcLog('[Insights] monthly summary error:', e); }
+
+    // ── Legacy week summary (writes to hidden compat elements) ───
     _renderWeekSummary(periodSpend, periodIncome, periodLabel);
 
     // ── Spending ring + budget progress ──────────────────────────
@@ -5430,11 +5642,11 @@ window.FCApp = (function () {
         .slice(0, 5);
 
       if (!top.length) {
-        if (card) card.style.display = '';
+        // card is hidden in V3 UI — only update list content for any legacy usage
         list.innerHTML = '<div style="color:var(--fc-text-faint);text-align:center;padding:16px 0;font-size:11px">No spending data yet</div>';
         return;
       }
-      if (card) card.style.display = '';
+      // card remains hidden (display:none in HTML) — V3 moved merchants to Behavior Analysis
 
       // Premium compact merchant list (new v2 format)
       list.innerHTML = top.slice(0, 4).map(([name, data]) => {
@@ -6313,8 +6525,8 @@ window.FCApp = (function () {
 
     const thisSpend  = thisTxns.filter(_isSpendTxn).reduce((s, t) => s + t.amount, 0);
     const lastSpend  = lastTxns.filter(_isSpendTxn).reduce((s, t) => s + t.amount, 0);
-    const thisIncome = thisTxns.filter(_isIncomeTxn).reduce((s, t) => s + t.amount, 0);
-    const lastIncome = lastTxns.filter(_isIncomeTxn).reduce((s, t) => s + t.amount, 0);
+    const thisIncome = thisTxns.filter(_isIncomeTxn).reduce((s, t) => s + Math.abs(t.amount || 0), 0);
+    const lastIncome = lastTxns.filter(_isIncomeTxn).reduce((s, t) => s + Math.abs(t.amount || 0), 0);
 
     const spendDelta  = lastSpend  > 0 ? Math.round(((thisSpend  - lastSpend)  / lastSpend)  * 100) : null;
     // Suppress income delta before the 25th — partial month vs full month comparison is misleading
@@ -6339,16 +6551,29 @@ window.FCApp = (function () {
     };
 
     el.innerHTML = `
-      <div style="padding:16px;border-radius:18px;background:rgba(255,255,255,0.04);border:0.5px solid rgba(255,255,255,0.08);margin:0 16px 10px">
-        <div style="font-size:10px;font-weight:700;letter-spacing:.10em;text-transform:uppercase;color:var(--fc-text-faint);margin-bottom:12px">Monthly Intelligence</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-          ${metrics.map(m => `
-            <div style="padding:12px;border-radius:14px;background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.06)">
-              <div style="font-size:11px;color:var(--fc-text-faint);margin-bottom:4px">${m.icon} ${m.label}</div>
-              <div style="font-size:16px;font-weight:700;color:var(--fc-text);font-variant-numeric:tabular-nums;letter-spacing:-0.02em">${m.value}</div>
-              ${deltaHtml(m.delta, m.invert)}
-            </div>`).join('')}
-        </div>
+      <div class="ins-changed-card">
+        <div class="ins-changed-header"><div class="ins-changed-title">What Changed Since Last Month</div></div>
+        ${metrics.map(m => {
+          const d = m.delta;
+          const good = d !== null ? (m.invert ? d < 0 : d > 0) : false;
+          const color = d !== null ? (good ? 'var(--fc-success)' : d === 0 ? 'var(--fc-text-faint)' : 'var(--fc-danger)') : 'var(--fc-text-faint)';
+          const arrow = d !== null ? (d > 0 ? '↑' : d < 0 ? '↓' : '→') : '';
+          const dotBg = d !== null ? (good ? 'rgba(48,209,88,0.15)' : 'rgba(255,69,58,0.12)') : 'rgba(255,255,255,0.07)';
+          const dotColor = d !== null ? (good ? 'var(--fc-success)' : 'var(--fc-danger)') : 'var(--fc-text-faint)';
+          return `
+            <div class="ins-changed-item">
+              <div class="ins-changed-dot" style="background:${dotBg}">
+                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="${dotColor}" stroke-width="3" stroke-linecap="round" aria-hidden="true">
+                  ${d === null || d === 0 ? '<line x1="5" y1="12" x2="19" y2="12"/>' : d > 0 ? '<path d="M12 19V5M5 12l7-7 7 7"/>' : '<path d="M12 5v14M5 12l7 7 7-7"/>'}
+                </svg>
+              </div>
+              <div class="ins-changed-body">
+                <div class="ins-changed-label">${m.icon} ${m.label}</div>
+                ${d !== null ? `<div class="ins-changed-sub"><span style="color:${color};font-weight:700">${arrow}${Math.abs(d)}%</span> vs last month</div>` : ''}
+              </div>
+              <div class="ins-changed-val">${m.value}</div>
+            </div>`;
+        }).join('')}
       </div>`;
     el.style.display = '';
   }
@@ -6395,15 +6620,13 @@ window.FCApp = (function () {
     if (!insights.length) { el.style.display = 'none'; return; }
 
     el.innerHTML = `
-      <div style="padding:16px;border-radius:18px;background:rgba(255,255,255,0.04);border:0.5px solid rgba(255,255,255,0.08);margin:0 16px 10px">
-        <div style="font-size:10px;font-weight:700;letter-spacing:.10em;text-transform:uppercase;color:var(--fc-text-faint);margin-bottom:12px">Behavior Analysis</div>
-        <div style="display:flex;flex-direction:column;gap:6px">
-          ${insights.map(ins => `
-            <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,0.03)">
-              <span style="font-size:15px;flex-shrink:0">${ins.icon}</span>
-              <span style="font-size:13px;color:var(--fc-text-muted)">${esc(ins.text)}</span>
-            </div>`).join('')}
-        </div>
+      <div class="ins-behavior-card">
+        <div class="ins-behavior-header">Spending Patterns</div>
+        ${insights.map(ins => `
+          <div class="ins-behavior-row">
+            <div class="ins-behavior-icon">${ins.icon}</div>
+            <div class="ins-behavior-text">${esc(ins.text)}</div>
+          </div>`).join('')}
       </div>`;
     el.style.display = '';
   }
@@ -6440,15 +6663,13 @@ window.FCApp = (function () {
     if (!wins.length) { el.style.display = 'none'; return; }
 
     el.innerHTML = `
-      <div style="padding:16px;border-radius:18px;background:rgba(48,209,88,0.07);border:0.5px solid rgba(48,209,88,0.22);margin:0 16px 10px">
-        <div style="font-size:10px;font-weight:700;letter-spacing:.10em;text-transform:uppercase;color:var(--fc-success);margin-bottom:12px">Wins</div>
-        <div style="display:flex;flex-direction:column;gap:7px">
-          ${wins.map(w => `
-            <div style="display:flex;align-items:center;gap:10px">
-              <span style="font-size:15px;flex-shrink:0">${w.icon}</span>
-              <span style="font-size:13px;color:var(--fc-text)">${esc(w.text)}</span>
-            </div>`).join('')}
-        </div>
+      <div class="ins-wins-card">
+        <div class="ins-wins-header">Wins 🏆</div>
+        ${wins.map(w => `
+          <div class="ins-win-row">
+            <span class="ins-win-icon">${w.icon}</span>
+            <span class="ins-win-text">${esc(w.text)}</span>
+          </div>`).join('')}
       </div>`;
     el.style.display = '';
   }
@@ -6488,19 +6709,16 @@ window.FCApp = (function () {
     if (!recs.length) { el.style.display = 'none'; return; }
 
     el.innerHTML = `
-      <div style="padding:16px;border-radius:18px;background:rgba(255,255,255,0.04);border:0.5px solid rgba(255,255,255,0.08);margin:0 16px 10px">
-        <div style="font-size:10px;font-weight:700;letter-spacing:.10em;text-transform:uppercase;color:var(--fc-text-faint);margin-bottom:12px">Recommendations</div>
-        <div style="display:flex;flex-direction:column;gap:8px">
-          ${recs.map((r, i) => `
-            <div style="display:flex;align-items:flex-start;gap:10px;padding:12px;border-radius:14px;background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.06)">
-              <div style="width:28px;height:28px;border-radius:8px;background:rgba(26,196,240,0.12);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">${r.icon}</div>
-              <div style="flex:1;min-width:0">
-                <div style="font-size:13px;font-weight:600;color:var(--fc-text);margin-bottom:3px">${esc(r.title)}</div>
-                <div style="font-size:11px;color:var(--fc-text-muted);line-height:1.45">${esc(r.detail)}</div>
-              </div>
-              <div style="font-size:9px;font-weight:700;background:rgba(26,196,240,0.12);color:var(--fc-accent);padding:3px 7px;border-radius:6px;flex-shrink:0">#${i + 1}</div>
-            </div>`).join('')}
-        </div>
+      <div class="ins-behavior-card">
+        <div class="ins-behavior-header">Recommendations</div>
+        ${recs.map(r => `
+          <div class="ins-behavior-row">
+            <div class="ins-behavior-icon">${r.icon}</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:600;color:var(--fc-text);margin-bottom:2px">${esc(r.title)}</div>
+              <div style="font-size:11px;color:var(--fc-text-muted);line-height:1.4">${esc(r.detail)}</div>
+            </div>
+          </div>`).join('')}
       </div>`;
     el.style.display = '';
   }

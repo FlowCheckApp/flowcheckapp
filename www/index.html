@@ -5480,7 +5480,7 @@ body {
 
   <style>
     /* ══════════════════════════════════════════════════════════════
-       INSIGHTS V2 — premium financial intelligence center
+       INSIGHTS V3 — actionable financial intelligence center
        ══════════════════════════════════════════════════════════════ */
     #view-insights{overflow-y:scroll;-webkit-overflow-scrolling:touch;padding-bottom:100px;overscroll-behavior:contain}
 
@@ -5602,11 +5602,65 @@ body {
 
     /* Sub-hunter card */
     #sub-hunter-card{margin:0 16px 10px}
+
+    /* ── V3 new components ─────────────────────────────────── */
+
+    /* Header subtitle */
+    .ins-subtitle{font-size:13px;color:var(--fc-text-muted);margin-top:3px;font-weight:400;letter-spacing:0}
+
+    /* Today's Move card */
+    .ins-todays-move{margin:0 16px 12px;border-radius:20px;padding:20px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:opacity .15s}
+    .ins-todays-move:active{opacity:.85}
+    .ins-todays-move-eyebrow{font-size:9px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--fc-text-faint);margin-bottom:12px}
+    .ins-todays-move-icon-tile{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;margin-bottom:12px}
+    .ins-todays-move-title{font-size:17px;font-weight:800;color:var(--fc-text);letter-spacing:-0.02em;margin-bottom:6px;line-height:1.2}
+    .ins-todays-move-sub{font-size:13px;color:var(--fc-text-muted);line-height:1.5;margin-bottom:14px}
+    .ins-todays-move-btn{padding:9px 16px;border-radius:11px;border:none;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;transition:opacity .12s}
+    .ins-todays-move-btn:active{opacity:.75}
+
+    /* Monthly Summary 3-card row */
+    .ins-monthly-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:0 16px 12px}
+    .ins-ms-card{border-radius:16px;padding:14px 12px;background:rgba(255,255,255,0.04);border:0.5px solid rgba(255,255,255,0.08)}
+    .ins-ms-icon{width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;margin-bottom:8px;flex-shrink:0}
+    .ins-ms-label{font-size:8px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--fc-text-faint);margin-bottom:5px}
+    .ins-ms-amount{font-size:16px;font-weight:900;letter-spacing:-0.03em;color:var(--fc-text);font-variant-numeric:tabular-nums;line-height:1;word-break:break-all}
+    .ins-ms-delta{font-size:9px;font-weight:700;margin-top:5px}
+
+    /* What Changed section */
+    .ins-changed-card{margin:0 16px 10px;border-radius:18px;background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.07);overflow:hidden}
+    .ins-changed-header{padding:14px 16px 10px;border-bottom:0.5px solid rgba(255,255,255,0.05)}
+    .ins-changed-title{font-size:13px;font-weight:700;color:var(--fc-text)}
+    .ins-changed-item{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:0.5px solid rgba(255,255,255,0.04)}
+    .ins-changed-item:last-child{border-bottom:none}
+    .ins-changed-dot{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+    .ins-changed-body{flex:1;min-width:0}
+    .ins-changed-label{font-size:13px;font-weight:600;color:var(--fc-text)}
+    .ins-changed-sub{font-size:11px;color:var(--fc-text-muted);margin-top:1px}
+    .ins-changed-val{font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;flex-shrink:0}
+
+    /* Wins card */
+    .ins-wins-card{margin:0 16px 10px;border-radius:18px;background:rgba(48,209,88,0.06);border:0.5px solid rgba(48,209,88,0.18);padding:16px}
+    .ins-wins-header{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--fc-success);margin-bottom:12px}
+    .ins-win-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+    .ins-win-row:last-child{margin-bottom:0}
+    .ins-win-icon{font-size:16px;flex-shrink:0}
+    .ins-win-text{font-size:13px;color:var(--fc-text);font-weight:500}
+
+    /* Behavior card */
+    .ins-behavior-card{margin:0 16px 10px;border-radius:18px;background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.07);padding:16px}
+    .ins-behavior-header{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--fc-text-faint);margin-bottom:12px}
+    .ins-behavior-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:0.5px solid rgba(255,255,255,0.04)}
+    .ins-behavior-row:last-child{border-bottom:none}
+    .ins-behavior-icon{width:32px;height:32px;border-radius:10px;background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+    .ins-behavior-text{font-size:13px;color:var(--fc-text-muted);line-height:1.4}
   </style>
 
     <!-- ── HEADER ──────────────────────────────────────────────────── -->
     <div class="ins-header">
-      <div class="ins-title">Insights</div>
+      <div>
+        <div class="ins-title">Insights</div>
+        <div class="ins-subtitle">Understand your money. Make better decisions.</div>
+      </div>
       <div class="ins-period-tabs">
         <button role="tab" data-period="1D" aria-selected="false" onclick="FCApp.switchPeriod('1D')" class="ins-period-btn">1D</button>
         <button role="tab" data-period="1W" aria-selected="false" onclick="FCApp.switchPeriod('1W')" class="ins-period-btn">1W</button>
@@ -5682,45 +5736,59 @@ body {
       </div>
     </div>
 
-    <!-- ── SECTION 2: THIS WEEK SUMMARY ──────────────────────────── -->
-    <div class="ins-week-card" id="ins-week-card">
-      <div class="ins-week-header">
-        <div class="ins-week-title">This <span id="ins-week-period-label">Week</span> Summary</div>
+    <!-- ── SECTION 2: TODAY'S MOVE (rules-based single action) ─────── -->
+    <div class="ins-todays-move" id="ins-todays-move" style="display:none">
+      <div class="ins-todays-move-eyebrow">Today's Move</div>
+      <div class="ins-todays-move-icon-tile" id="ins-move-icon">💡</div>
+      <div class="ins-todays-move-title" id="ins-move-title">Loading your insights…</div>
+      <div class="ins-todays-move-sub" id="ins-move-sub"></div>
+      <button class="ins-todays-move-btn" id="ins-move-btn" style="display:none" type="button">Take action →</button>
+    </div>
+
+    <!-- ── SECTION 3: MONTHLY SUMMARY (3 cards) ─────────────────── -->
+    <div class="ins-monthly-row" id="ins-monthly-row">
+      <!-- Income -->
+      <div class="ins-ms-card">
+        <div class="ins-ms-icon" style="background:rgba(52,199,89,0.14)">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--fc-success)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+        </div>
+        <div class="ins-ms-label">Income</div>
+        <div class="ins-ms-amount" id="ins-ms-income-val">—</div>
+        <div class="ins-ms-delta" id="ins-ms-income-delta" style="display:none"></div>
       </div>
-      <div id="ins-week-item-1" class="ins-week-item">
-        <div class="ins-week-dot" style="background:rgba(52,199,89,0.15)">
-          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="var(--fc-success)" stroke-width="3" stroke-linecap="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+      <!-- Spending -->
+      <div class="ins-ms-card">
+        <div class="ins-ms-icon" style="background:rgba(255,69,58,0.12)">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--fc-danger)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
         </div>
-        <div class="ins-week-body">
-          <div class="ins-week-label">Connect a bank to see your summary</div>
-          <div class="ins-week-sub"></div>
-        </div>
+        <div class="ins-ms-label">Spending</div>
+        <div class="ins-ms-amount" id="ins-ms-spend-val">—</div>
+        <div class="ins-ms-delta" id="ins-ms-spend-delta" style="display:none"></div>
       </div>
-      <div id="ins-week-item-2" class="ins-week-item" style="display:none">
-        <div class="ins-week-dot"></div>
-        <div class="ins-week-body">
-          <div class="ins-week-label"></div>
-          <div class="ins-week-sub"></div>
+      <!-- Cash Flow -->
+      <div class="ins-ms-card">
+        <div class="ins-ms-icon" style="background:rgba(26,196,240,0.14)">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--fc-accent)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M7 17L17 7M17 7H7M17 7v10"/></svg>
         </div>
-      </div>
-      <div id="ins-week-item-3" class="ins-week-item" style="display:none">
-        <div class="ins-week-dot"></div>
-        <div class="ins-week-body">
-          <div class="ins-week-label"></div>
-          <div class="ins-week-sub"></div>
-        </div>
+        <div class="ins-ms-label">Cash Flow</div>
+        <div class="ins-ms-amount" id="ins-ms-cf-val">—</div>
+        <div class="ins-ms-delta" id="ins-ms-cf-delta" style="display:none"></div>
       </div>
     </div>
 
-    <!-- ── Recommendation Banner ──────────────────────────────────── -->
-    <div class="ins-rec-banner" id="ins-rec-banner" style="display:none" onclick="FCApp.switchTab('insights')">
-      <div class="ins-rec-icon">✨</div>
-      <div class="ins-rec-text" id="ins-rec-text">Focus on paying down debt to improve your financial health the most.</div>
-      <svg class="ins-rec-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--fc-accent)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
-    </div>
-
-    <!-- ── SECTION 3: SPENDING + NET WORTH (2 col) ───────────────── -->
-    <div class="ins-row-2col">
+    <!-- ── SECTION 3b: SPENDING + NET WORTH — hidden, IDs kept for JS compat ── -->
+    <div style="display:none" aria-hidden="true">
+      <!-- ── Recommendation Banner (legacy) ─────────────────────── -->
+      <div id="ins-rec-banner"><span id="ins-rec-text"></span></div>
+      <!-- ── Old week summary (legacy) ──────────────────────────── -->
+      <div id="ins-week-card">
+        <span id="ins-week-period-label"></span>
+        <div id="ins-week-item-1"><div class="ins-week-dot"></div><div class="ins-week-body"><div class="ins-week-label"></div><div class="ins-week-sub"></div></div></div>
+        <div id="ins-week-item-2"><div class="ins-week-dot"></div><div class="ins-week-body"><div class="ins-week-label"></div><div class="ins-week-sub"></div></div></div>
+        <div id="ins-week-item-3"><div class="ins-week-dot"></div><div class="ins-week-body"><div class="ins-week-label"></div><div class="ins-week-sub"></div></div></div>
+      </div>
+    <!-- old 2-col spending+NW grid — IDs kept for JS compat, visually hidden -->
+    <div class="ins-row-2col" style="display:none" aria-hidden="true">
 
       <!-- Spending This Month -->
       <div class="ins-spend-card">
@@ -5786,6 +5854,7 @@ body {
         <div id="insights-nw-range" style="font-size:9px;color:var(--fc-text-faint)"></div>
       </div>
     </div>
+    </div><!-- /legacy hidden section -->
 
     <!-- ── SECTION 4: CATEGORIES ──────────────────────────────────── -->
     <div class="ins-categories-card">
@@ -5883,8 +5952,8 @@ body {
       </div>
     </div>
 
-    <!-- ── SECTION 6a: BUDGET PERF (full width) ──────────────────────── -->
-    <div class="ins-budget-card" style="margin:0 16px 10px">
+    <!-- ── SECTION 6a: BUDGET PERF — hidden, IDs kept for JS compat ─── -->
+    <div class="ins-budget-card" style="margin:0 16px 10px;display:none" aria-hidden="true">
       <div class="ins-card-eyebrow">Budget</div>
       <div style="display:flex;align-items:center;gap:10px">
         <div class="ins-budget-ring-wrap">
@@ -5912,8 +5981,8 @@ body {
       </button>
     </div>
 
-    <!-- ── SECTION 6b: TOP MERCHANTS (full width) ─────────────────────── -->
-    <div class="ins-merchants-card" id="top-merchants-card" style="margin:0 16px 10px">
+    <!-- ── SECTION 6b: TOP MERCHANTS — hidden, IDs kept for JS compat ─── -->
+    <div class="ins-merchants-card" id="top-merchants-card" style="margin:0 16px 10px;display:none" aria-hidden="true">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <div class="ins-card-eyebrow">Top Merchants</div>
         <span id="top-merchants-period" style="font-size:9px;color:var(--fc-text-faint)">this month</span>
