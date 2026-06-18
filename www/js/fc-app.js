@@ -39,8 +39,12 @@ window.FCApp = (function () {
   // Category budget edit state
   let _editingBudgetCategory = null;
 
-  // Activity category filter ('all' or a category name)
+  // Activity category filter ('all' or a category name) — legacy, kept for backward compat
   let _activityCategoryFilter = 'all';
+  // Activity type filter for the redesigned quick-filter chips
+  let _activityTypeFilter = 'all'; // 'all' | 'income' | 'expenses' | 'transfers' | 'recurring'
+  // Summary card chart period
+  let _actSummaryPeriod = 'M'; // 'M' | '6M' | 'Y'
 
   /**
    * HTML-escape a string before inserting into innerHTML.
@@ -1366,6 +1370,32 @@ window.FCApp = (function () {
       btn.classList.toggle('fc-chip--active', active);
     });
     _renderActivity();
+  }
+
+  function filterActivityType(type) {
+    if (_activityTypeFilter === type) return;
+    _activityTypeFilter = type;
+    _activityShowAll = false;
+    haptic('light');
+    document.querySelectorAll('[data-act-type]').forEach(btn => {
+      const active = btn.dataset.actType === type;
+      btn.classList.toggle('act-type-chip--active', active);
+    });
+    _renderActivity();
+  }
+
+  function switchActivitySummaryPeriod(period) {
+    if (_actSummaryPeriod === period) return;
+    _actSummaryPeriod = period;
+    haptic('light');
+    document.querySelectorAll('[data-act-period]').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.actPeriod === period);
+    });
+    _renderSpendingTrends();
+  }
+
+  function showActivityFilterSheet() {
+    haptic('light');
   }
 
   function switchActivitySegment(segment) {
@@ -4532,27 +4562,9 @@ window.FCApp = (function () {
       return;
     }
 
-    // V3: spending trends + recurring banner
+    // Render summary card + recurring banner
     _renderSpendingTrends();
     _renderRecurringBanner();
-
-    // Apply period filter
-    const _now2 = new Date(); _now2.setHours(0,0,0,0);
-    const _actFilterFn = (t) => {
-      if (!t.date) return false;
-      // Use parseDateLocal to avoid UTC→local day-shift bug on "YYYY-MM-DD" strings
-      const ts = FCData.parseDateLocal(t.date).getTime();
-      switch (_activityFilter) {
-        case 'today': return ts >= _now2.getTime();
-        case 'week':  return ts >= _now2.getTime() - 6 * 86400000;
-        case 'month': {
-          const d = FCData.parseDateLocal(t.date);
-          return d.getMonth() === _now2.getMonth() && d.getFullYear() === _now2.getFullYear();
-        }
-        case 'income': return !!t.isCredit;
-        default: return true;
-      }
-    };
 
     // Apply overrides before filtering (so search matches renamed names)
     const txnsWithOverrides = state.transactions.map(t => {
@@ -4566,29 +4578,25 @@ window.FCApp = (function () {
       };
     });
 
-    let base = txnsWithOverrides.filter(_actFilterFn);
-
-    // Category chip filter
-    // Chip values are short keywords; map to the Plaid category name fragments
-    const CAT_CHIP_MAP = {
-      food:          ['food', 'dining', 'restaurants', 'coffee', 'fast food', 'groceries'],
-      transport:     ['travel', 'transport', 'gas', 'parking', 'taxi', 'ride', 'auto', 'car', 'airlines', 'ferry', 'rail', 'bus'],
-      shopping:      ['shops', 'shopping', 'clothing', 'supermarket', 'department', 'merchandise', 'warehouse'],
-      entertainment: ['entertainment', 'arts', 'recreation', 'games', 'music', 'movies', 'sports'],
-      health:        ['healthcare', 'health', 'medical', 'pharmacy', 'dentist', 'doctor', 'hospital', 'fitness'],
+    // Type filter — the new quick-filter chips (All/Income/Expenses/Transfers/Recurring)
+    const _XFER_CATS = new Set(['transfer', 'transfer in', 'transfer out', 'loan', 'loan payment', 'loan payments', 'credit card payment']);
+    const _isTransferTxn = (t) => {
+      const raw  = ((Array.isArray(t.category) ? t.category[0] : t.category) || '').toLowerCase().trim();
+      const norm = FCData.normalizePlaidCategory(raw).toLowerCase();
+      return _XFER_CATS.has(raw) || _XFER_CATS.has(norm) || raw.includes('transfer') || norm.includes('transfer');
     };
-    if (_activityCategoryFilter !== 'all') {
-      const catFilter = _activityCategoryFilter.toLowerCase();
-      if (catFilter === 'income') {
-        base = base.filter(t => t.isCredit);
-      } else {
-        const aliases = CAT_CHIP_MAP[catFilter] || [catFilter];
-        base = base.filter(t => {
-          // Check all category array entries for a match
-          const cats = (t.category || []).map(c => c.toLowerCase());
-          return cats.some(c => aliases.some(alias => c.includes(alias)));
-        });
-      }
+    const _recurringIds = new Set((_detectSubscriptions(txnsWithOverrides) || []).map(s => s.name?.toLowerCase()));
+    const _isRecurringTxn = (t) => {
+      const n = _cleanTxnName(t).toLowerCase();
+      return _recurringIds.has(n);
+    };
+
+    let base = txnsWithOverrides;
+    switch (_activityTypeFilter) {
+      case 'income':    base = base.filter(t => _isIncomeTxn(t)); break;
+      case 'expenses':  base = base.filter(t => _isSpendTxn(t)); break;
+      case 'transfers': base = base.filter(t => _isTransferTxn(t)); break;
+      case 'recurring': base = base.filter(t => _isRecurringTxn(t)); break;
     }
 
     const filtered = state.searchQuery
@@ -4603,17 +4611,15 @@ window.FCApp = (function () {
         })()
       : base;
 
-    const filterLabel = { all: 'transactions', today: 'transactions today', week: 'transactions this week', month: 'transactions this month', income: 'income transactions' }[_activityFilter] || 'transactions';
-
     if (!filtered.length) {
       container.innerHTML = `
         <div style="text-align:center;padding:48px 24px;color:var(--fc-text-faint)">
           <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom:12px;opacity:0.4"><path d="M3 12h4l3-9 4 18 3-9h4"/></svg>
           <div style="font-size:15px;font-weight:500;margin-bottom:4px;color:var(--fc-text-muted)">
-            ${state.accounts.length ? `No ${filterLabel} yet` : 'Connect a bank to see transactions'}
+            ${state.accounts.length ? 'No transactions match this filter' : 'Connect a bank to see transactions'}
           </div>
           <div style="font-size:13px">
-            ${state.accounts.length ? 'Pull down to sync' : 'Tap the link button above'}
+            ${state.accounts.length ? 'Try a different filter or pull down to sync' : 'Tap the link button above'}
           </div>
         </div>`;
       return;
@@ -4625,14 +4631,21 @@ window.FCApp = (function () {
     let renderedCount = 0;
     let truncated = false;
 
+    const chevronSvg = `<svg class="fc-list-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>`;
+
     for (const [label, txns] of Object.entries(allGroups)) {
       if (!_activityShowAll && renderedCount >= PAGE_TXN_LIMIT) {
         truncated = true;
         break;
       }
 
-      html += `<div class="fc-date-label">${label}</div>
-               <article class="fc-card" style="padding:4px 16px;margin-bottom:0">`;
+      // Compute net total for the date group
+      const netAmt = txns.reduce((sum, t) => sum + (t.isCredit ? t.amount : -t.amount), 0);
+      const netStr = (netAmt >= 0 ? '+' : '−') + FCData.formatCurrency(Math.abs(netAmt));
+      const netColor = netAmt >= 0 ? 'var(--fc-success)' : 'var(--fc-danger)';
+
+      html += `<div class="fc-date-label">${label}<span class="fc-date-label-spacer"></span><span class="fc-date-net" style="color:${netColor}">Net ${netStr}</span></div>
+               <article class="fc-card">`;
 
       html += txns.map(t => {
         const rawCat = (t.category && t.category[0]) || t.category || 'Other';
@@ -4641,7 +4654,6 @@ window.FCApp = (function () {
         const isEmojiIcon = emoji.length <= 2 && isNaN(emoji);
         const color  = t.isCredit ? 'var(--fc-success)' : 'var(--fc-danger)';
         const sign   = t.isCredit ? '+' : '−';
-        // Always use the cleaner — strips raw bank strings like "DEBIT PURCHASE 0523 9264 CENEX"
         const displayName = _cleanTxnName(t);
         const txDate = t.date ? FCData.parseDateLocal(t.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
         const editedDot = t._edited
@@ -4649,12 +4661,15 @@ window.FCApp = (function () {
           : '';
         return `
           <div class="fc-list-item" style="cursor:pointer" onclick="FCApp.openTransactionDetail('${esc(t.id)}')" role="button">
-            <div class="fc-list-icon" style="background:${isEmojiIcon ? FCData.categoryColor(rawCat) + '20' : FCData.categoryColor(rawCat)};font-size:${isEmojiIcon ? '20px' : '15px'};font-weight:${isEmojiIcon ? '400' : '700'};color:white">${emoji}</div>
+            <div class="fc-list-icon" style="background:${isEmojiIcon ? FCData.categoryColor(rawCat) + '22' : FCData.categoryColor(rawCat)};font-size:${isEmojiIcon ? '20px' : '15px'};font-weight:${isEmojiIcon ? '400' : '700'};color:white">${emoji}</div>
             <div class="fc-list-body">
               <div class="fc-list-title">${esc(displayName)}${editedDot}</div>
               <div class="fc-list-meta">${esc(cat)}${txDate ? ' · ' + txDate : ''}</div>
             </div>
-            <div class="fc-list-amount" style="color:${color}">${sign}${FCData.formatCurrency(t.amount)}</div>
+            <div class="fc-list-right">
+              <div class="fc-list-amount" style="color:${color}">${sign}${FCData.formatCurrency(t.amount)}</div>
+              ${chevronSvg}
+            </div>
           </div>`;
       }).join('');
 
@@ -6109,54 +6124,159 @@ window.FCApp = (function () {
   }
 
   function _renderSpendingTrends() {
-    const el = document.getElementById('act-spending-trends');
-    if (!el) return;
+    const card = document.getElementById('act-summary-card');
+    if (!card) return;
 
     const txns = state.transactions || [];
-    if (!txns.length) { el.style.display = 'none'; return; }
+    if (!txns.length) { card.style.display = 'none'; return; }
 
-    const now = new Date(); now.setHours(0,0,0,0);
-    const weeks = Array.from({ length: 6 }, (_, i) => {
-      const w     = 5 - i;
-      const start = new Date(now.getTime() - (w + 1) * 7 * 86400000);
-      const end   = new Date(now.getTime() - w * 7 * 86400000);
-      const total = txns
-        .filter(t => { if (!_isSpendTxn(t)) return false; const d = FCData.parseDateLocal(t.date); return d >= start && d < end; })
-        .reduce((s, t) => s + (t.amount || 0), 0);
-      return { label: start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), total };
+    const now   = new Date();
+    const today = new Date(now); today.setHours(23,59,59,999);
+
+    // Determine period boundaries based on _actSummaryPeriod
+    let periodStart, bucketFn, bucketCount, xLabels;
+    if (_actSummaryPeriod === 'Y') {
+      periodStart = new Date(now.getFullYear() - 1, now.getMonth() + 1, 1);
+      bucketCount = 12;
+      bucketFn = (d) => ((d.getFullYear() - periodStart.getFullYear()) * 12 + (d.getMonth() - periodStart.getMonth()));
+      xLabels = Array.from({ length: 12 }, (_, i) => {
+        const m = new Date(periodStart.getFullYear(), periodStart.getMonth() + i, 1);
+        return m.toLocaleDateString('en-US', { month: 'short' });
+      });
+    } else if (_actSummaryPeriod === '6M') {
+      periodStart = new Date(now.getTime() - 182 * 86400000);
+      bucketCount = 26; // ~6 months of weeks
+      bucketFn = (d) => Math.floor((d.getTime() - periodStart.getTime()) / (7 * 86400000));
+      xLabels = Array.from({ length: 26 }, (_, i) => {
+        const w = new Date(periodStart.getTime() + i * 7 * 86400000);
+        return w.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      }).filter((_, i) => i % 4 === 0); // show ~6 labels
+    } else {
+      // M = last 30 days
+      periodStart = new Date(now.getTime() - 29 * 86400000); periodStart.setHours(0,0,0,0);
+      bucketCount = 30;
+      bucketFn = (d) => Math.floor((d.getTime() - periodStart.getTime()) / 86400000);
+      xLabels = Array.from({ length: 30 }, (_, i) => {
+        const d = new Date(periodStart.getTime() + i * 86400000);
+        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      }).filter((_, i) => i % 6 === 0).concat(['Today']);
+    }
+
+    // Compute period spend, income, last-period spend
+    const periodTxns = txns.filter(t => {
+      if (!t.date) return false;
+      const d = FCData.parseDateLocal(t.date);
+      return d >= periodStart && d <= today;
     });
 
-    const max = Math.max(...weeks.map(w => w.total), 1);
-    const thisWeek = weeks[weeks.length - 1]?.total || 0;
+    const thisSpend  = periodTxns.filter(_isSpendTxn).reduce((s, t) => s + Math.abs(t.amount || 0), 0);
+    const thisIncome = periodTxns.filter(_isIncomeTxn).reduce((s, t) => s + Math.abs(t.amount || 0), 0);
+    const periodMs   = today.getTime() - periodStart.getTime();
+    const prevStart  = new Date(periodStart.getTime() - periodMs - 86400000);
+    const prevTxns   = txns.filter(t => {
+      if (!t.date) return false;
+      const d = FCData.parseDateLocal(t.date);
+      return d >= prevStart && d < periodStart;
+    });
+    const prevSpend  = prevTxns.filter(_isSpendTxn).reduce((s, t) => s + Math.abs(t.amount || 0), 0);
 
-    const totalEl  = document.getElementById('act-trends-total');
-    const barsEl   = document.getElementById('act-trends-bars');
-    const labelsEl = document.getElementById('act-trends-labels');
+    const daysElapsed = Math.max(1, Math.round(periodMs / 86400000));
+    const avgDaily    = thisSpend / daysElapsed;
+    const cashFlow    = thisIncome - thisSpend;
+    const spendDelta  = prevSpend > 0 ? Math.round(((thisSpend - prevSpend) / prevSpend) * 100) : null;
 
-    if (totalEl) totalEl.textContent = FCData.formatCurrency(thisWeek) + ' this week';
+    // Update card DOM
+    const amtEl       = document.getElementById('act-summary-amount');
+    const deltaEl     = document.getElementById('act-summary-delta');
+    const incomeEl    = document.getElementById('act-metric-income');
+    const cashflowEl  = document.getElementById('act-metric-cashflow');
+    const avgdailyEl  = document.getElementById('act-metric-avgdaily');
+    const labelEl     = card.querySelector('.act-summary-label');
 
-    if (barsEl) {
-      barsEl.innerHTML = weeks.map((w, i) => {
-        const pct    = Math.max(8, (w.total / max) * 100);
-        const isLast = i === weeks.length - 1;
-        return `<div style="flex:1;height:100%;display:flex;align-items:flex-end">
-          <div style="width:100%;height:${pct.toFixed(0)}%;border-radius:4px 4px 0 0;
-               background:${isLast ? 'var(--fc-accent)' : 'rgba(255,255,255,0.14)'};
-               transition:height .6s var(--fc-ease-out)"></div>
-        </div>`;
-      }).join('');
+    if (amtEl)    amtEl.textContent     = FCData.formatCurrency(thisSpend);
+    if (incomeEl) incomeEl.textContent  = FCData.formatCurrency(thisIncome);
+    if (cashflowEl) {
+      cashflowEl.textContent  = (cashFlow >= 0 ? '+' : '−') + FCData.formatCurrency(Math.abs(cashFlow));
+      cashflowEl.style.color  = cashFlow >= 0 ? 'var(--fc-success)' : 'var(--fc-danger)';
+    }
+    if (avgdailyEl) avgdailyEl.textContent = FCData.formatCurrency(avgDaily) + '/day';
+    if (labelEl)    labelEl.textContent = _actSummaryPeriod === 'M' ? 'This Month' : _actSummaryPeriod === '6M' ? 'Last 6 Months' : 'This Year';
+
+    if (deltaEl && spendDelta !== null) {
+      const up = spendDelta > 0;
+      deltaEl.textContent = (up ? '↑ ' : '↓ ') + Math.abs(spendDelta) + '% vs last period';
+      deltaEl.style.color = up ? 'var(--fc-danger)' : 'var(--fc-success)';
+      deltaEl.style.display = '';
+    } else if (deltaEl) {
+      deltaEl.style.display = 'none';
+    }
+
+    // Build line chart data
+    const buckets = new Array(bucketCount).fill(0);
+    periodTxns.filter(_isSpendTxn).forEach(t => {
+      const d = FCData.parseDateLocal(t.date);
+      const idx = Math.max(0, Math.min(bucketCount - 1, bucketFn(d)));
+      if (idx >= 0 && idx < bucketCount) buckets[idx] += t.amount || 0;
+    });
+
+    const svgEl = document.getElementById('act-summary-chart-svg');
+    const labelsEl = document.getElementById('act-chart-labels');
+    if (svgEl) {
+      const chartH = 80, chartW = 320; // viewBox units
+      const maxVal = Math.max(...buckets, 1);
+      const pts = buckets.map((v, i) => {
+        const x = (i / (bucketCount - 1)) * chartW;
+        const y = chartH - (v / maxVal) * (chartH - 8);
+        return [x, y];
+      });
+
+      // Smooth path using cubic bezier
+      let d = `M ${pts[0][0]},${pts[0][1]}`;
+      for (let i = 1; i < pts.length; i++) {
+        const [x0, y0] = pts[i - 1];
+        const [x1, y1] = pts[i];
+        const cx = (x0 + x1) / 2;
+        d += ` C ${cx},${y0} ${cx},${y1} ${x1},${y1}`;
+      }
+
+      // Fill area
+      const fillD = d + ` L ${pts[pts.length-1][0]},${chartH} L ${pts[0][0]},${chartH} Z`;
+      const lastPt = pts[pts.length - 1];
+
+      svgEl.setAttribute('viewBox', `0 0 ${chartW} ${chartH}`);
+      svgEl.innerHTML = `
+        <defs>
+          <linearGradient id="actChartGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#147CFF" stop-opacity="0.22"/>
+            <stop offset="100%" stop-color="#147CFF" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+        <path d="${fillD}" fill="url(#actChartGrad)"/>
+        <path d="${d}" fill="none" stroke="#147CFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="${lastPt[0]}" cy="${lastPt[1]}" r="4" fill="#147CFF"/>
+      `;
     }
 
     if (labelsEl) {
-      labelsEl.innerHTML = weeks.map((w, i) => {
-        const isLast = i === weeks.length - 1;
-        return `<div style="flex:1;text-align:center;font-size:8px;color:${isLast ? 'var(--fc-accent)' : 'var(--fc-text-faint)'};font-weight:${isLast ? 700 : 400}">
-          ${isLast ? 'Now' : w.label.split(' ')[1]}
-        </div>`;
-      }).join('');
+      const labelPts = _actSummaryPeriod === 'M'
+        ? [0, 6, 12, 18, 24, 29].map(i => {
+            const d = new Date(periodStart.getTime() + i * 86400000);
+            return { idx: i, text: i === 29 ? 'Today' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), isNow: i === 29 };
+          })
+        : _actSummaryPeriod === '6M'
+          ? [0, 4, 8, 13, 18, 25].map(i => {
+              const d = new Date(periodStart.getTime() + i * 7 * 86400000);
+              return { idx: i, text: i === 25 ? 'Today' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), isNow: i === 25 };
+            })
+          : Array.from({ length: 6 }, (_, j) => {
+              const i = Math.round(j * 11 / 5);
+              const d = new Date(periodStart.getFullYear(), periodStart.getMonth() + i, 1);
+              return { idx: i, text: j === 5 ? 'Today' : d.toLocaleDateString('en-US', { month: 'short' }), isNow: j === 5 };
+            });
+      labelsEl.innerHTML = labelPts.map(l => `<span class="act-chart-lbl${l.isNow ? ' now' : ''}">${l.text}</span>`).join('');
     }
 
-    el.style.display = '';
+    card.style.display = '';
   }
 
   function _renderRecurringBanner() {
@@ -6166,12 +6286,12 @@ window.FCApp = (function () {
     const subs = _detectSubscriptions(state.transactions || []);
     if (!subs || !subs.length) { el.style.display = 'none'; return; }
 
-    const total    = subs.reduce((s, sub) => s + (sub.amount || 0), 0);
-    const titleEl  = document.getElementById('act-recurring-title');
-    const subEl    = document.getElementById('act-recurring-sub');
+    const total   = subs.reduce((s, sub) => s + (sub.amount || 0), 0);
+    const titleEl = document.getElementById('act-recurring-title');
+    const subEl   = document.getElementById('act-recurring-sub');
 
     if (titleEl) titleEl.textContent = `${subs.length} recurring charge${subs.length !== 1 ? 's' : ''} detected`;
-    if (subEl)   subEl.textContent   = `${FCData.formatCurrency(total)}/mo · Tap to review in Bills`;
+    if (subEl)   subEl.textContent   = `${FCData.formatCurrency(total)}/mo · Review subscriptions to avoid surprises.`;
 
     el.style.display = '';
   }
@@ -10155,6 +10275,9 @@ window.FCApp = (function () {
     editBill,
     switchActivitySegment,
     filterActivity,
+    filterActivityType,
+    switchActivitySummaryPeriod,
+    showActivityFilterSheet,
     showAllActivity,
     // Manual accounts
     showManualAccountSheet,

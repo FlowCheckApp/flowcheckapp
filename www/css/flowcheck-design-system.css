@@ -1105,39 +1105,94 @@ body.fc-theme {
 [data-theme="light"] .dash-ins-chevron { color: rgba(13,27,46,0.32) !important; }
 
 /* ── Activity view ───────────────────────────────────────── */
-[data-theme="light"] .act-title { color: #0a1520 !important; }
-[data-theme="light"] .fc-date-label { color: rgba(13,27,46,0.40) !important; }
-[data-theme="light"] .fc-date-label::after { background: rgba(13,27,46,0.08) !important; }
+[data-theme="light"] .act-title   { color: #071426 !important; }
+[data-theme="light"] .act-subtitle { color: rgba(7,20,38,0.50) !important; }
+[data-theme="light"] .fc-date-label { color: rgba(7,20,38,0.42) !important; }
+[data-theme="light"] .fc-date-net  { color: rgba(7,20,38,0.44) !important; }
 
-/* Activity chips */
-[data-theme="light"] .act-chip-row .fc-chip {
-  background: rgba(13,27,46,0.05) !important;
-  border-color: rgba(13,27,46,0.11) !important;
-  color: rgba(13,27,46,0.60) !important;
-}
-[data-theme="light"] .act-chip-row .fc-chip--active {
-  background: rgba(13,173,212,0.10) !important;
-  border-color: rgba(13,173,212,0.28) !important;
-  color: var(--fc-accent) !important;
-}
-
-/* Activity search */
+/* Activity search + filter btn */
 [data-theme="light"] .act-search-wrap .fc-search {
-  background: rgba(13,27,46,0.05) !important;
-  border-color: rgba(13,27,46,0.11) !important;
+  background: #ffffff !important;
+  border-color: rgba(15,23,42,0.09) !important;
+  box-shadow: 0 1px 4px rgba(15,23,42,0.06) !important;
 }
-[data-theme="light"] .fc-search input { color: #0a1520 !important; }
+[data-theme="light"] .fc-search input { color: #071426 !important; }
+[data-theme="light"] .act-filter-btn {
+  background: #ffffff !important;
+  border-color: rgba(15,23,42,0.09) !important;
+  color: rgba(7,20,38,0.50) !important;
+  box-shadow: 0 1px 4px rgba(15,23,42,0.06) !important;
+}
 
-/* Segment control */
+/* Segment control — active tab uses blue in Activity */
 [data-theme="light"] .fc-segment {
   background: rgba(13,27,46,0.06) !important;
 }
 [data-theme="light"] .fc-segment-btn { color: rgba(13,27,46,0.45) !important; }
+[data-theme="light"] #view-activity .fc-segment-btn.active {
+  background: #ffffff !important;
+  color: #147CFF !important;
+  box-shadow: 0 1px 4px rgba(13,27,46,0.12) !important;
+}
 [data-theme="light"] .fc-segment-btn.active {
   background: #ffffff !important;
   color: #0a1520 !important;
   box-shadow: 0 1px 4px rgba(13,27,46,0.12) !important;
 }
+
+/* Summary card */
+[data-theme="light"] .act-summary-card {
+  background: #ffffff !important;
+  border-color: rgba(15,23,42,0.07) !important;
+  box-shadow: 0 2px 12px rgba(15,23,42,0.07), 0 8px 28px rgba(15,23,42,0.05) !important;
+}
+[data-theme="light"] .act-summary-label { color: #147CFF !important; }
+[data-theme="light"] .act-summary-amount { color: #071426 !important; }
+[data-theme="light"] .act-summary-metrics {
+  border-top-color: rgba(15,23,42,0.07) !important;
+}
+[data-theme="light"] .act-summary-metric-lbl { color: rgba(7,20,38,0.46) !important; }
+[data-theme="light"] .act-summary-metric-val { color: #071426 !important; }
+[data-theme="light"] .act-period-btn { color: rgba(7,20,38,0.40) !important; }
+[data-theme="light"] .act-period-btn.active {
+  background: rgba(15,23,42,0.07) !important;
+  color: #071426 !important;
+}
+[data-theme="light"] .act-chart-lbl { color: rgba(7,20,38,0.40) !important; }
+[data-theme="light"] .act-chart-lbl.now { color: #147CFF !important; }
+
+/* Review / recurring card */
+[data-theme="light"] .act-review-card {
+  background: #FFF4DF !important;
+  border-color: rgba(245,158,11,0.25) !important;
+}
+[data-theme="light"] .act-review-icon-tile { background: rgba(245,158,11,0.18) !important; }
+[data-theme="light"] .act-review-title { color: #071426 !important; }
+[data-theme="light"] .act-review-sub   { color: rgba(7,20,38,0.52) !important; }
+
+/* Type-filter chips */
+[data-theme="light"] .act-type-chip {
+  background: rgba(15,23,42,0.05) !important;
+  border-color: rgba(15,23,42,0.10) !important;
+  color: rgba(7,20,38,0.60) !important;
+}
+[data-theme="light"] .act-type-chip--active {
+  background: rgba(20,124,255,0.08) !important;
+  border-color: rgba(20,124,255,0.24) !important;
+  color: #147CFF !important;
+}
+
+/* Transaction cards */
+[data-theme="light"] #activity-list .fc-card,
+[data-theme="light"] #bills-full-list .fc-card {
+  background: #ffffff !important;
+  border-color: rgba(15,23,42,0.07) !important;
+  box-shadow: 0 2px 12px rgba(15,23,42,0.06) !important;
+}
+[data-theme="light"] .fc-list-item { border-bottom-color: rgba(15,23,42,0.06) !important; }
+[data-theme="light"] .fc-list-title  { color: #071426 !important; }
+[data-theme="light"] .fc-list-meta   { color: rgba(7,20,38,0.44) !important; }
+[data-theme="light"] .fc-list-chevron { color: rgba(7,20,38,0.18) !important; }
 
 /* ── Insights view ───────────────────────────────────────── */
 [data-theme="light"] .ins-health-card {

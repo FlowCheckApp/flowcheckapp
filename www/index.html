@@ -4460,58 +4460,130 @@ body {
        ACTIVITY TAB
        ══════════════════════════════════════════════════════════════ */
     #view-activity{overflow-y:scroll;-webkit-overflow-scrolling:touch;padding-bottom:100px;overscroll-behavior:contain}
-    .act-header{display:flex;align-items:flex-end;justify-content:space-between;padding:18px 18px 0}
-    .act-title{font-size:32px;font-weight:900;letter-spacing:-0.035em;color:#fff;line-height:1.05}
+    .act-header{display:flex;align-items:flex-end;justify-content:space-between;padding:18px 20px 0}
+    .act-title{font-size:32px;font-weight:700;letter-spacing:-0.025em;color:#fff;line-height:1.05}
+    .act-subtitle{font-size:14px;font-weight:400;color:rgba(255,255,255,0.44);padding:5px 20px 0;line-height:1.4}
 
-    /* Single scrollable chip row — no wrapping */
-    .act-chip-row{display:flex;gap:7px;padding:12px 16px 0;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;flex-wrap:nowrap}
-    .act-chip-row::-webkit-scrollbar{display:none}
-
-    /* Chips — premium pill style */
-    .act-chip-row .fc-chip{
-      padding:8px 16px;border-radius:999px;min-height:34px;
-      background:rgba(255,255,255,0.055);border:0.5px solid rgba(255,255,255,0.09);
-      color:rgba(255,255,255,0.58);font-size:12px;font-weight:600;
-      white-space:nowrap;flex-shrink:0;
-      transition:background .15s,color .15s,border-color .15s,transform .12s;
-      box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);
-    }
-    .act-chip-row .fc-chip:active{transform:scale(0.94);opacity:.75}
-    .act-chip-row .fc-chip--active{
-      background:rgba(26,196,240,0.14);border-color:rgba(26,196,240,0.32);color:var(--fc-accent);
-      box-shadow:inset 0 0 0 0.5px rgba(26,196,240,0.15);
-    }
-
-    /* Search — glass treatment */
-    .act-search-wrap{margin:10px 16px 0}
+    /* Search + filter row */
+    .act-search-row{display:flex;gap:10px;align-items:center;margin:14px 16px 0}
+    .act-search-wrap{flex:1;min-width:0}
     .act-search-wrap .fc-search{
       background:rgba(255,255,255,0.05);border:0.5px solid rgba(255,255,255,0.09);
       border-radius:14px;box-shadow:inset 0 1px 0 rgba(255,255,255,0.04),0 2px 10px rgba(0,0,0,0.2);
-      padding:0 14px;height:42px;
+      padding:0 14px;height:44px;
     }
     .act-search-wrap .fc-search input{font-size:14px;background:transparent;color:white}
-
-    /* Date separators */
-    .fc-date-label{
-      font-size:10px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;
-      color:rgba(255,255,255,0.32);padding:18px 20px 7px;
-      display:flex;align-items:center;gap:10px;
+    .act-filter-btn{
+      width:44px;height:44px;border-radius:14px;flex-shrink:0;
+      background:rgba(255,255,255,0.05);border:0.5px solid rgba(255,255,255,0.09);
+      color:rgba(255,255,255,0.50);display:flex;align-items:center;justify-content:center;
+      cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .15s,transform .12s;
     }
-    .fc-date-label::after{content:'';flex:1;height:0.5px;background:rgba(255,255,255,0.07)}
+    .act-filter-btn:active{background:rgba(255,255,255,0.10);transform:scale(0.94)}
+
+    /* Segment moved below search */
+    .act-segment-wrap{padding:12px 16px 0}
+
+    /* This Month summary card */
+    .act-summary-card{
+      margin:12px 16px 0;padding:18px 20px 16px;
+      background:rgba(255,255,255,0.05);border:0.5px solid rgba(255,255,255,0.09);
+      border-radius:24px;box-shadow:0 4px 16px rgba(0,0,0,0.18);
+    }
+    .act-summary-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:2px}
+    .act-summary-label{font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:rgba(255,255,255,0.40)}
+    .act-period-btns{display:flex;gap:2px}
+    .act-period-btn{
+      padding:4px 9px;border-radius:8px;font-size:11px;font-weight:600;
+      color:rgba(255,255,255,0.38);background:transparent;border:none;
+      cursor:pointer;-webkit-tap-highlight-color:transparent;
+      transition:background .15s,color .15s;font-family:inherit;
+    }
+    .act-period-btn.active{background:rgba(255,255,255,0.12);color:#fff}
+    .act-summary-amount{font-size:34px;font-weight:700;letter-spacing:-0.025em;font-variant-numeric:tabular-nums;color:#fff;margin-top:2px;line-height:1.1}
+    .act-summary-delta{font-size:12px;font-weight:600;margin-top:3px}
+    .act-summary-metrics{
+      display:flex;margin-top:12px;padding-top:12px;
+      border-top:0.5px solid rgba(255,255,255,0.07);
+    }
+    .act-summary-metric{flex:1}
+    .act-summary-metric-dot{
+      display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:4px;vertical-align:middle;
+    }
+    .act-summary-metric-lbl{font-size:10px;font-weight:500;color:rgba(255,255,255,0.42);margin-bottom:2px;display:flex;align-items:center}
+    .act-summary-metric-val{font-size:13px;font-weight:600;color:#fff;font-variant-numeric:tabular-nums;letter-spacing:-0.01em}
+    /* Line chart */
+    .act-summary-chart{margin-top:10px;position:relative;overflow:hidden}
+    .act-chart-labels{display:flex;justify-content:space-between;margin-top:5px;padding:0 2px}
+    .act-chart-lbl{font-size:9px;color:rgba(255,255,255,0.32);font-weight:500}
+    .act-chart-lbl.now{color:var(--fc-accent);font-weight:700}
+
+    /* Review Needed / recurring banner */
+    .act-review-card{
+      margin:10px 16px 0;padding:14px 16px;
+      background:rgba(245,158,11,0.07);border:0.5px solid rgba(245,158,11,0.20);
+      border-radius:20px;display:flex;align-items:flex-start;gap:12px;
+      cursor:pointer;-webkit-tap-highlight-color:transparent;
+    }
+    .act-review-card:active{opacity:0.80}
+    .act-review-icon-tile{
+      width:38px;height:38px;border-radius:11px;flex-shrink:0;
+      background:rgba(245,158,11,0.14);display:flex;align-items:center;justify-content:center;
+    }
+    .act-review-badge{font-size:10px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:#F59E0B;margin-bottom:1px}
+    .act-review-title{font-size:14px;font-weight:600;color:#fff;line-height:1.3}
+    .act-review-sub{font-size:12px;color:rgba(255,255,255,0.46);margin-top:2px;line-height:1.4}
+    .act-review-cta{
+      margin-top:7px;display:inline-flex;align-items:center;gap:4px;
+      font-size:12px;font-weight:600;color:#F59E0B;background:transparent;border:none;
+      cursor:pointer;-webkit-tap-highlight-color:transparent;font-family:inherit;padding:0;
+    }
+
+    /* Quick type-filter chips */
+    .act-type-chips{
+      display:flex;gap:7px;padding:12px 16px 0;
+      overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;flex-wrap:nowrap;
+    }
+    .act-type-chips::-webkit-scrollbar{display:none}
+    .act-type-chip{
+      display:inline-flex;align-items:center;gap:5px;
+      padding:7px 14px;border-radius:999px;min-height:34px;
+      background:rgba(255,255,255,0.055);border:0.5px solid rgba(255,255,255,0.09);
+      color:rgba(255,255,255,0.56);font-size:12px;font-weight:600;
+      white-space:nowrap;flex-shrink:0;cursor:pointer;-webkit-tap-highlight-color:transparent;
+      transition:background .15s,color .15s,border-color .15s,transform .12s;
+    }
+    .act-type-chip:active{transform:scale(0.94)}
+    .act-type-chip--active{background:rgba(26,196,240,0.14);border-color:rgba(26,196,240,0.32);color:var(--fc-accent)}
+
+    /* Date group header */
+    .fc-date-label{
+      font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;
+      color:rgba(255,255,255,0.30);padding:16px 20px 7px;
+      display:flex;align-items:center;gap:8px;
+    }
+    .fc-date-label-spacer{flex:1;height:0.5px;background:rgba(255,255,255,0.06)}
+    .fc-date-net{font-size:11px;font-weight:600;color:rgba(255,255,255,0.34);flex-shrink:0;font-variant-numeric:tabular-nums;letter-spacing:-0.01em}
 
     /* Transaction cards */
     #activity-list .fc-card,#bills-full-list .fc-card{
       background:linear-gradient(145deg,#0d1b2e,#091422);
       border:0.5px solid rgba(255,255,255,0.07);
       box-shadow:0 4px 16px rgba(0,0,0,0.3);
-      margin:0 16px 8px;border-radius:20px;
+      margin:0 16px 8px;border-radius:22px;overflow:hidden;
     }
-    .fc-list-item{padding:13px 0;border-bottom:0.5px solid rgba(255,255,255,0.035)}
+    .fc-list-item{
+      padding:13px 16px;border-bottom:0.5px solid rgba(255,255,255,0.035);
+      display:flex;align-items:center;gap:12px;
+    }
     .fc-list-item:last-child{border-bottom:none}
-    .fc-list-icon{width:44px;height:44px;border-radius:14px;flex-shrink:0;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(0,0,0,0.25)}
+    .fc-list-icon{width:44px;height:44px;border-radius:14px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+    .fc-list-body{flex:1;min-width:0}
     .fc-list-title{font-size:14px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .fc-list-meta{font-size:12px;color:rgba(255,255,255,0.38);margin-top:2px}
-    .fc-list-amount{font-size:15px;font-weight:800;letter-spacing:-0.03em;font-variant-numeric:tabular-nums}
+    .fc-list-right{display:flex;align-items:center;gap:6px;flex-shrink:0}
+    .fc-list-amount{font-size:15px;font-weight:600;letter-spacing:-0.02em;font-variant-numeric:tabular-nums}
+    .fc-list-chevron{color:rgba(255,255,255,0.20);flex-shrink:0}
 
     /* Activity empty state */
     .act-empty{
@@ -5272,15 +5344,31 @@ body {
   <!-- ────────────────────────────── VIEW: ACTIVITY -->
   <div id="view-activity" class="fc-view" role="tabpanel">
 
-    <!-- Header -->
+    <!-- Title + subtitle -->
     <div class="act-header">
-      <h1 class="act-title">Activity</h1>
+      <div>
+        <h1 class="act-title">Activity</h1>
+        <div class="act-subtitle">Track, review, and stay ahead of your money.</div>
+      </div>
       <button id="activity-add-bill-btn" class="fc-iconbtn" onclick="FCApp.showBillSheet()" type="button"
-              aria-label="Add bill" style="display:none;width:32px;height:32px;background:rgba(26,196,240,0.12);color:var(--fc-accent);border-radius:10px;font-size:20px;line-height:1;border:0.5px solid rgba(26,196,240,0.22)">+</button>
+              aria-label="Add bill" style="display:none;width:36px;height:36px;background:rgba(26,196,240,0.12);color:var(--fc-accent);border-radius:11px;font-size:20px;line-height:1;border:0.5px solid rgba(26,196,240,0.22)">+</button>
+    </div>
+
+    <!-- Search + filter button -->
+    <div class="act-search-row">
+      <div class="act-search-wrap">
+        <div class="fc-search">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>
+          <input id="activity-search" type="search" placeholder="Search transactions, bills, or merchants..." autocomplete="off">
+        </div>
+      </div>
+      <button class="act-filter-btn" onclick="FCApp.showActivityFilterSheet()" type="button" aria-label="Filter">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
+      </button>
     </div>
 
     <!-- Segment control: Transactions | Bills -->
-    <div style="padding:12px 16px 0">
+    <div class="act-segment-wrap">
       <div class="fc-segment" role="tablist" aria-label="Activity view">
         <button class="fc-segment-btn active" id="seg-txns" role="tab" aria-selected="true"
                 onclick="FCApp.switchActivitySegment('transactions')" type="button">Transactions</button>
@@ -5291,61 +5379,80 @@ body {
 
     <!-- Transactions panel -->
     <div id="activity-txns-panel">
-      <!-- Search bar -->
-      <div class="act-search-wrap">
-        <div class="fc-search">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>
-          <input id="activity-search" type="search" placeholder="Search by name, amount, or category…" autocomplete="off">
-        </div>
-      </div>
 
-      <!-- V3: Spending Trends mini chart -->
-      <div id="act-spending-trends" style="display:none;padding:0 16px 4px">
-        <div style="padding:14px 14px 10px;border-radius:16px;background:rgba(255,255,255,0.04);border:0.5px solid rgba(255,255,255,0.08)">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-            <div style="font-size:9px;font-weight:700;letter-spacing:.10em;text-transform:uppercase;color:var(--fc-text-faint)">6-Week Spending</div>
-            <div id="act-trends-total" style="font-size:12px;font-weight:700;color:var(--fc-text);font-variant-numeric:tabular-nums"></div>
+      <!-- This Month summary card -->
+      <div id="act-summary-card" class="act-summary-card" style="display:none">
+        <div class="act-summary-top">
+          <div class="act-summary-label">This Month</div>
+          <div class="act-period-btns" role="group" aria-label="Chart period">
+            <button class="act-period-btn active" data-act-period="M" onclick="FCApp.switchActivitySummaryPeriod('M')" type="button">M</button>
+            <button class="act-period-btn" data-act-period="6M" onclick="FCApp.switchActivitySummaryPeriod('6M')" type="button">6M</button>
+            <button class="act-period-btn" data-act-period="Y" onclick="FCApp.switchActivitySummaryPeriod('Y')" type="button">Y</button>
           </div>
-          <div id="act-trends-bars" style="display:flex;align-items:flex-end;gap:3px;height:40px"></div>
-          <div id="act-trends-labels" style="display:flex;gap:3px;margin-top:5px"></div>
         </div>
-      </div>
-
-      <!-- V3: Recurring Charges Banner -->
-      <div id="act-recurring-banner" style="display:none;padding:0 16px 4px">
-        <div style="padding:12px 14px;border-radius:14px;background:rgba(255,159,10,0.08);border:0.5px solid rgba(255,159,10,0.2);border-left:3px solid var(--fc-warning);display:flex;align-items:center;gap:10px;cursor:pointer;-webkit-tap-highlight-color:transparent" onclick="FCApp.switchActivitySegment('bills')" role="button">
-          <span style="font-size:16px;flex-shrink:0">🔄</span>
-          <div style="flex:1;min-width:0">
-            <div id="act-recurring-title" style="font-size:13px;font-weight:600;color:var(--fc-text)"></div>
-            <div id="act-recurring-sub" style="font-size:11px;color:var(--fc-text-muted);margin-top:1px"></div>
+        <div id="act-summary-amount" class="act-summary-amount">$0</div>
+        <div id="act-summary-delta" class="act-summary-delta" style="display:none"></div>
+        <div class="act-summary-metrics">
+          <div class="act-summary-metric">
+            <div class="act-summary-metric-lbl"><span class="act-summary-metric-dot" style="background:#16A34A"></span>Income</div>
+            <div id="act-metric-income" class="act-summary-metric-val">—</div>
           </div>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+          <div class="act-summary-metric">
+            <div class="act-summary-metric-lbl"><span class="act-summary-metric-dot" style="background:#147CFF"></span>Cash Flow</div>
+            <div id="act-metric-cashflow" class="act-summary-metric-val">—</div>
+          </div>
+          <div class="act-summary-metric">
+            <div class="act-summary-metric-lbl"><span class="act-summary-metric-dot" style="background:#8B5CF6"></span>Avg Daily</div>
+            <div id="act-metric-avgdaily" class="act-summary-metric-val">—</div>
+          </div>
+        </div>
+        <div class="act-summary-chart">
+          <svg id="act-summary-chart-svg" width="100%" height="80" preserveAspectRatio="none" style="display:block"></svg>
+          <div id="act-chart-labels" class="act-chart-labels"></div>
         </div>
       </div>
 
-      <!-- Period filter chips -->
-      <div style="font-size:9px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--fc-text-faint);padding:10px 16px 2px">When</div>
-      <div class="act-chip-row" role="group" aria-label="Time period filter">
-        <button class="fc-chip fc-chip--active" data-activity-period="all"    onclick="FCApp.filterActivity('all')"   type="button">All</button>
-        <button class="fc-chip"                 data-activity-period="today"  onclick="FCApp.filterActivity('today')" type="button">Today</button>
-        <button class="fc-chip"                 data-activity-period="week"   onclick="FCApp.filterActivity('week')"  type="button">This Week</button>
-        <button class="fc-chip"                 data-activity-period="month"  onclick="FCApp.filterActivity('month')" type="button">This Month</button>
+      <!-- Recurring Charges / Review Needed card -->
+      <div id="act-recurring-banner" class="act-review-card" style="display:none"
+           onclick="FCApp.switchActivitySegment('bills')" role="button">
+        <div class="act-review-icon-tile">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 18 0 9 9 0 0 0-18 0"/><path d="M12 8v4l3 3"/></svg>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div class="act-review-badge">Review Needed</div>
+          <div id="act-recurring-title" class="act-review-title"></div>
+          <div id="act-recurring-sub" class="act-review-sub"></div>
+          <button class="act-review-cta" type="button" onclick="event.stopPropagation();FCApp.switchActivitySegment('bills')">
+            Review subscriptions
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+          </button>
+        </div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.28)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
       </div>
 
-      <!-- Category filter chips -->
-      <div style="font-size:9px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--fc-text-faint);padding:8px 16px 2px">Category</div>
-      <div id="activity-cat-chips" class="act-chip-row" style="padding-top:0" role="group" aria-label="Category filter">
-        <button class="fc-chip fc-chip--active" data-cat-chip="all"           onclick="FCApp.filterActivityCategory('all')"           type="button">All</button>
-        <button class="fc-chip"                 data-cat-chip="food"          onclick="FCApp.filterActivityCategory('food')"          type="button">🍔 Food</button>
-        <button class="fc-chip"                 data-cat-chip="transport"     onclick="FCApp.filterActivityCategory('transport')"     type="button">🚗 Transport</button>
-        <button class="fc-chip"                 data-cat-chip="shopping"      onclick="FCApp.filterActivityCategory('shopping')"      type="button">🛍 Shopping</button>
-        <button class="fc-chip"                 data-cat-chip="entertainment" onclick="FCApp.filterActivityCategory('entertainment')" type="button">🎬 Entertain</button>
-        <button class="fc-chip"                 data-cat-chip="health"        onclick="FCApp.filterActivityCategory('health')"        type="button">💊 Health</button>
-        <button class="fc-chip"                 data-cat-chip="income"        onclick="FCApp.filterActivityCategory('income')"        type="button">💰 Income</button>
+      <!-- Quick type-filter chips (replaces WHEN + CATEGORY rows) -->
+      <div class="act-type-chips" role="group" aria-label="Transaction type filter">
+        <button class="act-type-chip act-type-chip--active" data-act-type="all"       onclick="FCApp.filterActivityType('all')"       type="button">All</button>
+        <button class="act-type-chip"                       data-act-type="income"    onclick="FCApp.filterActivityType('income')"    type="button">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+          Income
+        </button>
+        <button class="act-type-chip"                       data-act-type="expenses"  onclick="FCApp.filterActivityType('expenses')"  type="button">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
+          Expenses
+        </button>
+        <button class="act-type-chip"                       data-act-type="transfers" onclick="FCApp.filterActivityType('transfers')" type="button">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M7 16V4m0 0L3 8m4-4 4 4M17 8v12m0 0 4-4m-4 4-4-4"/></svg>
+          Transfers
+        </button>
+        <button class="act-type-chip"                       data-act-type="recurring" onclick="FCApp.filterActivityType('recurring')" type="button">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 15-6.7L21 9"/><path d="M21 3v6h-6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 15"/><path d="M3 21v-6h6"/></svg>
+          Recurring
+        </button>
       </div>
 
       <!-- Transaction list (date-grouped by JS) -->
-      <div id="activity-list" style="padding-top:6px">
+      <div id="activity-list" style="padding-top:8px">
         <div style="text-align:center;padding:56px 24px;color:var(--fc-text-faint)">
           <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom:12px;opacity:0.35" aria-hidden="true"><path d="M3 12h4l3-9 4 18 3-9h4"/></svg>
           <div style="font-size:15px;font-weight:600;color:var(--fc-text-muted);margin-bottom:4px">No transactions yet</div>
