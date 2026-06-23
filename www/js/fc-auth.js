@@ -16,6 +16,7 @@ window.FCAuth = (function () {
   let _db   = null;          // Firestore instance
   let _currentUser = null;   // Firebase User object
   let _biometricAvailable = false;
+  const _secureMemory = new Map(); // Browser preview only; never persisted
 
   /* ── Login rate limiting (brute-force protection) ────────── */
   // Tracks failed attempts per email address (in-memory only — clears on app restart)
@@ -66,13 +67,6 @@ window.FCAuth = (function () {
   }
 
   /* ── Preferences (NSUserDefaults — NOT Keychain-backed) ─────── */
-  async function prefSet(key, value) {
-    try {
-      if (Preferences()) await Preferences().set({ key, value: JSON.stringify(value) });
-      else localStorage.setItem('fc_' + key, JSON.stringify(value));
-    } catch (_) {}
-  }
-
   async function prefGet(key) {
     try {
       if (Preferences()) {
@@ -93,13 +87,14 @@ window.FCAuth = (function () {
 
   /* ── Keychain-backed secure storage (for biometric PII) ────── */
   // Uses capacitor-secure-storage-plugin which maps to iOS Keychain.
-  // Falls back to Preferences when running in browser/dev mode.
+  // Browser previews use memory only; biometric PII is never persisted to
+  // localStorage or NSUserDefaults when Keychain is unavailable.
   // One-time migration: on first read, pulls any existing Preferences value
   // into Keychain and deletes the NSUserDefaults copy.
   async function secureSet(key, value) {
     try {
       if (SecureStorage()) await SecureStorage().set({ key, value: String(value) });
-      else await prefSet(key, value);
+      else _secureMemory.set(key, String(value));
     } catch (_) {}
   }
 
@@ -119,7 +114,7 @@ window.FCAuth = (function () {
         }
         return null;
       }
-      return prefGet(key);
+      return _secureMemory.get(key) ?? null;
     } catch (_) { return null; }
   }
 
@@ -129,7 +124,7 @@ window.FCAuth = (function () {
         await SecureStorage().remove({ key }).catch(() => {});
         await prefRemove(key); // clean up any legacy NSUserDefaults copy
       } else {
-        await prefRemove(key);
+        _secureMemory.delete(key);
       }
     } catch (_) {}
   }

@@ -51,3 +51,6 @@ jobs:
             echo "Checking $f..."
             node --check "$f"
           done
+
+      - name: Check privacy and brand invariants
+        run: node scripts/check-privacy-invariants.js

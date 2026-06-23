@@ -6,11 +6,11 @@
 <!-- Apply saved theme BEFORE any CSS renders — prevents flash of wrong theme -->
 <script>
   (function(){
-    var p = localStorage.getItem('fc_appearance') || 'light';
+    var p = localStorage.getItem('fc_appearance') || 'system';
     var mq = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)');
     var light = p === 'light' || (p === 'system' && mq && mq.matches);
     document.documentElement.setAttribute('data-theme', light ? 'light' : 'dark');
-    var bg = light ? '#f0f3f7' : '#060e18';
+    var bg = light ? '#F3F7FA' : '#060e18';
     document.documentElement.style.backgroundColor = bg;
   })();
 </script>
@@ -49,6 +49,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="stylesheet" href="css/flowcheck-design-system.css">
 <link rel="stylesheet" href="css/fc-screens.css">
+<link rel="stylesheet" href="css/fc-premium-screens.css">
 
 <!-- Sentry — error & crash monitoring (vanilla JS, no npm required) -->
 <script
@@ -5057,29 +5058,22 @@ body:not(.keyboard-open) .fc-sheet {
     <div class="dash-hero-top">
       <div>
         <div class="dash-hero-tod" id="home-greeting-date">Here's your financial overview for today.</div>
-        <div class="dash-hero-name" id="home-greeting-title">Good morning 👋</div>
+        <div class="dash-hero-name" id="home-greeting-title"><span>Good morning, </span><strong>there</strong></div>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
-        <button id="fc-privacy-toggle"
-                onclick="FCApp.togglePrivacyMode()"
-                aria-label="Hide balances"
-                aria-pressed="false"
-                style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;
-                       border-radius:50%;border:none;background:rgba(255,255,255,0.06);
-                       cursor:pointer;transition:background .15s;-webkit-tap-highlight-color:transparent;
-                       flex-shrink:0">
-          <svg id="fc-privacy-eye-open" width="18" height="18" viewBox="0 0 24 24" fill="none"
-               stroke="var(--fc-text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-            <circle cx="12" cy="12" r="3"/>
+        <button id="home-notif-btn" class="premium-home-action"
+                onclick="FCApp.toggleNotificationCenter()"
+                aria-label="Notifications" type="button">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/>
           </svg>
-          <svg id="fc-privacy-eye-closed" width="18" height="18" viewBox="0 0 24 24" fill="none"
-               stroke="var(--fc-accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-               style="display:none">
-            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
-            <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
-            <line x1="1" y1="1" x2="23" y2="23"/>
-          </svg>
+          <span id="home-notif-badge" aria-hidden="true" style="display:none;position:absolute;top:2px;right:2px;width:8px;height:8px;border-radius:50%;background:var(--fc-electric);border:1.5px solid var(--fc-bg);pointer-events:none"></span>
+        </button>
+        <button id="fc-privacy-toggle" class="premium-home-action"
+                onclick="FCApp.togglePrivacyMode()" aria-label="Hide balances"
+                aria-pressed="false" type="button">
+          <svg id="fc-privacy-eye-open" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          <svg id="fc-privacy-eye-closed" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
         </button>
         <div class="dash-avatar" id="home-user-avatar">B</div>
       </div>
@@ -5098,31 +5092,65 @@ body:not(.keyboard-open) .fc-sheet {
   </div>
 
   <!-- ══════════════════════════════════════════════════════════════
-       TODAY'S MONEY MOVE — #1 action card, full width hero
+       SAFE TO SPEND — the answer users came for
        ══════════════════════════════════════════════════════════════ -->
-  <div id="home-move-section" class="fc-fade-up" style="animation-delay:.03s;margin:8px 16px 0;display:none">
+  <section id="home-safe-command" class="home-safe-command fc-fade-up" style="animation-delay:.03s" aria-labelledby="home-safe-title">
+    <div class="home-safe-topline">
+      <div class="home-safe-copy">
+        <div class="home-safe-title" id="home-safe-title">Safe to spend</div>
+        <div class="home-safe-amount fc-amount" id="stat-safe-to-spend" data-anim-val="0">—</div>
+        <div class="home-safe-horizon" id="home-safe-horizon">For the next 7 days</div>
+        <span class="home-safe-status" id="home-safe-status"><span></span> Calculating</span>
+      </div>
+      <div class="home-runway-panel">
+        <div class="home-runway-plot">
+          <svg id="home-runway-chart" class="home-runway-chart" viewBox="0 0 320 92" preserveAspectRatio="none" aria-label="Projected cash runway"></svg>
+          <div class="home-runway-scale" aria-hidden="true"><span id="home-runway-scale-high">—</span><span id="home-runway-scale-mid">—</span><span id="home-runway-scale-low">—</span><span>$0</span></div>
+        </div>
+        <div class="home-runway-dates" aria-hidden="true"><span>Today</span><span id="home-runway-date-mid">—</span><span id="home-runway-date-end">—</span></div>
+      </div>
+    </div>
+    <div class="home-safe-explainer" id="safe-spend-meta">7-day cash runway</div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       NEXT RISK — nearest commitment or all-clear state
+       ══════════════════════════════════════════════════════════════ -->
+  <button id="home-next-risk-section" class="home-next-risk fc-fade-up" style="animation-delay:.045s"
+          onclick="FCApp.switchTab('activity');FCApp.switchActivitySegment('bills')" type="button">
+    <span class="home-next-risk-icon" aria-hidden="true">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></svg>
+    </span>
+    <span class="home-next-risk-copy">
+      <span class="home-next-risk-label" id="home-next-risk-label">Next risk</span>
+      <strong id="home-next-bill-name">Checking upcoming bills…</strong>
+      <small id="home-next-bill-due"></small>
+    </span>
+    <span class="home-next-risk-amount fc-amount" id="home-next-bill-amount"></span>
+    <svg class="home-next-risk-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+  </button>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       TODAY'S MONEY MOVE — one concrete action with visible impact
+       ══════════════════════════════════════════════════════════════ -->
+  <div id="home-move-section" class="fc-fade-up" style="animation-delay:.055s;display:none">
     <div class="home-move-card" id="home-move-card">
-      <div class="home-move-header">
-        <div class="home-move-header-left">
+      <div class="home-move-layout">
+        <div class="home-move-graphic" aria-hidden="true">
+          <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 31c0-9 8-16 20-16 10 0 18 6 18 15 0 6-3 10-8 13v7h-8l-2-5H25l-3 5h-8v-9c-3-2-5-5-6-9H3v-8h9c1-3 2-5 4-7l-2-7c6 0 10 2 13 5"/><circle cx="44" cy="26" r="1.5" fill="currentColor" stroke="none"/><path d="M30 21h10"/><path d="M48 39l4 4 8-9"/></svg>
+        </div>
+        <div class="home-move-copy">
           <div class="home-move-eyebrow">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>
-            TODAY'S MONEY MOVE
+            Today's money move
           </div>
           <div class="home-move-title" id="home-move-title">Analyzing your finances…</div>
+          <div class="home-move-sub" id="home-move-sub"></div>
         </div>
-        <!-- Budget ring — % of income/budget used this month -->
-        <div class="home-move-ring-wrap" id="home-move-ring-wrap" style="display:none">
-          <svg class="home-move-ring-svg" viewBox="0 0 52 52" aria-hidden="true">
-            <circle cx="26" cy="26" r="21" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="4"/>
-            <circle id="home-move-ring-arc" cx="26" cy="26" r="21" fill="none"
-                    stroke="var(--fc-success)" stroke-width="4" stroke-linecap="round"
-                    stroke-dasharray="0 131.9"
-                    style="transform-origin:center;transform:rotate(-90deg);transition:stroke-dasharray .7s cubic-bezier(.34,1.2,.64,1),stroke .4s ease"/>
-          </svg>
-          <div class="home-move-ring-pct" id="home-move-ring-pct"></div>
+        <div class="home-move-impact" id="home-move-ring-wrap">
+          <span>Health</span>
+          <strong><span id="home-move-health-current">—</span> <b>→</b> <span id="home-move-health-next">—</span></strong>
         </div>
       </div>
-      <div class="home-move-sub" id="home-move-sub"></div>
       <div class="home-move-actions">
         <button class="home-move-do" id="home-move-do" type="button">Take action →</button>
         <button class="home-move-skip" id="home-move-skip" type="button"
@@ -5132,40 +5160,35 @@ body:not(.keyboard-open) .fc-sheet {
   </div>
 
   <!-- ══════════════════════════════════════════════════════════════
-       SAFE TO SPEND + NEXT BILL — two-column compact cards
+       THIS MONTH — compact context, not competing dashboards
        ══════════════════════════════════════════════════════════════ -->
-  <div class="home-two-col fc-fade-up" style="animation-delay:.045s;margin:10px 16px 0">
-    <!-- Safe to Spend (left) -->
-    <div class="home-sts-card">
-      <div class="home-card-eyebrow">SAFE TO SPEND</div>
-      <div class="home-sts-amount fc-amount" id="stat-safe-to-spend" data-anim-val="0">—</div>
-      <div class="home-sts-sub">After bills &amp; buffer</div>
-      <div class="home-sts-bar-wrap">
-        <div id="safe-spend-bar-fill" style="width:0%;height:100%;background:linear-gradient(90deg,var(--fc-accent),var(--fc-electric));border-radius:2px;transition:width .5s cubic-bezier(0.34,1.56,0.64,1)"></div>
-      </div>
-      <div class="home-sts-status" id="safe-spend-meta">Connect a bank</div>
-      <div id="sts-status-pill" class="home-sts-status-pill sts-pill-green" style="display:none">Healthy</div>
-      <div id="safe-spend-delta" style="display:none;margin-top:4px"></div>
+  <section class="home-month fc-fade-up" style="animation-delay:.065s" aria-labelledby="home-month-title">
+    <div class="home-month-title" id="home-month-title">This month</div>
+    <div class="home-month-strip">
+      <button type="button" onclick="FCApp.switchTab('insights')">
+        <span class="home-month-icon home-month-icon--good">↗</span>
+        <span><strong id="fch-cashflow" class="fc-amount">—</strong><small>Cash flow</small></span>
+      </button>
+      <button type="button" onclick="FCApp.switchTab('activity')">
+        <span class="home-month-icon">↘</span>
+        <span><strong id="home-month-spent" class="fc-amount">—</strong><small>Spent</small></span>
+      </button>
+      <button type="button" onclick="FCApp.switchTab('insights')">
+        <span class="home-month-icon">♡</span>
+        <span><strong id="health-score-num">—</strong><small>Health</small></span>
+      </button>
     </div>
-    <!-- Next Bill compact (right) -->
-    <div class="home-bill-mini fc-fade-up" style="animation-delay:.06s"
-         onclick="FCApp.switchTab('activity');FCApp.switchActivitySegment('bills')" role="button">
-      <div class="home-card-eyebrow">NEXT BILL</div>
-      <div class="home-bill-mini-name" id="home-next-bill-name">—</div>
-      <div class="home-bill-mini-due" id="home-next-bill-due"></div>
-      <div class="home-bill-mini-amount fc-amount" id="home-next-bill-amount">—</div>
-      <div class="home-bill-mini-link">View bills ›</div>
-    </div>
-  </div>
+  </section>
 
-  <!-- ══════════════════════════════════════════════════════════════
-       7-DAY CASH FLOW FORECAST
-       ══════════════════════════════════════════════════════════════ -->
-  <div id="home-forecast-section" class="fc-fade-up" style="animation-delay:.055s;margin:10px 16px 0;display:none">
-    <div class="home-section-label">7-DAY CASH FLOW FORECAST</div>
-    <div class="home-forecast-card" id="home-forecast-card">
-      <!-- populated by JS -->
-    </div>
+  <div hidden aria-hidden="true">
+    <div id="home-forecast-section"><div id="home-forecast-card"></div></div>
+    <div id="home-move-ring-pct"></div><div id="home-move-ring-arc"></div>
+    <div class="home-sts-card"></div><div id="sts-status-pill"></div><div id="safe-spend-delta"></div>
+    <div id="safe-spend-bar-fill"></div>
+    <div id="hero-networth"></div><div id="hero-delta"></div><div id="glance-nw-sub"></div>
+    <svg id="home-balance-chart"></svg>
+    <div id="glance-cash"></div><div id="glance-cash-sub"></div>
+    <div id="home-health-ring"></div>
   </div>
 
   <!-- ══════════════════════════════════════════════════════════════
@@ -5210,53 +5233,7 @@ body:not(.keyboard-open) .fc-sheet {
     </div>
   </div>
 
-  <!-- ══════════════════════════════════════════════════════════════
-       MONEY AT A GLANCE — Cash / Debt / Cash Flow / Net Worth
-       ══════════════════════════════════════════════════════════════ -->
-  <section class="dash-section fc-fade-up" style="animation-delay:.05s">
-    <div class="dash-sec-hdr">
-      <span class="dash-sec-title">Money at a Glance</span>
-    </div>
-    <div class="dash-glance-grid">
-      <div class="dash-glance-tile" onclick="FCApp.switchTab('wealth')" role="button">
-        <div class="dash-glance-icon" style="background:rgba(26,196,240,0.14)">💵</div>
-        <div class="dash-glance-body">
-          <div class="dash-glance-label">Cash</div>
-          <div id="glance-cash" class="dash-glance-amount fc-amount">—</div>
-          <div id="glance-cash-sub" class="dash-glance-sub">—</div>
-        </div>
-        <svg class="dash-glance-chev" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
-      </div>
-      <div class="dash-glance-tile" onclick="FCApp.switchTab('wealth')" role="button">
-        <div class="dash-glance-icon" style="background:rgba(37,99,235,0.14)">💳</div>
-        <div class="dash-glance-body">
-          <div class="dash-glance-label">Debt</div>
-          <div id="hero-liabilities" class="dash-glance-amount fc-amount">—</div>
-          <div id="glance-debt-sub" class="dash-glance-sub">—</div>
-        </div>
-        <svg class="dash-glance-chev" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
-      </div>
-      <div class="dash-glance-tile" onclick="FCApp.switchTab('insights')" role="button">
-        <div class="dash-glance-icon" style="background:rgba(48,209,88,0.14)">📊</div>
-        <div class="dash-glance-body">
-          <div class="dash-glance-label">Cash Flow</div>
-          <div id="fch-cashflow" class="dash-glance-amount fc-amount">—</div>
-          <div class="dash-glance-sub">This month</div>
-        </div>
-        <svg class="dash-glance-chev" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
-      </div>
-      <div class="dash-glance-tile" onclick="FCApp.switchTab('wealth')" role="button">
-        <div class="dash-glance-icon" style="background:rgba(124,92,255,0.14)">📈</div>
-        <div class="dash-glance-body">
-          <div class="dash-glance-label">Net Worth</div>
-          <div id="hero-networth" class="dash-glance-amount fc-amount" data-anim-val="0">$0</div>
-          <span id="hero-delta" class="dash-glance-trend" style="display:none">+$0</span>
-          <div id="glance-nw-sub" class="dash-glance-sub" style="display:none">Connect a bank</div>
-        </div>
-        <svg class="dash-glance-chev" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
-      </div>
-    </div>
-  </section>
+  <div hidden aria-hidden="true"><span id="hero-liabilities"></span><span id="glance-debt-sub"></span></div>
 
   <!-- ══════════════════════════════════════════════════════════════
        FINANCIAL HEALTH + NET WORTH — side-by-side compact cards
@@ -5297,7 +5274,7 @@ body:not(.keyboard-open) .fc-sheet {
   <!-- ══════════════════════════════════════════════════════════════
        UPCOMING BILLS
        ══════════════════════════════════════════════════════════════ -->
-  <section class="dash-section fc-fade-up" style="animation-delay:.063s" id="home-bills-section">
+  <section class="dash-section fc-fade-up" style="animation-delay:.063s;display:none" id="home-bills-section">
     <div class="dash-sec-hdr">
       <div style="display:flex;align-items:center;gap:7px">
         <span class="dash-sec-title">Upcoming Bill</span>
@@ -5464,7 +5441,7 @@ body:not(.keyboard-open) .fc-sheet {
                   stroke-dasharray="0 214"
                   style="transition:stroke-dasharray 1.2s cubic-bezier(0.34,1.2,0.64,1),stroke 0.6s ease"/>
         </svg>
-        <div id="health-score-num" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;color:var(--fc-text);letter-spacing:-0.03em">—</div>
+        <div class="health-score-num-legacy" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;color:var(--fc-text);letter-spacing:-0.03em">—</div>
       </div>
       <div style="flex:1;min-width:0">
         <div style="font-size:9px;font-weight:700;letter-spacing:.07em;color:var(--fc-text-faint);text-transform:uppercase;margin-bottom:3px">Financial Health</div>
@@ -5697,12 +5674,9 @@ body:not(.keyboard-open) .fc-sheet {
   <!-- ────────────────────────────── VIEW: ACTIVITY -->
   <div id="view-activity" class="fc-view" role="tabpanel">
 
-    <!-- Title + subtitle -->
+    <!-- Title -->
     <div class="act-header">
-      <div>
-        <h1 class="act-title">Activity</h1>
-        <div class="act-subtitle">Track, review, and stay ahead of your money.</div>
-      </div>
+      <h1 class="act-title">Activity</h1>
       <button id="activity-add-bill-btn" class="fc-iconbtn" onclick="FCApp.showBillSheet()" type="button"
               aria-label="Add bill" style="display:none;width:36px;height:36px;background:rgba(26,196,240,0.12);color:var(--fc-accent);border-radius:11px;font-size:20px;line-height:1;border:0.5px solid rgba(26,196,240,0.22)">+</button>
     </div>
@@ -5736,28 +5710,27 @@ body:not(.keyboard-open) .fc-sheet {
       <!-- This Month summary card -->
       <div id="act-summary-card" class="act-summary-card" style="display:none">
         <div class="act-summary-top">
-          <div class="act-summary-label">This Month</div>
+          <div class="act-summary-label">This month</div>
           <div class="act-period-btns" role="group" aria-label="Chart period">
             <button class="act-period-btn active" data-act-period="M" onclick="FCApp.switchActivitySummaryPeriod('M')" type="button">M</button>
             <button class="act-period-btn" data-act-period="6M" onclick="FCApp.switchActivitySummaryPeriod('6M')" type="button">6M</button>
             <button class="act-period-btn" data-act-period="Y" onclick="FCApp.switchActivitySummaryPeriod('Y')" type="button">Y</button>
           </div>
         </div>
-        <div id="act-summary-amount" class="act-summary-amount">$0</div>
+        <!-- Income / spending inline row -->
+        <div class="act-inout-row">
+          <span id="act-in-amount" class="act-inout-amt act-inout-amt--in">$0</span>
+          <span class="act-inout-lbl act-inout-lbl--in">in</span>
+          <span id="act-out-amount" class="act-inout-amt act-inout-amt--out">$0</span>
+          <span class="act-inout-lbl act-inout-lbl--out">out</span>
+        </div>
+        <!-- Hidden compat elements -->
+        <div id="act-summary-amount" style="display:none">$0</div>
         <div id="act-summary-delta" class="act-summary-delta" style="display:none"></div>
-        <div class="act-summary-metrics">
-          <div class="act-summary-metric">
-            <div class="act-summary-metric-lbl"><span class="act-summary-metric-dot" style="background:#16A34A"></span>Income</div>
-            <div id="act-metric-income" class="act-summary-metric-val">—</div>
-          </div>
-          <div class="act-summary-metric">
-            <div class="act-summary-metric-lbl"><span class="act-summary-metric-dot" style="background:#147CFF"></span>Cash Flow</div>
-            <div id="act-metric-cashflow" class="act-summary-metric-val">—</div>
-          </div>
-          <div class="act-summary-metric">
-            <div class="act-summary-metric-lbl"><span class="act-summary-metric-dot" style="background:#8B5CF6"></span>Avg Daily</div>
-            <div id="act-metric-avgdaily" class="act-summary-metric-val">—</div>
-          </div>
+        <div style="display:none">
+          <div id="act-metric-income">—</div>
+          <div id="act-metric-cashflow">—</div>
+          <div id="act-metric-avgdaily">—</div>
         </div>
         <div class="act-summary-chart">
           <svg id="act-summary-chart-svg" width="100%" height="80" preserveAspectRatio="none" style="display:block"></svg>
@@ -5783,7 +5756,7 @@ body:not(.keyboard-open) .fc-sheet {
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.28)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
       </div>
 
-      <!-- Quick type-filter chips (replaces WHEN + CATEGORY rows) -->
+      <!-- Quick type-filter chips -->
       <div class="act-type-chips" role="group" aria-label="Transaction type filter">
         <button class="act-type-chip act-type-chip--active" data-act-type="all"       onclick="FCApp.filterActivityType('all')"       type="button">All</button>
         <button class="act-type-chip"                       data-act-type="income"    onclick="FCApp.filterActivityType('income')"    type="button">
@@ -5792,15 +5765,11 @@ body:not(.keyboard-open) .fc-sheet {
         </button>
         <button class="act-type-chip"                       data-act-type="expenses"  onclick="FCApp.filterActivityType('expenses')"  type="button">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
-          Expenses
+          Spending
         </button>
         <button class="act-type-chip"                       data-act-type="transfers" onclick="FCApp.filterActivityType('transfers')" type="button">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M7 16V4m0 0L3 8m4-4 4 4M17 8v12m0 0 4-4m-4 4-4-4"/></svg>
           Transfers
-        </button>
-        <button class="act-type-chip"                       data-act-type="recurring" onclick="FCApp.filterActivityType('recurring')" type="button">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 15-6.7L21 9"/><path d="M21 3v6h-6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 15"/><path d="M3 21v-6h6"/></svg>
-          Recurring
         </button>
       </div>
 
@@ -6035,6 +6004,81 @@ body:not(.keyboard-open) .fc-sheet {
 
   </style>
 
+    <div class="premium-insights-shell">
+      <header class="premium-page-header">
+        <div>
+          <h1>Insights</h1>
+          <p>See the patterns behind your money.</p>
+        </div>
+        <div class="premium-period-menu" id="premium-insights-period">1M</div>
+      </header>
+
+      <div class="premium-periods premium-periods--standalone" role="tablist" aria-label="Insights period">
+        <button type="button" data-period="1M" class="active" onclick="FCApp.switchPeriod('1M')">1M</button>
+        <button type="button" data-period="3M" onclick="FCApp.switchPeriod('3M')">3M</button>
+        <button type="button" data-period="6M" onclick="FCApp.switchPeriod('6M')">6M</button>
+        <button type="button" data-period="1Y" onclick="FCApp.switchPeriod('1Y')">1Y</button>
+        <button type="button" data-period="1Y" onclick="FCApp.switchPeriod('1Y')" style="display:flex;align-items:center;justify-content:center" aria-label="Custom range">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+        </button>
+      </div>
+
+      <section class="premium-analytics-card">
+        <div class="premium-card-heading">
+          <div>
+            <span>Spending trend</span>
+            <small id="premium-trend-period">This month</small>
+          </div>
+          <strong id="premium-trend-total">$0</strong>
+        </div>
+        <svg id="premium-trend-chart" class="premium-trend-chart" viewBox="0 0 320 118" preserveAspectRatio="none" aria-hidden="true"></svg>
+        <div class="premium-chart-labels" id="premium-trend-labels"></div>
+      </section>
+
+      <section class="premium-analytics-card">
+        <div class="premium-card-heading">
+          <div>
+            <span>Spending by category</span>
+            <small id="premium-category-period">This month</small>
+          </div>
+        </div>
+        <div class="premium-category-layout">
+          <div class="premium-donut-wrap">
+            <svg id="premium-category-donut" viewBox="0 0 120 120" aria-hidden="true"></svg>
+            <div><strong id="premium-category-total">$0</strong><span>Total</span></div>
+          </div>
+          <div id="premium-category-legend" class="premium-category-legend"></div>
+        </div>
+      </section>
+
+      <section class="premium-insight-card" onclick="FCApp.switchTab('activity')" role="button">
+        <div class="premium-insight-icon">✦</div>
+        <div>
+          <span>Insight</span>
+          <p id="premium-insight-copy">Connect a bank to unlock personalized spending patterns.</p>
+        </div>
+        <span class="premium-chevron">›</span>
+      </section>
+
+      <section class="premium-analytics-card premium-cashflow-card">
+        <div class="premium-card-heading">
+          <div><span>Cash flow comparison</span><small>Income versus spending</small></div>
+          <strong id="premium-cashflow-net">$0</strong>
+        </div>
+        <div id="premium-cashflow-bars" class="premium-cashflow-bars" aria-label="Cash flow comparison chart"></div>
+      </section>
+
+      <div id="premium-insights-gate" class="premium-insights-gate" hidden>
+        <div class="premium-insights-gate-icon">◇</div>
+        <strong>Unlock your full financial picture</strong>
+        <p>Pro reveals spending patterns, category trends, cash flow comparisons, and personalized insights.</p>
+        <button type="button" onclick="FCApp.showPaywall()">Explore FlowCheck Pro</button>
+      </div>
+
+      <p class="premium-disclaimer">FlowCheck is not a bank. Not financial advice.</p>
+    </div>
+
+    <div class="legacy-plan-layout" aria-hidden="true">
     <!-- ── PLAN HEADER ──────────────────────────────────────────── -->
     <div class="plan-header">
       <div>
@@ -6147,6 +6191,7 @@ body:not(.keyboard-open) .fc-sheet {
         </div>
       </div>
     </div>
+    </div>
 
   <p style="font-size:10px;color:var(--fc-text-faint);text-align:center;padding:4px 24px 16px;margin:0;opacity:0.6">FlowCheck is not a bank · Not financial advice</p>
 
@@ -6222,7 +6267,7 @@ body:not(.keyboard-open) .fc-sheet {
       --wv-green: #16A34A; --wv-green-soft: rgba(22,163,74,0.10);
       --wv-blue: #147CFF;  --wv-blue-soft: rgba(20,124,255,0.10);
       --wv-red: #EF4444;   --wv-red-soft: rgba(239,68,68,0.10);
-      --wv-purple: #7C3AED; --wv-purple-soft: rgba(124,58,237,0.10);
+      --wv-goal: var(--fc-electric); --wv-goal-soft: var(--fc-electric-soft);
       --wv-amber: #F59E0B;  --wv-amber-soft: rgba(245,158,11,0.10);
       --wv-pill: rgba(255,255,255,0.06); --wv-pill-b: rgba(255,255,255,0.09);
     }
@@ -6232,7 +6277,7 @@ body:not(.keyboard-open) .fc-sheet {
       --wv-t1: #071426; --wv-t2: #64748B; --wv-t3: #94A3B8;
       --wv-divider: rgba(15,23,42,0.05);
       --wv-green-soft: #EAF8EF; --wv-blue-soft: #EAF6FF;
-      --wv-red-soft: #FEECEC;   --wv-purple-soft: #F3EDFF;
+      --wv-red-soft: #FEECEC;
       --wv-amber-soft: #FFF4DF;
       --wv-pill: rgba(15,23,42,0.04); --wv-pill-b: rgba(15,23,42,0.08);
     }
@@ -6370,7 +6415,7 @@ body:not(.keyboard-open) .fc-sheet {
     .wv-goal-amounts { font-size:22px; font-weight:800; color:var(--wv-t1); font-variant-numeric:tabular-nums; line-height:1; }
     .wv-goal-of { font-size:13px; color:var(--wv-t2); margin-top:3px; }
     .wv-goal-pbar { margin-top:10px; }
-    .wv-goal-move { margin:12px 16px 0; padding:15px 18px; border-left:3px solid var(--wv-purple); }
+    .wv-goal-move { margin:12px 16px 0; padding:15px 18px; border-left:3px solid var(--wv-goal); }
     .wv-goal-move-title { font-size:15px; font-weight:700; color:var(--wv-t1); margin-bottom:4px; }
     .wv-goal-move-body { font-size:12px; color:var(--wv-t2); line-height:1.5; margin-bottom:12px; }
     .wv-timeline { margin:12px 16px 0; padding:16px 18px; display:flex; }
@@ -6383,7 +6428,7 @@ body:not(.keyboard-open) .fc-sheet {
     .wv-goal-row { display:flex; align-items:center; gap:13px; padding:13px 16px; border-bottom:1px solid var(--wv-divider); cursor:pointer; -webkit-tap-highlight-color:transparent; transition:opacity .12s; }
     .wv-goal-row:last-child { border-bottom:none; }
     .wv-goal-row:active { opacity:.72; }
-    .wv-goal-row-icon { width:36px; height:36px; border-radius:11px; background:var(--wv-purple-soft); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .wv-goal-row-icon { width:36px; height:36px; border-radius:11px; background:var(--wv-goal-soft); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
     .wv-goal-badge { font-size:10px; font-weight:700; padding:3px 8px; border-radius:999px; flex-shrink:0; }
     .wv-badge-behind { background:var(--wv-amber-soft); color:var(--wv-amber); }
     .wv-badge-track { background:var(--wv-green-soft); color:var(--wv-green); }
@@ -6410,11 +6455,11 @@ body:not(.keyboard-open) .fc-sheet {
 
   </style>
 
-  <!-- ── Sticky bar: Title + Tabs ─────────────────────── -->
-  <div class="wv-bar">
+  <!-- ── Sticky bar: Title only ───────────────────────── -->
+  <div class="wv-bar" style="padding-bottom:14px">
     <div class="wv-page-title">Wealth</div>
-    <div class="wv-page-sub">Build progress over time.</div>
-    <div class="wv-tabs" role="tablist">
+    <!-- Sub-tabs hidden; kept in DOM for JS compat -->
+    <div class="wv-tabs" role="tablist" style="display:none" aria-hidden="true">
       <button class="wv-tab active" id="wv-tab-overview" role="tab" aria-selected="true"  onclick="FCApp.switchWealthTab('overview')">Overview</button>
       <button class="wv-tab"        id="wv-tab-savings"  role="tab" aria-selected="false" onclick="FCApp.switchWealthTab('savings')">Savings</button>
       <button class="wv-tab"        id="wv-tab-debt"     role="tab" aria-selected="false" onclick="FCApp.switchWealthTab('debt')">Debt</button>
@@ -6468,104 +6513,53 @@ body:not(.keyboard-open) .fc-sheet {
 
   <!-- ────────────────────────────── VIEW: SETTINGS -->
   <div id="view-settings" class="fc-view" role="tabpanel" style="overflow-y:scroll;-webkit-overflow-scrolling:touch;padding-bottom:calc(env(safe-area-inset-bottom) + 110px)">
-    <div class="fc-view-title">Settings</div>
 
-    <!-- Profile card — tappable to edit -->
+    <!-- Profile header -->
     <div class="settings-profile-card" onclick="FCApp.showEditProfileSheet && FCApp.showEditProfileSheet()"
-         style="cursor:pointer;-webkit-tap-highlight-color:transparent;position:relative">
+         style="cursor:pointer;-webkit-tap-highlight-color:transparent">
       <div class="settings-avatar-ring" id="settings-avatar">B</div>
       <div style="flex:1;min-width:0">
         <div class="settings-profile-name" id="settings-name">Brandon</div>
         <div class="settings-profile-email" id="settings-email"></div>
-        <div class="settings-profile-streak" id="settings-streak">Day 1 streak 🔥</div>
       </div>
-      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">
-        <span class="fc-pill fc-pill--accent" id="settings-pro-badge" style="font-size:10px;padding:4px 10px">Pro</span>
-        <span style="font-size:10px;color:rgba(255,255,255,0.3);font-weight:500">Edit ›</span>
-      </div>
+      <!-- kept hidden for JS compat -->
+      <div id="settings-streak" style="display:none">Day 1 streak 🔥</div>
+      <span class="fc-pill fc-pill--accent" id="settings-pro-badge" style="display:none;font-size:10px;padding:4px 10px">Pro</span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
     </div>
 
     <section class="fc-section" style="padding-top:0">
 
-      <!-- Section: Accounts -->
-      <div class="settings-section-hdr">Accounts</div>
+      <!-- Section: Account & preferences -->
+      <div class="settings-section-hdr">Account &amp; preferences</div>
       <article class="fc-card" style="padding:4px 16px;margin-bottom:10px">
         <div class="fc-settings-row" id="settings-bank-row"
              onclick="FCApp.showBankSheet && FCApp.showBankSheet()">
           <div class="fc-settings-icon" style="background:rgba(26,196,240,0.15)">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-accent)" stroke-width="2" aria-hidden="true"><rect x="1" y="4" width="22" height="16" rx="2"/><path d="M1 10h22"/></svg>
           </div>
-          <div class="fc-settings-label">Connected bank</div>
+          <div class="fc-settings-label">Banks &amp; accounts</div>
           <div class="fc-settings-value" id="settings-institution">Not connected</div>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
         </div>
-        <div class="fc-settings-row" onclick="FCApp.showManualAccountSheet && FCApp.showManualAccountSheet()">
-          <div class="fc-settings-icon" style="background:rgba(37,99,235,0.15)">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-electric)" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        <div class="fc-settings-row" onclick="FCApp.showPaywall()" id="settings-pro-row" style="border-bottom:none">
+          <div class="fc-settings-icon" style="background:rgba(96,165,250,0.15)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-accent)" stroke-width="2" aria-hidden="true"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
           </div>
-          <div class="fc-settings-label">Add manual account</div>
-          <div class="fc-settings-value">Savings, debt…</div>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
-        </div>
-        <div class="fc-settings-row" onclick="FCApp.switchTab('activity')">
-          <div class="fc-settings-icon" style="background:rgba(52,199,89,0.15)">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-success)" stroke-width="2" aria-hidden="true"><path d="M3 12h4l3-9 4 18 3-9h4"/></svg>
-          </div>
-          <div class="fc-settings-label">Transactions</div>
+          <div class="fc-settings-label">FlowCheck Pro</div>
+          <span class="fc-settings-value" id="settings-pro-pill">Manage subscription</span>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
         </div>
       </article>
 
-      <!-- Section: Appearance -->
-      <div class="settings-section-hdr">Appearance</div>
-      <article class="fc-card" style="padding:16px;margin-bottom:10px">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
-          <div class="fc-settings-icon" style="background:rgba(26,196,240,0.15)">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-accent)" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
-            </svg>
-          </div>
-          <div>
-            <div style="font-size:15px;font-weight:500;color:var(--fc-text)">Theme</div>
-            <div style="font-size:12px;color:var(--fc-text-faint);margin-top:2px">Choose your preferred look</div>
-          </div>
-        </div>
-        <!-- 3-way appearance picker -->
-        <div id="appearance-picker"
-             style="display:flex;background:rgba(13,27,46,0.07);border-radius:14px;padding:3px;gap:2px">
-          <button data-theme-val="dark"
-                  onclick="FCApp.setAppearance('dark')"
-                  style="flex:1;padding:9px 0;border:none;border-radius:11px;font-size:13px;font-weight:600;
-                         cursor:pointer;transition:background 0.2s,color 0.2s;background:transparent;
-                         color:var(--fc-text-faint)">
-            🌙 Dark
-          </button>
-          <button data-theme-val="system"
-                  onclick="FCApp.setAppearance('system')"
-                  style="flex:1;padding:9px 0;border:none;border-radius:11px;font-size:13px;font-weight:600;
-                         cursor:pointer;transition:background 0.2s,color 0.2s;background:transparent;
-                         color:var(--fc-text-faint)">
-            Auto
-          </button>
-          <button data-theme-val="light"
-                  onclick="FCApp.setAppearance('light')"
-                  style="flex:1;padding:9px 0;border:none;border-radius:11px;font-size:13px;font-weight:600;
-                         cursor:pointer;transition:background 0.2s,color 0.2s;background:transparent;
-                         color:var(--fc-text-faint)">
-            ☀️ Light
-          </button>
-        </div>
-      </article>
-
-      <!-- Section: Security -->
-      <div class="settings-section-hdr">Security &amp; Notifications</div>
+      <!-- Section: Preferences -->
+      <div class="settings-section-hdr">Preferences</div>
       <article class="fc-card" style="padding:4px 16px;margin-bottom:10px">
         <div class="fc-settings-row">
           <div class="fc-settings-icon" style="background:rgba(255,176,32,0.15)">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-warning)" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
           </div>
-          <div class="fc-settings-label">Face ID</div>
-          <!-- Initial state set by _renderSettings() based on FCAuth.isBiometricEnabled() -->
+          <div class="fc-settings-label">Face ID &amp; passcode</div>
           <div id="toggle-biometric" class="fc-toggle" role="switch" aria-checked="false"
                onclick="handleBiometricToggle(this)"></div>
         </div>
@@ -6574,132 +6568,85 @@ body:not(.keyboard-open) .fc-sheet {
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-accent)" stroke-width="2" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/></svg>
           </div>
           <div class="fc-settings-label">Notifications</div>
-          <!-- Initial state set by _renderSettings() based on user.notifications_enabled -->
           <div id="toggle-notifications" class="fc-toggle" role="switch" aria-checked="false"
                onclick="handleNotifToggle(this)"></div>
         </div>
-      </article>
-
-      <!-- Section: Privacy -->
-      <div class="settings-section-hdr">Privacy &amp; Data</div>
-      <article class="fc-card" style="padding:4px 16px;margin-bottom:10px">
-        <div class="fc-settings-row" onclick="FCApp.openUrl(FC_CONFIG && FC_CONFIG.app.privacyUrl)">
-          <div class="fc-settings-icon" style="background:rgba(37,99,235,0.15)">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-accent)" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          </div>
-          <div class="fc-settings-label">Privacy Policy</div>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
-        </div>
-        <div class="fc-settings-row" onclick="FCApp.openUrl(FC_CONFIG && FC_CONFIG.app.termsUrl)">
-          <div class="fc-settings-icon" style="background:rgba(37,99,235,0.15)">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-accent)" stroke-width="2" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-          </div>
-          <div class="fc-settings-label">Terms of Service</div>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
-        </div>
         <div class="fc-settings-row" style="border-bottom:none"
-             onclick="FCApp.showDeleteSheet && FCApp.showDeleteSheet()">
-          <div class="fc-settings-icon" style="background:rgba(255,69,58,0.12)">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-danger)" stroke-width="2" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+             onclick="document.getElementById('settings-appearance-sheet').style.display==='none'?document.getElementById('settings-appearance-sheet').style.display='block':document.getElementById('settings-appearance-sheet').style.display='none'">
+          <div class="fc-settings-icon" style="background:rgba(26,196,240,0.15)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-accent)" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
           </div>
-          <div class="fc-settings-label" style="color:var(--fc-danger)">Delete My Account &amp; Data</div>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-danger)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true" style="opacity:0.5"><path d="M9 6l6 6-6 6"/></svg>
+          <div class="fc-settings-label">Appearance</div>
+          <div class="fc-settings-value" id="settings-appearance-val">Dark</div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
         </div>
       </article>
 
-      <!-- Section: Subscription & Support -->
-      <!-- Section: Help & Feedback -->
-      <div class="settings-section-hdr">Help &amp; Feedback</div>
+      <!-- Inline appearance picker (shown on tap) -->
+      <div id="settings-appearance-sheet" style="display:none;margin:-6px 16px 10px">
+        <div id="appearance-picker"
+             style="display:flex;background:rgba(255,255,255,0.05);border:0.5px solid rgba(255,255,255,0.09);border-radius:14px;padding:3px;gap:2px">
+          <button data-theme-val="dark"  onclick="FCApp.setAppearance('dark')"
+                  style="flex:1;padding:9px 0;border:none;border-radius:11px;font-size:13px;font-weight:600;cursor:pointer;transition:background 0.2s,color 0.2s;background:transparent;color:var(--fc-text-faint);font-family:inherit">🌙 Dark</button>
+          <button data-theme-val="system" onclick="FCApp.setAppearance('system')"
+                  style="flex:1;padding:9px 0;border:none;border-radius:11px;font-size:13px;font-weight:600;cursor:pointer;transition:background 0.2s,color 0.2s;background:transparent;color:var(--fc-text-faint);font-family:inherit">Auto</button>
+          <button data-theme-val="light" onclick="FCApp.setAppearance('light')"
+                  style="flex:1;padding:9px 0;border:none;border-radius:11px;font-size:13px;font-weight:600;cursor:pointer;transition:background 0.2s,color 0.2s;background:transparent;color:var(--fc-text-faint);font-family:inherit">☀️ Light</button>
+        </div>
+      </div>
+
+      <!-- Section: Security & Support -->
       <article class="fc-card" style="padding:4px 16px;margin-bottom:10px">
-        <div class="fc-settings-row" onclick="FCApp.showFeedbackScreen({type:'bug'})">
-          <div class="fc-settings-icon" style="background:rgba(255,159,10,0.15)">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-warning)" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          </div>
-          <div class="fc-settings-label">Report a Problem</div>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
-        </div>
-        <div class="fc-settings-row" onclick="FCApp.showFeedbackScreen({type:'feature'})">
-          <div class="fc-settings-icon" style="background:rgba(26,196,240,0.15)">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-accent)" stroke-width="2" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-          </div>
-          <div class="fc-settings-label">Send Feedback</div>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
-        </div>
-        <div class="fc-settings-row" onclick="FCApp.openUrl(FC_CONFIG && FC_CONFIG.app.supportUrl)">
-          <div class="fc-settings-icon" style="background:rgba(52,199,89,0.12)">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-success)" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-          </div>
-          <div class="fc-settings-label">Contact Support</div>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
-        </div>
         <div class="fc-settings-row" onclick="FCApp.openUrl(FC_CONFIG && FC_CONFIG.app.privacyUrl)">
           <div class="fc-settings-icon" style="background:rgba(37,99,235,0.15)">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-electric)" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
           </div>
-          <div class="fc-settings-label">Privacy Policy</div>
+          <div class="fc-settings-label">Privacy &amp; security</div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+        </div>
+        <div class="fc-settings-row" onclick="FCApp.openUrl(FC_CONFIG && FC_CONFIG.app.supportUrl)">
+          <div class="fc-settings-icon" style="background:rgba(255,255,255,0.06)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-muted)" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </div>
+          <div class="fc-settings-label">Help center</div>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
         </div>
         <div class="fc-settings-row" style="border-bottom:none" onclick="FCApp.openUrl(FC_CONFIG && FC_CONFIG.app.termsUrl)">
           <div class="fc-settings-icon" style="background:rgba(37,99,235,0.15)">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-electric)" stroke-width="2" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
           </div>
-          <div class="fc-settings-label">Terms of Service</div>
+          <div class="fc-settings-label">Legal &amp; disclosures</div>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
         </div>
       </article>
 
-      <div class="settings-section-hdr">Subscription &amp; Support</div>
+      <!-- Sign Out row -->
       <article class="fc-card" style="padding:4px 16px;margin-bottom:10px">
-        <div class="fc-settings-row" onclick="FCApp.showPaywall()" id="settings-pro-row">
-          <div class="fc-settings-icon" style="background:rgba(96,165,250,0.15)">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-accent)" stroke-width="2" aria-hidden="true"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+        <div class="fc-settings-row" style="border-bottom:none;cursor:pointer" onclick="FCApp.handleSignOut()">
+          <div class="fc-settings-icon" style="background:rgba(255,69,58,0.12)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-danger)" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
           </div>
-          <div class="fc-settings-label">FlowCheck Pro</div>
-          <span class="fc-pill fc-pill--accent" id="settings-pro-pill" style="font-size:10px;padding:3px 8px">Manage</span>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+          <div class="fc-settings-label" style="color:var(--fc-danger)">Sign out</div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-danger)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true" style="opacity:0.6"><path d="M9 6l6 6-6 6"/></svg>
         </div>
-        <div class="fc-settings-row" onclick="FCApp.showReferralSheet()">
-          <div class="fc-settings-icon" style="background:rgba(52,199,89,0.15)">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#34c759" stroke-width="2" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-          </div>
-          <div class="fc-settings-label">Refer a Friend</div>
-          <div style="display:flex;align-items:center;gap:8px">
-            <span id="settings-referral-badge" style="display:none;background:rgba(52,199,89,0.15);color:var(--fc-success);font-size:10px;font-weight:600;padding:2px 8px;border-radius:6px"></span>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
-          </div>
-        </div>
+      </article>
 
-        <div class="fc-settings-row" onclick="FCApp.openUrl(FC_CONFIG && FC_CONFIG.app.supportUrl)">
-          <div class="fc-settings-icon" style="background:rgba(255,255,255,0.06)">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-muted)" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-          </div>
-          <div class="fc-settings-label">Help &amp; Support</div>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
-        </div>
-        <div class="fc-settings-row">
-          <div class="fc-settings-icon" style="background:rgba(255,255,255,0.06)">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-muted)" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          </div>
-          <div class="fc-settings-label">Version</div>
-          <div class="fc-settings-value" id="settings-version">2.0.0</div>
-        </div>
-
-        <div class="fc-settings-row" onclick="FCApp.sendTestEmail()" role="button" tabindex="0" style="cursor:pointer;display:none" id="dev-test-email-row">
-          <div class="fc-settings-icon" style="background:rgba(26,196,240,0.1)">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1ac4f0" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-          </div>
+      <!-- Hidden compat elements (JS still reads/writes these) -->
+      <div style="display:none" aria-hidden="true">
+        <div class="fc-settings-row" onclick="FCApp.sendTestEmail()" id="dev-test-email-row" style="cursor:pointer">
           <div class="fc-settings-label">Send test email</div>
           <div class="fc-settings-value" id="test-email-status"></div>
         </div>
-      </article>
+        <div class="fc-settings-row" onclick="FCApp.showReferralSheet()">
+          <span id="settings-referral-badge"></span>
+        </div>
+        <div class="fc-settings-row" onclick="FCApp.showDeleteSheet && FCApp.showDeleteSheet()">
+          <div class="fc-settings-label" style="color:var(--fc-danger)">Delete My Account &amp; Data</div>
+        </div>
+        <div id="settings-version">2.0.0</div>
+      </div>
 
-      <button class="fc-btn fc-btn--ghost fc-btn--block"
-              style="color:var(--fc-danger);border-color:rgba(255,69,58,0.25);margin-top:4px"
-              onclick="FCApp.handleSignOut()">
-        Sign Out
-      </button>
-
-      <!-- Legal disclaimer + privacy links -->
+      <!-- Legal disclaimer -->
       <div style="text-align:center;padding:20px 16px 4px;max-width:320px;margin:0 auto">
         <p style="color:rgba(255,255,255,0.4);font-size:11.5px;line-height:1.75;margin:0 0 14px">
           FlowCheck is not a bank. Account data is provided for informational
@@ -6711,7 +6658,6 @@ body:not(.keyboard-open) .fc-sheet {
           <span style="color:rgba(255,255,255,0.15);font-size:11px">·</span>
           <a href="legal/terms.html" style="color:rgba(255,255,255,0.35);font-size:11px;text-decoration:underline;text-underline-offset:2px">Terms of Service</a>
           <span style="color:rgba(255,255,255,0.15);font-size:11px">·</span>
-          <!-- CCPA "Do Not Sell" link — required for California users -->
           <a href="legal/privacy.html#ccpa" style="color:rgba(255,255,255,0.35);font-size:11px;text-decoration:underline;text-underline-offset:2px">Do Not Sell My Info</a>
         </div>
         <p style="color:rgba(255,255,255,0.2);font-size:10px;margin:0">
@@ -6735,8 +6681,8 @@ body:not(.keyboard-open) .fc-sheet {
       Activity
     </a>
     <a class="fc-nav-item" role="tab" data-view="insights" aria-selected="false" tabindex="-1">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
-      Plan
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 1 7 7c0 2.9-1.7 5.4-4.1 6.6L14 17h-4l-.9-1.4A7.004 7.004 0 0 1 12 2z"/></svg>
+      Insights
     </a>
     <a class="fc-nav-item" role="tab" data-view="wealth" aria-selected="false" tabindex="-1">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
@@ -7841,7 +7787,7 @@ const _TOUR_STEPS = [
   { target: null,             icon: '👋', title: 'Welcome to FlowCheck!',  desc: 'You\'re all set. Let us show you around in 30 seconds — then you\'re on your own.' },
   { target: '[data-view="home"]',     icon: '🏠', title: 'Dashboard',           desc: 'Your net worth, credit score, and recent activity — updated live every time you open the app.' },
   { target: '[data-view="activity"]', icon: '💳', title: 'Activity',             desc: 'Every transaction across all your linked accounts, automatically categorized and searchable.' },
-  { target: '[data-view="insights"]', icon: '📊', title: 'Insights',             desc: 'Smart spending breakdowns and budget tracking — see exactly where your money actually goes.' },
+  { target: '[data-view="insights"]', icon: '📊', title: 'Insights',             desc: 'Understand spending patterns, cash flow, and the next move that can improve your financial health.' },
   { target: '[data-view="wealth"]',   icon: '📈', title: 'Wealth',               desc: 'Track your net worth and credit score over time. Connect more accounts to see the full picture.' },
   { target: '[data-view="settings"]', icon: '⚙️', title: 'Settings',             desc: 'Manage linked banks, set savings goals, configure alerts, and customize your experience.' },
 ];

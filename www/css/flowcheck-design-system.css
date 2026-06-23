@@ -85,40 +85,40 @@
    Premium warm-white aesthetic: Monarch Money / Apple Wallet quality
    ============================================================ */
 [data-theme="light"] {
-  /* --- Surfaces — Monarch-quality: clean warm white --- */
-  --fc-bg:              #f0f3f7;
+  /* --- Surfaces --- */
+  --fc-bg:              #F3F7FA;
   --fc-bg-elevated:     #ffffff;
-  --fc-bg-elevated-2:   #eaecf2;
+  --fc-bg-elevated-2:   #eaf0f6;
   --fc-card-bg:         #ffffff;
-  --fc-card-bg-hover:   #f8f9fc;
-  --fc-glass:           rgba(240, 243, 247, 0.96);
+  --fc-card-bg-hover:   #f5f8fb;
+  --fc-glass:           rgba(243, 247, 250, 0.96);
 
-  /* --- Accents — slightly deeper for light-bg contrast --- */
-  --fc-accent:          #0dadd4;
-  --fc-accent-soft:     rgba(13, 173, 212, 0.10);
-  --fc-accent-glow:     rgba(13, 173, 212, 0.22);
-  --fc-accent-hover:    #0e9fbe;
+  /* --- Accents — premium blue primary palette --- */
+  --fc-accent:          #147CFF;
+  --fc-accent-soft:     rgba(20, 124, 255, 0.10);
+  --fc-accent-glow:     rgba(20, 124, 255, 0.20);
+  --fc-accent-hover:    #0f6ee0;
   --fc-accent-ink:      #ffffff;
 
-  --fc-electric:        #1d4ed8;
-  --fc-electric-soft:   rgba(29, 78, 216, 0.10);
-  --fc-electric-glow:   rgba(29, 78, 216, 0.22);
+  --fc-electric:        #147CFF;
+  --fc-electric-soft:   rgba(20, 124, 255, 0.10);
+  --fc-electric-glow:   rgba(20, 124, 255, 0.20);
 
-  /* --- Status — slightly richer on white --- */
-  --fc-success:         #17a34a;
-  --fc-success-soft:    rgba(23, 163, 74, 0.10);
-  --fc-success-border:  rgba(23, 163, 74, 0.22);
-  --fc-warning:         #d97706;
-  --fc-warning-soft:    rgba(217, 119, 6, 0.10);
-  --fc-danger:          #dc2626;
-  --fc-danger-soft:     rgba(220, 38, 38, 0.10);
-  --fc-danger-border:   rgba(220, 38, 38, 0.22);
+  /* --- Status --- */
+  --fc-success:         #16A34A;
+  --fc-success-soft:    rgba(22, 163, 74, 0.10);
+  --fc-success-border:  rgba(22, 163, 74, 0.22);
+  --fc-warning:         #F59E0B;
+  --fc-warning-soft:    rgba(245, 158, 11, 0.10);
+  --fc-danger:          #EF4444;
+  --fc-danger-soft:     rgba(239, 68, 68, 0.10);
+  --fc-danger-border:   rgba(239, 68, 68, 0.22);
 
   /* --- Text --- */
-  --fc-text:            #0d1b2e;
-  --fc-text-muted:      rgba(13, 27, 46, 0.55);
-  --fc-text-faint:      rgba(13, 27, 46, 0.36);
-  --fc-text-disabled:   rgba(13, 27, 46, 0.22);
+  --fc-text:            #071426;
+  --fc-text-muted:      #64748B;
+  --fc-text-faint:      #94A3B8;
+  --fc-text-disabled:   rgba(7, 20, 38, 0.22);
 
   /* --- Borders --- */
   --fc-border:          rgba(13, 27, 46, 0.08);
@@ -2466,21 +2466,14 @@ body.fc-theme {
 
 /* Hero — Safe to Spend as primary metric */
 .dash-hero {
-  padding: 52px 20px 28px;
+  padding: 14px 20px 8px;
   position: relative;
-}
-.dash-hero::after {
-  content: '';
-  position: absolute;
-  bottom: 0; left: 0; right: 0;
-  height: 0.5px;
-  background: var(--fc-border);
 }
 .dash-hero-top {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: 28px;
+  margin-bottom: 0;
 }
 .dash-hero-tod {
   font-size: 14px;
@@ -2817,3 +2810,155 @@ body.fc-theme {
 [data-theme="light"] .dash-acct-row-name  { color: #0a1520 !important; }
 [data-theme="light"] .dash-acct-row-type  { color: rgba(13,27,46,0.45) !important; }
 [data-theme="light"] .dash-acct-row-bal   { color: #0a1520 !important; }
+
+/* ── Insights week-over-week card ─────────────────────────────── */
+[data-theme="light"] .ins-week-card {
+  background: #ffffff !important;
+  border-color: rgba(7,20,38,0.08) !important;
+}
+[data-theme="light"] .ins-week-header  { border-bottom-color: rgba(7,20,38,0.07) !important; }
+[data-theme="light"] .ins-week-item    { border-bottom-color: rgba(7,20,38,0.05) !important; }
+[data-theme="light"] .ins-week-title   { color: #071426 !important; }
+[data-theme="light"] .ins-week-period  { color: rgba(7,20,38,0.45) !important; }
+[data-theme="light"] .ins-week-body    { color: #071426 !important; }
+
+/* ── Transaction date-row separator ──────────────────────────── */
+[data-theme="light"] .fc-date-label-spacer { background: rgba(7,20,38,0.07) !important; }
+
+/* ── Onboarding AI step icons & text ─────────────────────────── */
+[data-theme="light"] .fc-ob-step { background: rgba(10,21,32,0.25) !important; }
+[data-theme="light"] .ob-ai-step-icon {
+  background: rgba(10,21,32,0.05) !important;
+  border-color: rgba(10,21,32,0.12) !important;
+  color: rgba(10,21,32,0.35) !important;
+}
+[data-theme="light"] .ob-ai-step.active .ob-ai-step-icon {
+  background: rgba(20,124,255,0.10) !important;
+  border-color: rgba(20,124,255,0.30) !important;
+  color: var(--fc-accent) !important;
+}
+[data-theme="light"] .ob-ai-step-text { color: rgba(10,21,32,0.55) !important; }
+[data-theme="light"] .ob-ai-step.active .ob-ai-step-text { color: #071426 !important; }
+
+/* ============================================================
+   FLOWCHECK V4 COHERENCE LAYER
+   Shared shell polish for every core screen and both themes.
+   ============================================================ */
+html[data-theme="dark"] { color-scheme: dark; }
+html[data-theme="light"] { color-scheme: light; }
+
+body.fc-theme {
+  background-color: var(--fc-bg);
+  background-image:
+    radial-gradient(ellipse 80% 38% at 8% -8%, var(--fc-accent-soft), transparent 62%),
+    radial-gradient(ellipse 62% 30% at 96% 2%, var(--fc-electric-soft), transparent 66%);
+}
+
+body.fc-theme,
+.fc-nav,
+.fc-card,
+.plan-card,
+.wv-card,
+.act-summary-card,
+.settings-profile-card {
+  transition:
+    background-color 180ms var(--fc-ease-out),
+    border-color 180ms var(--fc-ease-out),
+    color 180ms var(--fc-ease-out),
+    box-shadow 180ms var(--fc-ease-out);
+}
+
+#view-home,
+#view-activity,
+#view-insights,
+#view-wealth,
+#view-settings {
+  scrollbar-width: none;
+}
+#view-home::-webkit-scrollbar,
+#view-activity::-webkit-scrollbar,
+#view-insights::-webkit-scrollbar,
+#view-wealth::-webkit-scrollbar,
+#view-settings::-webkit-scrollbar {
+  display: none;
+}
+
+.act-title,
+.plan-title,
+.wv-page-title,
+.fc-view-title {
+  color: var(--fc-text);
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.035em;
+}
+
+.act-subtitle,
+.plan-subtitle,
+.wv-page-sub {
+  color: var(--fc-text-muted);
+  line-height: 1.45;
+}
+
+.fc-card,
+.plan-card,
+.wv-card,
+.act-summary-card,
+.settings-profile-card {
+  border-color: var(--fc-border);
+  box-shadow: var(--fc-shadow-sm);
+}
+
+.fc-nav {
+  background: var(--fc-glass);
+  border-top-color: var(--fc-border);
+  box-shadow: var(--fc-shadow-sm);
+  padding-top: 5px;
+}
+
+.fc-nav-item {
+  min-height: 52px;
+  gap: 3px;
+  padding-top: 7px;
+  font-size: 10px;
+  letter-spacing: 0;
+}
+
+.fc-nav-item svg {
+  width: 28px;
+  height: 28px;
+  padding: 5px;
+  border-radius: 10px;
+  box-sizing: border-box;
+}
+
+.fc-nav-item.active svg {
+  background: var(--fc-accent-soft);
+  filter: none;
+  transform: translateY(-1px);
+}
+
+.fc-nav-item.active::before {
+  top: 0;
+  width: 18px;
+  height: 2px;
+  background: var(--fc-accent);
+  border-radius: var(--fc-r-pill);
+  box-shadow: none;
+}
+
+button:focus-visible,
+a[role="tab"]:focus-visible,
+[role="button"][tabindex]:focus-visible {
+  outline: 2px solid var(--fc-accent);
+  outline-offset: 2px;
+}
+
+.fc-amount,
+.dash-spend-amount,
+.act-summary-amount,
+.plan-sts-amount,
+.wv-position-amount {
+  font-variant-numeric: tabular-nums lining-nums;
+}
