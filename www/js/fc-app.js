@@ -269,6 +269,8 @@ window.FCApp = (function () {
   let _subDetectCacheTxLen = -1;
   let _subDetectCacheBillLen = -1;
 
+  let _planCatTab = 'all';
+
   function _detectSubscriptions() {
     const txLen   = state.transactions.length;
     const billLen = state.bills.length;
@@ -1485,7 +1487,10 @@ window.FCApp = (function () {
           </div>
           <div class="fc-list-body">
             <div class="fc-list-title">${esc(b.name)}</div>
-            <div class="fc-list-meta">${esc(b.category || 'Bill')} · ${esc(b.frequency || 'monthly')}</div>
+            <div class="fc-list-meta" style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">
+              <span>${esc(b.category || 'Bill')} · ${esc(b.frequency || 'monthly')}</span>
+              ${b.autopay ? '<span style="display:inline-flex;align-items:center;gap:2px;font-size:10px;font-weight:600;color:var(--fc-success);background:rgba(22,163,74,0.12);border-radius:4px;padding:1px 5px">Auto Pay</span>' : ''}
+            </div>
           </div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">
             <div class="fc-list-amount">${FCData.formatCurrency(b.amount)}</div>
@@ -1525,40 +1530,36 @@ window.FCApp = (function () {
   function switchTab(tabId) {
     if (state.tab === tabId) return;
     haptic('light');
+    // Dismiss keyboard before tab switch so stale viewport state doesn't carry over
+    const ae = document.activeElement;
+    if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA')) ae.blur();
     const prev = state.tab;
     state.tab  = tabId;
-
-    // Clean up any in-flight animation classes from a previous rapid tap
-    document.querySelectorAll('.fc-view').forEach(v => {
-      v.classList.remove('fc-slide-right', 'fc-slide-left');
-    });
-
-    const prevIdx = _TAB_ORDER.indexOf(prev);
-    const nextIdx = _TAB_ORDER.indexOf(tabId);
-    const slideClass = nextIdx > prevIdx ? 'fc-slide-right' : 'fc-slide-left';
 
     const target   = document.getElementById('view-' + tabId);
     const outgoing = prev ? document.getElementById('view-' + prev) : null;
 
-    // Mark outgoing tab as fc-loaded — suppresses fc-fade-up replay on return
+    // ── Clean up any stale animation classes from rapid taps ──────────────
+    document.querySelectorAll('.fc-view').forEach(v =>
+      v.classList.remove('fc-tab-in', 'fc-tab-out'));
+
+    // ── Mark outgoing — suppresses fc-fade-up replay on return ────────────
     if (outgoing) outgoing.classList.add('fc-loaded');
 
-    // ── Deactivate outgoing FIRST to prevent flex-layout conflict ──────────
-    // Two active flex:1 views split the container height 50/50, causing the
-    // infamous "layout jump" glitch. Remove active before adding it to target.
+    // ── Outgoing: fade out, then hide (120ms matches fcTabOut duration) ───
+    // Must deactivate AFTER animation or content disappears before fade ends.
     if (outgoing) {
-      outgoing.classList.remove('active', 'fc-slide-right', 'fc-slide-left');
+      outgoing.classList.add('fc-tab-out');
+      setTimeout(() => {
+        outgoing.classList.remove('active', 'fc-tab-out');
+      }, 120);
     }
 
-    // ── Activate incoming with fade-in animation ───────────────────────────
+    // ── Incoming: make visible, reset scroll, fade in ─────────────────────
     if (target) {
       target.scrollTop = 0;
-      target.classList.add('active', slideClass);
-    }
-
-    // Clean up animation class after it completes
-    if (target) {
-      setTimeout(() => target.classList.remove('fc-slide-right', 'fc-slide-left'), 260);
+      target.classList.add('active', 'fc-tab-in');
+      setTimeout(() => target.classList.remove('fc-tab-in'), 200);
     }
 
     // ── Nav items ──────────────────────────────────────────────────────────
@@ -1569,32 +1570,28 @@ window.FCApp = (function () {
       item.setAttribute('tabindex', active ? '0' : '-1');
     });
 
-    // ── Defer heavy renders past the 240ms slide animation ────────────────
-    // Keeping innerHTML writes away from the CSS animation window prevents
-    // layout thrash and dropped frames on WKWebView.
-    const ANIM_MS = 250;
-    if (tabId === 'home') {
-      setTimeout(_renderHome, ANIM_MS);
-    } else if (tabId === 'activity') {
-      _activityShowAll = false;
-      setTimeout(() => {
+    // ── Render on next animation frame — eliminates the 250ms blank flash ─
+    // rAF defers DOM writes past the current paint so the fade-in animation
+    // gets its first frame before any innerHTML thrash, giving WKWebView time
+    // to composite the opacity change before repainting content.
+    requestAnimationFrame(() => {
+      if (tabId === 'home') {
+        _renderHome();
+      } else if (tabId === 'activity') {
+        _activityShowAll = false;
         if (_activitySegment === 'bills') _renderBillsList();
         else _renderActivity();
-      }, ANIM_MS);
-    } else if (tabId === 'insights') {
-      // rAF inside the timeout ensures DOM write lands after animation — prevents
-      // the "shake" artifact on WKWebView. Scroll is re-pinned after render.
-      setTimeout(() => requestAnimationFrame(() => {
-        _renderInsights();
+      } else if (tabId === 'insights') {
         if (target) target.scrollTop = 0;
-      }), ANIM_MS);
-    } else if (tabId === 'goals') {
-      setTimeout(_renderGoals, ANIM_MS);
-    } else if (tabId === 'wealth') {
-      setTimeout(_renderWealth, ANIM_MS);
-    } else if (tabId === 'settings') {
-      setTimeout(_renderSettings, ANIM_MS);
-    }
+        _renderInsights();
+      } else if (tabId === 'goals') {
+        _renderGoals();
+      } else if (tabId === 'wealth') {
+        _renderWealth();
+      } else if (tabId === 'settings') {
+        _renderSettings();
+      }
+    });
 
     if (typeof FCAnalytics !== 'undefined') FCAnalytics.screen('tab_' + tabId);
     fcLog('Tab →', tabId, '(from', prev + ')');
@@ -3404,7 +3401,10 @@ window.FCApp = (function () {
     const name      = safeName ? safeName.charAt(0).toUpperCase() + safeName.slice(1) : '';
 
     titleEl.textContent = tod + ', ' + (name || 'there') + ' 👋';
-    if (dateEl) dateEl.textContent = "Here's your financial overview for today.";
+    if (dateEl) {
+      const now = new Date();
+      dateEl.textContent = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+    }
 
     // Avatar initial
     const avatarLetter2 = name.charAt(0).toUpperCase() || (authUser2?.email || '').charAt(0).toUpperCase() || '?';
@@ -3878,10 +3878,12 @@ window.FCApp = (function () {
       return d < now;
     });
     if (overdue.length) {
+      const daysLate = Math.abs(FCData.daysUntil(overdue[0].due_date) ?? 0);
       insights.push({
         type: 'danger',
-        label: 'Action Required',
-        body: `${overdue[0].name} was due ${Math.abs(FCData.daysUntil(overdue[0].due_date) ?? 0)} days ago — don't let it hit your credit.`,
+        label: 'Pay this now',
+        title: `${overdue[0].name} is overdue`,
+        body: `${daysLate} day${daysLate !== 1 ? 's' : ''} late — paying today prevents any late fees or credit impact.`,
         action: 'View bill',
         tap: () => FCApp.switchTab('activity')
       });
@@ -3898,8 +3900,9 @@ window.FCApp = (function () {
       const when = days === 0 ? 'today' : days === 1 ? 'tomorrow' : `in ${days} days`;
       insights.push({
         type: 'warn',
-        label: 'Bill Alert',
-        body: `${b.name} (${FCData.formatCurrency(b.amount || 0)}) is due ${when}.`,
+        label: 'Bill coming up',
+        title: `Pay ${b.name} ${when}`,
+        body: `${FCData.formatCurrency(b.amount || 0)} due ${when}. Mark it paid once you've sent it.`,
         action: 'Mark as paid',
         tap: () => FCApp.switchTab('activity')
       });
@@ -3912,13 +3915,16 @@ window.FCApp = (function () {
         .filter(t => !t.isCredit && _isSpendTxn(t) && FCData.isCurrentMonth(t.date))
         .reduce((s, t) => s + (t.amount || 0), 0);
       const pct = spent / budget;
+      const daysLeft = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() - now.getDate();
       if (pct > 0.9) {
+        const dailyTarget = pct < 1 ? Math.round((budget - spent) / Math.max(daysLeft, 1)) : 0;
         insights.push({
           type: pct >= 1 ? 'danger' : 'warn',
-          label: pct >= 1 ? 'Over Budget' : 'Budget Alert',
+          label: pct >= 1 ? 'Over budget' : 'Slow down spending',
+          title: pct >= 1 ? 'You\'ve exceeded your budget' : 'Slow spending this week',
           body: pct >= 1
-            ? `You've spent ${FCData.formatCurrency(spent)} — ${FCData.formatCurrency(spent - budget)} over your monthly budget.`
-            : `${Math.round(pct * 100)}% of your monthly budget used with ${new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() - now.getDate()} days left.`,
+            ? `You're ${FCData.formatCurrency(spent - budget)} over your ${FCData.formatCurrency(budget)} monthly budget. Review the biggest categories in Plan.`
+            : `${Math.round(pct * 100)}% of your budget used with ${daysLeft} days left.${dailyTarget > 0 ? ` Try keeping daily spending under ${FCData.formatCurrency(dailyTarget)}.` : ''}`,
           action: 'Review spending',
           tap: () => FCApp.switchTab('insights')
         });
@@ -3935,12 +3941,14 @@ window.FCApp = (function () {
       if (daysElapsed >= 5 && monthSpend > 0 && monthIncome > 0) {
         const projected = (monthSpend / daysElapsed) * daysInMonth;
         const overage   = projected - monthIncome;
+        const dailyCap  = Math.round((monthIncome - monthSpend) / Math.max(daysInMonth - daysElapsed, 1));
         if (overage > 500 && !(budget > 0 && monthSpend / budget > 0.9)) {
           insights.push({
-            type: 'danger',
-            label: 'Spending Alert',
-            body: `At this rate you'll spend ${FCData.formatCurrency(projected)} by month end — ${FCData.formatCurrency(overage)} more than your income.`,
-            action: 'See budget',
+            type: 'warn',
+            label: 'Pace check',
+            title: 'Spending pace is running high',
+            body: `On track to spend ${FCData.formatCurrency(projected)} this month.${dailyCap > 0 ? ` Staying under ${FCData.formatCurrency(dailyCap)}/day keeps you in the green.` : ` That\'s ${FCData.formatCurrency(overage)} more than you\'ve earned this month.`}`,
+            action: 'Review plan',
             tap: () => FCApp.switchTab('insights')
           });
         }
@@ -3952,16 +3960,15 @@ window.FCApp = (function () {
     const cutoff60d = new Date(now.getTime() - 60 * 86400000);
     const recent   = txns.filter(t => !t.isCredit && FCData.parseDateLocal(t.date) >= cutoff3d);
     if (recent.length) {
-      // Use 60-day rolling window so one large historical payment doesn't permanently
-      // raise the "average" and suppress future unusual-spend alerts.
       const amounts  = txns.filter(t => !t.isCredit && _isSpendTxn(t) && FCData.parseDateLocal(t.date) >= cutoff60d).map(t => t.amount || 0);
       const avg      = amounts.length ? amounts.reduce((a,b)=>a+b,0)/amounts.length : 0;
       const outlier  = recent.find(t => (t.amount || 0) > avg * 3 && (t.amount || 0) > 50);
       if (outlier && avg > 0) {
         insights.push({
           type: 'info',
-          label: 'Unusual Spend',
-          body: `${_cleanTxnName(outlier)} (${FCData.formatCurrency(outlier.amount)}) is 3× your average transaction. Recognize it?`,
+          label: 'Large charge',
+          title: `Unusual charge from ${_cleanTxnName(outlier)}`,
+          body: `${FCData.formatCurrency(outlier.amount)} — that's 3× your average transaction. Does this look right?`,
           action: 'View transaction',
           tap: () => FCApp.switchTab('activity')
         });
@@ -3971,10 +3978,12 @@ window.FCApp = (function () {
     // ── 5. Low cash balance warning ──────────────────────────────
     const cashBal = FCData.calcCash(accounts);
     if (cashBal < 500 && cashBal >= 0 && accounts.length > 0) {
+      const billsThisWeek = _getBillsDueInDays(7).reduce((s,b) => s + (b.amount||0), 0);
       insights.push({
         type: 'warn',
-        label: 'Low Balance',
-        body: `Your cash balance is ${FCData.formatCurrency(cashBal)} — keep an eye on upcoming bills.`,
+        label: 'Low balance',
+        title: 'Cash is running low',
+        body: `You have ${FCData.formatCurrency(cashBal)} in cash.${billsThisWeek > 0 ? ` ${FCData.formatCurrency(billsThisWeek)} in bills are due this week.` : ' Try to avoid large discretionary purchases.'}`,
         action: 'View accounts',
         tap: () => FCApp.switchTab('wealth')
       });
@@ -3987,15 +3996,16 @@ window.FCApp = (function () {
         const total = zombies.reduce((s,z) => s + (z.amount || 0), 0);
         insights.push({
           type: 'info',
-          label: 'Save Money',
-          body: `We found ${zombies.length} unused subscription${zombies.length>1?'s':''} totaling ${FCData.formatCurrency(total)}/mo you might not need.`,
+          label: 'Trim subscriptions',
+          title: `${FCData.formatCurrency(total)}/mo in subscriptions to review`,
+          body: `Found ${zombies.length} recurring charge${zombies.length>1?'s':''} you might not be using. Canceling unused ones is the easiest monthly savings.`,
           action: 'Review subscriptions',
           tap: () => FCApp.switchTab('insights')
         });
       }
     } catch(_) { /* _detectSubscriptions may not be ready yet */ }
 
-    // ── 7. Positive streak — good week ───────────────────────────
+    // ── 7. Positive / default ────────────────────────────────────
     if (!insights.length && txns.length > 0) {
       const weekSpend = txns
         .filter(t => !t.isCredit && _isSpendTxn(t) && FCData.parseDateLocal(t.date) >= new Date(now.getTime() - 7*86400000))
@@ -4006,20 +4016,21 @@ window.FCApp = (function () {
       if (income > 0 && weekSpend < income * 0.15) {
         insights.push({
           type: 'good',
-          label: 'Great Progress',
-          body: `You spent only ${FCData.formatCurrency(weekSpend)} this week — you're on track to save this month! 🎉`,
-          action: 'See full breakdown',
+          label: 'Good week',
+          title: 'Spending looks healthy',
+          body: `Only ${FCData.formatCurrency(weekSpend)} spent this week — you're on track to finish the month under budget.`,
+          action: 'See breakdown',
           tap: () => FCApp.switchTab('insights'),
           fallback: true
         });
       } else {
-        // Default: net worth update
         const nw = FCData.calcNetWorth(accounts);
         insights.push({
           type: 'info',
-          label: 'Net Worth',
-          body: `Your current net worth is ${FCData.formatCurrency(nw)}. Keep adding accounts for a complete picture.`,
-          action: 'View all accounts',
+          label: 'Net worth',
+          title: `Your net worth is ${FCData.formatCurrency(nw)}`,
+          body: 'Keep adding accounts for a complete picture of your financial health.',
+          action: 'View wealth',
           tap: () => FCApp.switchTab('wealth'),
           fallback: true
         });
@@ -4127,6 +4138,338 @@ window.FCApp = (function () {
     if (abs >= 1000000) return sign + (abs / 1000000).toFixed(1) + 'M';
     if (abs >= 100000)  return sign + (abs / 1000).toFixed(0)    + 'K';
     return FCData.formatCurrency(val);
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     HOME DATA HELPERS — shared by new Home sections
+     ───────────────────────────────────────────────────────────── */
+
+  function _getBillsDueInDays(n) {
+    return (state.bills || []).filter(b => {
+      if (b.status === 'paid') return false;
+      const d = FCData.daysUntil(b.due_date);
+      return d !== null && d >= 0 && d <= n;
+    });
+  }
+
+  function _buildCashFlowForecast() {
+    const cash  = FCData.calcCash(state.accounts);
+    const now   = new Date();
+    const bills7 = _getBillsDueInDays(7);
+    const billsTotal = bills7.reduce((s, b) => s + (b.amount || 0), 0);
+
+    const cut14 = new Date(now.getTime() - 14 * 86400000);
+    const inc14 = (state.transactions || [])
+      .filter(t => _isIncomeTxn(t) && FCData.parseDateLocal(t.date) >= cut14)
+      .reduce((s, t) => s + Math.abs(t.amount || 0), 0);
+    const expectedIncome = inc14 > 0 ? inc14 * 0.5 : 0;
+
+    const cut30 = new Date(now.getTime() - 30 * 86400000);
+    const spend30 = (state.transactions || [])
+      .filter(t => _isSpendTxn(t) && FCData.parseDateLocal(t.date) >= cut30)
+      .reduce((s, t) => s + (t.amount || 0), 0);
+    const otherSpend = spend30 > 0 ? (spend30 / 30) * 7 - billsTotal : 0;
+    const otherSpendAdj = Math.max(0, otherSpend);
+
+    return { cash, expectedIncome, billsTotal, otherSpend: otherSpendAdj, projected: cash + expectedIncome - billsTotal - otherSpendAdj, bills7 };
+  }
+
+  function _getYesterdayChanges() {
+    const now = new Date();
+    const yesterday = new Date(now.getTime() - 24 * 3600000);
+
+    const recent = (state.transactions || []).filter(t =>
+      FCData.parseDateLocal(t.date) >= yesterday
+    );
+    const cashDelta = recent.reduce((s, t) =>
+      s + (t.isCredit ? Math.abs(t.amount || 0) : -(t.amount || 0)), 0
+    );
+    const catSpend = {};
+    recent.filter(_isSpendTxn).forEach(t => {
+      const cat = FCData.normalizePlaidCategory((t.category && t.category[0]) || 'Other');
+      catSpend[cat] = (catSpend[cat] || 0) + (t.amount || 0);
+    });
+    const topCatEntry = Object.entries(catSpend).sort((a, b) => b[1] - a[1])[0];
+    const nextBill = (state.bills || [])
+      .filter(b => b.status !== 'paid')
+      .sort((a, b) => (FCData.daysUntil(a.due_date) ?? 999) - (FCData.daysUntil(b.due_date) ?? 999))[0];
+    const noUpcomingBills = !nextBill || (FCData.daysUntil(nextBill.due_date) ?? 999) > 7;
+    return { cashDelta, txnCount: recent.length, topCatEntry, noUpcomingBills };
+  }
+
+  /* ── Today's Money Move ──────────────────────────────────────── */
+  function _renderHomeMoveCard() {
+    const section = document.getElementById('home-move-section');
+    if (!section) return;
+    if (!state.user?.plaid_linked || (!state.transactions?.length && !state.bills?.length)) {
+      section.style.display = 'none'; return;
+    }
+    const insights = _buildFocusInsights();
+    if (!insights.length) { section.style.display = 'none'; return; }
+    const pick = insights[0];
+    section.style.display = '';
+
+    const card    = document.getElementById('home-move-card');
+    const titleEl = document.getElementById('home-move-title');
+    const subEl   = document.getElementById('home-move-sub');
+    const doBtn   = document.getElementById('home-move-do');
+    if (titleEl) titleEl.textContent = pick.title || pick.label || '';
+    if (subEl)   subEl.textContent   = pick.body  || '';
+    if (card) {
+      const isGood    = pick.type === 'good';
+      const isDanger  = pick.type === 'danger';
+      const isWarn    = pick.type === 'warn';
+      const bg = isDanger ? 'rgba(239,68,68,0.08)' : isWarn ? 'rgba(245,158,11,0.08)' : 'rgba(22,163,74,0.10)';
+      const border = isDanger ? 'rgba(239,68,68,0.22)' : isWarn ? 'rgba(245,158,11,0.22)' : 'rgba(22,163,74,0.22)';
+      card.style.background = `linear-gradient(135deg,${bg} 0%,rgba(255,255,255,0.02) 100%)`;
+      card.style.borderColor = border;
+      const eyebrow = card.querySelector('.home-move-eyebrow');
+      if (eyebrow) {
+        const color = isDanger ? 'var(--fc-danger)' : isWarn ? 'var(--fc-warning)' : 'var(--fc-success)';
+        eyebrow.style.color = color;
+      }
+    }
+    if (doBtn) {
+      const isDanger = pick.type === 'danger';
+      const isWarn   = pick.type === 'warn';
+      const isGood   = pick.type === 'good';
+      doBtn.style.background = isDanger ? 'var(--fc-danger)' : isWarn ? 'var(--fc-warning)' : isGood ? 'var(--fc-success)' : 'var(--fc-electric)';
+      doBtn.textContent = pick.action || 'View';
+      doBtn.onclick = () => { if (pick.tap) pick.tap(); };
+    }
+
+    // Budget ring: % of monthly budget/income used this month
+    const ringWrap = document.getElementById('home-move-ring-wrap');
+    const ringArc  = document.getElementById('home-move-ring-arc');
+    const ringPctEl = document.getElementById('home-move-ring-pct');
+    const _mnow = new Date();
+    const _mTxns = (state.transactions || []).filter(t => {
+      if (!t.date) return false;
+      const d = FCData.parseDateLocal(t.date);
+      return d.getMonth() === _mnow.getMonth() && d.getFullYear() === _mnow.getFullYear();
+    });
+    const _mSpend  = _mTxns.filter(_isSpendTxn).reduce((s, t) => s + (t.amount || 0), 0);
+    const _mIncome = _mTxns.filter(_isIncomeTxn).reduce((s, t) => s + (t.amount || 0), 0);
+    const _explicit = state.budgets?.['total']?.limit || 0;
+    const _compareBase = _explicit > 0 ? _explicit
+      : _incomeIsReliable(_mIncome, _mSpend) ? _mIncome : 0;
+    if (_compareBase > 0 && ringWrap) {
+      ringWrap.style.display = '';
+      const _ringPct = Math.min(Math.round((_mSpend / _compareBase) * 100), 100);
+      const circumference = 2 * Math.PI * 21; // r=21 → 131.95
+      const dashLength = (_ringPct / 100) * circumference;
+      const ringColor = _ringPct >= 90 ? 'var(--fc-danger)' : _ringPct >= 70 ? 'var(--fc-warning)' : 'var(--fc-success)';
+      if (ringArc) {
+        ringArc.style.strokeDasharray = `${dashLength.toFixed(1)} ${circumference.toFixed(1)}`;
+        ringArc.style.stroke = ringColor;
+      }
+      if (ringPctEl) { ringPctEl.textContent = _ringPct + '%'; ringPctEl.style.color = ringColor; }
+    } else if (ringWrap) {
+      ringWrap.style.display = 'none';
+    }
+  }
+
+  function _getSafeToSpendHome() {
+    const cash = FCData.calcCash(state.accounts);
+    const bills7 = _getBillsDueInDays(7).reduce((s, b) => s + (b.amount || 0), 0);
+    const buffer = cash * 0.10;
+    return Math.max(0, cash - bills7 - buffer);
+  }
+
+  /* ── Next Bill compact card (right col on Home) ─────────────── */
+  function _renderHomeNextBill() {
+    const nameEl   = document.getElementById('home-next-bill-name');
+    const dueEl    = document.getElementById('home-next-bill-due');
+    const amountEl = document.getElementById('home-next-bill-amount');
+    if (!nameEl) return;
+
+    const next = (state.bills || [])
+      .filter(b => b.status !== 'paid')
+      .sort((a, b) => (FCData.daysUntil(a.due_date) ?? 999) - (FCData.daysUntil(b.due_date) ?? 999))[0];
+
+    if (!next) {
+      if (nameEl) nameEl.textContent = state.user?.plaid_linked ? 'No upcoming bills' : 'Add a bill';
+      if (dueEl)  dueEl.textContent = '';
+      if (amountEl) amountEl.textContent = '';
+      return;
+    }
+    const days = FCData.daysUntil(next.due_date);
+    const { label, color } = FCData.billDueLabelAndColor(days !== null ? days : 999);
+    if (nameEl) nameEl.textContent = next.name;
+    if (dueEl)  { dueEl.textContent = label; dueEl.style.color = color; }
+    if (amountEl) amountEl.textContent = FCData.formatCurrency(next.amount);
+  }
+
+  /* ── 7-Day Cash Flow Forecast ───────────────────────────────── */
+  function _renderHomeForecast() {
+    const section  = document.getElementById('home-forecast-section');
+    const card     = document.getElementById('home-forecast-card');
+    if (!section || !card) return;
+    if (!state.user?.plaid_linked || !state.accounts?.length) {
+      section.style.display = 'none'; return;
+    }
+    section.style.display = '';
+
+    const fc = _buildCashFlowForecast();
+    const isRisk    = fc.projected < 500 && fc.projected >= 0;
+    const isDanger  = fc.projected < 0;
+    const statusColor = isDanger ? 'var(--fc-danger)' : isRisk ? 'var(--fc-warning)' : 'var(--fc-success)';
+    const statusText  = isDanger ? 'Cash flow negative' : isRisk ? 'Running low' : 'All clear';
+    const statusIcon  = isDanger
+      ? `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`
+      : isRisk
+      ? `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`
+      : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
+
+    // Build 8 sample points (today + 7 days) for sparkline
+    const pts = [];
+    {
+      let bal = fc.cash;
+      const perDay = { income: fc.expectedIncome / 7, bills: fc.billsTotal / 7, other: fc.otherSpend / 7 };
+      for (let d = 0; d <= 7; d++) {
+        pts.push(Math.max(0, d === 0 ? fc.cash : bal));
+        bal += perDay.income - perDay.bills - perDay.other;
+      }
+    }
+    const ptMin = Math.min(...pts);
+    const ptMax = Math.max(...pts) || 1;
+    const ptRange = ptMax - ptMin || 1;
+    const svgW = 100, svgH = 40, padT = 4, padB = 4;
+    const drawH = svgH - padT - padB;
+    const svgCoords = pts.map((v, i) => ({
+      x: (i / 7) * svgW,
+      y: padT + drawH - ((v - ptMin) / ptRange) * drawH
+    }));
+    const linePath = svgCoords.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+    const fillPath = linePath + ` L${svgW},${svgH} L0,${svgH} Z`;
+    const lineColor = isDanger ? '#ef4444' : isRisk ? '#f59e0b' : '#1ac4f0';
+    const fillId = 'fcFcastGrad_' + Math.random().toString(36).slice(2, 6);
+
+    const billsRow = fc.billsTotal > 0
+      ? `<div class="home-forecast-row"><span class="home-forecast-label">Bills due</span><span class="home-forecast-val" style="color:var(--fc-danger)">−${FCData.formatCurrency(fc.billsTotal)}</span></div>`
+      : '';
+    const otherRow = fc.otherSpend > 5
+      ? `<div class="home-forecast-row"><span class="home-forecast-label">${fc.expectedIncome > 0 ? 'Other est.' : 'Est. spend'}</span><span class="home-forecast-val" style="color:var(--fc-text-muted)">−${FCData.formatCurrency(fc.otherSpend)}</span></div>`
+      : '';
+    const incomeRow = fc.expectedIncome > 0
+      ? `<div class="home-forecast-row"><span class="home-forecast-label">Expected income</span><span class="home-forecast-val" style="color:var(--fc-success)">+${FCData.formatCurrency(fc.expectedIncome)}</span></div>`
+      : '';
+    const rows = incomeRow + billsRow + otherRow;
+
+    card.innerHTML = `
+      <div class="home-forecast-header">
+        <span class="home-forecast-label" style="font-size:10px;letter-spacing:.06em;text-transform:uppercase">7-Day Outlook</span>
+        <span class="home-forecast-status ${isDanger ? 'bad' : isRisk ? 'warn' : 'good'}">${statusText}</span>
+      </div>
+      <div class="home-forecast-chart-wrap">
+        <svg class="home-forecast-chart-svg" viewBox="0 0 ${svgW} ${svgH}" preserveAspectRatio="none" aria-hidden="true">
+          <defs>
+            <linearGradient id="${fillId}" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="${lineColor}" stop-opacity="0.22"/>
+              <stop offset="100%" stop-color="${lineColor}" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <path d="${fillPath}" fill="url(#${fillId})"/>
+          <path d="${linePath}" fill="none" stroke="${lineColor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="${svgCoords[0].x.toFixed(1)}" cy="${svgCoords[0].y.toFixed(1)}" r="2.5" fill="${lineColor}" opacity=".9"/>
+          <circle cx="${svgCoords[7].x.toFixed(1)}" cy="${svgCoords[7].y.toFixed(1)}" r="2.5" fill="${lineColor}" opacity=".9"/>
+        </svg>
+      </div>
+      ${rows}
+      <div class="home-forecast-projected">
+        <span class="home-forecast-proj-label">Projected Balance</span>
+        <span class="home-forecast-proj-val" style="color:${statusColor}">${FCData.formatCurrency(Math.max(0, fc.projected))}</span>
+      </div>`;
+  }
+
+  /* ── What Changed Since Yesterday ──────────────────────────── */
+  function _renderHomeYesterday() {
+    const section = document.getElementById('home-yesterday-section');
+    const grid    = document.getElementById('home-yesterday-grid');
+    if (!section || !grid) return;
+    if (!state.user?.plaid_linked || !state.transactions?.length) {
+      section.style.display = 'none'; return;
+    }
+    section.style.display = '';
+
+    const ch = _getYesterdayChanges();
+    const tiles = [];
+
+    const _svgCash = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="1" y="4" width="22" height="16" rx="2"/><path d="M1 10h22"/></svg>`;
+    const _svgTxn  = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
+    const _svgCat  = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`;
+    const _svgBill = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
+    const _svgOk   = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
+
+    const cashSign  = ch.cashDelta >= 0 ? '+' : '−';
+    const cashColor = ch.cashDelta >= 0 ? 'var(--fc-success)' : 'var(--fc-danger)';
+    const cashBg    = ch.cashDelta >= 0 ? 'rgba(48,209,88,0.12)' : 'rgba(255,69,58,0.12)';
+    tiles.push({
+      icon: _svgCash, iconBg: cashBg, iconColor: cashColor,
+      value: `${cashSign}${FCData.formatCurrency(Math.abs(ch.cashDelta))}`,
+      label: 'Cash · 24h', color: cashColor
+    });
+
+    const txnBg = ch.txnCount === 0 ? 'rgba(48,209,88,0.12)' : 'rgba(26,196,240,0.12)';
+    const txnColor = ch.txnCount === 0 ? 'var(--fc-success)' : 'var(--fc-accent)';
+    tiles.push({
+      icon: _svgTxn, iconBg: txnBg, iconColor: txnColor,
+      value: ch.txnCount === 0 ? '0' : String(ch.txnCount),
+      label: ch.txnCount === 0 ? 'No activity' : `Transaction${ch.txnCount !== 1 ? 's' : ''}`,
+      color: txnColor
+    });
+
+    if (ch.topCatEntry) {
+      const [cat, amt] = ch.topCatEntry;
+      tiles.push({
+        icon: _svgCat, iconBg: 'rgba(255,159,10,0.12)', iconColor: 'var(--fc-warning)',
+        value: FCData.formatCurrency(amt), label: cat, color: 'var(--fc-warning)'
+      });
+    } else {
+      tiles.push({
+        icon: _svgOk, iconBg: 'rgba(48,209,88,0.12)', iconColor: 'var(--fc-success)',
+        value: '—', label: 'No spending', color: 'var(--fc-success)'
+      });
+    }
+
+    const billBg    = ch.noUpcomingBills ? 'rgba(48,209,88,0.12)' : 'rgba(255,159,10,0.12)';
+    const billColor = ch.noUpcomingBills ? 'var(--fc-success)' : 'var(--fc-warning)';
+    tiles.push({
+      icon: ch.noUpcomingBills ? _svgOk : _svgBill,
+      iconBg: billBg, iconColor: billColor,
+      value: ch.noUpcomingBills ? '✓' : '1',
+      label: ch.noUpcomingBills ? 'Bills clear' : 'Bill due soon',
+      color: billColor
+    });
+
+    grid.innerHTML = tiles.map(t =>
+      `<div class="home-yesterday-tile">
+        <div class="home-ytile-icon-wrap" style="background:${t.iconBg};color:${t.iconColor}">${t.icon}</div>
+        <div class="home-ytile-val" style="color:${t.color}">${t.value}</div>
+        <div class="home-ytile-label">${t.label}</div>
+      </div>`
+    ).join('');
+  }
+
+  /* ── Subscriptions to Review (Home) ────────────────────────── */
+  function _renderHomeSubsCard() {
+    const section  = document.getElementById('home-subs-section');
+    const titleEl  = document.getElementById('home-subs-title');
+    const subEl    = document.getElementById('home-subs-sub');
+    const badgeEl  = document.getElementById('home-subs-badge');
+    if (!section) return;
+    if (!state.user?.plaid_linked || !state.transactions?.length) {
+      section.style.display = 'none'; return;
+    }
+    try {
+      const zombies = _detectSubscriptions().filter(s => !s.tracked);
+      if (!zombies.length) { section.style.display = 'none'; return; }
+      const total = zombies.reduce((s, z) => s + (z.amount || 0), 0);
+      section.style.display = '';
+      if (titleEl) titleEl.textContent = `You could save ${FCData.formatCurrency(total)}/month`;
+      if (subEl)   subEl.textContent   = `${zombies.length} recurring charge${zombies.length !== 1 ? 's' : ''} to review`;
+      if (badgeEl) { badgeEl.textContent = zombies.length; badgeEl.style.display = 'flex'; }
+    } catch(_) { section.style.display = 'none'; }
   }
 
   function _renderHome() {
@@ -4386,11 +4729,11 @@ window.FCApp = (function () {
       heroAcctCount.textContent = n === 0 ? 'No banks' : n + (n === 1 ? ' Account' : ' Accounts');
     }
 
-    // ── Today's Focus card ────────────────────────────────────────
-    _renderTodaysFocus();
+    // ── Today's Money Move (Home primary hero) ───────────────────
+    _renderHomeMoveCard();
 
-    // ── This Month's Move insight card ────────────────────────────
-    _renderThisMonthsMove();
+    // ── Next Bill compact card ────────────────────────────────────
+    _renderHomeNextBill();
 
     // ── Recent transactions preview ───────────────────────────────
     _renderRecentTransactions();
@@ -4410,7 +4753,8 @@ window.FCApp = (function () {
 
     if (state.user && state.user.plaid_linked) {
       const buffer        = cash * 0.10;
-      const safeToSpend   = Math.max(0, cash - unpaidBillsTotal - buffer);
+      const bills7Total   = _getBillsDueInDays(7).reduce((s, b) => s + (b.amount || 0), 0);
+      const safeToSpend   = Math.max(0, cash - bills7Total - buffer);
 
       _renderGreeting(safeToSpend);
 
@@ -4425,14 +4769,34 @@ window.FCApp = (function () {
       const cardLabelEl = document.getElementById('safe-spend-card-label');
       if (cardLabelEl) cardLabelEl.textContent = isOver ? 'Cash Balance' : 'Available Cash';
 
+      // Status tier on the STS card
+      const stsCard = document.querySelector('.home-sts-card');
+      if (stsCard) {
+        stsCard.classList.remove('sts-green', 'sts-yellow', 'sts-red');
+        if (isOver || safeToSpend < 100) stsCard.classList.add('sts-red');
+        else if (safeToSpend < 500) stsCard.classList.add('sts-yellow');
+        else stsCard.classList.add('sts-green');
+      }
+
       if (safeEl) {
         safeEl.classList.remove('dash-hero-amount--empty');
         animateNumber(safeEl, isOver ? Math.max(0, cash) : safeToSpend, '$');
       }
 
-      if (metaEl) metaEl.textContent = isOver
-        ? 'Month spend exceeds cash on hand'
-        : `${Math.round(barPct)}% of cash committed`;
+      const billsCoveredText = isOver ? 'Spend exceeds cash'
+        : bills7Total > 0 ? `Bills covered · ${FCData.formatCurrency(Math.round(buffer / 10) * 10)} buffer`
+        : 'No bills due this week';
+      if (metaEl) metaEl.textContent = billsCoveredText;
+
+      // Status pill below meta
+      const statusPillEl = document.getElementById('sts-status-pill');
+      if (statusPillEl) {
+        const pillClass = (isOver || safeToSpend < 100) ? 'sts-pill-red' : safeToSpend < 500 ? 'sts-pill-yellow' : 'sts-pill-green';
+        const pillText  = (isOver || safeToSpend < 100) ? 'Low' : safeToSpend < 500 ? 'Caution' : 'Healthy';
+        statusPillEl.className = `home-sts-status-pill ${pillClass}`;
+        statusPillEl.textContent = pillText;
+        statusPillEl.style.display = '';
+      }
 
       // ── Safe to Spend delta vs last week ─────────────────────────
       const deltaEl = document.getElementById('safe-spend-delta');
@@ -4461,6 +4825,8 @@ window.FCApp = (function () {
       }
 
       if (barEl) { barEl.style.width = barPct + '%'; barEl.style.background = barColor; }
+      const fillEl = document.getElementById('safe-spend-bar-fill');
+      if (fillEl) { fillEl.style.width = barPct + '%'; fillEl.style.background = barColor; }
 
       const ringCircle = document.getElementById('safe-spend-ring');
       const ringPctEl  = document.getElementById('safe-spend-ring-pct');
@@ -4502,6 +4868,11 @@ window.FCApp = (function () {
     }
     const glanceNwSubEl = document.getElementById('glance-nw-sub');
     if (glanceNwSubEl) glanceNwSubEl.style.display = state.accounts.length ? 'none' : '';
+
+    // ── New Home sections (forecast, yesterday, subs) ────────────
+    _renderHomeForecast();
+    _renderHomeYesterday();
+    _renderHomeSubsCard();
 
     // Feedback banner
     _renderFeedbackBanner();
@@ -5245,7 +5616,368 @@ window.FCApp = (function () {
     }
   }
 
+  /* ─────────────────────────────────────────────────────────────
+     PLAN PAGE — primary experience for the "insights" tab
+     ───────────────────────────────────────────────────────────── */
+
+  function _renderPlan() {
+    const periodTxns      = _getPeriodTxns();
+    const periodSpendTxns = periodTxns.filter(_isSpendTxn);
+    const periodSpend     = periodSpendTxns.reduce((s, t) => s + (t.amount || 0), 0);
+    const budgetLimit     = (state.budgets && state.budgets['total'] && state.budgets['total'].limit) || 3000;
+    const now             = new Date();
+
+    // Sync period-tab active state with current state.period
+    document.querySelectorAll('.plan-period-btn').forEach(btn => {
+      const active = btn.dataset.period === state.period;
+      btn.classList.toggle('active', active);
+      btn.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+
+    try { _renderPlanSTS(); }                              catch(e) { fcLog('[Plan] STS', e); }
+    try { _renderPlanMove(); }                             catch(e) { fcLog('[Plan] Move', e); }
+    try { _renderPlanForecast(periodSpend, budgetLimit, now); } catch(e) { fcLog('[Plan] Forecast', e); }
+    try { _renderPlanFix(periodSpendTxns); }               catch(e) { fcLog('[Plan] Fix', e); }
+    try { _renderPlanCategories(periodSpendTxns, periodSpend); } catch(e) { fcLog('[Plan] Cats', e); }
+    try { _renderPlanSubs(); }                             catch(e) { fcLog('[Plan] Subs', e); }
+    try { _renderPlanDelta(); }                            catch(e) { fcLog('[Plan] Delta', e); }
+  }
+
+  function _renderPlanSTS() {
+    const amtEl    = document.getElementById('plan-sts-amount');
+    const descEl   = document.getElementById('plan-sts-desc');
+    const statusEl = document.getElementById('plan-sts-status');
+    if (!amtEl) return;
+
+    const cash        = FCData.calcCash ? FCData.calcCash(state.accounts) : 0;
+    const bills7      = _getBillsDueInDays(7);
+    const bills7Total = bills7.reduce((s, b) => s + (b.amount || 0), 0);
+    const goalCommit  = (state.goals || []).filter(g => g.monthly_amount > 0)
+                          .reduce((s, g) => s + (g.monthly_amount || 0), 0);
+    const buffer      = Math.max(200, Math.round(cash * 0.05));
+    const sts         = Math.max(0, cash - bills7Total - goalCommit - buffer);
+
+    const stsColor = sts < 200 ? '#EF4444' : sts < 500 ? '#D97706' : 'var(--pl-sts-color)';
+    amtEl.textContent  = FCData.formatCurrency(sts);
+    amtEl.style.color  = stsColor;
+
+    const items = [];
+    if (bills7.length) {
+      items.push({ ok: true,  label: `${bills7.length} bill${bills7.length !== 1 ? 's' : ''} covered (${FCData.formatCurrency(bills7Total)})` });
+    } else {
+      items.push({ ok: true,  label: 'No bills due this week' });
+    }
+    if (goalCommit > 0) {
+      items.push({ ok: true,  label: `Goals (${FCData.formatCurrency(goalCommit)}/mo)` });
+    }
+    items.push({ ok: false, label: `${FCData.formatCurrency(buffer)} buffer held` });
+
+    if (statusEl) {
+      statusEl.innerHTML = items.map(i =>
+        `<div class="plan-sts-item">
+          <div class="plan-sts-check${i.ok ? '' : ' plan-sts-check--neutral'}">
+            ${i.ok ? '<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>' : ''}
+          </div>
+          <span>${esc(i.label)}</span>
+        </div>`).join('');
+    }
+  }
+
+  function _renderPlanMove() {
+    const card  = document.getElementById('plan-move-card');
+    const icon  = document.getElementById('plan-move-icon');
+    const title = document.getElementById('plan-move-title');
+    const sub   = document.getElementById('plan-move-sub');
+    const btns  = document.getElementById('plan-move-btns');
+    if (!title) return;
+
+    const insights = _buildFocusInsights();
+    const top      = insights[0];
+
+    const _MOVE_COLORS = {
+      danger:   { bg: 'var(--pl-soft-red)',   bd: 'var(--pl-soft-red-bd)',   iBg: 'rgba(239,68,68,0.18)',  iColor: '#EF4444', emoji: '⚠️' },
+      warn:     { bg: 'var(--pl-soft-amber)', bd: 'var(--pl-soft-amber-bd)', iBg: 'rgba(245,158,11,0.18)', iColor: '#F59E0B', emoji: '💡' },
+      info:     { bg: 'var(--pl-soft-blue)',  bd: 'var(--pl-soft-blue-bd)',  iBg: 'rgba(20,124,255,0.18)', iColor: '#147CFF', emoji: '💡' },
+      positive: { bg: 'var(--pl-soft-green)', bd: 'var(--pl-soft-green-bd)', iBg: 'rgba(22,163,74,0.18)',  iColor: '#16A34A', emoji: '✓'  },
+    };
+
+    if (!top) {
+      const c = _MOVE_COLORS.positive;
+      if (card)  { card.style.background = c.bg;   card.style.borderColor = c.bd; }
+      if (icon)  { icon.style.background = c.iBg;  icon.style.color = c.iColor;   icon.textContent = c.emoji; }
+      title.textContent = "You're on track";
+      if (sub)  sub.textContent  = 'No urgent actions needed. Keep it up!';
+      if (btns) btns.innerHTML   = '';
+      return;
+    }
+
+    const c = _MOVE_COLORS[top.type] || _MOVE_COLORS.info;
+    if (card)  { card.style.background = c.bg;  card.style.borderColor = c.bd; }
+    if (icon)  { icon.style.background = c.iBg; icon.style.color = c.iColor; icon.textContent = c.emoji; }
+    title.textContent = top.title || top.label || 'Heads up';
+    if (sub)  sub.textContent  = top.body   || '';
+    if (btns && top.action && top.tap) {
+      const tapSrc = top.tap.toString();
+      btns.innerHTML = `<button class="plan-move-btn-primary" type="button" onclick="(${tapSrc})()">${esc(top.action)}</button>`;
+    } else if (btns) {
+      btns.innerHTML = '';
+    }
+  }
+
+  function _renderPlanForecast(periodSpend, budgetLimit, now) {
+    const projEl   = document.getElementById('plan-forecast-projected');
+    const spentEl  = document.getElementById('plan-forecast-spent');
+    const budgetEl = document.getElementById('plan-forecast-budget');
+    const daysEl   = document.getElementById('plan-forecast-days');
+    const paceEl   = document.getElementById('plan-forecast-pace');
+    const msgEl    = document.getElementById('plan-forecast-msg');
+    if (!projEl) return;
+
+    const dayOfMonth  = now.getDate();
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const daysLeft    = daysInMonth - dayOfMonth;
+    const dailyAvg    = dayOfMonth > 0 ? periodSpend / dayOfMonth : 0;
+    const projected   = Math.round(dailyAvg * daysInMonth);
+    const isOver      = budgetLimit > 0 && projected > budgetLimit;
+
+    projEl.textContent = FCData.formatCurrency(projected);
+    projEl.style.color = isOver ? '#EF4444' : '#16A34A';
+    if (spentEl)  spentEl.textContent  = FCData.formatCurrency(periodSpend);
+    if (budgetEl) budgetEl.textContent = budgetLimit > 0 ? FCData.formatCurrency(budgetLimit) : 'Not set';
+    if (daysEl)   daysEl.textContent   = `${daysLeft}d`;
+    if (paceEl)   paceEl.textContent   = `${FCData.formatCurrency(Math.round(dailyAvg))}/day`;
+
+    if (msgEl) {
+      if (isOver) {
+        const over = projected - budgetLimit;
+        msgEl.className = 'plan-forecast-msg plan-forecast-msg--warn';
+        msgEl.innerHTML = `⚠️ On pace to finish ${FCData.formatCurrency(over)} over budget.`;
+        msgEl.style.display = '';
+      } else if (!isOver && budgetLimit > 0 && daysLeft < 8) {
+        const under = budgetLimit - projected;
+        msgEl.className = 'plan-forecast-msg plan-forecast-msg--ok';
+        msgEl.innerHTML = `✓ On track — ${FCData.formatCurrency(under)} under budget.`;
+        msgEl.style.display = '';
+      } else {
+        msgEl.style.display = 'none';
+      }
+    }
+  }
+
+  function _buildFixPlan(periodSpendTxns) {
+    if (!state.budgets) return [];
+    const catMap = {};
+    for (const t of periodSpendTxns) {
+      const rawCat = (Array.isArray(t.category) ? t.category[0] : t.category) || 'Other';
+      const cat    = FCData.normalizePlaidCategory(rawCat);
+      catMap[cat]  = (catMap[cat] || 0) + (t.amount || 0);
+    }
+    const fixes = [];
+    for (const [cat, spent] of Object.entries(catMap)) {
+      const b    = state.budgets[cat];
+      if (!b || !b.limit) continue;
+      const over = spent - b.limit;
+      if (over > 0) {
+        fixes.push({
+          cat, spent, limit: b.limit, over,
+          emoji: (typeof FCData.categoryEmoji === 'function') ? FCData.categoryEmoji(cat) : '📦',
+          color: FCData.categoryColor ? FCData.categoryColor(cat) : '#64748B',
+        });
+      }
+    }
+    return fixes.sort((a, b) => b.over - a.over);
+  }
+
+  function _renderPlanFix(periodSpendTxns) {
+    const card   = document.getElementById('plan-fix-card');
+    const rowsEl = document.getElementById('plan-fix-rows');
+    if (!card || !rowsEl) return;
+    const fixes = _buildFixPlan(periodSpendTxns);
+    if (!fixes.length) { card.style.display = 'none'; return; }
+    card.style.display = '';
+    const totalOver = fixes.reduce((s, f) => s + f.over, 0);
+    rowsEl.innerHTML = fixes.slice(0, 4).map(f => {
+      const reduceBy = Math.ceil(f.over / 2); // suggest cutting overage in half
+      return `<div class="plan-fix-row" onclick="FCApp.openCategoryBudgetSheet('${esc(f.cat)}',${f.limit})" role="button">
+        <div class="plan-fix-icon" style="background:${f.color}22"><span style="font-size:14px">${f.emoji}</span></div>
+        <div style="flex:1;min-width:0">
+          <div class="plan-fix-name">${esc(f.cat)}</div>
+          <div style="font-size:10px;color:var(--pl-secondary);margin-top:1px">Reduce by ${FCData.formatCurrency(reduceBy)} to get on track</div>
+        </div>
+        <span class="plan-fix-amt">+${FCData.formatCurrency(f.over)}</span>
+      </div>`;
+    }).join('') +
+    `<div class="plan-fix-btn-row">
+      <button class="plan-fix-btn-primary" onclick="FCApp.switchTab('insights')" type="button">Fix my plan</button>
+      <button class="plan-fix-btn-secondary" onclick="this.closest('#plan-fix-card').style.display='none'" type="button">Dismiss</button>
+    </div>`;
+  }
+
+  function _renderPlanCategories(periodSpendTxns, periodSpend) {
+    const card = document.getElementById('plan-cat-card');
+    if (!card) return;
+
+    const _NEEDS = new Set([
+      'supermarkets and groceries','groceries','food delivery','gas stations','gas',
+      'public transportation services','taxi','ride share','utilities','telecommunications',
+      'healthcare','pharmacies','insurance','subscription','streaming','rent','mortgage',
+      'home improvement','home maintenance',
+    ]);
+    const _WANTS = new Set([
+      'food and drink','restaurants','fast food','coffee shop','bars','alcohol and bars',
+      'entertainment','travel','airlines and aviation services','hotels and motels',
+      'sporting goods','hobbies','arts and entertainment','shopping',
+      'clothing and accessories','electronics','personal care','hair','spa and beauty',
+      'gym and fitness','health and fitness','pets','gifts','toys','books and magazines',
+    ]);
+
+    if (_planCatTab === 'goals') {
+      const goals = state.goals || [];
+      if (!goals.length) {
+        card.innerHTML = `<div class="plan-empty"><div class="plan-empty-title">No goals yet</div><div class="plan-empty-sub">Set a savings goal to track it here.</div><button class="plan-empty-cta" onclick="FCApp.showAddGoalSheet()" type="button">Add Goal</button></div>`;
+        return;
+      }
+      card.innerHTML = goals.map(g => {
+        const pct  = g.target > 0 ? Math.min(Math.round(((g.current || 0) / g.target) * 100), 100) : 0;
+        const fill = pct >= 90 ? '#16A34A' : pct >= 50 ? '#147CFF' : '#F59E0B';
+        const badge = pct >= 100 ? 'good' : pct >= 50 ? 'on-track' : 'behind';
+        const badgeLbl = pct >= 100 ? 'Done' : pct >= 50 ? 'On track' : 'Behind';
+        return `<div class="plan-goal-row" role="button">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <span class="plan-goal-name">${esc(g.name || 'Goal')}</span>
+            <span class="plan-badge plan-badge-${badge}">${badgeLbl}</span>
+          </div>
+          <div class="plan-goal-amounts">
+            <span class="plan-goal-current">${FCData.formatCurrency(g.current || 0)}</span>
+            <span class="plan-goal-of">of</span>
+            <span class="plan-goal-target">${FCData.formatCurrency(g.target || 0)}</span>
+          </div>
+          <div class="plan-cat-bar-track" style="margin-top:8px">
+            <div class="plan-cat-bar-fill" style="width:${pct}%;background:${fill}"></div>
+          </div>
+        </div>`;
+      }).join('');
+      return;
+    }
+
+    const catMap = {};
+    for (const t of periodSpendTxns) {
+      const rawCat = (Array.isArray(t.category) ? t.category[0] : t.category) || 'Other';
+      const cat    = FCData.normalizePlaidCategory(rawCat);
+      catMap[cat]  = (catMap[cat] || 0) + (t.amount || 0);
+    }
+
+    let rows = Object.entries(catMap).sort((a, b) => b[1] - a[1]);
+    if (_planCatTab === 'needs') rows = rows.filter(([cat]) => _NEEDS.has(cat.toLowerCase()));
+    if (_planCatTab === 'wants') rows = rows.filter(([cat]) => _WANTS.has(cat.toLowerCase()));
+
+    if (!rows.length) {
+      const msg = _planCatTab === 'needs' ? 'No essential spending found'
+                : _planCatTab === 'wants' ? 'No discretionary spending found'
+                : 'No spending data yet';
+      card.innerHTML = `<div class="plan-empty"><div class="plan-empty-title">${msg}</div><div class="plan-empty-sub">Transactions appear once your bank syncs.</div></div>`;
+      return;
+    }
+
+    card.innerHTML = rows.slice(0, 8).map(([cat, amount]) => {
+      const emoji   = (typeof FCData.categoryEmoji === 'function') ? FCData.categoryEmoji(cat) : '📦';
+      const color   = FCData.categoryColor ? FCData.categoryColor(cat) : '#64748B';
+      const budget  = state.budgets && state.budgets[cat];
+      const budLim  = budget ? (budget.limit || 0) : 0;
+      const budPct  = budLim > 0 ? Math.min(Math.round((amount / budLim) * 100), 100) : 0;
+      const isOver  = budLim > 0 && amount > budLim;
+      const pctTot  = periodSpend > 0 ? Math.round((amount / periodSpend) * 100) : 0;
+      const badgeCls = isOver ? 'over' : budPct > 80 ? 'watch' : budLim > 0 ? 'on-track' : 'set-limit';
+      const badgeLbl = isOver ? 'Over' : budPct > 80 ? 'Watch' : budLim > 0 ? 'On track' : 'Set limit';
+      const barFill  = isOver ? '#EF4444' : budPct > 80 ? '#D97706' : color;
+      return `<div class="plan-cat-row" onclick="FCApp.openCategoryBudgetSheet('${esc(cat)}',${budLim})" role="button" aria-label="${esc(cat)}">
+        <div class="plan-cat-row-top">
+          <div class="plan-cat-icon" style="background:${color}22">${emoji}</div>
+          <div class="plan-cat-info">
+            <div class="plan-cat-name">${esc(cat)}</div>
+            <div class="plan-cat-meta">${pctTot}% of spending</div>
+          </div>
+          <div class="plan-cat-right">
+            <div class="plan-cat-spent">${FCData.formatCurrency(amount)}</div>
+            <span class="plan-badge plan-badge-${badgeCls}">${badgeLbl}</span>
+          </div>
+        </div>
+        ${budLim > 0 ? `<div class="plan-cat-progress">
+          <div class="plan-cat-bar-track"><div class="plan-cat-bar-fill" style="width:${budPct}%;background:${barFill}"></div></div>
+          <div class="plan-cat-bar-foot">
+            <span class="plan-cat-left-lbl">${isOver ? FCData.formatCurrency(amount - budLim) + ' over' : FCData.formatCurrency(budLim - amount) + ' left'}</span>
+            <span class="plan-cat-left-lbl">${FCData.formatCurrency(budLim)} limit</span>
+          </div>
+        </div>` : ''}
+      </div>`;
+    }).join('');
+  }
+
+  function _renderPlanSubs() {
+    const totalEl = document.getElementById('plan-subs-total');
+    const countEl = document.getElementById('plan-subs-count');
+    if (!totalEl) return;
+    const subs  = _detectSubscriptions();
+    const total = subs.reduce((s, sub) => {
+      const perMonth = sub.freq === 'wk' ? (sub.amount || 0) * 4.33
+                     : sub.freq === 'yr'  ? (sub.amount || 0) / 12
+                     : sub.freq === '2mo' ? (sub.amount || 0) / 2
+                     : (sub.amount || 0);
+      return s + perMonth;
+    }, 0);
+    totalEl.textContent = subs.length ? FCData.formatCurrency(Math.round(total)) : '—';
+    if (countEl) countEl.textContent = subs.length
+      ? `${subs.length} subscription${subs.length !== 1 ? 's' : ''}/mo`
+      : 'No recurring charges found';
+  }
+
+  function _buildDailyDelta() {
+    const now      = new Date();
+    const cut1d    = new Date(now.getTime() -     86400000);
+    const cut2d    = new Date(now.getTime() - 2 * 86400000);
+    const txns     = state.transactions || [];
+    const today    = txns.filter(t => _isSpendTxn(t) && FCData.parseDateLocal(t.date) >= cut1d);
+    const yest     = txns.filter(t => _isSpendTxn(t) && FCData.parseDateLocal(t.date) >= cut2d && FCData.parseDateLocal(t.date) < cut1d);
+    const deltas   = [];
+    const todayAmt = today.reduce((s, t) => s + (t.amount || 0), 0);
+    const yesterdayAmt = yest.reduce((s, t) => s + (t.amount || 0), 0);
+    if (today.length) {
+      deltas.push({ emoji: '💳', label: `${today.length} new txn${today.length !== 1 ? 's' : ''}`, val: FCData.formatCurrency(todayAmt), color: '#EF4444' });
+    }
+    if (todayAmt > 0 && yesterdayAmt > 0) {
+      const diff = todayAmt - yesterdayAmt;
+      deltas.push({ emoji: diff > 0 ? '↑' : '↓', label: diff > 0 ? 'Up vs yesterday' : 'Down vs yesterday', val: FCData.formatCurrency(Math.abs(diff)), color: diff > 0 ? '#EF4444' : '#16A34A' });
+    }
+    const today0 = new Date(); today0.setHours(0,0,0,0);
+    const billDue = (state.bills || []).find(b => {
+      if (b.status === 'paid' || !b.due_date) return false;
+      const d = FCData.parseDateLocal(b.due_date); d.setHours(0,0,0,0);
+      return d.getTime() === today0.getTime();
+    });
+    if (billDue) deltas.push({ emoji: '📅', label: `Due today: ${billDue.name}`, val: FCData.formatCurrency(billDue.amount || 0), color: '#D97706' });
+    return deltas;
+  }
+
+  function _renderPlanDelta() {
+    const listEl = document.getElementById('plan-delta-list');
+    if (!listEl) return;
+    const deltas = _buildDailyDelta();
+    if (!deltas.length) {
+      listEl.innerHTML = '<div class="plan-empty" style="padding:4px 0"><div class="plan-empty-sub">No changes today</div></div>';
+      return;
+    }
+    listEl.innerHTML = deltas.map(d =>
+      `<div class="plan-delta-item">
+        <div class="plan-delta-dot" style="background:rgba(127,127,127,0.12);font-size:12px">${d.emoji}</div>
+        <span class="plan-delta-lbl">${esc(d.label)}</span>
+        <span class="plan-delta-val" style="color:${d.color}">${esc(d.val)}</span>
+      </div>`).join('');
+  }
+
   function _renderInsights() {
+    // Render Plan page (new primary experience for this tab)
+    try { _renderPlan(); } catch(e) { fcLog('[Plan]', e); }
+
     // Render health score — isolated so any error doesn't abort the rest of insights
     try { _renderHealthScore(); } catch(e) { fcLog('[Insights] health score error:', e); }
 
@@ -5273,7 +6005,7 @@ window.FCApp = (function () {
     if (insightsCatPeriod) insightsCatPeriod.textContent = periodLabel;
 
     // ── V3: New sections ─────────────────────────────────────────
-    try { _renderTodaysMove(periodSpend, periodIncome); } catch(e) { fcLog('[Insights] todays move error:', e); }
+    // Note: Today's Move lives on Home now — not duplicated here
     try { _renderMonthlySummary(periodSpend, periodIncome); } catch(e) { fcLog('[Insights] monthly summary error:', e); }
 
     // ── Legacy week summary (writes to hidden compat elements) ───
@@ -5887,6 +6619,11 @@ window.FCApp = (function () {
      ───────────────────────────────────────────────────────────── */
 
   function _renderGoals() {
+    _renderWealthGoals();
+    // Keep compat hidden container in sync for any legacy code paths
+  }
+
+  function _renderGoals_COMPAT() {
     const container = document.getElementById('goals-list');
     if (!container) return;
 
@@ -5979,20 +6716,31 @@ window.FCApp = (function () {
      RENDER: WEALTH TAB (Savings | Goals | Debt)
      ───────────────────────────────────────────────────────────── */
 
-  let _wealthSeg = 'savings';
+  let _wealthTab = 'overview';
+
+  function switchWealthTab(tab) {
+    _wealthTab = tab;
+    haptic('light');
+    document.querySelectorAll('.wv-tab').forEach(t => {
+      const isA = t.id === 'wv-tab-' + tab;
+      t.classList.toggle('active', isA);
+      t.setAttribute('aria-selected', isA ? 'true' : 'false');
+    });
+    document.querySelectorAll('.wv-panel').forEach(p =>
+      p.classList.toggle('active', p.id === 'wv-panel-' + tab)
+    );
+    const view = document.getElementById('view-wealth');
+    if (view) view.scrollTop = 0;
+    requestAnimationFrame(() => {
+      if (tab === 'overview')     _renderWealthOverview();
+      else if (tab === 'savings') _renderWealthSavings();
+      else if (tab === 'debt')    _renderWealthDebt();
+      else if (tab === 'goals')   _renderWealthGoals();
+    });
+  }
 
   function switchWealthSegment(seg) {
-    _wealthSeg = seg;
-    document.querySelectorAll('.fc-wealth-seg').forEach(btn => {
-      btn.classList.toggle('fc-wealth-seg--active', btn.dataset.seg === seg);
-    });
-    document.querySelectorAll('.fc-wealth-panel').forEach(panel => {
-      panel.classList.toggle('fc-wealth-panel--active', panel.id === `wealth-panel-${seg}`);
-    });
-    haptic('light');
-    if (seg === 'savings') _renderSavings();
-    if (seg === 'goals')   _renderGoals();
-    if (seg === 'debt')    _renderDebt();
+    switchWealthTab(seg === 'savings' ? 'savings' : seg === 'goals' ? 'goals' : seg === 'debt' ? 'debt' : 'overview');
   }
 
   function _renderWealthHero() {
@@ -6088,10 +6836,558 @@ window.FCApp = (function () {
   }
 
   function _renderWealth() {
-    _renderWealthHero();
-    if (_wealthSeg === 'savings') _renderSavings();
-    if (_wealthSeg === 'goals')   _renderGoals();
-    if (_wealthSeg === 'debt')    _renderDebt();
+    try { _renderWealthHero(); } catch(e) {}
+    if (_wealthTab === 'overview')     _renderWealthOverview();
+    else if (_wealthTab === 'savings') _renderWealthSavings();
+    else if (_wealthTab === 'debt')    _renderWealthDebt();
+    else if (_wealthTab === 'goals')   _renderWealthGoals();
+  }
+
+  /* ─── Wealth: build sparkline SVG string ─── */
+  function _buildWealthSparklineSVG(vals) {
+    const isPos = !vals.length || vals[vals.length-1] >= vals[0];
+    const color = isPos ? '#1ac4f0' : 'var(--wv-red,#EF4444)';
+    if (!vals || vals.length < 2) return `<svg viewBox="0 0 320 56" width="100%" height="56" preserveAspectRatio="none" aria-hidden="true"><path d="M0,50 L320,50" stroke="${color}" stroke-width="2" fill="none"/></svg>`;
+    const W=320, H=56, pad=6;
+    const min=Math.min(...vals), max=Math.max(...vals), range=max-min||1;
+    const toY = v => pad + (H-2*pad)*(1-(v-min)/range);
+    const toX = (i,n) => (i/(n-1))*W;
+    const pts = vals.map((v,i) => [toX(i,vals.length), toY(v)]);
+    let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+    for (let i=1; i<pts.length; i++) {
+      const [x0,y0]=pts[i-1], [x1,y1]=pts[i], cx=(x0+x1)/2;
+      d += ` C${cx.toFixed(1)},${y0.toFixed(1)} ${cx.toFixed(1)},${y1.toFixed(1)} ${x1.toFixed(1)},${y1.toFixed(1)}`;
+    }
+    const lp=pts[pts.length-1];
+    const gid='wvsg'+Math.random().toString(36).slice(2,6);
+    return `<svg viewBox="0 0 320 56" width="100%" height="56" preserveAspectRatio="none" aria-hidden="true">
+      <defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${color}" stop-opacity="0.28"/>
+        <stop offset="100%" stop-color="${color}" stop-opacity="0"/>
+      </linearGradient></defs>
+      <path d="${d} L${lp[0].toFixed(1)},${H} L0,${H} Z" fill="url(#${gid})"/>
+      <path d="${d}" stroke="${color}" stroke-width="2" fill="none" stroke-linecap="round"/>
+      <circle cx="${lp[0].toFixed(1)}" cy="${lp[1].toFixed(1)}" r="3.5" fill="${color}"/>
+    </svg>`;
+  }
+
+  /* ─── Wealth: recommendation engine ─── */
+  function _buildWealthMove() {
+    const accts = state.accounts || [];
+    const goals = state.goals || [];
+    const cash = FCData.calcCash ? FCData.calcCash(accts) :
+      accts.filter(a=>a.type==='depository').reduce((s,a)=>s+(a.balance_current||a.balance||0),0);
+    const debtAccts = accts.filter(a=>a.type==='credit'||a.type==='loan');
+    const cards     = debtAccts.filter(a=>a.type==='credit');
+    const efGoal    = goals.find(g=>/emergency|starter/i.test(g.name||''));
+    const efCurrent = efGoal ? (efGoal.current||0) : 0;
+    const bills7    = typeof _getBillsDueInDays === 'function' ? _getBillsDueInDays(7).reduce((s,b)=>s+(b.amount||0),0) : 0;
+    const goalCommit= goals.filter(g=>(g.monthly_amount||0)>0).reduce((s,g)=>s+(g.monthly_amount||0),0);
+    const sts       = Math.max(0, cash - bills7 - goalCommit - Math.max(200, Math.round(cash*0.05)));
+
+    if (!efGoal && cash>500) return { accent:'var(--wv-green)',
+      title:'Build a Starter Emergency Fund',
+      body:'A $1,000 buffer protects you from unexpected expenses — it\'s the highest-ROI financial move you can make.',
+      cta:'Set Up Goal', ctaAlt:'Not now', primary:()=>{ FCApp.showAddGoalSheet && FCApp.showAddGoalSheet(); } };
+
+    if (efGoal && efCurrent<1000) {
+      const wk = Math.min(50, Math.max(10, Math.round(sts/8)));
+      return { accent:'var(--wv-green)',
+        title:`${FCData.formatCurrency(1000-efCurrent)} left to fund your Emergency Fund`,
+        body:`Save ${FCData.formatCurrency(wk)}/week and you'll have a starter fund in about ${Math.ceil((1000-efCurrent)/(wk*4.3))} months.`,
+        cta:'View Savings', ctaAlt:'Got it', primary:()=>{ FCApp.switchWealthTab('savings'); } };
+    }
+
+    const ccBal    = cards.reduce((s,a)=>s+Math.max(0,a.balance_current||a.balance||0),0);
+    const ccLimit  = cards.reduce((s,a)=>s+(a.balance_limit||a.balances?.limit||0),0);
+    const utilPct  = ccLimit>0 ? Math.round((ccBal/ccLimit)*100) : 0;
+    if (utilPct>30 && sts>50) {
+      const pay = Math.min(200, Math.round(sts*0.2));
+      return { accent:'var(--wv-red)',
+        title:`Credit utilization at ${utilPct}% — above the healthy 30% threshold`,
+        body:`Pay an extra ${FCData.formatCurrency(pay)} toward your card balance to protect your credit score.`,
+        cta:'View Debt', ctaAlt:'Dismiss', primary:()=>{ FCApp.switchWealthTab('debt'); } };
+    }
+
+    const behindGoal = goals.find(g=>{
+      if ((g.pct||0)>=100||!g.target_date) return false;
+      const daysLeft=(FCData.parseDateLocal(g.target_date)-new Date())/86400000;
+      if (daysLeft<=0) return false;
+      const expPct=Math.max(0,Math.min(100,100-(daysLeft/365)*100));
+      return (g.pct||0)<expPct-10;
+    });
+    if (behindGoal && sts>20) {
+      const c=Math.min(25,Math.round(sts*0.1));
+      return { accent:'var(--wv-purple)',
+        title:`${esc(behindGoal.name)} is falling behind schedule`,
+        body:`Add ${FCData.formatCurrency(c)} now to get back on track for your target date.`,
+        cta:'View Goals', ctaAlt:'Dismiss', primary:()=>{ FCApp.switchWealthTab('goals'); } };
+    }
+
+    const histVals = Object.values(state.nwHistory||{});
+    const growing  = histVals.length>=2 && histVals[histVals.length-1]>histVals[0];
+    return { accent:'var(--wv-blue)',
+      title: growing ? 'Net worth is growing — keep it up' : 'You\'re building wealth',
+      body:'Every deposit, every payoff, every goal hit compounds over time. You\'re doing it right.',
+      cta:'See Details', ctaAlt:null, primary:()=>{} };
+  }
+
+  /* ─── Wealth: guided path ─── */
+  function _buildWealthPath() {
+    const accts = state.accounts || [];
+    const goals = state.goals || [];
+    const debtAccts = accts.filter(a=>a.type==='credit'||a.type==='loan');
+    const totalDebt = debtAccts.reduce((s,a)=>s+Math.max(0,a.balance_current||a.balance||0),0);
+    const efGoal    = goals.find(g=>/emergency|starter/i.test(g.name||''));
+    const efCurrent = efGoal ? (efGoal.current||0) : 0;
+    const cashTotal = accts.filter(a=>a.type==='depository').reduce((s,a)=>s+(a.balance_current||a.balance||0),0);
+    const now=new Date(), monthStart=new Date(now.getFullYear(),now.getMonth(),1);
+    const monthSpend=(state.transactions||[]).filter(t=>{
+      const d=FCData.parseDateLocal(t.date||''); return d>=monthStart&&_isSpendTxn(t);
+    }).reduce((s,t)=>s+(t.amount||0),0);
+    let step=0;
+    if (efCurrent>=1000) step=1;
+    if (efCurrent>=1000&&totalDebt<5000) step=2;
+    if (efCurrent>=1000&&totalDebt<5000&&cashTotal>=monthSpend*3) step=3;
+    const labels=['Starter EF','Pay Debt','3-Mo Fund','Build Wealth'];
+    const titles=['Build a $1,000 starter emergency fund','Pay down high-interest debt','Grow to 3 months of expenses','Invest and build long-term wealth'];
+    return { step, labels, titles, efCurrent };
+  }
+
+  function _buildWealthPathHTML(path) {
+    const {step, labels, titles} = path;
+    const nodes = labels.map((lbl,i) => {
+      const done=i<step, active=i===step;
+      const dotCls=done?'wv-path-dot--done':active?'wv-path-dot--active':'wv-path-dot--future';
+      const dotInner=done?`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>`:String(i+1);
+      const lblCls=active?'wv-path-lbl wv-path-lbl--active':'wv-path-lbl';
+      return `<div class="wv-path-node">
+        <div class="wv-path-dot ${dotCls}">${dotInner}</div>
+        <div class="${lblCls}">${esc(lbl)}</div>
+      </div>`;
+    });
+    const connectors = labels.slice(1).map((_,i) =>
+      `<div class="wv-path-conn ${i<step?'wv-path-conn--done':'wv-path-conn--future'}"></div>`
+    );
+    // Interleave nodes and connectors
+    let track = '';
+    nodes.forEach((n,i) => { track += n; if (i<nodes.length-1) track+=connectors[i]; });
+    return `<div class="wv-card wv-path">
+      <div class="wv-path-eyebrow">Your Wealth Path</div>
+      <div class="wv-path-title">${esc(titles[Math.min(step,titles.length-1)])}</div>
+      <div class="wv-path-sub">Step ${step+1} of ${labels.length}</div>
+      <div class="wv-path-track">${track}</div>
+    </div>`;
+  }
+
+  /* ─── Wealth: Overview panel ─── */
+  function _renderWealthOverview() {
+    const el = document.getElementById('wv-overview-content');
+    if (!el) return;
+    const accts=state.accounts||[], goals=state.goals||[], hist=state.nwHistory||{};
+    const assets      = accts.filter(a=>a.type==='depository'||a.type==='investment'||a.type==='brokerage').reduce((s,a)=>s+(a.balance_current||a.balance||0),0);
+    const liabilities = accts.filter(a=>a.type==='credit'||a.type==='loan').reduce((s,a)=>s+Math.max(0,a.balance_current||a.balance||0),0);
+    const nw = assets-liabilities;
+    // Delta vs 30d
+    const histKeys=Object.keys(hist).sort();
+    const c30=new Date(); c30.setDate(c30.getDate()-30);
+    const prevKey=histKeys.filter(k=>k<=c30.toISOString().split('T')[0]).pop();
+    const delta = prevKey!=null ? nw-(hist[prevKey]||0) : null;
+    // Sparkline
+    const DAYS={'1M':30,'3M':90,'1Y':365,'ALL':0};
+    const wDays=DAYS[state.period||'1M']??30;
+    let sKeys=histKeys;
+    if (wDays) { const wc=new Date(); wc.setDate(wc.getDate()-wDays); const ws=wc.toISOString().split('T')[0]; sKeys=sKeys.filter(k=>k>=ws); }
+    const sparkSVG = _buildWealthSparklineSVG(sKeys.map(k=>hist[k]));
+    // Delta badge
+    const dColor = delta!==null&&delta>=0?'var(--wv-green)':'var(--wv-red)';
+    const dBg    = delta!==null&&delta>=0?'var(--wv-green-soft)':'var(--wv-red-soft)';
+    const dSign  = delta!==null ? (delta>=0?'+':'−') : '';
+    const deltaHTML = delta!==null ? `<div class="wv-position-delta" style="background:${dBg};color:${dColor}">${dSign}${FCData.formatCurrency(Math.abs(delta))} <span style="font-weight:500;opacity:0.75">this month</span></div>` : '';
+    // Move + Path
+    const move=_buildWealthMove(), path=_buildWealthPath();
+    // Summary
+    const savings   = accts.filter(a=>a.type==='depository').reduce((s,a)=>s+(a.balance_current||a.balance||0),0);
+    const totalDebt = accts.filter(a=>a.type==='credit'||a.type==='loan').reduce((s,a)=>s+Math.max(0,a.balance_current||a.balance||0),0);
+    const activeGoals = goals.filter(g=>(g.pct||0)<100).length;
+    // Progress rows
+    const rows=[];
+    if (delta!==null) rows.push({bg:delta>=0?'var(--wv-green-soft)':'var(--wv-red-soft)',icon:`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="${delta>=0?'var(--wv-green)':'var(--wv-red)'}" stroke-width="2.5" stroke-linecap="round"><polyline points="${delta>=0?'18 15 12 9 6 15':'6 9 12 15 18 9'}"/></svg>`,label:'Net worth this month',val:`${dSign}${FCData.formatCurrency(Math.abs(delta))}`,color:dColor});
+    rows.push({bg:'var(--wv-green-soft)',icon:`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--wv-green)" stroke-width="2" stroke-linecap="round"><path d="M20 12V22H4V12"/><path d="M22 7H2v5h20V7z"/><path d="M12 22V7"/></svg>`,label:'Total savings',val:FCData.formatCurrency(savings),color:'var(--wv-t1)'});
+    if (goals.length) { const g=goals.reduce((a,b)=>(b.pct||0)>(a.pct||0)?b:a); rows.push({bg:'var(--wv-purple-soft)',icon:`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--wv-purple)" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>`,label:esc(g.name||'Goal'),val:`${Math.round(g.pct||0)}%`,color:'var(--wv-t1)'}); }
+    if (!rows.length) rows.push({bg:'var(--wv-pill)',icon:`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--wv-t3)" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,label:'Connect a bank to see progress',val:'',color:'var(--wv-t3)'});
+
+    el.innerHTML = `
+      <div class="wv-card wv-position">
+        <div class="wv-position-eyebrow">Net Worth</div>
+        <div class="wv-position-amount">${FCData.formatCurrency(nw)}</div>
+        ${deltaHTML}
+        <div class="wv-position-spark">${sparkSVG}</div>
+        <div class="wv-position-stats">
+          <div class="wv-position-stat">
+            <div class="wv-stat-lbl">Assets</div>
+            <div class="wv-stat-val" style="color:var(--wv-green)">${FCData.formatCurrency(assets)}</div>
+          </div>
+          <div class="wv-position-stat">
+            <div class="wv-stat-lbl">Liabilities</div>
+            <div class="wv-stat-val" style="color:var(--wv-red)">${FCData.formatCurrency(liabilities)}</div>
+          </div>
+        </div>
+        <div class="wv-position-tagline">${delta!==null?(delta>=0?`Up ${FCData.formatCurrency(delta)} from last month`:`Down ${FCData.formatCurrency(Math.abs(delta))} from last month`):'Track progress month over month'}</div>
+      </div>
+      <div class="wv-card wv-move">
+        <div class="wv-move-eyebrow" style="color:${move.accent}">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          Wealth Move
+        </div>
+        <div class="wv-move-title">${esc(move.title)}</div>
+        <div class="wv-move-body">${esc(move.body)}</div>
+        <div class="wv-move-btns">
+          <button class="wv-btn-p" style="background:${move.accent}" id="wv-move-btn">${esc(move.cta)}</button>
+          ${move.ctaAlt?`<button class="wv-btn-s" onclick="this.closest('.wv-move').style.display='none'">${esc(move.ctaAlt)}</button>`:''}
+        </div>
+      </div>
+      ${_buildWealthPathHTML(path)}
+      <div class="wv-3col">
+        <div class="wv-mini" onclick="FCApp.switchWealthTab('savings')">
+          <div class="wv-mini-icon" style="background:var(--wv-green-soft)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--wv-green)" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg></div>
+          <div class="wv-mini-lbl">Savings</div>
+          <div class="wv-mini-val">${FCData.formatCurrency(savings)}</div>
+          <div class="wv-mini-sub">${accts.filter(a=>a.type==='depository').length} accts</div>
+        </div>
+        <div class="wv-mini" onclick="FCApp.switchWealthTab('debt')">
+          <div class="wv-mini-icon" style="background:var(--wv-red-soft)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--wv-red)" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><rect x="1" y="4" width="22" height="16" rx="3"/><line x1="1" y1="10" x2="23" y2="10"/></svg></div>
+          <div class="wv-mini-lbl">Debt</div>
+          <div class="wv-mini-val" style="color:${totalDebt>0?'var(--wv-red)':'var(--wv-t1)'}">${totalDebt>0?'−':''}${FCData.formatCurrency(totalDebt)}</div>
+          <div class="wv-mini-sub">${accts.filter(a=>a.type==='credit'||a.type==='loan').length} accts</div>
+        </div>
+        <div class="wv-mini" onclick="FCApp.switchWealthTab('goals')">
+          <div class="wv-mini-icon" style="background:var(--wv-purple-soft)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--wv-purple)" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
+          <div class="wv-mini-lbl">Goals</div>
+          <div class="wv-mini-val">${activeGoals}</div>
+          <div class="wv-mini-sub">active</div>
+        </div>
+      </div>
+      <div class="wv-lbl">Recent Progress</div>
+      <div class="wv-card wv-prog" style="margin:0 16px">
+        ${rows.map(r=>`<div class="wv-prog-row"><div class="wv-prog-dot" style="background:${r.bg}">${r.icon}</div><div class="wv-prog-lbl">${r.label}</div><div class="wv-prog-val" style="color:${r.color}">${r.val}</div></div>`).join('')}
+      </div>
+      <div style="height:8px"></div>`;
+    // Wire move button
+    const moveBtn=document.getElementById('wv-move-btn');
+    if (moveBtn&&move.primary) moveBtn.onclick=()=>{ haptic('medium'); move.primary(); };
+  }
+
+  /* ─── Wealth: Savings panel ─── */
+  function _renderWealthSavings() {
+    const el=document.getElementById('wv-savings-content');
+    if (!el) return;
+    const accts = state.accounts||[];
+    const savAccts=accts.filter(a=>a.type==='depository'||['savings','checking','money market','cd','cash management'].includes((a.subtype||'').toLowerCase()));
+    const total=savAccts.reduce((s,a)=>s+(a.balance_current||a.balance||0),0);
+    const goals=state.goals||[];
+    const efGoal=goals.find(g=>/emergency|starter/i.test(g.name||''));
+    const efPct=efGoal ? Math.min(100,Math.round(((efGoal.current||0)/Math.max(1,efGoal.target||1000))*100)) : 0;
+    const efCurrent=efGoal?(efGoal.current||0):0;
+    const efTarget=efGoal?(efGoal.target||1000):1000;
+    const r=30, circ=2*Math.PI*r;
+    const efOffset=circ*(1-Math.min(efPct,100)/100);
+    const efColor=efPct>=100?'var(--wv-green)':efPct>=50?'#147CFF':'rgba(255,255,255,0.2)';
+    // Savings move
+    const sts=Math.max(0,(FCData.calcCash?FCData.calcCash(accts):total)-Math.max(200,total*0.05));
+    const weeklyAmt=Math.min(50,Math.max(10,Math.round(sts/8)));
+    const isSavAcct=a=>['savings','money market','cd','cash management'].includes((a.subtype||'').toLowerCase());
+    const savGroup=savAccts.filter(isSavAcct);
+    const chkGroup=savAccts.filter(a=>!isSavAcct(a));
+    const nameCounts={};
+    savAccts.forEach(a=>{ nameCounts[a.name||'']=(nameCounts[a.name||']']||0)+1; });
+    const displayName=a=>{ const b=a.name||'Account'; return (nameCounts[b]>1&&a.mask)?`${b} ••${a.mask}`:b; };
+    const acctRow=a=>`<div class="wv-acct-row">
+      <div class="wv-acct-icon" style="background:var(--wv-green-soft)">${_accountIcon(a)}</div>
+      <div style="flex:1;min-width:0">
+        <div class="wv-acct-name">${esc(displayName(a))}</div>
+        ${_acctSubtext(a)?`<div class="wv-acct-sub">${esc(_acctSubtext(a))}</div>`:''}
+      </div>
+      <div class="wv-acct-bal">${FCData.formatCurrency(a.balance_current||a.balance||0)}</div>
+    </div>`;
+    const renderGroup=(list,label)=>list.length?`<div class="wv-lbl">${label}</div><div class="wv-card wv-acct-card">${list.map(acctRow).join('')}</div>`:'';
+    // Monthly save target
+    const monthsToTarget=weeklyAmt>0?Math.ceil((efTarget-efCurrent)/(weeklyAmt*4.3)):null;
+    el.innerHTML = `
+      <div class="wv-card wv-sav-hero">
+        <div class="wv-sav-hero-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--wv-green)" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M20 12V22H4V12"/><path d="M22 7H2v5h20V7z"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg></div>
+        <div>
+          <div class="wv-sav-total">${FCData.formatCurrency(total)}</div>
+          <div class="wv-sav-sub">${savAccts.length} account${savAccts.length!==1?'s':''} · Cash &amp; Savings</div>
+        </div>
+      </div>
+      ${efGoal||total>0?`
+      <div class="wv-card wv-ef">
+        <div class="wv-ef-ring">
+          <svg width="72" height="72" viewBox="0 0 72 72" style="transform:rotate(-90deg)" aria-label="${efPct}% funded">
+            <circle cx="36" cy="36" r="${r}" stroke="rgba(255,255,255,0.08)" stroke-width="6" fill="none"/>
+            <circle cx="36" cy="36" r="${r}" stroke="${efColor}" stroke-width="6" fill="none"
+              stroke-dasharray="${circ.toFixed(1)}" stroke-dashoffset="${efOffset.toFixed(1)}"
+              stroke-linecap="round" style="transition:stroke-dashoffset 0.8s cubic-bezier(0.22,1,0.36,1)"/>
+          </svg>
+          <div class="wv-ef-pct">${efPct}%</div>
+        </div>
+        <div>
+          <div class="wv-ef-title">${efGoal?esc(efGoal.name):'Emergency Fund'}</div>
+          <div class="wv-ef-sub">${FCData.formatCurrency(efCurrent)} of ${FCData.formatCurrency(efTarget)} · ${efPct>=100?'Fully funded 🎉':'Keep it up'}</div>
+          ${efPct<100?`<div class="wv-ef-bar"><div class="wv-pbar"><div class="wv-pbar-fill" style="width:${efPct}%;background:${efColor}"></div></div></div>`:''}
+        </div>
+      </div>`:''}
+      ${efPct<100&&sts>10?`
+      <div class="wv-card wv-sav-move">
+        <div class="wv-sav-move-title">Recommended Move</div>
+        <div class="wv-sav-move-body">Save ${FCData.formatCurrency(weeklyAmt)}/week toward your Emergency Fund${monthsToTarget?` — funded in ~${monthsToTarget} months`:''}.</div>
+        <div class="wv-move-btns">
+          <button class="wv-btn-p" style="background:var(--wv-green)" onclick="FCApp.showAddGoalSheet&&FCApp.showAddGoalSheet()">Adjust Goal</button>
+        </div>
+      </div>`:''}
+      ${savAccts.length?`
+      <div class="wv-lbl">Your Accounts</div>
+      <div class="wv-card wv-acct-card">
+        ${savGroup.length||chkGroup.length ? renderGroup(savGroup,'Savings')+renderGroup(chkGroup,'Checking') : savAccts.map(acctRow).join('')}
+      </div>`:`
+      <div class="wv-empty">
+        <div class="wv-empty-icon">🏦</div>
+        <div class="wv-empty-title">No savings accounts</div>
+        <div class="wv-empty-sub">Connect a bank to track your savings.</div>
+        <button class="wv-empty-cta" onclick="FCApp.showBankSheet&&FCApp.showBankSheet()">Connect Bank</button>
+      </div>`}
+      ${savAccts.length&&efGoal?`
+      <div class="wv-lbl">Savings Plan</div>
+      <div class="wv-card wv-plan-card">
+        <div class="wv-plan-row"><div class="wv-plan-k">Goal Target</div><div class="wv-plan-v">${FCData.formatCurrency(efTarget)}</div></div>
+        <div class="wv-plan-row"><div class="wv-plan-k">Saved So Far</div><div class="wv-plan-v">${FCData.formatCurrency(efCurrent)}</div></div>
+        <div class="wv-plan-row"><div class="wv-plan-k">Weekly to Hit Target</div><div class="wv-plan-v">${FCData.formatCurrency(weeklyAmt)}</div></div>
+        ${monthsToTarget?`<div class="wv-plan-row"><div class="wv-plan-k">Est. Completion</div><div class="wv-plan-v">~${monthsToTarget} months</div></div>`:''}
+      </div>`:''}
+      <div style="height:8px"></div>`;
+  }
+
+  /* ─── Wealth: Debt panel ─── */
+  function _renderWealthDebt() {
+    const el=document.getElementById('wv-debt-content');
+    if (!el) return;
+    const accts=state.accounts||[];
+    const debtAccts=accts.filter(a=>{
+      const t=(a.type||'').toLowerCase(), s=(a.subtype||'').toLowerCase();
+      return t==='credit'||t==='loan'||['credit card','line of credit','mortgage','auto','student','home equity'].includes(s);
+    });
+    if (!debtAccts.length) {
+      el.innerHTML=`<div class="wv-empty"><div class="wv-empty-icon">💳</div><div class="wv-empty-title">No debts tracked</div><div class="wv-empty-sub">Connect a credit card or loan to see payoff progress.</div><button class="wv-empty-cta" onclick="FCApp.showBankSheet&&FCApp.showBankSheet()">Connect Account</button></div>`;
+      return;
+    }
+    const totalDebt=debtAccts.reduce((s,a)=>s+Math.max(0,a.balance_current||a.balance||0),0);
+    const cards=debtAccts.filter(a=>a.type==='credit'||['credit card','line of credit'].includes((a.subtype||'').toLowerCase()));
+    const ccBal=cards.reduce((s,a)=>s+Math.max(0,a.balance_current||a.balance||0),0);
+    const ccLimit=cards.reduce((s,a)=>s+(a.balance_limit||a.balances?.limit||0),0);
+    const utilPct=ccLimit>0?Math.round((ccBal/ccLimit)*100):0;
+    const utilColor=utilPct>30?'var(--wv-red)':utilPct>10?'var(--wv-amber)':'var(--wv-green)';
+    // Donut
+    const segs=[
+      {lbl:'Cards',val:ccBal,color:'#EF4444'},
+      {lbl:'Loans',val:debtAccts.filter(a=>a.type==='loan').reduce((s,a)=>s+Math.max(0,a.balance_current||a.balance||0),0),color:'#F59E0B'},
+    ].filter(s=>s.val>0);
+    const R=40,r=24,cx=52,cy=52,circ2=2*Math.PI*R;
+    let cumA=-90;
+    const arcs=segs.map(seg=>{
+      const pct=totalDebt>0?seg.val/totalDebt:0, angle=pct*360;
+      const startA=(cumA*Math.PI)/180, endA=((cumA+angle)*Math.PI)/180;
+      const x1=cx+R*Math.cos(startA),y1=cy+R*Math.sin(startA),x2=cx+R*Math.cos(endA),y2=cy+R*Math.sin(endA);
+      const ix1=cx+r*Math.cos(endA),iy1=cy+r*Math.sin(endA),ix2=cx+r*Math.cos(startA),iy2=cy+r*Math.sin(startA);
+      const large=angle>180?1:0;
+      const path=`M${x1.toFixed(1)},${y1.toFixed(1)} A${R},${R} 0 ${large},1 ${x2.toFixed(1)},${y2.toFixed(1)} L${ix1.toFixed(1)},${iy1.toFixed(1)} A${r},${r} 0 ${large},0 ${ix2.toFixed(1)},${iy2.toFixed(1)} Z`;
+      cumA+=angle;
+      return `<path d="${path}" fill="${seg.color}" opacity="0.88"/>`;
+    });
+    const donutSVG=`<svg viewBox="0 0 104 104" width="90" height="90" style="flex-shrink:0" aria-hidden="true">${arcs.join('')}<circle cx="${cx}" cy="${cy}" r="${r}" fill="var(--fc-bg-elevated,#0b1826)"/><text x="${cx}" y="${cy-2}" text-anchor="middle" fill="white" font-size="10" font-weight="800" font-family="inherit">−${totalDebt>=1000?`$${(totalDebt/1000).toFixed(0)}K`:`$${Math.round(totalDebt)}`}</text><text x="${cx}" y="${cy+9}" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-size="7" font-family="inherit">total</text></svg>`;
+    // Next payment from bills
+    const nextBill=state.bills?.filter(b=>!b.paid&&(b.category||'').toLowerCase().includes('debt')||['card','loan','mortgage'].some(k=>(b.name||'').toLowerCase().includes(k))).sort((a,b)=>(a.due_date||'').localeCompare(b.due_date||''))[0];
+    // Debt rows
+    const debtRows=debtAccts.map(a=>{
+      const bal=Math.max(0,a.balance_current||a.balance||0);
+      const limit=a.balance_limit||a.balances?.limit||0;
+      const util=limit>0?Math.round((bal/limit)*100):null;
+      const uColor=util!=null?(util>30?'var(--wv-red)':util>10?'var(--wv-amber)':'var(--wv-green)'):'';
+      const sub=(a.subtype||'').toLowerCase(), rn=(a.name||'').toLowerCase();
+      const dispName=sub==='auto'||rn.includes('dealer')||rn.includes('auto')?'Auto Loan':sub==='student'?'Student Loan':sub==='mortgage'?'Mortgage':(a.name||'Account');
+      const isUrgentBal = util!=null && util > 70;
+      return `<div class="wv-debt-row" onclick="haptic&&haptic('light')">
+        <div class="wv-debt-icon">${_accountIcon(a)}</div>
+        <div style="flex:1;min-width:0">
+          <div class="wv-debt-name">${esc(dispName)}</div>
+          <div class="wv-debt-sub">${esc(_cleanInstitutionName(a.institution_name||a.official_name||'')||(_acctSubtext(a)))}</div>
+          ${util!=null?`<div class="wv-debt-util" style="color:${uColor}">${util}% used${util>70?' — high':util>30?' — watch':''}</div>`:''}
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div class="wv-debt-bal${isUrgentBal?' wv-debt-bal--urgent':''}">${FCData.formatCurrency(bal)}</div>
+        </div>
+      </div>`;
+    }).join('');
+    // Extra payment impact (avalanche: focus on highest balance)
+    const topCard=cards.sort((a,b)=>(b.balance_current||b.balance||0)-(a.balance_current||a.balance||0))[0];
+    const extraAmt=50;
+    const monthsToPayoff=topCard ? Math.ceil((topCard.balance_current||topCard.balance||0)/extraAmt) : null;
+    const debtIsUrgent = utilPct > 70 || totalDebt > 20000;
+    const debtCta      = debtIsUrgent ? 'Review debt strategy' : 'See Wealth Plan';
+    const debtCtaColor = debtIsUrgent ? 'var(--wv-red)' : 'var(--wv-blue)';
+    el.innerHTML=`
+      <div class="wv-card wv-debt-hero">
+        ${donutSVG}
+        <div>
+          <div style="font-size:9px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--wv-t3);margin-bottom:4px">Total Debt</div>
+          <div class="wv-debt-total${debtIsUrgent?' wv-debt-total--urgent':''}">${FCData.formatCurrency(totalDebt)}</div>
+          ${ccLimit>0?`<div class="wv-debt-status" style="color:${utilColor};font-size:12px;margin-top:3px">${utilPct}% credit utilized${utilPct>30?' — consider paying down':''}</div>`:''}
+          ${nextBill?`<div style="font-size:12px;color:var(--wv-t2);margin-top:4px">Next payment: <strong style="color:var(--wv-t1)">${FCData.formatCurrency(nextBill.amount||0)}</strong></div>`:''}
+        </div>
+      </div>
+      <div class="wv-card wv-debt-move">
+        <div class="wv-debt-move-title">${ccBal>500?`Pay down ${cards.length>0?esc(cards[0].name||'your top card'):'credit cards first'}`:'Debt is well managed'}</div>
+        <div class="wv-debt-move-body">${ccBal>500?`Paying more than the minimum on your highest-balance card reduces interest and frees up monthly cash.`:`Your utilization is${utilPct>0?` ${utilPct}%`:' low'} — keep making on-time payments and this stays green.`}</div>
+        <div class="wv-move-btns"><button class="wv-btn-p" style="background:${debtCtaColor}" onclick="FCApp.switchWealthTab('overview')">${debtCta}</button></div>
+      </div>
+      <div class="wv-card wv-strategy">
+        <div style="flex:1">
+          <div class="wv-strategy-lbl">Avalanche Strategy</div>
+          <div class="wv-strategy-sub">Pay highest-balance card first. Minimizes total interest paid.</div>
+        </div>
+        <button class="wv-strategy-change" onclick="haptic&&haptic('light')">Change</button>
+      </div>
+      <div class="wv-lbl">Your Debts</div>
+      <div class="wv-card wv-debt-card">${debtRows}</div>
+      ${topCard&&monthsToPayoff?`
+      <div class="wv-impact">
+        <div class="wv-impact-title">Extra $${extraAmt}/month impact</div>
+        <div class="wv-impact-body">Paying an extra ${FCData.formatCurrency(extraAmt)}/month toward <strong>${esc(topCard.name||'your card')}</strong> could pay it off in roughly ${monthsToPayoff} months — freeing up ${FCData.formatCurrency((topCard.balance_current||topCard.balance||0)/12*0.2)} monthly.</div>
+      </div>`:''}
+      <div style="height:8px"></div>`;
+  }
+
+  /* ─── Wealth: Goals panel ─── */
+  function _renderWealthGoals() {
+    const el=document.getElementById('wv-goals-content');
+    if (!el) return;
+    const goals=state.goals||[];
+    // Also update compat hidden container so legacy code is happy
+    const compat=document.getElementById('goals-list');
+    const activeGoals=goals.filter(g=>(g.pct||0)<100);
+    const topGoal=activeGoals[0]||goals[0];
+    // Goal status helper
+    const goalStatus=g=>{
+      if ((g.pct||0)>=100) return {lbl:'Complete',cls:'wv-badge-done'};
+      if (g.target_date) {
+        const daysLeft=(FCData.parseDateLocal(g.target_date)-new Date())/86400000;
+        if (daysLeft<=0) return {lbl:'Overdue',cls:'wv-badge-behind'};
+        const expPct=Math.max(0,Math.min(100,100-(daysLeft/365)*100));
+        if ((g.pct||0)<expPct-10) return {lbl:'Behind',cls:'wv-badge-behind'};
+        return {lbl:'On Track',cls:'wv-badge-track'};
+      }
+      return (g.pct||0)>0?{lbl:'In Progress',cls:'wv-badge-track'}:{lbl:'Not Started',cls:'wv-badge-new'};
+    };
+    if (!goals.length) {
+      const emptyHTML=`
+        <div class="wv-empty">
+          <div class="wv-empty-icon">🎯</div>
+          <div class="wv-empty-title">No goals yet</div>
+          <div class="wv-empty-sub">Set a target — emergency fund, vacation, house down payment — and we'll track your progress.</div>
+          <button class="wv-empty-cta" onclick="FCApp.showAddGoalSheet&&FCApp.showAddGoalSheet()">+ Add Goal</button>
+        </div>
+        <div class="wv-lbl">Start with a template</div>
+        <div class="wv-templates">
+          <button class="wv-tpl-btn" onclick="FCApp.showAddGoalSheet&&FCApp.showAddGoalSheet()"><div class="wv-tpl-icon" style="background:var(--wv-green-soft)">🛡️</div><div class="wv-tpl-name">Emergency Fund</div></button>
+          <button class="wv-tpl-btn" onclick="FCApp.showAddGoalSheet&&FCApp.showAddGoalSheet()"><div class="wv-tpl-icon" style="background:var(--wv-blue-soft)">✈️</div><div class="wv-tpl-name">Vacation</div></button>
+          <button class="wv-tpl-btn" onclick="FCApp.showAddGoalSheet&&FCApp.showAddGoalSheet()"><div class="wv-tpl-icon" style="background:var(--wv-amber-soft)">🏠</div><div class="wv-tpl-name">Down Payment</div></button>
+        </div>
+        <div style="height:8px"></div>`;
+      el.innerHTML=emptyHTML;
+      if (compat) compat.innerHTML='';
+      return;
+    }
+    const r=34, circ=2*Math.PI*r;
+    let heroRingHTML='';
+    if (topGoal) {
+      const pct=Math.min(topGoal.pct||0,100), drawPct=pct>0?Math.max(pct,4):0;
+      const offset=circ*(1-drawPct/100);
+      const stroke=pct>=100?'var(--wv-green)':'#147CFF';
+      heroRingHTML=`<div class="wv-goal-ring">
+        <svg width="80" height="80" viewBox="0 0 80 80" style="transform:rotate(-90deg)" aria-label="${pct}%">
+          <circle cx="40" cy="40" r="${r}" stroke="rgba(255,255,255,0.08)" stroke-width="7" fill="none"/>
+          <circle cx="40" cy="40" r="${r}" stroke="${stroke}" stroke-width="7" fill="none"
+            stroke-dasharray="${circ.toFixed(1)}" stroke-dashoffset="${offset.toFixed(1)}"
+            stroke-linecap="round" style="transition:stroke-dashoffset 0.8s cubic-bezier(0.22,1,0.36,1)"/>
+        </svg>
+        <div class="wv-goal-ring-pct">${Math.round(pct)}%</div>
+      </div>`;
+    }
+    // Monthly pace
+    const monthsLeft=topGoal?.target_date?Math.max(0,Math.ceil((FCData.parseDateLocal(topGoal.target_date)-new Date())/2592000000)):null;
+    const remaining=topGoal?(topGoal.target||0)-(topGoal.current||0):0;
+    const monthlyNeeded=monthsLeft&&monthsLeft>0?Math.ceil(remaining/monthsLeft):null;
+    // Goal rows
+    const goalRows=goals.map(g=>{
+      const st=goalStatus(g), pct=Math.min(g.pct||0,100);
+      const gpct=pct>0?Math.max(pct,4):0, gOff=circ*(1-gpct/100);
+      const gStroke=pct>=100?'var(--wv-green)':'#147CFF';
+      return `<div class="wv-goal-row" onclick="FCApp.editGoal&&FCApp.editGoal('${esc(g.id||'')}')">
+        <div class="wv-goal-row-icon">
+          <svg width="20" height="20" viewBox="0 0 40 40" style="transform:rotate(-90deg)" aria-hidden="true">
+            <circle cx="20" cy="20" r="16" stroke="rgba(255,255,255,0.08)" stroke-width="4" fill="none"/>
+            <circle cx="20" cy="20" r="16" stroke="${gStroke}" stroke-width="4" fill="none"
+              stroke-dasharray="${(2*Math.PI*16).toFixed(1)}" stroke-dashoffset="${((2*Math.PI*16)*(1-gpct/100)).toFixed(1)}"
+              stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;font-weight:600;color:var(--wv-t1)">${esc(g.name||'Goal')}</div>
+          <div style="font-size:11px;color:var(--wv-t3);margin-top:1px">${FCData.formatCurrency(g.current||0)} of ${FCData.formatCurrency(g.target||0)}</div>
+        </div>
+        <span class="wv-goal-badge ${st.cls}">${st.lbl}</span>
+      </div>`;
+    }).join('');
+    const html=`
+      ${topGoal?`<div class="wv-card wv-goal-hero">
+        ${heroRingHTML}
+        <div>
+          <div class="wv-goal-name">${esc(topGoal.name||'Primary Goal')}</div>
+          <div class="wv-goal-amounts">${FCData.formatCurrency(topGoal.current||0)}</div>
+          <div class="wv-goal-of">of ${FCData.formatCurrency(topGoal.target||0)}</div>
+          <div class="wv-goal-pbar"><div class="wv-pbar"><div class="wv-pbar-fill" style="width:${Math.min(topGoal.pct||0,100)}%;background:#147CFF"></div></div></div>
+        </div>
+      </div>`:''}
+      ${topGoal&&monthlyNeeded?`<div class="wv-card wv-goal-move">
+        <div class="wv-goal-move-title">Goal Move</div>
+        <div class="wv-goal-move-body">Save ${FCData.formatCurrency(monthlyNeeded)}/month to hit ${esc(topGoal.name||'your goal')} by your target date.</div>
+        <div class="wv-move-btns"><button class="wv-btn-p" style="background:var(--wv-purple)" onclick="FCApp.showAddGoalSheet&&FCApp.showAddGoalSheet()">Adjust Goal</button></div>
+      </div>`:''}
+      ${topGoal&&monthsLeft!=null?`<div class="wv-card wv-timeline">
+        <div class="wv-timeline-col">
+          <div class="wv-timeline-lbl">Remaining</div>
+          <div class="wv-timeline-val">${FCData.formatCurrency(Math.max(0,remaining))}</div>
+          <div class="wv-timeline-sub">to reach target</div>
+        </div>
+        <div class="wv-timeline-col">
+          <div class="wv-timeline-lbl">Time Left</div>
+          <div class="wv-timeline-val">${monthsLeft}</div>
+          <div class="wv-timeline-sub">month${monthsLeft!==1?'s':''}</div>
+        </div>
+        <div class="wv-timeline-col">
+          <div class="wv-timeline-lbl">Monthly Need</div>
+          <div class="wv-timeline-val">${monthlyNeeded?FCData.formatCurrency(monthlyNeeded):'—'}</div>
+          <div class="wv-timeline-sub">to stay on track</div>
+        </div>
+      </div>`:''}
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px 6px">
+        <div class="wv-lbl" style="padding:0">Your Goals</div>
+        <button onclick="FCApp.showAddGoalSheet&&FCApp.showAddGoalSheet()" style="font-size:12px;font-weight:700;color:var(--wv-blue);background:none;border:none;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent">+ Add</button>
+      </div>
+      <div class="wv-card wv-goal-list">${goalRows}</div>
+      <div style="height:8px"></div>`;
+    el.innerHTML=html;
+    if (compat) compat.innerHTML=html;
   }
 
   /** Clean up raw institution names like "Principal Financial Group - Participant Logon" */
@@ -6129,7 +7425,9 @@ window.FCApp = (function () {
     return '🏦';
   }
 
-  function _renderSavings() {
+  function _renderSavings() { _renderWealthSavings(); }
+
+  function _renderSavings_COMPAT() {
     const allAccts = state.accounts || [];
     const savingsAccts = allAccts.filter(a =>
       a.type === 'depository' || ['savings', 'checking', 'money market', 'cd', 'cash management'].includes((a.subtype || '').toLowerCase())
@@ -6202,7 +7500,9 @@ window.FCApp = (function () {
     list.innerHTML = renderGroup(savingsGroup, 'Savings') + renderGroup(checkingGroup, 'Checking');
   }
 
-  function _renderDebt() {
+  function _renderDebt() { _renderWealthDebt(); }
+
+  function _renderDebt_COMPAT() {
     const allAccts  = state.accounts || [];
     const debtAccts = allAccts.filter(a => {
       const type = (a.type    || '').toLowerCase();
@@ -8070,15 +9370,52 @@ window.FCApp = (function () {
       focused.blur();
     }, { passive: true });
 
-    // ── Keyboard scroll-to-input (Capacitor Keyboard plugin) ─────
-    // On notched iPhones the keyboard can cover the focused input.
-    // scrollIntoView centers it above the keyboard automatically.
+    // ── Keyboard handling (Capacitor Keyboard plugin) ─────────────
+    // Three jobs:
+    //   1. Set --keyboard-height CSS var so sheets can slide up via CSS
+    //   2. Add/remove body.keyboard-open for the CSS transition hook
+    //   3. Scroll the focused input into view within its own scroll container
+    //      (document.activeElement.scrollIntoView scrolls <body>, which is a
+    //      no-op when the actual scroll is inside a .fc-sheet or .fc-view)
     const _kbPlugin = window.Capacitor?.Plugins?.Keyboard;
     if (_kbPlugin?.addListener) {
-      _kbPlugin.addListener('keyboardWillShow', () => {
-        setTimeout(() => {
-          document.activeElement?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }, 50);
+      let _kbH = 0;
+
+      _kbPlugin.addListener('keyboardWillShow', (info) => {
+        _kbH = info?.keyboardHeight ?? 0;
+        document.documentElement.style.setProperty('--keyboard-height', `${_kbH}px`);
+        document.body.classList.add('keyboard-open');
+
+        // Wait one rAF so the CSS keyboard-open transition has started, then
+        // scroll the focused input into view within its actual scroll container.
+        requestAnimationFrame(() => {
+          const el = document.activeElement;
+          if (!el || !['INPUT','TEXTAREA','SELECT'].includes(el.tagName)) return;
+
+          const elRect      = el.getBoundingClientRect();
+          const visibleBtm  = window.innerHeight - _kbH - 20; // 20px breathing room
+          if (elRect.bottom <= visibleBtm) return; // already fully visible
+
+          // Walk up the DOM to find the actual scrollable container
+          let scroller = el.parentElement;
+          while (scroller && scroller !== document.documentElement) {
+            const ov = getComputedStyle(scroller).overflowY;
+            if ((ov === 'auto' || ov === 'scroll') && scroller.scrollHeight > scroller.clientHeight) break;
+            scroller = scroller.parentElement;
+          }
+
+          if (scroller && scroller !== document.documentElement) {
+            // Scroll just enough to bring the input above the keyboard
+            scroller.scrollTop += (elRect.bottom - visibleBtm);
+          }
+          // If no scroll container found, the sheet CSS transform handles it
+        });
+      });
+
+      _kbPlugin.addListener('keyboardWillHide', () => {
+        _kbH = 0;
+        document.documentElement.style.setProperty('--keyboard-height', '0px');
+        document.body.classList.remove('keyboard-open');
       });
     }
 
@@ -9425,6 +10762,7 @@ window.FCApp = (function () {
     const dateEl   = document.getElementById('bill-due-date');
     const catEl    = document.getElementById('bill-category');
     const freqEl   = document.getElementById('bill-frequency');
+    const autopayEl= document.getElementById('bill-autopay');
     const deleteBtn= document.getElementById('bill-delete-btn');
 
     if (!sheet) return;
@@ -9438,6 +10776,7 @@ window.FCApp = (function () {
       if (dateEl)   dateEl.value        = bill.due_date || '';
       if (catEl)    catEl.value         = bill.category || 'Other';
       if (freqEl)   freqEl.value        = bill.frequency || 'monthly';
+      if (autopayEl) autopayEl.checked  = !!(bill.autopay);
       if (deleteBtn) deleteBtn.style.display = 'inline-flex';
     } else {
       _editingBillId = null;
@@ -9446,6 +10785,7 @@ window.FCApp = (function () {
       if (nameEl)   nameEl.value        = '';
       if (amtEl)    amtEl.value         = '';
       if (freqEl)   freqEl.value        = 'monthly';
+      if (autopayEl) autopayEl.checked  = false;
       // Default due date to today + 30 days
       const nextMonth = new Date(); nextMonth.setDate(nextMonth.getDate() + 30);
       if (dateEl)   dateEl.value = nextMonth.toISOString().split('T')[0];
@@ -9472,11 +10812,13 @@ window.FCApp = (function () {
     const freqEl  = document.getElementById('bill-frequency');
     const saveBtn = document.getElementById('bill-save-btn');
 
+    const autopayEl2= document.getElementById('bill-autopay');
     const name     = nameEl?.value.trim();
     const amount   = parseFloat(amtEl?.value) || 0;
     const due_date = dateEl?.value || null;
     const category = catEl?.value || 'Other';
     const frequency= freqEl?.value || 'monthly';
+    const autopay  = !!(autopayEl2?.checked);
 
     if (!name)    { toast('Enter a bill name', 'info'); return; }
     if (!amount)  { toast('Enter an amount', 'info'); return; }
@@ -9485,7 +10827,7 @@ window.FCApp = (function () {
     haptic('light');
 
     try {
-      const fields = { name, amount, due_date, category, frequency };
+      const fields = { name, amount, due_date, category, frequency, autopay };
       if (_editingBillId) {
         await FCData.updateBill(_editingBillId, fields);
         toast('Bill updated!', 'success');
@@ -9832,8 +11174,11 @@ window.FCApp = (function () {
       const active = btn.dataset.period === p;
       btn.classList.toggle('active', active);
       btn.setAttribute('aria-selected', active ? 'true' : 'false');
-      // For inline-styled scrubber buttons (insights tab), update style directly
-      if (!btn.classList.contains('dash-scrub-btn') && !btn.closest('.fc-scrubber')) {
+      // For inline-styled scrubber buttons (not the styled pill buttons), update style directly
+      if (!btn.classList.contains('dash-scrub-btn') &&
+          !btn.classList.contains('plan-period-btn') &&
+          !btn.classList.contains('wv-period-btn') &&
+          !btn.closest('.fc-scrubber')) {
         btn.style.background   = active ? 'rgba(26,196,240,0.16)' : 'none';
         btn.style.color        = active ? 'var(--fc-accent)' : 'rgba(255,255,255,0.38)';
         btn.style.border       = active ? '0.5px solid rgba(26,196,240,0.28)' : 'none';
@@ -9844,8 +11189,8 @@ window.FCApp = (function () {
     if (state.tab === 'home') _renderHome();
     // Also refresh chart in insights view if that tab is active
     if (state.tab === 'insights') _renderInsights();
-    // Wealth sparkline also responds to period buttons on that tab
-    if (state.tab === 'wealth') _renderWealthHero();
+    // Wealth overview responds to period change
+    if (state.tab === 'wealth') _renderWealth();
   }
 
   /* ─────────────────────────────────────────────────────────────
@@ -10478,6 +11823,7 @@ window.FCApp = (function () {
     otpBoxKeydown,
     handleOtpPaste,
     // Wealth tab
+    switchWealthTab,
     switchWealthSegment,
     // Goals
     editGoal,
@@ -10514,6 +11860,17 @@ window.FCApp = (function () {
     togglePrivacyMode,
     // Period selector
     switchPeriod,
+    // Plan tab — category filter
+    switchPlanCatTab: function(tab) {
+      _planCatTab = tab;
+      document.querySelectorAll('.plan-cat-tab').forEach(t => t.classList.remove('active'));
+      const el = document.getElementById('plan-cat-tab-' + tab);
+      if (el) el.classList.add('active');
+      const periodTxns      = _getPeriodTxns();
+      const periodSpendTxns = periodTxns.filter(_isSpendTxn);
+      const periodSpend     = periodSpendTxns.reduce((s, t) => s + (t.amount || 0), 0);
+      _renderPlanCategories(periodSpendTxns, periodSpend);
+    },
     // Open URL natively (used by cancel links in Subscription Hunter)
     openUrl: _openUrl,
     closeInAppPage,

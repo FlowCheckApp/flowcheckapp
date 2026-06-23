@@ -587,20 +587,20 @@ body.fc-theme {
 /* ── Keyboard-open: hide decorations, compress header ─────── */
 /* When the keyboard is visible, orbs and the logo + subtitle eat
    precious space. Collapse them so the form + CTA stay visible.  */
-body.fc-keyboard-open .fc-auth-orb {
+body.keyboard-open .fc-auth-orb {
   opacity: 0 !important;
   transition: opacity 0.25s ease;
 }
-body.fc-keyboard-open .fc-auth-body > div:first-child {
+body.keyboard-open .fc-auth-body > div:first-child {
   /* Logo + brand row */
   max-height: 0;
   overflow: hidden;
   margin-bottom: 0 !important;
   transition: max-height 0.25s ease, margin-bottom 0.25s ease;
 }
-body.fc-keyboard-open .fc-auth-title  { font-size: 22px; margin-bottom: 4px; }
-body.fc-keyboard-open .fc-auth-subtitle { display: none; }
-body.fc-keyboard-open .fc-auth-screen { padding-top: calc(env(safe-area-inset-top, 44px) + 8px); }
+body.keyboard-open .fc-auth-title  { font-size: 22px; margin-bottom: 4px; }
+body.keyboard-open .fc-auth-subtitle { display: none; }
+body.keyboard-open .fc-auth-screen { padding-top: calc(env(safe-area-inset-top, 44px) + 8px); }
 
 /* ── Forgot / link ── */
 .fc-forgot-btn {
@@ -888,20 +888,16 @@ body.fc-keyboard-open .fc-auth-screen { padding-top: calc(env(safe-area-inset-to
   overflow: hidden;
 }
 .fc-view { display: none; flex-direction: column; overflow-x: hidden; }
-/* Only promote to GPU layer during active animation — not all 5 views permanently */
-.fc-view.active { display: flex; flex: 1; min-height: 0; }
-.fc-view.fc-slide-right,
-.fc-view.fc-slide-left { will-change: transform, opacity; }
+/* Permanently on GPU — avoids first-frame paint lag during tab switch */
+.fc-view.active { display: flex; flex: 1; min-height: 0; will-change: opacity; }
 
-/* ── Tab transitions — fade-in only, no layout conflict ── */
-@keyframes fcTabFadeIn {
-  from { opacity: 0; transform: translateY(5px) scale(0.995); }
-  to   { opacity: 1; transform: translateY(0)   scale(1);     }
-}
-.fc-view.active.fc-slide-right,
-.fc-view.active.fc-slide-left {
-  animation: fcTabFadeIn 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
+/* ── Tab transitions — pure opacity, no layout-triggering transforms ── */
+/* Scale/translate animations trigger layout recalculation in WKWebView every
+   frame. Opacity-only composites entirely on the GPU with zero layout cost.  */
+@keyframes fcTabIn  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fcTabOut { from { opacity: 1; } to { opacity: 0; } }
+.fc-view.fc-tab-in  { animation: fcTabIn  0.18s cubic-bezier(0.4, 0, 0.2, 1) both; }
+.fc-view.fc-tab-out { animation: fcTabOut 0.12s cubic-bezier(0.4, 0, 1, 1)   both; }
 
 /* Status chip — under the header title, safe-area-protected via .fc-header's own padding */
 .fc-island-pill {
@@ -1383,12 +1379,25 @@ body {
   border: 0.5px solid rgba(255,255,255,0.09); border-bottom: none;
   border-radius: 28px 28px 0 0;
   padding: 12px 20px calc(env(safe-area-inset-bottom) + 24px);
-  max-height: 90dvh;
+  /* svh = small viewport height (keyboard visible) — sheet never overflows keyboard.
+     Falls back to 90vh on older iOS that doesn't support svh. */
+  max-height: min(90dvh, 90svh, calc(100vh - var(--keyboard-height, 0px) - 16px));
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  animation: fcSheetUp 0.36s cubic-bezier(0.34,1.56,0.64,1) both;
+  transform: translateY(0);
+  animation: fcSheetUp 0.36s cubic-bezier(0.34,1.56,0.64,1) backwards;
+  /* Smooth resize when keyboard appears — composited on GPU, no repaint */
+  will-change: transform;
   -webkit-user-select: none; user-select: none;
   box-shadow: 0 -20px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.07);
+}
+/* When keyboard is open, slide sheet up to keep inputs visible */
+body.keyboard-open .fc-sheet {
+  transform: translateY(calc(-1 * var(--keyboard-height, 0px)));
+  transition: transform 0.25s cubic-bezier(0.32, 0.72, 0, 1);
+}
+body:not(.keyboard-open) .fc-sheet {
+  transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
 }
 @keyframes fcSheetUp {
   from { transform: translateY(100%); opacity: 0.6; }
@@ -3246,52 +3255,57 @@ body {
     </div>
 
     <!-- ══ SLIDE 4 — ACCOUNT LINKING ══════════════════════════════ -->
-    <div class="fc-ob-slide" id="ob-slide-4" style="justify-content:center;padding-top:0">
+    <div class="fc-ob-slide" id="ob-slide-4" style="justify-content:flex-start;padding-top:52px">
 
-      <!-- Unlock icon -->
-      <div aria-hidden="true" style="position:relative;width:80px;height:80px;margin-bottom:22px;flex-shrink:0">
-        <div style="position:absolute;inset:0;border-radius:50%;border:1px solid rgba(26,196,240,0.14);animation:fcRingPulse 3.2s ease-in-out infinite"></div>
-        <div style="position:absolute;inset:9px;border-radius:50%;border:1px solid rgba(26,196,240,0.24);animation:fcRingPulse 3.2s 0.6s ease-in-out infinite"></div>
-        <div style="position:absolute;inset:18px;border-radius:50%;
-                    background:linear-gradient(145deg,rgba(26,196,240,0.22),rgba(37,99,235,0.18));
-                    border:1.5px solid rgba(26,196,240,0.48);
-                    display:flex;align-items:center;justify-content:center;
-                    box-shadow:0 0 28px rgba(26,196,240,0.28)">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1ac4f0" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <rect x="3" y="11" width="18" height="11" rx="2"/>
-            <path d="M7 11V7a5 5 0 0 1 9.9-1"/>
-          </svg>
+      <!-- Unlock icon — centered art block matching other slides -->
+      <div class="fc-ob-art" style="height:120px;margin-bottom:4px">
+        <div class="fc-ob-glow" style="background:radial-gradient(ellipse at 50% 55%,rgba(26,196,240,0.22),transparent 62%)"></div>
+        <div style="position:relative;z-index:2;display:flex;align-items:center;justify-content:center;width:100%;height:100%">
+          <div aria-hidden="true" style="position:relative;width:88px;height:88px;flex-shrink:0">
+            <div style="position:absolute;inset:0;border-radius:50%;border:1px solid rgba(26,196,240,0.14);animation:fcRingPulse 3.2s ease-in-out infinite"></div>
+            <div style="position:absolute;inset:9px;border-radius:50%;border:1px solid rgba(26,196,240,0.24);animation:fcRingPulse 3.2s 0.6s ease-in-out infinite"></div>
+            <div style="position:absolute;inset:20px;border-radius:50%;
+                        background:linear-gradient(145deg,rgba(26,196,240,0.22),rgba(37,99,235,0.18));
+                        border:1.5px solid rgba(26,196,240,0.48);
+                        display:flex;align-items:center;justify-content:center;
+                        box-shadow:0 0 32px rgba(26,196,240,0.28)">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1ac4f0" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="3" y="11" width="18" height="11" rx="2"/>
+                <path d="M7 11V7a5 5 0 0 1 9.9-1"/>
+              </svg>
+            </div>
+          </div>
         </div>
       </div>
 
       <h1 class="fc-ob-title" style="margin-bottom:8px">
         Connect your bank<br><span class="fc-ob-title-grad">to unlock everything.</span>
       </h1>
-      <p class="fc-ob-desc fc-ob-desc-sm" style="margin-bottom:20px">
+      <p class="fc-ob-desc fc-ob-desc-sm" style="margin-bottom:22px">
         Securely link in seconds. Read-only access — we can never move or touch your money.
       </p>
 
       <!-- Unlock features list -->
       <div style="width:100%;max-width:305px;display:flex;flex-direction:column;gap:8px;margin-bottom:6px">
-        <div style="display:flex;align-items:center;gap:12px;background:rgba(26,196,240,0.06);border:1px solid rgba(26,196,240,0.14);border-radius:14px;padding:11px 14px">
+        <div style="display:flex;align-items:center;gap:12px;background:rgba(26,196,240,0.06);border:1px solid rgba(26,196,240,0.14);border-radius:14px;padding:12px 14px">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1ac4f0" stroke-width="2" stroke-linecap="round" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
           <div>
-            <div style="font-size:13px;font-weight:600;color:#fff;line-height:1.2">AI spending insights</div>
-            <div style="font-size:11px;color:rgba(255,255,255,0.36);margin-top:1px">Personalized tips based on your patterns</div>
+            <div style="font-size:13px;font-weight:600;color:var(--fc-text);line-height:1.2">AI spending insights</div>
+            <div style="font-size:11px;color:var(--fc-text-muted);margin-top:1px">Personalized tips based on your patterns</div>
           </div>
         </div>
-        <div style="display:flex;align-items:center;gap:12px;background:rgba(52,199,89,0.06);border:1px solid rgba(52,199,89,0.14);border-radius:14px;padding:11px 14px">
+        <div style="display:flex;align-items:center;gap:12px;background:rgba(52,199,89,0.06);border:1px solid rgba(52,199,89,0.14);border-radius:14px;padding:12px 14px">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#34c759" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
           <div>
-            <div style="font-size:13px;font-weight:600;color:#fff;line-height:1.2">Subscription tracking</div>
-            <div style="font-size:11px;color:rgba(255,255,255,0.36);margin-top:1px">Find bills you forgot you were paying</div>
+            <div style="font-size:13px;font-weight:600;color:var(--fc-text);line-height:1.2">Subscription tracking</div>
+            <div style="font-size:11px;color:var(--fc-text-muted);margin-top:1px">Find bills you forgot you were paying</div>
           </div>
         </div>
-        <div style="display:flex;align-items:center;gap:12px;background:rgba(255,176,32,0.06);border:1px solid rgba(255,176,32,0.14);border-radius:14px;padding:11px 14px">
+        <div style="display:flex;align-items:center;gap:12px;background:rgba(255,176,32,0.06);border:1px solid rgba(255,176,32,0.14);border-radius:14px;padding:12px 14px">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ffb020" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
           <div>
-            <div style="font-size:13px;font-weight:600;color:#fff;line-height:1.2">Net worth tracking</div>
-            <div style="font-size:11px;color:rgba(255,255,255,0.36);margin-top:1px">See your complete financial picture, live</div>
+            <div style="font-size:13px;font-weight:600;color:var(--fc-text);line-height:1.2">Net worth tracking</div>
+            <div style="font-size:11px;color:var(--fc-text-muted);margin-top:1px">See your complete financial picture, live</div>
           </div>
         </div>
       </div>
@@ -4770,14 +4784,280 @@ body {
     .fc-settings-icon{width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 2px 6px rgba(0,0,0,0.18)}
     .fc-settings-label{flex:1;color:rgba(255,255,255,0.92);font-size:15px;font-weight:500;letter-spacing:-0.01em}
     .fc-settings-value{color:rgba(255,255,255,0.38);font-size:13px;font-weight:400}
+
+    /* ══════════════════════════════════════════════════════════════
+       HOME V6 — Daily command center
+       ══════════════════════════════════════════════════════════════ */
+
+    /* ── Today's Money Move card ────────────────────────────────── */
+    .home-move-card{
+      border-radius:20px;
+      padding:18px 18px 14px;
+      position:relative;overflow:hidden;
+      background:linear-gradient(135deg,rgba(20,124,255,0.18) 0%,rgba(6,14,26,0.98) 70%);
+      border:0.5px solid rgba(20,124,255,0.30);
+      box-shadow:0 4px 24px rgba(20,124,255,0.12),0 1px 0 rgba(255,255,255,0.05);
+      transition:transform .15s,opacity .15s;
+    }
+    .home-move-card:active{transform:scale(0.988);opacity:.92}
+    .home-move-card.danger-card{
+      background:linear-gradient(135deg,rgba(239,68,68,0.20) 0%,rgba(6,14,26,0.98) 70%);
+      border-color:rgba(239,68,68,0.32);
+      box-shadow:0 4px 24px rgba(239,68,68,0.12),0 1px 0 rgba(255,255,255,0.05);
+    }
+    .home-move-card.warn-card{
+      background:linear-gradient(135deg,rgba(245,158,11,0.20) 0%,rgba(6,14,26,0.98) 70%);
+      border-color:rgba(245,158,11,0.32);
+      box-shadow:0 4px 24px rgba(245,158,11,0.10),0 1px 0 rgba(255,255,255,0.05);
+    }
+    /* move card layout: left text + right ring */
+    .home-move-header{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:8px}
+    .home-move-header-left{flex:1;min-width:0}
+    .home-move-ring-wrap{position:relative;flex-shrink:0;width:52px;height:52px}
+    .home-move-ring-svg{width:52px;height:52px;display:block}
+    .home-move-ring-pct{
+      position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+      font-size:10px;font-weight:800;color:var(--fc-text);letter-spacing:-0.01em;
+    }
+    .home-move-eyebrow{
+      display:flex;align-items:center;gap:5px;
+      font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+      color:var(--fc-accent);margin-bottom:6px;
+    }
+    .home-move-card.danger-card .home-move-eyebrow{color:var(--fc-danger)}
+    .home-move-card.warn-card   .home-move-eyebrow{color:var(--fc-warning)}
+    .home-move-title{
+      font-size:17px;font-weight:700;color:var(--fc-text);
+      letter-spacing:-0.02em;line-height:1.3;margin-bottom:4px;
+    }
+    .home-move-sub{
+      font-size:13px;color:var(--fc-text-muted);line-height:1.4;margin-bottom:12px;
+    }
+    .home-move-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+    .home-move-do{
+      flex:1;min-height:38px;padding:0 14px;border-radius:10px;border:none;
+      background:var(--fc-accent);color:#fff;font-size:14px;font-weight:700;
+      cursor:pointer;-webkit-tap-highlight-color:transparent;
+      transition:opacity .12s,transform .12s;letter-spacing:-0.01em;
+    }
+    .home-move-do:active{opacity:.8;transform:scale(0.96)}
+    .home-move-card.danger-card .home-move-do{background:var(--fc-danger)}
+    .home-move-card.warn-card   .home-move-do{background:var(--fc-warning);color:#000}
+    .home-move-skip{
+      background:none;border:none;color:var(--fc-text-faint);
+      font-size:13px;font-weight:500;cursor:pointer;padding:0 4px;
+      -webkit-tap-highlight-color:transparent;white-space:nowrap;
+    }
+
+    /* ── STS status tiers ─────────────────────────────────────── */
+    .home-sts-card.sts-green{border-color:rgba(48,209,88,0.22);background:linear-gradient(160deg,rgba(15,34,20,0.98) 0%,rgba(8,17,28,0.98) 100%)}
+    .home-sts-card.sts-yellow{border-color:rgba(255,159,10,0.22);background:linear-gradient(160deg,rgba(32,26,10,0.98) 0%,rgba(8,17,28,0.98) 100%)}
+    .home-sts-card.sts-red{border-color:rgba(255,69,58,0.25);background:linear-gradient(160deg,rgba(34,12,10,0.98) 0%,rgba(8,17,28,0.98) 100%)}
+    .home-sts-card.sts-green .home-sts-amount{color:var(--fc-success)}
+    .home-sts-card.sts-yellow .home-sts-amount{color:var(--fc-warning)}
+    .home-sts-card.sts-red .home-sts-amount{color:var(--fc-danger)}
+    .home-sts-status-pill{
+      display:inline-flex;align-items:center;gap:4px;
+      font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+      padding:3px 8px;border-radius:999px;margin-top:4px;
+    }
+    .sts-pill-green{background:rgba(48,209,88,0.12);color:var(--fc-success)}
+    .sts-pill-yellow{background:rgba(255,159,10,0.12);color:var(--fc-warning)}
+    .sts-pill-red{background:rgba(255,69,58,0.12);color:var(--fc-danger)}
+
+    /* ── Two-column compact cards ───────────────────────────────── */
+    .home-two-col{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .home-sts-card,.home-bill-mini{
+      background:linear-gradient(160deg,rgba(15,28,48,0.98) 0%,rgba(8,17,28,0.98) 100%);
+      border-radius:18px;border:0.5px solid rgba(255,255,255,0.08);
+      padding:14px 14px 12px;
+      box-shadow:0 2px 12px rgba(0,0,0,0.35),inset 0 1px 0 rgba(255,255,255,0.04);
+    }
+    .home-bill-mini{cursor:pointer;-webkit-tap-highlight-color:transparent;transition:opacity .12s,transform .15s}
+    .home-bill-mini:active{opacity:.85;transform:scale(0.97)}
+    .home-card-eyebrow{
+      font-size:9.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+      color:var(--fc-text-faint);margin-bottom:6px;
+    }
+    .home-sts-amount{
+      font-size:26px;font-weight:800;color:var(--fc-text);
+      letter-spacing:-0.04em;line-height:1;font-variant-numeric:tabular-nums;
+      margin-bottom:2px;
+    }
+    .home-sts-sub{font-size:11px;color:var(--fc-text-faint);margin-bottom:8px;line-height:1.3}
+    .home-sts-bar-wrap{
+      height:4px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden;margin-bottom:8px;
+    }
+    .home-sts-status{font-size:11px;color:var(--fc-text-muted);line-height:1.3;min-height:14px}
+    .home-bill-mini-name{
+      font-size:14px;font-weight:700;color:var(--fc-text);
+      letter-spacing:-0.01em;line-height:1.2;margin-bottom:3px;
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    }
+    .home-bill-mini-due{font-size:11px;color:var(--fc-text-muted);margin-bottom:6px}
+    .home-bill-mini-amount{
+      font-size:22px;font-weight:800;color:var(--fc-text);
+      letter-spacing:-0.03em;font-variant-numeric:tabular-nums;
+    }
+    .home-bill-mini-link{font-size:11px;color:var(--fc-accent);margin-top:4px;font-weight:600}
+
+    /* ── Section labels ─────────────────────────────────────────── */
+    .home-section-label{
+      font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+      color:var(--fc-text-faint);margin-bottom:6px;padding-left:2px;
+    }
+
+    /* ── 7-Day Cash Flow Forecast card ──────────────────────────── */
+    .home-forecast-card{
+      background:linear-gradient(160deg,rgba(15,28,48,0.98) 0%,rgba(8,17,28,0.98) 100%);
+      border-radius:18px;border:0.5px solid rgba(255,255,255,0.08);
+      padding:14px 16px 12px;
+      box-shadow:0 2px 12px rgba(0,0,0,0.35),inset 0 1px 0 rgba(255,255,255,0.04);
+      overflow:hidden;
+    }
+    /* mini sparkline chart */
+    .home-forecast-chart-wrap{margin:8px -2px 10px;position:relative;height:52px}
+    .home-forecast-chart-svg{width:100%;height:52px;display:block;overflow:visible}
+    /* header row: label left, status pill right */
+    .home-forecast-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:2px}
+    .home-forecast-row{
+      display:flex;align-items:center;justify-content:space-between;
+      padding:5px 0;border-bottom:0.5px solid rgba(255,255,255,0.05);
+    }
+    .home-forecast-row:last-child{border-bottom:none}
+    .home-forecast-label{font-size:13px;color:var(--fc-text-muted);font-weight:500;display:flex;align-items:center;gap:6px}
+    .home-forecast-val{font-size:14px;font-weight:700;color:var(--fc-text);font-variant-numeric:tabular-nums;letter-spacing:-0.01em}
+    .home-forecast-projected{
+      display:flex;align-items:baseline;justify-content:space-between;
+      margin-top:8px;padding-top:8px;border-top:0.5px solid rgba(255,255,255,0.10);
+    }
+    .home-forecast-proj-label{font-size:11px;color:var(--fc-text-faint);font-weight:500;text-transform:uppercase;letter-spacing:.05em}
+    .home-forecast-proj-val{font-size:22px;font-weight:800;letter-spacing:-0.03em;font-variant-numeric:tabular-nums}
+    .home-forecast-status{
+      display:inline-flex;align-items:center;gap:5px;
+      font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+      padding:3px 8px;border-radius:999px;
+    }
+    .home-forecast-status.good{background:rgba(22,163,74,0.15);color:var(--fc-success)}
+    .home-forecast-status.warn{background:rgba(245,158,11,0.15);color:var(--fc-warning)}
+    .home-forecast-status.bad {background:rgba(239,68,68,0.15);color:var(--fc-danger)}
+
+    /* ── What Changed Yesterday grid — premium tiles ─────────── */
+    .home-yesterday-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .home-yesterday-tile{
+      background:linear-gradient(160deg,rgba(15,28,48,0.98) 0%,rgba(8,17,28,0.98) 100%);
+      border-radius:16px;border:0.5px solid rgba(255,255,255,0.07);
+      padding:14px 12px 12px;display:flex;flex-direction:column;gap:0;
+      box-shadow:0 1px 8px rgba(0,0,0,0.28);
+      min-height:82px;
+    }
+    .home-ytile-icon-wrap{
+      width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;
+      margin-bottom:8px;flex-shrink:0;
+    }
+    .home-ytile-icon-wrap svg{opacity:.9}
+    .home-ytile-val{
+      font-size:17px;font-weight:800;letter-spacing:-0.03em;
+      color:var(--fc-text);font-variant-numeric:tabular-nums;
+      line-height:1.1;margin-bottom:3px;
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    }
+    .home-ytile-label{font-size:10px;color:var(--fc-text-faint);font-weight:600;letter-spacing:.02em;text-transform:uppercase;line-height:1.3}
+
+    /* ── Subscriptions to Review card ───────────────────────────── */
+    .home-subs-card{
+      background:linear-gradient(160deg,rgba(15,28,48,0.98) 0%,rgba(8,17,28,0.98) 100%);
+      border-radius:18px;border:0.5px solid rgba(245,158,11,0.20);
+      padding:14px 16px;
+      display:flex;align-items:center;gap:14px;
+      cursor:pointer;-webkit-tap-highlight-color:transparent;
+      transition:opacity .12s,transform .15s;
+      box-shadow:0 2px 12px rgba(245,158,11,0.08),0 1px 0 rgba(255,255,255,0.04);
+    }
+    .home-subs-card:active{opacity:.85;transform:scale(0.988)}
+    .home-subs-icon-wrap{position:relative;flex-shrink:0;width:36px;height:36px;display:flex;align-items:center;justify-content:center}
+    .home-subs-badge{
+      position:absolute;top:-4px;right:-4px;
+      min-width:16px;height:16px;border-radius:8px;
+      background:var(--fc-warning);color:#000;
+      font-size:10px;font-weight:800;
+      display:flex;align-items:center;justify-content:center;
+      padding:0 3px;line-height:1;
+    }
+    .home-subs-body{flex:1;min-width:0}
+    .home-subs-title{font-size:14px;font-weight:700;color:var(--fc-text);letter-spacing:-0.01em}
+    .home-subs-sub{font-size:12px;color:var(--fc-text-muted);margin-top:2px;line-height:1.3}
+    .home-subs-btn{
+      flex-shrink:0;padding:7px 14px;border-radius:9px;border:none;
+      background:rgba(245,158,11,0.15);color:var(--fc-warning);
+      font-size:13px;font-weight:700;cursor:pointer;
+      -webkit-tap-highlight-color:transparent;transition:opacity .12s;
+    }
+    .home-subs-btn:active{opacity:.75}
+
+    /* ── Light mode overrides ───────────────────────────────────── */
+    [data-theme="light"] .home-move-card{
+      background:linear-gradient(135deg,rgba(20,124,255,0.08) 0%,#ffffff 70%);
+      border-color:rgba(20,124,255,0.22);
+      box-shadow:0 2px 16px rgba(20,124,255,0.10);
+    }
+    [data-theme="light"] .home-move-card.danger-card{
+      background:linear-gradient(135deg,rgba(239,68,68,0.08) 0%,#ffffff 70%);
+      border-color:rgba(239,68,68,0.25);
+      box-shadow:0 2px 16px rgba(239,68,68,0.08);
+    }
+    [data-theme="light"] .home-move-card.warn-card{
+      background:linear-gradient(135deg,rgba(245,158,11,0.08) 0%,#ffffff 70%);
+      border-color:rgba(245,158,11,0.25);
+      box-shadow:0 2px 16px rgba(245,158,11,0.08);
+    }
+    [data-theme="light"] .home-move-title{color:#071426}
+    [data-theme="light"] .home-move-sub{color:#64748B}
+    [data-theme="light"] .home-move-skip{color:#94A3B8}
+    [data-theme="light"] .home-sts-card,
+    [data-theme="light"] .home-bill-mini,
+    [data-theme="light"] .home-forecast-card,
+    [data-theme="light"] .home-yesterday-tile,
+    [data-theme="light"] .home-subs-card{
+      background:#ffffff;
+      border-color:rgba(7,20,38,0.07);
+      box-shadow:0 1px 8px rgba(7,20,38,0.07);
+    }
+    [data-theme="light"] .home-subs-card{border-color:rgba(245,158,11,0.18)}
+    [data-theme="light"] .home-card-eyebrow,[data-theme="light"] .home-section-label{color:#94A3B8}
+    [data-theme="light"] .home-sts-amount,[data-theme="light"] .home-bill-mini-name,
+    [data-theme="light"] .home-ytile-val,[data-theme="light"] .home-forecast-pval{color:#071426}
+    [data-theme="light"] .home-sts-sub,[data-theme="light"] .home-bill-mini-due,[data-theme="light"] .home-bill-mini-link,
+    [data-theme="light"] .home-sts-status,[data-theme="light"] .home-ytile-label,
+    [data-theme="light"] .home-subs-sub{color:#64748B}
+    [data-theme="light"] .home-bill-mini-link{color:#147CFF}
+    [data-theme="light"] .home-sts-bar-wrap{background:rgba(7,20,38,0.08)}
+    [data-theme="light"] .home-forecast-row{border-bottom-color:rgba(7,20,38,0.06)}
+    [data-theme="light"] .home-forecast-label{color:#64748B}
+    [data-theme="light"] .home-forecast-val{color:#071426}
+    [data-theme="light"] .home-forecast-projected{border-top-color:rgba(7,20,38,0.08)}
+    [data-theme="light"] .home-subs-title{color:#071426}
+    [data-theme="light"] .home-move-do{color:#ffffff}
+    /* new premium additions — light mode */
+    [data-theme="light"] .home-move-ring-pct{color:#071426}
+    [data-theme="light"] .home-sts-card.sts-green{background:linear-gradient(160deg,rgba(220,252,231,0.9) 0%,rgba(255,255,255,0.95) 100%);border-color:rgba(22,163,74,0.25)}
+    [data-theme="light"] .home-sts-card.sts-yellow{background:linear-gradient(160deg,rgba(254,243,199,0.9) 0%,rgba(255,255,255,0.95) 100%);border-color:rgba(245,158,11,0.25)}
+    [data-theme="light"] .home-sts-card.sts-red{background:linear-gradient(160deg,rgba(254,226,226,0.9) 0%,rgba(255,255,255,0.95) 100%);border-color:rgba(239,68,68,0.25)}
+    [data-theme="light"] .home-ytile-val{color:#071426}
+    [data-theme="light"] .home-ytile-label{color:#94A3B8}
+    [data-theme="light"] .home-forecast-proj-label{color:#94A3B8}
+    [data-theme="light"] .home-forecast-proj-val{color:#071426}
+    [data-theme="light"] .home-forecast-status.good{background:rgba(22,163,74,0.10);color:#15803d}
+    [data-theme="light"] .home-forecast-status.warn{background:rgba(245,158,11,0.10);color:#b45309}
+    [data-theme="light"] .home-forecast-status.bad{background:rgba(239,68,68,0.10);color:#dc2626}
   </style>
 
-  <!-- ── DASHBOARD HERO v2 — Safe to Spend primary ─────────── -->
+  <!-- ── DASHBOARD HEADER — greeting only ─────────────────────── -->
   <div class="dash-hero fc-fade-up">
     <div class="dash-hero-top">
       <div>
-        <div class="dash-hero-tod" id="home-greeting-date">Good evening</div>
-        <div class="dash-hero-name" id="home-greeting-title">Brandon</div>
+        <div class="dash-hero-tod" id="home-greeting-date">Here's your financial overview for today.</div>
+        <div class="dash-hero-name" id="home-greeting-title">Good morning 👋</div>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
         <button id="fc-privacy-toggle"
@@ -4804,24 +5084,10 @@ body {
         <div class="dash-avatar" id="home-user-avatar">B</div>
       </div>
     </div>
-    <!-- Safe to Spend — primary hero metric -->
-    <div class="dash-hero-metric dash-sts-card">
-      <div class="dash-hero-label" id="safe-spend-card-label">Available Cash</div>
-      <div class="dash-hero-amount fc-amount" id="stat-safe-to-spend" data-anim-val="0">—</div>
-      <div class="dash-sts-subtitle">After bills &amp; goals</div>
-      <div id="safe-spend-delta" class="dash-sts-delta" style="display:none"></div>
-      <div class="dash-hero-sub" id="safe-spend-meta">Connect a bank to get started</div>
-      <div class="dash-sts-footer" onclick="FCApp.switchTab('wealth')" role="button" aria-label="View accounts">
-        <div class="dash-sts-acct-pill">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="3"/><path d="M16 7V5a2 2 0 0 0-4 0v2"/></svg>
-          <span id="hero-acct-count">—</span>
-          <span>· All connected</span>
-        </div>
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
-      </div>
-    </div>
-    <!-- JS data anchors — kept hidden for backward compat -->
+    <!-- Hidden JS compat IDs -->
     <div style="display:none" aria-hidden="true">
+      <span id="safe-spend-card-label">Available Cash</span>
+      <span id="hero-acct-count">—</span>
       <div id="safe-spend-bar" style="width:0%"></div>
       <span id="safe-spent-label">$0</span>
       <span id="safe-bills-label">$0</span>
@@ -4832,28 +5098,115 @@ body {
   </div>
 
   <!-- ══════════════════════════════════════════════════════════════
-       TODAY'S FOCUS — single actionable daily insight, anchored
-       directly under the hero so there's one attention zone, not two.
-       Driven entirely by JS: FCApp._renderTodaysFocus()
+       TODAY'S MONEY MOVE — #1 action card, full width hero
        ══════════════════════════════════════════════════════════════ -->
-  <div id="todays-focus-section" class="fc-fade-up" style="animation-delay:.045s;display:none;margin:18px 16px 24px">
-    <div class="dash-sec-hdr" style="margin-bottom:8px">
-      <span class="dash-sec-title">Today's Focus</span>
-      <button id="todays-focus-next-btn" class="dash-sec-link" onclick="FCApp.nextFocusInsight()" type="button"
-              style="display:none;font-size:11px;color:rgba(255,255,255,0.35);font-weight:600">Next →</button>
+  <div id="home-move-section" class="fc-fade-up" style="animation-delay:.03s;margin:8px 16px 0;display:none">
+    <div class="home-move-card" id="home-move-card">
+      <div class="home-move-header">
+        <div class="home-move-header-left">
+          <div class="home-move-eyebrow">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>
+            TODAY'S MONEY MOVE
+          </div>
+          <div class="home-move-title" id="home-move-title">Analyzing your finances…</div>
+        </div>
+        <!-- Budget ring — % of income/budget used this month -->
+        <div class="home-move-ring-wrap" id="home-move-ring-wrap" style="display:none">
+          <svg class="home-move-ring-svg" viewBox="0 0 52 52" aria-hidden="true">
+            <circle cx="26" cy="26" r="21" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="4"/>
+            <circle id="home-move-ring-arc" cx="26" cy="26" r="21" fill="none"
+                    stroke="var(--fc-success)" stroke-width="4" stroke-linecap="round"
+                    stroke-dasharray="0 131.9"
+                    style="transform-origin:center;transform:rotate(-90deg);transition:stroke-dasharray .7s cubic-bezier(.34,1.2,.64,1),stroke .4s ease"/>
+          </svg>
+          <div class="home-move-ring-pct" id="home-move-ring-pct"></div>
+        </div>
+      </div>
+      <div class="home-move-sub" id="home-move-sub"></div>
+      <div class="home-move-actions">
+        <button class="home-move-do" id="home-move-do" type="button">Take action →</button>
+        <button class="home-move-skip" id="home-move-skip" type="button"
+                onclick="document.getElementById('home-move-section').style.display='none'">Not today</button>
+      </div>
     </div>
-    <div id="todays-focus-card" class="dash-focus-card" onclick="FCApp._focusCardTap()">
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       SAFE TO SPEND + NEXT BILL — two-column compact cards
+       ══════════════════════════════════════════════════════════════ -->
+  <div class="home-two-col fc-fade-up" style="animation-delay:.045s;margin:10px 16px 0">
+    <!-- Safe to Spend (left) -->
+    <div class="home-sts-card">
+      <div class="home-card-eyebrow">SAFE TO SPEND</div>
+      <div class="home-sts-amount fc-amount" id="stat-safe-to-spend" data-anim-val="0">—</div>
+      <div class="home-sts-sub">After bills &amp; buffer</div>
+      <div class="home-sts-bar-wrap">
+        <div id="safe-spend-bar-fill" style="width:0%;height:100%;background:linear-gradient(90deg,var(--fc-accent),var(--fc-electric));border-radius:2px;transition:width .5s cubic-bezier(0.34,1.56,0.64,1)"></div>
+      </div>
+      <div class="home-sts-status" id="safe-spend-meta">Connect a bank</div>
+      <div id="sts-status-pill" class="home-sts-status-pill sts-pill-green" style="display:none">Healthy</div>
+      <div id="safe-spend-delta" style="display:none;margin-top:4px"></div>
+    </div>
+    <!-- Next Bill compact (right) -->
+    <div class="home-bill-mini fc-fade-up" style="animation-delay:.06s"
+         onclick="FCApp.switchTab('activity');FCApp.switchActivitySegment('bills')" role="button">
+      <div class="home-card-eyebrow">NEXT BILL</div>
+      <div class="home-bill-mini-name" id="home-next-bill-name">—</div>
+      <div class="home-bill-mini-due" id="home-next-bill-due"></div>
+      <div class="home-bill-mini-amount fc-amount" id="home-next-bill-amount">—</div>
+      <div class="home-bill-mini-link">View bills ›</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       7-DAY CASH FLOW FORECAST
+       ══════════════════════════════════════════════════════════════ -->
+  <div id="home-forecast-section" class="fc-fade-up" style="animation-delay:.055s;margin:10px 16px 0;display:none">
+    <div class="home-section-label">7-DAY CASH FLOW FORECAST</div>
+    <div class="home-forecast-card" id="home-forecast-card">
+      <!-- populated by JS -->
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       WHAT CHANGED SINCE YESTERDAY
+       ══════════════════════════════════════════════════════════════ -->
+  <div id="home-yesterday-section" class="fc-fade-up" style="animation-delay:.065s;margin:10px 16px 0;display:none">
+    <div class="home-section-label">WHAT CHANGED SINCE YESTERDAY</div>
+    <div class="home-yesterday-grid" id="home-yesterday-grid">
+      <!-- populated by JS -->
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       SUBSCRIPTIONS TO REVIEW
+       ══════════════════════════════════════════════════════════════ -->
+  <div id="home-subs-section" class="fc-fade-up" style="animation-delay:.075s;margin:10px 16px 14px;display:none">
+    <div class="home-subs-card" onclick="FCApp.switchTab('activity');FCApp.switchActivitySegment('bills')" role="button">
+      <div class="home-subs-icon-wrap">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-warning)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 5l-9-3-9 3v10a9 9 0 0 0 9 6 9 9 0 0 0 9-6V5z"/>
+        </svg>
+        <span class="home-subs-badge" id="home-subs-badge" style="display:none">0</span>
+      </div>
+      <div class="home-subs-body">
+        <div class="home-subs-title" id="home-subs-title">Subscriptions to Review</div>
+        <div class="home-subs-sub" id="home-subs-sub">Analyzing recurring charges…</div>
+      </div>
+      <button class="home-subs-btn" type="button"
+              onclick="event.stopPropagation();FCApp.switchTab('activity');FCApp.switchActivitySegment('bills')">Review</button>
+    </div>
+  </div>
+
+  <!-- Legacy focus card kept hidden for JS compat (nextFocusInsight etc.) -->
+  <div id="todays-focus-section" style="display:none" aria-hidden="true">
+    <div id="todays-focus-card">
       <div class="dash-focus-left-bar"></div>
-      <div class="dash-focus-header">
-        <span class="dash-focus-icon" id="focus-icon" aria-hidden="true"></span>
-        <span class="dash-focus-label">Action Required</span>
-        <span class="dash-focus-counter" id="focus-counter" style="display:none"></span>
-      </div>
-      <div class="dash-focus-body" id="focus-body">Analyzing your finances…</div>
-      <div class="dash-focus-action" id="focus-action">
-        <span id="focus-action-text">View details</span>
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
-      </div>
+      <span class="dash-focus-icon" id="focus-icon"></span>
+      <span class="dash-focus-label"></span>
+      <span class="dash-focus-counter" id="focus-counter"></span>
+      <div class="dash-focus-body" id="focus-body"></div>
+      <div id="focus-action"><span id="focus-action-text"></span></div>
     </div>
   </div>
 
@@ -5480,558 +5833,371 @@ body {
 
   <style>
     /* ══════════════════════════════════════════════════════════════
-       INSIGHTS V3 — actionable financial intelligence center
+       PLAN PAGE — money control center
        ══════════════════════════════════════════════════════════════ */
-    #view-insights{overflow-y:scroll;-webkit-overflow-scrolling:touch;padding-bottom:100px;overscroll-behavior:contain}
 
-    /* Header */
-    .ins-header{display:flex;align-items:center;justify-content:space-between;padding:22px 20px 8px}
-    .ins-title{font-size:32px;font-weight:900;color:var(--fc-text);letter-spacing:-0.04em}
+    /* ── CSS custom properties scoped to Plan view ── */
+    #view-insights {
+      --pl-card-bg: rgba(255,255,255,0.04);
+      --pl-card-border: rgba(255,255,255,0.08);
+      --pl-card-shadow: none;
+      --pl-soft-blue: rgba(20,124,255,0.10);
+      --pl-soft-blue-bd: rgba(20,124,255,0.22);
+      --pl-soft-green: rgba(22,163,74,0.10);
+      --pl-soft-green-bd: rgba(22,163,74,0.22);
+      --pl-soft-amber: rgba(245,158,11,0.10);
+      --pl-soft-amber-bd: rgba(245,158,11,0.22);
+      --pl-soft-red: rgba(239,68,68,0.10);
+      --pl-soft-red-bd: rgba(239,68,68,0.22);
+      --pl-eyebrow: rgba(240,246,255,0.40);
+      --pl-primary: var(--fc-text);
+      --pl-secondary: var(--fc-text-muted);
+      --pl-period-bg: rgba(255,255,255,0.05);
+      --pl-period-bd: rgba(255,255,255,0.09);
+      --pl-period-inactive: rgba(255,255,255,0.38);
+      --pl-tab-inactive-bg: rgba(255,255,255,0.05);
+      --pl-tab-inactive-bd: rgba(255,255,255,0.09);
+      --pl-bar-track: rgba(255,255,255,0.09);
+      --pl-row-border: rgba(255,255,255,0.06);
+      --pl-sts-color: var(--fc-success);
+      overflow-y: scroll; -webkit-overflow-scrolling: touch;
+      padding-bottom: 100px; overscroll-behavior: contain;
+    }
+    [data-theme="light"] #view-insights {
+      --pl-card-bg: #ffffff;
+      --pl-card-border: rgba(7,20,38,0.07);
+      --pl-card-shadow: 0 1px 3px rgba(7,20,38,0.06), 0 4px 16px rgba(7,20,38,0.04);
+      --pl-soft-blue: #EAF6FF;
+      --pl-soft-blue-bd: rgba(20,124,255,0.18);
+      --pl-soft-green: #EAF8EF;
+      --pl-soft-green-bd: rgba(22,163,74,0.18);
+      --pl-soft-amber: #FFF4DF;
+      --pl-soft-amber-bd: rgba(245,158,11,0.18);
+      --pl-soft-red: #FEE2E2;
+      --pl-soft-red-bd: rgba(239,68,68,0.18);
+      --pl-eyebrow: #94A3B8;
+      --pl-primary: #071426;
+      --pl-secondary: #64748B;
+      --pl-period-bg: rgba(7,20,38,0.04);
+      --pl-period-bd: rgba(7,20,38,0.09);
+      --pl-period-inactive: #94A3B8;
+      --pl-tab-inactive-bg: rgba(7,20,38,0.04);
+      --pl-tab-inactive-bd: rgba(7,20,38,0.09);
+      --pl-bar-track: rgba(7,20,38,0.08);
+      --pl-row-border: rgba(7,20,38,0.06);
+      --pl-sts-color: #16A34A;
+    }
 
-    /* Period tabs */
-    .ins-period-tabs{display:flex;gap:2px;background:rgba(255,255,255,0.05);border:0.5px solid rgba(255,255,255,0.08);border-radius:10px;padding:3px}
-    .ins-period-btn{border:none;background:none;color:rgba(255,255,255,0.38);font-size:11px;font-weight:700;padding:5px 9px;border-radius:7px;cursor:pointer;font-family:inherit;transition:all .15s;-webkit-tap-highlight-color:transparent}
-    .ins-period-btn.active{background:rgba(26,196,240,0.18);color:var(--fc-accent);border:0.5px solid rgba(26,196,240,0.30)}
+    /* ── Header ── */
+    .plan-header { display:flex; align-items:flex-start; justify-content:space-between; padding:20px 20px 12px; gap:12px; }
+    .plan-title { font-size:30px; font-weight:900; color:var(--pl-primary); letter-spacing:-0.04em; line-height:1; }
+    .plan-subtitle { font-size:13px; color:var(--pl-secondary); margin-top:4px; }
 
-    /* Financial Health hero */
-    .ins-health-hero{margin:0 16px 12px;background:linear-gradient(135deg,rgba(26,196,240,0.08) 0%,rgba(37,99,235,0.06) 100%);border:0.5px solid rgba(26,196,240,0.18);border-radius:20px;padding:20px}
-    .ins-health-hero-row{display:flex;align-items:center;gap:16px}
-    .ins-health-left{flex:1;min-width:0}
-    .ins-health-title-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
-    .ins-health-eyebrow{font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--fc-text-faint)}
-    .ins-score-big{font-size:52px;font-weight:900;letter-spacing:-0.05em;color:var(--fc-text);line-height:1;font-variant-numeric:tabular-nums}
-    .ins-score-denom{font-size:18px;font-weight:600;color:var(--fc-text-faint)}
-    .ins-score-grade{font-size:15px;font-weight:700;margin-top:2px}
-    .ins-score-delta{font-size:12px;color:var(--fc-success);margin-top:2px;font-weight:600}
+    /* ── Period tabs ── */
+    .plan-period-tabs { display:flex; gap:2px; background:var(--pl-period-bg); border:0.5px solid var(--pl-period-bd); border-radius:10px; padding:3px; flex-shrink:0; }
+    .plan-period-btn { border:none; background:none; color:var(--pl-period-inactive); font-size:11px; font-weight:700; padding:5px 9px; border-radius:7px; cursor:pointer; font-family:inherit; transition:all .15s; -webkit-tap-highlight-color:transparent; }
+    .plan-period-btn.active { background:rgba(20,124,255,0.18); color:#147CFF; border:0.5px solid rgba(20,124,255,0.32); }
+    [data-theme="light"] .plan-period-btn.active { background:#EAF4FF; }
 
-    /* Health ring right side */
-    .ins-ring-wrap{position:relative;flex-shrink:0;width:88px;height:88px}
-    .ins-ring-inner{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
-    .ins-ring-grade{font-size:18px;font-weight:900;color:var(--fc-text);line-height:1}
-    .ins-ring-num{font-size:10px;font-weight:600;color:var(--fc-text-faint)}
+    /* ── Card base ── */
+    .plan-card { background:var(--pl-card-bg); border:1px solid var(--pl-card-border); border-radius:22px; box-shadow:var(--pl-card-shadow); }
 
-    /* Sub-metrics below ring area */
-    .ins-health-bars{margin-top:16px;padding-top:14px;border-top:0.5px solid rgba(255,255,255,0.07)}
-    .ins-health-metric{display:flex;align-items:center;gap:10px;margin-bottom:8px}
-    .ins-health-metric:last-child{margin-bottom:0}
-    .ins-health-metric-lbl{font-size:11px;color:var(--fc-text-faint);width:68px;flex-shrink:0}
-    .ins-health-bar-wrap{flex:1;height:4px;border-radius:99px;background:rgba(255,255,255,0.08);overflow:hidden}
-    .ins-health-bar{height:100%;border-radius:99px;transition:width 1s cubic-bezier(0.25,0.1,0.25,1)}
-    .ins-health-val{font-size:11px;font-weight:700;color:var(--fc-text-muted);width:22px;text-align:right;flex-shrink:0}
+    /* ── Top 2-col row ── */
+    .plan-top-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:0 16px 12px; }
 
-    /* This Week Summary */
-    .ins-week-card{margin:0 16px 12px;border-radius:18px;overflow:hidden;background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.07)}
-    .ins-week-header{padding:16px 18px 12px;border-bottom:0.5px solid rgba(255,255,255,0.06)}
-    .ins-week-title{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--fc-text-faint)}
-    .ins-week-item{display:flex;align-items:flex-start;gap:10px;padding:11px 18px;border-bottom:0.5px solid rgba(255,255,255,0.04)}
-    .ins-week-item:last-child{border-bottom:none}
-    .ins-week-dot{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;flex-shrink:0;margin-top:1px}
-    .ins-week-body{flex:1;min-width:0}
-    .ins-week-label{font-size:13px;font-weight:600;color:var(--fc-text)}
-    .ins-week-sub{font-size:11px;color:var(--fc-text-muted);margin-top:1px}
+    /* ── Eyebrow label ── */
+    .plan-eyebrow { font-size:9px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--pl-eyebrow); }
 
-    /* Recommendation banner */
-    .ins-rec-banner{margin:0 16px 12px;background:rgba(26,196,240,0.07);border:0.5px solid rgba(26,196,240,0.18);border-radius:14px;padding:13px 16px;display:flex;align-items:center;gap:10px;cursor:pointer;-webkit-tap-highlight-color:transparent}
-    .ins-rec-icon{width:28px;height:28px;border-radius:8px;background:rgba(26,196,240,0.14);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
-    .ins-rec-text{flex:1;font-size:13px;color:var(--fc-text-muted);line-height:1.4;min-width:0}
-    .ins-rec-chev{color:var(--fc-accent);flex-shrink:0}
+    /* ── Safe to Spend ── */
+    .plan-sts-amount { font-size:28px; font-weight:900; letter-spacing:-0.04em; color:var(--pl-sts-color); font-variant-numeric:tabular-nums; line-height:1; }
+    .plan-sts-desc { font-size:11px; color:var(--pl-secondary); margin-top:5px; line-height:1.4; }
+    .plan-sts-status { display:flex; flex-direction:column; gap:5px; margin-top:12px; }
+    .plan-sts-item { display:flex; align-items:center; gap:6px; font-size:11px; color:var(--pl-secondary); }
+    .plan-sts-check { width:15px; height:15px; border-radius:50%; background:#16A34A; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .plan-sts-check--neutral { background:none; border:1.5px solid rgba(127,127,127,0.3); }
+    .plan-sts-cta { margin-top:12px; font-size:11px; font-weight:600; color:#147CFF; display:flex; align-items:center; gap:3px; }
 
-    /* 2-column cards row */
-    .ins-row-2col{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 16px 10px}
+    /* ── This Month's Move ── */
+    .plan-move-card { background:var(--pl-soft-amber); border-color:var(--pl-soft-amber-bd) !important; }
+    .plan-move-icon { width:34px; height:34px; border-radius:11px; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-bottom:8px; }
+    .plan-move-eyebrow { font-size:9px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--pl-eyebrow); margin-bottom:6px; display:flex; align-items:center; gap:4px; }
+    .plan-move-title { font-size:13px; font-weight:700; color:var(--pl-primary); line-height:1.3; margin-bottom:4px; }
+    .plan-move-sub { font-size:11px; color:var(--pl-secondary); line-height:1.4; margin-bottom:10px; flex:1; }
+    .plan-move-btns { display:flex; flex-direction:column; gap:5px; }
+    .plan-move-btn-primary { padding:9px 12px; border-radius:11px; border:none; font-size:12px; font-weight:700; cursor:pointer; font-family:inherit; background:#F59E0B; color:#071426; -webkit-tap-highlight-color:transparent; transition:opacity .12s; }
+    .plan-move-btn-primary:active { opacity:.8; }
+    .plan-move-btn-secondary { padding:6px 12px; border-radius:11px; border:1px solid var(--pl-card-border); background:none; font-size:11px; font-weight:600; cursor:pointer; font-family:inherit; color:var(--pl-secondary); -webkit-tap-highlight-color:transparent; }
 
-    /* Spending card */
-    .ins-spend-card{background:linear-gradient(145deg,rgba(26,196,240,0.10),rgba(37,99,235,0.07));border:0.5px solid rgba(26,196,240,0.20);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:10px}
-    .ins-card-eyebrow{font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--fc-text-faint)}
-    .ins-spend-body{display:flex;align-items:center;justify-content:space-between;gap:8px}
-    .ins-spend-left{}
-    .ins-spend-amount{font-size:26px;font-weight:900;letter-spacing:-0.04em;color:var(--fc-text);line-height:1;font-variant-numeric:tabular-nums}
-    .ins-spend-sub{font-size:10px;color:var(--fc-text-faint);margin-top:3px}
-    /* Ring progress for spending */
-    .ins-spend-ring-wrap{position:relative;flex-shrink:0;width:58px;height:58px}
-    .ins-spend-ring-inner{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
-    .ins-spend-ring-pct{font-size:13px;font-weight:800;color:var(--fc-text);line-height:1;font-variant-numeric:tabular-nums}
-    .ins-spend-ring-lbl{font-size:8px;color:var(--fc-text-faint);font-weight:600}
-    /* Budget bar in spending card */
-    .ins-spend-bar-row{display:flex;flex-direction:column;gap:4px}
-    .ins-spend-bar-track{height:3px;border-radius:99px;background:rgba(255,255,255,0.10);overflow:hidden}
-    .ins-spend-bar-fill{height:100%;border-radius:99px;transition:width .9s cubic-bezier(0.25,0.1,0.25,1)}
-    .ins-spend-foot{display:flex;justify-content:space-between;align-items:baseline}
-    .ins-spend-remaining{font-size:10px;color:var(--fc-text-muted);font-weight:600}
-    .ins-top-cat{font-size:10px;color:var(--fc-text-faint)}
-    .ins-top-cat-amt{color:var(--fc-accent);font-weight:700}
+    /* ── Forecast card ── */
+    .plan-forecast-card { margin:0 16px 12px; padding:18px 18px 14px; }
+    .plan-forecast-head { display:flex; align-items:baseline; justify-content:space-between; margin-bottom:14px; }
+    .plan-forecast-pace { font-size:12px; color:var(--pl-secondary); }
+    .plan-forecast-row { display:flex; align-items:baseline; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--pl-row-border); }
+    .plan-forecast-row:last-of-type { border-bottom:none; }
+    .plan-forecast-lbl { font-size:13px; color:var(--pl-secondary); }
+    .plan-forecast-val { font-size:15px; font-weight:700; color:var(--pl-primary); font-variant-numeric:tabular-nums; }
+    .plan-forecast-msg { margin-top:12px; padding:10px 13px; border-radius:12px; font-size:12px; line-height:1.45; display:flex; align-items:flex-start; gap:7px; }
+    .plan-forecast-msg--warn { background:var(--pl-soft-red); border:1px solid var(--pl-soft-red-bd); color:#EF4444; }
+    .plan-forecast-msg--ok   { background:var(--pl-soft-green); border:1px solid var(--pl-soft-green-bd); color:#16A34A; }
 
-    /* Net Worth card (right column) */
-    .ins-nw-card{background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.08);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:8px;cursor:pointer;-webkit-tap-highlight-color:transparent}
-    .ins-nw-amount{font-size:clamp(15px,4.4vw,22px);font-weight:900;letter-spacing:-0.04em;color:var(--fc-text);line-height:1;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
-    .ins-nw-sparkline-wrap{flex:1;min-height:40px}
+    /* ── Recommended Fix card ── */
+    .plan-fix-card { margin:0 16px 12px; padding:18px 18px 16px; }
+    .plan-fix-row { display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--pl-row-border); cursor:pointer; -webkit-tap-highlight-color:transparent; }
+    .plan-fix-row:last-of-type { border-bottom:none; }
+    .plan-fix-icon { width:28px; height:28px; border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .plan-fix-name { flex:1; font-size:13px; color:var(--pl-secondary); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .plan-fix-amt { font-size:14px; font-weight:700; color:#EF4444; font-variant-numeric:tabular-nums; flex-shrink:0; }
+    .plan-fix-btn-row { display:flex; gap:8px; margin-top:14px; }
+    .plan-fix-btn-primary   { flex:1; padding:11px; border-radius:13px; border:none; font-size:13px; font-weight:700; cursor:pointer; font-family:inherit; background:#147CFF; color:#fff; -webkit-tap-highlight-color:transparent; transition:opacity .12s; }
+    .plan-fix-btn-primary:active { opacity:.85; }
+    .plan-fix-btn-secondary { flex:1; padding:11px; border-radius:13px; border:1.5px solid var(--pl-card-border); background:none; font-size:13px; font-weight:700; cursor:pointer; font-family:inherit; color:#147CFF; -webkit-tap-highlight-color:transparent; }
 
-    /* Cash Flow Forecast */
-    .ins-cf-card{margin:0 16px 10px;background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.07);border-radius:18px;padding:18px}
-    .ins-cf-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px}
-    .ins-cf-tag{font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--fc-text-faint);margin-bottom:3px}
-    .ins-cf-title{font-size:17px;font-weight:800;color:var(--fc-text);letter-spacing:-0.02em}
-    .ins-cf-period{font-size:11px;color:var(--fc-text-faint)}
-    .ins-cf-cols{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-bottom:14px}
-    .ins-cf-col{text-align:center;padding:10px 6px;background:rgba(255,255,255,0.04);border-radius:12px}
-    .ins-cf-col-icon{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;margin:0 auto 5px}
-    .ins-cf-col-lbl{font-size:9px;color:var(--fc-text-faint);font-weight:600;letter-spacing:.04em;text-transform:uppercase;margin-bottom:3px}
-    .ins-cf-col-val{font-size:15px;font-weight:800;letter-spacing:-0.03em;font-variant-numeric:tabular-nums}
-    .ins-cf-col-sub{font-size:9px;color:var(--fc-text-faint);margin-top:1px}
-    .ins-cf-sparkline{width:100%;overflow:visible;display:block;margin-top:4px}
-    .ins-cf-sparkline-wrap{margin:8px -18px -18px;overflow:hidden;border-radius:0 0 18px 18px}
+    /* ── Category section ── */
+    .plan-cat-section { margin:0 16px 12px; }
+    .plan-cat-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+    .plan-cat-edit-btn { font-size:11px; font-weight:600; color:#147CFF; background:none; border:none; cursor:pointer; font-family:inherit; display:flex; align-items:center; gap:3px; padding:0; }
+    .plan-cat-tabs { display:flex; gap:6px; overflow-x:auto; padding-bottom:2px; margin-bottom:11px; scrollbar-width:none; }
+    .plan-cat-tabs::-webkit-scrollbar { display:none; }
+    .plan-cat-tab { padding:6px 14px; border-radius:20px; border:1px solid var(--pl-tab-inactive-bd); background:var(--pl-tab-inactive-bg); font-size:12px; font-weight:600; cursor:pointer; font-family:inherit; color:var(--pl-secondary); white-space:nowrap; -webkit-tap-highlight-color:transparent; transition:all .15s; flex-shrink:0; }
+    .plan-cat-tab.active { background:#147CFF; color:#fff; border-color:#147CFF; }
+    .plan-cat-card { background:var(--pl-card-bg); border:1px solid var(--pl-card-border); border-radius:18px; box-shadow:var(--pl-card-shadow); overflow:hidden; }
 
-    /* Top Merchants (2-col row) */
-    .ins-merchants-card{background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.07);border-radius:18px;padding:16px}
-    .ins-merchants-list{}
-    .ins-merchant-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:0.5px solid rgba(255,255,255,0.04)}
-    .ins-merchant-row:last-child{border-bottom:none}
-    .ins-merchant-icon{width:32px;height:32px;border-radius:10px;background:rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:var(--fc-text-muted);flex-shrink:0}
-    .ins-merchant-name{flex:1;font-size:12px;font-weight:600;color:var(--fc-text);min-width:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
-    .ins-merchant-amt{font-size:13px;font-weight:800;color:var(--fc-text);font-variant-numeric:tabular-nums;flex-shrink:0}
+    /* Category row */
+    .plan-cat-row { padding:13px 16px; border-bottom:1px solid var(--pl-row-border); cursor:pointer; -webkit-tap-highlight-color:transparent; transition:opacity .12s; }
+    .plan-cat-row:last-child { border-bottom:none; }
+    .plan-cat-row:active { opacity:.75; }
+    .plan-cat-row-top { display:flex; align-items:center; gap:10px; }
+    .plan-cat-icon { width:36px; height:36px; border-radius:11px; display:flex; align-items:center; justify-content:center; font-size:17px; flex-shrink:0; }
+    .plan-cat-info { flex:1; min-width:0; }
+    .plan-cat-name { font-size:14px; font-weight:600; color:var(--pl-primary); }
+    .plan-cat-meta { font-size:10px; color:var(--pl-secondary); margin-top:1px; }
+    .plan-cat-right { text-align:right; flex-shrink:0; }
+    .plan-cat-spent { font-size:15px; font-weight:700; color:var(--pl-primary); font-variant-numeric:tabular-nums; line-height:1; }
+    .plan-cat-budget-lbl { font-size:11px; color:var(--pl-secondary); margin-top:2px; }
+    .plan-cat-progress { margin:8px 0 2px; }
+    .plan-cat-bar-track { height:4px; border-radius:99px; background:var(--pl-bar-track); overflow:hidden; position:relative; }
+    .plan-cat-bar-fill { height:100%; border-radius:99px; position:absolute; top:0; left:0; transition:width .6s cubic-bezier(0.25,0.1,0.25,1); }
+    .plan-cat-bar-foot { display:flex; align-items:center; justify-content:space-between; margin-top:5px; }
+    .plan-cat-left-lbl { font-size:10px; color:var(--pl-secondary); }
+    .plan-cat-tip { font-size:10px; color:#D97706; margin-top:4px; display:flex; align-items:center; gap:4px; line-height:1.4; }
+    [data-theme="light"] .plan-cat-tip { color:#B45309; }
 
-    /* Budget performance card (left in 2-col) */
-    .ins-budget-card{background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.07);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:8px}
-    .ins-budget-ring-wrap{position:relative;width:64px;height:64px;flex-shrink:0}
-    .ins-budget-ring-inner{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
-    .ins-budget-pct{font-size:16px;font-weight:900;color:var(--fc-text);font-variant-numeric:tabular-nums}
-    .ins-budget-lbl{font-size:8px;color:var(--fc-text-faint);font-weight:600}
+    /* Status badges */
+    .plan-badge { padding:3px 9px; border-radius:999px; font-size:10px; font-weight:700; flex-shrink:0; white-space:nowrap; }
+    .plan-badge-on-track  { background:rgba(22,163,74,0.12);   color:#16A34A; }
+    .plan-badge-watch     { background:rgba(245,158,11,0.12);  color:#D97706; }
+    .plan-badge-over      { background:rgba(239,68,68,0.12);   color:#EF4444; }
+    .plan-badge-good      { background:rgba(22,163,74,0.12);   color:#16A34A; }
+    .plan-badge-behind    { background:rgba(100,116,139,0.12); color:#64748B; }
+    .plan-badge-protected { background:rgba(20,124,255,0.12);  color:#147CFF; }
+    .plan-badge-set-limit { background:rgba(100,116,139,0.08); color:#94A3B8; border:1px dashed rgba(100,116,139,0.25); }
+    .plan-badge-flexible  { background:rgba(20,124,255,0.08);  color:#60A5FA; }
+    [data-theme="light"] .plan-badge-on-track  { background:#DCFCE7; }
+    [data-theme="light"] .plan-badge-watch     { background:#FEF3C7; }
+    [data-theme="light"] .plan-badge-over      { background:#FEE2E2; }
+    [data-theme="light"] .plan-badge-good      { background:#DCFCE7; }
+    [data-theme="light"] .plan-badge-behind    { background:#F1F5F9; }
+    [data-theme="light"] .plan-badge-protected { background:#EFF6FF; }
+    [data-theme="light"] .plan-badge-set-limit { background:#F8FAFC; color:#94A3B8; border-color:rgba(100,116,139,0.20); }
+    [data-theme="light"] .plan-badge-flexible  { background:#EFF6FF; color:#3B82F6; }
 
-    /* Category rows */
-    .ins-categories-card{margin:0 16px 10px;background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.07);border-radius:18px;overflow:hidden}
-    .ins-categories-header{padding:16px 18px 12px;border-bottom:0.5px solid rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:space-between}
+    /* Goals rows */
+    .plan-goal-row { padding:13px 16px; border-bottom:1px solid var(--pl-row-border); cursor:pointer; -webkit-tap-highlight-color:transparent; }
+    .plan-goal-row:last-child { border-bottom:none; }
+    .plan-goal-row:active { opacity:.75; }
+    .plan-goal-name { font-size:14px; font-weight:600; color:var(--pl-primary); }
+    .plan-goal-meta { font-size:10px; color:var(--pl-secondary); margin-top:1px; }
+    .plan-goal-amounts { display:flex; align-items:baseline; gap:4px; margin-top:8px; }
+    .plan-goal-current { font-size:18px; font-weight:800; color:var(--pl-primary); font-variant-numeric:tabular-nums; }
+    .plan-goal-of { font-size:11px; color:var(--pl-secondary); }
+    .plan-goal-target { font-size:13px; font-weight:600; color:var(--pl-secondary); font-variant-numeric:tabular-nums; }
 
-    /* Sub-hunter card */
-    #sub-hunter-card{margin:0 16px 10px}
+    /* ── Bottom 2-col row ── */
+    .plan-bottom-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:0 16px 12px; }
 
-    /* ── V3 new components ─────────────────────────────────── */
+    /* Subscriptions */
+    .plan-subs-save  { font-size:16px; font-weight:800; color:var(--pl-primary); letter-spacing:-0.02em; margin-bottom:2px; }
+    .plan-subs-count { font-size:11px; color:var(--pl-secondary); }
+    .plan-subs-cta   { margin-top:10px; font-size:11px; font-weight:600; color:#147CFF; display:flex; align-items:center; gap:3px; }
 
-    /* Header subtitle */
-    .ins-subtitle{font-size:13px;color:var(--fc-text-muted);margin-top:3px;font-weight:400;letter-spacing:0}
+    /* Delta tiles */
+    .plan-delta-item { display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid var(--pl-row-border); }
+    .plan-delta-item:last-child { border-bottom:none; }
+    .plan-delta-dot  { width:26px; height:26px; border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .plan-delta-lbl  { flex:1; font-size:11px; color:var(--pl-secondary); min-width:0; }
+    .plan-delta-val  { font-size:11px; font-weight:700; font-variant-numeric:tabular-nums; flex-shrink:0; }
 
-    /* Today's Move card */
-    .ins-todays-move{margin:0 16px 12px;border-radius:20px;padding:20px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:opacity .15s}
-    .ins-todays-move:active{opacity:.85}
-    .ins-todays-move-eyebrow{font-size:9px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--fc-text-faint);margin-bottom:12px}
-    .ins-todays-move-icon-tile{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;margin-bottom:12px}
-    .ins-todays-move-title{font-size:17px;font-weight:800;color:var(--fc-text);letter-spacing:-0.02em;margin-bottom:6px;line-height:1.2}
-    .ins-todays-move-sub{font-size:13px;color:var(--fc-text-muted);line-height:1.5;margin-bottom:14px}
-    .ins-todays-move-btn{padding:9px 16px;border-radius:11px;border:none;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;transition:opacity .12s}
-    .ins-todays-move-btn:active{opacity:.75}
+    /* Plan empty state */
+    .plan-empty { padding:28px 16px; text-align:center; }
+    .plan-empty-title { font-size:14px; font-weight:600; color:var(--pl-primary); margin-bottom:5px; }
+    .plan-empty-sub   { font-size:12px; color:var(--pl-secondary); line-height:1.5; }
+    .plan-empty-cta   { margin-top:12px; padding:9px 20px; border-radius:12px; border:none; background:#147CFF; color:#fff; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; -webkit-tap-highlight-color:transparent; }
 
-    /* Monthly Summary 3-card row */
-    .ins-monthly-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:0 16px 12px}
-    .ins-ms-card{border-radius:16px;padding:14px 12px;background:rgba(255,255,255,0.04);border:0.5px solid rgba(255,255,255,0.08)}
-    .ins-ms-icon{width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;margin-bottom:8px;flex-shrink:0}
-    .ins-ms-label{font-size:8px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--fc-text-faint);margin-bottom:5px}
-    .ins-ms-amount{font-size:16px;font-weight:900;letter-spacing:-0.03em;color:var(--fc-text);font-variant-numeric:tabular-nums;line-height:1;word-break:break-all}
-    .ins-ms-delta{font-size:9px;font-weight:700;margin-top:5px}
-
-    /* What Changed section */
-    .ins-changed-card{margin:0 16px 10px;border-radius:18px;background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.07);overflow:hidden}
-    .ins-changed-header{padding:14px 16px 10px;border-bottom:0.5px solid rgba(255,255,255,0.05)}
-    .ins-changed-title{font-size:13px;font-weight:700;color:var(--fc-text)}
-    .ins-changed-item{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:0.5px solid rgba(255,255,255,0.04)}
-    .ins-changed-item:last-child{border-bottom:none}
-    .ins-changed-dot{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-    .ins-changed-body{flex:1;min-width:0}
-    .ins-changed-label{font-size:13px;font-weight:600;color:var(--fc-text)}
-    .ins-changed-sub{font-size:11px;color:var(--fc-text-muted);margin-top:1px}
-    .ins-changed-val{font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;flex-shrink:0}
-
-    /* Wins card */
-    .ins-wins-card{margin:0 16px 10px;border-radius:18px;background:rgba(48,209,88,0.06);border:0.5px solid rgba(48,209,88,0.18);padding:16px}
-    .ins-wins-header{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--fc-success);margin-bottom:12px}
-    .ins-win-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
-    .ins-win-row:last-child{margin-bottom:0}
-    .ins-win-icon{font-size:16px;flex-shrink:0}
-    .ins-win-text{font-size:13px;color:var(--fc-text);font-weight:500}
-
-    /* Behavior card */
-    .ins-behavior-card{margin:0 16px 10px;border-radius:18px;background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.07);padding:16px}
-    .ins-behavior-header{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--fc-text-faint);margin-bottom:12px}
-    .ins-behavior-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:0.5px solid rgba(255,255,255,0.04)}
-    .ins-behavior-row:last-child{border-bottom:none}
-    .ins-behavior-icon{width:32px;height:32px;border-radius:10px;background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
-    .ins-behavior-text{font-size:13px;color:var(--fc-text-muted);line-height:1.4}
   </style>
 
-    <!-- ── HEADER ──────────────────────────────────────────────────── -->
-    <div class="ins-header">
+    <!-- ── PLAN HEADER ──────────────────────────────────────────── -->
+    <div class="plan-header">
       <div>
-        <div class="ins-title">Insights</div>
-        <div class="ins-subtitle">Understand your money. Make better decisions.</div>
+        <div class="plan-title">Plan</div>
+        <div class="plan-subtitle">Know what's safe. Stay in control.</div>
       </div>
-      <div class="ins-period-tabs">
-        <button role="tab" data-period="1D" aria-selected="false" onclick="FCApp.switchPeriod('1D')" class="ins-period-btn">1D</button>
-        <button role="tab" data-period="1W" aria-selected="false" onclick="FCApp.switchPeriod('1W')" class="ins-period-btn">1W</button>
-        <button role="tab" data-period="1M" aria-selected="true"  onclick="FCApp.switchPeriod('1M')" class="ins-period-btn active">1M</button>
-        <button role="tab" data-period="3M" aria-selected="false" onclick="FCApp.switchPeriod('3M')" class="ins-period-btn">3M</button>
-        <button role="tab" data-period="1Y" aria-selected="false" onclick="FCApp.switchPeriod('1Y')" class="ins-period-btn">1Y</button>
-      </div>
-    </div>
-
-    <!-- ── SECTION 1: FINANCIAL HEALTH HERO ──────────────────────── -->
-    <div class="ins-health-hero" id="ins-health-card">
-      <div class="ins-health-hero-row">
-        <!-- Left: score + label + trend -->
-        <div class="ins-health-left">
-          <div class="ins-health-title-row">
-            <span class="ins-health-eyebrow">Financial Health</span>
-            <span id="ins-health-badge" style="font-size:9px;font-weight:700;padding:2px 8px;border-radius:999px;background:rgba(26,196,240,0.12);color:var(--fc-accent);border:0.5px solid rgba(26,196,240,0.25)">Live</span>
-          </div>
-          <div style="display:flex;align-items:baseline;gap:3px">
-            <span class="ins-score-big" id="ins-health-grade">—</span>
-            <span class="ins-score-denom" id="ins-health-score-num" style="display:none">/100</span>
-          </div>
-          <div class="ins-score-grade" id="ins-health-subtitle">Connect a bank to see your score</div>
-          <div id="ins-health-trend" style="display:none;font-size:12px;font-weight:600;color:var(--fc-success);margin-top:3px"></div>
-        </div>
-        <!-- Right: ring visualization -->
-        <div class="ins-ring-wrap">
-          <svg viewBox="0 0 88 88" width="88" height="88" style="transform:rotate(-90deg);overflow:visible" aria-hidden="true">
-            <circle cx="44" cy="44" r="36" fill="none" style="stroke:rgba(255,255,255,0.08)" stroke-width="7"/>
-            <circle id="ins-health-ring" cx="44" cy="44" r="36" fill="none" stroke="#1ac4f0" stroke-width="7"
-                    stroke-linecap="round" stroke-dasharray="226" stroke-dashoffset="226"
-                    style="transition:stroke-dashoffset 1.2s cubic-bezier(0.25,0.1,0.25,1),stroke 0.6s ease"/>
-            <defs>
-              <linearGradient id="healthGrad" x1="0" y1="0" x2="1" y2="0">
-                <stop offset="0%" stop-color="#1ac4f0"/>
-                <stop offset="100%" stop-color="#2563eb"/>
-              </linearGradient>
-            </defs>
-          </svg>
-          <div class="ins-ring-inner">
-            <div class="ins-ring-grade" id="ins-ring-score">—</div>
-            <div class="ins-ring-num">/100</div>
-          </div>
-        </div>
-      </div>
-      <!-- Sub-metrics: Spending / Savings / Net Worth / Debt / Cash Flow bars -->
-      <div class="ins-health-bars">
-        <div class="ins-health-metric">
-          <div class="ins-health-metric-lbl">Spending</div>
-          <div class="ins-health-bar-wrap"><div class="ins-health-bar" id="ins-bar-spending" style="width:0%;background:linear-gradient(90deg,var(--fc-accent),var(--fc-electric))"></div></div>
-          <div class="ins-health-val" id="ins-val-spending">—</div>
-        </div>
-        <div class="ins-health-metric">
-          <div class="ins-health-metric-lbl">Savings</div>
-          <div class="ins-health-bar-wrap"><div class="ins-health-bar" id="ins-bar-savings" style="width:0%;background:linear-gradient(90deg,var(--fc-success),var(--fc-accent))"></div></div>
-          <div class="ins-health-val" id="ins-val-savings">—</div>
-        </div>
-        <div class="ins-health-metric">
-          <div class="ins-health-metric-lbl">Net Worth</div>
-          <div class="ins-health-bar-wrap"><div class="ins-health-bar" id="ins-bar-networth" style="width:0%;background:linear-gradient(90deg,var(--fc-warning),#ff6b00)"></div></div>
-          <div class="ins-health-val" id="ins-val-networth">—</div>
-        </div>
-        <div class="ins-health-metric">
-          <div class="ins-health-metric-lbl">Debt</div>
-          <div class="ins-health-bar-wrap"><div class="ins-health-bar" id="ins-bar-debt" style="width:0%;background:linear-gradient(90deg,var(--fc-danger),var(--fc-warning))"></div></div>
-          <div class="ins-health-val" id="ins-val-debt">—</div>
-        </div>
-        <div class="ins-health-metric">
-          <div class="ins-health-metric-lbl">Cash Flow</div>
-          <div class="ins-health-bar-wrap"><div class="ins-health-bar" id="ins-bar-cashflow" style="width:0%;background:linear-gradient(90deg,var(--fc-electric),var(--fc-accent))"></div></div>
-          <div class="ins-health-val" id="ins-val-cashflow">—</div>
-        </div>
+      <div class="plan-period-tabs">
+        <button role="tab" data-period="1W" aria-selected="false" onclick="FCApp.switchPeriod('1W')" class="plan-period-btn">1W</button>
+        <button role="tab" data-period="1M" aria-selected="true"  onclick="FCApp.switchPeriod('1M')" class="plan-period-btn active">1M</button>
+        <button role="tab" data-period="3M" aria-selected="false" onclick="FCApp.switchPeriod('3M')" class="plan-period-btn">3M</button>
+        <button role="tab" data-period="1Y" aria-selected="false" onclick="FCApp.switchPeriod('1Y')" class="plan-period-btn">1Y</button>
       </div>
     </div>
 
-    <!-- ── SECTION 2: TODAY'S MOVE (rules-based single action) ─────── -->
-    <div class="ins-todays-move" id="ins-todays-move" style="display:none">
-      <div class="ins-todays-move-eyebrow">Today's Move</div>
-      <div class="ins-todays-move-icon-tile" id="ins-move-icon">💡</div>
-      <div class="ins-todays-move-title" id="ins-move-title">Loading your insights…</div>
-      <div class="ins-todays-move-sub" id="ins-move-sub"></div>
-      <button class="ins-todays-move-btn" id="ins-move-btn" style="display:none" type="button">Take action →</button>
-    </div>
-
-    <!-- ── SECTION 3: MONTHLY SUMMARY (3 cards) ─────────────────── -->
-    <div class="ins-monthly-row" id="ins-monthly-row">
-      <!-- Income -->
-      <div class="ins-ms-card">
-        <div class="ins-ms-icon" style="background:rgba(52,199,89,0.14)">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--fc-success)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
-        </div>
-        <div class="ins-ms-label">Income</div>
-        <div class="ins-ms-amount" id="ins-ms-income-val">—</div>
-        <div class="ins-ms-delta" id="ins-ms-income-delta" style="display:none"></div>
+    <!-- ── TOP ROW: SAFE TO SPEND + THIS MONTH'S MOVE ─────────── -->
+    <div class="plan-top-row">
+      <!-- Safe to Spend -->
+      <div class="plan-card" id="plan-sts-card" style="padding:16px 14px 14px;display:flex;flex-direction:column;gap:0;min-height:164px">
+        <div class="plan-eyebrow">Safe to Spend</div>
+        <div class="plan-sts-amount" id="plan-sts-amount">—</div>
+        <div class="plan-sts-desc" id="plan-sts-desc">after bills &amp; goals</div>
+        <div class="plan-sts-status" id="plan-sts-status"></div>
       </div>
-      <!-- Spending -->
-      <div class="ins-ms-card">
-        <div class="ins-ms-icon" style="background:rgba(255,69,58,0.12)">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--fc-danger)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
-        </div>
-        <div class="ins-ms-label">Spending</div>
-        <div class="ins-ms-amount" id="ins-ms-spend-val">—</div>
-        <div class="ins-ms-delta" id="ins-ms-spend-delta" style="display:none"></div>
-      </div>
-      <!-- Cash Flow -->
-      <div class="ins-ms-card">
-        <div class="ins-ms-icon" style="background:rgba(26,196,240,0.14)">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--fc-accent)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M7 17L17 7M17 7H7M17 7v10"/></svg>
-        </div>
-        <div class="ins-ms-label">Cash Flow</div>
-        <div class="ins-ms-amount" id="ins-ms-cf-val">—</div>
-        <div class="ins-ms-delta" id="ins-ms-cf-delta" style="display:none"></div>
+      <!-- This Month's Move -->
+      <div class="plan-card plan-move-card" id="plan-move-card" style="padding:14px;display:flex;flex-direction:column;min-height:164px">
+        <div class="plan-move-eyebrow">This Month's Move</div>
+        <div class="plan-move-icon" id="plan-move-icon" style="background:rgba(245,158,11,0.18);color:#F59E0B;font-size:16px">💡</div>
+        <div class="plan-move-title" id="plan-move-title">Loading…</div>
+        <div class="plan-move-sub" id="plan-move-sub"></div>
+        <div class="plan-move-btns" id="plan-move-btns" style="margin-top:auto"></div>
       </div>
     </div>
 
-    <!-- ── SECTION 3b: SPENDING + NET WORTH — hidden, IDs kept for JS compat ── -->
-    <div style="display:none" aria-hidden="true">
-      <!-- ── Recommendation Banner (legacy) ─────────────────────── -->
-      <div id="ins-rec-banner"><span id="ins-rec-text"></span></div>
-      <!-- ── Old week summary (legacy) ──────────────────────────── -->
-      <div id="ins-week-card">
-        <span id="ins-week-period-label"></span>
-        <div id="ins-week-item-1"><div class="ins-week-dot"></div><div class="ins-week-body"><div class="ins-week-label"></div><div class="ins-week-sub"></div></div></div>
-        <div id="ins-week-item-2"><div class="ins-week-dot"></div><div class="ins-week-body"><div class="ins-week-label"></div><div class="ins-week-sub"></div></div></div>
-        <div id="ins-week-item-3"><div class="ins-week-dot"></div><div class="ins-week-body"><div class="ins-week-label"></div><div class="ins-week-sub"></div></div></div>
-      </div>
-    <!-- old 2-col spending+NW grid — IDs kept for JS compat, visually hidden -->
-    <div class="ins-row-2col" style="display:none" aria-hidden="true">
-
-      <!-- Spending This Month -->
-      <div class="ins-spend-card">
-        <div class="ins-card-eyebrow">Spending · <span id="insights-period-label">this month</span></div>
-        <div class="ins-spend-body">
-          <div class="ins-spend-left">
-            <div class="ins-spend-amount" id="insights-total-spend" data-anim-val="0">$0</div>
-            <div class="ins-spend-sub">spent</div>
-          </div>
-          <!-- Circular progress ring -->
-          <div class="ins-spend-ring-wrap">
-            <svg viewBox="0 0 58 58" width="58" height="58" style="transform:rotate(-90deg)" aria-hidden="true">
-              <circle cx="29" cy="29" r="23" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="4.5"/>
-              <circle id="ins-spend-ring" cx="29" cy="29" r="23" fill="none"
-                      stroke="url(#spendRingGrad)" stroke-width="4.5" stroke-linecap="round"
-                      stroke-dasharray="145" stroke-dashoffset="145"
-                      style="transition:stroke-dashoffset .9s cubic-bezier(0.25,0.1,0.25,1),stroke .4s"/>
-              <defs>
-                <linearGradient id="spendRingGrad" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0%" stop-color="#1ac4f0"/><stop offset="100%" stop-color="#2563eb"/>
-                </linearGradient>
-              </defs>
-            </svg>
-            <div class="ins-spend-ring-inner">
-              <div class="ins-spend-ring-pct" id="ins-spend-pct">—</div>
-              <div class="ins-spend-ring-lbl">Used</div>
-            </div>
-          </div>
-        </div>
-        <div class="ins-spend-bar-row">
-          <div class="ins-spend-bar-track">
-            <div class="ins-spend-bar-fill" id="insights-budget-fill" style="width:0%;background:linear-gradient(90deg,var(--fc-accent),var(--fc-electric))"></div>
-          </div>
-          <div class="ins-spend-foot">
-            <span class="ins-spend-remaining" id="insights-budget-remaining">$0 left</span>
-            <span class="ins-top-cat">
-              <span id="ins-top-cat-name" style="color:var(--fc-text-faint)">—</span>
-              <span class="ins-top-cat-amt" id="ins-top-cat-amt" style="display:none"></span>
-            </span>
-          </div>
-        </div>
-        <!-- hidden compat IDs -->
-        <div style="display:none">
-          <span id="insights-budget-pill"></span>
-          <div id="insights-budget-pace"></div>
-          <div id="savings-bar"></div><div id="insights-budget-health"></div><div id="insights-budget-health-bar"></div>
-          <div id="savings-meta"></div><span id="savings-rate"></span>
-          <span id="insights-spend-delta"></span>
-        </div>
-      </div>
-
-      <!-- Net Worth -->
-      <div class="ins-nw-card" onclick="FCApp.switchTab('wealth')" id="insights-nw-card">
-        <div class="ins-card-eyebrow">Net Worth</div>
-        <div id="insights-nw-value" class="ins-nw-amount">—</div>
-        <span id="insights-nw-delta" style="font-size:11px;font-weight:600;padding:4px 9px;border-radius:999px;display:none;width:fit-content"></span>
-        <div class="ins-nw-sparkline-wrap">
-          <svg id="insights-nw-sparkline" viewBox="0 0 120 40" width="100%" height="40"
-               style="overflow:visible;display:block" aria-label="Net worth trend" role="img">
-            <text x="50%" y="22" text-anchor="middle" fill="rgba(255,255,255,0.12)" font-size="8" font-family="-apple-system,sans-serif">No data yet</text>
-          </svg>
-        </div>
-        <div id="insights-nw-range" style="font-size:9px;color:var(--fc-text-faint)"></div>
-      </div>
-    </div>
-    </div><!-- /legacy hidden section -->
-
-    <!-- ── SECTION 4: CATEGORIES ──────────────────────────────────── -->
-    <div class="ins-categories-card">
-      <div class="ins-categories-header">
-        <h2 style="margin:0;font-size:14px;font-weight:700;color:var(--fc-text)">Categories</h2>
-        <span style="font-size:11px;color:var(--fc-text-faint)" id="insights-cat-period">this month</span>
-      </div>
-      <!-- Hidden JS-compat placeholders for donut -->
-      <div style="display:none">
-        <svg id="insights-donut-svg" aria-hidden="true"></svg>
-        <div id="insights-donut-center-amt"></div>
-        <div id="insights-donut-legend"></div>
-      </div>
-      <div id="insights-categories" style="padding:4px 18px 8px">
-        <div style="color:var(--fc-text-faint);text-align:center;padding:28px 0;font-size:13px">Connect a bank to see your spending categories</div>
-      </div>
-    </div>
-
-    <!-- ── SECTION 5: CASH FLOW FORECAST ──────────────────────────── -->
-    <div class="ins-cf-card" id="cashflow-card">
-      <div class="ins-cf-header">
+    <!-- ── MONTH FORECAST ─────────────────────────────────────── -->
+    <div class="plan-card plan-forecast-card" id="plan-forecast-card">
+      <div class="plan-forecast-head">
         <div>
-          <div class="ins-cf-tag">Forecast</div>
-          <div class="ins-cf-title">Cash Flow</div>
+          <div class="plan-eyebrow">Month Forecast</div>
+          <div style="font-size:22px;font-weight:900;color:var(--pl-primary);letter-spacing:-0.04em;line-height:1;margin-top:3px;font-variant-numeric:tabular-nums" id="plan-forecast-projected">—</div>
         </div>
-        <div style="text-align:right">
-          <div class="ins-cf-period">Next 7 days</div>
-          <span id="cashflow-net" style="font-size:12px;font-weight:700;color:var(--fc-success)"></span>
-        </div>
+        <div class="plan-forecast-pace" id="plan-forecast-pace"></div>
       </div>
-      <!-- 3 stat columns: income / bills / projected -->
-      <div class="ins-cf-cols">
-        <div class="ins-cf-col">
-          <div class="ins-cf-col-icon" style="background:rgba(52,199,89,0.15)">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--fc-success)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
-          </div>
-          <div class="ins-cf-col-lbl">Income</div>
-          <div class="ins-cf-col-val" id="ins-cf-income" style="color:var(--fc-success)">—</div>
-          <div class="ins-cf-col-sub">expected</div>
-        </div>
-        <div class="ins-cf-col">
-          <div class="ins-cf-col-icon" style="background:rgba(255,69,58,0.12)">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--fc-danger)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
-          </div>
-          <div class="ins-cf-col-lbl">Bills</div>
-          <div class="ins-cf-col-val" id="ins-cf-bills" style="color:var(--fc-danger)">—</div>
-          <div class="ins-cf-col-sub">due</div>
-        </div>
-        <div class="ins-cf-col">
-          <div class="ins-cf-col-icon" style="background:rgba(37,99,235,0.15)">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--fc-electric)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/></svg>
-          </div>
-          <div class="ins-cf-col-lbl">Projected</div>
-          <div class="ins-cf-col-val" id="ins-cf-projected" style="color:var(--fc-electric)">—</div>
-          <div class="ins-cf-col-sub">balance</div>
-        </div>
+      <div class="plan-forecast-row">
+        <span class="plan-forecast-lbl">Spent so far</span>
+        <span class="plan-forecast-val" id="plan-forecast-spent">—</span>
       </div>
-      <!-- Forecast sparkline / bill timeline -->
-      <div id="cashflow-timeline" style="margin-top:6px">
-        <div id="cashflow-forecast-placeholder" style="color:var(--fc-text-faint);text-align:center;padding:16px 0;font-size:13px">Connect a bank to see your forecast</div>
+      <div class="plan-forecast-row">
+        <span class="plan-forecast-lbl">Budget</span>
+        <span class="plan-forecast-val" id="plan-forecast-budget">—</span>
       </div>
-      <!-- Animated wavy sparkline at card bottom -->
-      <div class="ins-cf-sparkline-wrap">
-        <svg id="ins-cf-sparkline" viewBox="0 0 320 48" width="100%" height="48" preserveAspectRatio="none"
-             style="display:block;overflow:visible" aria-hidden="true">
-          <defs>
-            <linearGradient id="cfSparkGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="#1ac4f0" stop-opacity="0.28"/>
-              <stop offset="100%" stop-color="#1ac4f0" stop-opacity="0"/>
-            </linearGradient>
-          </defs>
-          <!-- animated wavy area -->
-          <path id="ins-cf-sparkline-area"
-                d="M0,32 C40,28 60,20 80,24 C100,28 120,36 140,22 C160,8 180,26 200,18 C220,10 240,28 260,20 C280,12 300,22 320,16 L320,48 L0,48 Z"
-                fill="url(#cfSparkGrad)">
-            <animate attributeName="d"
-              values="M0,32 C40,28 60,20 80,24 C100,28 120,36 140,22 C160,8 180,26 200,18 C220,10 240,28 260,20 C280,12 300,22 320,16 L320,48 L0,48 Z;
-                      M0,28 C40,34 60,16 80,28 C100,38 120,20 140,30 C160,38 180,14 200,24 C220,32 240,16 260,28 C280,38 300,16 320,24 L320,48 L0,48 Z;
-                      M0,32 C40,28 60,20 80,24 C100,28 120,36 140,22 C160,8 180,26 200,18 C220,10 240,28 260,20 C280,12 300,22 320,16 L320,48 L0,48 Z"
-              dur="6s" repeatCount="indefinite" calcMode="spline"
-              keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/>
-          </path>
-          <!-- animated wavy line on top -->
-          <path id="ins-cf-sparkline-line"
-                d="M0,32 C40,28 60,20 80,24 C100,28 120,36 140,22 C160,8 180,26 200,18 C220,10 240,28 260,20 C280,12 300,22 320,16"
-                stroke="#1ac4f0" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.7">
-            <animate attributeName="d"
-              values="M0,32 C40,28 60,20 80,24 C100,28 120,36 140,22 C160,8 180,26 200,18 C220,10 240,28 260,20 C280,12 300,22 320,16;
-                      M0,28 C40,34 60,16 80,28 C100,38 120,20 140,30 C160,38 180,14 200,24 C220,32 240,16 260,28 C280,38 300,16 320,24;
-                      M0,32 C40,28 60,20 80,24 C100,28 120,36 140,22 C160,8 180,26 200,18 C220,10 240,28 260,20 C280,12 300,22 320,16"
-              dur="6s" repeatCount="indefinite" calcMode="spline"
-              keySplines="0.4 0 0.6 1; 0.4 0 0.6 1"/>
-          </path>
-        </svg>
+      <div class="plan-forecast-row">
+        <span class="plan-forecast-lbl">Days left</span>
+        <span class="plan-forecast-val" id="plan-forecast-days">—</span>
+      </div>
+      <div id="plan-forecast-msg" style="display:none" class="plan-forecast-msg"></div>
+    </div>
+
+    <!-- ── RECOMMENDED FIX (shown only when over budget) ─────── -->
+    <div class="plan-card plan-fix-card" id="plan-fix-card" style="display:none">
+      <div class="plan-eyebrow" style="margin-bottom:10px">Recommended Fix</div>
+      <div id="plan-fix-rows"></div>
+      <div class="plan-fix-btn-row">
+        <button class="plan-fix-btn-primary" type="button" onclick="FCApp.switchTab('activity')">Review Spending</button>
+        <button class="plan-fix-btn-secondary" type="button" onclick="FCApp.openCategoryBudgetSheet('total', FCApp.getTotalBudgetLimit())">Edit Budget</button>
       </div>
     </div>
 
-    <!-- ── SECTION 6a: BUDGET PERF — hidden, IDs kept for JS compat ─── -->
-    <div class="ins-budget-card" style="margin:0 16px 10px;display:none" aria-hidden="true">
-      <div class="ins-card-eyebrow">Budget</div>
-      <div style="display:flex;align-items:center;gap:10px">
-        <div class="ins-budget-ring-wrap">
-          <svg viewBox="0 0 64 64" width="64" height="64" style="transform:rotate(-90deg)" aria-hidden="true">
-            <circle cx="32" cy="32" r="26" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="5"/>
-            <circle id="ins-budget-ring" cx="32" cy="32" r="26" fill="none"
-                    stroke="var(--fc-accent)" stroke-width="5" stroke-linecap="round"
-                    stroke-dasharray="163" stroke-dashoffset="163"
-                    style="transition:stroke-dashoffset .9s cubic-bezier(0.25,0.1,0.25,1),stroke .4s"/>
-          </svg>
-          <div class="ins-budget-ring-inner">
-            <div class="ins-budget-pct" id="ins-budget-pct">—</div>
-            <div class="ins-budget-lbl">Used</div>
+    <!-- ── CATEGORY PLAN ──────────────────────────────────────── -->
+    <div class="plan-cat-section">
+      <div class="plan-cat-header">
+        <span style="font-size:15px;font-weight:700;color:var(--pl-primary)">Categories</span>
+        <button class="plan-cat-edit-btn" type="button" onclick="FCApp.openCategoryBudgetSheet('total', FCApp.getTotalBudgetLimit())">
+          Edit Budgets
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
+      </div>
+      <div class="plan-cat-tabs">
+        <button class="plan-cat-tab active" type="button" onclick="FCApp.switchPlanCatTab('all')" id="plan-cat-tab-all">All</button>
+        <button class="plan-cat-tab" type="button" onclick="FCApp.switchPlanCatTab('needs')" id="plan-cat-tab-needs">Needs</button>
+        <button class="plan-cat-tab" type="button" onclick="FCApp.switchPlanCatTab('wants')" id="plan-cat-tab-wants">Wants</button>
+        <button class="plan-cat-tab" type="button" onclick="FCApp.switchPlanCatTab('goals')" id="plan-cat-tab-goals">Goals</button>
+      </div>
+      <div class="plan-cat-card" id="plan-cat-card">
+        <div class="plan-empty">
+          <div class="plan-empty-title">Connect a bank</div>
+          <div class="plan-empty-sub">to see your spending categories</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── BOTTOM ROW: SUBSCRIPTIONS + WHAT CHANGED ──────────── -->
+    <div class="plan-bottom-row">
+      <!-- Subscriptions to Review -->
+      <div class="plan-card" style="padding:14px 14px 12px;display:flex;flex-direction:column">
+        <div class="plan-eyebrow" style="margin-bottom:8px">Subscriptions</div>
+        <div class="plan-subs-save" id="plan-subs-total">—</div>
+        <div class="plan-subs-count" id="plan-subs-count">detected</div>
+        <div class="plan-subs-cta" onclick="FCApp.switchTab('activity')" role="button" style="cursor:pointer;margin-top:auto;padding-top:10px">
+          Review
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
+        </div>
+      </div>
+      <!-- What Changed Since Yesterday -->
+      <div class="plan-card" style="padding:14px 14px 12px;display:flex;flex-direction:column">
+        <div class="plan-eyebrow" style="margin-bottom:8px">Since Yesterday</div>
+        <div id="plan-delta-list">
+          <div class="plan-empty" style="padding:4px 0">
+            <div class="plan-empty-sub">No changes</div>
           </div>
         </div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:11px;font-weight:600;color:var(--fc-text)" id="ins-budget-month"></div>
-          <div style="font-size:10px;color:var(--fc-text-faint);margin-top:2px" id="ins-budget-days-left"></div>
-          <div style="font-size:10px;color:var(--fc-text-muted);margin-top:4px;font-weight:500" id="ins-budget-proj"></div>
-        </div>
-      </div>
-      <button type="button" onclick="FCApp.openCategoryBudgetSheet('total', FCApp.getTotalBudgetLimit())"
-              style="width:100%;padding:7px;border-radius:10px;border:0.5px solid rgba(255,255,255,0.10);background:rgba(255,255,255,0.04);color:var(--fc-text-faint);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;margin-top:10px">
-        Edit Budget
-      </button>
-    </div>
-
-    <!-- ── SECTION 6b: TOP MERCHANTS — hidden, IDs kept for JS compat ─── -->
-    <div class="ins-merchants-card" id="top-merchants-card" style="margin:0 16px 10px;display:none" aria-hidden="true">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <div class="ins-card-eyebrow">Top Merchants</div>
-        <span id="top-merchants-period" style="font-size:9px;color:var(--fc-text-faint)">this month</span>
-      </div>
-      <div id="top-merchants-list" class="ins-merchants-list">
-        <div style="color:var(--fc-text-faint);text-align:center;padding:16px 0;font-size:11px">Connect a bank</div>
       </div>
     </div>
-
-    <!-- ── Subscription Hunter (hidden until detected) ──────────────── -->
-    <article class="fc-card" id="sub-hunter-card" style="display:none;margin:0 16px 10px">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-        <div style="width:36px;height:36px;border-radius:10px;background:rgba(255,69,58,0.12);border:1px solid rgba(255,69,58,0.2);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-danger)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-        </div>
-        <div style="flex:1;min-width:0">
-          <div style="display:flex;align-items:center;gap:6px">
-            <h2 class="fc-h3" style="margin:0">Subscriptions</h2>
-            <span id="sub-hunter-badge" class="fc-pill fc-pill--danger" style="font-size:10px;padding:2px 7px">0</span>
-          </div>
-          <div style="font-size:12px;color:var(--fc-text-faint);margin-top:1px">Recurring charges detected</div>
-        </div>
-      </div>
-      <div id="sub-hunter-list" style="display:flex;flex-direction:column;gap:4px"></div>
-    </article>
-
-    <!-- ── Budget Calendar (hidden, kept for JS compat) ─────────────── -->
-    <div style="display:none" aria-hidden="true">
-      <div id="budget-monthly-grid"></div>
-      <div id="budget-year-label"></div>
-      <div id="budget-annual-spend"></div>
-      <div id="budget-annual-limit"></div>
-      <div id="budget-annual-fill"></div>
-      <div id="budget-annual-meta"></div>
-    </div>
-
-    <!-- ── V3: MONTHLY INTELLIGENCE SUMMARY ──────────────────────── -->
-    <div id="ins-intel-summary" style="display:none"></div>
-
-    <!-- ── V3: BEHAVIOR ANALYSIS ─────────────────────────────────── -->
-    <div id="ins-behavior-analysis" style="display:none"></div>
-
-    <!-- ── V3: WINS ───────────────────────────────────────────────── -->
-    <div id="ins-wins" style="display:none"></div>
-
-    <!-- ── V3: RECOMMENDATIONS ───────────────────────────────────── -->
-    <div id="ins-recommendations" style="display:none"></div>
 
   <p style="font-size:10px;color:var(--fc-text-faint);text-align:center;padding:4px 24px 16px;margin:0;opacity:0.6">FlowCheck is not a bank · Not financial advice</p>
+
+  <!-- ── HIDDEN COMPAT: legacy IDs that existing JS functions still write to ── -->
+  <div style="display:none" aria-hidden="true">
+    <div id="insights-categories"></div>
+    <span id="insights-period-label"></span>
+    <span id="insights-cat-period"></span>
+    <div id="insights-total-spend"></div>
+    <div id="insights-budget-fill"></div>
+    <div id="insights-budget-remaining"></div>
+    <div id="insights-budget-pace"></div>
+    <div id="insights-budget-health"></div>
+    <div id="insights-budget-health-bar"></div>
+    <div id="insights-budget-pill"></div>
+    <div id="insights-spend-delta"></div>
+    <svg aria-hidden="true"><circle id="ins-spend-ring" cx="29" cy="29" r="23" fill="none" stroke-dasharray="145" stroke-dashoffset="145"/></svg>
+    <div id="ins-spend-pct"></div>
+    <svg aria-hidden="true"><circle id="ins-budget-ring" cx="32" cy="32" r="26" fill="none" stroke-dasharray="163" stroke-dashoffset="163"/></svg>
+    <div id="ins-budget-pct"></div>
+    <div id="ins-budget-month"></div>
+    <div id="ins-budget-days-left"></div>
+    <div id="ins-budget-proj"></div>
+    <svg aria-hidden="true"><circle id="ins-health-ring" cx="44" cy="44" r="36" fill="none" stroke-dasharray="226" stroke-dashoffset="226"/></svg>
+    <div id="ins-health-grade"></div><div id="ins-health-score-num"></div><div id="ins-health-subtitle"></div>
+    <div id="ins-health-trend"></div><div id="ins-ring-score"></div><div id="ins-health-badge"></div>
+    <div id="ins-bar-spending"></div><div id="ins-val-spending"></div>
+    <div id="ins-bar-savings"></div><div id="ins-val-savings"></div>
+    <div id="ins-bar-networth"></div><div id="ins-val-networth"></div>
+    <div id="ins-bar-debt"></div><div id="ins-val-debt"></div>
+    <div id="ins-bar-cashflow"></div><div id="ins-val-cashflow"></div>
+    <div id="ins-todays-move"><div id="ins-move-icon"></div><div id="ins-move-title"></div><div id="ins-move-sub"></div><div id="ins-move-btn"></div></div>
+    <div id="ins-monthly-row"><div id="ins-ms-income-val"></div><div id="ins-ms-income-delta"></div><div id="ins-ms-spend-val"></div><div id="ins-ms-spend-delta"></div><div id="ins-ms-cf-val"></div><div id="ins-ms-cf-delta"></div></div>
+    <div id="ins-rec-banner"><span id="ins-rec-text"></span></div>
+    <div id="ins-week-card"><span id="ins-week-period-label"></span><div id="ins-week-item-1"></div><div id="ins-week-item-2"></div><div id="ins-week-item-3"></div></div>
+    <div id="insights-nw-card"><div id="insights-nw-value"></div><span id="insights-nw-delta"></span><svg id="insights-nw-sparkline" aria-hidden="true"></svg><div id="insights-nw-range"></div></div>
+    <div id="cashflow-card"><div id="cashflow-timeline"></div><span id="cashflow-net"></span><div id="cashflow-forecast-placeholder"></div><div id="ins-cf-income"></div><div id="ins-cf-bills"></div><div id="ins-cf-projected"></div></div>
+    <div id="top-merchants-card"><div id="top-merchants-list"></div><span id="top-merchants-period"></span></div>
+    <article id="sub-hunter-card"><span id="sub-hunter-badge"></span><div id="sub-hunter-list"></div></article>
+    <div id="budget-monthly-grid"></div><div id="budget-year-label"></div>
+    <div id="budget-annual-spend"></div><div id="budget-annual-limit"></div>
+    <div id="budget-annual-fill"></div><div id="budget-annual-meta"></div>
+    <div id="ins-intel-summary"></div><div id="ins-behavior-analysis"></div>
+    <div id="ins-wins"></div><div id="ins-recommendations"></div>
+    <div id="savings-rate"></div><div id="savings-bar"></div><div id="savings-meta"></div>
+    <svg id="insights-donut-svg" aria-hidden="true"></svg>
+    <div id="insights-donut-center-amt"></div><div id="insights-donut-legend"></div>
+    <div id="ins-top-cat-name"></div><div id="ins-top-cat-amt"></div>
+    <div id="ins-health-card"></div>
+  </div>
+
   </div><!-- /view-insights -->
 
 
@@ -6040,144 +6206,262 @@ body {
 
   <style>
     /* ══════════════════════════════════════════════════════════════
-       WEALTH V2 — premium redesign
+       WEALTH V3 — Guided Progress System
        ══════════════════════════════════════════════════════════════ */
-    #view-wealth{overflow-y:scroll;-webkit-overflow-scrolling:touch;padding-bottom:100px;overscroll-behavior:contain}
-
-    .wealth-hero-v2{
-      padding:24px 20px 0;
-      background:linear-gradient(180deg,rgba(26,196,240,0.06) 0%,transparent 100%);
-      border-bottom:0.5px solid rgba(255,255,255,0.06);
+    #view-wealth {
+      overflow-y: scroll; -webkit-overflow-scrolling: touch;
+      padding-bottom: 100px; overscroll-behavior: contain;
+      /* Design tokens — dark mode defaults */
+      --wv-card: rgba(255,255,255,0.05);
+      --wv-border: rgba(255,255,255,0.07);
+      --wv-shadow: none;
+      --wv-t1: var(--fc-text);
+      --wv-t2: var(--fc-text-muted);
+      --wv-t3: var(--fc-text-faint);
+      --wv-divider: rgba(255,255,255,0.06);
+      --wv-green: #16A34A; --wv-green-soft: rgba(22,163,74,0.10);
+      --wv-blue: #147CFF;  --wv-blue-soft: rgba(20,124,255,0.10);
+      --wv-red: #EF4444;   --wv-red-soft: rgba(239,68,68,0.10);
+      --wv-purple: #7C3AED; --wv-purple-soft: rgba(124,58,237,0.10);
+      --wv-amber: #F59E0B;  --wv-amber-soft: rgba(245,158,11,0.10);
+      --wv-pill: rgba(255,255,255,0.06); --wv-pill-b: rgba(255,255,255,0.09);
     }
-    .wealth-hero-v2-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px}
-    .wealth-hero-v2-left{}
-    .wealth-hero-v2-tag{font-size:10px;font-weight:700;letter-spacing:.10em;text-transform:uppercase;color:rgba(255,255,255,0.30);margin-bottom:6px}
-    .wealth-hero-v2-amount{font-size:clamp(32px,9.5vw,44px);font-weight:900;letter-spacing:-0.05em;color:#fff;line-height:1;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:visible}
-    .wealth-hero-v2-delta{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px;margin-top:8px}
-    .wealth-hero-v2-stats{display:grid;grid-template-columns:1fr 0.5px 1fr;margin-top:16px;padding:14px 0}
-    .wealth-hero-v2-divider{background:rgba(255,255,255,0.09)}
-    .wealth-hero-v2-stat{text-align:center;padding:0 12px}
-    .wealth-hero-v2-stat-lbl{font-size:9px;font-weight:700;letter-spacing:.10em;text-transform:uppercase;color:rgba(255,255,255,0.30);margin-bottom:5px}
-    .wealth-hero-v2-stat-val{font-size:20px;font-weight:900;letter-spacing:-0.04em;font-variant-numeric:tabular-nums}
-    [data-theme="light"] .wealth-hero-v2-tag,
-    [data-theme="light"] .wealth-hero-v2-stat-lbl{color:rgba(13,27,46,0.45)}
-    [data-theme="light"] .wealth-hero-v2-amount{color:#0a1520}
+    [data-theme="light"] #view-wealth {
+      --wv-card: #FFFFFF; --wv-border: rgba(15,23,42,0.06);
+      --wv-shadow: 0 2px 12px rgba(15,23,42,0.06);
+      --wv-t1: #071426; --wv-t2: #64748B; --wv-t3: #94A3B8;
+      --wv-divider: rgba(15,23,42,0.05);
+      --wv-green-soft: #EAF8EF; --wv-blue-soft: #EAF6FF;
+      --wv-red-soft: #FEECEC;   --wv-purple-soft: #F3EDFF;
+      --wv-amber-soft: #FFF4DF;
+      --wv-pill: rgba(15,23,42,0.04); --wv-pill-b: rgba(15,23,42,0.08);
+    }
+    .wv-card { background:var(--wv-card); border:1px solid var(--wv-border); border-radius:22px; box-shadow:var(--wv-shadow); }
+    /* Sticky header */
+    .wv-bar { position:sticky; top:0; z-index:20; background:var(--fc-bg); padding:20px 20px 0; }
+    [data-theme="light"] .wv-bar { background:#F3F7FA; }
+    .wv-page-title { font-size:28px; font-weight:700; letter-spacing:-0.03em; color:var(--wv-t1); line-height:1; }
+    .wv-page-sub { font-size:13px; color:var(--wv-t2); margin-top:3px; margin-bottom:12px; }
+    /* Segmented control tabs */
+    .wv-tabs { display:flex; background:rgba(255,255,255,0.06); border-radius:12px; padding:3px; gap:2px; margin-top:12px; overflow:visible; }
+    .wv-tab { flex:1; padding:8px 4px; font-size:13px; font-weight:500; color:var(--wv-t2); background:transparent; border:none; border-radius:10px; cursor:pointer; font-family:inherit; -webkit-tap-highlight-color:transparent; transition:all 0.2s cubic-bezier(0.34,1.56,0.64,1); white-space:nowrap; text-align:center; }
+    .wv-tab.active { background:var(--fc-bg,#060e18); color:var(--wv-t1); font-weight:700; box-shadow:0 1px 6px rgba(0,0,0,0.25); }
+    [data-theme="light"] .wv-tabs { background:rgba(15,23,42,0.07); }
+    [data-theme="light"] .wv-tab.active { background:#ffffff; color:#071426; box-shadow:0 1px 4px rgba(15,23,42,0.14); }
+    /* Panels */
+    .wv-panel { display:none; }
+    .wv-panel.active { display:block; }
+    /* Period row */
+    .wv-period-row { display:flex; gap:4px; padding:16px 16px 0; overflow-x:auto; scrollbar-width:none; }
+    .wv-period-row::-webkit-scrollbar { display:none; }
+    .wv-period-btn { border:1px solid var(--wv-pill-b); background:var(--wv-pill); color:var(--wv-t3); font-size:11px; font-weight:700; padding:5px 12px; border-radius:8px; cursor:pointer; font-family:inherit; -webkit-tap-highlight-color:transparent; flex-shrink:0; transition:all .15s; }
+    .wv-period-btn.active { background:rgba(20,124,255,0.14); color:#147CFF; border-color:rgba(20,124,255,0.30); }
+    /* Section label */
+    .wv-lbl { font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--wv-t3); padding:18px 20px 8px; }
+    /* Position card */
+    .wv-position { margin:14px 16px 0; padding:20px; }
+    .wv-position-eyebrow { font-size:9px; font-weight:700; letter-spacing:.09em; text-transform:uppercase; color:var(--wv-t3); margin-bottom:6px; }
+    .wv-position-amount { font-size:36px; font-weight:600; letter-spacing:-0.03em; line-height:1; font-variant-numeric:tabular-nums; color:var(--wv-t1); }
+    .wv-position-delta { display:inline-flex; align-items:center; gap:4px; font-size:12px; font-weight:600; padding:4px 10px; border-radius:999px; margin-top:8px; }
+    .wv-position-spark { margin:14px -4px 0; overflow:hidden; }
+    .wv-position-stats { display:flex; margin-top:14px; padding-top:12px; border-top:1px solid var(--wv-divider); }
+    .wv-position-stat { flex:1; text-align:center; }
+    .wv-position-stat+.wv-position-stat { border-left:1px solid var(--wv-divider); }
+    .wv-stat-lbl { font-size:9px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--wv-t3); margin-bottom:4px; }
+    .wv-stat-val { font-size:17px; font-weight:600; font-variant-numeric:tabular-nums; line-height:1.1; }
+    .wv-position-tagline { margin-top:10px; font-size:12px; color:var(--wv-t3); }
+    /* Move card */
+    .wv-move { margin:12px 16px 0; padding:16px 18px 18px; }
+    .wv-move-eyebrow { font-size:9px; font-weight:700; letter-spacing:.09em; text-transform:uppercase; display:flex; align-items:center; gap:5px; margin-bottom:8px; }
+    .wv-move-title { font-size:16px; font-weight:600; color:var(--wv-t1); line-height:1.3; margin-bottom:5px; }
+    .wv-move-body { font-size:13px; color:var(--wv-t2); line-height:1.5; margin-bottom:14px; }
+    .wv-move-btns { display:flex; gap:8px; }
+    .wv-btn-p { flex:1; padding:12px; border-radius:14px; border:none; font-size:14px; font-weight:700; cursor:pointer; font-family:inherit; color:#fff; -webkit-tap-highlight-color:transparent; transition:opacity .12s; }
+    .wv-btn-p:active { opacity:.82; }
+    .wv-btn-s { padding:12px 18px; border-radius:14px; border:1.5px solid var(--wv-border); background:none; font-size:14px; font-weight:600; cursor:pointer; font-family:inherit; color:var(--wv-t2); -webkit-tap-highlight-color:transparent; transition:opacity .12s; }
+    .wv-btn-s:active { opacity:.7; }
+    /* Path card */
+    .wv-path { margin:12px 16px 0; padding:18px; }
+    .wv-path-eyebrow { font-size:9px; font-weight:700; letter-spacing:.09em; text-transform:uppercase; color:var(--wv-t3); margin-bottom:4px; }
+    .wv-path-title { font-size:15px; font-weight:700; color:var(--wv-t1); margin-bottom:2px; }
+    .wv-path-sub { font-size:12px; color:var(--wv-t2); margin-bottom:16px; }
+    .wv-path-track { display:flex; align-items:flex-start; }
+    .wv-path-node { display:flex; flex-direction:column; align-items:center; flex:1; }
+    .wv-path-dot { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:800; }
+    .wv-path-dot--done { background:var(--wv-green); color:#fff; }
+    .wv-path-dot--active { background:var(--wv-blue); color:#fff; box-shadow:0 0 0 3px rgba(20,124,255,0.22); }
+    .wv-path-dot--future { background:var(--wv-pill); border:1.5px solid var(--wv-pill-b); color:var(--wv-t3); }
+    .wv-path-conn { flex:1; height:2px; margin-top:13px; }
+    .wv-path-conn--done { background:var(--wv-green); }
+    .wv-path-conn--future { background:var(--wv-pill); }
+    .wv-path-lbl { font-size:9px; color:var(--wv-t3); text-align:center; margin-top:5px; line-height:1.3; max-width:52px; }
+    .wv-path-lbl--active { color:var(--wv-blue); font-weight:700; }
+    /* 3-col summary */
+    .wv-3col { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin:12px 16px 0; }
+    .wv-mini { background:var(--wv-card); border:1px solid var(--wv-border); border-radius:18px; box-shadow:var(--wv-shadow); padding:14px 12px 12px; cursor:pointer; -webkit-tap-highlight-color:transparent; transition:opacity .12s; }
+    .wv-mini:active { opacity:.72; }
+    .wv-mini-icon { width:32px; height:32px; border-radius:10px; display:flex; align-items:center; justify-content:center; margin-bottom:7px; }
+    .wv-mini-lbl { font-size:9px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--wv-t3); }
+    .wv-mini-val { font-size:14px; font-weight:600; color:var(--wv-t1); font-variant-numeric:tabular-nums; line-height:1.2; margin-top:2px; }
+    .wv-mini-sub { font-size:10px; color:var(--wv-t2); margin-top:1px; }
+    /* Progress card */
+    .wv-prog { margin:12px 16px 0; padding:16px 18px; }
+    .wv-prog-row { display:flex; align-items:center; gap:12px; padding:9px 0; border-bottom:1px solid var(--wv-divider); }
+    .wv-prog-row:last-child { border-bottom:none; }
+    .wv-prog-dot { width:32px; height:32px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .wv-prog-lbl { flex:1; font-size:13px; color:var(--wv-t2); }
+    .wv-prog-val { font-size:13px; font-weight:700; font-variant-numeric:tabular-nums; }
+    /* SAVINGS */
+    .wv-sav-hero { margin:16px 16px 0; padding:20px; display:flex; align-items:center; gap:16px; }
+    .wv-sav-hero-icon { width:52px; height:52px; border-radius:16px; background:var(--wv-green-soft); border:1px solid rgba(22,163,74,0.2); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .wv-sav-total { font-size:26px; font-weight:600; letter-spacing:-0.02em; color:var(--wv-t1); font-variant-numeric:tabular-nums; line-height:1; }
+    .wv-sav-sub { font-size:12px; color:var(--wv-t2); margin-top:3px; }
+    .wv-ef { margin:12px 16px 0; padding:18px; display:flex; align-items:center; gap:16px; }
+    .wv-ef-ring { position:relative; flex-shrink:0; }
+    .wv-ef-pct { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:600; color:var(--wv-t1); }
+    .wv-ef-title { font-size:15px; font-weight:700; color:var(--wv-t1); margin-bottom:3px; }
+    .wv-ef-sub { font-size:12px; color:var(--wv-t2); line-height:1.4; }
+    .wv-ef-bar { margin-top:10px; }
+    .wv-sav-move { margin:12px 16px 0; padding:15px 18px; border-left:3px solid var(--wv-green); }
+    .wv-sav-move-title { font-size:15px; font-weight:700; color:var(--wv-t1); margin-bottom:4px; }
+    .wv-sav-move-body { font-size:12px; color:var(--wv-t2); line-height:1.5; margin-bottom:12px; }
+    .wv-acct-card { margin:0 16px; }
+    .wv-acct-row { display:flex; align-items:center; gap:13px; padding:13px 16px; border-bottom:1px solid var(--wv-divider); }
+    .wv-acct-row:last-child { border-bottom:none; }
+    .wv-acct-icon { width:36px; height:36px; border-radius:11px; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:18px; }
+    .wv-acct-name { font-size:14px; font-weight:600; color:var(--wv-t1); }
+    .wv-acct-sub { font-size:11px; color:var(--wv-t3); margin-top:1px; }
+    .wv-acct-bal { font-size:15px; font-weight:700; color:var(--wv-t1); font-variant-numeric:tabular-nums; flex-shrink:0; }
+    .wv-plan-card { margin:12px 16px 0; padding:0 16px; }
+    .wv-plan-row { display:flex; justify-content:space-between; align-items:center; padding:11px 0; border-bottom:1px solid var(--wv-divider); }
+    .wv-plan-row:last-child { border-bottom:none; }
+    .wv-plan-k { font-size:13px; color:var(--wv-t2); }
+    .wv-plan-v { font-size:14px; font-weight:700; color:var(--wv-t1); font-variant-numeric:tabular-nums; }
+    /* DEBT */
+    .wv-debt-hero { margin:16px 16px 0; padding:20px; display:flex; align-items:center; gap:18px; }
+    .wv-debt-total { font-size:26px; font-weight:600; letter-spacing:-0.02em; color:var(--wv-t1); font-variant-numeric:tabular-nums; line-height:1; }
+    .wv-debt-total--urgent { color:var(--wv-red); }
+    .wv-debt-status { display:flex; align-items:center; gap:5px; font-size:12px; font-weight:600; margin-top:6px; }
+    .wv-debt-move { margin:12px 16px 0; padding:15px 18px; border-left:3px solid var(--wv-blue); }
+    .wv-debt-move-title { font-size:15px; font-weight:600; color:var(--wv-t1); margin-bottom:4px; }
+    .wv-debt-move-body { font-size:12px; color:var(--wv-t2); line-height:1.5; margin-bottom:12px; }
+    .wv-strategy { margin:12px 16px 0; padding:14px 16px; display:flex; align-items:center; gap:12px; }
+    .wv-strategy-lbl { font-size:14px; font-weight:700; color:var(--wv-t1); }
+    .wv-strategy-sub { font-size:12px; color:var(--wv-t2); line-height:1.4; margin-top:2px; }
+    .wv-strategy-change { padding:6px 12px; border-radius:10px; border:1px solid var(--wv-border); background:none; font-size:12px; font-weight:600; color:var(--wv-blue); cursor:pointer; font-family:inherit; flex-shrink:0; -webkit-tap-highlight-color:transparent; }
+    .wv-debt-card { margin:0 16px; }
+    .wv-debt-row { display:flex; align-items:center; gap:13px; padding:13px 16px; border-bottom:1px solid var(--wv-divider); cursor:pointer; -webkit-tap-highlight-color:transparent; transition:opacity .12s; }
+    .wv-debt-row:last-child { border-bottom:none; }
+    .wv-debt-row:active { opacity:.72; }
+    .wv-debt-icon { width:36px; height:36px; border-radius:11px; background:var(--wv-red-soft); display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:18px; }
+    .wv-debt-name { font-size:14px; font-weight:600; color:var(--wv-t1); }
+    .wv-debt-sub { font-size:11px; color:var(--wv-t3); margin-top:1px; }
+    .wv-debt-bal { font-size:15px; font-weight:600; color:var(--wv-t1); font-variant-numeric:tabular-nums; flex-shrink:0; }
+    .wv-debt-bal--urgent { color:var(--wv-red); }
+    .wv-debt-util { font-size:10px; margin-top:2px; }
+    .wv-impact { margin:12px 16px 0; padding:16px 18px; background:var(--wv-blue-soft); border:1px solid rgba(20,124,255,0.14); border-radius:18px; }
+    .wv-impact-title { font-size:13px; font-weight:700; color:var(--wv-t1); margin-bottom:5px; }
+    .wv-impact-body { font-size:12px; color:var(--wv-t2); line-height:1.5; }
+    /* GOALS */
+    .wv-goal-hero { margin:16px 16px 0; padding:20px; display:flex; align-items:center; gap:18px; }
+    .wv-goal-ring { position:relative; flex-shrink:0; }
+    .wv-goal-ring-pct { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:800; color:var(--wv-t1); }
+    .wv-goal-name { font-size:16px; font-weight:700; color:var(--wv-t1); margin-bottom:3px; }
+    .wv-goal-amounts { font-size:22px; font-weight:800; color:var(--wv-t1); font-variant-numeric:tabular-nums; line-height:1; }
+    .wv-goal-of { font-size:13px; color:var(--wv-t2); margin-top:3px; }
+    .wv-goal-pbar { margin-top:10px; }
+    .wv-goal-move { margin:12px 16px 0; padding:15px 18px; border-left:3px solid var(--wv-purple); }
+    .wv-goal-move-title { font-size:15px; font-weight:700; color:var(--wv-t1); margin-bottom:4px; }
+    .wv-goal-move-body { font-size:12px; color:var(--wv-t2); line-height:1.5; margin-bottom:12px; }
+    .wv-timeline { margin:12px 16px 0; padding:16px 18px; display:flex; }
+    .wv-timeline-col { flex:1; text-align:center; }
+    .wv-timeline-col+.wv-timeline-col { border-left:1px solid var(--wv-divider); }
+    .wv-timeline-lbl { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:var(--wv-t3); margin-bottom:4px; }
+    .wv-timeline-val { font-size:17px; font-weight:800; color:var(--wv-t1); font-variant-numeric:tabular-nums; }
+    .wv-timeline-sub { font-size:11px; color:var(--wv-t2); margin-top:2px; }
+    .wv-goal-list { margin:0 16px; }
+    .wv-goal-row { display:flex; align-items:center; gap:13px; padding:13px 16px; border-bottom:1px solid var(--wv-divider); cursor:pointer; -webkit-tap-highlight-color:transparent; transition:opacity .12s; }
+    .wv-goal-row:last-child { border-bottom:none; }
+    .wv-goal-row:active { opacity:.72; }
+    .wv-goal-row-icon { width:36px; height:36px; border-radius:11px; background:var(--wv-purple-soft); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .wv-goal-badge { font-size:10px; font-weight:700; padding:3px 8px; border-radius:999px; flex-shrink:0; }
+    .wv-badge-behind { background:var(--wv-amber-soft); color:var(--wv-amber); }
+    .wv-badge-track { background:var(--wv-green-soft); color:var(--wv-green); }
+    .wv-badge-done { background:var(--wv-green-soft); color:var(--wv-green); }
+    .wv-badge-new { background:var(--wv-pill); color:var(--wv-t3); }
+    .wv-templates { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:0 16px; }
+    .wv-tpl-btn { display:flex; flex-direction:column; align-items:center; gap:5px; padding:14px 8px; background:var(--wv-card); border:1px solid var(--wv-border); border-radius:16px; cursor:pointer; font-family:inherit; -webkit-tap-highlight-color:transparent; transition:opacity .12s; box-shadow:var(--wv-shadow); }
+    .wv-tpl-btn:active { opacity:.72; }
+    .wv-tpl-icon { width:36px; height:36px; border-radius:11px; display:flex; align-items:center; justify-content:center; font-size:20px; }
+    .wv-tpl-name { font-size:11px; font-weight:600; color:var(--wv-t1); text-align:center; }
+    /* Shared: progress bar */
+    .wv-pbar { height:5px; border-radius:99px; background:var(--wv-pill); overflow:hidden; }
+    .wv-pbar-fill { height:100%; border-radius:99px; transition:width .8s cubic-bezier(0.25,0.1,0.25,1); }
+    /* Shared: empty state */
+    .wv-empty { padding:44px 24px; text-align:center; }
+    .wv-empty-icon { width:56px; height:56px; border-radius:18px; background:var(--wv-pill); border:1px solid var(--wv-pill-b); display:flex; align-items:center; justify-content:center; margin:0 auto 14px; font-size:24px; }
+    .wv-empty-title { font-size:15px; font-weight:700; color:var(--wv-t1); margin-bottom:6px; }
+    .wv-empty-sub { font-size:13px; color:var(--wv-t2); line-height:1.5; margin-bottom:18px; }
+    .wv-empty-cta { padding:11px 22px; border-radius:14px; border:none; background:var(--wv-blue); color:#fff; font-size:14px; font-weight:700; cursor:pointer; font-family:inherit; -webkit-tap-highlight-color:transparent; }
+    /* Panel header */
+    .wv-panel-hdr { padding:18px 20px 4px; }
+    .wv-panel-h1 { font-size:26px; font-weight:900; letter-spacing:-0.03em; color:var(--wv-t1); line-height:1; }
+    .wv-panel-sub { font-size:13px; color:var(--wv-t2); margin-top:4px; }
 
-    /* Sparkline in hero */
-    #wealth-hero-sparkline-wrap{padding:2px 0 14px;overflow:hidden}
-
-    /* Time period scrubber inside hero */
-    .wealth-period-row{display:flex;gap:4px;padding:0 0 16px;overflow-x:auto;scrollbar-width:none}
-    .wealth-period-btn{border:none;background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.40);font-size:11px;font-weight:700;padding:5px 12px;border-radius:8px;cursor:pointer;font-family:inherit;transition:all .15s;-webkit-tap-highlight-color:transparent;flex-shrink:0}
-    .wealth-period-btn.active{background:rgba(26,196,240,0.16);color:var(--fc-accent);border:0.5px solid rgba(26,196,240,0.28)}
   </style>
 
-    <!-- ── Net Worth Hero v2 ── -->
-    <div class="wealth-hero-v2">
-      <div class="wealth-hero-v2-top">
-        <div class="wealth-hero-v2-left">
-          <div class="wealth-hero-v2-tag">Net Worth</div>
-          <div class="wealth-hero-v2-amount fc-amount" id="wealth-hero-nw">$0</div>
-          <div id="wealth-hero-delta" class="wealth-hero-v2-delta" style="display:none"></div>
-        </div>
-      </div>
-
-      <!-- NW sparkline chart -->
-      <div id="wealth-hero-sparkline-wrap">
-        <svg id="wealth-sparkline" viewBox="0 0 320 56" width="100%" height="56"
-             preserveAspectRatio="none" style="display:block;overflow:visible" aria-hidden="true">
-          <defs>
-            <linearGradient id="wealthSparkGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%"   stop-color="#1ac4f0" stop-opacity="0.35"/>
-              <stop offset="100%" stop-color="#1ac4f0" stop-opacity="0"/>
-            </linearGradient>
-          </defs>
-          <path id="wealth-sparkline-area" d="M0,50 L320,50 L320,56 L0,56 Z" fill="url(#wealthSparkGrad)"/>
-          <path id="wealth-sparkline-line" d="M0,50 L320,50" stroke="#1ac4f0" stroke-width="2" fill="none" stroke-linecap="round"/>
-          <circle id="wealth-sparkline-dot" cx="320" cy="50" r="3.5" fill="#1ac4f0"/>
-        </svg>
-      </div>
-
-      <!-- Period selector -->
-      <div class="wealth-period-row" role="tablist" aria-label="Net worth time period">
-        <button role="tab" data-period="1W" aria-selected="false" class="wealth-period-btn" onclick="FCApp.switchPeriod('1W')">1W</button>
-        <button role="tab" data-period="1M" aria-selected="true"  class="wealth-period-btn active" onclick="FCApp.switchPeriod('1M')">1M</button>
-        <button role="tab" data-period="3M" aria-selected="false" class="wealth-period-btn" onclick="FCApp.switchPeriod('3M')">3M</button>
-        <button role="tab" data-period="1Y" aria-selected="false" class="wealth-period-btn" onclick="FCApp.switchPeriod('1Y')">1Y</button>
-        <button role="tab" data-period="ALL" aria-selected="false" class="wealth-period-btn" onclick="FCApp.switchPeriod('ALL')">ALL</button>
-      </div>
-
-      <!-- Assets / Liabilities -->
-      <div class="wealth-hero-v2-stats">
-        <div class="wealth-hero-v2-stat">
-          <div class="wealth-hero-v2-stat-lbl">All Assets</div>
-          <div class="wealth-hero-v2-stat-val fc-amount" id="wealth-hero-assets" style="color:var(--fc-success)">$0</div>
-        </div>
-        <div class="wealth-hero-v2-divider"></div>
-        <div class="wealth-hero-v2-stat">
-          <div class="wealth-hero-v2-stat-lbl">Liabilities</div>
-          <div class="wealth-hero-v2-stat-val fc-amount" id="wealth-hero-liabilities" style="color:var(--fc-danger)">$0</div>
-        </div>
-      </div>
+  <!-- ── Sticky bar: Title + Tabs ─────────────────────── -->
+  <div class="wv-bar">
+    <div class="wv-page-title">Wealth</div>
+    <div class="wv-page-sub">Build progress over time.</div>
+    <div class="wv-tabs" role="tablist">
+      <button class="wv-tab active" id="wv-tab-overview" role="tab" aria-selected="true"  onclick="FCApp.switchWealthTab('overview')">Overview</button>
+      <button class="wv-tab"        id="wv-tab-savings"  role="tab" aria-selected="false" onclick="FCApp.switchWealthTab('savings')">Savings</button>
+      <button class="wv-tab"        id="wv-tab-debt"     role="tab" aria-selected="false" onclick="FCApp.switchWealthTab('debt')">Debt</button>
+      <button class="wv-tab"        id="wv-tab-goals"    role="tab" aria-selected="false" onclick="FCApp.switchWealthTab('goals')">Goals</button>
     </div>
+  </div>
 
-    <!-- Segment control -->
-    <div class="fc-wealth-segs" style="margin:16px 16px">
-      <button class="fc-wealth-seg fc-wealth-seg--active" data-seg="savings" onclick="FCApp.switchWealthSegment('savings')">Savings</button>
-      <button class="fc-wealth-seg" data-seg="goals" onclick="FCApp.switchWealthSegment('goals')">Goals</button>
-      <button class="fc-wealth-seg" data-seg="debt" onclick="FCApp.switchWealthSegment('debt')">Debt</button>
+  <!-- ── OVERVIEW PANEL ─────────────────────────────────── -->
+  <div class="wv-panel active" id="wv-panel-overview">
+    <div class="wv-period-row">
+      <button class="wv-period-btn active" data-period="1M"  onclick="FCApp.switchPeriod('1M')">1M</button>
+      <button class="wv-period-btn"        data-period="3M"  onclick="FCApp.switchPeriod('3M')">3M</button>
+      <button class="wv-period-btn"        data-period="1Y"  onclick="FCApp.switchPeriod('1Y')">1Y</button>
+      <button class="wv-period-btn"        data-period="ALL" onclick="FCApp.switchPeriod('ALL')">ALL</button>
     </div>
+    <div id="wv-overview-content"></div>
+  </div>
 
-    <!-- ── Savings panel ── -->
-    <div class="fc-wealth-panel fc-wealth-panel--active" id="wealth-panel-savings">
-      <div id="savings-summary"></div>
-      <div id="savings-list" style="padding-bottom:8px">
-        <!-- Default empty state — replaced by _renderWealth() when data loads -->
-        <div class="wealth-empty" id="savings-empty-default">
-          <div class="wealth-empty-icon">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(26,196,240,0.7)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="3"/><path d="M2 10h20"/></svg>
-          </div>
-          <div class="wealth-empty-title">No accounts yet</div>
-          <div class="wealth-empty-sub">Connect a bank to track your savings and investments</div>
-          <button onclick="FCApp.showBankSheet && FCApp.showBankSheet()" type="button"
-            style="margin-top:8px;padding:10px 22px;border-radius:999px;border:none;background:rgba(26,196,240,0.14);border:0.5px solid rgba(26,196,240,0.3);color:var(--fc-accent);font-size:13px;font-weight:700;font-family:inherit;cursor:pointer">
-            Connect Bank
-          </button>
-        </div>
-      </div>
-    </div>
+  <!-- ── SAVINGS PANEL ──────────────────────────────────── -->
+  <div class="wv-panel" id="wv-panel-savings">
+    <div id="wv-savings-content"></div>
+  </div>
 
-    <!-- ── Goals panel ── -->
-    <div class="fc-wealth-panel" id="wealth-panel-goals">
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:0 16px 12px">
-        <div style="font-size:12px;color:var(--fc-text-faint);font-weight:500">Track what you're saving toward</div>
-        <button class="fc-btn fc-btn--sm" style="background:rgba(26,196,240,0.12);color:var(--fc-accent);border:0.5px solid rgba(26,196,240,0.22);padding:6px 14px;font-size:12px"
-                onclick="FCApp.showAddGoalSheet()">+ Goal</button>
-      </div>
-      <div id="goals-list" style="padding-bottom:8px">
-        <div class="wealth-empty" id="goals-empty-default">
-          <div class="wealth-empty-icon">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(26,196,240,0.7)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
-          </div>
-          <div class="wealth-empty-title">No goals yet</div>
-          <div class="wealth-empty-sub">Set a savings target — emergency fund, vacation, anything</div>
-        </div>
-      </div>
-    </div>
+  <!-- ── DEBT PANEL ─────────────────────────────────────── -->
+  <div class="wv-panel" id="wv-panel-debt">
+    <div id="wv-debt-content"></div>
+  </div>
 
-    <!-- ── Debt panel ── -->
-    <div class="fc-wealth-panel" id="wealth-panel-debt">
-      <div id="debt-summary"></div>
-      <div id="debt-list" style="padding-bottom:8px">
-        <div class="wealth-empty" id="debt-empty-default">
-          <div class="wealth-empty-icon">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(26,196,240,0.7)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-          </div>
-          <div class="wealth-empty-title">No debts tracked</div>
-          <div class="wealth-empty-sub">Connect a credit card or loan to track your payoff progress</div>
-        </div>
-      </div>
-    </div>
+  <!-- ── GOALS PANEL ────────────────────────────────────── -->
+  <div class="wv-panel" id="wv-panel-goals">
+    <div id="wv-goals-content"></div>
+  </div>
+
+  <!-- HIDDEN COMPAT: legacy IDs kept so existing writers don't error -->
+  <div style="display:none" aria-hidden="true">
+    <div id="wealth-hero-nw"></div><div id="wealth-hero-assets"></div>
+    <div id="wealth-hero-liabilities"></div><div id="wealth-hero-delta"></div>
+    <svg><defs><linearGradient id="wealthSparkGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1ac4f0" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#1ac4f0" stop-opacity="0"/>
+    </linearGradient></defs>
+      <path id="wealth-sparkline-area"/><path id="wealth-sparkline-line"/><circle id="wealth-sparkline-dot"/>
+    </svg>
+    <div id="savings-summary"></div><div id="savings-list"></div>
+    <div id="debt-summary"></div><div id="debt-list"></div>
+    <div id="goals-list"></div>
+  </div>
 
   </div><!-- /view-wealth -->
 
@@ -6451,8 +6735,8 @@ body {
       Activity
     </a>
     <a class="fc-nav-item" role="tab" data-view="insights" aria-selected="false" tabindex="-1">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="12" width="4" height="9" rx="1"/><rect x="10" y="6" width="4" height="15" rx="1"/><rect x="17" y="3" width="4" height="18" rx="1"/></svg>
-      Insights
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+      Plan
     </a>
     <a class="fc-nav-item" role="tab" data-view="wealth" aria-selected="false" tabindex="-1">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
@@ -6831,7 +7115,7 @@ body {
       </div>
       <div class="fc-input-group" style="margin:0">
         <label class="fc-input-label">Category</label>
-        <select id="bill-category" class="fc-input" style="background:var(--fc-card-bg);color:white;-webkit-appearance:none">
+        <select id="bill-category" class="fc-input" style="background:var(--fc-card-bg);color:var(--fc-text);-webkit-appearance:none">
           <option value="Subscription">Subscription</option>
           <option value="Utilities">Utilities</option>
           <option value="Housing">Housing / Rent</option>
@@ -6843,12 +7127,22 @@ body {
       </div>
       <div class="fc-input-group" style="margin:0">
         <label class="fc-input-label">Frequency</label>
-        <select id="bill-frequency" class="fc-input" style="background:var(--fc-card-bg);color:white;-webkit-appearance:none">
+        <select id="bill-frequency" class="fc-input" style="background:var(--fc-card-bg);color:var(--fc-text);-webkit-appearance:none">
           <option value="monthly">Monthly</option>
           <option value="weekly">Weekly</option>
           <option value="annual">Annual</option>
           <option value="one-time">One-time</option>
         </select>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0">
+        <div>
+          <div class="fc-input-label" style="margin-bottom:1px">Auto Pay</div>
+          <div style="font-size:11px;color:var(--fc-text-faint)">Paid automatically each month</div>
+        </div>
+        <label class="fc-toggle">
+          <input type="checkbox" id="bill-autopay">
+          <span class="fc-toggle-track"></span>
+        </label>
       </div>
     </div>
     <div style="display:flex;gap:10px;margin-top:20px">
