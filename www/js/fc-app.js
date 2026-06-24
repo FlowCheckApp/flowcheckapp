@@ -1542,7 +1542,7 @@ window.FCApp = (function () {
     container.innerHTML = html;
   }
 
-  const _TAB_ORDER = ['home', 'activity', 'insights', 'wealth', 'settings'];
+  const _TAB_ORDER = ['home', 'activity', 'plan', 'wealth', 'more'];
   let _tabFadeTimer = null; // tracks the outgoing-view fade timeout so rapid taps can cancel it
 
   function switchTab(tabId) {
@@ -1599,15 +1599,33 @@ window.FCApp = (function () {
         _activityShowAll = false;
         if (_activitySegment === 'bills') _renderBillsList();
         else _renderActivity();
-      } else if (tabId === 'insights') {
-        if (target) target.scrollTop = 0;
-        _renderInsights();
-      } else if (tabId === 'goals') {
-        _renderGoals();
+      } else if (tabId === 'plan') {
+        _renderPlan();
       } else if (tabId === 'wealth') {
         _renderWealth();
+      } else if (tabId === 'more') {
+        _renderMore();
       } else if (tabId === 'settings') {
-        _renderSettings();
+        // Settings is now a sub-screen of More; keep compat for deep links
+        _renderMore();
+        _openSubScreen('settings');
+      } else if (tabId === 'insights') {
+        // Insights folded into Plan; redirect
+        switchTab('plan');
+      } else if (tabId === 'goals') {
+        _openSubScreen('goals');
+      } else if (tabId === 'bills') {
+        _openSubScreen('bills');
+      } else if (tabId === 'debt') {
+        _openSubScreen('debt');
+      } else if (tabId === 'investments') {
+        _openSubScreen('investments');
+      } else if (tabId === 'calendar') {
+        _openSubScreen('calendar');
+      } else if (tabId === 'reports') {
+        _openSubScreen('reports');
+      } else if (tabId === 'notifications') {
+        _openSubScreen('notifications');
       }
     });
 
@@ -8506,6 +8524,613 @@ window.FCApp = (function () {
 
   }
 
+  /* ─────────────────────────────────────────────────────────────
+     SUB-SCREEN NAVIGATION (Plan → Bills/Debt/Goals/etc.)
+     ───────────────────────────────────────────────────────────── */
+
+  function _openSubScreen(screenId) {
+    const el = document.getElementById('view-' + screenId);
+    if (!el) return;
+    // Hide all fc-view screens
+    document.querySelectorAll('.fc-view').forEach(v => v.classList.remove('active'));
+    // Hide nav (sub-screens are full-screen without tabs)
+    const nav = document.querySelector('.fc-nav');
+    if (nav) nav.style.display = 'none';
+    el.style.display = '';
+    el.classList.add('active');
+    el.scrollTop = 0;
+    // Render
+    requestAnimationFrame(() => {
+      if (screenId === 'bills')         _renderBillsScreen();
+      else if (screenId === 'debt')     _renderDebtScreen();
+      else if (screenId === 'goals')    _renderGoalsScreen();
+      else if (screenId === 'investments') _renderInvestments();
+      else if (screenId === 'calendar') _renderCalendar();
+      else if (screenId === 'reports')  _renderReports();
+      else if (screenId === 'notifications') _renderNotificationsScreen();
+      else if (screenId === 'settings') { _renderSettings(); }
+    });
+  }
+
+  function _closeSubScreen() {
+    const nav = document.querySelector('.fc-nav');
+    if (nav) nav.style.display = '';
+    ['bills','debt','goals','investments','calendar','reports','notifications','settings'].forEach(id => {
+      const el = document.getElementById('view-' + id);
+      if (el) { el.classList.remove('active'); el.style.display = 'none'; }
+    });
+    // switchTab early-returns if state.tab is already 'more', so force-show directly
+    state.tab = 'more';
+    document.querySelectorAll('.fc-nav-item').forEach(item => {
+      const active = item.dataset.view === 'more';
+      item.classList.toggle('active', active);
+      item.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+    const moreView = document.getElementById('view-more');
+    if (moreView) { moreView.classList.add('active'); moreView.scrollTop = 0; }
+    requestAnimationFrame(() => _renderMore());
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     RENDER: PLAN TAB
+     ───────────────────────────────────────────────────────────── */
+
+  function _renderPlan() {
+    const el = document.getElementById('plan-content');
+    if (!el) return;
+
+    const user   = state.user || {};
+    const bills  = (state.bills || []).filter(b => b.status !== 'paid')
+                     .sort((a, b) => new Date(a.due_date) - new Date(b.due_date))
+                     .slice(0, 3);
+    const goals  = (state.goals || []).slice(0, 2);
+    const txns   = state.transactions || [];
+    const budgets = state.budgets || {};
+
+    // Compute this-month spend
+    const now  = new Date();
+    const mStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthTxns = txns.filter(t => !t.isCredit && t.date && new Date(t.date) >= mStart);
+    const totalSpend = monthTxns.reduce((s, t) => s + (t.amount || 0), 0);
+    const totalIncome = txns.filter(t => t.isCredit && t.date && new Date(t.date) >= mStart)
+                            .reduce((s, t) => s + (t.amount || 0), 0);
+    const budgetLimit = Object.values(budgets).reduce((s, b) => s + (b.limit || 0), 0);
+    const budgetPct   = budgetLimit > 0 ? Math.min(100, Math.round((totalSpend / budgetLimit) * 100)) : 0;
+    const budgetColor = budgetPct >= 90 ? 'var(--fc-danger)' : budgetPct >= 70 ? 'var(--fc-warning)' : 'var(--fc-accent)';
+
+    // Total debt from credit accounts
+    const debtAccts = (state.accounts || []).filter(a => a.type === 'credit' || a.subtype === 'credit card');
+    const totalDebt = debtAccts.reduce((s, a) => s + Math.max(0, a.balance_current || 0), 0);
+
+    const _daysLeft = (dateStr) => {
+      if (!dateStr) return null;
+      const diff = Math.round((new Date(dateStr) - new Date()) / 86400000);
+      return diff;
+    };
+    const _billStatus = (days) => {
+      if (days === null) return { label: '', cls: 'fc-bill-status--ok' };
+      if (days < 0)  return { label: 'Overdue', cls: 'fc-bill-status--due' };
+      if (days === 0) return { label: 'Due today', cls: 'fc-bill-status--due' };
+      if (days <= 3)  return { label: `${days}d`, cls: 'fc-bill-status--soon' };
+      return { label: `${days}d`, cls: 'fc-bill-status--ok' };
+    };
+
+    const billRows = bills.map(b => {
+      const days = _daysLeft(b.due_date);
+      const st   = _billStatus(days);
+      const emoji = (b.category || '').toLowerCase().includes('rent') ? '🏠'
+                  : (b.category || '').toLowerCase().includes('util') ? '⚡'
+                  : (b.category || '').toLowerCase().includes('insur') ? '🛡️'
+                  : (b.category || '').toLowerCase().includes('sub') ? '📱'
+                  : '📋';
+      return `
+        <div class="fc-bill-row" onclick="FCApp._openSubScreen('bills')">
+          <div class="fc-bill-icon">${emoji}</div>
+          <div class="fc-bill-info">
+            <div class="fc-bill-name">${b.name || 'Bill'}</div>
+            <div class="fc-bill-due">Due ${b.due_date || ''}</div>
+          </div>
+          <div class="fc-bill-right">
+            <div class="fc-bill-amount">${FCData.formatCurrency(b.amount || 0)}</div>
+            <div class="fc-bill-status ${st.cls}">${st.label}</div>
+          </div>
+        </div>`;
+    }).join('');
+
+    const goalRows = goals.map(g => {
+      const pct = Math.min(100, Math.round(((g.current || 0) / Math.max(1, g.target || 1)) * 100));
+      return `
+        <div class="fc-goal-row" onclick="FCApp._openSubScreen('goals')">
+          <div class="fc-goal-header">
+            <div class="fc-goal-name">${g.name || 'Goal'}</div>
+            <div class="fc-goal-pct">${pct}%</div>
+          </div>
+          <div class="fc-progress fc-progress--green">
+            <div class="fc-progress-fill" style="width:${pct}%"></div>
+          </div>
+          <div class="fc-goal-amounts">
+            <span>${FCData.formatCurrency(g.current || 0)} saved</span>
+            <span>of ${FCData.formatCurrency(g.target || 0)}</span>
+          </div>
+        </div>`;
+    }).join('');
+
+    el.innerHTML = `
+      <!-- Header -->
+      <div style="padding-top:20px;margin-bottom:20px">
+        <div style="font-size:28px;font-weight:700;color:var(--fc-text);letter-spacing:-0.5px">Plan</div>
+        <div style="font-size:14px;color:var(--fc-text-muted);margin-top:2px">
+          ${now.toLocaleDateString('en-US',{month:'long',year:'numeric'})}
+        </div>
+      </div>
+
+      <!-- Cash flow summary row -->
+      <div class="fc-summary-row" style="margin-bottom:14px">
+        <div class="fc-metric-card">
+          <div class="fc-metric-label">Income</div>
+          <div class="fc-metric-value" style="color:var(--fc-success)">${FCData.formatCurrency(totalIncome)}</div>
+          <div class="fc-metric-sub">This month</div>
+        </div>
+        <div class="fc-metric-card">
+          <div class="fc-metric-label">Spent</div>
+          <div class="fc-metric-value">${FCData.formatCurrency(totalSpend)}</div>
+          <div class="fc-metric-sub">This month</div>
+        </div>
+      </div>
+
+      <!-- Budget section -->
+      <div class="fc-card" style="margin-bottom:14px;padding:18px 16px">
+        <div class="fc-section-header">
+          <div class="fc-section-title">Budget</div>
+          <div class="fc-section-action" onclick="FCApp._openBudgetWizard()">Edit →</div>
+        </div>
+        ${budgetLimit > 0 ? `
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">
+            <div style="font-size:22px;font-weight:700;color:var(--fc-text);font-variant-numeric:tabular-nums">${FCData.formatCurrency(totalSpend)}</div>
+            <div style="font-size:13px;color:var(--fc-text-muted)">of ${FCData.formatCurrency(budgetLimit)}</div>
+          </div>
+          <div class="fc-progress">
+            <div class="fc-progress-fill" style="width:${budgetPct}%;background:${budgetColor}"></div>
+          </div>
+          <div style="font-size:13px;color:var(--fc-text-muted);margin-top:8px">${budgetPct}% used · ${FCData.formatCurrency(Math.max(0, budgetLimit - totalSpend))} remaining</div>
+        ` : `
+          <div style="text-align:center;padding:16px 0">
+            <div style="font-size:32px;margin-bottom:8px">📊</div>
+            <div style="font-size:15px;font-weight:500;color:var(--fc-text);margin-bottom:4px">No budget set</div>
+            <div style="font-size:13px;color:var(--fc-text-muted);margin-bottom:14px">Set a monthly budget to track your spending.</div>
+            <button class="fc-btn fc-btn--primary fc-btn--sm" onclick="FCApp._openBudgetWizard()" style="width:auto;padding:10px 24px">Build Budget</button>
+          </div>
+        `}
+      </div>
+
+      <!-- Bills section -->
+      <div class="fc-card" style="margin-bottom:14px;padding:18px 16px">
+        <div class="fc-section-header">
+          <div class="fc-section-title">Upcoming Bills</div>
+          <div class="fc-section-action" onclick="FCApp._openSubScreen('bills')">See all →</div>
+        </div>
+        ${bills.length > 0 ? billRows : `
+          <div style="text-align:center;padding:12px 0;color:var(--fc-text-muted);font-size:14px">
+            No upcoming bills —
+            <span style="color:var(--fc-accent);cursor:pointer" onclick="FCApp.showBillSheet&&FCApp.showBillSheet()">add one</span>
+          </div>
+        `}
+      </div>
+
+      <!-- Debt section -->
+      ${totalDebt > 0 ? `
+      <div class="fc-card" style="margin-bottom:14px;padding:18px 16px">
+        <div class="fc-section-header">
+          <div class="fc-section-title">Debt</div>
+          <div class="fc-section-action" onclick="FCApp._openSubScreen('debt')">Details →</div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font-size:22px;font-weight:700;color:var(--fc-text);font-variant-numeric:tabular-nums">${FCData.formatCurrency(totalDebt)}</div>
+            <div style="font-size:13px;color:var(--fc-text-muted);margin-top:2px">Total owed · ${debtAccts.length} account${debtAccts.length!==1?'s':''}</div>
+          </div>
+          <div style="font-size:28px">💳</div>
+        </div>
+      </div>` : ''}
+
+      <!-- Savings Goals section -->
+      ${goals.length > 0 ? `
+      <div class="fc-card" style="margin-bottom:14px;padding:18px 16px">
+        <div class="fc-section-header">
+          <div class="fc-section-title">Savings Goals</div>
+          <div class="fc-section-action" onclick="FCApp._openSubScreen('goals')">See all →</div>
+        </div>
+        ${goalRows}
+      </div>` : `
+      <div class="fc-card" style="margin-bottom:14px;padding:18px 16px">
+        <div class="fc-section-header">
+          <div class="fc-section-title">Savings Goals</div>
+        </div>
+        <div style="text-align:center;padding:12px 0;color:var(--fc-text-muted);font-size:14px">
+          No goals yet —
+          <span style="color:var(--fc-accent);cursor:pointer" onclick="FCApp.showAddGoalSheet&&FCApp.showAddGoalSheet()">add one</span>
+        </div>
+      </div>`}
+    `;
+  }
+
+  function _openBudgetWizard() {
+    if (typeof _renderBudgetWizard === 'function') _renderBudgetWizard();
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     RENDER: MORE HUB
+     ───────────────────────────────────────────────────────────── */
+
+  function _renderMore() {
+    const el = document.getElementById('more-content');
+    if (!el) return;
+
+    const user = state.user || {};
+    const authUser = (typeof FCAuth !== 'undefined' && FCAuth.currentUser) ? FCAuth.currentUser() : null;
+    const displayName = user.name || authUser?.displayName || user.email?.split('@')[0] || 'User';
+    const displayEmail = authUser?.email || user.email || '';
+    const initial = displayName.charAt(0).toUpperCase();
+    const isPro = !!(user.is_pro || user.pro);
+
+    const row = (icon, label, sub, onclick, accentColor) => `
+      <div class="fc-settings-row" onclick="${onclick}" style="cursor:pointer">
+        <div class="fc-settings-icon" style="background:${accentColor}15">
+          ${icon}
+        </div>
+        <div style="flex:1;min-width:0">
+          <div class="fc-settings-label">${label}</div>
+          ${sub ? `<div style="font-size:12px;color:var(--fc-text-faint);margin-top:1px">${sub}</div>` : ''}
+        </div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+      </div>`;
+
+    el.innerHTML = `
+      <!-- Header -->
+      <div style="padding-top:20px;margin-bottom:20px">
+        <div style="font-size:28px;font-weight:700;color:var(--fc-text);letter-spacing:-0.5px">More</div>
+      </div>
+
+      <!-- Profile card -->
+      <div class="fc-card" style="padding:16px;margin-bottom:20px;cursor:pointer;display:flex;align-items:center;gap:14px"
+           onclick="FCApp._openSubScreen('settings')">
+        <div style="width:48px;height:48px;border-radius:50%;background:var(--fc-accent-soft);border:2px solid var(--fc-accent);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:var(--fc-accent);flex-shrink:0">${initial}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:17px;font-weight:600;color:var(--fc-text)">${displayName}</div>
+          <div style="font-size:13px;color:var(--fc-text-muted);margin-top:1px">${displayEmail}</div>
+        </div>
+        ${isPro ? `<span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;background:var(--fc-accent-soft);color:var(--fc-accent)">PRO</span>` : ''}
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+      </div>
+
+      <!-- Tools section -->
+      <div style="font-size:11px;font-weight:700;color:var(--fc-text-faint);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:8px;padding:0 4px">Tools</div>
+      <div class="fc-card" style="padding:4px 16px;margin-bottom:20px">
+        ${row('<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-accent)" stroke-width="2" stroke-linecap="round"><rect x="1" y="4" width="22" height="16" rx="2"/><path d="M1 10h22"/></svg>',
+          'Bills', 'Track upcoming payments', "FCApp._openSubScreen('bills')", 'var(--fc-accent)')}
+        ${row('<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2" stroke-linecap="round"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M8 12h8M12 8v8"/></svg>',
+          'Debt', 'Payoff tracker', "FCApp._openSubScreen('debt')", '#EF4444')}
+        ${row('<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#22C55E" stroke-width="2" stroke-linecap="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>',
+          'Savings Goals', 'Emergency fund & goals', "FCApp._openSubScreen('goals')", '#22C55E')}
+        ${row('<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2" stroke-linecap="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>',
+          'Investments', 'Portfolio overview', "FCApp._openSubScreen('investments')", '#2563EB')}
+        ${row('<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+          'Calendar', 'Bills & payment schedule', "FCApp._openSubScreen('calendar')", '#F59E0B')}
+        ${row('<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
+          'Reports', 'Export & analysis', "FCApp._openSubScreen('reports')", '#8B5CF6')}
+      </div>
+
+      <!-- Account section -->
+      <div style="font-size:11px;font-weight:700;color:var(--fc-text-faint);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:8px;padding:0 4px">Account</div>
+      <div class="fc-card" style="padding:4px 16px;margin-bottom:10px">
+        ${row('<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-muted)" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>',
+          'Settings', 'Profile, security, subscription', "FCApp._openSubScreen('settings')", 'var(--fc-text-muted)')}
+      </div>
+    `;
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     RENDER: BILLS SCREEN (stub — full build in Phase 4)
+     ───────────────────────────────────────────────────────────── */
+
+  function _renderBillsScreen() {
+    const el = document.getElementById('bills-screen-content');
+    if (!el) return;
+    const bills = (state.bills || []).sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
+    el.innerHTML = `
+      <div style="display:flex;align-items:center;gap:12px;padding:20px 0 16px">
+        <button onclick="FCApp._closeSubScreen()" style="background:none;border:none;cursor:pointer;padding:4px;color:var(--fc-accent);font-size:15px;font-weight:500">← Back</button>
+        <div style="flex:1;font-size:22px;font-weight:700;color:var(--fc-text)">Bills</div>
+        <button onclick="FCApp.showBillSheet&&FCApp.showBillSheet()" style="width:36px;height:36px;border-radius:50%;background:var(--fc-accent);border:none;cursor:pointer;color:#fff;font-size:22px;display:flex;align-items:center;justify-content:center;font-weight:300">+</button>
+      </div>
+      <div class="fc-card" style="padding:4px 16px">
+        ${bills.length > 0 ? bills.map(b => {
+          const days = Math.round((new Date(b.due_date) - new Date()) / 86400000);
+          const st = days < 0 ? 'Overdue' : days === 0 ? 'Due today' : `${days}d`;
+          const stCls = days <= 0 ? 'fc-bill-status--due' : days <= 3 ? 'fc-bill-status--soon' : 'fc-bill-status--ok';
+          return `<div class="fc-bill-row" onclick="FCApp.editBill&&FCApp.editBill('${b.id}')">
+            <div class="fc-bill-icon">📋</div>
+            <div class="fc-bill-info">
+              <div class="fc-bill-name">${b.name||'Bill'}</div>
+              <div class="fc-bill-due">${b.due_date||''} · ${b.frequency||'monthly'}</div>
+            </div>
+            <div class="fc-bill-right">
+              <div class="fc-bill-amount">${FCData.formatCurrency(b.amount||0)}</div>
+              <div class="fc-bill-status ${b.status==='paid'?'fc-bill-status--paid':stCls}">${b.status==='paid'?'Paid':st}</div>
+            </div>
+          </div>`;
+        }).join('') : `<div style="text-align:center;padding:32px 0;color:var(--fc-text-muted);font-size:15px">No bills yet</div>`}
+      </div>`;
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     RENDER: DEBT SCREEN (stub)
+     ───────────────────────────────────────────────────────────── */
+
+  function _renderDebtScreen() {
+    const el = document.getElementById('debt-screen-content');
+    if (!el) return;
+    const debtAccts = (state.accounts || []).filter(a => a.type === 'credit' || a.subtype === 'credit card');
+    const total = debtAccts.reduce((s, a) => s + Math.max(0, a.balance_current || 0), 0);
+    el.innerHTML = `
+      <div style="display:flex;align-items:center;gap:12px;padding:20px 0 16px">
+        <button onclick="FCApp._closeSubScreen()" style="background:none;border:none;cursor:pointer;padding:4px;color:var(--fc-accent);font-size:15px;font-weight:500">← Back</button>
+        <div style="flex:1;font-size:22px;font-weight:700;color:var(--fc-text)">Debt</div>
+      </div>
+      <div class="fc-metric-card" style="margin-bottom:14px;text-align:center;padding:24px">
+        <div class="fc-metric-label">Total Owed</div>
+        <div class="fc-metric-value" style="font-size:36px;color:var(--fc-danger)">${FCData.formatCurrency(total)}</div>
+        <div class="fc-metric-sub">${debtAccts.length} account${debtAccts.length!==1?'s':''}</div>
+      </div>
+      ${debtAccts.length > 0 ? `<div class="fc-card" style="padding:4px 16px">
+        ${debtAccts.map(a => `<div class="fc-bill-row">
+          <div class="fc-bill-icon">💳</div>
+          <div class="fc-bill-info">
+            <div class="fc-bill-name">${a.name||'Credit Card'}</div>
+            <div class="fc-bill-due">${a.institution_name||''}</div>
+          </div>
+          <div class="fc-bill-right">
+            <div class="fc-bill-amount" style="color:var(--fc-danger)">${FCData.formatCurrency(a.balance_current||0)}</div>
+          </div>
+        </div>`).join('')}
+      </div>` : `<div class="fc-card" style="padding:32px;text-align:center;color:var(--fc-text-muted)">No debt accounts connected</div>`}`;
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     RENDER: GOALS SCREEN (stub)
+     ───────────────────────────────────────────────────────────── */
+
+  function _renderGoalsScreen() {
+    const el = document.getElementById('goals-screen-content');
+    if (!el) return;
+    const goals = state.goals || [];
+    el.innerHTML = `
+      <div style="display:flex;align-items:center;gap:12px;padding:20px 0 16px">
+        <button onclick="FCApp._closeSubScreen()" style="background:none;border:none;cursor:pointer;padding:4px;color:var(--fc-accent);font-size:15px;font-weight:500">← Back</button>
+        <div style="flex:1;font-size:22px;font-weight:700;color:var(--fc-text)">Savings Goals</div>
+        <button onclick="FCApp.showAddGoalSheet&&FCApp.showAddGoalSheet()" style="width:36px;height:36px;border-radius:50%;background:var(--fc-accent);border:none;cursor:pointer;color:#fff;font-size:22px;display:flex;align-items:center;justify-content:center;font-weight:300">+</button>
+      </div>
+      ${goals.length > 0 ? `<div class="fc-card" style="padding:4px 16px">
+        ${goals.map(g => {
+          const pct = Math.min(100, Math.round(((g.current||0)/Math.max(1,g.target||1))*100));
+          return `<div class="fc-goal-row" onclick="FCApp.editGoal&&FCApp.editGoal('${g.id}')">
+            <div class="fc-goal-header">
+              <div class="fc-goal-name">${g.name||'Goal'}</div>
+              <div class="fc-goal-pct">${pct}%</div>
+            </div>
+            <div class="fc-progress fc-progress--green"><div class="fc-progress-fill" style="width:${pct}%"></div></div>
+            <div class="fc-goal-amounts"><span>${FCData.formatCurrency(g.current||0)}</span><span>of ${FCData.formatCurrency(g.target||0)}</span></div>
+          </div>`;
+        }).join('')}
+      </div>` : `<div class="fc-card" style="padding:32px;text-align:center;color:var(--fc-text-muted);font-size:15px">No goals yet — tap + to add one</div>`}`;
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     RENDER: INVESTMENTS SCREEN (stub)
+     ───────────────────────────────────────────────────────────── */
+
+  function _renderInvestments() {
+    const el = document.getElementById('investments-screen-content');
+    if (!el) return;
+    const invAccts = (state.accounts || []).filter(a => a.type === 'investment' || a.type === 'brokerage');
+    const total = invAccts.reduce((s, a) => s + (a.balance_current || 0), 0);
+    el.innerHTML = `
+      <div style="display:flex;align-items:center;gap:12px;padding:20px 0 16px">
+        <button onclick="FCApp._closeSubScreen()" style="background:none;border:none;cursor:pointer;padding:4px;color:var(--fc-accent);font-size:15px;font-weight:500">← Back</button>
+        <div style="flex:1;font-size:22px;font-weight:700;color:var(--fc-text)">Investments</div>
+      </div>
+      <div class="fc-metric-card" style="margin-bottom:14px;text-align:center;padding:24px">
+        <div class="fc-metric-label">Total Invested</div>
+        <div class="fc-metric-value" style="font-size:36px">${FCData.formatCurrency(total)}</div>
+        <div class="fc-metric-sub">${invAccts.length} account${invAccts.length!==1?'s':''}</div>
+      </div>
+      ${invAccts.length > 0 ? `<div class="fc-card" style="padding:4px 16px">
+        ${invAccts.map(a => `<div class="fc-bill-row">
+          <div class="fc-bill-icon">📈</div>
+          <div class="fc-bill-info">
+            <div class="fc-bill-name">${a.name||'Investment Account'}</div>
+            <div class="fc-bill-due">${a.institution_name||''}</div>
+          </div>
+          <div class="fc-bill-right">
+            <div class="fc-bill-amount">${FCData.formatCurrency(a.balance_current||0)}</div>
+          </div>
+        </div>`).join('')}
+      </div>` : `<div class="fc-card" style="padding:32px;text-align:center">
+        <div style="font-size:32px;margin-bottom:12px">📈</div>
+        <div style="font-size:15px;font-weight:600;color:var(--fc-text);margin-bottom:6px">No investment accounts</div>
+        <div style="font-size:13px;color:var(--fc-text-muted)">Connect a brokerage account to see your portfolio here.</div>
+      </div>`}`;
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     RENDER: CALENDAR SCREEN (stub)
+     ───────────────────────────────────────────────────────────── */
+
+  function _renderCalendar() {
+    const el = document.getElementById('calendar-screen-content');
+    if (!el) return;
+    const now = new Date();
+    const bills = state.bills || [];
+    // Build a set of bill due dates this month
+    const billDays = new Set(bills.map(b => b.due_date ? parseInt(b.due_date.split('-')[2]) : null).filter(Boolean));
+    const year = now.getFullYear(), month = now.getMonth();
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const today = now.getDate();
+    const monthName = now.toLocaleDateString('en-US', {month:'long', year:'numeric'});
+
+    let cells = '';
+    for (let i = 0; i < firstDay; i++) cells += `<div></div>`;
+    for (let d = 1; d <= daysInMonth; d++) {
+      const isToday = d === today;
+      const hasBill = billDays.has(d);
+      cells += `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 0">
+        <div style="width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:${isToday?700:400};
+          background:${isToday?'var(--fc-accent)':'transparent'};color:${isToday?'#fff':'var(--fc-text)'}">
+          ${d}
+        </div>
+        ${hasBill ? `<div style="width:5px;height:5px;border-radius:50%;background:var(--fc-warning)"></div>` : '<div style="width:5px;height:5px"></div>'}
+      </div>`;
+    }
+
+    const upcomingBills = bills.filter(b => b.status !== 'paid')
+      .sort((a, b) => new Date(a.due_date) - new Date(b.due_date)).slice(0, 5);
+
+    el.innerHTML = `
+      <div style="display:flex;align-items:center;gap:12px;padding:20px 0 16px">
+        <button onclick="FCApp._closeSubScreen()" style="background:none;border:none;cursor:pointer;padding:4px;color:var(--fc-accent);font-size:15px;font-weight:500">← Back</button>
+        <div style="flex:1;font-size:22px;font-weight:700;color:var(--fc-text)">Calendar</div>
+      </div>
+      <div class="fc-card" style="padding:16px;margin-bottom:14px">
+        <div style="font-size:16px;font-weight:600;color:var(--fc-text);text-align:center;margin-bottom:14px">${monthName}</div>
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);text-align:center;margin-bottom:4px">
+          ${['S','M','T','W','T','F','S'].map(d=>`<div style="font-size:11px;font-weight:600;color:var(--fc-text-faint);padding:4px 0">${d}</div>`).join('')}
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(7,1fr)">${cells}</div>
+      </div>
+      ${upcomingBills.length > 0 ? `
+      <div style="font-size:14px;font-weight:600;color:var(--fc-text-muted);margin-bottom:8px">Upcoming</div>
+      <div class="fc-card" style="padding:4px 16px">
+        ${upcomingBills.map(b => `<div class="fc-bill-row">
+          <div class="fc-bill-icon">📋</div>
+          <div class="fc-bill-info">
+            <div class="fc-bill-name">${b.name||'Bill'}</div>
+            <div class="fc-bill-due">${b.due_date||''}</div>
+          </div>
+          <div class="fc-bill-amount">${FCData.formatCurrency(b.amount||0)}</div>
+        </div>`).join('')}
+      </div>` : ''}`;
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     RENDER: REPORTS SCREEN (stub)
+     ───────────────────────────────────────────────────────────── */
+
+  function _renderReports() {
+    const el = document.getElementById('reports-screen-content');
+    if (!el) return;
+    const now = new Date();
+    const mStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const txns = state.transactions || [];
+    const income = txns.filter(t => t.isCredit && new Date(t.date) >= mStart).reduce((s,t)=>s+(t.amount||0),0);
+    const spend  = txns.filter(t => !t.isCredit && new Date(t.date) >= mStart).reduce((s,t)=>s+(t.amount||0),0);
+
+    const reportCards = [
+      { icon: '📊', title: 'Monthly Cash Flow', sub: `${FCData.formatCurrency(income)} in · ${FCData.formatCurrency(spend)} out`, color: 'var(--fc-accent)' },
+      { icon: '🎯', title: 'Budget vs Actual', sub: 'See how spending compares', color: '#22C55E' },
+      { icon: '🏷️', title: 'Spending by Category', sub: 'Where your money goes', color: '#F59E0B' },
+      { icon: '📋', title: 'Bills Report', sub: 'Paid & upcoming', color: '#EF4444' },
+      { icon: '📈', title: 'Net Worth History', sub: '12-month trend', color: '#2563EB' },
+    ].map(r => `
+      <div class="fc-report-card">
+        <div class="fc-report-icon" style="background:${r.color}15;font-size:22px">${r.icon}</div>
+        <div class="fc-report-body">
+          <div class="fc-report-title">${r.title}</div>
+          <div class="fc-report-sub">${r.sub}</div>
+        </div>
+        <svg class="fc-report-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+      </div>`).join('');
+
+    el.innerHTML = `
+      <div style="display:flex;align-items:center;gap:12px;padding:20px 0 16px">
+        <button onclick="FCApp._closeSubScreen()" style="background:none;border:none;cursor:pointer;padding:4px;color:var(--fc-accent);font-size:15px;font-weight:500">← Back</button>
+        <div style="flex:1;font-size:22px;font-weight:700;color:var(--fc-text)">Reports</div>
+      </div>
+      ${reportCards}
+      <div style="display:flex;gap:10px;margin-top:6px;margin-bottom:20px">
+        <button class="fc-btn fc-btn--ghost fc-btn--sm" style="flex:1" onclick="FCApp._exportCSV()">Export CSV</button>
+        <button class="fc-btn fc-btn--ghost fc-btn--sm" style="flex:1" onclick="window.print()">Export PDF</button>
+      </div>`;
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     RENDER: NOTIFICATIONS SCREEN (stub)
+     ───────────────────────────────────────────────────────────── */
+
+  function _renderNotificationsScreen() {
+    const el = document.getElementById('notifications-screen-content');
+    if (!el) return;
+    const notifs = (state.notifications || []).sort((a, b) => {
+      const ta = a.created_at?.seconds || 0, tb = b.created_at?.seconds || 0;
+      return tb - ta;
+    });
+    const unreadCount = notifs.filter(n => !n.read).length;
+
+    el.innerHTML = `
+      <div style="display:flex;align-items:center;gap:12px;padding:20px 0 16px">
+        <button onclick="FCApp._closeSubScreen()" style="background:none;border:none;cursor:pointer;padding:4px;color:var(--fc-accent);font-size:15px;font-weight:500">← Back</button>
+        <div style="flex:1;font-size:22px;font-weight:700;color:var(--fc-text)">Notifications</div>
+        ${unreadCount > 0 ? `<button onclick="FCApp._markAllNotifRead()" style="background:none;border:none;cursor:pointer;font-size:13px;color:var(--fc-accent)">Clear all</button>` : ''}
+      </div>
+      ${notifs.length > 0 ? `<div class="fc-card" style="padding:4px 16px">
+        ${notifs.map(n => `
+          <div class="fc-bill-row" style="opacity:${n.read?0.55:1}" onclick="FCApp._markNotifRead('${n.id}')">
+            <div class="fc-bill-icon" style="background:var(--fc-accent-soft)">🔔</div>
+            <div class="fc-bill-info">
+              <div class="fc-bill-name">${n.title||'Notification'}</div>
+              <div class="fc-bill-due">${n.body||''}</div>
+            </div>
+            ${!n.read ? `<div style="width:8px;height:8px;border-radius:50%;background:var(--fc-accent);flex-shrink:0"></div>` : ''}
+          </div>`).join('')}
+      </div>` : `<div class="fc-card" style="padding:48px;text-align:center">
+        <div style="font-size:32px;margin-bottom:12px">🎉</div>
+        <div style="font-size:16px;font-weight:600;color:var(--fc-text)">You're all caught up</div>
+        <div style="font-size:13px;color:var(--fc-text-muted);margin-top:6px">No new notifications</div>
+      </div>`}`;
+  }
+
+  function _markAllNotifRead() {
+    if (typeof FCData !== 'undefined' && FCData.markAllNotificationsRead) {
+      FCData.markAllNotificationsRead().catch(() => {});
+    }
+    (state.notifications || []).forEach(n => n.read = true);
+    _renderNotificationsScreen();
+  }
+
+  function _markNotifRead(id) {
+    if (typeof FCData !== 'undefined' && FCData.markNotificationRead) {
+      FCData.markNotificationRead(id).catch(() => {});
+    }
+    const n = (state.notifications || []).find(n => n.id === id);
+    if (n) n.read = true;
+    _renderNotificationsScreen();
+  }
+
+  function _exportCSV() {
+    const txns = state.transactions || [];
+    if (!txns.length) { showToast('No transactions to export', 'warning'); return; }
+    const header = 'Date,Name,Amount,Category,Type,Account\n';
+    const rows = txns.map(t =>
+      `${t.date||''},${JSON.stringify(t.name||'')},${t.isCredit?t.amount:-(t.amount||0)},${JSON.stringify((Array.isArray(t.category)?t.category[0]:t.category)||'')},${t.isCredit?'Income':'Expense'},${t.account_id||''}`
+    ).join('\n');
+    const blob = new Blob([header + rows], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `flowcheck-transactions-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click(); URL.revokeObjectURL(url);
+    showToast('CSV downloaded', 'success');
+  }
+
   function _openCancelSheet() {
     // On iOS, open the App Store subscription management page
     const cancelUrl = 'itms-apps://apps.apple.com/account/subscriptions';
@@ -12298,6 +12923,13 @@ window.FCApp = (function () {
     submitFeedback,
     _fbSetPriority,
     _fbToggleDiag,
+    // Sub-screen navigation (Plan / More hub)
+    _openSubScreen,
+    _closeSubScreen,
+    _exportCSV,
+    _markAllNotifRead,
+    _markNotifRead,
+    _openBudgetWizard,
   };
 })();
 
