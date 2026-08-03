@@ -47,6 +47,11 @@ service cloud.firestore {
         'fcm_token', 'fcm_updated_at',
         // Terms acceptance
         'terms_accepted_at', 'terms_version',
+        // Client UI state. Needed here as well as in the update list because
+        // FCData.updateUserField() falls back to set+merge when the doc is
+        // missing (fresh-signup race, or an Auth account whose doc was wiped),
+        // and Firestore routes a merge onto a non-existent doc to `allow create`.
+        'welcome_seen', 'milestones_seen', 'feedback_banner_dismissed',
         // Referral — stored at signup if the user entered a referral code.
         // 'referred_by' is just the code the new user TYPED IN; it grants
         // nothing on its own (the reward path reads referred_by_uid, which
@@ -79,6 +84,15 @@ service cloud.firestore {
         'tour_completed',
         'fcm_token', 'fcm_updated_at',
         'terms_accepted_at', 'terms_version',
+        // Client-only UI state, written via FCData.updateUserField(). These
+        // were missing here while the app already wrote them, so deploying
+        // without them silently permission-denied every write: the welcome
+        // screen and milestone popups would reshow on every launch and the
+        // feedback banner would never stay dismissed.
+        // Also present in allowedUserCreateFields() — updateUserField() falls
+        // back to set+merge when the doc is missing, which Firestore routes to
+        // `allow create`.
+        'welcome_seen', 'milestones_seen', 'feedback_banner_dismissed',
         // NOTE: 'referral_code' is deliberately NOT client-writable.
         // It is issued server-side by POST /api/referral/generate (Admin SDK,
         // which bypasses these rules). Allowing clients to set it let a user

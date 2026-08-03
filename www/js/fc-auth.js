@@ -384,10 +384,14 @@ window.FCAuth = (function () {
           uid:          userCred.user.uid,
           name:         userCred.user.displayName || 'FlowCheck User',
           email:        userCred.user.email || '',
+          // NO `pro` field: entitlements are backend-only and 'pro' is
+          // deliberately absent from allowedUserCreateFields(), which uses
+          // hasOnly() — including it makes the whole create fail and breaks
+          // social sign-up. Readers all do !!(user.is_pro || user.pro), so
+          // absent === false.
           created_at:   firebase.firestore.FieldValue.serverTimestamp(),
           last_seen:    firebase.firestore.FieldValue.serverTimestamp(),
           plaid_linked: false,
-          pro:          false,
           streak:       0,
         });
       }
@@ -431,10 +435,14 @@ window.FCAuth = (function () {
           uid:          userCred.user.uid,
           name:         userCred.user.displayName || 'FlowCheck User',
           email:        userCred.user.email || '',
+          // NO `pro` field: entitlements are backend-only and 'pro' is
+          // deliberately absent from allowedUserCreateFields(), which uses
+          // hasOnly() — including it makes the whole create fail and breaks
+          // social sign-up. Readers all do !!(user.is_pro || user.pro), so
+          // absent === false.
           created_at:   firebase.firestore.FieldValue.serverTimestamp(),
           last_seen:    firebase.firestore.FieldValue.serverTimestamp(),
           plaid_linked: false,
-          pro:          false,
           streak:       0,
         });
       }
