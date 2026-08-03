@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>Log in — FlowCheck</title>
   <meta name="robots" content="noindex">
-  <link rel="stylesheet" href="/css/site.css?v=3">
+  <link rel="stylesheet" href="/css/site.css?v=4">
 </head>
-<body>
+<body class="auth-body">
 
 <nav class="nav nav--scrolled">
   <div class="nav-inner">
@@ -21,43 +21,103 @@
   </div>
 </nav>
 
-<div class="auth-wrap">
-  <div class="auth-card">
-    <div class="auth-logo">
-      <div class="nav-logo-mark"><svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M4 4h16v3H4zm0 6h11v3H4zm0 6h7v3H4z"/></svg></div>
-      FlowCheck
+<div class="auth-split">
+
+  <!-- Left: what you're logging in to. Same Runway the app draws. -->
+  <aside class="auth-aside" aria-hidden="true">
+    <div class="auth-aside-inner">
+      <p class="rw-eyebrow">Your account</p>
+      <h2 class="auth-aside-h">Your runway,<br>on any screen.</h2>
+      <p class="auth-aside-p">Sign in to see the same numbers your app shows — balance to payday, bills, and what's safe to spend.</p>
+
+      <div class="hero-dashboard auth-aside-card">
+        <div class="rw-head">
+          <div>
+            <p class="rw-eyebrow">Runway</p>
+            <h3 class="rw-headline">You make it to payday</h3>
+            <p class="rw-sub">2 bills between now and then.</p>
+          </div>
+          <div class="rw-end">
+            <p class="rw-end-lbl">Payday</p>
+            <p class="rw-endpoint-value">$312</p>
+          </div>
+        </div>
+        <div class="rw-chart">
+          <svg viewBox="0 0 320 120" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="rwGradAuth" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.24"/>
+                <stop offset="100%" stop-color="var(--accent)" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <path class="rw-area" d="M0,15 L96,19 L104,64 L192,68 L200,74 L320,78 L320,110 L0,110 Z" fill="url(#rwGradAuth)"/>
+            <path class="rw-line" d="M0,15 L96,19 L104,64 L192,68 L200,74 L320,78" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <g class="rw-marker rw-marker--1"><circle cx="104" cy="64" r="3.6" fill="var(--bg-card)" stroke="var(--accent)" stroke-width="2"/></g>
+            <g class="rw-marker rw-marker--2"><circle cx="200" cy="74" r="3.6" fill="var(--bg-card)" stroke="var(--accent)" stroke-width="2"/></g>
+            <circle class="rw-endpoint" cx="320" cy="78" r="4.5" fill="var(--accent)"/>
+          </svg>
+          <div class="rw-axis"><span>Today</span><span>Payday</span></div>
+        </div>
+      </div>
+
+      <p class="auth-aside-trust">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        Read-only access · FlowCheck cannot move your money
+      </p>
     </div>
-    <h1 class="auth-h">Welcome back</h1>
-    <p class="auth-sub">Log in to manage your account and referrals.</p>
+  </aside>
 
-    <div id="auth-alert" class="auth-alert" role="alert"></div>
-
-    <button class="social-btn" id="btn-google" style="margin-bottom:14px">
-      <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-      Continue with Google
-    </button>
-
-    <div class="auth-or"><span>or</span></div>
-
-    <form class="auth-form" id="login-form" novalidate style="margin-top:14px">
-      <div class="form-group">
-        <label class="form-label" for="email">Email</label>
-        <input class="form-input" type="email" id="email" autocomplete="email" placeholder="you@example.com" required>
+  <!-- Right: the form -->
+  <main class="auth-main">
+    <div class="auth-card auth-card--wide">
+      <div class="auth-logo">
+        <div class="nav-logo-mark"><svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M4 4h16v3H4zm0 6h11v3H4zm0 6h7v3H4z"/></svg></div>
+        FlowCheck
       </div>
-      <div class="form-group">
-        <label class="form-label" for="password">Password</label>
-        <input class="form-input" type="password" id="password" autocomplete="current-password" placeholder="••••••••" required>
-      </div>
-      <div style="text-align:right">
-        <a href="#" class="forgot-link">Forgot password?</a>
-      </div>
-      <button type="submit" class="form-submit" id="submit-btn">Log in</button>
-    </form>
 
-    <div class="auth-link">
-      Don't have an account? <a href="/signup">Sign up free →</a>
+      <h1 class="auth-h">Welcome back</h1>
+      <p class="auth-sub">Sign in to your account.</p>
+
+      <div id="auth-alert" class="auth-alert" role="alert" aria-live="polite"></div>
+
+      <button class="social-btn" id="btn-google" type="button">
+        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+        Continue with Google
+      </button>
+
+      <div class="auth-or"><span>or</span></div>
+
+      <form class="auth-form" id="login-form" novalidate>
+        <div class="form-group">
+          <label class="form-label" for="email">Email</label>
+          <input class="form-input" type="email" id="email" name="email"
+                 autocomplete="email" inputmode="email" placeholder="you@example.com" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="password">Password</label>
+          <div class="pw-wrap">
+            <input class="form-input" type="password" id="password" name="password"
+                   autocomplete="current-password" placeholder="••••••••" required>
+            <button type="button" class="pw-toggle" id="pw-toggle"
+                    aria-label="Show password" aria-pressed="false">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="auth-row">
+          <button type="button" class="forgot-link" id="forgot-btn">Forgot password?</button>
+        </div>
+
+        <button type="submit" class="form-submit" id="submit-btn">Log in</button>
+      </form>
+
+      <div class="auth-link">
+        Don't have an account? <a href="/signup">Sign up free →</a>
+      </div>
     </div>
-  </div>
+  </main>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
@@ -65,27 +125,92 @@
 <script>
   firebase.initializeApp({ apiKey:'AIzaSyBtdCUetv2nRPiaZVt-_TXUtd77wxqLVSw', authDomain:'flowcheck-46570.firebaseapp.com', projectId:'flowcheck-46570', storageBucket:'flowcheck-46570.firebasestorage.app', messagingSenderId:'305596636244', appId:'1:305596636244:web:75dc2c36fbc8afc9bca1c1' });
   const auth = firebase.auth();
+
   auth.onAuthStateChanged(u => { if (u) window.location.href = '/account'; });
+
   const alertEl = document.getElementById('auth-alert');
-  function showErr(msg) { alertEl.textContent = msg; alertEl.className = 'auth-alert err'; }
-  function setLoad(v) { const b = document.getElementById('submit-btn'); b.disabled = v; b.textContent = v ? 'Logging in…' : 'Log in'; }
+  const emailEl = document.getElementById('email');
+  const passEl  = document.getElementById('password');
+  const submit  = document.getElementById('submit-btn');
+
+  function note(msg, kind) {
+    alertEl.textContent = msg;
+    alertEl.className = 'auth-alert ' + (kind || 'err');
+  }
+  function clearNote() { alertEl.textContent = ''; alertEl.className = 'auth-alert'; }
+  function setLoad(v, label) {
+    submit.disabled = v;
+    submit.textContent = v ? (label || 'Signing in…') : 'Log in';
+  }
+
+  /* Firebase error codes → plain language. 'auth/invalid-credential' is what
+     modern Firebase returns instead of wrong-password/user-not-found, and it
+     is deliberately vague server-side so the form must not claim which half
+     was wrong — that would be an account-enumeration oracle. */
+  const MSG = {
+    'auth/invalid-credential':  'That email and password don’t match.',
+    'auth/wrong-password':      'That email and password don’t match.',
+    'auth/user-not-found':      'That email and password don’t match.',
+    'auth/invalid-email':       'That doesn’t look like a valid email address.',
+    'auth/user-disabled':       'This account has been disabled. Contact support@getflowcheck.app.',
+    'auth/too-many-requests':   'Too many attempts. Wait a few minutes and try again.',
+    'auth/network-request-failed': 'Network problem — check your connection and try again.',
+  };
+
   document.getElementById('login-form').addEventListener('submit', async e => {
     e.preventDefault();
-    const email = document.getElementById('email').value.trim();
-    const pass  = document.getElementById('password').value;
-    if (!email || !pass) return;
+    clearNote();
+    const email = emailEl.value.trim();
+    const pass  = passEl.value;
+    if (!email || !pass) return note('Enter your email and password.');
     setLoad(true);
-    try { await auth.signInWithEmailAndPassword(email, pass); }
-    catch(err) {
+    try {
+      await auth.signInWithEmailAndPassword(email, pass);
+      setLoad(true, 'Signed in — loading…');
+    } catch (err) {
       setLoad(false);
-      const m = { 'auth/user-not-found':'No account with that email.','auth/wrong-password':'Incorrect password.','auth/invalid-email':'Invalid email address.','auth/too-many-requests':'Too many attempts. Try later.' };
-      showErr(m[err.code] || err.message);
+      note(MSG[err.code] || 'Could not sign you in. Please try again.');
     }
   });
+
   document.getElementById('btn-google').addEventListener('click', async () => {
+    clearNote();
     try { await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()); }
-    catch(e) { if (e.code !== 'auth/popup-closed-by-user') showErr('Google sign-in failed.'); }
+    catch (e) {
+      if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') return;
+      note(MSG[e.code] || 'Google sign-in failed. Try email instead.');
+    }
   });
+
+  /* Password reset. This was href="#" and did nothing, so anyone who forgot
+     their password had no recovery path on the web at all. Always reports
+     success — confirming whether an address has an account would leak account
+     existence to anyone who can load this page. */
+  document.getElementById('forgot-btn').addEventListener('click', async () => {
+    const email = emailEl.value.trim();
+    if (!email) { emailEl.focus(); return note('Enter your email above first, then tap Forgot password.'); }
+    try {
+      await auth.sendPasswordResetEmail(email);
+    } catch (e) {
+      if (e.code === 'auth/invalid-email') return note('That doesn’t look like a valid email address.');
+      if (e.code === 'auth/too-many-requests') return note('Too many attempts. Wait a few minutes and try again.');
+      /* fall through — do not reveal whether the account exists */
+    }
+    note('If an account exists for ' + email + ', a reset link is on its way.', 'ok');
+  });
+
+  /* Show/hide password */
+  const pwToggle = document.getElementById('pw-toggle');
+  pwToggle.addEventListener('click', () => {
+    const showing = passEl.type === 'text';
+    passEl.type = showing ? 'password' : 'text';
+    pwToggle.setAttribute('aria-pressed', String(!showing));
+    pwToggle.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+    pwToggle.classList.toggle('is-on', !showing);
+    passEl.focus();
+  });
+
+  [emailEl, passEl].forEach(el => el.addEventListener('input', clearNote));
 </script>
 <script src="/js/site.js"></script>
 </body>

@@ -847,3 +847,91 @@ h3 { font-size: clamp(18px, 2vw, 22px); font-weight: 700; }
 }
 .feature-icon svg { width: 22px; height: 22px; }
 .icon-box svg     { width: 20px; height: 20px; }
+
+/* ═══════════════════════════════════════════════════════════════
+   AUTH — split layout
+   Left panel shows what you are signing in to (the Runway); right
+   holds the form. Collapses to form-only on small screens, where the
+   aside is decoration and would just push the form below the fold.
+   ═══════════════════════════════════════════════════════════════ */
+.auth-body { min-height: 100vh; }
+
+.auth-split {
+  display: grid;
+  grid-template-columns: 1.05fr 1fr;
+  min-height: 100vh;
+  padding-top: var(--nav-h);
+}
+
+.auth-aside {
+  display: flex;
+  align-items: center;
+  padding: 48px 56px;
+  background:
+    radial-gradient(ellipse 90% 70% at 20% 20%, var(--accent-dim), transparent 70%),
+    var(--bg-inset);
+  border-right: 1px solid var(--border);
+}
+.auth-aside-inner { max-width: 460px; margin-left: auto; }
+.auth-aside-h {
+  font-size: clamp(28px, 2.6vw, 40px);
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  margin: 6px 0 12px;
+}
+.auth-aside-p {
+  color: var(--text-2);
+  font-size: 15px;
+  line-height: 1.55;
+  margin-bottom: 28px;
+  max-width: 40ch;
+}
+.auth-aside-card { margin-bottom: 22px; }
+.auth-aside-trust {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 12px; font-weight: 600; color: var(--text-3);
+}
+
+.auth-main {
+  display: flex; align-items: center; justify-content: center;
+  padding: 48px 24px;
+}
+.auth-card--wide { width: 100%; max-width: 420px; }
+
+/* Password field + reveal toggle */
+.pw-wrap { position: relative; }
+.pw-wrap .form-input { padding-right: 46px; }
+.pw-toggle {
+  position: absolute; top: 50%; right: 6px;
+  transform: translateY(-50%);
+  width: 34px; height: 34px;
+  display: flex; align-items: center; justify-content: center;
+  background: none; border: none; border-radius: 8px;
+  color: var(--text-3); cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+.pw-toggle:hover { color: var(--text-2); background: rgba(255,255,255,0.05); }
+.pw-toggle.is-on  { color: var(--accent); }
+
+.auth-row { display: flex; justify-content: flex-end; margin-top: -4px; }
+.forgot-link {
+  background: none; border: none; padding: 4px 0;
+  font-family: inherit; font-size: 13px; font-weight: 600;
+  color: var(--text-2); cursor: pointer;
+  transition: color 0.15s;
+}
+.forgot-link:hover { color: var(--accent); }
+
+/* Success variant — the reset-email confirmation is not an error */
+.auth-alert.ok {
+  display: block;
+  background: rgba(48,209,88,0.10);
+  border: 1px solid rgba(48,209,88,0.25);
+  color: var(--green);
+}
+
+@media (max-width: 900px) {
+  .auth-split { grid-template-columns: 1fr; min-height: 0; }
+  .auth-aside { display: none; }   /* form first — the aside is context, not content */
+  .auth-main  { padding: 32px 20px 56px; min-height: calc(100vh - var(--nav-h)); }
+}
