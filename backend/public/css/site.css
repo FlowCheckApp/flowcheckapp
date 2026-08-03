@@ -1190,3 +1190,32 @@ body.wa-locked { overflow: hidden; }
 .rw-endpoint-value--warn  { color: var(--red); }
 /* Modifier used purely as a selector hook for the bill rows. */
 .wa-list--bills { }
+
+/* ── Web app tabs — mirrors the phone's nav (Today/Plan/Money/Goals).
+      Sized to the app's canonical segment control: 12.5px, 36px tall. ── */
+.wa-tabs {
+  display: flex; gap: 4px; padding: 4px;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: 13px;
+}
+.wa-tab {
+  flex: 1; min-height: 36px;
+  border: none; border-radius: 10px;
+  background: transparent; color: var(--text-2);
+  font-family: inherit; font-size: 12.5px; font-weight: 700;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: background 0.16s ease, color 0.16s ease;
+}
+.wa-tab:hover { color: var(--text); }
+.wa-tab.is-active {
+  background: var(--bg-card);
+  color: var(--accent);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.35);
+}
+
+.wa-split { display: flex; gap: 24px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+.wa-split-l { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); }
+.wa-split-v { font-size: 17px; font-weight: 750; font-variant-numeric: tabular-nums; margin-top: 2px; }
+.wa-split-v.is-neg { color: var(--red); }
+.wa-total { font-size: 26px; font-weight: 800; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; margin: -4px 0 12px; }

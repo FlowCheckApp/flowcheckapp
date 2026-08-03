@@ -220,10 +220,52 @@
     };
   }
 
+  /* ── Net worth ────────────────────────────────────────────────────
+     Liability balances arrive from Plaid as positive numbers, so they are
+     subtracted rather than summed. Matches FCData.calcNetWorth and the two
+     inline copies in fc-app.js (~6760, ~8454). */
+  const LIABILITY_TYPES = new Set(['credit', 'loan']);
+
+  function netWorth(accounts) {
+    const all = accounts || [];
+    const assets = all
+      .filter(a => !LIABILITY_TYPES.has(String(a.type || '').toLowerCase()))
+      .reduce((s, a) => s + (a.balance_current || a.balance || 0), 0);
+    const liabilities = all
+      .filter(a => LIABILITY_TYPES.has(String(a.type || '').toLowerCase()))
+      .reduce((s, a) => s + Math.max(0, a.balance_current || a.balance || 0), 0);
+    return { assets, liabilities, net: assets - liabilities };
+  }
+
+  /* ── Spending by category, last N days ───────────────────────────
+     Transfers and loan/card payments are excluded via isSpendTxn — moving
+     money between your own accounts is not spending, and counting it makes
+     every total wrong. */
+  function spendingByCategory(transactions, days) {
+    const window = days || 30;
+    const cutoff = new Date(Date.now() - window * 86400000);
+    const totals = {};
+    (transactions || []).forEach(t => {
+      if (!isSpendTxn(t) || !t.date) return;
+      if (parseDateLocal(t.date) < cutoff) return;
+      const key = normalizeCategory(firstCategory(t)) || 'Other';
+      totals[key] = (totals[key] || 0) + Number(t.amount || 0);
+    });
+    return Object.entries(totals)
+      .map(([category, amount]) => ({ category, amount }))
+      .sort((a, b) => b.amount - a.amount);
+  }
+
+  /* Total spend over a window — the same number spendingByCategory sums to. */
+  function spendTotal(transactions, days) {
+    return spendingByCategory(transactions, days).reduce((s, c) => s + c.amount, 0);
+  }
+
   return {
     parseDateLocal, daysUntil,
     isSpendTxn, isIncomeTxn, normalizeCategory,
     spendableCash, predictNextPayday,
     buildSafeSpendProjection, buildRunwaySeries,
+    netWorth, spendingByCategory, spendTotal,
   };
 }));

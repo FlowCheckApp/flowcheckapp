@@ -241,13 +241,18 @@
         + '<p class="wa-empty-p">Connect a bank in the iPhone app and it appears here automatically.</p>'
         + '<a class="rw-cta" href="https://apps.apple.com/app/flowcheck/id6742624701">Get the app</a></section>';
     }
+    /* Plaid reports credit and loan balances as POSITIVE numbers — the amount
+       owed. Displaying that raw makes a $723 card balance read as +$723, i.e.
+       an asset. Negate liabilities for display, exactly as the phone does. */
+    const LIABILITY = new Set(['credit', 'loan']);
     const rows = state.accounts.map(a => {
-      const bal = a.balance_current != null ? a.balance_current : (a.balance || 0);
-      const neg = bal < 0;
+      const raw = a.balance_current != null ? a.balance_current : (a.balance || 0);
+      const isLiability = LIABILITY.has(String(a.type || '').toLowerCase());
+      const shown = isLiability ? -Math.abs(raw) : raw;
       return '<li class="wa-row">'
         + '<div class="wa-row-main"><span class="wa-row-name">' + esc(a.name || 'Account') + '</span>'
-        + '<span class="wa-row-sub">' + esc(a.institution || a.subtype || a.type || '') + '</span></div>'
-        + '<span class="wa-row-amt fc-amount' + (neg ? ' is-neg' : '') + '">' + esc(money(bal)) + '</span></li>';
+        + '<span class="wa-row-sub">' + esc(a.institution || a.institution_name || a.subtype || a.type || '') + '</span></div>'
+        + '<span class="wa-row-amt fc-amount' + (shown < 0 ? ' is-neg' : '') + '">' + esc(money(shown)) + '</span></li>';
     }).join('');
     return '<section class="fc-ui-card"><h3 class="wa-h">Accounts</h3><ul class="wa-list">' + rows + '</ul></section>';
   }
@@ -300,6 +305,72 @@
     return '<section class="fc-ui-card"><h3 class="wa-h">Goals</h3><ul class="wa-list">' + rows + '</ul></section>';
   }
 
+  /* ── Net worth (Money tab) ────────────────────────────────────── */
+  function netWorthCard() {
+    const nw = FCCore.netWorth(state.accounts);
+    return '<section class="fc-ui-card wa-safe">'
+      + '<p class="rw-eyebrow">Net worth</p>'
+      + '<p class="wa-safe-n fc-amount">' + esc(money(nw.net)) + '</p>'
+      + '<div class="wa-split">'
+      + '<div><p class="wa-split-l">Assets</p><p class="wa-split-v fc-amount">' + esc(money(nw.assets)) + '</p></div>'
+      + '<div><p class="wa-split-l">Liabilities</p><p class="wa-split-v fc-amount is-neg">' + esc(money(nw.liabilities)) + '</p></div>'
+      + '</div></section>';
+  }
+
+  /* ── Spending by category (Money tab) ─────────────────────────── */
+  function spendingCard() {
+    const cats = FCCore.spendingByCategory(state.transactions, 30);
+    if (!cats.length) {
+      return '<section class="fc-ui-card"><h3 class="wa-h">Spending — last 30 days</h3>'
+        + '<p class="wa-empty-p">No spending in the last 30 days.</p></section>';
+    }
+    const total = cats.reduce((s, c) => s + c.amount, 0);
+    const rows = cats.slice(0, 6).map(c => {
+      const pct = total > 0 ? Math.round((c.amount / total) * 100) : 0;
+      return '<li class="wa-goal">'
+        + '<div class="wa-goal-top"><span class="wa-row-name">' + esc(c.category) + '</span>'
+        + '<span class="wa-row-sub fc-amount">' + esc(money(c.amount)) + '</span></div>'
+        + '<div class="wa-bar"><i style="width:' + pct + '%"></i></div></li>';
+    }).join('');
+    return '<section class="fc-ui-card"><h3 class="wa-h">Spending — last 30 days</h3>'
+      + '<p class="wa-total fc-amount">' + esc(money(total)) + '</p>'
+      + '<ul class="wa-list">' + rows + '</ul></section>';
+  }
+
+  /* ── Tabs — same structure as the phone's nav ─────────────────── */
+  const TABS = [
+    { id: 'today', label: 'Today' },
+    { id: 'plan',  label: 'Plan'  },
+    { id: 'money', label: 'Money' },
+    { id: 'goals', label: 'Goals' },
+  ];
+  let activeTab = 'today';
+  try {
+    const t = new URLSearchParams(location.search).get('tab');
+    if (t && TABS.some(x => x.id === t)) activeTab = t;
+  } catch (_) {}
+
+  function tabBar() {
+    return '<nav class="wa-tabs" role="tablist">'
+      + TABS.map(t =>
+          '<button class="wa-tab' + (t.id === activeTab ? ' is-active' : '') + '" role="tab" '
+          + 'aria-selected="' + (t.id === activeTab) + '" data-tab="' + t.id + '" type="button">'
+          + esc(t.label) + '</button>').join('')
+      + '</nav>';
+  }
+
+  function tabBody(r) {
+    if (activeTab === 'plan')  return billsCard();
+    if (activeTab === 'money') return netWorthCard() + accountsCard() + spendingCard();
+    if (activeTab === 'goals') return goalsCard() || emptyGoals();
+    return runwayCard(r) + safeCard(r);   // today
+  }
+
+  function emptyGoals() {
+    return '<section class="fc-ui-card wa-empty"><h3 class="wa-h">No goals yet</h3>'
+      + '<p class="wa-empty-p">Set a savings goal in the iPhone app and track it here.</p></section>';
+  }
+
   /* ── Render ───────────────────────────────────────────────────── */
   function render() {
     const r = FCCore.buildRunwaySeries({
@@ -313,10 +384,8 @@
       '<header class="wa-head"><div><h1 class="wa-greet">' + esc(greet + ', ' + name) + '</h1>'
       + '<p class="wa-date">' + esc(new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })) + '</p></div>'
       + '<span class="wa-live">Same numbers as your phone</span></header>'
-      + runwayCard(r)
-      + safeCard(r)
-      + '<div class="wa-grid">' + accountsCard() + billsCard() + '</div>'
-      + goalsCard()
+      + tabBar()
+      + tabBody(r)
       + '<p class="wa-legal">FlowCheck is not a bank. Not financial advice.</p>';
 
     const el = document.getElementById('wa-content');
@@ -325,6 +394,22 @@
     document.getElementById('wa-loading').hidden = true;
     applyPrivacy();
   }
+
+  /* Tab switching. Updates the URL without a reload so a tab is linkable
+     and the back button behaves. */
+  document.addEventListener('click', (e) => {
+    const t = e.target.closest('.wa-tab');
+    if (!t) return;
+    const id = t.getAttribute('data-tab');
+    if (!id || id === activeTab) return;
+    activeTab = id;
+    try {
+      const u = new URL(location.href);
+      u.searchParams.set('tab', id);
+      history.replaceState(null, '', u);
+    } catch (_) {}
+    render();
+  });
 
   /* ── Bill paid/unpaid toggle ──────────────────────────────────── */
   document.addEventListener('click', async (e) => {
@@ -361,7 +446,7 @@
       accounts: [
         { id: 'a1', name: 'Demo Checking', institution: 'Demo Bank', type: 'depository', subtype: 'checking', balance_current: 3241.87 },
         { id: 'a2', name: 'Demo Savings',  institution: 'Demo Bank', type: 'depository', subtype: 'savings',  balance_current: 12800 },
-        { id: 'a3', name: 'Demo Visa',     institution: 'Demo Bank', type: 'credit',     subtype: 'credit card', balance_current: -723.55 },
+        { id: 'a3', name: 'Demo Visa',     institution: 'Demo Bank', type: 'credit',     subtype: 'credit card', balance_current: 723.55 },
       ],
       bills: [
         { id: 'b1', name: 'Rent',     amount: 1200,  due_date: iso(6),  status: 'upcoming' },
