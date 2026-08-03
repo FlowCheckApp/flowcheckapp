@@ -17,26 +17,41 @@
 }
 
 :root {
+  /* ─────────────────────────────────────────────────────────────
+     These are the APP's dark-theme tokens, copied verbatim from
+     www/css/flowcheck-design-system.css. The site previously ran its
+     own near-miss palette (#1ac4f0 sky vs the app's #1ac4f0 cyan,
+     #07101e vs #060e18) so the marketing site and the product did not
+     look like the same company. Keep these in sync with the app — if
+     you change one, change both.
+     ───────────────────────────────────────────────────────────── */
+
   /* Backgrounds */
-  --bg:       #07101e;
-  --bg-card:  #0c1a2e;
-  --bg-inset: #0a1525;
+  --bg:       #060e18;
+  --bg-card:  #0b1826;
+  --bg-inset: #0a1520;
 
   /* Borders */
   --border:   rgba(255,255,255,0.07);
   --border-2: rgba(255,255,255,0.13);
 
   /* Text */
-  --text:     #eef2f7;
-  --text-2:   rgba(255,255,255,0.52);
-  --text-3:   rgba(255,255,255,0.25);
+  --text:     #f0f6ff;
+  --text-2:   rgba(240,246,255,0.58);
+  --text-3:   rgba(240,246,255,0.36);
 
-  /* Accent — ONE color, used sparingly */
-  --accent:      #0ea5e9;
-  --accent-dim:  rgba(14,165,233,0.10);
-  --accent-dim2: rgba(14,165,233,0.18);
-  --green:    #22c55e;
-  --red:      #ef4444;
+  /* Accent — the app's cyan */
+  --accent:      #1ac4f0;
+  --accent-dim:  rgba(26,196,240,0.12);
+  --accent-dim2: rgba(26,196,240,0.22);
+  --accent-glow: rgba(26,196,240,0.40);
+  --electric:    #2563eb;
+  --green:    #30d158;
+  --red:      #ff453a;
+  --amber:    #ff9f0a;
+
+  /* Card radius — matches the app's --fc-r-xl */
+  --r-card:   24px;
 
   /* Sizing */
   --nav-h:   64px;
@@ -72,7 +87,7 @@ h3 { font-size: clamp(18px, 2vw, 22px); font-weight: 700; }
 /* Single gradient — the hero accent word. NOT used anywhere else. */
 .accent { color: var(--accent); }
 .accent-gradient {
-  background: linear-gradient(135deg, #38bdf8, #0ea5e9 40%, #6366f1);
+  background: linear-gradient(135deg, #38d5ff, #1ac4f0 40%, #2563eb);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -92,7 +107,7 @@ h3 { font-size: clamp(18px, 2vw, 22px); font-weight: 700; }
   border-bottom: 1px solid transparent;
 }
 .nav--scrolled {
-  background: rgba(7,16,30,0.88);
+  background: rgba(6,14,24,0.88);
   backdrop-filter: blur(24px) saturate(160%);
   -webkit-backdrop-filter: blur(24px) saturate(160%);
   border-bottom-color: var(--border);
@@ -112,7 +127,7 @@ h3 { font-size: clamp(18px, 2vw, 22px); font-weight: 700; }
   width: 30px; height: 30px; border-radius: 8px;
   background: var(--accent);
   display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 0 0 1px rgba(14,165,233,0.4), 0 4px 16px rgba(14,165,233,0.25);
+  box-shadow: 0 0 0 1px rgba(26,196,240,0.4), 0 4px 16px rgba(26,196,240,0.25);
 }
 .nav-links {
   display: flex; align-items: center; gap: 28px; flex: 1;
@@ -135,7 +150,7 @@ h3 { font-size: clamp(18px, 2vw, 22px); font-weight: 700; }
   font-size: 13px; font-weight: 700; letter-spacing: -0.01em;
   padding: 9px 18px; border-radius: 9px; text-decoration: none;
   transition: opacity 0.15s, transform 0.15s;
-  box-shadow: 0 2px 12px rgba(14,165,233,0.35);
+  box-shadow: 0 2px 12px rgba(26,196,240,0.35);
 }
 .nav-cta:hover { opacity: 0.88; transform: translateY(-1px); }
 
@@ -146,7 +161,7 @@ h3 { font-size: clamp(18px, 2vw, 22px); font-weight: 700; }
 .nav-links--open {
   display: flex !important; flex-direction: column;
   position: fixed; top: var(--nav-h); left: 0; right: 0;
-  background: rgba(7,16,30,0.97); backdrop-filter: blur(20px);
+  background: rgba(6,14,24,0.97); backdrop-filter: blur(20px);
   padding: 16px 24px 24px; gap: 0;
   border-bottom: 1px solid var(--border);
 }
@@ -175,9 +190,9 @@ h3 { font-size: clamp(18px, 2vw, 22px); font-weight: 700; }
 
 .btn-primary {
   background: var(--accent); color: #fff;
-  box-shadow: 0 4px 20px rgba(14,165,233,0.30);
+  box-shadow: 0 4px 20px rgba(26,196,240,0.30);
 }
-.btn-primary:hover { box-shadow: 0 8px 28px rgba(14,165,233,0.40); }
+.btn-primary:hover { box-shadow: 0 8px 28px rgba(26,196,240,0.40); }
 
 .btn-secondary {
   background: rgba(255,255,255,0.07);
@@ -249,7 +264,7 @@ h3 { font-size: clamp(18px, 2vw, 22px); font-weight: 700; }
   content: '';
   position: absolute; top: -160px; left: 50%; transform: translateX(-60%);
   width: 900px; height: 700px; border-radius: 50%;
-  background: radial-gradient(ellipse, rgba(14,165,233,0.07) 0%, transparent 65%);
+  background: radial-gradient(ellipse, rgba(26,196,240,0.07) 0%, transparent 65%);
   filter: blur(80px); pointer-events: none;
 }
 .hero-layout {
@@ -307,11 +322,11 @@ h3 { font-size: clamp(18px, 2vw, 22px); font-weight: 700; }
 }
 .dash-bar {
   flex: 1; border-radius: 4px 4px 0 0;
-  background: rgba(14,165,233,0.18);
+  background: rgba(26,196,240,0.18);
   transition: background 0.2s;
 }
 .dash-bar.active { background: var(--accent); }
-.dash-bar:hover  { background: rgba(14,165,233,0.40); }
+.dash-bar:hover  { background: rgba(26,196,240,0.40); }
 
 .dash-divider { height: 1px; background: var(--border); margin: 0 0 16px; }
 
@@ -328,8 +343,8 @@ h3 { font-size: clamp(18px, 2vw, 22px); font-weight: 700; }
 
 /* Insight callout */
 .dash-insight {
-  background: rgba(14,165,233,0.07);
-  border: 1px solid rgba(14,165,233,0.15);
+  background: rgba(26,196,240,0.07);
+  border: 1px solid rgba(26,196,240,0.15);
   border-radius: 10px; padding: 11px 14px;
   display: flex; align-items: flex-start; gap: 10px;
 }
@@ -400,7 +415,7 @@ h3 { font-size: clamp(18px, 2vw, 22px); font-weight: 700; }
   border-radius: var(--radius-lg); padding: 36px; position: relative;
 }
 .plan--featured {
-  border-color: rgba(14,165,233,0.30);
+  border-color: rgba(26,196,240,0.30);
   background: linear-gradient(160deg, #0d1e35, #0a1828);
 }
 .plan--featured::before {
@@ -473,7 +488,7 @@ h3 { font-size: clamp(18px, 2vw, 22px); font-weight: 700; }
 .auth-wrap::before {
   content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%);
   width: 600px; height: 400px; border-radius: 50%;
-  background: radial-gradient(ellipse, rgba(14,165,233,0.06) 0%, transparent 70%);
+  background: radial-gradient(ellipse, rgba(26,196,240,0.06) 0%, transparent 70%);
   filter: blur(60px); pointer-events: none;
 }
 .auth-card {
@@ -503,7 +518,7 @@ h3 { font-size: clamp(18px, 2vw, 22px); font-weight: 700; }
   background: var(--accent); color: #fff;
   font-size: 16px; font-weight: 700; font-family: inherit;
   cursor: pointer; transition: opacity 0.15s, transform 0.15s;
-  box-shadow: 0 4px 16px rgba(14,165,233,0.30);
+  box-shadow: 0 4px 16px rgba(26,196,240,0.30);
 }
 .form-submit:hover { opacity: 0.9; transform: translateY(-1px); }
 .form-submit:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
@@ -534,7 +549,7 @@ h3 { font-size: clamp(18px, 2vw, 22px); font-weight: 700; }
 .page-hero::before {
   content: ''; position: absolute; top: -80px; left: 50%; transform: translateX(-50%);
   width: 600px; height: 500px; border-radius: 50%;
-  background: radial-gradient(ellipse, rgba(14,165,233,0.07) 0%, transparent 65%);
+  background: radial-gradient(ellipse, rgba(26,196,240,0.07) 0%, transparent 65%);
   filter: blur(70px); pointer-events: none;
 }
 .page-hero h1 { max-width: 680px; margin: 0 auto 16px; }
@@ -579,7 +594,7 @@ h3 { font-size: clamp(18px, 2vw, 22px); font-weight: 700; }
 .compare th:not(:first-child) { text-align: center; }
 .compare td { padding: 13px 20px; font-size: 14px; border-bottom: 1px solid rgba(255,255,255,0.03); }
 .compare td:not(:first-child) { text-align: center; }
-.compare .c-pro { background: rgba(14,165,233,0.03); }
+.compare .c-pro { background: rgba(26,196,240,0.03); }
 .compare .c-th-pro { color: var(--accent); }
 .compare .yes { color: var(--green); font-size: 16px; }
 .compare .no  { color: var(--border-2); font-size: 16px; }
@@ -625,7 +640,12 @@ h3 { font-size: clamp(18px, 2vw, 22px); font-weight: 700; }
   .hero-sub { margin: 0 auto 36px; }
   .hero-actions { justify-content: center; }
   .hero-proof { justify-content: center; }
-  .hero-dashboard { order: -1; }
+  /* Claim before evidence. This used to be `order: -1`, which put the
+     chart above the headline on mobile — the visitor met a chart with no
+     idea what it was answering. The old bar-chart card was decorative so
+     it did not matter much; the Runway makes a specific claim, and a
+     claim has to arrive after the sentence that sets it up. */
+  .hero-dashboard { order: 0; margin-top: 8px; }
   .features-grid { grid-template-columns: 1fr 1fr; }
   .testimonial-grid { grid-template-columns: 1fr; }
   .security-grid { grid-template-columns: 1fr; }
@@ -649,3 +669,110 @@ h3 { font-size: clamp(18px, 2vw, 22px); font-weight: 700; }
 .mt-8  { margin-top: 32px; }
 .mt-12 { margin-top: 48px; }
 .full-w { width: 100%; }
+
+/* ═══════════════════════════════════════════════════════════════
+   THE RUNWAY — hero visual
+   The app's signature chart, rendered on the marketing site with the
+   same visual language (line + gradient area + dashed bill markers +
+   endpoint dot) so the site and the product read as one thing.
+   Geometry mirrors _renderRunwayCard() in www/js/fc-app.js.
+   ═══════════════════════════════════════════════════════════════ */
+
+.hero-dashboard {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-card);
+  padding: 20px 20px 16px;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.45);
+}
+
+.rw-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.rw-head > div:first-child { flex: 1 1 auto; min-width: 0; }
+
+.rw-eyebrow {
+  margin: 0 0 4px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.rw-headline {
+  margin: 0 0 3px;
+  font-size: 20px;
+  font-weight: 750;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+.rw-sub { margin: 0; font-size: 12.5px; line-height: 1.35; color: var(--text-2); }
+
+.rw-end { text-align: right; flex-shrink: 0; }
+.rw-end-lbl {
+  margin: 0 0 2px;
+  font-size: 9px; font-weight: 700; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--text-3);
+}
+.rw-endpoint-value {
+  margin: 0;
+  font-size: 26px; font-weight: 800; letter-spacing: -0.03em;
+  color: var(--text); font-variant-numeric: tabular-nums;
+}
+
+.rw-chart { position: relative; }
+.rw-chart svg { display: block; width: 100%; height: 120px; overflow: visible; }
+
+.rw-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 10px; font-weight: 600; color: var(--text-3);
+}
+.rw-axis-bill { color: var(--text-3); opacity: 0.8; }
+
+.rw-trust {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  margin-top: 14px; padding-top: 12px;
+  border-top: 1px solid var(--border);
+  font-size: 11px; font-weight: 600; color: var(--text-3);
+}
+.rw-trust svg { flex-shrink: 0; opacity: 0.85; }
+
+/* ── The draw-on. The line traces itself, the bill markers land only
+      after the line has passed them, then the endpoint pops. It reads
+      as the app working the answer out. ── */
+.rw-line {
+  stroke-dasharray: 460;
+  stroke-dashoffset: 460;
+  animation: rwDraw 1.15s cubic-bezier(0.22, 1, 0.36, 1) 0.25s forwards;
+}
+@keyframes rwDraw { to { stroke-dashoffset: 0; } }
+
+.rw-area     { opacity: 0; animation: rwFade 0.7s ease 0.55s forwards; }
+.rw-marker   { opacity: 0; animation: rwFade 0.35s ease forwards; }
+.rw-marker--1 { animation-delay: 0.62s; }
+.rw-marker--2 { animation-delay: 0.92s; }
+.rw-endpoint { opacity: 0; animation: rwPop 0.5s cubic-bezier(0.34,1.56,0.64,1) 1.25s forwards; }
+@keyframes rwFade { to { opacity: 1; } }
+@keyframes rwPop  { from { opacity: 0; r: 1; } to { opacity: 1; r: 4.5; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .rw-line { animation: none; stroke-dashoffset: 0; }
+  .rw-area, .rw-marker, .rw-endpoint { animation: none; opacity: 1; }
+}
+
+/* The hero headline is a three-line spoken sentence, not a slogan — the
+   global h1 clamp (up to 76px) blew past its own <br> breaks and re-wrapped
+   it into five ragged lines. Scale it to the copy. */
+.hero h1 {
+  font-size: clamp(34px, 4.4vw, 54px);
+  line-height: 1.06;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}

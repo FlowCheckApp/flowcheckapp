@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <title>FlowCheck — Know where your money goes.</title>
-  <meta name="description" content="FlowCheck connects your bank accounts, tracks every transaction, and gives you AI-powered insights to take control of your finances.">
+  <title>FlowCheck — Know what you can spend today.</title>
+  <meta name="description" content="Every other money app shows you the past. FlowCheck answers the present: one number you can trust, and a straight answer before you spend. Free on iOS.">
   <link rel="canonical" href="https://getflowcheck.app">
-  <meta property="og:title"       content="FlowCheck — Know where your money goes.">
-  <meta property="og:description" content="Connect your accounts, track spending, and get AI insights. Free on iOS.">
+  <meta property="og:title"       content="FlowCheck — Know what you can spend today.">
+  <meta property="og:description" content="Every other money app shows you the past. FlowCheck answers the present: one number you can trust, and a straight answer before you spend. Free on iOS.">
   <meta property="og:image"       content="https://getflowcheck.app/flowcheck-icon.png">
   <meta property="og:url"         content="https://getflowcheck.app">
   <meta property="og:type"        content="website">
@@ -130,7 +130,7 @@
       stroke-dasharray: 565;
       stroke-dashoffset: 565;
       transition: stroke-dashoffset 1.6s cubic-bezier(.22,1,.36,1);
-      filter: drop-shadow(0 0 8px rgba(14,165,233,0.5));
+      filter: drop-shadow(0 0 8px rgba(26,196,240,0.5));
     }
     .gauge-center {
       position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
@@ -143,7 +143,7 @@
     .score-bar-wrap { width: 120px; height: 6px; background: rgba(255,255,255,0.07); border-radius: 3px; overflow: hidden; }
     .score-bar { height: 100%; border-radius: 3px; width: 0; transition: width 1.2s cubic-bezier(.22,1,.36,1); }
 
-    /* AI Insight cards */
+    /* Insight cards */
     .insights-row {
       display: flex; gap: 14px; overflow-x: auto; padding-bottom: 8px;
       scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;
@@ -185,7 +185,7 @@
       opacity: 0; transition: opacity 1s .5s;
     }
     .milestone-dot {
-      fill: var(--accent); filter: drop-shadow(0 0 6px rgba(14,165,233,0.7));
+      fill: var(--accent); filter: drop-shadow(0 0 6px rgba(26,196,240,0.7));
       opacity: 0; transition: opacity .3s;
     }
     .milestone-label { font-size: 10px; fill: var(--text-3); }
@@ -248,8 +248,8 @@
           <span class="hero-rating-stars">★★★★★</span>
           <span>Free on the App Store</span>
         </div>
-        <h1 class="ha-1">Stop guessing<br>where your money<br><span class="accent-gradient">actually goes.</span></h1>
-        <p class="hero-sub ha-2">FlowCheck connects your accounts, tracks every dollar, and gives you AI-powered insights — so you always know exactly where you stand.</p>
+        <h1 class="ha-1">Rent's in nine days.<br>You have $340.<br><span class="accent-gradient">Can you say yes?</span></h1>
+        <p class="hero-sub ha-2">Every other money app shows you the past. FlowCheck answers the present — one number you can trust, and a straight answer before you spend.</p>
         <div class="hero-actions ha-3">
           <a href="https://apps.apple.com/app/flowcheck/id6742624701" class="badge-appstore">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
@@ -263,39 +263,50 @@
         </div>
       </div>
 
-      <!-- Animated dashboard card -->
+      <!-- The Runway — the app's signature visual, drawn on load.
+           Balance day by day from today to payday, dipping at each bill.
+           This is the product's actual thesis as a picture. -->
       <div class="hero-dashboard ha-2" id="hero-dash">
-        <div class="dash-header">
+        <div class="rw-head">
           <div>
-            <div class="dash-title">Net Worth</div>
-            <div class="dash-nw" id="hero-nw">$0</div>
+            <p class="rw-eyebrow">Runway</p>
+            <h2 class="rw-headline">You make it to payday</h2>
+            <p class="rw-sub">2 bills between now and then.</p>
           </div>
-          <div class="dash-delta"><span class="live-dot"></span>↑ +$1,240</div>
+          <div class="rw-end">
+            <p class="rw-end-lbl">Payday</p>
+            <p class="rw-endpoint-value" id="hero-endpoint">$0</p>
+          </div>
         </div>
-        <div class="dash-chart" id="hero-bars">
-          <div class="dash-bar" style="height:35%"></div>
-          <div class="dash-bar" style="height:48%"></div>
-          <div class="dash-bar" style="height:42%"></div>
-          <div class="dash-bar" style="height:60%"></div>
-          <div class="dash-bar" style="height:55%"></div>
-          <div class="dash-bar" style="height:70%"></div>
-          <div class="dash-bar" style="height:65%"></div>
-          <div class="dash-bar" style="height:80%"></div>
-          <div class="dash-bar" style="height:75%"></div>
-          <div class="dash-bar" style="height:88%"></div>
-          <div class="dash-bar" style="height:82%"></div>
-          <div class="dash-bar active" style="height:100%"></div>
+
+        <div class="rw-chart">
+          <svg viewBox="0 0 320 120" preserveAspectRatio="none" aria-hidden="true">
+            <defs>
+              <linearGradient id="rwGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%"   stop-color="var(--accent)" stop-opacity="0.24"/>
+                <stop offset="100%" stop-color="var(--accent)" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <path class="rw-area" d="M0,15 L96,19 L104,64 L192,68 L200,74 L320,78 L320,110 L0,110 Z" fill="url(#rwGrad)"/>
+            <path class="rw-line" d="M0,15 L96,19 L104,64 L192,68 L200,74 L320,78"
+                  fill="none" stroke="var(--accent)" stroke-width="2.5"
+                  stroke-linecap="round" stroke-linejoin="round"/>
+            <g class="rw-marker rw-marker--1">
+              <line x1="104" y1="64" x2="104" y2="110" stroke="var(--border-2)" stroke-width="1" stroke-dasharray="2 3"/>
+              <circle cx="104" cy="64" r="3.6" fill="var(--bg-card)" stroke="var(--accent)" stroke-width="2"/>
+            </g>
+            <g class="rw-marker rw-marker--2">
+              <line x1="200" y1="74" x2="200" y2="110" stroke="var(--border-2)" stroke-width="1" stroke-dasharray="2 3"/>
+              <circle cx="200" cy="74" r="3.6" fill="var(--bg-card)" stroke="var(--accent)" stroke-width="2"/>
+            </g>
+            <circle class="rw-endpoint" cx="320" cy="78" r="4.5" fill="var(--accent)"/>
+          </svg>
+          <div class="rw-axis"><span>Today</span><span class="rw-axis-bill">Rent</span><span class="rw-axis-bill">Electric</span><span>Payday</span></div>
         </div>
-        <div class="dash-divider"></div>
-        <div class="dash-txns" id="hero-txns" style="opacity:0;transition:opacity .5s .8s">
-          <div class="dash-txn"><div class="dash-txn-dot" style="background:#ef4444"></div><div class="dash-txn-info"><div class="dash-txn-name">Rent</div><div class="dash-txn-date">Today</div></div><div class="dash-txn-amt" style="color:#ef4444">−$1,500</div></div>
-          <div class="dash-txn"><div class="dash-txn-dot" style="background:#22c55e"></div><div class="dash-txn-info"><div class="dash-txn-name">Payroll Deposit</div><div class="dash-txn-date">Yesterday</div></div><div class="dash-txn-amt" style="color:#22c55e">+$3,200</div></div>
-          <div class="dash-txn"><div class="dash-txn-dot" style="background:rgba(255,255,255,.2)"></div><div class="dash-txn-info"><div class="dash-txn-name">Starbucks</div><div class="dash-txn-date">2 days ago</div></div><div class="dash-txn-amt" style="color:rgba(255,255,255,.5)">−$6.45</div></div>
-          <div class="dash-txn"><div class="dash-txn-dot" style="background:rgba(255,255,255,.2)"></div><div class="dash-txn-info"><div class="dash-txn-name">Amazon</div><div class="dash-txn-date">3 days ago</div></div><div class="dash-txn-amt" style="color:rgba(255,255,255,.5)">−$47.99</div></div>
-        </div>
-        <div class="dash-insight">
-          <div class="dash-insight-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg></div>
-          <div><div class="dash-insight-label">AI Insight</div><div class="dash-insight-text">You're 23% under your dining budget — on track to save $74 this month.</div></div>
+
+        <div class="rw-trust">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <span>Read-only · Bank-grade encryption</span>
         </div>
       </div>
     </div>
@@ -371,11 +382,11 @@
           <div class="txn-row" style="animation-delay:.05s"><div class="txn-icon" style="background:rgba(239,68,68,.12)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div><div><div class="txn-name">Rent</div><div class="txn-cat">Housing</div></div><div class="txn-amt" style="color:#ef4444">−$1,500</div><div class="txn-date">Today</div></div>
           <div class="txn-row" style="animation-delay:.10s"><div class="txn-icon" style="background:rgba(34,197,94,.12)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div><div><div class="txn-name">Payroll</div><div class="txn-cat">Income</div></div><div class="txn-amt" style="color:#22c55e">+$3,200</div><div class="txn-date">Yesterday</div></div>
           <div class="txn-row" style="animation-delay:.15s"><div class="txn-icon" style="background:rgba(251,191,36,.10)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2" stroke-linecap="round"><path d="M17 8h2a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-2v4l-4-4H9a1.994 1.994 0 0 1-1.414-.586"/></svg></div><div><div class="txn-name">Starbucks</div><div class="txn-cat">Dining</div></div><div class="txn-amt" style="color:rgba(255,255,255,.55)">−$6.45</div><div class="txn-date">2d ago</div></div>
-          <div class="txn-row" style="animation-delay:.20s"><div class="txn-icon" style="background:rgba(14,165,233,.10)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0ea5e9" stroke-width="2" stroke-linecap="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/></svg></div><div><div class="txn-name">Amazon</div><div class="txn-cat">Shopping</div></div><div class="txn-amt" style="color:rgba(255,255,255,.55)">−$47.99</div><div class="txn-date">3d ago</div></div>
+          <div class="txn-row" style="animation-delay:.20s"><div class="txn-icon" style="background:rgba(26,196,240,.10)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1ac4f0" stroke-width="2" stroke-linecap="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/></svg></div><div><div class="txn-name">Amazon</div><div class="txn-cat">Shopping</div></div><div class="txn-amt" style="color:rgba(255,255,255,.55)">−$47.99</div><div class="txn-date">3d ago</div></div>
         </div>
       </div>
-      <div style="padding:16px 20px;background:rgba(14,165,233,0.06);border-left:3px solid var(--accent)">
-        <div style="font-size:10px;color:var(--accent);font-weight:700;letter-spacing:.08em;margin-bottom:4px">AI INSIGHT</div>
+      <div style="padding:16px 20px;background:rgba(26,196,240,0.06);border-left:3px solid var(--accent)">
+        <div style="font-size:10px;color:var(--accent);font-weight:700;letter-spacing:.08em;margin-bottom:4px">INSIGHT</div>
         <div style="font-size:13px;color:rgba(255,255,255,.75)">Dining spend is up 28% vs. last month — that's an extra $74. Reducing to 3 restaurants/week saves $200/year.</div>
       </div>
     </div>
@@ -403,7 +414,7 @@
         <div class="txn-row" style="animation-delay:.04s"><div class="txn-icon" style="background:rgba(239,68,68,.12)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div><div><div class="txn-name">Rent</div><div class="txn-cat">Bills · Jun 1</div></div><div class="txn-amt" style="color:#ef4444">−$1,500.00</div></div>
         <div class="txn-row" style="animation-delay:.08s"><div class="txn-icon" style="background:rgba(34,197,94,.12)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div><div><div class="txn-name">Payroll Deposit</div><div class="txn-cat">Income · May 31</div></div><div class="txn-amt" style="color:#22c55e">+$3,200.00</div></div>
         <div class="txn-row" style="animation-delay:.12s"><div class="txn-icon" style="background:rgba(251,191,36,.10)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg></div><div><div class="txn-name">Starbucks</div><div class="txn-cat">Dining · May 30</div></div><div class="txn-amt" style="color:rgba(255,255,255,.6)">−$6.45</div></div>
-        <div class="txn-row" style="animation-delay:.16s"><div class="txn-icon" style="background:rgba(14,165,233,.10)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0ea5e9" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/></svg></div><div><div class="txn-name">Amazon</div><div class="txn-cat">Shopping · May 29</div></div><div class="txn-amt" style="color:rgba(255,255,255,.6)">−$47.99</div></div>
+        <div class="txn-row" style="animation-delay:.16s"><div class="txn-icon" style="background:rgba(26,196,240,.10)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1ac4f0" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/></svg></div><div><div class="txn-name">Amazon</div><div class="txn-cat">Shopping · May 29</div></div><div class="txn-amt" style="color:rgba(255,255,255,.6)">−$47.99</div></div>
         <div class="txn-row" style="animation-delay:.20s"><div class="txn-icon" style="background:rgba(99,102,241,.10)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg></div><div><div class="txn-name">Netflix</div><div class="txn-cat">Subscriptions · May 28</div></div><div class="txn-amt" style="color:rgba(255,255,255,.6)">−$15.49</div></div>
         <div class="txn-row" style="animation-delay:.24s"><div class="txn-icon" style="background:rgba(244,114,182,.10)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f472b6" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77"/></svg></div><div><div class="txn-name">Whole Foods</div><div class="txn-cat">Groceries · May 27</div></div><div class="txn-amt" style="color:rgba(255,255,255,.6)">−$89.34</div></div>
         <div class="txn-row" style="animation-delay:.28s"><div class="txn-icon" style="background:rgba(251,146,60,.10)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fb923c" stroke-width="2"><path d="M3 15a4 4 0 0 0 4 4h9a5 5 0 0 0 1.48-9.78 6.99 6.99 0 0 0-13.21 2 4.6 4.6 0 0 0-1.27 3.78z"/></svg></div><div><div class="txn-name">Shell Gas</div><div class="txn-cat">Transport · May 26</div></div><div class="txn-amt" style="color:rgba(255,255,255,.6)">−$52.10</div></div>
@@ -425,9 +436,9 @@
             <div style="position:relative;flex-shrink:0">
               <svg width="80" height="80" viewBox="0 0 80 80">
                 <circle cx="40" cy="40" r="32" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="8"/>
-                <circle cx="40" cy="40" r="32" fill="none" stroke="#0ea5e9" stroke-width="8" stroke-linecap="round"
+                <circle cx="40" cy="40" r="32" fill="none" stroke="#1ac4f0" stroke-width="8" stroke-linecap="round"
                   stroke-dasharray="201" stroke-dashoffset="42" transform="rotate(-90 40 40)"
-                  style="filter:drop-shadow(0 0 6px rgba(14,165,233,.5))"/>
+                  style="filter:drop-shadow(0 0 6px rgba(26,196,240,.5))"/>
               </svg>
               <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center">
                 <div style="font-size:22px;font-weight:900;letter-spacing:-.04em">82</div>
@@ -445,9 +456,9 @@
           </div>
         </div>
         <div style="padding:24px">
-          <div style="font-size:12px;font-weight:700;margin-bottom:14px">AI Insights</div>
+          <div style="font-size:12px;font-weight:700;margin-bottom:14px">Smart Insights</div>
           <div style="display:flex;flex-direction:column;gap:10px">
-            <div style="background:rgba(14,165,233,.07);border:1px solid rgba(14,165,233,.15);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--accent);font-weight:700;letter-spacing:.06em;margin-bottom:4px">SAVINGS OPPORTUNITY</div><div style="font-size:13px;color:rgba(255,255,255,.75)">Cancel unused Adobe subscription. Saving $54.99/mo.</div></div>
+            <div style="background:rgba(26,196,240,.07);border:1px solid rgba(26,196,240,.15);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--accent);font-weight:700;letter-spacing:.06em;margin-bottom:4px">SAVINGS OPPORTUNITY</div><div style="font-size:13px;color:rgba(255,255,255,.75)">Cancel unused Adobe subscription. Saving $54.99/mo.</div></div>
             <div style="background:rgba(34,197,94,.07);border:1px solid rgba(34,197,94,.15);border-radius:10px;padding:12px"><div style="font-size:10px;color:#22c55e;font-weight:700;letter-spacing:.06em;margin-bottom:4px">ON TRACK</div><div style="font-size:13px;color:rgba(255,255,255,.75)">You'll hit your $10k emergency fund goal by August.</div></div>
             <div style="background:rgba(251,191,36,.07);border:1px solid rgba(251,191,36,.15);border-radius:10px;padding:12px"><div style="font-size:10px;color:#fbbf24;font-weight:700;letter-spacing:.06em;margin-bottom:4px">HEADS UP</div><div style="font-size:13px;color:rgba(255,255,255,.75)">3 bills due in the next 7 days totaling $547.</div></div>
           </div>
@@ -483,14 +494,14 @@
         </div>
         <!-- SVG sparkline inside tab -->
         <svg viewBox="0 0 600 100" style="width:100%;height:80px" preserveAspectRatio="none">
-          <defs><linearGradient id="tabGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#0ea5e9" stop-opacity=".25"/><stop offset="100%" stop-color="#0ea5e9" stop-opacity="0"/></linearGradient></defs>
+          <defs><linearGradient id="tabGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1ac4f0" stop-opacity=".25"/><stop offset="100%" stop-color="#1ac4f0" stop-opacity="0"/></linearGradient></defs>
           <path d="M0,80 L50,75 L100,70 L150,65 L200,72 L250,60 L300,55 L350,48 L400,52 L450,40 L500,32 L550,20 L600,10 L600,100 L0,100 Z" fill="url(#tabGrad)"/>
-          <path d="M0,80 L50,75 L100,70 L150,65 L200,72 L250,60 L300,55 L350,48 L400,52 L450,40 L500,32 L550,20 L600,10" fill="none" stroke="#0ea5e9" stroke-width="2.5" stroke-linecap="round"/>
-          <circle cx="600" cy="10" r="5" fill="#0ea5e9" style="filter:drop-shadow(0 0 6px rgba(14,165,233,.8))"/>
+          <path d="M0,80 L50,75 L100,70 L150,65 L200,72 L250,60 L300,55 L350,48 L400,52 L450,40 L500,32 L550,20 L600,10" fill="none" stroke="#1ac4f0" stroke-width="2.5" stroke-linecap="round"/>
+          <circle cx="600" cy="10" r="5" fill="#1ac4f0" style="filter:drop-shadow(0 0 6px rgba(26,196,240,.8))"/>
         </svg>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:20px">
           <div style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.15);border-radius:10px;padding:14px"><div style="font-size:10px;color:#22c55e;font-weight:700;letter-spacing:.06em;margin-bottom:4px">MILESTONE</div><div style="font-size:13px;font-weight:700">$20k reached</div><div style="font-size:11px;color:var(--text-3)">Feb 2026</div></div>
-          <div style="background:rgba(14,165,233,.08);border:1px solid rgba(14,165,233,.15);border-radius:10px;padding:14px"><div style="font-size:10px;color:var(--accent);font-weight:700;letter-spacing:.06em;margin-bottom:4px">CURRENT</div><div style="font-size:13px;font-weight:700">$24,816</div><div style="font-size:11px;color:var(--text-3)">Jun 2026</div></div>
+          <div style="background:rgba(26,196,240,.08);border:1px solid rgba(26,196,240,.15);border-radius:10px;padding:14px"><div style="font-size:10px;color:var(--accent);font-weight:700;letter-spacing:.06em;margin-bottom:4px">CURRENT</div><div style="font-size:13px;font-weight:700">$24,816</div><div style="font-size:11px;color:var(--text-3)">Jun 2026</div></div>
           <div style="background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.15);border-radius:10px;padding:14px"><div style="font-size:10px;color:#818cf8;font-weight:700;letter-spacing:.06em;margin-bottom:4px">NEXT GOAL</div><div style="font-size:13px;font-weight:700">$30k</div><div style="font-size:11px;color:var(--text-3)">~4 months</div></div>
         </div>
       </div>
@@ -503,7 +514,7 @@
   <div class="container">
     <div class="text-center"><div class="eyebrow reveal">Everything in one place</div><h2 class="reveal d1">Your complete<br>financial picture</h2></div>
     <div class="features-grid">
-      <div class="feature-card reveal"><div class="icon-box" style="background:rgba(14,165,233,.10)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0ea5e9" stroke-width="2" stroke-linecap="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></div><div class="feature-title">Real-time bank sync</div><div class="feature-desc">Every transaction appears automatically. No CSV imports, no manual entry. Powered by Plaid.</div></div>
+      <div class="feature-card reveal"><div class="icon-box" style="background:rgba(26,196,240,.10)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1ac4f0" stroke-width="2" stroke-linecap="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></div><div class="feature-title">Real-time bank sync</div><div class="feature-desc">Every transaction appears automatically. No CSV imports, no manual entry. Powered by Plaid.</div></div>
       <div class="feature-card reveal d1"><div class="icon-box" style="background:rgba(99,102,241,.12)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="2" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div><div class="feature-title">Financial Health Score</div><div class="feature-desc">A single score from your spending, savings, and net worth — with weekly actions to improve it.</div></div>
       <div class="feature-card reveal d2"><div class="icon-box" style="background:rgba(34,197,94,.10)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg></div><div class="feature-title">AI spending insights</div><div class="feature-desc">Spots unusual charges, forgotten subscriptions, and patterns — and tells you what to do about them.</div></div>
       <div class="feature-card reveal"><div class="icon-box" style="background:rgba(251,191,36,.10)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div><div class="feature-title">Bill tracking</div><div class="feature-desc">Auto-detects recurring charges and reminds you before each hits. Never pay a late fee again.</div></div>
@@ -513,14 +524,14 @@
   </div>
 </section>
 
-<!-- ── AI Insights carousel ──────────────────────────────────────── -->
+<!-- ── Smart Insights carousel ──────────────────────────────────────── -->
 <section class="section">
   <div class="container">
-    <div class="text-center"><div class="eyebrow reveal">Powered by AI</div><h2 class="reveal d1">Insights that actually<br>tell you what to do</h2><p class="text-muted reveal d2" style="font-size:16px;max-width:420px;margin:12px auto 0">Not just charts. FlowCheck tells you exactly what's happening and how to fix it.</p></div>
+    <div class="text-center"><div class="eyebrow reveal">Built to be honest</div><h2 class="reveal d1">Insights that actually<br>tell you what to do</h2><p class="text-muted reveal d2" style="font-size:16px;max-width:420px;margin:12px auto 0">Not just charts. FlowCheck tells you exactly what's happening and how to fix it.</p></div>
     <div class="insights-row reveal" style="margin-top:40px">
       <div class="insight-card"><div class="insight-type" style="color:#22c55e"><div class="insight-type-dot" style="background:#22c55e"></div>Savings found</div><div class="insight-body">You have 4 subscriptions you haven't used in 30+ days. Canceling saves <strong style="color:#fff">$89.47/month.</strong></div><div class="insight-action" style="color:#22c55e">Review subscriptions →</div></div>
       <div class="insight-card"><div class="insight-type" style="color:#fbbf24"><div class="insight-type-dot" style="background:#fbbf24"></div>Spending alert</div><div class="insight-body">Dining spend is up 28% vs. your 3-month average. That's an extra <strong style="color:#fff">$74 this month.</strong></div><div class="insight-action" style="color:#fbbf24">See dining breakdown →</div></div>
-      <div class="insight-card"><div class="insight-type" style="color:#0ea5e9"><div class="insight-type-dot" style="background:#0ea5e9"></div>Goal progress</div><div class="insight-body">At your current savings rate, you'll reach your $10k emergency fund goal in <strong style="color:#fff">3.2 months.</strong></div><div class="insight-action" style="color:#0ea5e9">View savings goal →</div></div>
+      <div class="insight-card"><div class="insight-type" style="color:#1ac4f0"><div class="insight-type-dot" style="background:#1ac4f0"></div>Goal progress</div><div class="insight-body">At your current savings rate, you'll reach your $10k emergency fund goal in <strong style="color:#fff">3.2 months.</strong></div><div class="insight-action" style="color:#1ac4f0">View savings goal →</div></div>
       <div class="insight-card"><div class="insight-type" style="color:#ef4444"><div class="insight-type-dot" style="background:#ef4444"></div>Bill reminder</div><div class="insight-body">3 bills due in the next 7 days: Rent ($1,500), Amex ($342), Spotify ($9.99). Total: <strong style="color:#fff">$1,852.</strong></div><div class="insight-action" style="color:#ef4444">View upcoming bills →</div></div>
       <div class="insight-card"><div class="insight-type" style="color:#818cf8"><div class="insight-type-dot" style="background:#818cf8"></div>Net worth</div><div class="insight-body">Your net worth grew <strong style="color:#fff">+$8,240 this year.</strong> You're on track for $35k by December if current trends hold.</div><div class="insight-action" style="color:#818cf8">See net worth chart →</div></div>
       <div class="insight-card"><div class="insight-type" style="color:#f472b6"><div class="insight-type-dot" style="background:#f472b6"></div>Smart tip</div><div class="insight-body">Moving $500/month to a HYSA at 5.1% APY earns an extra <strong style="color:#fff">$306/year</strong> vs. your current savings account.</div><div class="insight-action" style="color:#f472b6">Learn more →</div></div>
@@ -535,7 +546,7 @@
       <div>
         <div class="eyebrow reveal">This month</div>
         <h2 class="reveal d1">Every dollar<br>accounted for.</h2>
-        <p class="text-muted reveal d2" style="font-size:16px;margin-top:12px;line-height:1.65">FlowCheck automatically categorizes every transaction. See exactly where your money goes — by category, by week, by account.</p>
+        <p class="text-muted reveal d2" style="font-size:16px;margin-top:12px;line-height:1.65">FlowCheck automatically categorizes every transaction — so the number it gives you is built on your real spending, not a budget you guessed at.</p>
         <div style="margin-top:28px;padding:16px 20px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px" class="reveal d3">
           <div style="font-size:13px;color:var(--text-2);margin-bottom:8px">Monthly total</div>
           <div style="font-size:32px;font-weight:900;letter-spacing:-.04em">$2,140<span style="font-size:16px;font-weight:500;color:var(--text-2)">.88</span></div>
@@ -545,7 +556,7 @@
       </div>
       <div class="reveal">
         <div style="font-size:12px;font-weight:700;margin-bottom:20px;color:var(--text-2);text-transform:uppercase;letter-spacing:.06em">Spending by category</div>
-        <div class="spend-bar-item"><div class="spend-bar-label">Housing</div><div class="spend-bar-track"><div class="spend-bar-fill" data-width="78" style="background:#0ea5e9"></div></div><div class="spend-bar-amt">$1,500</div></div>
+        <div class="spend-bar-item"><div class="spend-bar-label">Housing</div><div class="spend-bar-track"><div class="spend-bar-fill" data-width="78" style="background:#1ac4f0"></div></div><div class="spend-bar-amt">$1,500</div></div>
         <div class="spend-bar-item"><div class="spend-bar-label">Groceries</div><div class="spend-bar-track"><div class="spend-bar-fill" data-width="46" style="background:#22c55e"></div></div><div class="spend-bar-amt">$267</div></div>
         <div class="spend-bar-item"><div class="spend-bar-label">Dining</div><div class="spend-bar-track"><div class="spend-bar-fill" data-width="38" style="background:#fbbf24"></div></div><div class="spend-bar-amt">$198</div></div>
         <div class="spend-bar-item"><div class="spend-bar-label">Transport</div><div class="spend-bar-track"><div class="spend-bar-fill" data-width="28" style="background:#fb923c"></div></div><div class="spend-bar-amt">$124</div></div>
@@ -563,7 +574,7 @@
     <div class="steps-grid">
       <div class="reveal"><div class="step-num">STEP 01</div><div class="step-title">Download & sign up</div><div class="step-desc">Create a free account with Apple Sign In, Google, or email. No credit card, 30 seconds.</div></div>
       <div class="reveal d1"><div class="step-num">STEP 02</div><div class="step-title">Connect your bank</div><div class="step-desc">Securely link via Plaid. Read-only — we can see your data, never touch it. 10,000+ institutions.</div></div>
-      <div class="reveal d2"><div class="step-num">STEP 03</div><div class="step-title">See everything clearly</div><div class="step-desc">Your full financial picture appears instantly. Spending, net worth, bills, AI insights — all live.</div></div>
+      <div class="reveal d2"><div class="step-num">STEP 03</div><div class="step-title">See everything clearly</div><div class="step-desc">Your full financial picture appears instantly. Spending, net worth, bills, Smart insights — all live.</div></div>
     </div>
   </div>
 </section>
@@ -586,7 +597,7 @@
     <div class="testimonial-grid">
       <div class="testimonial reveal"><div class="t-stars">★★★★★</div><div class="t-text">"The Health Score is genuinely motivating. I've improved mine by 15 points in two months just by paying attention to it."</div><div class="t-author"><div class="t-avatar">M</div><div><div class="t-name">Marcus T.</div><div class="t-meta">Pro subscriber</div></div></div></div>
       <div class="testimonial reveal d1"><div class="t-stars">★★★★★</div><div class="t-text">"Found three subscriptions I'd forgotten about in the first week. Saved $80/month immediately. It paid for itself in a day."</div><div class="t-author"><div class="t-avatar" style="background:rgba(34,197,94,.1);color:#22c55e;border-color:rgba(34,197,94,.2)">S</div><div><div class="t-name">Sarah K.</div><div class="t-meta">Pro subscriber</div></div></div></div>
-      <div class="testimonial reveal d2"><div class="t-stars">★★★★★</div><div class="t-text">"This is what Mint should have been. Clean, fast, and the AI insights actually make sense. My net worth is up $8k since I started."</div><div class="t-author"><div class="t-avatar" style="background:rgba(99,102,241,.1);color:#818cf8;border-color:rgba(99,102,241,.2)">J</div><div><div class="t-name">James R.</div><div class="t-meta">Pro subscriber</div></div></div></div>
+      <div class="testimonial reveal d2"><div class="t-stars">★★★★★</div><div class="t-text">"This is what Mint should have been. Clean, fast, and the Smart insights actually make sense. My net worth is up $8k since I started."</div><div class="t-author"><div class="t-avatar" style="background:rgba(99,102,241,.1);color:#818cf8;border-color:rgba(99,102,241,.2)">J</div><div><div class="t-name">James R.</div><div class="t-meta">Pro subscriber</div></div></div></div>
     </div>
   </div>
 </section>
@@ -619,26 +630,24 @@
 
 <script src="/js/site.js"></script>
 <script>
-  /* ── Hero net worth counter ────────────────────────────────── */
+  /* ── Runway endpoint count-up ───────────────────────────────
+     Lands just as the line finishes drawing (CSS: 0.25s delay +
+     1.15s draw). One number, one moment — same beat as the app. */
   (function() {
-    var el = document.getElementById('hero-nw');
-    var target = 24816;
-    var start = Date.now();
-    var dur = 1400;
+    var el = document.getElementById('hero-endpoint');
+    if (!el) return;
+    var target = 312, dur = 1100, start = null;
+    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce) { el.textContent = '$312'; return; }
     function ease(t) { return 1 - Math.pow(1 - t, 3); }
-    function tick() {
-      var t = Math.min((Date.now() - start) / dur, 1);
+    function tick(ts) {
+      if (start === null) start = ts;
+      var t = Math.min((ts - start) / dur, 1);
       el.textContent = '$' + Math.round(ease(t) * target).toLocaleString();
       if (t < 1) requestAnimationFrame(tick);
     }
-    setTimeout(function() { requestAnimationFrame(tick); }, 600);
+    setTimeout(function() { requestAnimationFrame(tick); }, 350);
   })();
-
-  /* ── Stagger hero transactions in ─────────────────────────── */
-  setTimeout(function() {
-    var el = document.getElementById('hero-txns');
-    if (el) el.style.opacity = '1';
-  }, 800);
 
   /* ── Product preview tabs ──────────────────────────────────── */
   function switchTab(id, btn) {
