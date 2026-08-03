@@ -8974,7 +8974,7 @@ window.FCApp = (function () {
       cumA+=angle;
       return `<path d="${path}" fill="${seg.color}" opacity="0.88"/>`;
     });
-    const donutSVG=`<svg viewBox="0 0 104 104" width="90" height="90" style="flex-shrink:0" aria-hidden="true">${arcs.join('')}<circle cx="${cx}" cy="${cy}" r="${r}" fill="var(--fc-bg-elevated,#0b1826)"/><text x="${cx}" y="${cy-2}" text-anchor="middle" fill="var(--fc-text)" font-size="10" font-weight="800" font-family="inherit">−${totalDebt>=1000?`$${(totalDebt/1000).toFixed(0)}K`:`$${Math.round(totalDebt)}`}</text><text x="${cx}" y="${cy+9}" text-anchor="middle" fill="var(--fc-text-faint)" font-size="7" font-family="inherit">total</text></svg>`;
+    const donutSVG=`<svg viewBox="0 0 104 104" width="90" height="90" style="flex-shrink:0" aria-hidden="true">${arcs.join('')}<circle cx="${cx}" cy="${cy}" r="${r}" fill="var(--fc-bg-elevated,#0b1826)"/><text x="${cx}" y="${cy-1}" text-anchor="middle" fill="var(--fc-text)" font-size="14" font-weight="800" font-family="inherit">−${totalDebt>=1000?`$${(totalDebt/1000).toFixed(0)}K`:`$${Math.round(totalDebt)}`}</text><text x="${cx}" y="${cy+12}" text-anchor="middle" fill="var(--fc-text-faint)" font-size="10" font-family="inherit">total</text></svg>`;
     // Next payment from bills
     const nextBill=state.bills?.filter(b=>!b.paid&&(b.category||'').toLowerCase().includes('debt')||['card','loan','mortgage'].some(k=>(b.name||'').toLowerCase().includes(k))).sort((a,b)=>(a.due_date||'').localeCompare(b.due_date||''))[0];
     // Debt rows
@@ -9596,7 +9596,7 @@ window.FCApp = (function () {
                 </svg>
               </div>
               <div class="ins-changed-body">
-                <div class="ins-changed-label">${m.icon} ${m.label}</div>
+                <div class="ins-changed-label">${m.icon} ${esc(m.label)}</div>
                 ${d !== null ? `<div class="ins-changed-sub"><span style="color:${color};font-weight:700">${arrow}${Math.abs(d)}%</span> vs last month</div>` : ''}
               </div>
               <div class="ins-changed-val">${m.value}</div>
@@ -11413,8 +11413,8 @@ window.FCApp = (function () {
         ${upcomingBills.map(b => `<div class="fc-bill-row">
           <div class="fc-bill-icon">${_billIcon(b, 'var(--fc-text-muted)', 18)}</div>
           <div class="fc-bill-info">
-            <div class="fc-bill-name">${b.name||'Bill'}</div>
-            <div class="fc-bill-due">${(() => { try { return 'Due ' + FCData.parseDateLocal(b.due_date).toLocaleDateString('en-US',{month:'short',day:'numeric'}); } catch(_e){ return b.due_date||''; } })()}</div>
+            <div class="fc-bill-name">${esc(b.name||'Bill')}</div>
+            <div class="fc-bill-due">${(() => { try { return 'Due ' + FCData.parseDateLocal(b.due_date).toLocaleDateString('en-US',{month:'short',day:'numeric'}); } catch(_e){ return esc(b.due_date||''); } })()}</div>
           </div>
           <div class="fc-bill-amount">${FCData.formatCurrency(b.amount||0)}</div>
         </div>`).join('')}
@@ -11485,11 +11485,11 @@ window.FCApp = (function () {
       </div>
       ${notifs.length > 0 ? `<div class="fc-card" style="padding:4px 16px">
         ${notifs.map(n => `
-          <div class="fc-bill-row" style="opacity:${n.read?0.55:1}" onclick="FCApp._markNotifRead('${n.id}')">
+          <div class="fc-bill-row" style="opacity:${n.read?0.55:1}" onclick="FCApp._markNotifRead('${esc(String(n.id||''))}')">
             <div class="fc-bill-icon" style="background:var(--fc-accent-soft)">🔔</div>
             <div class="fc-bill-info">
-              <div class="fc-bill-name">${n.title||'Notification'}</div>
-              <div class="fc-bill-due">${n.body||''}</div>
+              <div class="fc-bill-name">${esc(n.title||'Notification')}</div>
+              <div class="fc-bill-due">${esc(n.body||'')}</div>
             </div>
             ${!n.read ? `<div style="width:8px;height:8px;border-radius:50%;background:var(--fc-accent);flex-shrink:0"></div>` : ''}
           </div>`).join('')}

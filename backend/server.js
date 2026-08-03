@@ -1683,9 +1683,19 @@ function _fmtDate(isoDate) {
   return `${months[m - 1]} ${d}, ${y}`;
 }
 
+/* Recipient addresses must never land in plaintext in the log stream —
+   "no sensitive data in logs" is a hard rule for this app, and Railway logs
+   are retained and searchable. Enough is kept to correlate a delivery. */
+function _maskEmail(addr) {
+  const s = String(addr || '');
+  const at = s.indexOf('@');
+  if (at < 1) return '<redacted>';
+  return s[0] + '***' + s.slice(at);
+}
+
 async function _sendEmail(to, subject, html, uid = null) {
   if (!_resendApiKey) {
-    console.log('[email] No Resend API key configured — skipping:', subject, '→', to);
+    console.log('[email] No Resend API key configured — skipping:', subject, '→', _maskEmail(to));
     return false;
   }
   // RFC 8058 List-Unsubscribe headers — enables one-click unsubscribe in Gmail + Apple Mail
@@ -1708,7 +1718,7 @@ async function _sendEmail(to, subject, html, uid = null) {
       console.error(`[email] Resend error ${resp.status}:`, errText.slice(0, 300));
       return false;
     }
-    console.log(`[email] Sent "${subject}" → ${to}`);
+    console.log(`[email] Sent "${subject}" → ${_maskEmail(to)}`);
     return true;
   } catch (err) {
     console.error('[email] Send failed:', err.message);
@@ -4853,7 +4863,16 @@ const _RC_LAPSE_EVENTS = new Set(['EXPIRATION']);
 app.post('/webhooks/revenuecat', async (req, res) => {
   // ── 1. Auth: verify shared secret ───────────────────────────────
   const rcSecret = process.env.RC_WEBHOOK_SECRET;
-  if (rcSecret) {
+  // Fail CLOSED. This endpoint grants Pro entitlements, so an unset secret
+  // must refuse traffic rather than accept it unauthenticated — otherwise any
+  // caller could POST a fake INITIAL_PURCHASE and grant themselves Pro. The
+  // previous `if (rcSecret)` skipped verification entirely when the variable
+  // was missing, which is exactly the state a fresh environment starts in.
+  if (!rcSecret) {
+    console.error('[rc-webhook] RC_WEBHOOK_SECRET is not set — refusing webhook');
+    return res.status(503).json({ error: 'Webhook not configured' });
+  }
+  {
     const incoming = req.headers['authorization'] || '';
     const inBuf = Buffer.from(incoming);
     const secretBuf = Buffer.from(rcSecret);

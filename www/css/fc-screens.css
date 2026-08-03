@@ -566,9 +566,12 @@ body.fc-theme .fc-nav {
   justify-content: center;
   align-items: center;
   gap: 5px;
-  padding: 7px 0 11px;
+  /* Taller than the 7px dots need, to give ::after room to expand the tap
+     target without bleeding into the card above. */
+  padding: 12px 0 14px;
 }
 .home-v8__dot {
+  position: relative;
   width: 7px;
   height: 7px;
   border-radius: 99px;
@@ -578,6 +581,22 @@ body.fc-theme .fc-nav {
   padding: 0;
   transition: width 0.25s cubic-bezier(0.34,1.56,0.64,1), background 0.2s ease;
   -webkit-tap-highlight-color: transparent;
+}
+/* The dot is 7px tall but it is a real button — a 7px tap target is well
+   under the 44px HIG minimum. Extend the hit area with a transparent
+   overlay instead of resizing the dot.
+   Width is dot + one gap so neighbouring targets touch but never overlap
+   (overlapping overlays would let a later sibling swallow its neighbour's
+   taps). Height is bounded by the row below so it cannot steal taps from
+   the carousel card above it. */
+.home-v8__dot::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: calc(100% + 5px);
+  height: 30px;
+  transform: translate(-50%, -50%);
 }
 .home-v8__dot.is-active {
   width: 20px;
