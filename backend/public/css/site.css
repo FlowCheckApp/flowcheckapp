@@ -935,3 +935,123 @@ h3 { font-size: clamp(18px, 2vw, 22px); font-weight: 700; }
   .auth-aside { display: none; }   /* form first — the aside is context, not content */
   .auth-main  { padding: 32px 20px 56px; min-height: calc(100vh - var(--nav-h)); }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   WEB APP (/app) — the real app on the web
+   Reuses the runway/card classes above so the website and the phone
+   render the same component language, not a lookalike.
+   ═══════════════════════════════════════════════════════════════ */
+.app-body { background: var(--bg); }
+.wa-wrap  { padding-top: var(--nav-h); min-height: 100vh; }
+.wa-shell { max-width: 760px; margin: 0 auto; padding: 28px 20px 72px; display: grid; gap: 14px; }
+
+.wa-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 2px; }
+.wa-greet { font-size: clamp(24px, 3.4vw, 32px); letter-spacing: -0.03em; line-height: 1.1; }
+.wa-date  { color: var(--text-2); font-size: 13px; margin-top: 2px; }
+.wa-live {
+  flex-shrink: 0; margin-top: 6px;
+  padding: 5px 11px; border-radius: var(--radius);
+  background: var(--accent-dim); border: 1px solid var(--border-accent, var(--accent-dim2));
+  color: var(--accent); font-size: 11px; font-weight: 700;
+}
+
+.fc-ui-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-card); padding: 20px; }
+.wa-h { font-size: 15px; font-weight: 750; letter-spacing: -0.01em; margin-bottom: 12px; }
+
+.wa-safe { text-align: left; }
+.wa-safe-n { font-size: clamp(34px, 5vw, 46px); font-weight: 800; letter-spacing: -0.035em; font-variant-numeric: tabular-nums; margin: 4px 0 6px; }
+.wa-safe-sub { color: var(--text-2); font-size: 13px; line-height: 1.45; }
+
+.wa-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 700px) { .wa-grid { grid-template-columns: 1fr; } }
+
+.wa-list { list-style: none; display: flex; flex-direction: column; }
+.wa-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 0; border-bottom: 1px solid var(--border);
+}
+.wa-row:last-child { border-bottom: none; }
+.wa-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.wa-row-name { font-size: 14px; font-weight: 650; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wa-row-sub  { font-size: 12px; color: var(--text-3); margin-top: 1px; }
+.wa-row-sub.is-overdue { color: var(--red); font-weight: 650; }
+.wa-row-amt  { font-size: 14px; font-weight: 750; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+.wa-row-amt.is-neg { color: var(--red); }
+.wa-row.is-paid .wa-row-name, .wa-row.is-paid .wa-row-amt { opacity: 0.45; text-decoration: line-through; }
+
+/* Bill paid toggle — 44px hit area, 18px visual */
+.wa-mark {
+  position: relative; flex-shrink: 0;
+  width: 26px; height: 26px; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: none; border: none; border-radius: 50%;
+  color: var(--green); cursor: pointer;
+}
+.wa-mark::after { content: ''; position: absolute; top: 50%; left: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
+.wa-mark-dot { width: 17px; height: 17px; border-radius: 50%; border: 2px solid var(--border-2); display: block; transition: border-color 0.15s; }
+.wa-mark:hover .wa-mark-dot { border-color: var(--accent); }
+.wa-mark:disabled { opacity: 0.5; cursor: default; }
+
+.wa-goal { padding: 10px 0; border-bottom: 1px solid var(--border); }
+.wa-goal:last-child { border-bottom: none; }
+.wa-goal-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 7px; }
+.wa-bar { height: 6px; border-radius: 99px; background: var(--bg-inset); overflow: hidden; }
+.wa-bar > i { display: block; height: 100%; border-radius: 99px; background: var(--accent); transition: width 0.5s var(--ease, cubic-bezier(0.22,1,0.36,1)); }
+
+.wa-empty { text-align: center; }
+.wa-empty-p { color: var(--text-2); font-size: 13.5px; line-height: 1.5; margin: 6px 0 14px; }
+
+.wa-ghost {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 34px; padding: 0 12px;
+  background: rgba(255,255,255,0.06); border: 1px solid var(--border-2);
+  border-radius: 9px; color: var(--text-2);
+  font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+.wa-ghost:hover { color: var(--text); background: rgba(255,255,255,0.1); }
+.wa-ghost.is-on { color: var(--accent); border-color: var(--accent-dim2); }
+
+.wa-legal { text-align: center; font-size: 11px; color: var(--text-3); margin-top: 6px; }
+
+/* Privacy mode — blur every money figure. em-based so a 46px hero number
+   blurs as hard as a 14px row; a fixed px blur leaves big numbers legible. */
+body.fc-privacy .fc-amount,
+body.fc-privacy .wa-safe-n,
+body.fc-privacy .rw-endpoint-value { filter: blur(0.42em); user-select: none; }
+
+/* Demo banner on /app?demo=1 — mandatory, not decorative. A page full of
+   dollar figures must never be mistakable for someone's real money. */
+.wa-demo-banner {
+  padding: 11px 14px;
+  border-radius: var(--radius);
+  background: rgba(255,159,10,0.12);
+  border: 1px solid rgba(255,159,10,0.30);
+  color: var(--amber);
+  font-size: 12.5px; font-weight: 700; text-align: center;
+}
+
+/* [hidden] must win over .wa-shell's `display: grid`. A class-level display
+   declaration beats the UA stylesheet's [hidden]{display:none}, so the
+   loading skeleton stayed on screen underneath the loaded content. */
+.wa-shell[hidden] { display: none; }
+
+/* ── Web-app announcement band ───────────────────────────────────── */
+.webapp-band {
+  background:
+    radial-gradient(ellipse 70% 100% at 15% 0%, var(--accent-dim), transparent 68%),
+    var(--bg-inset);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.webapp-inner { max-width: 720px; }
+.webapp-copy h2 { font-size: clamp(28px, 3.4vw, 42px); margin-bottom: 14px; }
+.webapp-copy p  { font-size: 16px; line-height: 1.6; margin-bottom: 12px; }
+.webapp-copy strong { color: var(--accent); font-weight: 700; }
+.webapp-note {
+  font-size: 14px !important;
+  color: var(--text-3);
+  border-left: 2px solid var(--accent-dim2);
+  padding-left: 13px;
+}
+.webapp-cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 22px; }

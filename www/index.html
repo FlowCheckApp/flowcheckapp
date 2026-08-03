@@ -6841,6 +6841,10 @@ body:not(.keyboard-open) .fc-sheet {
 <script src="js/fc-config.js"></script>
 <script src="js/fc-analytics.js"></script>
 <script src="js/fc-debug.js"></script>
+<!-- fc-core.js: shared money math, also loaded by the web app at /app.
+     Must come before fc-app.js, which delegates to it. One implementation
+     means the website and the phone cannot show different numbers. -->
+<script src="js/fc-core.js"></script>
 <script src="js/fc-auth.js"></script>
 <script src="js/fc-data.js"></script>
 <script src="js/fc-push.js"></script>

@@ -26,7 +26,12 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.join(__dirname, '..');
-const FILES = ['www/js/fc-app.js', 'www/js/fc-data.js', 'www/js/fc-auth.js', 'www/index.html'];
+const FILES = [
+  'www/js/fc-app.js', 'www/js/fc-data.js', 'www/js/fc-auth.js', 'www/index.html',
+  // The web app renders the same user- and Plaid-supplied strings as the
+  // phone, on a surface with no app-store review gate. Same rules apply.
+  'backend/public/js/app-web.js',
+];
 
 /* Fields that carry user- or third-party-controlled text. */
 const RISKY = /\.(name|merchant_name|title|body|institution|institution_name|email|description|note|memo|label|display_name|subject)\b/;

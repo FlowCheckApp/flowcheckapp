@@ -126,7 +126,7 @@
   firebase.initializeApp({ apiKey:'AIzaSyBtdCUetv2nRPiaZVt-_TXUtd77wxqLVSw', authDomain:'flowcheck-46570.firebaseapp.com', projectId:'flowcheck-46570', storageBucket:'flowcheck-46570.firebasestorage.app', messagingSenderId:'305596636244', appId:'1:305596636244:web:75dc2c36fbc8afc9bca1c1' });
   const auth = firebase.auth();
 
-  auth.onAuthStateChanged(u => { if (u) window.location.href = '/account'; });
+  auth.onAuthStateChanged(u => { if (u) window.location.href = '/app'; });
 
   const alertEl = document.getElementById('auth-alert');
   const emailEl = document.getElementById('email');

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Your money — FlowCheck</title>
+  <meta name="robots" content="noindex">
+  <link rel="stylesheet" href="/css/site.css?v=4">
+</head>
+<body class="app-body">
+
+<nav class="nav nav--scrolled">
+  <div class="nav-inner">
+    <a href="/" class="nav-logo">
+      <div class="nav-logo-mark"><svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M4 4h16v3H4zm0 6h11v3H4zm0 6h7v3H4z"/></svg></div>
+      FlowCheck
+    </a>
+    <div class="nav-right">
+      <button class="wa-ghost" id="btn-privacy" type="button" aria-pressed="false" aria-label="Hide balances">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
+      <button class="wa-ghost" id="btn-signout" type="button">Sign out</button>
+    </div>
+  </div>
+</nav>
+
+<main class="wa-wrap" id="wa-root">
+  <!-- Loading skeleton: axis and payday edge already in place, line absent.
+       Never a spinner — same rule as the app. -->
+  <div class="wa-shell" id="wa-loading">
+    <div class="fc-ui-card rw-card rw-card--sk" aria-busy="true">
+      <div class="rw-head">
+        <div class="rw-head__text">
+          <p class="rw-eyebrow">Runway</p>
+          <span class="fc-sk fc-sk--text-lg rw-sk-headline"></span>
+          <span class="fc-sk fc-sk--text-lg rw-sk-headline"></span>
+          <span class="fc-sk fc-sk--text-sm rw-sk-sub"></span>
+        </div>
+        <div class="rw-end"><p class="rw-end-lbl">Payday</p><span class="fc-sk fc-sk--text-lg rw-sk-end"></span></div>
+      </div>
+      <div class="rw-chart">
+        <svg viewBox="0 0 320 120" preserveAspectRatio="none" aria-hidden="true">
+          <line x1="0" y1="100" x2="320" y2="100" stroke="var(--border)" stroke-width="1"/>
+          <line x1="318.5" y1="8" x2="318.5" y2="100" stroke="var(--accent)" stroke-width="1.5" stroke-dasharray="3 3" opacity="0.55"/>
+        </svg>
+        <div class="rw-axis"><span>Today</span><span>Payday</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="wa-shell" id="wa-content" hidden></div>
+</main>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+<script src="/js/fc-core.js"></script>
+<script src="/js/app-web.js"></script>
+</body>
+</html>

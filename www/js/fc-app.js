@@ -4553,24 +4553,22 @@ window.FCApp = (function () {
     return best;
   }
 
+  /* Inputs for the shared core (www/js/fc-core.js). Kept in one place so
+     both entry points below feed it identically. */
+  function _coreInput() {
+    return {
+      accounts:     state.accounts || [],
+      transactions: state.transactions || [],
+      bills:        _billsForDisplay(),
+    };
+  }
+
+  /* Delegates to FCCore so the phone and the web app at /app cannot drift.
+     Both implementations were verified byte-identical before this swap
+     (same horizon, endpoint, bill count, burn rate and every balance
+     point). Do not reintroduce a local copy of this math. */
   function _buildSafeSpendProjection() {
-    const cash = Math.max(0, _getSpendableCheckingCash());
-    const payday = _predictNextPayday();
-    const days = Math.min(14, payday?.days || 7);
-    const bills = _billsForDisplay().filter(bill => {
-      if (bill.status === 'paid') return false;
-      const dueIn = FCData.daysUntil(bill.due_date);
-      return dueIn !== null && dueIn >= 0 && dueIn <= days;
-    });
-    const billsTotal = bills.reduce((sum, bill) => sum + (bill.amount || 0), 0);
-    const cutoff = new Date(Date.now() - 30 * 86400000);
-    const recentSpend = (state.transactions || [])
-      .filter(t => _isSpendTxn(t) && t.date && FCData.parseDateLocal(t.date) >= cutoff)
-      .reduce((sum, t) => sum + (t.amount || 0), 0);
-    const expectedEverydaySpend = (recentSpend / 30) * days;
-    const reserve = Math.min(cash, Math.max(250, cash * 0.10));
-    const safe = Math.max(0, cash - billsTotal - expectedEverydaySpend - reserve);
-    return { cash, payday, days, bills, billsTotal, expectedEverydaySpend, reserve, safe };
+    return FCCore.buildSafeSpendProjection(_coreInput());
   }
 
   /* ─────────────────────────────────────────────────────────────
@@ -4579,58 +4577,11 @@ window.FCApp = (function () {
      day from today to payday, dipping at each unpaid bill. No DOM, no
      network — everything derives from _buildSafeSpendProjection().
      ───────────────────────────────────────────────────────────── */
+  /* Delegates to FCCore — see _buildSafeSpendProjection above. The runway
+     drawn on getflowcheck.app/app comes from this exact function, so the
+     number on the website is the number on the phone by construction. */
   function _buildRunwaySeries() {
-    const p = _buildSafeSpendProjection();
-    // No payday prediction yet → fall back to a 2-week horizon. Never
-    // invent a payday date; the caller labels the edge differently.
-    const horizon = Math.max(1, Math.min(31, p.payday?.days || 14));
-    const dailyBurn = p.expectedEverydaySpend / Math.max(1, p.days || horizon);
-
-    /* Bucket unpaid bills by how many days out they land.
-       Sourced from _billsForDisplay(), NOT from p.bills: the projection caps
-       its bill window at min(14, paydayDays) because that is the horizon
-       `safe` is computed over, but the runway draws all the way to payday —
-       often 29+ days. Reusing p.bills silently dropped every bill past day 14
-       and overstated the landing balance, which is the one number this screen
-       exists to get right. */
-    const billsByDay = {};
-    _billsForDisplay().forEach(b => {
-      if (b.status === 'paid') return;
-      const d = FCData.daysUntil(b.due_date);
-      if (d === null || d < 0 || d > horizon) return;
-      (billsByDay[d] = billsByDay[d] || []).push(b);
-    });
-
-    let balance = p.cash;
-    let lowest  = { day: 0, balance: p.cash };
-    let firstNegativeDay = null;
-    const points = [];
-
-    for (let day = 0; day <= horizon; day++) {
-      const dayBills = billsByDay[day] || [];
-      balance -= dayBills.reduce((s, b) => s + Number(b.amount || 0), 0);
-      if (day > 0) balance -= dailyBurn;
-      if (balance < lowest.balance) lowest = { day, balance };
-      if (firstNegativeDay === null && balance < 0) firstNegativeDay = day;
-      const date = new Date();
-      date.setDate(date.getDate() + day);
-      date.setHours(0, 0, 0, 0);
-      points.push({ day, date, balance, bills: dayBills });
-    }
-
-    return {
-      points,
-      horizon,
-      dailyBurn,
-      startBalance:  p.cash,
-      endBalance:    points[points.length - 1].balance,
-      lowest,
-      firstNegativeDay,                       // null when it never dips below 0
-      goesNegative:  firstNegativeDay !== null,
-      payday:        p.payday || null,        // null → label the edge "2 weeks"
-      hasPayday:     !!p.payday,
-      billCount:     Object.values(billsByDay).reduce((n, a) => n + a.length, 0),
-    };
+    return FCCore.buildRunwaySeries(_coreInput());
   }
 
   /* ── Dashboard v9: runway SVG markup (DASHBOARD_SPEC.md §2) ────── */
