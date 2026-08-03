@@ -34,6 +34,19 @@ warn() { echo -e "${RED}  ✗ $1${RST}"; }
 echo -e "\n${CYN}━━━ FlowCheck Deploy ━━━━━━━━━━━━━━━━━━━━━━━━${RST}"
 echo -e "${DIM}  $MSG${RST}"
 
+# ── 0. Pre-flight checks — never deploy a broken build ──────────
+# Runs syntax checks on every JS bundle, the privacy/brand invariants,
+# and check-firestore-rules-sync.js (which verifies every client write to
+# users/{uid} is permitted by firestore.rules). That last one exists
+# because rules drift shipped twice: once breaking signup outright, once
+# silently permission-denying settings writes. Deploy aborts on failure.
+step "Pre-flight checks"
+if ! npm run --silent check; then
+  warn "Pre-flight checks FAILED — nothing was deployed."
+  exit 1
+fi
+ok "All checks passed"
+
 # ── 1. Copy web files into iOS + Android bundles ────────────────
 # Direct copy instead of `npx cap sync` — faster and avoids SPM
 # resolution delays. Copies exactly what the app needs.

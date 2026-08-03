@@ -74,6 +74,25 @@ const updateAllowed = allowlist('allowedUserUpdateFields');
 const problems = [];
 const checked  = [];
 
+/* ── Security invariants ────────────────────────────────────────────────
+   Entitlement and identity fields must never become client-updatable. A
+   client that can set these can grant itself Pro or steal referral credit.
+   `pro` is tolerated at CREATE (pinned to false, see firestore.rules) but
+   must never appear in the update list. */
+const NEVER_CLIENT_UPDATABLE = [
+  'pro', 'is_pro', 'plaid_linked', 'referral_code', 'referred_by_uid',
+  'plaid_account_mask', 'plaid_institution',
+];
+for (const f of NEVER_CLIENT_UPDATABLE) {
+  if (updateAllowed.has(f)) {
+    problems.push(`SECURITY: '${f}' is in allowedUserUpdateFields() — a client could set it. Remove it.`);
+  }
+}
+// `pro` at create is only safe while the value is pinned to false.
+if (createAllowed.has('pro') && !/function\s+proFieldIsHarmless\s*\(\)/.test(rules)) {
+  problems.push(`SECURITY: 'pro' is in allowedUserCreateFields() but proFieldIsHarmless() is gone — a client could create with pro:true.`);
+}
+
 for (const [file, src] of Object.entries(sources)) {
   // --- writes to users/{uid} via .set(...) or .update(...) -----------------
   const re = /(?:collection\(['"]users['"]\)\.doc\([^)]*\)|_db\.collection\(['"]users['"]\)\.doc\([^)]*\))\s*\.\s*(set|update)\s*\(/g;

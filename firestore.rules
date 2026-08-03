@@ -32,8 +32,18 @@ service cloud.firestore {
     // Entitlement fields ('pro','is_pro','pro_expires_at') are intentionally NOT
     // listed here — only the backend (RevenueCat webhook + referral grant) may
     // write them. Letting clients seed `is_pro:true` at signup bypasses payment.
+    // `pro` may appear at create only with the value false — see the comment
+    // on `allow create` below. Never allows a client to claim entitlement.
+    function proFieldIsHarmless() {
+      return !('pro' in request.resource.data)
+             || request.resource.data.pro == false;
+    }
+
     function allowedUserCreateFields() {
       return request.resource.data.keys().hasOnly([
+        // Legacy-tolerated, pinned to false by proFieldIsHarmless().
+        // Do NOT add 'pro' to allowedUserUpdateFields().
+        'pro',
         'uid', 'name', 'email', 'phone',
         'created_at', 'last_seen', 'last_streak_date',
         'plaid_linked', 'plaid_institution', 'plaid_institution_id', 'plaid_linked_at',
@@ -114,9 +124,22 @@ service cloud.firestore {
       // Read own profile
       allow get: if isOwner(uid);
 
-      // Create own profile (signup) — must include uid field matching auth uid
+      // Create own profile (signup) — must include uid field matching auth uid.
+      //
+      // `pro` is tolerated here ONLY as false. This is deliberate and it is
+      // what makes these rules safe to deploy in any order relative to an app
+      // release: older installed builds still write `pro: false` when creating
+      // a doc via Google/Apple sign-in, and because allowedUserCreateFields()
+      // uses hasOnly(), rejecting that field would break social sign-up for
+      // every phone running an older build.
+      //
+      // It grants nothing: `pro` is absent from allowedUserUpdateFields(), so
+      // it can never be flipped to true afterwards, and `pro: true` is refused
+      // at create. Real entitlement lives in `is_pro`, written only by the
+      // backend via the Admin SDK (which bypasses these rules).
       allow create: if isOwner(uid)
                     && request.resource.data.uid == uid
+                    && proFieldIsHarmless()
                     && allowedUserCreateFields();
 
       // Update own profile (settings, preferences)
