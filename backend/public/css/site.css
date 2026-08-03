@@ -1055,3 +1055,138 @@ body.fc-privacy .rw-endpoint-value { filter: blur(0.42em); user-select: none; }
   padding-left: 13px;
 }
 .webapp-cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 22px; }
+
+
+/* .rw-cta — ported from the app's fc-screens.css. It was used by app-web.js
+   (the empty-accounts CTA and the unlock button) but defined nowhere on the
+   web, so those buttons rendered as bare unstyled <button>s. Same silent
+   failure mode as the undefined custom properties fixed earlier: nothing
+   errors, the control just looks broken. */
+.rw-cta {
+  display: block; width: 100%; margin-top: 14px;
+  padding: 13px 16px; border: none; border-radius: 14px;
+  background: var(--accent); color: #06222b;
+  font-family: inherit; font-size: 15px; font-weight: 700;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: transform 0.14s ease, filter 0.14s ease;
+}
+.rw-cta:hover  { filter: brightness(1.06); }
+.rw-cta:active { transform: scale(0.985); filter: brightness(0.95); }
+.rw-cta:disabled { opacity: 0.55; cursor: default; transform: none; }
+
+/* ── Session lock ─────────────────────────────────────────────────
+   Face ID has no browser equivalent, so an idle tab locks itself and
+   unlocking requires real re-authentication. The blur is applied to the
+   page behind the overlay so nothing is readable through it — and it is
+   a real filter on the content, not just a translucent scrim. */
+body.wa-locked .wa-wrap { filter: blur(14px); pointer-events: none; user-select: none; }
+body.wa-locked { overflow: hidden; }
+
+.wa-lock {
+  position: fixed; inset: 0; z-index: 200;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+  background: rgba(6,14,24,0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.wa-lock-card {
+  width: 100%; max-width: 360px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-2);
+  border-radius: var(--r-card);
+  padding: 26px 24px;
+  text-align: center;
+  box-shadow: 0 28px 70px rgba(0,0,0,0.6);
+}
+.wa-lock-icon {
+  width: 46px; height: 46px; margin: 0 auto 14px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 14px;
+  background: var(--accent-dim); color: var(--accent);
+}
+.wa-lock-h { font-size: 21px; letter-spacing: -0.02em; margin-bottom: 6px; }
+.wa-lock-p { font-size: 13.5px; color: var(--text-2); line-height: 1.5; margin-bottom: 16px; }
+.wa-lock .form-input { margin-bottom: 12px; text-align: center; }
+.wa-lock .rw-cta { margin-top: 0; }
+.wa-lock-out { display: block; width: 100%; margin-top: 12px; }
+.wa-lock-alert {
+  display: none;
+  margin-bottom: 12px; padding: 9px 12px; border-radius: 10px;
+  background: rgba(255,69,58,0.10); border: 1px solid rgba(255,69,58,0.28);
+  color: var(--red); font-size: 12.5px; font-weight: 650;
+}
+.wa-lock-alert.is-on { display: block; }
+
+/* .form-input is inline-block in the auth pages, so inside the narrow lock
+   card it sat on the same line as the Unlock button. Force the stack. */
+.wa-lock .form-input { display: block; width: 100%; box-sizing: border-box; }
+.wa-lock .rw-cta { display: block; width: 100%; }
+
+
+/* ── Classes the site used but never defined ──────────────────────
+   Found by scripts/check-site-css-classes.js. Every one of these was
+   silently doing nothing:
+     .fc-sk*        — the web app's loading skeleton had NO shimmer or
+                      background, so the "skeleton" was blank space
+     .rw-head__text — lost flex:1, so the skeleton bars collapsed
+     .nav-logo-icon — 4 pages render their logo mark with this instead of
+                      .nav-logo-mark, so those logos were unstyled
+   ───────────────────────────────────────────────────────────────── */
+@keyframes fcShimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: calc(400px + 100%) 0; }
+}
+.fc-sk {
+  display: block;
+  background: linear-gradient(90deg,
+    rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.085) 38%,
+    rgba(255,255,255,0.11) 50%, rgba(255,255,255,0.085) 62%,
+    rgba(255,255,255,0.04) 100%);
+  background-size: 400px 100%;
+  animation: fcShimmer 1.4s ease-in-out infinite;
+  border-radius: 6px;
+}
+.fc-sk--text-lg { height: 18px; border-radius: 5px; }
+.fc-sk--text-sm { height: 14px; border-radius: 4px; }
+
+.rw-card--sk .rw-chart { cursor: default; }
+.rw-sk-headline { width: 88%; margin: 5px 0 0; }
+.rw-sk-headline + .rw-sk-headline { width: 55%; margin-top: 6px; }
+.rw-sk-sub { width: 96%; margin-top: 9px; }
+.rw-sk-end { width: 78px; height: 30px; margin: 5px 0 0 auto; }
+
+.rw-head__text { flex: 1 1 auto; min-width: 0; }
+
+/* Alias — same treatment as .nav-logo-mark, which is what the other
+   pages use. Aliased rather than rewriting four files' markup. */
+.nav-logo-icon {
+  width: 30px; height: 30px; border-radius: 8px;
+  background: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 0 1px rgba(26,196,240,0.4), 0 4px 16px rgba(26,196,240,0.25);
+}
+
+/* features.html one-offs */
+.btn-ghost {
+  background: rgba(255,255,255,0.07);
+  border: 1px solid var(--border-2);
+  color: var(--text);
+}
+.section--sm { padding: 72px 0; }
+
+/* The runway card on /app. `.rw-card` was carrying no styling of its own —
+   it only worked because .fc-ui-card happened to be on the same element.
+   Give it the accent-tinted treatment the app's card has, so the hero card
+   reads as the hero. */
+.rw-card {
+  border-color: var(--accent-dim2);
+  background:
+    radial-gradient(ellipse 120% 90% at 0% 0%, var(--accent-dim), transparent 70%),
+    var(--bg-card);
+}
+/* A shortfall must read as a shortfall — never clamp it to $0.00. */
+.rw-headline--warn        { color: var(--red); }
+.rw-endpoint-value--warn  { color: var(--red); }
+/* Modifier used purely as a selector hook for the bill rows. */
+.wa-list--bills { }

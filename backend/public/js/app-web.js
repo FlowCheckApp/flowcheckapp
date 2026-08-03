@@ -61,6 +61,107 @@
     b.classList.toggle('is-on', privacyOn);
   }
 
+  /* ═══════════════════════════════════════════════════════════════
+     SESSION LOCK
+     The phone has Face ID. A browser tab has nothing — an open session on
+     an unattended laptop shows real balances to whoever walks past. So:
+     auto-lock on idle, and unlocking requires REAL re-authentication
+     (password or the original provider), not a client-side PIN. A PIN
+     would have to be verified in JavaScript, which means anyone with
+     devtools can bypass it — worse than useless, because it looks secure.
+     ═══════════════════════════════════════════════════════════════ */
+  const LOCK_AFTER_MS    = 5 * 60 * 1000;    // blur + require re-auth
+  const SIGNOUT_AFTER_MS = 30 * 60 * 1000;   // drop the session entirely
+  let idleTimer = null, signoutTimer = null, locked = false;
+
+  function lockUI() {
+    if (locked) return;
+    locked = true;
+    document.body.classList.add('wa-locked');
+
+    const user = auth.currentUser;
+    const provider = (user && user.providerData[0] && user.providerData[0].providerId) || 'password';
+    const isGoogle = provider === 'google.com';
+
+    const el = document.createElement('div');
+    el.className = 'wa-lock';
+    el.id = 'wa-lock';
+    el.innerHTML =
+      '<div class="wa-lock-card">'
+      + '<div class="wa-lock-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>'
+      + '<h2 class="wa-lock-h">Locked</h2>'
+      + '<p class="wa-lock-p">You stepped away, so we hid your balances. '
+      + (isGoogle ? 'Confirm it’s you to unlock.' : 'Enter your password to unlock.') + '</p>'
+      + '<div class="wa-lock-alert" id="wa-lock-alert" role="alert" aria-live="polite"></div>'
+      + (isGoogle ? ''
+          : '<input class="form-input" type="password" id="wa-lock-pw" autocomplete="current-password" placeholder="Password" aria-label="Password">')
+      + '<button class="rw-cta" id="wa-lock-go" type="button">' + (isGoogle ? 'Confirm with Google' : 'Unlock') + '</button>'
+      + '<button class="forgot-link wa-lock-out" id="wa-lock-signout" type="button">Sign out instead</button>'
+      + '</div>';
+    document.body.appendChild(el);
+
+    const pw = document.getElementById('wa-lock-pw');
+    const go = document.getElementById('wa-lock-go');
+    const alertEl = document.getElementById('wa-lock-alert');
+    if (pw) pw.focus(); else go.focus();
+
+    const fail = m => { alertEl.textContent = m; alertEl.classList.add('is-on'); };
+
+    async function attempt() {
+      const u = auth.currentUser;
+      if (!u) { window.location.href = '/login'; return; }
+      go.disabled = true;
+      go.textContent = 'Checking…';
+      try {
+        if (isGoogle) {
+          await u.reauthenticateWithPopup(new firebase.auth.GoogleAuthProvider());
+        } else {
+          const cred = firebase.auth.EmailAuthProvider.credential(u.email, pw.value);
+          await u.reauthenticateWithCredential(cred);
+        }
+        unlockUI();
+      } catch (err) {
+        go.disabled = false;
+        go.textContent = isGoogle ? 'Confirm with Google' : 'Unlock';
+        if (err && (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request')) return;
+        if (err && err.code === 'auth/too-many-requests') return fail('Too many attempts. Wait a moment.');
+        fail('That password is not right.');
+        if (pw) { pw.value = ''; pw.focus(); }
+      }
+    }
+
+    go.addEventListener('click', attempt);
+    if (pw) pw.addEventListener('keydown', e => { if (e.key === 'Enter') attempt(); });
+    document.getElementById('wa-lock-signout').addEventListener('click', async () => {
+      try { await auth.signOut(); } catch (_) {}
+      window.location.href = '/';
+    });
+  }
+
+  function unlockUI() {
+    locked = false;
+    document.body.classList.remove('wa-locked');
+    const el = document.getElementById('wa-lock');
+    if (el) el.remove();
+    resetIdle();
+  }
+
+  function resetIdle() {
+    if (locked) return;
+    clearTimeout(idleTimer); clearTimeout(signoutTimer);
+    idleTimer = setTimeout(lockUI, LOCK_AFTER_MS);
+    signoutTimer = setTimeout(async () => {
+      try { await auth.signOut(); } catch (_) {}
+      window.location.href = '/';
+    }, SIGNOUT_AFTER_MS);
+  }
+
+  function startIdleWatch() {
+    ['pointerdown', 'keydown', 'scroll', 'touchstart', 'focus'].forEach(ev =>
+      window.addEventListener(ev, resetIdle, { passive: true }));
+    resetIdle();
+  }
+
   /* ── Runway chart. Same geometry as _renderRunwayCard in the app. ── */
   function runwaySVG(r) {
     const W = 320, H = 120, PAD_T = 10, PAD_B = 20;
@@ -290,6 +391,9 @@
     window.location.href = '/';
   });
 
+  const lockBtn = document.getElementById('btn-lock');
+  if (lockBtn) lockBtn.addEventListener('click', () => { if (auth.currentUser) lockUI(); });
+
   document.getElementById('btn-privacy').addEventListener('click', () => {
     privacyOn = !privacyOn;
     try { localStorage.setItem(PRIV_KEY, privacyOn ? '1' : '0'); } catch (_) {}
@@ -307,8 +411,46 @@
   }
 
   /* ── Auth + live data ─────────────────────────────────────────── */
+  /* Unverified accounts see nothing. The iPhone app already blocks these at
+     signup (fc-app.js ~13042); the web had no such gate, so an account that
+     never confirmed its address could sign in here and read real balances.
+     Anyone who can guess an email could otherwise create an account on it
+     and — if the address was already registered — probe for its existence. */
+  function renderUnverified(user) {
+    document.getElementById('wa-loading').hidden = true;
+    const el = document.getElementById('wa-content');
+    el.hidden = false;
+    el.innerHTML =
+      '<section class="fc-ui-card wa-empty">'
+      + '<h3 class="wa-h">Confirm your email first</h3>'
+      + '<p class="wa-empty-p">We sent a link to <strong>' + esc(user.email || 'your inbox') + '</strong>. '
+      + 'Open it, then reload this page. Your balances stay hidden until the address is confirmed.</p>'
+      + '<button class="rw-cta" id="wa-resend" type="button">Resend the link</button>'
+      + '<button class="forgot-link wa-lock-out" id="wa-verify-out" type="button">Sign out</button>'
+      + '</section>';
+    document.getElementById('wa-resend').addEventListener('click', async (e) => {
+      e.target.disabled = true;
+      e.target.textContent = 'Sent — check your inbox';
+      try { await user.sendEmailVerification(); } catch (_) {}
+    });
+    document.getElementById('wa-verify-out').addEventListener('click', async () => {
+      try { await auth.signOut(); } catch (_) {}
+      window.location.href = '/';
+    });
+  }
+
   auth.onAuthStateChanged(async (user) => {
     if (!user) { window.location.href = '/login'; return; }
+
+    // Pick up a verification that happened in another tab since this load.
+    try { await user.reload(); } catch (_) {}
+    const fresh = auth.currentUser || user;
+    const isPasswordAccount =
+      (fresh.providerData[0] && fresh.providerData[0].providerId) === 'password';
+    // Google/Apple accounts arrive with a provider-verified address.
+    if (isPasswordAccount && !fresh.emailVerified) { renderUnverified(fresh); return; }
+
+    startIdleWatch();
     uid = user.uid;
 
     const base = db.collection('users').doc(uid);
