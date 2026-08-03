@@ -61,6 +61,84 @@ window.FCApp = (function () {
       .replace(/'/g, '&#39;');
   }
 
+  /* ── SVG line-icon system ────────────────────────────────────
+     One icon language app-wide (matches Settings). Never emoji for
+     UI chrome — emoji render inconsistently across iOS versions and
+     read as unfinished. Usage: _ic('bank', 'var(--fc-accent)', 20) */
+  const _IC_PATHS = {
+    'credit-card':  '<rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/>',
+    'trending-down':'<polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/>',
+    'trending-up':  '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>',
+    'flag':         '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/>',
+    'calendar':     '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+    'bar-chart':    '<line x1="6" y1="20" x2="6" y2="16"/><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/>',
+    'gear':         '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+    'bank':         '<line x1="3" y1="22" x2="21" y2="22"/><line x1="6" y1="18" x2="6" y2="11"/><line x1="10" y1="18" x2="10" y2="11"/><line x1="14" y1="18" x2="14" y2="11"/><line x1="18" y1="18" x2="18" y2="11"/><path d="M12 2l8 5H4z"/>',
+    'star':         '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
+    'bell':         '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
+    'help-circle':  '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+    'home':         '<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
+    'zap':          '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
+    'wifi':         '<path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/>',
+    'shield':       '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
+    'smartphone':   '<rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/>',
+    'droplet':      '<path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>',
+    'flame':        '<path d="M12 2c2 4 6 5.5 6 10a6 6 0 1 1-12 0c0-2 .8-3.5 2-5 .4 1.2 1.2 2 2.5 2C11.5 9 10 6 12 2z"/>',
+    'file-text':    '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/>',
+    'dollar-sign':  '<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+    'grad-cap':     '<path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1.5 2.7 3 6 3s6-1.5 6-3v-5"/>',
+    'car':          '<path d="M5 17H3v-4l2-5h11l3 5h2v4h-2"/><circle cx="7.5" cy="17.5" r="1.5"/><circle cx="16.5" cy="17.5" r="1.5"/>',
+    'edit':         '<path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>',
+    'play-screen':  '<rect x="2" y="6" width="20" height="14" rx="2"/><polygon points="10 10 15 13 10 16 10 10"/>',
+    'lightbulb':    '<path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.4 1 2.3h6c0-.9.4-1.8 1-2.3A7 7 0 0 0 12 2z"/>',
+    'check':        '<polyline points="20 6 9 17 4 12"/>',
+    'send':         '<line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>',
+    'heart':        '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>',
+    'tag':          '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.83z"/><line x1="7" y1="7" x2="7.01" y2="7"/>',
+    'pie-chart':    '<path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/>',
+    'search':       '<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>',
+    'alert':        '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+    'clock':        '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+  };
+  function _ic(name, color, size) {
+    const path = _IC_PATHS[name] || _IC_PATHS['file-text'];
+    return '<svg width="'+(size||18)+'" height="'+(size||18)+'" viewBox="0 0 24 24" fill="none" stroke="'+(color||'currentColor')
+      +'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+path+'</svg>';
+  }
+
+  // Shared bill-category icon — one mapping for Home, Plan, Activity, and Bills hub
+  function _billIcon(nameOrBill, color, size) {
+    const n = String((nameOrBill && nameOrBill.name) || (nameOrBill && nameOrBill.category) || nameOrBill || '').toLowerCase();
+    const icon =
+        /electric|power|utilit/.test(n) ? 'zap'
+      : /internet|wifi|cable|comcast|xfinity/.test(n) ? 'wifi'
+      : /rent|mortgage|lease/.test(n) ? 'home'
+      : /phone|mobile|at.t|verizon|t-mobile/.test(n) ? 'smartphone'
+      : /insur/.test(n) ? 'shield'
+      : /netflix|hulu|spotify|disney|stream|tv/.test(n) ? 'play-screen'
+      : /water/.test(n) ? 'droplet'
+      : /gas|heat/.test(n) ? 'flame'
+      : /car|auto|vehicle/.test(n) ? 'car'
+      : 'file-text';
+    return _ic(icon, color || 'currentColor', size || 18);
+  }
+
+  // Shared goal-category icon — one mapping for Home "Goals in motion" and the Goals hub
+  function _goalIcon(nameOrGoal, color, size) {
+    const n = String((nameOrGoal && nameOrGoal.name) || nameOrGoal || '').toLowerCase();
+    const icon =
+        /emergency|rainy|reserve/.test(n) ? 'shield'
+      : /vacation|travel|trip/.test(n) ? 'send'
+      : /house|home|down/.test(n) ? 'home'
+      : /car|vehicle/.test(n) ? 'car'
+      : /wedding|marry/.test(n) ? 'heart'
+      : /retire/.test(n) ? 'trending-up'
+      : /school|college|educat/.test(n) ? 'grad-cap'
+      : /debt/.test(n) ? 'trending-down'
+      : 'flag';
+    return _ic(icon, color || 'currentColor', size || 18);
+  }
+
   /* ── Period helpers ──────────────────────────────────────── */
   // Returns a cutoff Date for the current state.period
   function _getPeriodCutoff() {
@@ -782,7 +860,7 @@ window.FCApp = (function () {
     if (totalEl) totalEl.textContent = FCData.formatCurrency(total);
 
     if (!periodTxns.length) {
-      svgEl.innerHTML = '<text x="50%" y="44" text-anchor="middle" fill="rgba(255,255,255,0.15)" font-size="12" font-family="-apple-system,sans-serif">No spending data for this period</text>';
+      svgEl.innerHTML = '<text x="50%" y="44" text-anchor="middle" fill="var(--fc-text-faint)" font-size="12" font-family="-apple-system,sans-serif">No spending data for this period</text>';
       if (labelsEl) labelsEl.innerHTML = '';
       if (deltaEl)  deltaEl.style.display = 'none';
       return;
@@ -822,7 +900,7 @@ window.FCApp = (function () {
       const h  = b.total > 0 ? Math.max(Math.round((b.total / maxVal) * (H - 10)), 4) : 2;
       const y  = H - h;
       // Zero-spend: render a 2px stub so x-axis labels stay aligned with bars
-      if (b.total <= 0) return `<rect x="${x}" y="${y}" width="${barW}" height="${h}" rx="${rx}" fill="rgba(255,255,255,0.05)"/>`;
+      if (b.total <= 0) return `<rect x="${x}" y="${y}" width="${barW}" height="${h}" rx="${rx}" fill="var(--fc-border)"/>`;
       if (b.isNow) {
         // Active bucket: full gradient + glow + bright top cap
         return `<rect x="${x}" y="${y}" width="${barW}" height="${h}" rx="${rx}" fill="url(#cg-now)" filter="url(#glow-bar)"/>
@@ -942,7 +1020,7 @@ window.FCApp = (function () {
         if (savingsRate >= 20) {
           insights.push({ icon: '🔥', text: `Saving ${savingsRate}% of income ${label} — keep it up!`, color: 'var(--fc-success)', bg: 'rgba(52,199,89,0.08)' });
         } else if (savingsRate > 0) {
-          insights.push({ icon: '💰', text: `Saving ${savingsRate}% of income — consider increasing to 20%`, color: 'rgba(255,255,255,0.7)', bg: 'rgba(255,255,255,0.04)' });
+          insights.push({ icon: '💰', text: `Saving ${savingsRate}% of income — consider increasing to 20%`, color: 'var(--fc-text-muted)', bg: 'var(--fc-bg-elevated-2)' });
         }
       }
     }
@@ -955,8 +1033,8 @@ window.FCApp = (function () {
       const projected   = dailyAvg * daysInMonth;
       const overProj    = hasBudget && projected > budgetLimit;
       const severeProj  = periodIncome > 0 && projected > periodIncome * 1.2;
-      const projColor   = severeProj ? 'var(--fc-danger)' : overProj ? 'var(--fc-warning)' : 'rgba(255,255,255,0.65)';
-      const projBg      = severeProj ? 'rgba(255,69,58,0.08)' : overProj ? 'rgba(255,176,32,0.07)' : 'rgba(255,255,255,0.03)';
+      const projColor   = severeProj ? 'var(--fc-danger)' : overProj ? 'var(--fc-warning)' : 'var(--fc-text-muted)';
+      const projBg      = severeProj ? 'rgba(255,69,58,0.08)' : overProj ? 'rgba(255,176,32,0.07)' : 'var(--fc-bg-elevated-2)';
       insights.push({
         icon: severeProj ? '🚨' : '📆',
         text: `Avg ${FCData.formatCurrency(dailyAvg)}/day · projected ${FCData.formatCurrency(projected)} by month end${severeProj ? ' — exceeds income!' : overProj ? ' ⚠️' : ''}`,
@@ -969,7 +1047,7 @@ window.FCApp = (function () {
     const subs = _detectSubscriptions();
     if (subs.length > 0) {
       const subTotal = subs.reduce((s, sub) => s + sub.amount, 0);
-      insights.push({ icon: '📱', text: `${subs.length} active subscriptions — ${FCData.formatCurrency(subTotal)}/mo in recurring charges`, color: 'rgba(255,255,255,0.6)', bg: 'rgba(255,255,255,0.04)' });
+      insights.push({ icon: '📱', text: `${subs.length} active subscriptions — ${FCData.formatCurrency(subTotal)}/mo in recurring charges`, color: 'var(--fc-text-muted)', bg: 'var(--fc-bg-elevated-2)' });
     }
 
     // 7. Spending Anomaly Detection — compare this week vs 4-week rolling average per category
@@ -1057,8 +1135,8 @@ window.FCApp = (function () {
           paydayInsight = {
             icon: '💸',
             text: `Payday predicted ${when} — ${FCData.formatCurrency(Math.round(avgAmt))} from ${esc(data.name)} expected`,
-            color: daysUntil <= 2 ? 'var(--fc-success)' : 'rgba(255,255,255,0.65)',
-            bg:   daysUntil <= 2 ? 'rgba(52,199,89,0.09)' : 'rgba(255,255,255,0.04)',
+            color: daysUntil <= 2 ? 'var(--fc-success)' : 'var(--fc-text-muted)',
+            bg:   daysUntil <= 2 ? 'rgba(52,199,89,0.09)' : 'var(--fc-bg-elevated-2)',
             _urgency: daysUntil <= 2 ? 2 : 4,
           };
           break; // one payday prediction max
@@ -1069,7 +1147,7 @@ window.FCApp = (function () {
 
     // Fallback — only if no data at all
     if (insights.length === 0) {
-      insights.push({ icon: '🔗', text: 'Connect a bank account to unlock personalized insights', color: 'rgba(255,255,255,0.5)', bg: 'rgba(255,255,255,0.04)' });
+      insights.push({ icon: '🔗', text: 'Connect a bank account to unlock personalized insights', color: 'var(--fc-text-faint)', bg: 'var(--fc-bg-elevated-2)' });
     }
 
     // Sort by urgency: danger(0) > anomaly/warning(1) > success(2) > payday(?) > info(3+)
@@ -1309,6 +1387,9 @@ window.FCApp = (function () {
 
     // Switch body attribute — incoming screen becomes visible
     state.screen = name;
+    // Re-apply a saved "hide balances" preference the moment the app screen
+    // mounts, so figures never flash visible before the user can react.
+    if (name === 'app') requestAnimationFrame(() => _restorePrivacyMode());
     document.body.dataset.screen = name;
 
     // Animate incoming screen
@@ -1402,9 +1483,13 @@ window.FCApp = (function () {
   }
 
   function switchActivitySegment(segment) {
+    haptic('light');
     _activitySegment = segment;
     const txnsPanel  = document.getElementById('activity-txns-panel');
     const billsPanel = document.getElementById('activity-bills-panel');
+    // Fresh segment = fresh list — never land the user mid-scroll
+    if (txnsPanel)  txnsPanel.scrollTop  = 0;
+    if (billsPanel) billsPanel.scrollTop = 0;
     const segTxns    = document.getElementById('seg-txns');
     const segBills   = document.getElementById('seg-bills');
     const addBillBtn = document.getElementById('activity-add-bill-btn');
@@ -1500,8 +1585,8 @@ window.FCApp = (function () {
 
       return `
         <div class="fc-list-item" data-bill-id="${b.id}" style="cursor:pointer" onclick="${b._preview ? 'FCApp.showBillSheet()' : `FCApp.editBill('${b.id}')`}" role="button">
-          <div class="fc-list-icon" style="background:${bg};color:white;font-weight:700;font-size:16px">
-            ${esc(b.icon || b.name.charAt(0))}
+          <div class="fc-list-icon" style="background:${bg};display:flex;align-items:center;justify-content:center">
+            ${_billIcon(b, '#fff', 18)}
           </div>
           <div class="fc-list-body">
             <div class="fc-list-title">${esc(b.name)}</div>
@@ -1521,7 +1606,7 @@ window.FCApp = (function () {
     let html = '';
 
     if (overdue.length) {
-      html += `<div class="fc-date-label" style="color:var(--fc-danger)">⚠️ Overdue</div>
+      html += `<div class="fc-date-label" style="color:var(--fc-danger);display:flex;align-items:center;gap:5px">${_ic('alert','var(--fc-danger)',12)} Overdue</div>
                <article class="fc-card" style="padding:4px 16px;margin-bottom:0;border:0.5px solid rgba(255,69,58,0.22)">
                  ${overdue.map(renderBillRow).join('')}
                </article>`;
@@ -1545,6 +1630,19 @@ window.FCApp = (function () {
   const _TAB_ORDER = ['home', 'activity', 'plan', 'wealth', 'more'];
   let _tabFadeTimer = null; // tracks the outgoing-view fade timeout so rapid taps can cancel it
 
+  function handleWebSearch(value) {
+    state.searchQuery = String(value || '').trim();
+    const activityInput = document.getElementById('activity-search');
+    if (activityInput && activityInput.value !== value) activityInput.value = value;
+
+    if (state.tab !== 'activity') {
+      switchTab('activity');
+      return;
+    }
+    _activityShowAll = false;
+    _renderActivity();
+  }
+
   function switchTab(tabId) {
     if (state.tab === tabId) return;
     haptic('light');
@@ -1556,6 +1654,14 @@ window.FCApp = (function () {
 
     const target   = document.getElementById('view-' + tabId);
     const outgoing = prev ? document.getElementById('view-' + prev) : null;
+
+    // ── Clean up any open sub-screens so they don't bleed into tab views ──
+    ['bills','debt','goals','investments','calendar','reports','notifications','settings'].forEach(id => {
+      const sub = document.getElementById('view-' + id);
+      if (sub) { sub.classList.remove('active'); sub.style.display = 'none'; }
+    });
+    const navBar = document.querySelector('.fc-nav');
+    if (navBar) navBar.style.display = '';
 
     // ── Clean up any stale animation classes from rapid taps ──────────────
     document.querySelectorAll('.fc-view').forEach(v =>
@@ -1575,14 +1681,19 @@ window.FCApp = (function () {
 
     // ── Incoming: make visible, reset scroll, fade in ─────────────────────
     if (target) {
+      target.style.display = '';   // clear inline hide left by sub-screen cleanup (goals is both)
       target.scrollTop = 0;
       target.classList.add('active', 'fc-tab-in');
       setTimeout(() => target.classList.remove('fc-tab-in'), 200);
     }
 
     // ── Nav items ──────────────────────────────────────────────────────────
+    // Views without their own nav slot highlight the tab they're reached from,
+    // so the nav never shows "nowhere" (activity ← Money, more/settings ← Coach).
+    const _navParent = { activity: 'wealth', more: 'coach', settings: 'coach', insights: 'plan' };
+    const navView = _navParent[tabId] || tabId;
     document.querySelectorAll('.fc-nav-item').forEach(item => {
-      const active = item.dataset.view === tabId;
+      const active = item.dataset.view === navView;
       item.classList.toggle('active', active);
       item.setAttribute('aria-selected', active ? 'true' : 'false');
       item.setAttribute('tabindex', active ? '0' : '-1');
@@ -1613,7 +1724,10 @@ window.FCApp = (function () {
         // Insights folded into Plan; redirect
         switchTab('plan');
       } else if (tabId === 'goals') {
-        _openSubScreen('goals');
+        // Goals is a first-class tab now — render in place, keep the nav
+        _renderGoalsScreen(true);
+      } else if (tabId === 'coach') {
+        _renderCoach();
       } else if (tabId === 'bills') {
         _openSubScreen('bills');
       } else if (tabId === 'debt') {
@@ -1733,6 +1847,28 @@ window.FCApp = (function () {
     element._fcAnimRaf = requestAnimationFrame(step);
   }
 
+  /* Count-up wrapper for full re-renders. innerHTML rebuilds destroy the
+     element (and animateNumber's per-element guards with it), so remember the
+     last shown value per id — re-renders with the same value stay static, and
+     changed values animate from the previous value instead of from zero. */
+  const _countupLast = {};
+  function _countup(id, value, prefix) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (prefix === undefined) prefix = '$';
+    const fmtStatic = v => (v < 0 ? '−' : '') + prefix + Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const prev = _countupLast[id];
+    const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduced || (prev !== undefined && Math.abs(prev - value) < 0.005)) {
+      el.textContent = fmtStatic(value);
+      _countupLast[id] = value;
+      return;
+    }
+    el.dataset.animVal = String(prev !== undefined ? prev : 0);
+    animateNumber(el, value, prefix);
+    _countupLast[id] = value;
+  }
+
   /* ─────────────────────────────────────────────────────────────
      SKELETON HELPERS
      ───────────────────────────────────────────────────────────── */
@@ -1759,7 +1895,6 @@ window.FCApp = (function () {
     const nameEl = document.createElement('strong');
     nameEl.textContent = name;
     element.appendChild(nameEl);
-    element.appendChild(document.createTextNode(' 👋'));
   }
 
   function _updateGreeting() {
@@ -2062,7 +2197,7 @@ window.FCApp = (function () {
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
             <span style="font-size:14px">${esc(offer.icon)}</span>
             <span style="font-size:11px;font-weight:700;color:${esc(offer.color)};text-transform:uppercase;letter-spacing:0.06em">${esc(offer.badge)}</span>
-            <span style="font-size:10px;color:rgba(255,255,255,0.3);margin-left:auto;font-weight:500">Partner</span>
+            <span style="font-size:10px;color:var(--fc-text-faint);margin-left:auto;font-weight:500">Partner</span>
           </div>
           <div style="font-size:17px;font-weight:700;color:var(--fc-text);line-height:1.3;margin-bottom:6px">${esc(headline)}</div>
           <div style="font-size:13px;color:var(--fc-text-muted);line-height:1.4;margin-bottom:14px">${esc(offer.sub)}</div>
@@ -2099,6 +2234,7 @@ window.FCApp = (function () {
    *  ended by token expiry or programmatic signOut doesn't leak the previous
    *  user's accounts/transactions into the next sign-in. */
   function _wipeUserState() {
+    if (_isDemoMode) return;
     fcLog('[FCApp] _wipeUserState — clearing all user state and listeners');
 
     // Detach all Firestore listeners — prevents stale data firing after sign-out.
@@ -2139,6 +2275,9 @@ window.FCApp = (function () {
     if (_privacyModeOn) {
       _privacyModeOn = false;
       document.body.classList.remove('fc-privacy');
+      // Also tear down the DOM observer — otherwise it keeps running against
+      // the next user's session.
+      if (typeof _stopPrivacyObserver === 'function') _stopPrivacyObserver();
     }
     // Wipe per-user localStorage caches (net-worth history, budget alert
     // flags, debt start, milestone flags, RC pro cache, etc.) so they can't
@@ -2146,9 +2285,18 @@ window.FCApp = (function () {
     // PRESERVE uid-keyed routing flags (fc_ob_done_, fc_pw_seen_) — they are
     // keyed by UID so they cannot cross-contaminate between users, and they
     // provide cross-session onboarding + paywall cooldown for the same user.
+    // ALSO PRESERVE:
+    //   fc_privacy_mode  — a DEVICE-level safety preference ("hide my balances
+    //     when people can see my screen"). It describes the user's physical
+    //     surroundings, not their account, and reveals nothing about any user.
+    //     Clearing it silently re-exposed every balance after a relaunch, so
+    //     keeping it is both correct and the fail-closed choice.
+    //   fc_first_sts_    — uid-keyed analytics de-dupe flag; wiping it would
+    //     re-fire the once-per-user "first Safe to Spend" event.
+    const _PRESERVE = ['fc_ob_done_', 'fc_pw_seen_', 'fc_first_sts_', 'fc_privacy_mode'];
     try {
       Object.keys(localStorage)
-        .filter(k => k.startsWith('fc_') && !k.startsWith('fc_ob_done_') && !k.startsWith('fc_pw_seen_'))
+        .filter(k => k.startsWith('fc_') && !_PRESERVE.some(p => k.startsWith(p)))
         .forEach(k => localStorage.removeItem(k));
     } catch (_) { /* localStorage unavailable in strict CSP — safe to ignore */ }
 
@@ -2332,7 +2480,7 @@ window.FCApp = (function () {
             <div class="dash-bar-fill" style="width:${barPct}%;background:${isOver ? 'var(--fc-danger)' : color}"></div>
           </div>
           <div style="height:6px;position:relative;margin-top:2px">
-            <div style="position:absolute;left:${target}%;top:-8px;width:1px;height:16px;background:rgba(255,255,255,0.2)"></div>
+            <div style="position:absolute;left:${target}%;top:-8px;width:1px;height:16px;background:var(--fc-border-strong)"></div>
           </div>
         </div>`;
     }
@@ -3060,7 +3208,7 @@ window.FCApp = (function () {
 
           <!-- Disclosure -->
           <div class="fcs-disclosure">
-            Partner offer · FlowCheck may earn a referral fee
+            Recommendations based on your actual spending patterns
           </div>
         </div>`;
     }).join('');
@@ -3702,7 +3850,7 @@ window.FCApp = (function () {
     );
 
     const typeLabel = t => ({ depository:'Checking', savings:'Savings', credit:'Credit Card', investment:'Investment', loan:'Loan', mortgage:'Mortgage' }[t] || 'Account');
-    const typeColor = t => ({ depository:'rgba(55,138,221,0.18)', savings:'rgba(29,158,117,0.18)', credit:'rgba(216,90,48,0.18)', investment:'rgba(96,165,250,0.18)', loan:'rgba(255,159,10,0.18)', mortgage:'rgba(255,159,10,0.18)' }[t] || 'rgba(255,255,255,0.07)');
+    const typeColor = t => ({ depository:'rgba(55,138,221,0.18)', savings:'rgba(29,158,117,0.18)', credit:'rgba(216,90,48,0.18)', investment:'rgba(96,165,250,0.18)', loan:'rgba(255,159,10,0.18)', mortgage:'rgba(255,159,10,0.18)' }[t] || 'var(--fc-bg-elevated-2)');
     const typeAccent = t => ({ depository:'#378ADD', savings:'#1D9E75', credit:'#D85A30', investment:'#60a5fa', loan:'var(--fc-warning)', mortgage:'var(--fc-warning)' }[t] || '#888');
     const typeIcon = t => ({ depository:'🏦', savings:'💰', credit:'💳', investment:'📈', loan:'🏠', mortgage:'🏠' }[t] || '🏦');
 
@@ -3983,6 +4131,7 @@ window.FCApp = (function () {
   // Internal state — index cycles when user taps "Next →"
   let _focusInsights = [];
   let _focusIdx      = 0;
+  const _dismissedInsightLabels = new Set();
 
   // Build an ordered list of insights from current state data
   function _buildFocusInsights() {
@@ -4046,7 +4195,7 @@ window.FCApp = (function () {
             ? `You're ${FCData.formatCurrency(spent - budget)} over your ${FCData.formatCurrency(budget)} monthly budget. Review the biggest categories in Plan.`
             : `${Math.round(pct * 100)}% of your budget used with ${daysLeft} days left.${dailyTarget > 0 ? ` Try keeping daily spending under ${FCData.formatCurrency(dailyTarget)}.` : ''}`,
           action: 'Review spending',
-          tap: () => FCApp.switchTab('insights')
+          tap: () => FCApp.switchTab('plan')
         });
       }
     }
@@ -4069,31 +4218,16 @@ window.FCApp = (function () {
             title: 'Spending pace is running high',
             body: `On track to spend ${FCData.formatCurrency(projected)} this month.${dailyCap > 0 ? ` Staying under ${FCData.formatCurrency(dailyCap)}/day keeps you in the green.` : ` That\'s ${FCData.formatCurrency(overage)} more than you\'ve earned this month.`}`,
             action: 'Review plan',
-            tap: () => FCApp.switchTab('insights')
+            tap: () => FCApp.switchTab('plan')
           });
         }
       }
     }
 
-    // ── 4. Unusual large transaction in last 3 days ──────────────
-    const cutoff3d  = new Date(now.getTime() - 3  * 86400000);
-    const cutoff60d = new Date(now.getTime() - 60 * 86400000);
-    const recent   = txns.filter(t => !t.isCredit && FCData.parseDateLocal(t.date) >= cutoff3d);
-    if (recent.length) {
-      const amounts  = txns.filter(t => !t.isCredit && _isSpendTxn(t) && FCData.parseDateLocal(t.date) >= cutoff60d).map(t => t.amount || 0);
-      const avg      = amounts.length ? amounts.reduce((a,b)=>a+b,0)/amounts.length : 0;
-      const outlier  = recent.find(t => (t.amount || 0) > avg * 3 && (t.amount || 0) > 50);
-      if (outlier && avg > 0) {
-        insights.push({
-          type: 'info',
-          label: 'Large charge',
-          title: `Unusual charge from ${_cleanTxnName(outlier)}`,
-          body: `${FCData.formatCurrency(outlier.amount)} — that's 3× your average transaction. Does this look right?`,
-          action: 'View transaction',
-          tap: () => FCApp.switchTab('activity')
-        });
-      }
-    }
+    // (removed) "Large charge" alert — it narrated a purchase that had
+    // already happened, which is the retrospective pattern VISION.md rejects.
+    // Anomaly detection that fires BEFORE money moves would earn its place;
+    // reporting a completed charge does not.
 
     // ── 5. Low cash balance warning ──────────────────────────────
     const cashBal = FCData.calcCash(accounts);
@@ -4120,44 +4254,17 @@ window.FCApp = (function () {
           title: `${FCData.formatCurrency(total)}/mo in subscriptions to review`,
           body: `Found ${zombies.length} recurring charge${zombies.length>1?'s':''} you might not be using. Canceling unused ones is the easiest monthly savings.`,
           action: 'Review subscriptions',
-          tap: () => FCApp.switchTab('insights')
+          tap: () => FCApp.switchTab('plan')
         });
       }
     } catch(_) { /* _detectSubscriptions may not be ready yet */ }
 
-    // ── 7. Positive / default ────────────────────────────────────
-    if (!insights.length && txns.length > 0) {
-      const weekSpend = txns
-        .filter(t => !t.isCredit && _isSpendTxn(t) && FCData.parseDateLocal(t.date) >= new Date(now.getTime() - 7*86400000))
-        .reduce((s,t) => s + (t.amount||0), 0);
-      const income = txns
-        .filter(t => t.isCredit && FCData.isCurrentMonth(t.date))
-        .reduce((s,t) => s + (t.amount||0), 0);
-      if (income > 0 && weekSpend < income * 0.15) {
-        insights.push({
-          type: 'good',
-          label: 'Good week',
-          title: 'Spending looks healthy',
-          body: `Only ${FCData.formatCurrency(weekSpend)} spent this week — you're on track to finish the month under budget.`,
-          action: 'See breakdown',
-          tap: () => FCApp.switchTab('insights'),
-          fallback: true
-        });
-      } else {
-        const nw = FCData.calcNetWorth(accounts);
-        insights.push({
-          type: 'info',
-          label: 'Net worth',
-          title: `Your net worth is ${FCData.formatCurrency(nw)}`,
-          body: 'Keep adding accounts for a complete picture of your financial health.',
-          action: 'View wealth',
-          tap: () => FCApp.switchTab('wealth'),
-          fallback: true
-        });
-      }
-    }
+    // (removed) "Good week" / "Net worth" filler cards. Both were tagged
+    // `fallback: true`, and every consumer either hid the section or filtered
+    // them out — so they were built on every render only to be thrown away.
+    // A dashboard card that fires to say nothing is wrong is noise.
 
-    return insights;
+    return insights.filter(ins => !_dismissedInsightLabels.has(ins.label));
   }
 
   // Color + icon config per insight type
@@ -4167,6 +4274,17 @@ window.FCApp = (function () {
     info:   { bar:'var(--fc-electric)', label:'rgba(96,165,250,0.90)', border:'rgba(37,99,235,0.28)',  bg:'rgba(37,99,235,0.06)',  iconBg:'rgba(37,99,235,0.14)',  icon:'💡' },
     good:   { bar:'var(--fc-success)',  label:'rgba(52,199,89,0.90)',  border:'rgba(52,199,89,0.28)',  bg:'rgba(52,199,89,0.06)',  iconBg:'rgba(52,199,89,0.14)',  icon:'✨' },
   };
+
+  function _dismissInsight(label) {
+    if (label) _dismissedInsightLabels.add(label);
+    _renderHomeDashboard();
+  }
+
+  function _carouselGoTo(id, idx) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.scrollTo({ left: idx * el.offsetWidth, behavior: 'smooth' });
+  }
 
   function _renderTodaysFocus() {
     const section = document.getElementById('todays-focus-section');
@@ -4455,6 +4573,334 @@ window.FCApp = (function () {
     return { cash, payday, days, bills, billsTotal, expectedEverydaySpend, reserve, safe };
   }
 
+  /* ─────────────────────────────────────────────────────────────
+     DASHBOARD v9 — RUNWAY SERIES
+     See DASHBOARD_SPEC.md. Pure function: builds one balance point per
+     day from today to payday, dipping at each unpaid bill. No DOM, no
+     network — everything derives from _buildSafeSpendProjection().
+     ───────────────────────────────────────────────────────────── */
+  function _buildRunwaySeries() {
+    const p = _buildSafeSpendProjection();
+    // No payday prediction yet → fall back to a 2-week horizon. Never
+    // invent a payday date; the caller labels the edge differently.
+    const horizon = Math.max(1, Math.min(31, p.payday?.days || 14));
+    const dailyBurn = p.expectedEverydaySpend / Math.max(1, p.days || horizon);
+
+    /* Bucket unpaid bills by how many days out they land.
+       Sourced from _billsForDisplay(), NOT from p.bills: the projection caps
+       its bill window at min(14, paydayDays) because that is the horizon
+       `safe` is computed over, but the runway draws all the way to payday —
+       often 29+ days. Reusing p.bills silently dropped every bill past day 14
+       and overstated the landing balance, which is the one number this screen
+       exists to get right. */
+    const billsByDay = {};
+    _billsForDisplay().forEach(b => {
+      if (b.status === 'paid') return;
+      const d = FCData.daysUntil(b.due_date);
+      if (d === null || d < 0 || d > horizon) return;
+      (billsByDay[d] = billsByDay[d] || []).push(b);
+    });
+
+    let balance = p.cash;
+    let lowest  = { day: 0, balance: p.cash };
+    let firstNegativeDay = null;
+    const points = [];
+
+    for (let day = 0; day <= horizon; day++) {
+      const dayBills = billsByDay[day] || [];
+      balance -= dayBills.reduce((s, b) => s + Number(b.amount || 0), 0);
+      if (day > 0) balance -= dailyBurn;
+      if (balance < lowest.balance) lowest = { day, balance };
+      if (firstNegativeDay === null && balance < 0) firstNegativeDay = day;
+      const date = new Date();
+      date.setDate(date.getDate() + day);
+      date.setHours(0, 0, 0, 0);
+      points.push({ day, date, balance, bills: dayBills });
+    }
+
+    return {
+      points,
+      horizon,
+      dailyBurn,
+      startBalance:  p.cash,
+      endBalance:    points[points.length - 1].balance,
+      lowest,
+      firstNegativeDay,                       // null when it never dips below 0
+      goesNegative:  firstNegativeDay !== null,
+      payday:        p.payday || null,        // null → label the edge "2 weeks"
+      hasPayday:     !!p.payday,
+      billCount:     Object.values(billsByDay).reduce((n, a) => n + a.length, 0),
+    };
+  }
+
+  /* ── Dashboard v9: runway SVG markup (DASHBOARD_SPEC.md §2) ────── */
+  let _rwSeries = null;   // last rendered runway, read by the scrub handler
+
+  /* Bank-linked test, mirroring the `isLinked` line in _renderHome.
+     Deliberately module scope: _renderRunwayCard must never reach for a
+     _renderHome local (that is the fmt() trap that blanked Today once). */
+  function _isBankLinked() {
+    const u = state.user || {};
+    return Boolean(u.plaid_linked || u.plaid_institution || (state.accounts || []).length || _isDemoMode);
+  }
+
+  /* Fixed, deterministic sample for the no-bank state (SPEC §6). Same shape
+     as _buildRunwaySeries so it renders through the identical code path — the
+     user sees the real instrument, just not real numbers. Rendered WITHOUT
+     any dollar figure: a fabricated balance must never be mistakable for the
+     user's own money. */
+  function _buildSampleRunwaySeries() {
+    const horizon = 14, dailyBurn = 46, start = 2400;
+    const billsByDay = {
+      3:  [{ name: 'Rent',     amount: 950 }],
+      8:  [{ name: 'Electric', amount: 130 }],
+      11: [{ name: 'Phone',    amount: 65  }],
+    };
+    let balance = start;
+    let lowest = { day: 0, balance: start };
+    const points = [];
+    for (let day = 0; day <= horizon; day++) {
+      const dayBills = billsByDay[day] || [];
+      balance -= dayBills.reduce((s, b) => s + b.amount, 0);
+      if (day > 0) balance -= dailyBurn;
+      if (balance < lowest.balance) lowest = { day, balance };
+      const date = new Date();
+      date.setDate(date.getDate() + day);
+      date.setHours(0, 0, 0, 0);
+      points.push({ day, date, balance, bills: dayBills });
+    }
+    return {
+      points, horizon, dailyBurn,
+      startBalance: start,
+      endBalance: points[points.length - 1].balance,
+      lowest, firstNegativeDay: null, goesNegative: false,
+      payday: null, hasPayday: true, billCount: 3, isSample: true,
+    };
+  }
+
+  /* Shared chart geometry. _attachRunwayScrub mirrors this y-mapping —
+     change one and you must change the other. */
+  function _rwGeom(r) {
+    const W = 300, H = 104, PAD_T = 10, PAD_B = 20;
+    const maxV = Math.max(r.startBalance, 0);
+    const minV = Math.min(r.lowest.balance, 0);
+    const span = Math.max(1, maxV - minV);
+    return {
+      W, H, PAD_T, PAD_B, minV,
+      x: d => (d / Math.max(1, r.horizon)) * W,
+      y: v => PAD_T + (1 - (v - minV) / span) * (H - PAD_T - PAD_B),
+    };
+  }
+
+  const _RW_LOCK_ICON = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
+
+  const _RW_TRUST_ROW = '<div class="rw-trust">' + _RW_LOCK_ICON
+    + '<span id="home-trust-text">Read-only · Bank-grade encryption</span></div>';
+
+  /* SPEC §6 — loading. Axis and payday edge already in place, line absent.
+     Never a spinner: the frame of the answer arrives before the answer. */
+  function _renderRunwaySkeleton() {
+    return ''
+      + '<section class="fc-ui-card rw-card rw-card--sk" aria-label="Runway loading" aria-busy="true">'
+        + '<div class="rw-head">'
+          + '<div class="rw-head__text"><p class="fc-section-label">Runway</p>'
+            + '<span class="fc-sk fc-sk--text-lg rw-sk-headline"></span>'
+            + '<span class="fc-sk fc-sk--text-lg rw-sk-headline"></span>'
+            + '<span class="fc-sk fc-sk--text-sm rw-sk-sub"></span>'
+            + '<span class="fc-sk fc-sk--text-sm rw-sk-sub"></span></div>'
+          + '<div class="rw-end"><p class="rw-end-lbl">Payday</p>'
+            + '<span class="fc-sk fc-sk--text-lg rw-sk-end"></span></div>'
+        + '</div>'
+        + '<div class="rw-chart">'
+          + '<svg viewBox="0 0 300 104" preserveAspectRatio="none" aria-hidden="true">'
+            + '<line x1="0" y1="84" x2="300" y2="84" stroke="var(--fc-border)" stroke-width="1"/>'
+            + '<line x1="298.5" y1="8" x2="298.5" y2="84" stroke="var(--fc-accent)" stroke-width="1.5" stroke-dasharray="3 3" opacity="0.55"/>'
+          + '</svg>'
+          + '<div class="rw-axis"><span>Today</span><span>Payday</span></div>'
+        + '</div>'
+        + '<span class="fc-sk rw-sk-cta"></span>'
+        + _RW_TRUST_ROW
+      + '</section>';
+  }
+
+  /* SPEC §6 — no bank linked. Show the shape of the value before asking for
+     access. Dimmed sample, explicit "Sample data" tag, and no dollar figure
+     anywhere on the card. */
+  function _renderRunwaySample() {
+    const r = _buildSampleRunwaySeries();
+    return ''
+      + '<section class="fc-ui-card rw-card rw-card--sample" aria-label="Sample runway">'
+        + '<div class="rw-head">'
+          + '<div class="rw-head__text"><p class="fc-section-label">Runway · Sample</p>'
+            + '<h2 class="rw-headline">See if you make it to payday</h2>'
+            + '<p class="rw-sub">Connect your bank and this becomes your real balance, day by day, with every bill already taken out.</p></div>'
+        + '</div>'
+        + '<div class="rw-chart rw-chart--sample">'
+          + _rwChartSVG(r, 'var(--fc-accent)')
+          + '<div class="rw-axis"><span>Today</span><span>Payday</span></div>'
+          + '<div class="rw-sample-veil"><span class="rw-sample-tag">Sample data</span></div>'
+        + '</div>'
+        + '<button class="rw-cta" type="button" onclick="FCApp.startPlaidLink&&FCApp.startPlaidLink()">Connect your bank</button>'
+        + _RW_TRUST_ROW
+      + '</section>';
+  }
+
+  /* The SVG itself — line, area, bill markers, zero-line, endpoint dot.
+     Shared by the real and sample cards so both render identically. */
+  function _rwChartSVG(r, stroke) {
+    const g = _rwGeom(r), pts = r.points;
+    const line = pts.map((p, i) => (i ? 'L' : 'M') + g.x(p.day).toFixed(1) + ',' + g.y(p.balance).toFixed(1)).join(' ');
+    const area = line + ' L' + g.W + ',' + g.y(g.minV).toFixed(1) + ' L0,' + g.y(g.minV).toFixed(1) + ' Z';
+    const zeroY = g.y(0);
+    const W = g.W, H = g.H, PAD_B = g.PAD_B, minV = g.minV;
+    const x = g.x, y = g.y;
+    const markers = pts.filter(p => p.bills.length).map(p =>
+      '<g class="rw-marker">'
+      + '<line x1="' + x(p.day).toFixed(1) + '" y1="' + y(p.balance).toFixed(1) + '" x2="' + x(p.day).toFixed(1) + '" y2="' + (H - PAD_B) + '" stroke="var(--fc-border-strong)" stroke-width="1" stroke-dasharray="2 3"/>'
+      + '<circle cx="' + x(p.day).toFixed(1) + '" cy="' + y(p.balance).toFixed(1) + '" r="3.4" fill="var(--fc-bg-elevated)" stroke="' + stroke + '" stroke-width="2"/>'
+      + '</g>').join('');
+
+    const endX = x(r.horizon), endY = y(r.endBalance);
+
+    return '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" aria-hidden="true">'
+      + '<defs><linearGradient id="rwGrad" x1="0" y1="0" x2="0" y2="1">'
+        + '<stop offset="0%" stop-color="' + stroke + '" stop-opacity="0.22"/>'
+        + '<stop offset="100%" stop-color="' + stroke + '" stop-opacity="0"/>'
+      + '</linearGradient></defs>'
+      + (minV < 0 ? '<line x1="0" y1="' + zeroY.toFixed(1) + '" x2="' + W + '" y2="' + zeroY.toFixed(1) + '" stroke="var(--fc-danger)" stroke-width="1" stroke-dasharray="3 3" opacity="0.55"/>' : '')
+      + '<path d="' + area + '" fill="url(#rwGrad)"/>'
+      + '<path class="rw-line" d="' + line + '" fill="none" stroke="' + stroke + '" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>'
+      + markers
+      + '<circle class="rw-endpoint" cx="' + endX.toFixed(1) + '" cy="' + endY.toFixed(1) + '" r="4.5" fill="' + stroke + '"/>'
+      + '</svg>';
+  }
+
+  function _renderRunwayCard() {
+    /* SPEC §6 states, in precedence order: loading beats everything, then
+       no-bank. Only a linked account with data draws a real runway. */
+    if (state.initialLoading && state.user?.plaid_linked && !(state.accounts || []).length) {
+      _rwSeries = null;                  // scrub must never read stale data
+      return _renderRunwaySkeleton();
+    }
+    if (!_isBankLinked()) {
+      _rwSeries = null;                  // scrub must never report sample money
+      return _renderRunwaySample();
+    }
+
+    const r = _buildRunwaySeries();
+    _rwSeries = r;
+    const pts = r.points;
+    if (!pts.length) return '';
+
+    const stroke = r.goesNegative ? 'var(--fc-danger)' : 'var(--fc-accent)';
+    const edgeLabel = r.hasPayday ? 'PAYDAY' : 'IN 2 WEEKS';
+    const dLabel = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+    /* Headline states the answer in words before the chart explains it.
+       With no predicted payday we say "2 weeks" and never invent a date. */
+    const headline = r.goesNegative
+      ? 'You run short on ' + dLabel(pts[r.firstNegativeDay].date)
+      : (r.billCount
+          ? (r.hasPayday ? 'You make it to payday' : 'You are covered for 2 weeks')
+          : (r.hasPayday ? 'Nothing due before payday' : 'Nothing due in the next 2 weeks'));
+    let sub = r.goesNegative
+      ? 'Move or delay a bill to stay above zero.'
+      : (r.billCount
+          ? r.billCount + ' bill' + (r.billCount === 1 ? '' : 's') + ' between now and then.'
+          : 'This is all yours.');
+    // Say plainly that the horizon is a fallback, not a detected payday.
+    if (!r.hasPayday) sub += ' Payday not detected yet.';
+
+    return ''
+      + '<section class="fc-ui-card rw-card" aria-label="Runway to payday">'
+        + '<div class="rw-head">'
+          + '<div class="rw-head__text"><p class="fc-section-label">Runway</p>'
+            + '<h2 class="rw-headline' + (r.goesNegative ? ' rw-headline--warn' : '') + '">' + esc(headline) + '</h2>'
+            + '<p class="rw-sub">' + esc(sub) + '</p></div>'
+          + '<div class="rw-end"><p class="rw-end-lbl">' + edgeLabel + '</p>'
+            + '<p class="rw-endpoint-value fc-amount' + (r.endBalance < 0 ? ' rw-endpoint-value--warn' : '') + '">'
+            + (r.endBalance < 0 ? '\u2212' : '') + FCData.formatCurrency(Math.abs(r.endBalance)) + '</p></div>'
+        + '</div>'
+        + '<div class="rw-chart">'
+          + _rwChartSVG(r, stroke)
+          + '<div class="rw-scrub" id="rw-scrub" aria-hidden="true">'
+            + '<div class="rw-scrub-line"></div>'
+            + '<div class="rw-scrub-dot"></div>'
+          + '</div>'
+          + '<div class="rw-readout" id="rw-readout" aria-hidden="true"></div>'
+          + '<div class="rw-axis"><span>Today</span><span>' + esc(dLabel(pts[pts.length - 1].date)) + '</span></div>'
+        + '</div>'
+        + '<button class="rw-cta" type="button" onclick="FCApp.showAffordSheet&&FCApp.showAffordSheet()">Can I afford something?</button>'
+        + _RW_TRUST_ROW
+      + '</section>';
+  }
+
+  /* ── Dashboard v9 wow #2: drag to scrub (DASHBOARD_SPEC.md §4) ──
+     Drag along the runway and a readout follows your finger:
+     "Aug 14 — $612 left". Turns the chart from a picture into an
+     instrument. Haptic ticks on day boundaries only, never per pixel. */
+  function _attachRunwayScrub() {
+    const chart = document.querySelector('.rw-chart');
+    if (!chart || chart.dataset.scrubReady === '1') return;
+    chart.dataset.scrubReady = '1';
+
+    const scrub   = chart.querySelector('#rw-scrub');
+    const readout = chart.querySelector('#rw-readout');
+    const svg     = chart.querySelector('svg');
+    if (!scrub || !readout || !svg) return;
+
+    let lastDay = -1;
+
+    const end = () => {
+      chart.classList.remove('rw-scrubbing');
+      lastDay = -1;
+    };
+
+    const move = (clientX) => {
+      const r = _rwSeries;
+      if (!r || !r.points.length) return;
+      const box = svg.getBoundingClientRect();
+      const pct = Math.min(1, Math.max(0, (clientX - box.left) / Math.max(1, box.width)));
+      const day = Math.round(pct * r.horizon);
+      const pt  = r.points[Math.min(day, r.points.length - 1)];
+      if (!pt) return;
+
+      chart.classList.add('rw-scrubbing');
+      const xPct = (pt.day / Math.max(1, r.horizon)) * 100;
+      scrub.style.left = xPct + '%';
+
+      // vertical position of the dot mirrors the SVG's own y mapping
+      const maxV = Math.max(r.startBalance, 0);
+      const minV = Math.min(r.lowest.balance, 0);
+      const span = Math.max(1, maxV - minV);
+      const yPct = (1 - (pt.balance - minV) / span) * 100;
+      scrub.style.setProperty('--rw-y', yPct + '%');
+
+      const label = pt.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const amt   = (pt.balance < 0 ? '\u2212' : '') + FCData.formatCurrency(Math.abs(pt.balance));
+      const billNote = pt.bills.length
+        ? ' · ' + esc(pt.bills[0].name) + (pt.bills.length > 1 ? ' +' + (pt.bills.length - 1) : '')
+        : '';
+      readout.innerHTML = '<b>' + esc(label) + '</b> — <span class="fc-amount">' + amt + '</span> left' + billNote;
+      // keep the readout inside the card
+      readout.style.left = Math.min(88, Math.max(12, xPct)) + '%';
+
+      if (day !== lastDay) { lastDay = day; haptic('light'); }
+    };
+
+    chart.addEventListener('pointerdown', e => {
+      // setPointerCapture THROWS for a pointer id it doesn't recognise, and
+      // optional-chaining only guards a missing method, not a throw — an
+      // exception here would abort before the readout ever renders.
+      try { chart.setPointerCapture(e.pointerId); } catch (_) {}
+      move(e.clientX);
+    });
+    chart.addEventListener('pointermove', e => { if (e.buttons || e.pointerType === 'touch') move(e.clientX); });
+    chart.addEventListener('pointerup', end);
+    chart.addEventListener('pointercancel', end);
+    chart.addEventListener('pointerleave', end);
+  }
+
   function _getSafeToSpendHome() {
     return _buildSafeSpendProjection().safe;
   }
@@ -4516,7 +4962,7 @@ window.FCApp = (function () {
     const area = `${line} L${width},${height - bottom} L0,${height - bottom} Z`;
     const last = coords[coords.length - 1];
     const midY = (top + (height - bottom)) / 2;
-    chart.innerHTML = `<defs><linearGradient id="homeRunwayFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--fc-accent)" stop-opacity=".28"/><stop offset="1" stop-color="var(--fc-accent)" stop-opacity="0"/></linearGradient></defs><line x1="0" x2="${width}" y1="${midY.toFixed(1)}" y2="${midY.toFixed(1)}" stroke="rgba(255,255,255,0.07)" stroke-dasharray="4 4"/><path d="${area}" fill="url(#homeRunwayFill)"/><path d="${line}" fill="none" stroke="var(--fc-accent)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${last.x.toFixed(1)}" cy="${last.y.toFixed(1)}" r="4" fill="var(--fc-bg-elevated)" stroke="var(--fc-accent)" stroke-width="2.4"/>`;
+    chart.innerHTML = `<defs><linearGradient id="homeRunwayFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--fc-accent)" stop-opacity=".28"/><stop offset="1" stop-color="var(--fc-accent)" stop-opacity="0"/></linearGradient></defs><line x1="0" x2="${width}" y1="${midY.toFixed(1)}" y2="${midY.toFixed(1)}" stroke="var(--fc-border)" stroke-dasharray="4 4"/><path d="${area}" fill="url(#homeRunwayFill)"/><path d="${line}" fill="none" stroke="var(--fc-accent)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${last.x.toFixed(1)}" cy="${last.y.toFixed(1)}" r="4" fill="var(--fc-bg-elevated)" stroke="var(--fc-accent)" stroke-width="2.4"/>`;
   }
 
   /* ── Next Bill compact card (right col on Home) ─────────────── */
@@ -4936,7 +5382,7 @@ window.FCApp = (function () {
         }
         if (pulseFill) {
           pulseFill.style.width      = hasCompare ? pulsePct + '%' : '100%';
-          pulseFill.style.background = monthSpend > 0 ? fillColor : 'rgba(255,255,255,0.10)';
+          pulseFill.style.background = monthSpend > 0 ? fillColor : 'var(--fc-border)';
         }
 
         const _now3    = new Date();
@@ -4991,7 +5437,7 @@ window.FCApp = (function () {
             <span class="fc-eyebrow">Goal</span>
             <span style="color:${pct >= 100 ? 'var(--fc-success)' : pct >= 75 ? 'var(--fc-accent)' : pct >= 25 ? 'var(--fc-accent)' : pct >= 5 ? 'var(--fc-warning)' : 'var(--fc-text-faint)'};font-size:10px;font-weight:600">${pct >= 100 ? 'Complete 🎉' : pct >= 75 ? 'Almost there' : pct >= 25 ? 'In progress' : pct >= 5 ? 'Building momentum' : pct > 0 ? 'Getting started' : 'New goal'}</span>
           </div>
-          <div class="fc-h3" style="font-size:16px;margin-bottom:2px">${g.name}</div>
+          <div class="fc-h3" style="font-size:16px;margin-bottom:2px">${esc(g.name)}</div>
           <div class="fc-xs">${current} of ${target}</div>
         </div>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>`;
@@ -5168,6 +5614,933 @@ window.FCApp = (function () {
 
     // Feedback banner
     _renderFeedbackBanner();
+
+    // New mockup-matching dashboard (writes full HTML into #home-dash)
+    _renderHomeDashboard();
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     HOME DASHBOARD v7 — clean vertical mockup match
+     ───────────────────────────────────────────────────────────── */
+  function _renderHomeDashboardLegacy() {
+    const el = document.getElementById('home-dash');
+    if (!el) return;
+
+    const user      = state.user || {};
+    const firstName = (user.name || 'there').split(' ')[0].replace(/[.\d]/g, '') || 'there';
+    const now       = new Date();
+    const hour      = now.getHours();
+    const tod       = hour < 5 ? 'Good night' : hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+    const dateStr   = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+
+    const transactions = state.transactions || [];
+    const bills        = state.bills || [];
+    const goals        = state.goals || [];
+    const budgets      = state.budgets || {};
+    const isLinked     = !!(user.plaid_linked || _isDemoMode);
+
+    // Month figures
+    const mStart      = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthTxns   = transactions.filter(t => t.date && FCData.parseDateLocal(t.date) >= mStart);
+    const monthIncome = monthTxns.filter(_isIncomeTxn).reduce((s,t) => s+(t.amount||0), 0);
+    const monthSpend  = monthTxns.filter(_isSpendTxn).reduce((s,t) => s+(t.amount||0), 0);
+    const cashFlow    = monthIncome - monthSpend;
+
+    // Safe to spend
+    let safeToSpend = 0;
+    if (isLinked) {
+      try { safeToSpend = Math.max(0, _buildSafeSpendProjection().safe); } catch(_) {}
+    }
+
+    // Next bill
+    const nextBill = bills.filter(b => b.status !== 'paid')
+      .sort((a,b) => (FCData.daysUntil(a.due_date)??999)-(FCData.daysUntil(b.due_date)??999))[0];
+
+    // Budget
+    const budgetLimit = budgets['total']?.limit || 0;
+    const budgetPct   = budgetLimit > 0 ? Math.min(Math.round(monthSpend/budgetLimit*100),100) : 0;
+    const budgetColor = budgetPct > 90 ? 'var(--fc-danger)' : budgetPct > 70 ? 'var(--fc-warning)' : 'var(--fc-accent)';
+
+    // Top spending category
+    const catMap = {};
+    monthTxns.filter(_isSpendTxn).forEach(t => {
+      const c = (t.category?.[1]||t.category?.[0]||'Other');
+      catMap[c] = (catMap[c]||0)+(t.amount||0);
+    });
+    const topCat = Object.entries(catMap).sort((a,b)=>b[1]-a[1])[0];
+
+    // Financial Freedom Score (0–100)
+    const unpaidBills  = bills.filter(b => b.status !== 'paid');
+    const overdueCount = unpaidBills.filter(b => (FCData.daysUntil(b.due_date)??1)<0).length;
+    const healthScore  = Math.min(100, Math.round(_calcHealthScore(monthIncome, monthSpend, unpaidBills, overdueCount)/8.5));
+    const healthColor  = healthScore >= 70 ? 'var(--fc-accent)' : healthScore >= 50 ? 'var(--fc-warning)' : 'var(--fc-danger)';
+    const healthMsg    = healthScore >= 80 ? "You're building great habits. Keep it up!"
+                       : healthScore >= 60 ? "You're on track. Small wins add up."
+                       : healthScore >= 40 ? "Room to improve — focus on saving more."
+                       : "Let's build better habits together.";
+
+    // Recent transactions (3)
+    const recentTxns = [...transactions].sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,3);
+
+    // "Your Next Best Move" hero card
+    const efGoal = goals.find(g => /emergency|rainy|reserve/i.test(g.name||''));
+    let moveTitleText, moveBodyText, moveBtnLabel, moveBtnAction;
+    if (safeToSpend > 50 && efGoal && (efGoal.pct||0) < 100) {
+      const moveAmt = Math.min(50, Math.round(safeToSpend * 0.15));
+      moveTitleText = 'You have ' + FCData.formatCurrency(safeToSpend) + ' extra before payday.';
+      moveBodyText  = 'Move ' + FCData.formatCurrency(moveAmt) + ' to ' + (efGoal.name||'Emergency Fund') + '.';
+      moveBtnLabel  = 'Move ' + FCData.formatCurrency(moveAmt) + ' Now';
+      moveBtnAction = "_openSubScreen('goals')";
+    } else if (budgetLimit > 0 && monthSpend > budgetLimit && topCat) {
+      const over = monthSpend - budgetLimit;
+      moveTitleText = 'Budget exceeded by ' + FCData.formatCurrency(over) + '.';
+      moveBodyText  = topCat[0] + ' is your biggest spend this month.';
+      moveBtnLabel  = 'Review Spending';
+      moveBtnAction = "switchTab('activity')";
+    } else {
+      let ins = [];
+      try { ins = _buildFocusInsights ? _buildFocusInsights() : []; } catch(_) {}
+      const first = ins[0];
+      moveTitleText = (first && first.title) || 'Review your financial plan.';
+      moveBodyText  = (first && first.body)  || 'Stay on top of bills, goals & budget.';
+      moveBtnLabel  = 'Review Plan';
+      moveBtnAction = "switchTab('plan')";
+    }
+
+    // Auth user initial for header avatar
+    const authUser3 = window.FCAuth && FCAuth.currentUser ? FCAuth.currentUser() : null;
+    const rawName3  = (user.name||authUser3?.displayName||'').trim();
+    const initial   = rawName3.charAt(0).toUpperCase() || '?';
+    const hdrAvatar = document.getElementById('header-avatar-initial');
+    if (hdrAvatar) hdrAvatar.textContent = initial;
+
+    // ── Helpers ──────────────────────────────────────────────────
+    const fmt = v => FCData.formatCurrency(v);
+
+    function txnDateLbl(ds) {
+      if (!ds) return '';
+      const d = FCData.parseDateLocal(ds);
+      const today = new Date(), yest = new Date(today); yest.setDate(yest.getDate()-1);
+      if (d.toDateString()===today.toDateString()) return 'Today';
+      if (d.toDateString()===yest.toDateString()) return 'Yesterday';
+      return d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+    }
+
+    function billDueFmt(b) {
+      const days = FCData.daysUntil(b.due_date);
+      if (days===null) return '';
+      if (days<0) return Math.abs(days)+'d overdue';
+      if (days===0) return 'Due today';
+      if (days<=6) return 'Due in '+days+'d';
+      try {
+        const d = FCData.parseDateLocal ? FCData.parseDateLocal(b.due_date) : new Date(b.due_date+'T12:00:00');
+        return 'Due '+d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+      } catch(_) { return 'Due in '+days+'d'; }
+    }
+
+    function billDayColor(b) {
+      const days = FCData.daysUntil(b.due_date);
+      if (days===null||days>6) return 'var(--fc-text-muted)';
+      if (days<0) return 'var(--fc-danger)';
+      if (days<=3) return 'var(--fc-warning)';
+      return 'var(--fc-text-muted)';
+    }
+
+    function txnIcon(t) {
+      const j = (t.category||[]).join(' ').toLowerCase()+' '+(t.name||'').toLowerCase();
+      if (t.isCredit) return '💰';
+      if (j.includes('amazon')) return '📦';
+      if (j.includes('starbucks')||j.includes('coffee')) return '☕';
+      if (j.includes('target')||j.includes('walmart')) return '🛒';
+      if (j.includes('restaurant')||j.includes('chipotle')||j.includes('dining')) return '🍽️';
+      if (j.includes('uber')||j.includes('lyft')||j.includes('ride')) return '🚗';
+      if (j.includes('gas')||j.includes('fuel')) return '⛽';
+      if (j.includes('netflix')||j.includes('spotify')||j.includes('subscription')) return '🎬';
+      return '💳';
+    }
+
+    function txnBg(t) {
+      if (t.isCredit) return 'rgba(34,197,94,0.12)';
+      const j = (t.category||[]).join(' ').toLowerCase();
+      if (j.includes('food')||j.includes('restaurant')||j.includes('coffee')) return 'rgba(249,115,22,0.10)';
+      if (j.includes('shop')||j.includes('amazon')) return 'rgba(59,130,246,0.10)';
+      if (j.includes('travel')||j.includes('uber')) return 'var(--fc-electric-soft)';
+      return 'rgba(100,116,139,0.10)';
+    }
+
+    function goalEmoji(g) {
+      const n = (g.name||'').toLowerCase();
+      if (n.includes('emergency')||n.includes('rainy')) return '🛡️';
+      if (n.includes('vacation')||n.includes('travel')) return '🌴';
+      if (n.includes('home')||n.includes('down')) return '🏠';
+      if (n.includes('car')) return '🚗';
+      if (n.includes('wedding')) return '💍';
+      return '🎯';
+    }
+
+    function bar(pct, color, h) {
+      const t = h||5;
+      return '<div style="height:'+t+'px;background:rgba(13,27,46,0.07);border-radius:'+t+'px;overflow:hidden"><div style="height:100%;width:'+Math.min(pct,100)+'%;background:'+color+';border-radius:'+t+'px;transition:width .5s"></div></div>';
+    }
+
+    function donutSVG(pct, color) {
+      const r=38,cx=48,cy=48,circ=2*Math.PI*r;
+      return '<svg width="96" height="96" viewBox="0 0 96 96"><circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="rgba(13,27,46,0.07)" stroke-width="8"/><circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="'+color+'" stroke-width="8" stroke-dasharray="'+circ.toFixed(1)+'" stroke-dashoffset="'+(circ*(1-pct/100)).toFixed(1)+'" stroke-linecap="round" transform="rotate(-90 '+cx+' '+cy+')"/></svg>';
+    }
+
+    const card = (p) => 'background:var(--fc-bg-elevated);border:1px solid var(--fc-border);border-radius:20px;box-shadow:0 2px 12px rgba(13,27,46,0.06);padding:'+(p||'18px 20px');
+    const eyebrow = 'font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--fc-text-faint)';
+    function linkBtn(action, label) { return '<button onclick="'+action+'" style="font-size:12px;font-weight:600;color:var(--fc-accent);background:none;border:none;cursor:pointer;padding:0;font-family:inherit;-webkit-tap-highlight-color:transparent">'+label+'</button>'; }
+    const goalBarColors = ['var(--fc-accent)','var(--fc-success)','var(--fc-warning)'];
+    const goalBgColors  = ['var(--fc-accent-soft)','var(--fc-success-soft)','var(--fc-warning-soft)'];
+
+    // ── Render ────────────────────────────────────────────────────
+    const syncBadge = isLinked ? '<div style="display:inline-flex;align-items:center;gap:5px;background:var(--fc-success-soft);border:1px solid rgba(34,197,94,0.22);border-radius:999px;padding:5px 12px;flex-shrink:0;margin-top:4px"><div style="width:7px;height:7px;border-radius:50%;background:var(--fc-success);flex-shrink:0"></div><span style="font-size:12px;font-weight:600;color:var(--fc-success)">Synced</span></div>' : '';
+
+    const nextBillHtml = nextBill
+      ? '<div style="font-size:13px;font-weight:600;color:var(--fc-text);margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(nextBill.name)+'</div>'
+        +'<div style="font-size:22px;font-weight:700;color:var(--fc-text);letter-spacing:-0.03em;font-variant-numeric:tabular-nums;margin-bottom:4px">'+fmt(nextBill.amount)+'</div>'
+        +'<div style="font-size:12px;color:'+billDayColor(nextBill)+';margin-bottom:8px">'+esc(billDueFmt(nextBill))+'</div>'
+        +linkBtn("FCApp.switchTab('plan')", 'View all bills ›')
+      : '<div style="font-size:13px;font-weight:600;color:var(--fc-success);margin-bottom:4px">All clear ✓</div>'
+        +'<div style="font-size:12px;color:var(--fc-text-muted)">No bills due soon</div>';
+
+    const cfArrow = cashFlow >= 0
+      ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--fc-success)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>'
+      : '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--fc-danger)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>';
+
+    const budgetHtml = budgetLimit > 0
+      ? '<div style="display:flex;align-items:center;gap:18px">'
+        +'<div style="position:relative;flex-shrink:0">'+donutSVG(budgetPct,budgetColor)+'<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center"><span style="font-size:20px;font-weight:700;color:var(--fc-text);line-height:1">'+budgetPct+'%</span></div></div>'
+        +'<div style="flex:1;min-width:0">'
+        +'<div style="font-size:15px;font-weight:700;color:var(--fc-text);font-variant-numeric:tabular-nums;margin-bottom:4px">'+fmt(monthSpend)+' <span style="font-size:13px;font-weight:400;color:var(--fc-text-muted)">of '+fmt(budgetLimit)+'</span></div>'
+        +(topCat && monthSpend>budgetLimit ? '<div style="font-size:13px;color:var(--fc-danger);font-weight:600;margin-bottom:8px">'+esc(topCat[0])+' is over.</div>' : topCat ? '<div style="font-size:12px;color:var(--fc-text-muted);margin-bottom:8px">Top: '+esc(topCat[0])+'</div>' : '<div style="margin-bottom:8px"></div>')
+        +linkBtn("FCApp.switchTab('plan')", 'View budget ›')
+        +'</div></div>'
+      : '<div style="display:flex;align-items:center;gap:18px">'
+        +'<div style="position:relative;flex-shrink:0">'+donutSVG(0,'rgba(13,27,46,0.12)')+'<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center"><span style="font-size:11px;font-weight:600;color:var(--fc-text-muted);text-align:center;line-height:1.3">No<br>budget</span></div></div>'
+        +'<div style="flex:1;min-width:0">'
+        +'<div style="font-size:14px;font-weight:600;color:var(--fc-text);margin-bottom:5px">Create your budget</div>'
+        +'<div style="font-size:12px;color:var(--fc-text-muted);margin-bottom:10px">Track spending against a monthly plan.</div>'
+        +linkBtn("FCApp._openBudgetWizard&&FCApp._openBudgetWizard()", 'Create budget ›')
+        +'</div></div>';
+
+    const goalsHtml = goals.length
+      ? goals.slice(0,3).map((g,i) =>
+          '<div style="display:flex;align-items:center;gap:12px;padding:10px 0;'+(i<Math.min(goals.length,3)-1?'border-bottom:1px solid var(--fc-border)':'')+'">'
+          +'<div style="width:36px;height:36px;border-radius:10px;background:'+goalBgColors[i%3]+';display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">'+goalEmoji(g)+'</div>'
+          +'<div style="flex:1;min-width:0">'
+          +'<div style="font-size:13px;font-weight:600;color:var(--fc-text);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(g.name||'Goal')+'</div>'
+          +bar(Math.min(g.pct||0,100),goalBarColors[i%3])
+          +'<div style="font-size:11px;color:var(--fc-text-muted);margin-top:3px">'+fmt(g.current||0)+' / '+fmt(g.target||0)+'</div>'
+          +'</div>'
+          +'<div style="font-size:13px;font-weight:700;color:var(--fc-text-muted);flex-shrink:0;min-width:34px;text-align:right">'+Math.min(g.pct||0,100)+'%</div>'
+          +'</div>'
+        ).join('')
+      : '<div style="text-align:center;padding:20px 0;color:var(--fc-text-muted);font-size:13px">No goals yet — '+linkBtn("FCApp._openSubScreen('goals')", 'add your first goal')+'</div>';
+
+    const activityHtml = recentTxns.length
+      ? recentTxns.map((t,i) =>
+          '<div style="display:flex;align-items:center;gap:12px;padding:10px 0;'+(i<recentTxns.length-1?'border-bottom:1px solid var(--fc-border)':'')+';cursor:pointer;-webkit-tap-highlight-color:transparent" onclick="FCApp.openTransactionDetail&&FCApp.openTransactionDetail(\''+esc(t.id||'')+'\')">'
+          +'<div style="width:38px;height:38px;border-radius:10px;background:'+txnBg(t)+';display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">'+txnIcon(t)+'</div>'
+          +'<div style="flex:1;min-width:0">'
+          +'<div style="font-size:13px;font-weight:600;color:var(--fc-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(t.name||'Transaction')+'</div>'
+          +'<div style="font-size:11px;color:var(--fc-text-muted);margin-top:1px">'+esc((Array.isArray(t.category)?t.category[0]:t.category)||'')+'</div>'
+          +'</div>'
+          +'<div style="text-align:right;flex-shrink:0">'
+          +'<div style="font-size:13px;font-weight:700;color:'+(t.isCredit?'var(--fc-success)':'var(--fc-text)')+';font-variant-numeric:tabular-nums">'+(t.isCredit?'+':'-')+fmt(t.amount||0)+'</div>'
+          +'<div style="font-size:11px;color:var(--fc-text-muted);margin-top:1px">'+txnDateLbl(t.date)+'</div>'
+          +'</div></div>'
+        ).join('')
+      : '<div style="text-align:center;padding:20px 0;color:var(--fc-text-muted);font-size:13px">No transactions yet</div>';
+
+    const qaBtn = (action, iconPath, title, sub, iconBg, iconColor) =>
+      '<button onclick="'+action+'" style="'+card('14px 12px')+';display:flex;align-items:center;gap:10px;cursor:pointer;font-family:inherit;border:1px solid var(--fc-border);-webkit-tap-highlight-color:transparent;text-align:left;width:100%;box-sizing:border-box" onmousedown="this.style.opacity=\'.75\'" onmouseup="this.style.opacity=\'1\'" ontouchstart="this.style.opacity=\'.75\'" ontouchend="this.style.opacity=\'1\'">'
+      +'<div style="width:36px;height:36px;border-radius:10px;background:'+iconBg+';display:flex;align-items:center;justify-content:center;flex-shrink:0">'
+      +'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="'+iconColor+'" stroke-width="2.5" stroke-linecap="round">'+iconPath+'</svg>'
+      +'</div>'
+      +'<div style="flex:1;min-width:0;text-align:left">'
+      +'<div style="font-size:13px;font-weight:600;color:var(--fc-text);line-height:1.2">'+title+'</div>'
+      +'<div style="font-size:11px;color:var(--fc-text-muted);margin-top:1px">'+sub+'</div>'
+      +'</div>'
+      +'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>'
+      +'</button>';
+
+    el.innerHTML =
+      // 1. Greeting
+      '<div style="display:flex;align-items:flex-start;justify-content:space-between;padding:14px 20px 8px;overflow:hidden">'
+      +'<div>'
+      +'<h1 style="font-size:26px;font-weight:700;color:var(--fc-text);letter-spacing:-0.025em;margin:0;line-height:1.2">'+esc(tod)+', '+esc(firstName)+'</h1>'
+      +'<p style="font-size:13px;color:var(--fc-text-muted);margin:3px 0 0">'+esc(dateStr)+'</p>'
+      +'</div>'+syncBadge+'</div>'
+
+      // 2. Your Next Best Move
+      +'<div style="margin:6px 16px 14px;'+card()+';border-color:rgba(20,124,255,0.18)">'
+      +'<div style="display:flex;align-items:flex-start;gap:14px;margin-bottom:14px">'
+      +'<div style="flex:1;min-width:0">'
+      +'<div style="'+eyebrow+';color:var(--fc-accent);margin-bottom:8px">YOUR NEXT BEST MOVE</div>'
+      +'<p style="font-size:16px;font-weight:700;color:var(--fc-text);line-height:1.35;margin:0 0 3px;letter-spacing:-0.01em">'+esc(moveTitleText)+'</p>'
+      +'<p style="font-size:14px;color:var(--fc-text-muted);line-height:1.4;margin:0">'+esc(moveBodyText)+'</p>'
+      +'</div>'
+      +'<svg width="56" height="56" viewBox="0 0 56 56" fill="none" style="flex-shrink:0"><circle cx="28" cy="28" r="28" fill="rgba(20,124,255,0.07)"/><circle cx="28" cy="28" r="18" fill="var(--fc-accent-soft)" stroke="var(--fc-accent)" stroke-width="1.5"/><circle cx="28" cy="22" r="5" fill="rgba(20,124,255,0.15)" stroke="var(--fc-accent)" stroke-width="1.5"/><rect x="20" y="38" width="16" height="4" rx="2" fill="rgba(20,124,255,0.12)" stroke="var(--fc-accent)" stroke-width="1.2"/></svg>'
+      +'</div>'
+      +'<div style="display:flex;gap:10px">'
+      +'<button onclick="FCApp.'+moveBtnAction+'" style="flex:1;background:var(--fc-accent);color:#fff;border:none;border-radius:12px;padding:13px 10px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent">'+esc(moveBtnLabel)+'</button>'
+      +'<button onclick="FCApp.switchTab(\'plan\')" style="flex:1;background:var(--fc-bg-elevated);color:var(--fc-accent);border:1.5px solid rgba(20,124,255,0.22);border-radius:12px;padding:13px 10px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent">Review Plan</button>'
+      +'</div></div>'
+
+      // 3. Safe to Spend
+      +'<div style="margin:0 16px 14px;'+card()+'">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between">'
+      +'<div style="flex:1;min-width:0">'
+      +'<div style="'+eyebrow+';margin-bottom:8px">SAFE TO SPEND</div>'
+      +'<div style="font-size:38px;font-weight:700;color:var(--fc-text);letter-spacing:-0.035em;line-height:1;font-variant-numeric:tabular-nums;margin-bottom:5px">'+fmt(safeToSpend)+'</div>'
+      +'<div style="font-size:13px;color:var(--fc-text-muted)">After bills, goals &amp; buffer</div>'
+      +'</div>'
+      +'<div style="width:52px;height:52px;border-radius:50%;background:rgba(20,124,255,0.08);display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1.5px solid rgba(20,124,255,0.15)">'
+      +'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--fc-accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>'
+      +'</div></div></div>'
+
+      // 4. Two-column row: Upcoming Bill + Cash Flow
+      +'<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:0 16px 14px">'
+      +'<div style="'+card('16px')+'">'
+      +'<div style="'+eyebrow+';margin-bottom:8px">UPCOMING BILL</div>'
+      +nextBillHtml+'</div>'
+      +'<div style="'+card('16px')+'">'
+      +'<div style="'+eyebrow+';margin-bottom:8px;display:flex;align-items:center;justify-content:space-between"><span>CASH FLOW</span>'+cfArrow+'</div>'
+      +'<div style="font-size:22px;font-weight:700;color:'+(cashFlow>=0?'var(--fc-success)':'var(--fc-danger)')+';letter-spacing:-0.03em;font-variant-numeric:tabular-nums;margin-bottom:6px">'+(cashFlow>=0?'+':'')+fmt(cashFlow)+'</div>'
+      +'<div style="font-size:11px;color:var(--fc-text-muted);margin-bottom:2px">Income <span style="font-weight:600;color:var(--fc-text)">'+fmt(monthIncome)+'</span></div>'
+      +'<div style="font-size:11px;color:var(--fc-text-muted);margin-bottom:8px">Expenses <span style="font-weight:600;color:var(--fc-text)">'+fmt(monthSpend)+'</span></div>'
+      +linkBtn("FCApp.switchTab('activity')", 'View cash flow ›')
+      +'</div></div>'
+
+      // 5. Budget Progress
+      +'<div style="margin:0 16px 14px;'+card()+'">'
+      +'<div style="'+eyebrow+';margin-bottom:14px">BUDGET PROGRESS</div>'
+      +budgetHtml+'</div>'
+
+      // 6. Goals Progress
+      +'<div style="margin:0 16px 14px;'+card()+'">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">'
+      +'<div style="'+eyebrow+'">GOALS PROGRESS</div>'
+      +linkBtn("FCApp._openSubScreen('goals')", 'View all goals ›')
+      +'</div>'+goalsHtml+'</div>'
+
+      // 7. Recent Activity
+      +'<div style="margin:0 16px 14px;'+card()+'">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">'
+      +'<div style="'+eyebrow+'">RECENT ACTIVITY</div>'
+      +linkBtn("FCApp.switchTab('activity')", 'View all activity ›')
+      +'</div>'+activityHtml+'</div>'
+
+      // 8. Financial Health Score
+      +'<div style="margin:0 16px 14px;'+card()+';cursor:pointer;-webkit-tap-highlight-color:transparent" onclick="FCApp.switchTab(\'plan\')">'
+      +'<div style="display:flex;align-items:center;gap:14px;margin-bottom:12px">'
+      +'<div style="width:50px;height:50px;border-radius:14px;background:rgba(20,124,255,0.08);display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1.5px solid rgba(20,124,255,0.12)">'
+      +'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--fc-accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>'
+      +'</div>'
+      +'<div style="flex:1;min-width:0">'
+      +'<div style="'+eyebrow+';margin-bottom:5px">FINANCIAL HEALTH SCORE</div>'
+      +'<div style="font-size:26px;font-weight:700;color:var(--fc-text);letter-spacing:-0.03em;line-height:1;font-variant-numeric:tabular-nums">'+healthScore+' <span style="font-size:15px;font-weight:400;color:var(--fc-text-muted)">/ 100</span></div>'
+      +'</div>'
+      +'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>'
+      +'</div>'
+      +bar(healthScore,healthColor)
+      +'<div style="font-size:13px;color:var(--fc-text-muted);margin-top:10px;line-height:1.4">'+esc(healthMsg)+'</div></div>'
+
+      // 9. Quick Actions 2x2 grid
+      +'<div style="margin:0 16px 6px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px">'
+      +qaBtn("FCApp.showAddTransactionSheet&&FCApp.showAddTransactionSheet()", '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>', 'Add Transaction', 'Record income or expense', 'var(--fc-accent-soft)', 'var(--fc-accent)')
+      +qaBtn("FCApp.showBillSheet&&FCApp.showBillSheet()", '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>', 'Add Bill', 'Track and never miss', 'var(--fc-success-soft)', 'var(--fc-success)')
+      +qaBtn("FCApp._openBudgetWizard&&FCApp._openBudgetWizard()", '<circle cx="12" cy="12" r="9"/><path d="M9 12h6"/><path d="M12 9v6"/>', 'Create Budget', 'Plan with confidence', 'var(--fc-electric-soft)', 'var(--fc-electric)')
+      +qaBtn("FCApp.switchTab('wealth')", '<path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/>', 'Net Worth', 'See your full picture', 'var(--fc-accent-soft)', 'var(--fc-accent)')
+      +'</div>'
+
+      // 10. Disclaimer
+      +'<p style="font-size:10px;color:var(--fc-text-faint);text-align:center;padding:8px 24px 16px;margin:0">FlowCheck is not a bank · Not financial advice</p>';
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     HOME DASHBOARD v8 — light-first, component-based home
+     ───────────────────────────────────────────────────────────── */
+  function _renderHomeDashboard() {
+    const el = document.getElementById('home-dash');
+    if (!el) return;
+    if (!el.dataset.homeMounted) {
+      const homeView = document.getElementById('view-home');
+      if (homeView) homeView.scrollTop = 0;
+      el.dataset.homeMounted = 'true';
+    }
+
+    const user = state.user || {};
+    const accounts = state.accounts || [];
+    const transactions = state.transactions || [];
+    const bills = _billsForDisplay();
+    const goals = _goalsForDisplay();
+    const budgets = state.budgets || {};
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthTransactions = transactions.filter(transaction => {
+      if (!transaction.date) return false;
+      try { return FCData.parseDateLocal(transaction.date) >= monthStart; }
+      catch (_) { return false; }
+    });
+
+    const monthIncome = monthTransactions
+      .filter(_isIncomeTxn)
+      .reduce((sum, transaction) => sum + Number(transaction.amount || 0), 0);
+    const monthSpend = monthTransactions
+      .filter(_isSpendTxn)
+      .reduce((sum, transaction) => sum + Number(transaction.amount || 0), 0);
+    const cashFlow = monthIncome - monthSpend;
+    const budgetLimit = Number(budgets.total?.limit || 0) || Object.entries(budgets)
+      .filter(([key]) => key !== 'total')
+      .reduce((sum, [, budget]) => sum + Number(budget?.limit || 0), 0);
+    const budgetPct = budgetLimit > 0 ? Math.round((monthSpend / budgetLimit) * 100) : 0;
+    const budgetRemaining = budgetLimit - monthSpend;
+    const budgetTone = budgetPct > 100 ? 'is-danger' : budgetPct >= 85 ? 'is-warning' : 'is-success';
+
+    const availableCash = accounts
+      .filter(account => account.type === 'depository')
+      .reduce((sum, account) => sum + Number(account.balance_available ?? account.balance_current ?? account.balance ?? 0), 0);
+    let safeToSpend = 0;
+    try { safeToSpend = Math.max(0, Number(_buildSafeSpendProjection().safe || 0)); }
+    catch (_) { safeToSpend = 0; }
+    const safePct = availableCash > 0 ? Math.max(5, Math.min(100, Math.round((safeToSpend / availableCash) * 100))) : 0;
+
+    const nextBill = bills
+      .filter(bill => bill.status !== 'paid')
+      .sort((a, b) => (FCData.daysUntil(a.due_date) ?? 999) - (FCData.daysUntil(b.due_date) ?? 999))[0] || null;
+    const primaryGoal = goals[0] || null;
+    const _allInsights = _buildFocusInsights ? _buildFocusInsights() : [];
+    window._homeInsights = _allInsights;
+
+    const recentTransactions = [...transactions]
+      .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
+      .slice(0, 4);
+    const upcomingBills = bills
+      .filter(bill => bill.status !== 'paid')
+      .sort((a, b) => (FCData.daysUntil(a.due_date) ?? 999) - (FCData.daysUntil(b.due_date) ?? 999))
+      .slice(0, 4);
+    const activeGoals = goals.slice(0, 3);
+    const emergencyGoal = goals.find(goal => /emergency|rainy|reserve/i.test(goal.name || '')) || primaryGoal;
+
+    const authUser = window.FCAuth && FCAuth.currentUser ? FCAuth.currentUser() : null;
+    const displayName = String(user.name || authUser?.displayName || 'there').trim();
+    const firstName = displayName.split(/\s+/)[0].replace(/[.\d]/g, '') || 'there';
+    const initial = displayName.charAt(0).toUpperCase() || '?';
+    const hour = now.getHours();
+    const greeting = hour < 5 ? 'Good night' : hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+    const dateLabel = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+    const isLinked = Boolean(user.plaid_linked || user.plaid_institution || accounts.length || _isDemoMode);
+
+    const avatar = document.getElementById('header-avatar-initial');
+    if (avatar) avatar.textContent = initial;
+
+    const fmt = value => FCData.formatCurrency(Number(value || 0));
+    const clampPct = value => Math.max(0, Math.min(100, Math.round(Number(value || 0))));
+    const goalPct = goal => {
+      if (!goal) return 0;
+      if (Number.isFinite(Number(goal.pct))) return clampPct(goal.pct);
+      return Number(goal.target) > 0 ? clampPct((Number(goal.current || 0) / Number(goal.target)) * 100) : 0;
+    };
+    const dueLabel = bill => {
+      if (!bill) return '';
+      const days = FCData.daysUntil(bill.due_date);
+      if (days === null) return 'Date not set';
+      if (days < 0) return `${Math.abs(days)} day${Math.abs(days) === 1 ? '' : 's'} overdue`;
+      if (days === 0) return 'Due today';
+      if (days === 1) return 'Due tomorrow';
+      return `Due in ${days} days`;
+    };
+    const dateForTransaction = transaction => {
+      if (!transaction?.date) return '';
+      let date;
+      try { date = FCData.parseDateLocal(transaction.date); }
+      catch (_) { return ''; }
+      const today = new Date();
+      const yesterday = new Date(today);
+      yesterday.setDate(today.getDate() - 1);
+      if (date.toDateString() === today.toDateString()) return 'Today';
+      if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    };
+    const transactionIcon = transaction => {
+      const detail = `${(transaction?.category || []).join(' ')} ${transaction?.name || ''}`.toLowerCase();
+      if (_isIncomeTxn(transaction || {})) return '↗';
+      if (detail.includes('amazon')) return 'a';
+      if (detail.includes('food') || detail.includes('grocery')) return '●';
+      if (detail.includes('coffee')) return '◇';
+      if (detail.includes('travel') || detail.includes('uber')) return '↗';
+      return '•';
+    };
+    const chartValues = Array.from({ length: 8 }, (_, index) => {
+      const cutoff = Math.max(1, Math.round(((now.getDate() - 1) * index) / 7) + 1);
+      return monthTransactions.reduce((sum, transaction) => {
+        let day = 0;
+        try { day = FCData.parseDateLocal(transaction.date).getDate(); }
+        catch (_) { return sum; }
+        if (day > cutoff) return sum;
+        return sum + (_isIncomeTxn(transaction) ? Number(transaction.amount || 0) : -Number(transaction.amount || 0));
+      }, 0);
+    });
+    const chartMin = Math.min(...chartValues, 0);
+    const chartMax = Math.max(...chartValues, 1);
+    const chartSpan = Math.max(1, chartMax - chartMin);
+    const chartPoints = chartValues.map((value, index) => {
+      const x = 7 + (286 * index / Math.max(1, chartValues.length - 1));
+      const y = 69 - ((value - chartMin) / chartSpan) * 55;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    }).join(' ');
+    const chartArea = `M ${chartPoints.split(' ').join(' L ')} L 293,76 L 7,76 Z`;
+    const lastChartPoint = chartPoints.split(' ').slice(-1)[0].split(',');
+
+    const _insightIconName = (ins) => {
+      const lbl = (ins.label || '').toLowerCase();
+      if (lbl.includes('overdue') || lbl.includes('pay this'))  return 'alert';
+      if (lbl.includes('bill coming'))                          return 'calendar';
+      if (lbl.includes('over budget'))                          return 'bar-chart';
+      if (lbl.includes('slow') || lbl.includes('budget'))       return 'bar-chart';
+      if (lbl.includes('pace'))                                 return 'trending-up';
+      if (lbl.includes('large') || lbl.includes('unusual'))     return 'search';
+      if (lbl.includes('low') || lbl.includes('balance'))       return 'trending-down';
+      if (lbl.includes('subscription') || lbl.includes('trim')) return 'play-screen';
+      if (ins.type === 'good')                                   return 'check';
+      return 'lightbulb';
+    };
+    // Premium tinted icon tile for carousel slides — replaces the old big emoji
+    const _slideArt = (iconName, type) => {
+      const color = type === 'danger' ? 'var(--fc-danger)' : type === 'warn' ? 'var(--fc-warning)' : type === 'good' ? 'var(--fc-success)' : 'var(--fc-accent)';
+      const soft  = type === 'danger' ? 'var(--fc-danger-soft)' : type === 'warn' ? 'var(--fc-warning-soft)' : type === 'good' ? 'var(--fc-success-soft)' : 'var(--fc-accent-soft)';
+      return `<div style="width:56px;height:56px;border-radius:50%;background:${soft};display:flex;align-items:center;justify-content:center">${_ic(iconName, color, 26)}</div>`;
+    };
+    const carouselCards = [];
+    _allInsights.filter(ins => !ins.fallback).slice(0, 2).forEach(ins => {
+      carouselCards.push({
+        label:   ins.label,
+        title:   ins.title,
+        body:    ins.body,
+        action:  ins.action || 'Take Action',
+        onclick: `window._homeInsights[${_allInsights.indexOf(ins)}]?.tap()`,
+        emoji:   _slideArt(_insightIconName(ins), ins.type),
+        type:    ins.type,
+      });
+    });
+    if (emergencyGoal && goalPct(emergencyGoal) < 100 && safeToSpend >= 25) {
+      const _mv = Math.max(25, Math.min(50, Math.round((safeToSpend * 0.1) / 5) * 5));
+      carouselCards.push({
+        label:   'Save this week',
+        title:   `You have ${fmt(safeToSpend)} extra before payday.`,
+        body:    `Move ${fmt(_mv)} to your ${emergencyGoal.name || 'Emergency Fund'}.`,
+        action:  'Take Action',
+        onclick: "FCApp._openSubScreen('goals')",
+        emoji:   _slideArt('dollar-sign', 'good'),
+        type:    'good',
+      });
+    }
+    if (budgetLimit > 0) {
+      const _dl = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate() - now.getDate();
+      carouselCards.push({
+        label:   budgetPct >= 90 ? 'Budget alert' : budgetPct >= 70 ? 'Budget check' : 'On track',
+        title:   budgetPct >= 90 ? `${budgetPct}% of budget used.` : `${budgetPct}% used — looking good.`,
+        body:    budgetRemaining >= 0
+          ? `${fmt(budgetRemaining)} left with ${_dl} day${_dl !== 1 ? 's' : ''} to go.`
+          : `Spending is ${fmt(Math.abs(budgetRemaining))} over plan.`,
+        action:  'Review Budget',
+        onclick: "FCApp.switchTab('plan')",
+        emoji:   budgetPct >= 90 ? _slideArt('bar-chart', 'warn') : _slideArt('check', 'good'),
+        type:    budgetPct >= 90 ? 'warn' : 'good',
+      });
+    }
+    if (carouselCards.length === 0) {
+      carouselCards.push({
+        label:   'Your plan',
+        title:   'Build a calmer plan for the month.',
+        body:    'Review upcoming bills and give every extra dollar a job.',
+        action:  'Open Plan',
+        onclick: "FCApp.switchTab('plan')",
+        emoji:   _slideArt('flag', 'info'),
+        type:    'info',
+      });
+    }
+
+    const syncPill = isLinked ? '<span class="fc-status-pill">Synced</span>' : '';
+    const nextBillMarkup = nextBill ? `
+      <div class="home-v8__mini-top">
+        <span class="home-v8__mini-icon is-warning" aria-hidden="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
+        </span>
+        <div class="home-v8__row-copy">
+          <div class="home-v8__mini-name">${esc(nextBill.name || 'Upcoming bill')}</div>
+          <div class="home-v8__mini-meta">${esc(dueLabel(nextBill))}</div>
+        </div>
+      </div>
+      <div class="home-v8__mini-value">${fmt(nextBill.amount)}</div>
+      <button class="fc-text-link" type="button" onclick="FCApp._openSubScreen('bills')">View all bills ›</button>` : `
+      <div class="fc-empty-state">No bills due soon.<br>Your cash flow is clear.</div>`;
+
+    const budgetMarkup = budgetLimit > 0 ? `
+      <div class="home-v8__mini-top">
+        <span class="home-v8__mini-icon ${budgetTone}" aria-hidden="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg>
+        </span>
+        <div class="home-v8__row-copy">
+          <div class="home-v8__mini-value">${fmt(monthSpend)}</div>
+          <div class="home-v8__mini-meta">${budgetRemaining >= 0 ? `${fmt(budgetRemaining)} left` : `${fmt(Math.abs(budgetRemaining))} over`}</div>
+        </div>
+      </div>
+      <div class="fc-progress-line"><div class="fc-progress-line__fill ${budgetTone}" style="--fc-progress-value:${clampPct(budgetPct)}%"></div></div>
+      <button class="fc-text-link" type="button" onclick="FCApp.switchTab('plan')">View budget ›</button>` : `
+      <div class="fc-empty-state">No monthly budget yet.<br>Build your first plan.</div>`;
+
+    // Trust line reflects the REAL device state — claiming "Face ID on" when
+    // it isn't would be exactly the kind of hollow trust signal we don't ship.
+    _updateTrustLine();
+
+    // ── Metric #1: time-to-first-Safe-to-Spend ────────────────────────
+    // Fires once per user, the first time they see a REAL number (not demo,
+    // bank actually linked). PostHog derives the duration from signup → this.
+    _trackFirstSafeToSpend();
+    // Runway scrub binds after the card is in the DOM
+    requestAnimationFrame(() => _attachRunwayScrub());
+
+    // ── HERO: Safe to Spend ───────────────────────────────────────────
+    // This is the number the whole app exists to produce (VISION.md §4), so
+    // it leads the screen and is the largest thing on it. It previously sat
+    // third, at 118px, under a 225px dismissible alert — the core value was
+    // visually subordinate to an interruption.
+    const _paydayInfo = (() => {
+      try {
+        const p = _predictNextPayday();
+        if (!p) return '';
+        return `${p.days} day${p.days === 1 ? '' : 's'} to payday`;
+      } catch (_) { return ''; }
+    })();
+    // Dashboard v9 — the runway replaces the Safe-to-Spend hero card.
+    // It answers the same question with a picture instead of a number.
+    const safeSpendMarkup = _renderRunwayCard();
+
+    const upcomingListMarkup = upcomingBills.length ? upcomingBills.map(bill => `
+      <div class="home-v8__list-row">
+        <span class="home-v8__list-icon is-warning" aria-hidden="true">${esc(bill.icon || '•')}</span>
+        <div class="home-v8__list-copy">
+          <div class="home-v8__list-title">${esc(bill.name || 'Bill')}</div>
+          <div class="home-v8__list-meta">${esc(dueLabel(bill))}${bill.autopay ? ' · Autopay' : ''}</div>
+        </div>
+        <div class="home-v8__list-value">${fmt(bill.amount)}</div>
+      </div>`).join('') : '<div class="fc-empty-state">No upcoming bills to protect.</div>';
+
+    const goalsListMarkup = activeGoals.length ? activeGoals.map(goal => {
+      const progress = goalPct(goal);
+      return `
+        <div class="home-v8__list-row">
+          <span class="home-v8__list-icon is-success" aria-hidden="true">${progress >= 100 ? '✓' : '↗'}</span>
+          <div class="home-v8__list-copy">
+            <div class="home-v8__list-title">${esc(goal.name || 'Goal')}</div>
+            <div class="home-v8__list-meta">${fmt(goal.current)} of ${fmt(goal.target)}</div>
+            <div class="fc-progress-line home-v8__list-progress"><div class="fc-progress-line__fill is-success" style="--fc-progress-value:${progress}%"></div></div>
+          </div>
+          <div class="home-v8__list-value">${progress}%</div>
+        </div>`;
+    }).join('') : '<div class="fc-empty-state">Add a goal to turn extra cash into progress.</div>';
+
+    const _normalizeMerchant = n => (!n ? '' : n
+      .replace(/\s*#\s*\d[\d\s-]*/g, '')
+      .replace(/\b(AMZN\s*Mktp?|AMAZON\s+MKTP?)\b/i, 'Amazon')
+      .replace(/\bWAL.?MART\b/i, 'Walmart')
+      .replace(/\bMCDONALD.?S\b/i, "McDonald's")
+      .replace(/\bSTARBUCKS\b/i, 'Starbucks')
+      .replace(/\bNETFLIX\.COM\b/i, 'Netflix')
+      .replace(/\bSPOTIFY\b/i, 'Spotify')
+      .replace(/\bAPPLE\.COM\/BILL\w*/i, 'Apple')
+      .replace(/\bUBER\s+EATS\b/i, 'Uber Eats')
+      .replace(/\bUBER\b/i, 'Uber')
+      .replace(/\bCHIPOTLE\b/i, 'Chipotle')
+      .replace(/\bTARGET\b/i, 'Target')
+      .replace(/\bCOSTCO\b/i, 'Costco')
+      .trim());
+    const _MBRAND = {
+      // Food & coffee
+      starbucks: { bg:'#00704A', fg:'#fff' }, chipotle: { bg:'#A81612', fg:'#fff' },
+      mcdonald:  { bg:'#FFC72C', fg:'#27251F' }, doordash: { bg:'#FF3008', fg:'#fff' },
+      grubhub:   { bg:'#F63440', fg:'#fff' }, subway:   { bg:'#009B48', fg:'#fff' },
+      chickfil:  { bg:'#E4182D', fg:'#fff' }, tacobell: { bg:'#702082', fg:'#fff' },
+      domino:    { bg:'#006491', fg:'#fff' }, pizzahut: { bg:'#EE3224', fg:'#fff' },
+      panera:    { bg:'#74AA50', fg:'#fff' }, dunkin:   { bg:'#FF671F', fg:'#fff' },
+      wendys:    { bg:'#E2203B', fg:'#fff' }, burgerking:{ bg:'#D62300', fg:'#fff' },
+      chilis:    { bg:'#B51919', fg:'#fff' },
+      // Retail & grocery
+      amazon:    { bg:'#FF9900', fg:'#131921' }, walmart: { bg:'#0071CE', fg:'#fff' },
+      target:    { bg:'#CC0000', fg:'#fff' }, costco:   { bg:'#005DAA', fg:'#fff' },
+      wholefood: { bg:'#00674B', fg:'#fff' }, instacart: { bg:'#43B02A', fg:'#fff' },
+      bestbuy:   { bg:'#1F49A0', fg:'#FFE000' }, homedepot: { bg:'#F96302', fg:'#fff' },
+      lowes:     { bg:'#004990', fg:'#fff' }, tjmaxx:   { bg:'#CC0000', fg:'#fff' },
+      nordstrom: { bg:'#1B1B1B', fg:'#fff' }, macys:    { bg:'#CC0000', fg:'#fff' },
+      gap:       { bg:'#1C2B4B', fg:'#fff' }, nike:     { bg:'#111',    fg:'#fff' },
+      cvs:       { bg:'#CC0000', fg:'#fff' }, walgreen: { bg:'#E31837', fg:'#fff' },
+      // Gas & auto
+      shell:     { bg:'#FFCC00', fg:'#CC0000' }, chevron: { bg:'#0056A2', fg:'#fff' },
+      exxon:     { bg:'#CC0000', fg:'#fff' }, bp:       { bg:'#3E9A54', fg:'#fff' },
+      // Tech & streaming
+      apple:     { bg:'#2C2C2C', fg:'#fff' }, netflix:  { bg:'#E50914', fg:'#fff' },
+      spotify:   { bg:'#1DB954', fg:'#fff' }, hulu:     { bg:'#1CE783', fg:'#000' },
+      disney:    { bg:'#0063E5', fg:'#fff' }, youtube:  { bg:'#FF0000', fg:'#fff' },
+      google:    { bg:'#4285F4', fg:'#fff' }, microsoft: { bg:'#00A4EF', fg:'#fff' },
+      zoom:      { bg:'#2D8CFF', fg:'#fff' }, adobe:    { bg:'#FF0000', fg:'#fff' },
+      dropbox:   { bg:'#0061FF', fg:'#fff' },
+      // Travel & transport
+      uber:      { bg:'#000',    fg:'#fff' }, lyft:     { bg:'#FF00BF', fg:'#fff' },
+      airbnb:    { bg:'#FF5A5F', fg:'#fff' }, expedia:  { bg:'#FFC425', fg:'#1E1E1E' },
+      delta:     { bg:'#003366', fg:'#fff' }, southwest: { bg:'#CC1E2C', fg:'#fff' },
+      // Finance & payments
+      paypal:    { bg:'#003087', fg:'#fff' }, venmo:    { bg:'#3D95CE', fg:'#fff' },
+      cashapp:   { bg:'#00D632', fg:'#111' }, zelle:    { bg:'#6B1BE3', fg:'#fff' },
+      chase:     { bg:'#117ACA', fg:'#fff' }, amex:     { bg:'#016FD0', fg:'#fff' },
+    };
+    const _txnLogoHTML = txn => {
+      if (txn.logo_url) return '<img src="' + esc(txn.logo_url) + '" class="dash-txn-logo" alt="" loading="lazy">';
+      const raw = (txn.merchant_name || txn.name || '').toLowerCase();
+      for (const [key, c] of Object.entries(_MBRAND)) {
+        if (raw.includes(key)) {
+          const letter = (txn.merchant_name || txn.name || '?').charAt(0).toUpperCase();
+          return '<span class="dash-txn-initial" style="background:' + c.bg + ';color:' + c.fg + '">' + letter + '</span>';
+        }
+      }
+      if (_isIncomeTxn(txn)) return '<span class="dash-txn-cat dash-txn-cat--income">↑</span>';
+      const catRaw = (Array.isArray(txn.category) ? txn.category[0] : txn.category || '').toLowerCase();
+      if (/food|restaurant|dining|coffee/.test(catRaw) || /coffee|starbucks|chipotle|mcdonald|restaurant/.test(raw)) return '<span class="dash-txn-cat">☕</span>';
+      if (/shop|retail|merchand/.test(catRaw) || /amazon|walmart|target|costco/.test(raw)) return '<span class="dash-txn-cat">🛍️</span>';
+      if (/travel|transport|uber|lyft|transit/.test(catRaw) || /uber|lyft|transit/.test(raw)) return '<span class="dash-txn-cat">🚗</span>';
+      if (/entertain|stream/.test(catRaw) || /netflix|spotify|hulu|disney/.test(raw)) return '<span class="dash-txn-cat">🎬</span>';
+      if (/medical|health|pharmacy/.test(catRaw)) return '<span class="dash-txn-cat">💊</span>';
+      if (/gas|fuel|shell|chevron|exxon/.test(raw)) return '<span class="dash-txn-cat">⛽</span>';
+      const letter = (txn.merchant_name || txn.name || '?').charAt(0).toUpperCase();
+      return '<span class="dash-txn-initial" style="background:var(--fc-accent-soft);color:var(--fc-accent)">' + letter + '</span>';
+    };
+    // ── Premium dashboard section helpers ──────────────────────
+    const dueLabelFull = bill => {
+      const days = FCData.daysUntil(bill.due_date);
+      let ds = '';
+      if (bill.due_date) { try { const _d2 = FCData.parseDateLocal(bill.due_date); ds = ' · ' + _d2.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); } catch(_) {} }
+      if (days === null) return 'Date not set';
+      if (days < 0)  return Math.abs(days) + ' day' + (Math.abs(days) === 1 ? '' : 's') + ' overdue' + ds;
+      if (days === 0) return 'Due today' + ds;
+      if (days === 1) return 'Due tomorrow' + ds;
+      return 'Due in ' + days + ' days' + ds;
+    };
+    const billIconEmoji = bill => _billIcon(bill, 'var(--fc-accent)', 16);
+    const goalIconEmoji = goal => _goalIcon(goal, 'var(--fc-electric)', 16);
+    const weekTotal = bills.filter(b => {
+      if (b.status === 'paid') return false;
+      const _wd = FCData.daysUntil(b.due_date);
+      // Include overdue bills — they still have to be paid this week
+      return _wd !== null && _wd <= 7;
+    }).reduce((s, b) => s + Number(b.amount || 0), 0);
+    const _daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const _daysElapsed = Math.max(1, now.getDate());
+    const planAheadAmt = budgetLimit > 0
+      ? Math.round((budgetLimit / _daysInMonth) * _daysElapsed - monthSpend)
+      : (cashFlow > 0 ? Math.round(cashFlow * 0.18) : 0);
+    const isAheadOfPlan = cashFlow >= 0;
+    const _monthName = now.toLocaleDateString('en-US', { month: 'short' });
+
+    // ── Forward projection: where does this month end up? ────────────────
+    // Conservative model, not a guess dressed as certainty:
+    //   best case  = today's flow minus bills still due this month
+    //   worst case = best case minus the rest of the budget getting spent
+    // The line splits the difference; the band shows the honest range.
+    const _remainingBills = bills.filter(b => {
+      if (b.status === 'paid' || !b.due_date) return false;
+      try { const d = FCData.parseDateLocal(b.due_date); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); }
+      catch (_) { return false; }
+    }).reduce((s, b) => s + Number(b.amount || 0), 0);
+    const _remainingBudget = budgetLimit > 0
+      ? Math.max(0, budgetLimit - monthSpend)
+      : (monthSpend / _daysElapsed) * (_daysInMonth - _daysElapsed) * 0.5;
+    const projHigh = cashFlow - _remainingBills;
+    const projLow  = projHigh - _remainingBudget;
+    const projMid  = (projHigh + projLow) / 2;
+    const hasProjection = _daysElapsed < _daysInMonth;
+
+    // Scale must cover actual + projected values
+    const _sMin = Math.min(chartMin, hasProjection ? projLow : chartMin, 0);
+    const _sMax = Math.max(chartMax, hasProjection ? projHigh : chartMax, 1);
+    const _sSpan = Math.max(1, _sMax - _sMin);
+    const _toY = v => 74 - ((v - _sMin) / _sSpan) * 68;
+    // Real time axis: actual data occupies day 1 → today, projection fills the rest
+    const _xToday = hasProjection ? 280 * (_daysElapsed - 1) / Math.max(1, _daysInMonth - 1) : 280;
+
+    const smoothChartPath = (() => {
+      const pts = chartValues.map((v, i) => [_xToday * i / Math.max(1, chartValues.length - 1), _toY(v)]);
+      if (pts.length < 2) return '';
+      let d = 'M ' + pts[0][0].toFixed(1) + ',' + pts[0][1].toFixed(1);
+      for (let _ci = 0; _ci < pts.length - 1; _ci++) {
+        const p0 = pts[Math.max(0, _ci - 1)], p1 = pts[_ci], p2 = pts[_ci + 1], p3 = pts[Math.min(pts.length - 1, _ci + 2)];
+        d += ' C ' + (p1[0] + (p2[0] - p0[0]) / 6).toFixed(1) + ',' + (p1[1] + (p2[1] - p0[1]) / 6).toFixed(1)
+           + ' ' + (p2[0] - (p3[0] - p1[0]) / 6).toFixed(1) + ',' + (p2[1] - (p3[1] - p1[1]) / 6).toFixed(1)
+           + ' ' + p2[0].toFixed(1) + ',' + p2[1].toFixed(1);
+      }
+      return d;
+    })();
+    const _lastChartV = chartValues[chartValues.length - 1] ?? 0;
+    const lastChartPt = [_xToday, _toY(_lastChartV)];
+    const smoothChartArea = smoothChartPath ? smoothChartPath + ' L ' + _xToday.toFixed(1) + ',80 L 0,80 Z' : '';
+    // Projection band (today → month end) + dashed midline
+    const projBandPath = hasProjection
+      ? 'M ' + _xToday.toFixed(1) + ',' + _toY(_lastChartV).toFixed(1)
+        + ' L 280,' + _toY(projHigh).toFixed(1)
+        + ' L 280,' + _toY(projLow).toFixed(1) + ' Z'
+      : '';
+    const projLinePath = hasProjection
+      ? 'M ' + _xToday.toFixed(1) + ',' + _toY(_lastChartV).toFixed(1) + ' L 280,' + _toY(projMid).toFixed(1)
+      : '';
+    const _yTickLabel = v => { const a = Math.abs(v); const sign = v < 0 ? '−' : ''; return a >= 1000 ? sign + '$' + (a / 1000).toFixed(a % 1000 ? 1 : 0) + 'k' : sign + '$' + Math.round(a); };
+    const _yMax = _sMax, _yMin = _sMin, _yRng = _yMax - _yMin;
+    const _yLabels = [_yTickLabel(_yMax), _yTickLabel(Math.round(_yMin + _yRng * 2 / 3)), _yTickLabel(Math.round(_yMin + _yRng / 3)), _yTickLabel(_yMin)];
+    const _xLabels = [_monthName + ' 1', _monthName + ' ' + Math.round(_daysInMonth / 4), _monthName + ' ' + Math.round(_daysInMonth / 2), _monthName + ' ' + Math.round(_daysInMonth * 3 / 4), _monthName + ' ' + _daysInMonth];
+    const goalsCardHTML = (() => {
+      if (!activeGoals.length) return '<div class="dash-empty-state"><p>No savings goals yet.</p>'
+        + '<button class="dash-cta-link" type="button" onclick="FCApp._openSubScreen(\'goals\')">Create your first goal ›</button></div>';
+      return '<div class="dash-divider"></div>'
+        + activeGoals.map(goal => {
+          const _gp = goalPct(goal);
+          const _gs = _gp >= 100 ? 'Complete ✓' : _gp >= 85 ? 'Almost there!' : _gp > 0 ? 'On track' : 'Just started';
+          return '<div class="dash-goal-row">'
+            + '<span class="dash-icon-circle" aria-hidden="true">' + goalIconEmoji(goal) + '</span>'
+            + '<div class="dash-row-copy dash-goal-copy">'
+            + '<div class="dash-goal-top-row"><span class="dash-row-title">' + esc(goal.name || 'Goal') + '</span><span class="dash-goal-pct">' + _gp + '%</span></div>'
+            + '<div class="dash-goal-bar-track"><div class="dash-goal-bar-fill' + (_gp >= 85 ? ' dash-goal-bar-fill--green' : '') + '" style="width:' + _gp + '%"></div></div>'
+            + '<div class="dash-goal-bottom-row"><span class="dash-row-meta">' + fmt(goal.current) + ' / ' + fmt(goal.target) + '</span>'
+            + '<span class="dash-goal-status ' + (_gp >= 100 ? 'dash-goal-status--done' : 'dash-goal-status--track') + '">' + _gs + '</span></div>'
+            + '</div></div>';
+        }).join('');
+    })();
+
+    el.innerHTML = `
+      <div class="home-v8">
+        <header class="home-v8__greeting">
+          <div>
+            <h1>${esc(greeting)}, ${esc(firstName)}</h1>
+            <p class="home-v8__date">${esc(dateLabel)}</p>
+          </div>
+          ${syncPill}
+        </header>
+
+        ${safeSpendMarkup}
+
+        <section class="fc-ui-card home-v8__move" aria-label="Your next best move">
+          <div class="home-v8__carousel" id="home-move-carousel">
+            ${carouselCards.map((card) => `
+              <div class="home-v8__slide">
+                <div class="home-v8__move-copy">
+                  <p class="fc-section-label">${esc(card.label)}</p>
+                  <h2 class="home-v8__move-title">${esc(card.title)}</h2>
+                  <p class="home-v8__move-text">${esc(card.body)}</p>
+                  <div class="home-v8__move-actions">
+                    <button class="fc-action-button fc-action-button--primary" type="button" onclick="${card.onclick}">${esc(card.action)}</button>
+                  </div>
+                </div>
+                <div class="home-v8__slide-emoji" aria-hidden="true">${card.emoji}</div>
+              </div>`).join('')}
+          </div>
+          ${carouselCards.length > 1 ? `<div class="home-v8__dots" id="home-move-dots">${carouselCards.map((_,ci) => `<button class="home-v8__dot${ci===0?' is-active':''}" onclick="FCApp._carouselGoTo('home-move-carousel',${ci})" aria-label="Slide ${ci+1}"></button>`).join('')}</div>` : ''}
+        </section>
+
+
+        ${(state.transactions || []).length >= 3 ? `
+        <button class="fcst-banner" type="button" onclick="FCApp.openMoneyStory()" aria-label="Play Your Money Week recap">
+          <span class="fcst-banner-play" aria-hidden="true">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          </span>
+          <span class="fcst-banner-copy">
+            <span class="fcst-banner-title">Your Money Week is ready</span>
+            <span class="fcst-banner-sub">30-second recap of your week</span>
+          </span>
+          <span class="fcst-banner-chevron" aria-hidden="true">›</span>
+        </button>` : ''}
+
+        <!-- Dashboard v9 (DASHBOARD_SPEC.md §3): bills, monthly stats, the
+             Cash Flow Outlook chart and Goals were all removed from Today.
+             Each already owns a tab (Plan / Money / Goals), and duplicating
+             them here is exactly what made this screen read as generic. The
+             outlook chart in particular is now redundant — the runway IS the
+             cash-flow picture, and a better one. -->
+        <section class="home-v8__section home-v8__actions-panel" aria-labelledby="home-actions-heading">
+          <div class="home-v8__section-heading"><div><h2 id="home-actions-heading">Quick actions</h2></div></div>
+          <div class="home-v8__quick-actions">
+            <button class="home-v8__quick-action" type="button" onclick="FCApp.showBillSheet&&FCApp.showBillSheet()"><span aria-hidden="true">+</span>Add a bill</button>
+            <button class="home-v8__quick-action" type="button" onclick="FCApp._openSubScreen('goals')"><span aria-hidden="true">↗</span>Set a goal</button>
+            <button class="home-v8__quick-action" type="button" onclick="FCApp.switchTab('plan')"><span aria-hidden="true">✓</span>Review plan</button>
+          </div>
+        </section>
+
+        <p class="home-v8__disclaimer">FlowCheck is not a bank. Not financial advice.</p>
+      </div>`;
+
+    // Carousel scroll → dot sync
+    const _car = document.getElementById('home-move-carousel');
+    if (_car) {
+      const _carDots = el.querySelectorAll('#home-move-dots .home-v8__dot');
+      _car.addEventListener('scroll', () => {
+        const ci = Math.round(_car.scrollLeft / Math.max(1, _car.offsetWidth));
+        _carDots.forEach((d, i) => d.classList.toggle('is-active', i === ci));
+      }, { passive: true });
+    }
+
+    // Hero numbers count up on load — static on unchanged re-renders
+    _countup('home-safe-value', safeToSpend);
+    _countup('home-stat-income', monthIncome, '+$');
+    _countup('home-stat-spent', monthSpend);
+    _countup('home-outlook-heading', Math.abs(cashFlow), cashFlow >= 0 ? '+$' : '−$');
+
+    // ── Chart scrubbing — press and drag to read any day's value ─────────
+    (function () {
+      const svg  = el.querySelector('.dash-chart-svg');
+      const plot = el.querySelector('.dash-chart-plot-area');
+      if (!svg || !plot || chartValues.length < 2) return;
+      const dim = _daysInMonth, elapsed = _daysElapsed;
+      const lastV = _lastChartV, pMid = projMid, mName = _monthName;
+      const dayVal = (d) => {
+        if (d <= elapsed) {
+          const t = (d - 1) / Math.max(1, elapsed - 1) * (chartValues.length - 1);
+          const i = Math.floor(t), f = t - i;
+          const a = chartValues[i], b = chartValues[Math.min(chartValues.length - 1, i + 1)];
+          return { v: a + (b - a) * f, proj: false };
+        }
+        const f = (d - elapsed) / Math.max(1, dim - elapsed);
+        return { v: lastV + (pMid - lastV) * f, proj: true };
+      };
+      let guide = null, bubble = null;
+      const ensure = () => {
+        if (guide) return;
+        guide = document.createElement('div');
+        guide.style.cssText = 'position:absolute;top:0;bottom:18px;width:1.5px;background:var(--fc-text-faint);pointer-events:none;display:none;z-index:2';
+        bubble = document.createElement('div');
+        bubble.style.cssText = 'position:absolute;top:-8px;transform:translateX(-50%);background:var(--fc-bg-elevated);border:1px solid var(--fc-border);border-radius:8px;padding:4px 9px;font-size:11px;font-weight:600;color:var(--fc-text);white-space:nowrap;pointer-events:none;display:none;box-shadow:0 4px 14px rgba(0,0,0,0.18);font-variant-numeric:tabular-nums;z-index:3';
+        plot.appendChild(guide); plot.appendChild(bubble);
+      };
+      const show = (clientX) => {
+        ensure();
+        const r = svg.getBoundingClientRect();
+        if (r.width < 10) return;
+        const fx = Math.max(0, Math.min(1, (clientX - r.left) / r.width));
+        const d  = Math.max(1, Math.min(dim, Math.round(1 + fx * (dim - 1))));
+        const { v, proj } = dayVal(d);
+        const x = (d - 1) / Math.max(1, dim - 1) * r.width;
+        guide.style.display = 'block';
+        guide.style.left = x.toFixed(1) + 'px';
+        bubble.style.display = 'block';
+        bubble.style.left = Math.max(40, Math.min(r.width - 40, x)).toFixed(1) + 'px';
+        bubble.textContent = mName + ' ' + d + ' · ' + (proj ? '≈' : '') + (v < 0 ? '−' : '+') + FCData.formatCurrency(Math.abs(v));
+      };
+      const hide = () => { if (guide) { guide.style.display = 'none'; bubble.style.display = 'none'; } };
+      svg.style.touchAction = 'pan-y';
+      svg.addEventListener('pointerdown', (e) => { haptic('light'); show(e.clientX); });
+      svg.addEventListener('pointermove', (e) => { if (e.buttons > 0 || e.pointerType === 'touch') show(e.clientX); });
+      svg.addEventListener('pointerup', hide);
+      svg.addEventListener('pointercancel', hide);
+      svg.addEventListener('pointerleave', hide);
+    })();
   }
 
   /* ─────────────────────────────────────────────────────────────
@@ -5307,7 +6680,7 @@ window.FCApp = (function () {
       const netStr = (netAmt >= 0 ? '+' : '−') + FCData.formatCurrency(Math.abs(netAmt));
       const netColor = netAmt >= 0 ? 'var(--fc-success)' : 'var(--fc-danger)';
 
-      html += `<div class="fc-date-label">${label}<span class="fc-date-label-spacer"></span><span class="fc-date-net" style="color:${netColor}">Net ${netStr}</span></div>
+      html += `<div class="fc-date-label">${label}<span class="fc-date-label-spacer"></span><span class="fc-date-net">Net <span style="color:${netColor}">${netStr}</span></span></div>
                <article class="fc-card">`;
 
       html += txns.map(t => {
@@ -5908,33 +7281,6 @@ window.FCApp = (function () {
     }
   }
 
-  /* ─────────────────────────────────────────────────────────────
-     PLAN PAGE — primary experience for the "insights" tab
-     ───────────────────────────────────────────────────────────── */
-
-  function _renderPlan() {
-    const periodTxns      = _getPeriodTxns();
-    const periodSpendTxns = periodTxns.filter(_isSpendTxn);
-    const periodSpend     = periodSpendTxns.reduce((s, t) => s + (t.amount || 0), 0);
-    const budgetLimit     = (state.budgets && state.budgets['total'] && state.budgets['total'].limit) || 3000;
-    const now             = new Date();
-
-    // Sync period-tab active state with current state.period
-    document.querySelectorAll('.plan-period-btn').forEach(btn => {
-      const active = btn.dataset.period === state.period;
-      btn.classList.toggle('active', active);
-      btn.setAttribute('aria-selected', active ? 'true' : 'false');
-    });
-
-    try { _renderPlanSTS(); }                              catch(e) { fcLog('[Plan] STS', e); }
-    try { _renderPlanMove(); }                             catch(e) { fcLog('[Plan] Move', e); }
-    try { _renderPlanForecast(periodSpend, budgetLimit, now); } catch(e) { fcLog('[Plan] Forecast', e); }
-    try { _renderPlanFix(periodSpendTxns); }               catch(e) { fcLog('[Plan] Fix', e); }
-    try { _renderPlanCategories(periodSpendTxns, periodSpend); } catch(e) { fcLog('[Plan] Cats', e); }
-    try { _renderPlanSubs(); }                             catch(e) { fcLog('[Plan] Subs', e); }
-    try { _renderPlanDelta(); }                            catch(e) { fcLog('[Plan] Delta', e); }
-  }
-
   function _renderPlanSTS() {
     const amtEl    = document.getElementById('plan-sts-amount');
     const descEl   = document.getElementById('plan-sts-desc');
@@ -5949,7 +7295,7 @@ window.FCApp = (function () {
     const buffer      = Math.max(200, Math.round(cash * 0.05));
     const sts         = Math.max(0, cash - bills7Total - goalCommit - buffer);
 
-    const stsColor = sts < 200 ? '#EF4444' : sts < 500 ? '#D97706' : 'var(--pl-sts-color)';
+    const stsColor = sts < 200 ? 'var(--fc-danger)' : sts < 500 ? 'var(--fc-warning)' : 'var(--pl-sts-color)';
     amtEl.textContent  = FCData.formatCurrency(sts);
     amtEl.style.color  = stsColor;
 
@@ -5987,10 +7333,10 @@ window.FCApp = (function () {
     const top      = insights[0];
 
     const _MOVE_COLORS = {
-      danger:   { bg: 'var(--pl-soft-red)',   bd: 'var(--pl-soft-red-bd)',   iBg: 'rgba(239,68,68,0.18)',  iColor: '#EF4444', emoji: '⚠️' },
-      warn:     { bg: 'var(--pl-soft-amber)', bd: 'var(--pl-soft-amber-bd)', iBg: 'rgba(245,158,11,0.18)', iColor: '#F59E0B', emoji: '💡' },
-      info:     { bg: 'var(--pl-soft-blue)',  bd: 'var(--pl-soft-blue-bd)',  iBg: 'rgba(20,124,255,0.18)', iColor: '#147CFF', emoji: '💡' },
-      positive: { bg: 'var(--pl-soft-green)', bd: 'var(--pl-soft-green-bd)', iBg: 'rgba(22,163,74,0.18)',  iColor: '#16A34A', emoji: '✓'  },
+      danger:   { bg: 'var(--pl-soft-red)',   bd: 'var(--pl-soft-red-bd)',   iBg: 'rgba(239,68,68,0.18)',  iColor: 'var(--fc-danger)', emoji: '⚠️' },
+      warn:     { bg: 'var(--pl-soft-amber)', bd: 'var(--pl-soft-amber-bd)', iBg: 'rgba(245,158,11,0.18)', iColor: 'var(--fc-warning)', emoji: '💡' },
+      info:     { bg: 'var(--pl-soft-blue)',  bd: 'var(--pl-soft-blue-bd)',  iBg: 'rgba(20,124,255,0.18)', iColor: 'var(--fc-accent)', emoji: '💡' },
+      positive: { bg: 'var(--pl-soft-green)', bd: 'var(--pl-soft-green-bd)', iBg: 'rgba(22,163,74,0.18)',  iColor: 'var(--fc-success)', emoji: '✓'  },
     };
 
     if (!top) {
@@ -6033,7 +7379,7 @@ window.FCApp = (function () {
     const isOver      = budgetLimit > 0 && projected > budgetLimit;
 
     projEl.textContent = FCData.formatCurrency(projected);
-    projEl.style.color = isOver ? '#EF4444' : '#16A34A';
+    projEl.style.color = isOver ? 'var(--fc-danger)' : 'var(--fc-success)';
     if (spentEl)  spentEl.textContent  = FCData.formatCurrency(periodSpend);
     if (budgetEl) budgetEl.textContent = budgetLimit > 0 ? FCData.formatCurrency(budgetLimit) : 'Not set';
     if (daysEl)   daysEl.textContent   = `${daysLeft}d`;
@@ -6100,7 +7446,7 @@ window.FCApp = (function () {
       </div>`;
     }).join('') +
     `<div class="plan-fix-btn-row">
-      <button class="plan-fix-btn-primary" onclick="FCApp.switchTab('insights')" type="button">Fix my plan</button>
+      <button class="plan-fix-btn-primary" onclick="FCApp.switchTab('plan')" type="button">Fix my plan</button>
       <button class="plan-fix-btn-secondary" onclick="this.closest('#plan-fix-card').style.display='none'" type="button">Dismiss</button>
     </div>`;
   }
@@ -6131,7 +7477,7 @@ window.FCApp = (function () {
       }
       card.innerHTML = goals.map(g => {
         const pct  = g.target > 0 ? Math.min(Math.round(((g.current || 0) / g.target) * 100), 100) : 0;
-        const fill = pct >= 90 ? '#16A34A' : pct >= 50 ? '#147CFF' : '#F59E0B';
+        const fill = pct >= 90 ? 'var(--fc-success)' : pct >= 50 ? 'var(--fc-accent)' : 'var(--fc-warning)';
         const badge = pct >= 100 ? 'good' : pct >= 50 ? 'on-track' : 'behind';
         const badgeLbl = pct >= 100 ? 'Done' : pct >= 50 ? 'On track' : 'Behind';
         return `<div class="plan-goal-row" role="button">
@@ -6181,7 +7527,7 @@ window.FCApp = (function () {
       const pctTot  = periodSpend > 0 ? Math.round((amount / periodSpend) * 100) : 0;
       const badgeCls = isOver ? 'over' : budPct > 80 ? 'watch' : budLim > 0 ? 'on-track' : 'set-limit';
       const badgeLbl = isOver ? 'Over' : budPct > 80 ? 'Watch' : budLim > 0 ? 'On track' : 'Set limit';
-      const barFill  = isOver ? '#EF4444' : budPct > 80 ? '#D97706' : color;
+      const barFill  = isOver ? 'var(--fc-danger)' : budPct > 80 ? 'var(--fc-warning)' : color;
       return `<div class="plan-cat-row" onclick="FCApp.openCategoryBudgetSheet('${esc(cat)}',${budLim})" role="button" aria-label="${esc(cat)}">
         <div class="plan-cat-row-top">
           <div class="plan-cat-icon" style="background:${color}22">${emoji}</div>
@@ -6234,11 +7580,11 @@ window.FCApp = (function () {
     const todayAmt = today.reduce((s, t) => s + (t.amount || 0), 0);
     const yesterdayAmt = yest.reduce((s, t) => s + (t.amount || 0), 0);
     if (today.length) {
-      deltas.push({ emoji: '💳', label: `${today.length} new txn${today.length !== 1 ? 's' : ''}`, val: FCData.formatCurrency(todayAmt), color: '#EF4444' });
+      deltas.push({ emoji: '💳', label: `${today.length} new txn${today.length !== 1 ? 's' : ''}`, val: FCData.formatCurrency(todayAmt), color: 'var(--fc-danger)' });
     }
     if (todayAmt > 0 && yesterdayAmt > 0) {
       const diff = todayAmt - yesterdayAmt;
-      deltas.push({ emoji: diff > 0 ? '↑' : '↓', label: diff > 0 ? 'Up vs yesterday' : 'Down vs yesterday', val: FCData.formatCurrency(Math.abs(diff)), color: diff > 0 ? '#EF4444' : '#16A34A' });
+      deltas.push({ emoji: diff > 0 ? '↑' : '↓', label: diff > 0 ? 'Up vs yesterday' : 'Down vs yesterday', val: FCData.formatCurrency(Math.abs(diff)), color: diff > 0 ? 'var(--fc-danger)' : 'var(--fc-success)' });
     }
     const today0 = new Date(); today0.setHours(0,0,0,0);
     const billDue = (state.bills || []).find(b => {
@@ -6246,7 +7592,7 @@ window.FCApp = (function () {
       const d = FCData.parseDateLocal(b.due_date); d.setHours(0,0,0,0);
       return d.getTime() === today0.getTime();
     });
-    if (billDue) deltas.push({ emoji: '📅', label: `Due today: ${billDue.name}`, val: FCData.formatCurrency(billDue.amount || 0), color: '#D97706' });
+    if (billDue) deltas.push({ emoji: '📅', label: `Due today: ${billDue.name}`, val: FCData.formatCurrency(billDue.amount || 0), color: 'var(--fc-warning)' });
     return deltas;
   }
 
@@ -6740,7 +8086,7 @@ window.FCApp = (function () {
               ${dueBills.map(b => `
                 <div style="display:flex;align-items:center;gap:6px">
                   <div style="width:6px;height:6px;border-radius:50%;background:var(--fc-danger);flex-shrink:0"></div>
-                  <span style="font-size:13px;color:var(--fc-text-muted);flex:1">${b.name}</span>
+                  <span style="font-size:13px;color:var(--fc-text-muted);flex:1">${esc(b.name)}</span>
                   <span style="font-size:13px;font-weight:600;color:var(--fc-danger)">−${FCData.formatCurrency(b.amount)}</span>
                 </div>`).join('')}
             </div>
@@ -6826,7 +8172,7 @@ window.FCApp = (function () {
               ${initial}
             </div>
             <div class="fc-list-body">
-              <div class="fc-list-title" style="font-size:14px">${s.name}</div>
+              <div class="fc-list-title" style="font-size:14px">${esc(s.name)}</div>
               <div class="fc-list-meta" style="font-size:11px;margin-top:1px">Recurring · ~${FCData.formatCurrency(s.amount)}/${s.freq}</div>
             </div>
             <div style="display:flex;gap:7px;align-items:center;flex-shrink:0">
@@ -7082,8 +8428,8 @@ window.FCApp = (function () {
         } else {
           // W7: without a target date, "ON TRACK" is meaningless — use "IN PROGRESS" instead
           statusLabel = pct >= 75 ? 'ALMOST' : pct > 0 ? 'IN PROGRESS' : 'NOT STARTED';
-          statusBg    = pct >= 75 ? 'rgba(26,196,240,0.12)' : pct > 0 ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.06)';
-          statusBorder= pct >= 75 ? 'rgba(26,196,240,0.3)' : pct > 0 ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.12)';
+          statusBg    = pct >= 75 ? 'rgba(26,196,240,0.12)' : pct > 0 ? 'var(--fc-bg-elevated-2)' : 'var(--fc-bg-elevated-2)';
+          statusBorder= pct >= 75 ? 'rgba(26,196,240,0.3)' : pct > 0 ? 'var(--fc-border-strong)' : 'var(--fc-border)';
           statusText  = pct >= 75 ? 'var(--fc-accent)' : pct > 0 ? 'var(--fc-text-muted)' : 'var(--fc-text-faint)';
         }
 
@@ -7092,7 +8438,7 @@ window.FCApp = (function () {
             <!-- Circular progress ring -->
             <div style="width:64px;height:64px;position:relative;flex-shrink:0">
               <svg width="64" height="64" viewBox="0 0 64 64" style="transform:rotate(-90deg)" aria-label="${pct}%">
-                <circle cx="32" cy="32" r="${r}" stroke="rgba(255,255,255,0.08)" stroke-width="6" fill="none"/>
+                <circle cx="32" cy="32" r="${r}" stroke="var(--fc-border)" stroke-width="6" fill="none"/>
                 <circle cx="32" cy="32" r="${r}" stroke="${strokeColor}" stroke-width="6" fill="none"
                         stroke-dasharray="${circ.toFixed(1)}" stroke-dashoffset="${offset.toFixed(1)}"
                         stroke-linecap="round"
@@ -7255,8 +8601,19 @@ window.FCApp = (function () {
   /* ─── Wealth: build sparkline SVG string ─── */
   function _buildWealthSparklineSVG(vals) {
     const isPos = !vals.length || vals[vals.length-1] >= vals[0];
-    const color = isPos ? '#1ac4f0' : 'var(--wv-red,#EF4444)';
-    if (!vals || vals.length < 2) return `<svg viewBox="0 0 320 56" width="100%" height="56" preserveAspectRatio="none" aria-hidden="true"><path d="M0,50 L320,50" stroke="${color}" stroke-width="2" fill="none"/></svg>`;
+    const color = isPos ? 'var(--fc-accent)' : 'var(--wv-red,var(--fc-danger))';
+    // <2 snapshots: a bare flat line reads as a broken chart. Show a designed
+    // "tracking starts today" state instead — dashed baseline, live dot, caption.
+    if (!vals || vals.length < 2) {
+      return `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;padding:6px 0 2px">
+        <svg viewBox="0 0 320 14" width="100%" height="14" preserveAspectRatio="none" aria-hidden="true">
+          <line x1="4" y1="7" x2="304" y2="7" stroke="var(--fc-border)" stroke-width="2" stroke-dasharray="1 7" stroke-linecap="round"/>
+          <circle cx="312" cy="7" r="3.5" fill="var(--fc-accent)"/>
+          <circle cx="312" cy="7" r="6" fill="none" stroke="var(--fc-accent)" stroke-width="1" opacity="0.35"/>
+        </svg>
+        <div style="font-size:11px;font-weight:500;color:var(--fc-text-faint);letter-spacing:0.1px">Tracking your net worth from today</div>
+      </div>`;
+    }
     const W=320, H=56, pad=6;
     const min=Math.min(...vals), max=Math.max(...vals), range=max-min||1;
     const toY = v => pad + (H-2*pad)*(1-(v-min)/range);
@@ -7444,10 +8801,28 @@ window.FCApp = (function () {
       </div>`;
     }).join('');
 
+    // Asset allocation — cash vs investments vs debt at a glance
+    const _allocCash   = accts.filter(a=>a.type==='depository').reduce((s,a)=>s+(a.balance_current||a.balance||0),0);
+    const _allocInvest = accts.filter(a=>a.type==='investment'||a.type==='brokerage').reduce((s,a)=>s+(a.balance_current||a.balance||0),0);
+    const _allocTotal  = _allocCash + _allocInvest + liabilities;
+    const _allocSeg = (v, color) => _allocTotal > 0 && v > 0
+      ? `<div style="width:${Math.max(2,(v/_allocTotal)*100)}%;background:${color};height:100%"></div>` : '';
+    const _allocLegend = (label, v, color) => v > 0
+      ? `<div style="display:flex;align-items:center;gap:5px"><span style="width:7px;height:7px;border-radius:2px;background:${color};flex-shrink:0"></span><span style="font-size:11px;color:var(--wv-t3);font-weight:500">${label}</span><span style="font-size:11px;color:var(--wv-t2);font-weight:600;font-variant-numeric:tabular-nums">${FCData.formatCurrency(v)}</span></div>` : '';
+    const allocHTML = _allocTotal > 0 ? `
+        <div style="margin-top:12px">
+          <div style="display:flex;gap:2px;height:6px;border-radius:3px;overflow:hidden;background:var(--wv-pill)">
+            ${_allocSeg(_allocCash, 'var(--fc-accent)')}${_allocSeg(_allocInvest, 'var(--fc-electric)')}${_allocSeg(liabilities, 'var(--wv-red)')}
+          </div>
+          <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:8px">
+            ${_allocLegend('Cash', _allocCash, 'var(--fc-accent)')}${_allocLegend('Invested', _allocInvest, 'var(--fc-electric)')}${_allocLegend('Debt', liabilities, 'var(--wv-red)')}
+          </div>
+        </div>` : '';
+
     el.innerHTML = `
       <div class="wv-card wv-position">
         <div class="wv-position-eyebrow">Net Worth</div>
-        <div class="wv-position-amount">${FCData.formatCurrency(nw)}</div>
+        <div class="wv-position-amount" id="wv-nw-amount">${FCData.formatCurrency(nw)}</div>
         ${deltaHTML}
         <div class="wv-position-spark">${sparkSVG}</div>
         <div class="wv-position-stats">
@@ -7460,11 +8835,14 @@ window.FCApp = (function () {
             <div class="wv-stat-val" style="color:var(--wv-red)">${FCData.formatCurrency(liabilities)}</div>
           </div>
         </div>
-        <div class="wv-position-tagline">${delta!==null?(delta>=0?`Up ${FCData.formatCurrency(delta)} from last month`:`Down ${FCData.formatCurrency(Math.abs(delta))} from last month`):'Track progress month over month'}</div>
+        ${allocHTML}
       </div>
       <div class="wv-linked-heading"><span>Linked accounts</span><button type="button" onclick="FCApp.showBankSheet&&FCApp.showBankSheet()">Manage</button></div>
       ${accountRows ? `<div class="wv-card wv-linked-card">${accountRows}</div>` : `<div class="wv-card wv-linked-card"><div class="wv-empty"><div class="wv-empty-title">Connect your accounts</div><div class="wv-empty-sub">See cash, investments, and debt in one complete view.</div><button class="wv-empty-cta" onclick="FCApp.showBankSheet&&FCApp.showBankSheet()">Connect Bank</button></div></div>`}
+      ${_buildWealthPathHTML(_buildWealthPath())}
       <div style="height:8px"></div>`;
+
+    _countup('wv-nw-amount', nw);
   }
 
   /* ─── Wealth: Savings panel ─── */
@@ -7481,7 +8859,7 @@ window.FCApp = (function () {
     const efTarget=efGoal?(efGoal.target||1000):1000;
     const r=30, circ=2*Math.PI*r;
     const efOffset=circ*(1-Math.min(efPct,100)/100);
-    const efColor=efPct>=100?'var(--wv-green)':efPct>=50?'#147CFF':'rgba(255,255,255,0.2)';
+    const efColor=efPct>=100?'var(--wv-green)':efPct>0?'var(--fc-accent)':'var(--fc-text-faint)';
     // Savings move
     const sts=Math.max(0,(FCData.calcCash?FCData.calcCash(accts):total)-Math.max(200,total*0.05));
     const weeklyAmt=Math.min(50,Math.max(10,Math.round(sts/8)));
@@ -7514,7 +8892,7 @@ window.FCApp = (function () {
       <div class="wv-card wv-ef">
         <div class="wv-ef-ring">
           <svg width="72" height="72" viewBox="0 0 72 72" style="transform:rotate(-90deg)" aria-label="${efPct}% funded">
-            <circle cx="36" cy="36" r="${r}" stroke="rgba(255,255,255,0.08)" stroke-width="6" fill="none"/>
+            <circle cx="36" cy="36" r="${r}" stroke="var(--wv-divider)" stroke-width="6" fill="none"/>
             <circle cx="36" cy="36" r="${r}" stroke="${efColor}" stroke-width="6" fill="none"
               stroke-dasharray="${circ.toFixed(1)}" stroke-dashoffset="${efOffset.toFixed(1)}"
               stroke-linecap="round" style="transition:stroke-dashoffset 0.8s cubic-bezier(0.22,1,0.36,1)"/>
@@ -7532,7 +8910,7 @@ window.FCApp = (function () {
         <div class="wv-sav-move-title">Recommended Move</div>
         <div class="wv-sav-move-body">Save ${FCData.formatCurrency(weeklyAmt)}/week toward your Emergency Fund${monthsToTarget?` — funded in ~${monthsToTarget} months`:''}.</div>
         <div class="wv-move-btns">
-          <button class="wv-btn-p" style="background:var(--wv-green)" onclick="FCApp.showAddGoalSheet&&FCApp.showAddGoalSheet()">Adjust Goal</button>
+          <button class="wv-btn-p" onclick="FCApp.showAddGoalSheet&&FCApp.showAddGoalSheet()">Adjust Goal</button>
         </div>
       </div>`:''}
       ${savAccts.length?`
@@ -7578,13 +8956,16 @@ window.FCApp = (function () {
     const utilColor=utilPct>30?'var(--wv-red)':utilPct>10?'var(--wv-amber)':'var(--wv-green)';
     // Donut
     const segs=[
-      {lbl:'Cards',val:ccBal,color:'#EF4444'},
-      {lbl:'Loans',val:debtAccts.filter(a=>a.type==='loan').reduce((s,a)=>s+Math.max(0,a.balance_current||a.balance||0),0),color:'#F59E0B'},
+      {lbl:'Cards',val:ccBal,color:'var(--fc-danger)'},
+      {lbl:'Loans',val:debtAccts.filter(a=>a.type==='loan').reduce((s,a)=>s+Math.max(0,a.balance_current||a.balance||0),0),color:'var(--fc-warning)'},
     ].filter(s=>s.val>0);
     const R=40,r=24,cx=52,cy=52,circ2=2*Math.PI*R;
     let cumA=-90;
     const arcs=segs.map(seg=>{
-      const pct=totalDebt>0?seg.val/totalDebt:0, angle=pct*360;
+      const pct=totalDebt>0?seg.val/totalDebt:0;
+      // A full-circle arc path collapses to nothing (start == end point) — cap
+      // the sweep just under 360° so a single-segment donut still renders.
+      const angle=Math.min(pct*360, 359.9);
       const startA=(cumA*Math.PI)/180, endA=((cumA+angle)*Math.PI)/180;
       const x1=cx+R*Math.cos(startA),y1=cy+R*Math.sin(startA),x2=cx+R*Math.cos(endA),y2=cy+R*Math.sin(endA);
       const ix1=cx+r*Math.cos(endA),iy1=cy+r*Math.sin(endA),ix2=cx+r*Math.cos(startA),iy2=cy+r*Math.sin(startA);
@@ -7593,7 +8974,7 @@ window.FCApp = (function () {
       cumA+=angle;
       return `<path d="${path}" fill="${seg.color}" opacity="0.88"/>`;
     });
-    const donutSVG=`<svg viewBox="0 0 104 104" width="90" height="90" style="flex-shrink:0" aria-hidden="true">${arcs.join('')}<circle cx="${cx}" cy="${cy}" r="${r}" fill="var(--fc-bg-elevated,#0b1826)"/><text x="${cx}" y="${cy-2}" text-anchor="middle" fill="white" font-size="10" font-weight="800" font-family="inherit">−${totalDebt>=1000?`$${(totalDebt/1000).toFixed(0)}K`:`$${Math.round(totalDebt)}`}</text><text x="${cx}" y="${cy+9}" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-size="7" font-family="inherit">total</text></svg>`;
+    const donutSVG=`<svg viewBox="0 0 104 104" width="90" height="90" style="flex-shrink:0" aria-hidden="true">${arcs.join('')}<circle cx="${cx}" cy="${cy}" r="${r}" fill="var(--fc-bg-elevated,#0b1826)"/><text x="${cx}" y="${cy-2}" text-anchor="middle" fill="var(--fc-text)" font-size="10" font-weight="800" font-family="inherit">−${totalDebt>=1000?`$${(totalDebt/1000).toFixed(0)}K`:`$${Math.round(totalDebt)}`}</text><text x="${cx}" y="${cy+9}" text-anchor="middle" fill="var(--fc-text-faint)" font-size="7" font-family="inherit">total</text></svg>`;
     // Next payment from bills
     const nextBill=state.bills?.filter(b=>!b.paid&&(b.category||'').toLowerCase().includes('debt')||['card','loan','mortgage'].some(k=>(b.name||'').toLowerCase().includes(k))).sort((a,b)=>(a.due_date||'').localeCompare(b.due_date||''))[0];
     // Debt rows
@@ -7636,15 +9017,15 @@ window.FCApp = (function () {
       </div>
       <div class="wv-card wv-debt-move">
         <div class="wv-debt-move-title">${ccBal>500?`Pay down ${cards.length>0?esc(cards[0].name||'your top card'):'credit cards first'}`:'Debt is well managed'}</div>
-        <div class="wv-debt-move-body">${ccBal>500?`Paying more than the minimum on your highest-balance card reduces interest and frees up monthly cash.`:`Your utilization is${utilPct>0?` ${utilPct}%`:' low'} — keep making on-time payments and this stays green.`}</div>
+        <div class="wv-debt-move-body">${ccBal>500?`Paying more than the minimum on your highest-interest card cuts total interest and frees up monthly cash.`:`Your utilization is${utilPct>0?` ${utilPct}%`:' low'} — keep making on-time payments and this stays green.`}</div>
         <div class="wv-move-btns"><button class="wv-btn-p" style="background:${debtCtaColor}" onclick="FCApp.switchWealthTab('overview')">${debtCta}</button></div>
       </div>
       <div class="wv-card wv-strategy">
         <div style="flex:1">
           <div class="wv-strategy-lbl">Avalanche Strategy</div>
-          <div class="wv-strategy-sub">Pay highest-balance card first. Minimizes total interest paid.</div>
+          <div class="wv-strategy-sub">Pay highest-interest debt first, minimums on the rest. Minimizes total interest paid.</div>
         </div>
-        <button class="wv-strategy-change" onclick="haptic&&haptic('light')">Change</button>
+        <button class="wv-strategy-change" onclick="FCApp._openSubScreen&&FCApp._openSubScreen('debt')">Change</button>
       </div>
       <div class="wv-lbl">Your Debts</div>
       <div class="wv-card wv-debt-card">${debtRows}</div>
@@ -7753,15 +9134,17 @@ window.FCApp = (function () {
   function _accountIcon(a) {
     const sub  = (a.subtype || '').toLowerCase();
     const type = (a.type    || '').toLowerCase();
-    if (sub === 'savings')          return '💰';
-    if (sub === 'checking')         return '🏦';
-    if (sub === 'credit card' || type === 'credit') return '💳';
-    if (sub === 'mortgage')         return '🏠';
-    if (sub === 'student')          return '🎓';
-    if (sub === 'auto')             return '🚗';
-    if (type === 'loan')            return '📋';
-    if (a.manual)                   return '📝';
-    return '🏦';
+    const name =
+        sub === 'savings'  ? 'dollar-sign'
+      : sub === 'checking' ? 'bank'
+      : (sub === 'credit card' || type === 'credit') ? 'credit-card'
+      : sub === 'mortgage' ? 'home'
+      : sub === 'student'  ? 'grad-cap'
+      : sub === 'auto'     ? 'car'
+      : type === 'loan'    ? 'file-text'
+      : a.manual           ? 'edit'
+      : 'bank';
+    return _ic(name, 'var(--fc-text-muted)', 18);
   }
 
   function _renderSavings() { _renderWealthSavings(); }
@@ -7817,7 +9200,7 @@ window.FCApp = (function () {
       const bal  = a.balance_current || a.balance || 0;
       const icon = _accountIcon(a);
       const inst = _acctSubtext(a);
-      return `<div style="display:flex;align-items:center;gap:13px;padding:14px 16px;${isLast ? '' : 'border-bottom:0.5px solid rgba(255,255,255,0.05)'}">
+      return `<div style="display:flex;align-items:center;gap:13px;padding:14px 16px;${isLast ? '' : 'border-bottom:0.5px solid var(--fc-border)'}">
         <div style="width:38px;height:38px;border-radius:12px;background:rgba(26,196,240,0.10);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">${icon}</div>
         <div style="flex:1;min-width:0">
           <div style="font-size:14px;font-weight:600;color:var(--fc-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(acctDisplayName(a))}</div>
@@ -7896,8 +9279,8 @@ window.FCApp = (function () {
           <svg viewBox="0 0 104 104" width="104" height="104" style="flex-shrink:0" aria-hidden="true">
             ${arcs.join('')}
             <circle cx="${cx}" cy="${cy}" r="${r}" fill="var(--fc-bg-elevated,#0b1826)"/>
-            <text x="${cx}" y="${cy - 4}" text-anchor="middle" fill="white" font-size="11" font-weight="800" font-family="inherit">${segments.length > 0 ? '−' : ''}${totalDebt >= 1000 ? `$${(totalDebt/1000).toFixed(0)}K` : `$${Math.round(totalDebt)}`}</text>
-            <text x="${cx}" y="${cy + 9}" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-size="8" font-family="inherit">total</text>
+            <text x="${cx}" y="${cy - 4}" text-anchor="middle" fill="var(--fc-text)" font-size="11" font-weight="800" font-family="inherit">${segments.length > 0 ? '−' : ''}${totalDebt >= 1000 ? `$${(totalDebt/1000).toFixed(0)}K` : `$${Math.round(totalDebt)}`}</text>
+            <text x="${cx}" y="${cy + 9}" text-anchor="middle" fill="var(--fc-text-faint)" font-size="8" font-family="inherit">total</text>
           </svg>`;
       }
 
@@ -7921,7 +9304,7 @@ window.FCApp = (function () {
             </div>
           </div>
           ${totalLimit > 0 ? `
-          <div style="margin-top:14px;padding-top:12px;border-top:0.5px solid rgba(255,255,255,0.07)">
+          <div style="margin-top:14px;padding-top:12px;border-top:0.5px solid var(--fc-border)">
             <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--fc-text-faint);margin-bottom:5px">
               <span>Credit Utilization</span>
               <span style="color:${utilColor};font-weight:600">${utilPct}%</span>
@@ -8057,7 +9440,7 @@ window.FCApp = (function () {
       cashflowEl.style.color  = cashFlow >= 0 ? 'var(--fc-success)' : 'var(--fc-danger)';
     }
     if (avgdailyEl) avgdailyEl.textContent = FCData.formatCurrency(avgDaily) + '/day';
-    if (labelEl)    labelEl.textContent = _actSummaryPeriod === 'M' ? 'This Month' : _actSummaryPeriod === '6M' ? 'Last 6 Months' : 'This Year';
+    if (labelEl)    labelEl.textContent = _actSummaryPeriod === 'M' ? 'Last 30 Days' : _actSummaryPeriod === '6M' ? 'Last 6 Months' : 'Last 12 Months';
 
     if (deltaEl && spendDelta !== null) {
       const up = spendDelta > 0;
@@ -8104,13 +9487,13 @@ window.FCApp = (function () {
       svgEl.innerHTML = `
         <defs>
           <linearGradient id="actChartGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="#147CFF" stop-opacity="0.22"/>
-            <stop offset="100%" stop-color="#147CFF" stop-opacity="0"/>
+            <stop offset="0%" stop-color="var(--fc-accent)" stop-opacity="0.22"/>
+            <stop offset="100%" stop-color="var(--fc-accent)" stop-opacity="0"/>
           </linearGradient>
         </defs>
         <path d="${fillD}" fill="url(#actChartGrad)"/>
-        <path d="${d}" fill="none" stroke="#147CFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        <circle cx="${lastPt[0]}" cy="${lastPt[1]}" r="4" fill="#147CFF"/>
+        <path d="${d}" fill="none" stroke="var(--fc-accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="${lastPt[0]}" cy="${lastPt[1]}" r="4" fill="var(--fc-accent)"/>
       `;
     }
 
@@ -8203,7 +9586,7 @@ window.FCApp = (function () {
           const good = d !== null ? (m.invert ? d < 0 : d > 0) : false;
           const color = d !== null ? (good ? 'var(--fc-success)' : d === 0 ? 'var(--fc-text-faint)' : 'var(--fc-danger)') : 'var(--fc-text-faint)';
           const arrow = d !== null ? (d > 0 ? '↑' : d < 0 ? '↓' : '→') : '';
-          const dotBg = d !== null ? (good ? 'rgba(48,209,88,0.15)' : 'rgba(255,69,58,0.12)') : 'rgba(255,255,255,0.07)';
+          const dotBg = d !== null ? (good ? 'rgba(48,209,88,0.15)' : 'rgba(255,69,58,0.12)') : 'var(--fc-bg-elevated-2)';
           const dotColor = d !== null ? (good ? 'var(--fc-success)' : 'var(--fc-danger)') : 'var(--fc-text-faint)';
           return `
             <div class="ins-changed-item">
@@ -8342,7 +9725,7 @@ window.FCApp = (function () {
     }
 
     if (goals.length === 0) {
-      recs.push({ icon: '🎯', title: 'Set a savings goal', detail: 'Users with goals save 34% more on average. Add one on the Wealth tab.' });
+      recs.push({ icon: '🎯', title: 'Set a savings goal', detail: 'People who set goals consistently save more. Add one on the Wealth tab.' });
     }
 
     const urgentBills = bills.filter(b => { const d = FCData.daysUntil(b.due_date); return d !== null && d <= 7 && b.status !== 'paid'; });
@@ -8373,6 +9756,21 @@ window.FCApp = (function () {
     _refreshAfterPro();
     _scheduleWelcomeModal();
     setTimeout(() => _tryStartTour(), 1200);
+  }
+
+  /** Purchase-success "Continue" CTA. If the paywall came from the onboarding
+   *  trial slide, the flow isn't done — return to the bank-connect step. */
+  function finishPurchaseSuccess() {
+    const successOverlay = document.getElementById('pw-success-overlay');
+    if (successOverlay) successOverlay.classList.remove('visible');
+    if (_paywallFromOnboarding) {
+      _paywallFromOnboarding = false;
+      setScreen('onboarding');
+      if (window.obGoToBankSlide) window.obGoToBankSlide();
+      return;
+    }
+    setScreen('app');
+    renderHomeAfterPro();
   }
 
   /** Show the app tour for first-time users only.
@@ -8529,6 +9927,7 @@ window.FCApp = (function () {
      ───────────────────────────────────────────────────────────── */
 
   function _openSubScreen(screenId) {
+    haptic('light');
     const el = document.getElementById('view-' + screenId);
     if (!el) return;
     // Hide all fc-view screens
@@ -8553,6 +9952,7 @@ window.FCApp = (function () {
   }
 
   function _closeSubScreen() {
+    haptic('light');
     const nav = document.querySelector('.fc-nav');
     if (nav) nav.style.display = '';
     ['bills','debt','goals','investments','calendar','reports','notifications','settings'].forEach(id => {
@@ -8578,180 +9978,318 @@ window.FCApp = (function () {
   function _renderPlan() {
     const el = document.getElementById('plan-content');
     if (!el) return;
-
-    const user   = state.user || {};
-    const bills  = (state.bills || []).filter(b => b.status !== 'paid')
-                     .sort((a, b) => new Date(a.due_date) - new Date(b.due_date))
-                     .slice(0, 3);
-    const goals  = (state.goals || []).slice(0, 2);
-    const txns   = state.transactions || [];
-    const budgets = state.budgets || {};
-
-    // Compute this-month spend
-    const now  = new Date();
+    const now = new Date();
     const mStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const monthTxns = txns.filter(t => !t.isCredit && t.date && new Date(t.date) >= mStart);
-    const totalSpend = monthTxns.reduce((s, t) => s + (t.amount || 0), 0);
-    const totalIncome = txns.filter(t => t.isCredit && t.date && new Date(t.date) >= mStart)
-                            .reduce((s, t) => s + (t.amount || 0), 0);
-    const budgetLimit = Object.values(budgets).reduce((s, b) => s + (b.limit || 0), 0);
-    const budgetPct   = budgetLimit > 0 ? Math.min(100, Math.round((totalSpend / budgetLimit) * 100)) : 0;
+    const txns    = state.transactions || [];
+    const bills   = (state.bills || []).filter(b => b.status !== 'paid')
+                      .sort((a,b) => new Date(a.due_date)-new Date(b.due_date)).slice(0,3);
+    const budgets  = state.budgets || {};
+    const accounts = state.accounts || [];
+
+    const mTxns      = txns.filter(t => t.date && FCData.parseDateLocal(t.date) >= mStart);
+    const totalIncome = mTxns.filter(_isIncomeTxn).reduce((s,t) => s+(t.amount||0), 0);
+    const totalSpend  = mTxns.filter(_isSpendTxn).reduce((s,t) => s+(t.amount||0), 0);
+    const budgetLimit = Object.values(budgets).reduce((s,b) => s+(b.limit||0), 0);
+    const budgetPct   = budgetLimit > 0 ? Math.min(100, Math.round(totalSpend/budgetLimit*100)) : 0;
     const budgetColor = budgetPct >= 90 ? 'var(--fc-danger)' : budgetPct >= 70 ? 'var(--fc-warning)' : 'var(--fc-accent)';
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
+    const daysLeft    = daysInMonth - now.getDate();
+    const debtAccts   = accounts.filter(a => a.type==='credit' || a.subtype==='credit card' || a.type==='loan');
+    const totalBills  = bills.reduce((s,b) => s+(b.amount||0), 0);
+    const debtPmt     = debtAccts.reduce((s,a) => s+(a.min_payment||0), 0);
+    const goalMonthly = (state.goals||[]).reduce((s,g) => s+(g.monthly_target||0), 0);
+    const ringIncome  = totalIncome || 1;
+    const billsPct    = Math.min(99, Math.round(totalBills/ringIncome*100));
+    const debtPct     = Math.min(30, Math.round(debtPmt/ringIncome*100));
+    const savePct     = Math.min(30, Math.round(goalMonthly/ringIncome*100));
+    const spendPct    = Math.max(0, 100 - billsPct - debtPct - savePct);
 
-    // Total debt from credit accounts
-    const debtAccts = (state.accounts || []).filter(a => a.type === 'credit' || a.subtype === 'credit card');
-    const totalDebt = debtAccts.reduce((s, a) => s + Math.max(0, a.balance_current || 0), 0);
-
-    const _daysLeft = (dateStr) => {
-      if (!dateStr) return null;
-      const diff = Math.round((new Date(dateStr) - new Date()) / 86400000);
-      return diff;
+    // SVG ring
+    const R = 44, CX = 56, CY = 56, circ = 2 * Math.PI * R;
+    const seg = (pct, off, color) => {
+      if (pct <= 0) return '';
+      const len = pct/100*circ, offset = off/100*circ;
+      return '<circle cx="'+CX+'" cy="'+CY+'" r="'+R+'" fill="none" stroke="'+color+'" stroke-width="16" '
+        +'stroke-dasharray="'+len.toFixed(1)+' '+circ.toFixed(1)+'" '
+        +'stroke-dashoffset="'+((-(offset - circ/4)).toFixed(1))+'" />';
     };
-    const _billStatus = (days) => {
-      if (days === null) return { label: '', cls: 'fc-bill-status--ok' };
-      if (days < 0)  return { label: 'Overdue', cls: 'fc-bill-status--due' };
-      if (days === 0) return { label: 'Due today', cls: 'fc-bill-status--due' };
-      if (days <= 3)  return { label: `${days}d`, cls: 'fc-bill-status--soon' };
-      return { label: `${days}d`, cls: 'fc-bill-status--ok' };
+    const ringHTML = '<svg width="112" height="112" viewBox="0 0 112 112" style="transform:rotate(-90deg) scaleY(-1)">'
+      +'<circle cx="'+CX+'" cy="'+CY+'" r="'+R+'" fill="none" stroke="var(--fc-bg-elevated-2)" stroke-width="16"/>'
+      +seg(billsPct, 0, 'var(--fc-accent)')
+      +seg(debtPct,  billsPct, 'var(--fc-danger)')
+      +seg(savePct,  billsPct+debtPct, 'var(--fc-success)')
+      +seg(spendPct, billsPct+debtPct+savePct, 'var(--fc-warning)')
+      +'</svg>';
+
+    // Category budgets
+    const catSpend = {};
+    mTxns.filter(_isSpendTxn).forEach(t => {
+      const cat = t.category?.[1] || t.category?.[0] || 'Other';
+      catSpend[cat] = (catSpend[cat]||0) + (t.amount||0);
+    });
+    const budgetCats = Object.keys(budgets).filter(k => k !== 'total' && budgets[k]?.limit > 0);
+    const catBudgetRows = budgetCats.slice(0,5).map(cat => {
+      const limit = budgets[cat]?.limit || 0;
+      const spent = catSpend[cat] || 0;
+      const pct   = limit > 0 ? Math.min(150, Math.round(spent/limit*100)) : 0;
+      const color = pct > 100 ? 'var(--fc-danger)' : pct > 80 ? 'var(--fc-warning)' : 'var(--fc-accent)';
+      return { cat, limit, spent, pct, color, displayPct: Math.min(100,pct) };
+    });
+    const topOver  = catBudgetRows.filter(r => r.pct > 100).sort((a,b) => (b.spent-b.limit)-(a.spent-a.limit))[0];
+    const topUnder = catBudgetRows.filter(r => r.pct < 80 && r.limit > 0).sort((a,b) => a.pct-b.pct)[0];
+
+    const _fmtDue = (d) => { try { return FCData.parseDateLocal(d).toLocaleDateString('en-US',{month:'short',day:'numeric'}); } catch(_e){ return d||''; } };
+    const _billStatus = (b) => {
+      const days = FCData.daysUntil ? FCData.daysUntil(b.due_date) : Math.round((new Date(b.due_date)-new Date())/86400000);
+      if (days === null) return { label:'', cls:'fc-bill-status--ok' };
+      if (days < 0)  return { label:'Overdue', cls:'fc-bill-status--due' };
+      if (days === 0) return { label:'Due today', cls:'fc-bill-status--due' };
+      if (days <= 3)  return { label:days+'d', cls:'fc-bill-status--soon' };
+      return { label:days+'d', cls:'fc-bill-status--ok' };
     };
+    const billEmoji = (b) => _billIcon(b, 'var(--fc-text-muted)', 18);
 
-    const billRows = bills.map(b => {
-      const days = _daysLeft(b.due_date);
-      const st   = _billStatus(days);
-      const emoji = (b.category || '').toLowerCase().includes('rent') ? '🏠'
-                  : (b.category || '').toLowerCase().includes('util') ? '⚡'
-                  : (b.category || '').toLowerCase().includes('insur') ? '🛡️'
-                  : (b.category || '').toLowerCase().includes('sub') ? '📱'
-                  : '📋';
-      return `
-        <div class="fc-bill-row" onclick="FCApp._openSubScreen('bills')">
-          <div class="fc-bill-icon">${emoji}</div>
-          <div class="fc-bill-info">
-            <div class="fc-bill-name">${b.name || 'Bill'}</div>
-            <div class="fc-bill-due">Due ${b.due_date || ''}</div>
-          </div>
-          <div class="fc-bill-right">
-            <div class="fc-bill-amount">${FCData.formatCurrency(b.amount || 0)}</div>
-            <div class="fc-bill-status ${st.cls}">${st.label}</div>
-          </div>
-        </div>`;
-    }).join('');
+    // ── Paycheck plan inputs ─────────────────────────────────────
+    const allUnpaidBills = (state.bills || []).filter(b => b.status !== 'paid')
+      .sort((a,b) => new Date(a.due_date) - new Date(b.due_date));
+    const payday = _predictNextPayday();
+    const proj = _buildSafeSpendProjection();
+    const lastIncomeTxn = txns.filter(_isIncomeTxn)
+      .sort((a,b) => String(b.date||'').localeCompare(String(a.date||'')))[0];
+    const expectedPay = lastIncomeTxn ? (lastIncomeTxn.amount || 0) : 0;
+    const payWindow = payday ? payday.days : 14;
+    const payBills = allUnpaidBills.filter(b => {
+      const d = FCData.daysUntil(b.due_date);
+      return d !== null && d >= 0 && d <= payWindow;
+    });
+    const payBillsTotal = payBills.reduce((s,b) => s+(b.amount||0), 0);
+    const savePlan  = Math.round(goalMonthly / 2);
+    const spendPlan = Math.round(proj.expectedEverydaySpend || 0);
+    const assigned  = payBillsTotal + savePlan + spendPlan;
+    const payRemaining = expectedPay - assigned;
+    const paydayTitle = payday
+      ? payday.date.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' Paycheck'
+      : 'Next Paycheck';
+    const planRow = (icon, name, amount, badge, badgeColor) =>
+      '<div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--fc-border)">'
+        +'<div style="width:32px;height:32px;border-radius:9px;background:var(--fc-bg-elevated-2);display:flex;align-items:center;justify-content:center;flex-shrink:0">'+icon+'</div>'
+        +'<div style="flex:1;font-size:14px;font-weight:500;color:var(--fc-text)">'+name+'</div>'
+        +'<div style="font-size:14px;font-weight:600;color:var(--fc-text);font-variant-numeric:tabular-nums">'+FCData.formatCurrency(amount)+'</div>'
+        +(badge ? '<div style="font-size:11px;font-weight:600;color:'+badgeColor+';min-width:52px;text-align:right">'+badge+'</div>' : '')
+      +'</div>';
+    const paycheckHTML =
+      '<div class="fc-card" style="margin-bottom:14px;padding:18px 16px">'
+        +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">'
+          +'<div style="font-size:17px;font-weight:700;color:var(--fc-text)">'+paydayTitle+'</div>'
+          +'<div style="text-align:right"><div style="font-size:11px;color:var(--fc-text-faint)">Expected</div><div style="font-size:17px;font-weight:750;color:var(--fc-text);font-variant-numeric:tabular-nums">'+(expectedPay>0?FCData.formatCurrency(expectedPay):'—')+'</div></div>'
+        +'</div>'
+        +'<div style="height:8px;background:var(--fc-bg-elevated-2);border-radius:99px;overflow:hidden;margin-bottom:8px">'
+          +'<div style="height:100%;width:'+(expectedPay>0?Math.min(100,Math.round(assigned/expectedPay*100)):0)+'%;background:'+(payRemaining>=0?'var(--fc-success)':'var(--fc-danger)')+';border-radius:99px"></div>'
+        +'</div>'
+        +'<div style="display:flex;justify-content:space-between;margin-bottom:14px">'
+          +'<div><div style="font-size:11px;color:var(--fc-text-faint)">Assigned</div><div style="font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--fc-text)">'+FCData.formatCurrency(assigned)+'</div></div>'
+          +'<div style="text-align:right"><div style="font-size:11px;color:var(--fc-text-faint)">'+(payRemaining>=0?'Remaining':'Short')+'</div><div style="font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;color:'+(payRemaining>=0?'var(--fc-success)':'var(--fc-danger)')+'">'+FCData.formatCurrency(Math.abs(payRemaining))+'</div></div>'
+        +'</div>'
+        +payBills.map(b => {
+          const d = FCData.daysUntil(b.due_date);
+          return planRow(_billIcon(b,'var(--fc-text-muted)',16), esc(b.name||'Bill'), b.amount||0,
+            d===0?'Due today':'Due '+_fmtDue(b.due_date), d!==null&&d<=3?'var(--fc-warning)':'var(--fc-text-faint)');
+        }).join('')
+        +(savePlan>0 ? planRow(_ic('flag','var(--fc-success)',16), 'Goal savings', savePlan, 'Planned', 'var(--fc-text-faint)') : '')
+        +(spendPlan>0 ? planRow(_ic('credit-card','var(--fc-text-muted)',16), 'Everyday spending', spendPlan, 'Planned', 'var(--fc-text-faint)') : '')
+        +'<button class="fc-btn fc-btn--ghost fc-btn--sm" style="width:100%;margin-top:14px" onclick="FCApp._openBudgetWizard()">Edit Paycheck Plan</button>'
+      +'</div>'
+      +(payRemaining > 25
+        ? '<div class="fc-card" style="margin-bottom:14px;padding:14px 16px;background:var(--fc-success-soft);border-color:var(--fc-success-border);display:flex;align-items:center;gap:12px">'
+            +'<span style="flex-shrink:0">'+_ic('trending-up','var(--fc-success)',18)+'</span>'
+            +'<div style="flex:1;font-size:13px;color:var(--fc-text);line-height:1.45">'+FCData.formatCurrency(payRemaining)+' unassigned. Put it toward a goal or your smallest debt before it disappears.</div>'
+            +'<button onclick="FCApp.openCoachAnswer(\'debt\')" style="background:var(--fc-success);color:#fff;border:none;border-radius:9px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0;font-family:inherit">Assign</button>'
+          +'</div>'
+        : '');
 
-    const goalRows = goals.map(g => {
-      const pct = Math.min(100, Math.round(((g.current || 0) / Math.max(1, g.target || 1)) * 100));
-      return `
-        <div class="fc-goal-row" onclick="FCApp._openSubScreen('goals')">
-          <div class="fc-goal-header">
-            <div class="fc-goal-name">${g.name || 'Goal'}</div>
-            <div class="fc-goal-pct">${pct}%</div>
-          </div>
-          <div class="fc-progress fc-progress--green">
-            <div class="fc-progress-fill" style="width:${pct}%"></div>
-          </div>
-          <div class="fc-goal-amounts">
-            <span>${FCData.formatCurrency(g.current || 0)} saved</span>
-            <span>of ${FCData.formatCurrency(g.target || 0)}</span>
-          </div>
-        </div>`;
-    }).join('');
+    // ── Subscriptions panel ─────────────────────────────────────
+    const subs = (_detectSubscriptions(txns) || []).sort((a,b) => (b.amount||0)-(a.amount||0));
+    const subsTotal = subs.reduce((s,x) => s+(x.amount||0), 0);
+    const subsHTML = subs.length
+      ? '<div class="fc-card" style="margin-bottom:14px;padding:18px 16px">'
+          +'<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">'
+            +'<div class="fc-eyebrow">Recurring Charges</div>'
+          +'</div>'
+          +'<div style="font-size:26px;font-weight:750;color:var(--fc-text);font-variant-numeric:tabular-nums">'+FCData.formatCurrency(subsTotal)+'<span style="font-size:13px;font-weight:500;color:var(--fc-text-muted)">/mo</span></div>'
+          +'<div style="font-size:13px;color:var(--fc-text-muted);margin-bottom:10px">'+subs.length+' subscription'+(subs.length===1?'':'s')+' detected</div>'
+          +subs.map(s2 => planRow(_ic('play-screen','var(--fc-text-muted)',16), esc(s2.name||'Subscription'), s2.amount||0, '', '')).join('')
+          +'<div style="font-size:12px;color:var(--fc-text-faint);margin-top:12px;line-height:1.5">Not using one of these? Cancel it in the provider\'s app — then watch this number drop.</div>'
+        +'</div>'
+      : '<div class="fc-card" style="padding:36px 24px;text-align:center;margin-bottom:14px">'
+          +'<div style="width:52px;height:52px;border-radius:16px;background:var(--fc-accent-soft);display:flex;align-items:center;justify-content:center;margin:0 auto 12px">'+_ic('play-screen','var(--fc-accent)',24)+'</div>'
+          +'<div style="font-size:16px;font-weight:600;color:var(--fc-text);margin-bottom:6px">No subscriptions detected yet</div>'
+          +'<div style="font-size:13px;color:var(--fc-text-muted);line-height:1.5">Recurring charges show up here automatically after a month or two of history.</div>'
+        +'</div>';
 
-    el.innerHTML = `
-      <!-- Header -->
-      <div style="padding-top:20px;margin-bottom:20px">
-        <div style="font-size:28px;font-weight:700;color:var(--fc-text);letter-spacing:-0.5px">Plan</div>
-        <div style="font-size:14px;color:var(--fc-text-muted);margin-top:2px">
-          ${now.toLocaleDateString('en-US',{month:'long',year:'numeric'})}
-        </div>
-      </div>
+    const segBtn = (id, label) =>
+      '<button class="fc-seg-btn'+(_planSeg===id?' active':'')+'" role="tab" aria-selected="'+(_planSeg===id)+'"'
+      +' type="button" onclick="FCApp.switchPlanSeg(\''+id+'\')">'+label+'</button>';
 
-      <!-- Cash flow summary row -->
-      <div class="fc-summary-row" style="margin-bottom:14px">
-        <div class="fc-metric-card">
-          <div class="fc-metric-label">Income</div>
-          <div class="fc-metric-value" style="color:var(--fc-success)">${FCData.formatCurrency(totalIncome)}</div>
-          <div class="fc-metric-sub">This month</div>
-        </div>
-        <div class="fc-metric-card">
-          <div class="fc-metric-label">Spent</div>
-          <div class="fc-metric-value">${FCData.formatCurrency(totalSpend)}</div>
-          <div class="fc-metric-sub">This month</div>
-        </div>
-      </div>
+    el.innerHTML =
+      '<header class="fc-page-head">'
+        +'<div class="fc-page-head__text">'
+          +'<h1 class="fc-page-title">Plan</h1>'
+          +'<p class="fc-page-sub">'+now.toLocaleDateString('en-US',{month:'long',year:'numeric'})+'</p>'
+        +'</div>'
+      +'</header>'
 
-      <!-- Budget section -->
-      <div class="fc-card" style="margin-bottom:14px;padding:18px 16px">
-        <div class="fc-section-header">
-          <div class="fc-section-title">Budget</div>
-          <div class="fc-section-action" onclick="FCApp._openBudgetWizard()">Edit →</div>
-        </div>
-        ${budgetLimit > 0 ? `
-          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">
-            <div style="font-size:22px;font-weight:700;color:var(--fc-text);font-variant-numeric:tabular-nums">${FCData.formatCurrency(totalSpend)}</div>
-            <div style="font-size:13px;color:var(--fc-text-muted)">of ${FCData.formatCurrency(budgetLimit)}</div>
-          </div>
-          <div class="fc-progress">
-            <div class="fc-progress-fill" style="width:${budgetPct}%;background:${budgetColor}"></div>
-          </div>
-          <div style="font-size:13px;color:var(--fc-text-muted);margin-top:8px">${budgetPct}% used · ${FCData.formatCurrency(Math.max(0, budgetLimit - totalSpend))} remaining</div>
-        ` : `
-          <div style="text-align:center;padding:16px 0">
-            <div style="font-size:32px;margin-bottom:8px">📊</div>
-            <div style="font-size:15px;font-weight:500;color:var(--fc-text);margin-bottom:4px">No budget set</div>
-            <div style="font-size:13px;color:var(--fc-text-muted);margin-bottom:14px">Set a monthly budget to track your spending.</div>
-            <button class="fc-btn fc-btn--primary fc-btn--sm" onclick="FCApp._openBudgetWizard()" style="width:auto;padding:10px 24px">Build Budget</button>
-          </div>
-        `}
-      </div>
+      +'<div class="fc-seg" role="tablist" aria-label="Plan view">'
+        +segBtn('paycheck','Paycheck')
+        +segBtn('bills','Bills')
+        +segBtn('budget','Budget')
+        +segBtn('subscriptions','Subs')
+      +'</div>'
 
-      <!-- Bills section -->
-      <div class="fc-card" style="margin-bottom:14px;padding:18px 16px">
-        <div class="fc-section-header">
-          <div class="fc-section-title">Upcoming Bills</div>
-          <div class="fc-section-action" onclick="FCApp._openSubScreen('bills')">See all →</div>
-        </div>
-        ${bills.length > 0 ? billRows : `
-          <div style="text-align:center;padding:12px 0;color:var(--fc-text-muted);font-size:14px">
-            No upcoming bills —
-            <span style="color:var(--fc-accent);cursor:pointer" onclick="FCApp.showBillSheet&&FCApp.showBillSheet()">add one</span>
-          </div>
-        `}
-      </div>
+      +(_planSeg === 'paycheck' ? paycheckHTML : '')
+      +(_planSeg === 'subscriptions' ? subsHTML : '')
 
-      <!-- Debt section -->
-      ${totalDebt > 0 ? `
-      <div class="fc-card" style="margin-bottom:14px;padding:18px 16px">
-        <div class="fc-section-header">
-          <div class="fc-section-title">Debt</div>
-          <div class="fc-section-action" onclick="FCApp._openSubScreen('debt')">Details →</div>
-        </div>
-        <div style="display:flex;align-items:center;justify-content:space-between">
-          <div>
-            <div style="font-size:22px;font-weight:700;color:var(--fc-text);font-variant-numeric:tabular-nums">${FCData.formatCurrency(totalDebt)}</div>
-            <div style="font-size:13px;color:var(--fc-text-muted);margin-top:2px">Total owed · ${debtAccts.length} account${debtAccts.length!==1?'s':''}</div>
-          </div>
-          <div style="font-size:28px">💳</div>
-        </div>
-      </div>` : ''}
+      +(_planSeg !== 'budget' ? '' : ''
+      // ── Monthly Plan ring ──
+      +(totalIncome === 0 && budgetLimit === 0 && bills.length === 0
+        ? '<div class="fc-card" style="margin-bottom:14px;padding:24px 16px;text-align:center">'
+            +'<div style="width:48px;height:48px;border-radius:14px;background:var(--fc-accent-soft);display:flex;align-items:center;justify-content:center;margin:0 auto 12px">'+_ic('bar-chart','var(--fc-accent)',22)+'</div>'
+            +'<div style="font-size:16px;font-weight:600;color:var(--fc-text);margin-bottom:6px">No plan data yet</div>'
+            +'<div style="font-size:13px;color:var(--fc-text-muted);line-height:1.5;margin-bottom:16px">Connect a bank account and set a monthly budget to see your spending plan here.</div>'
+            +'<button class="fc-btn fc-btn--primary fc-btn--sm" onclick="FCApp._openBudgetWizard()">Build Your Budget</button>'
+          +'</div>'
+        : '<div class="fc-card" style="margin-bottom:14px;padding:18px 16px">'
+        +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">'
+          +'<div>'
+            +'<div class="fc-eyebrow">Monthly Plan</div>'
+          +'</div>'
+          +'<button onclick="FCApp._openBudgetWizard()" style="background:none;border:none;color:var(--fc-accent);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">Edit Plan</button>'
+        +'</div>'
+        +'<div style="display:flex;align-items:center;gap:18px">'
+          +'<div style="flex-shrink:0;position:relative">'
+            +ringHTML
+            +'<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center">'
+              +'<div style="font-size:10px;font-weight:600;color:var(--fc-text-faint);letter-spacing:0.3px">INCOME</div>'
+              +'<div style="font-size:14px;font-weight:700;color:var(--fc-text)">'+(totalIncome>0?(totalIncome>=1000?'$'+(totalIncome/1000).toFixed(1).replace(/\.0$/,'')+'k':FCData.formatCurrency(totalIncome)):'--')+'</div>'
+            +'</div>'
+          +'</div>'
+          +'<div style="flex:1;display:flex;flex-direction:column;gap:7px">'
+            +'<div style="display:flex;align-items:center;gap:7px"><div style="width:8px;height:8px;border-radius:2px;background:var(--fc-accent);flex-shrink:0"></div><div style="flex:1;font-size:13px;color:var(--fc-text)">Bills</div><div style="font-size:13px;font-weight:600;font-variant-numeric:tabular-nums">'+FCData.formatCurrency(totalBills)+'</div></div>'
+            +(debtPmt>0?'<div style="display:flex;align-items:center;gap:7px"><div style="width:8px;height:8px;border-radius:2px;background:var(--fc-danger);flex-shrink:0"></div><div style="flex:1;font-size:13px;color:var(--fc-text)">Debt</div><div style="font-size:13px;font-weight:600;font-variant-numeric:tabular-nums">'+FCData.formatCurrency(debtPmt)+'</div></div>':'')
+            +(goalMonthly>0?'<div style="display:flex;align-items:center;gap:7px"><div style="width:8px;height:8px;border-radius:2px;background:var(--fc-success);flex-shrink:0"></div><div style="flex:1;font-size:13px;color:var(--fc-text)">Savings</div><div style="font-size:13px;font-weight:600;font-variant-numeric:tabular-nums">'+FCData.formatCurrency(goalMonthly)+'</div></div>':'')
+            +'<div style="display:flex;align-items:center;gap:7px"><div style="width:8px;height:8px;border-radius:2px;background:var(--fc-warning);flex-shrink:0"></div><div style="flex:1;font-size:13px;color:var(--fc-text)">Spending</div><div style="font-size:13px;font-weight:600;font-variant-numeric:tabular-nums">'+FCData.formatCurrency(totalSpend)+'</div></div>'
+          +'</div>'
+        +'</div>'
+      +'</div>')
 
-      <!-- Savings Goals section -->
-      ${goals.length > 0 ? `
-      <div class="fc-card" style="margin-bottom:14px;padding:18px 16px">
-        <div class="fc-section-header">
-          <div class="fc-section-title">Savings Goals</div>
-          <div class="fc-section-action" onclick="FCApp._openSubScreen('goals')">See all →</div>
-        </div>
-        ${goalRows}
-      </div>` : `
-      <div class="fc-card" style="margin-bottom:14px;padding:18px 16px">
-        <div class="fc-section-header">
-          <div class="fc-section-title">Savings Goals</div>
-        </div>
-        <div style="text-align:center;padding:12px 0;color:var(--fc-text-muted);font-size:14px">
-          No goals yet —
-          <span style="color:var(--fc-accent);cursor:pointer" onclick="FCApp.showAddGoalSheet&&FCApp.showAddGoalSheet()">add one</span>
-        </div>
-      </div>`}
-    `;
+      // ── Budget Progress ──
+      +'<div class="fc-card" style="margin-bottom:14px;padding:18px 16px">'
+        +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">'
+          +'<div style="font-size:17px;font-weight:700;color:var(--fc-text)">Budget Progress</div>'
+          +'<div style="font-size:13px;color:var(--fc-text-faint)">'+daysLeft+'d left</div>'
+        +'</div>'
+        +(budgetLimit > 0
+          ? (function () {
+              // Pace marker — where spending *should* be by today at an even burn
+              const _dim      = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+              const _pacePct  = Math.min(100, Math.round((now.getDate() / _dim) * 100));
+              const _paceAmt  = budgetLimit * now.getDate() / _dim;
+              const _paceDelta = _paceAmt - totalSpend;
+              const _onPace   = _paceDelta >= 0;
+              return '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">'
+                +'<div style="font-size:24px;font-weight:750;color:var(--fc-text);font-variant-numeric:tabular-nums">'+FCData.formatCurrency(totalSpend)+'</div>'
+                +'<div style="font-size:13px;color:var(--fc-text-muted)">of '+FCData.formatCurrency(budgetLimit)+'</div>'
+              +'</div>'
+              +'<div class="fc-progress" style="margin-bottom:8px;position:relative;overflow:visible">'
+                +'<div class="fc-progress-fill" style="width:'+budgetPct+'%;background:'+budgetColor+'"></div>'
+                +'<div style="position:absolute;top:-3px;bottom:-3px;left:'+_pacePct+'%;width:2px;border-radius:1px;background:var(--fc-text-faint)" title="Expected by today"></div>'
+              +'</div>'
+              +'<div style="display:flex;justify-content:space-between;align-items:center">'
+                +'<div style="font-size:13px;font-weight:600;color:'+(_onPace?'var(--fc-success)':'var(--fc-warning)')+'">'
+                  +(_onPace ? FCData.formatCurrency(_paceDelta)+' under pace' : FCData.formatCurrency(Math.abs(_paceDelta))+' over pace')
+                +'</div>'
+                +'<div style="font-size:13px;font-weight:600;color:'+(budgetPct>90?'var(--fc-danger)':budgetPct>70?'var(--fc-warning)':'var(--fc-success)')+'">'+FCData.formatCurrency(Math.max(0,budgetLimit-totalSpend))+' left</div>'
+              +'</div>';
+            })()
+          : '<div style="text-align:center;padding:12px 0">'
+              +'<div style="font-size:15px;color:var(--fc-text-muted);margin-bottom:12px">Set a monthly budget to track your spending</div>'
+              +'<button class="fc-btn fc-btn--primary fc-btn--sm" onclick="FCApp._openBudgetWizard()">Build Budget</button>'
+            +'</div>')
+      +'</div>'
+
+      // ── Category Budgets ──
+      +(catBudgetRows.length > 0
+        ? '<div class="fc-card" style="margin-bottom:14px;padding:18px 16px">'
+            +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">'
+              +'<div style="font-size:17px;font-weight:700;color:var(--fc-text)">Category Budgets</div>'
+              +'<button onclick="FCApp._openBudgetWizard()" style="background:none;border:none;color:var(--fc-accent);font-size:13px;font-weight:600;cursor:pointer">View all</button>'
+            +'</div>'
+            +catBudgetRows.map(r =>
+              '<div style="margin-bottom:13px">'
+                +'<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px">'
+                  +'<div style="font-size:14px;font-weight:500;color:var(--fc-text)">'+r.cat+'</div>'
+                  +'<div style="font-size:12px;color:'+(r.pct>100?'var(--fc-danger)':r.pct>80?'var(--fc-warning)':'var(--fc-text-muted)')+'">'+FCData.formatCurrency(r.spent)+' of '+FCData.formatCurrency(r.limit)+'</div>'
+                +'</div>'
+                +'<div style="height:6px;background:var(--fc-bg-elevated-2);border-radius:99px;overflow:hidden">'
+                  +'<div style="height:100%;width:'+r.displayPct+'%;background:'+r.color+';border-radius:99px;transition:width 0.5s ease"></div>'
+                +'</div>'
+                +'<div style="font-size:11px;color:'+(r.pct>100?'var(--fc-danger)':r.pct>80?'var(--fc-warning)':'var(--fc-text-faint)')+';margin-top:2px;text-align:right">'+r.pct+'%</div>'
+              +'</div>'
+            ).join('')
+          +'</div>'
+        : '')
+
+      // ── Suggested Fix ──
+      +(topOver && topUnder
+        ? '<div class="fc-card" style="margin-bottom:14px;padding:16px;background:rgba(245,158,11,0.08);border-color:rgba(245,158,11,0.2)">'
+            +'<div style="display:flex;gap:12px;align-items:flex-start">'
+              +'<div style="font-size:22px;flex-shrink:0">💡</div>'
+              +'<div style="flex:1">'
+                +'<div style="font-size:15px;font-weight:600;color:var(--fc-text);margin-bottom:4px">Budget Suggestion</div>'
+                +'<div style="font-size:13px;color:var(--fc-text-muted);line-height:1.5;margin-bottom:12px">'+topOver.cat+' is '+FCData.formatCurrency(topOver.spent-topOver.limit)+' over budget. You have room in '+topUnder.cat+'.</div>'
+                +'<div style="display:flex;gap:8px">'
+                  +'<button onclick="FCApp._openBudgetWizard()" style="background:var(--fc-warning);color:#fff;border:none;border-radius:10px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer">Adjust Budget</button>'
+                  +'<button style="background:transparent;border:1px solid var(--fc-border);border-radius:10px;padding:8px 14px;font-size:13px;color:var(--fc-text-muted);cursor:pointer">Not Now</button>'
+                +'</div>'
+              +'</div>'
+            +'</div>'
+          +'</div>'
+        : '')
+
+      )
+
+      // ── Bills panel ──
+      +(_planSeg !== 'bills' ? '' : ''
+      +'<div class="fc-card" style="margin-bottom:14px;padding:18px 16px">'
+        +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">'
+          +'<div style="font-size:17px;font-weight:700;color:var(--fc-text)">Upcoming Bills</div>'
+          +'<button onclick="FCApp._openSubScreen(\'bills\')" style="background:none;border:none;color:var(--fc-accent);font-size:13px;font-weight:600;cursor:pointer">Manage →</button>'
+        +'</div>'
+        +(allUnpaidBills.length > 0
+          ? allUnpaidBills.map(b => {
+              const st = _billStatus(b);
+              return '<div class="fc-bill-row" onclick="FCApp._openSubScreen(\'bills\')">'
+                +'<div class="fc-bill-icon">'+billEmoji(b)+'</div>'
+                +'<div class="fc-bill-info">'
+                  +'<div class="fc-bill-name">'+esc(b.name)+'</div>'
+                  +'<div class="fc-bill-due">Due '+_fmtDue(b.due_date)+'</div>'
+                +'</div>'
+                +'<div class="fc-bill-right">'
+                  +'<div class="fc-bill-amount">'+FCData.formatCurrency(b.amount||0)+'</div>'
+                  +'<div class="fc-bill-status '+(b.status==='paid'?'fc-bill-status--paid':st.cls)+'">'+(b.status==='paid'?'Paid':st.label)+'</div>'
+                +'</div>'
+              +'</div>';
+            }).join('')
+          : '<div style="padding:12px 0;text-align:center;color:var(--fc-text-muted);font-size:14px">No upcoming bills</div>')
+      +'</div>'
+      );
+  }
+
+  let _planSeg = 'paycheck';
+  function switchPlanSeg(seg) {
+    if (_planSeg === seg) return;
+    _planSeg = seg;
+    haptic('light');
+    _renderPlan();
   }
 
   function _openBudgetWizard() {
@@ -8765,68 +10303,68 @@ window.FCApp = (function () {
   function _renderMore() {
     const el = document.getElementById('more-content');
     if (!el) return;
-
     const user = state.user || {};
     const authUser = (typeof FCAuth !== 'undefined' && FCAuth.currentUser) ? FCAuth.currentUser() : null;
-    const displayName = user.name || authUser?.displayName || user.email?.split('@')[0] || 'User';
+    const displayName  = user.name || authUser?.displayName || user.email?.split('@')[0] || 'User';
     const displayEmail = authUser?.email || user.email || '';
     const initial = displayName.charAt(0).toUpperCase();
     const isPro = !!(user.is_pro || user.pro);
 
-    const row = (icon, label, sub, onclick, accentColor) => `
-      <div class="fc-settings-row" onclick="${onclick}" style="cursor:pointer">
-        <div class="fc-settings-icon" style="background:${accentColor}15">
-          ${icon}
-        </div>
-        <div style="flex:1;min-width:0">
-          <div class="fc-settings-label">${label}</div>
-          ${sub ? `<div style="font-size:12px;color:var(--fc-text-faint);margin-top:1px">${sub}</div>` : ''}
-        </div>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
-      </div>`;
+    const toolTile = (icon, label, color, softBg, action) =>
+      '<button onclick="'+action+'" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;'
+      +'background:var(--fc-bg-elevated);border:1px solid var(--fc-border);border-radius:16px;padding:16px 8px;cursor:pointer;'
+      +'box-shadow:var(--fc-shadow-sm);aspect-ratio:1;-webkit-tap-highlight-color:transparent;width:100%">'
+        +'<div style="width:44px;height:44px;border-radius:12px;background:'+softBg+';display:flex;align-items:center;justify-content:center">'+_ic(icon, color, 20)+'</div>'
+        +'<div style="font-size:12px;font-weight:600;color:var(--fc-text);text-align:center;line-height:1.2">'+label+'</div>'
+      +'</button>';
 
-    el.innerHTML = `
-      <!-- Header -->
-      <div style="padding-top:20px;margin-bottom:20px">
-        <div style="font-size:28px;font-weight:700;color:var(--fc-text);letter-spacing:-0.5px">More</div>
-      </div>
+    const acctRow = (icon, label, sub, action) =>
+      '<div onclick="'+action+'" style="display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--fc-border);cursor:pointer;-webkit-tap-highlight-color:transparent">'
+        +'<div style="width:36px;height:36px;border-radius:10px;background:var(--fc-bg-elevated-2);display:flex;align-items:center;justify-content:center;flex-shrink:0">'+_ic(icon, 'var(--fc-text-muted)', 18)+'</div>'
+        +'<div style="flex:1;min-width:0">'
+          +'<div style="font-size:15px;font-weight:500;color:var(--fc-text)">'+label+'</div>'
+          +(sub?'<div style="font-size:12px;color:var(--fc-text-faint);margin-top:1px">'+sub+'</div>':'')
+        +'</div>'
+        +'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>'
+      +'</div>';
 
-      <!-- Profile card -->
-      <div class="fc-card" style="padding:16px;margin-bottom:20px;cursor:pointer;display:flex;align-items:center;gap:14px"
-           onclick="FCApp._openSubScreen('settings')">
-        <div style="width:48px;height:48px;border-radius:50%;background:var(--fc-accent-soft);border:2px solid var(--fc-accent);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:var(--fc-accent);flex-shrink:0">${initial}</div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:17px;font-weight:600;color:var(--fc-text)">${displayName}</div>
-          <div style="font-size:13px;color:var(--fc-text-muted);margin-top:1px">${displayEmail}</div>
-        </div>
-        ${isPro ? `<span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;background:var(--fc-accent-soft);color:var(--fc-accent)">PRO</span>` : ''}
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
-      </div>
+    el.innerHTML =
+      '<header class="fc-page-head">'
+        +'<div class="fc-page-head__text"><h1 class="fc-page-title">More</h1></div>'
+      +'</header>'
 
-      <!-- Tools section -->
-      <div style="font-size:11px;font-weight:700;color:var(--fc-text-faint);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:8px;padding:0 4px">Tools</div>
-      <div class="fc-card" style="padding:4px 16px;margin-bottom:20px">
-        ${row('<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-accent)" stroke-width="2" stroke-linecap="round"><rect x="1" y="4" width="22" height="16" rx="2"/><path d="M1 10h22"/></svg>',
-          'Bills', 'Track upcoming payments', "FCApp._openSubScreen('bills')", 'var(--fc-accent)')}
-        ${row('<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2" stroke-linecap="round"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M8 12h8M12 8v8"/></svg>',
-          'Debt', 'Payoff tracker', "FCApp._openSubScreen('debt')", '#EF4444')}
-        ${row('<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#22C55E" stroke-width="2" stroke-linecap="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>',
-          'Savings Goals', 'Emergency fund & goals', "FCApp._openSubScreen('goals')", '#22C55E')}
-        ${row('<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2" stroke-linecap="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>',
-          'Investments', 'Portfolio overview', "FCApp._openSubScreen('investments')", '#2563EB')}
-        ${row('<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
-          'Calendar', 'Bills & payment schedule', "FCApp._openSubScreen('calendar')", '#F59E0B')}
-        ${row('<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
-          'Reports', 'Export & analysis', "FCApp._openSubScreen('reports')", '#8B5CF6')}
-      </div>
+      +'<div class="fc-card" style="padding:16px;margin-bottom:20px;cursor:pointer;display:flex;align-items:center;gap:14px" onclick="FCApp._openSubScreen(\'settings\')">'
+        +'<div style="width:48px;height:48px;border-radius:50%;background:var(--fc-accent-soft);border:2px solid var(--fc-accent);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:var(--fc-accent);flex-shrink:0">'+initial+'</div>'
+        +'<div style="flex:1;min-width:0">'
+          +'<div style="font-size:17px;font-weight:600;color:var(--fc-text)">'+displayName+'</div>'
+          +'<div style="font-size:13px;color:var(--fc-text-muted);margin-top:1px">'+displayEmail+'</div>'
+        +'</div>'
+        +(isPro?'<span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;background:var(--fc-accent-soft);color:var(--fc-accent)">PRO</span>':'')
+        +'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>'
+      +'</div>'
 
-      <!-- Account section -->
-      <div style="font-size:11px;font-weight:700;color:var(--fc-text-faint);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:8px;padding:0 4px">Account</div>
-      <div class="fc-card" style="padding:4px 16px;margin-bottom:10px">
-        ${row('<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-muted)" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>',
-          'Settings', 'Profile, security, subscription', "FCApp._openSubScreen('settings')", 'var(--fc-text-muted)')}
-      </div>
-    `;
+      +'<div class="fc-eyebrow">Money Tools</div>'
+      +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px">'
+        +toolTile('credit-card','Bills','var(--fc-accent)','var(--fc-accent-soft)',"FCApp._openSubScreen('bills')")
+        +toolTile('trending-down','Debt','var(--fc-danger)','var(--fc-danger-soft)',"FCApp._openSubScreen('debt')")
+        +toolTile('flag','Goals','var(--fc-success)','var(--fc-success-soft)',"FCApp._openSubScreen('goals')")
+        +toolTile('trending-up','Investments','var(--fc-electric)','var(--fc-electric-soft)',"FCApp._openSubScreen('investments')")
+        +toolTile('calendar','Calendar','var(--fc-warning)','var(--fc-warning-soft)',"FCApp._openSubScreen('calendar')")
+        +toolTile('bar-chart','Reports','var(--fc-accent)','var(--fc-accent-soft)',"FCApp._openSubScreen('reports')")
+      +'</div>'
+
+      +'<div class="fc-eyebrow">Account</div>'
+      +'<div class="fc-card" style="padding:0 16px">'
+        +acctRow('gear','Settings','Profile, security, subscription',"FCApp._openSubScreen('settings')")
+        +acctRow('bank','Connected Accounts','Manage linked banks',"FCApp.showBankSheet&&FCApp.showBankSheet()")
+        +acctRow('star','Subscription',isPro?'FlowCheck Pro · Active':'Upgrade for full access',isPro?"FCApp._openSubScreen('settings')":"FCApp.showPaywall&&FCApp.showPaywall()")
+        +acctRow('bell','Notifications','Alerts & reminders',"FCApp._openSubScreen('notifications')")
+        +'<div onclick="window.open&&window.open(\'mailto:support@flowcheck.app\')" style="display:flex;align-items:center;gap:14px;padding:14px 0;cursor:pointer;-webkit-tap-highlight-color:transparent">'
+          +'<div style="width:36px;height:36px;border-radius:10px;background:var(--fc-bg-elevated-2);display:flex;align-items:center;justify-content:center;flex-shrink:0">'+_ic('help-circle','var(--fc-text-muted)',18)+'</div>'
+          +'<div style="flex:1"><div style="font-size:15px;font-weight:500;color:var(--fc-text)">Help Center</div></div>'
+          +'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>'
+        +'</div>'
+      +'</div>';
   }
 
   /* ─────────────────────────────────────────────────────────────
@@ -8836,31 +10374,96 @@ window.FCApp = (function () {
   function _renderBillsScreen() {
     const el = document.getElementById('bills-screen-content');
     if (!el) return;
-    const bills = (state.bills || []).sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
-    el.innerHTML = `
-      <div style="display:flex;align-items:center;gap:12px;padding:20px 0 16px">
-        <button onclick="FCApp._closeSubScreen()" style="background:none;border:none;cursor:pointer;padding:4px;color:var(--fc-accent);font-size:15px;font-weight:500">← Back</button>
-        <div style="flex:1;font-size:22px;font-weight:700;color:var(--fc-text)">Bills</div>
-        <button onclick="FCApp.showBillSheet&&FCApp.showBillSheet()" style="width:36px;height:36px;border-radius:50%;background:var(--fc-accent);border:none;cursor:pointer;color:#fff;font-size:22px;display:flex;align-items:center;justify-content:center;font-weight:300">+</button>
-      </div>
-      <div class="fc-card" style="padding:4px 16px">
-        ${bills.length > 0 ? bills.map(b => {
-          const days = Math.round((new Date(b.due_date) - new Date()) / 86400000);
-          const st = days < 0 ? 'Overdue' : days === 0 ? 'Due today' : `${days}d`;
-          const stCls = days <= 0 ? 'fc-bill-status--due' : days <= 3 ? 'fc-bill-status--soon' : 'fc-bill-status--ok';
-          return `<div class="fc-bill-row" onclick="FCApp.editBill&&FCApp.editBill('${b.id}')">
-            <div class="fc-bill-icon">📋</div>
-            <div class="fc-bill-info">
-              <div class="fc-bill-name">${b.name||'Bill'}</div>
-              <div class="fc-bill-due">${b.due_date||''} · ${b.frequency||'monthly'}</div>
-            </div>
-            <div class="fc-bill-right">
-              <div class="fc-bill-amount">${FCData.formatCurrency(b.amount||0)}</div>
-              <div class="fc-bill-status ${b.status==='paid'?'fc-bill-status--paid':stCls}">${b.status==='paid'?'Paid':st}</div>
-            </div>
-          </div>`;
-        }).join('') : `<div style="text-align:center;padding:32px 0;color:var(--fc-text-muted);font-size:15px">No bills yet</div>`}
-      </div>`;
+    const allBills = (state.bills || []).sort((a,b) => new Date(a.due_date)-new Date(b.due_date));
+    const now = new Date();
+    const monthBills  = allBills.filter(b => {
+      if (!b.due_date) return false;
+      const d = new Date(b.due_date);
+      return d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear();
+    });
+    const totalDue    = monthBills.reduce((s,b) => s+(b.amount||0), 0);
+    const paidTotal   = monthBills.filter(b => b.status==='paid').reduce((s,b) => s+(b.amount||0), 0);
+    const unprotected = Math.max(0, totalDue - paidTotal);
+    const seg = el._seg || 'due';
+
+    const daysUntil = (dateStr) => dateStr ? Math.round((new Date(dateStr)-now)/86400000) : null;
+    const fmtDue = (d) => { try { return FCData.parseDateLocal(d).toLocaleDateString('en-US',{month:'short',day:'numeric'}); } catch(_e){ return d||''; } };
+    const billSt = (b) => {
+      const d = FCData.daysUntil ? FCData.daysUntil(b.due_date) : daysUntil(b.due_date);
+      if (d===null) return {label:'',cls:'fc-bill-status--ok'};
+      if (d<0)  return {label:'Overdue',cls:'fc-bill-status--due'};
+      if (d===0) return {label:'Due today',cls:'fc-bill-status--due'};
+      if (d<=3)  return {label:d+'d',cls:'fc-bill-status--soon'};
+      return {label:d+'d',cls:'fc-bill-status--ok'};
+    };
+    const billEmoji = (b) => _billIcon(b, 'var(--fc-text-muted)', 18);
+    const filterBills = (s) => {
+      if (s==='due')      return allBills.filter(b => { const d=daysUntil(b.due_date); return b.status!=='paid'&&(d===null||d<=7); });
+      if (s==='upcoming') return allBills.filter(b => b.status!=='paid');
+      if (s==='paid')     return allBills.filter(b => b.status==='paid');
+      return allBills;
+    };
+    const billList = filterBills(seg);
+    const segBtn = (id,label) =>
+      '<button onclick="var e=document.getElementById(\'bills-screen-content\');e._seg=\''+id+'\';FCApp._renderBillsScreen()" '
+      +'style="flex:1;padding:7px 4px;border-radius:8px;border:none;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;'
+      +'background:'+(seg===id?'var(--fc-bg-elevated)':'transparent')+';color:'+(seg===id?'var(--fc-accent)':'var(--fc-text-muted)')+';'
+      +'box-shadow:'+(seg===id?'0 1px 4px rgba(13,27,46,0.1)':'none')+'">'+label+'</button>';
+
+    el.innerHTML =
+      '<header class="fc-page-head fc-page-head--center">'
+        +'<button onclick="FCApp._closeSubScreen()" style="display:flex;align-items:center;gap:4px;background:none;border:none;cursor:pointer;color:var(--fc-accent);font-size:15px;font-weight:600;padding:4px 0;font-family:inherit">'
+          +'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg> Back'
+        +'</button>'
+        +'<div style="flex:1;font-size:22px;font-weight:750;color:var(--fc-text)">Bills</div>'
+        +'<button onclick="FCApp.showBillSheet&&FCApp.showBillSheet()" style="width:36px;height:36px;border-radius:50%;background:var(--fc-accent);border:none;cursor:pointer;color:#fff;font-size:22px;display:flex;align-items:center;justify-content:center;flex-shrink:0">+</button>'
+      +'</div>'
+
+      +'<div class="fc-card" style="margin-bottom:14px;padding:16px;background:var(--fc-accent-soft);border-color:var(--fc-border-accent)">'
+        +'<div style="display:flex;align-items:center;gap:14px">'
+          +'<div style="width:44px;height:44px;border-radius:12px;background:var(--fc-accent);display:flex;align-items:center;justify-content:center;flex-shrink:0">'
+            +'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>'
+          +'</div>'
+          +'<div style="flex:1">'
+            +'<div class="fc-eyebrow" style="color:var(--fc-accent)">Bills This Month</div>'
+            +'<div style="font-size:24px;font-weight:750;color:var(--fc-text);font-variant-numeric:tabular-nums">'+FCData.formatCurrency(totalDue)+'</div>'
+            +'<div style="font-size:13px;color:var(--fc-text-muted)">'+(paidTotal>0 ? FCData.formatCurrency(paidTotal)+' paid so far' : 'due this month')+'</div>'
+          +'</div>'
+          +(unprotected>0
+            ? '<div style="text-align:right"><div style="font-size:13px;color:var(--fc-warning);font-weight:600;font-variant-numeric:tabular-nums">'+FCData.formatCurrency(unprotected)+'</div><div style="font-size:11px;color:var(--fc-text-faint)">left to pay</div></div>'
+            : '<div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:2px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--fc-success)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg><div style="font-size:11px;color:var(--fc-text-faint)">all paid</div></div>')
+        +'</div>'
+      +'</div>'
+
+      +'<div style="display:flex;background:var(--fc-bg-elevated-2);border-radius:12px;padding:4px;gap:2px;margin-bottom:14px">'
+        +segBtn('due','Due Soon')
+        +segBtn('upcoming','Upcoming')
+        +segBtn('paid','Paid')
+        +segBtn('all','All')
+      +'</div>'
+
+      +(billList.length>0
+        ? '<div class="fc-card" style="padding:4px 16px">'
+            +billList.map(b => {
+              const st = billSt(b);
+              return '<div class="fc-bill-row" onclick="FCApp.editBill&&FCApp.editBill(\''+b.id+'\')">'
+                +'<div class="fc-bill-icon">'+billEmoji(b)+'</div>'
+                +'<div class="fc-bill-info">'
+                  +'<div class="fc-bill-name">'+esc(b.name)+'</div>'
+                  +'<div class="fc-bill-due">Due '+fmtDue(b.due_date)+(b.autopay?' · AutoPay':'')+'</div>'
+                +'</div>'
+                +'<div class="fc-bill-right">'
+                  +'<div class="fc-bill-amount">'+FCData.formatCurrency(b.amount||0)+'</div>'
+                  +'<div class="fc-bill-status '+(b.status==='paid'?'fc-bill-status--paid':st.cls)+'">'+(b.status==='paid'?'Paid':st.label)+'</div>'
+                +'</div>'
+              +'</div>';
+            }).join('')
+          +'</div>'
+        : '<div class="fc-card" style="padding:32px;text-align:center">'
+            +'<div style="font-size:32px;margin-bottom:12px">📋</div>'
+            +'<div style="font-size:15px;font-weight:600;color:var(--fc-text);margin-bottom:6px">No bills here</div>'
+            +'<div style="font-size:13px;color:var(--fc-text-muted)">Add your first bill to protect your money.</div>'
+          +'</div>');
   }
 
   /* ─────────────────────────────────────────────────────────────
@@ -8870,59 +10473,837 @@ window.FCApp = (function () {
   function _renderDebtScreen() {
     const el = document.getElementById('debt-screen-content');
     if (!el) return;
-    const debtAccts = (state.accounts || []).filter(a => a.type === 'credit' || a.subtype === 'credit card');
-    const total = debtAccts.reduce((s, a) => s + Math.max(0, a.balance_current || 0), 0);
-    el.innerHTML = `
-      <div style="display:flex;align-items:center;gap:12px;padding:20px 0 16px">
-        <button onclick="FCApp._closeSubScreen()" style="background:none;border:none;cursor:pointer;padding:4px;color:var(--fc-accent);font-size:15px;font-weight:500">← Back</button>
-        <div style="flex:1;font-size:22px;font-weight:700;color:var(--fc-text)">Debt</div>
-      </div>
-      <div class="fc-metric-card" style="margin-bottom:14px;text-align:center;padding:24px">
-        <div class="fc-metric-label">Total Owed</div>
-        <div class="fc-metric-value" style="font-size:36px;color:var(--fc-danger)">${FCData.formatCurrency(total)}</div>
-        <div class="fc-metric-sub">${debtAccts.length} account${debtAccts.length!==1?'s':''}</div>
-      </div>
-      ${debtAccts.length > 0 ? `<div class="fc-card" style="padding:4px 16px">
-        ${debtAccts.map(a => `<div class="fc-bill-row">
-          <div class="fc-bill-icon">💳</div>
-          <div class="fc-bill-info">
-            <div class="fc-bill-name">${a.name||'Credit Card'}</div>
-            <div class="fc-bill-due">${a.institution_name||''}</div>
-          </div>
-          <div class="fc-bill-right">
-            <div class="fc-bill-amount" style="color:var(--fc-danger)">${FCData.formatCurrency(a.balance_current||0)}</div>
-          </div>
-        </div>`).join('')}
-      </div>` : `<div class="fc-card" style="padding:32px;text-align:center;color:var(--fc-text-muted)">No debt accounts connected</div>`}`;
+    const debtAccts = (state.accounts || []).filter(a => a.type==='credit'||a.subtype==='credit card'||a.type==='loan');
+    const total     = debtAccts.reduce((s,a) => s+Math.max(0,a.balance_current||0), 0);
+    const totalMin  = debtAccts.reduce((s,a) => s+(a.min_payment||0), 0);
+    const weighted  = debtAccts.reduce((s,a) => s+(a.interest_rate||0)*(a.balance_current||0), 0);
+    const avgRate   = total > 0 ? weighted/total : 0;
+    const monthsToFree = totalMin > 0 ? Math.ceil(total/totalMin) : null;
+    const debtFreeDate = monthsToFree ? (() => {
+      const d = new Date(); d.setMonth(d.getMonth()+monthsToFree);
+      return d.toLocaleDateString('en-US',{month:'short',year:'numeric'});
+    })() : null;
+
+    el.innerHTML =
+      '<header class="fc-page-head fc-page-head--center">'
+        +'<button onclick="FCApp._closeSubScreen()" style="display:flex;align-items:center;gap:4px;background:none;border:none;cursor:pointer;color:var(--fc-accent);font-size:15px;font-weight:600;padding:4px 0;font-family:inherit">'
+          +'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg> Back'
+        +'</button>'
+        +'<div style="flex:1;font-size:22px;font-weight:750;color:var(--fc-text)">Debt</div>'
+        +'<button style="width:36px;height:36px;border-radius:50%;background:var(--fc-accent);border:none;cursor:pointer;color:#fff;font-size:22px;display:flex;align-items:center;justify-content:center;flex-shrink:0">+</button>'
+      +'</div>'
+
+      +(debtFreeDate
+        ? '<div class="fc-card" style="margin-bottom:14px;padding:16px;background:var(--fc-success-soft);border-color:var(--fc-success-border)">'
+            +'<div style="display:flex;align-items:center;gap:14px">'
+              +'<div style="width:44px;height:44px;border-radius:12px;background:var(--fc-success-soft);display:flex;align-items:center;justify-content:center;flex-shrink:0">'+_ic('trending-down','var(--fc-success)',20)+'</div>'
+              +'<div style="flex:1">'
+                +'<div class="fc-eyebrow" style="color:var(--fc-success);margin-bottom:4px">Debt-Free Plan</div>'
+                +'<div style="font-size:16px;font-weight:700;color:var(--fc-text)">Debt-free by <span style="color:var(--fc-success)">'+debtFreeDate+'</span></div>'
+                +'<button style="background:none;border:none;color:var(--fc-accent);font-size:13px;font-weight:600;cursor:pointer;padding:4px 0;margin-top:2px;font-family:inherit">View payoff plan →</button>'
+              +'</div>'
+            +'</div>'
+          +'</div>'
+        : debtAccts.length > 0
+        ? '<div class="fc-card" style="margin-bottom:14px;padding:20px;text-align:center">'
+            +'<div style="font-size:15px;font-weight:600;color:var(--fc-text);margin-bottom:4px">Build Your Debt-Free Plan</div>'
+            +'<div style="font-size:13px;color:var(--fc-text-muted)">Add minimum payments to your debts to see your payoff timeline.</div>'
+          +'</div>'
+        : '')
+
+      +(total > 0
+        ? '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">'
+            +'<div class="fc-metric-card"><div class="fc-metric-label">Total Debt</div><div class="fc-metric-value" style="font-size:20px;color:var(--fc-danger)">'+FCData.formatCurrency(total)+'</div></div>'
+            +'<div class="fc-metric-card"><div class="fc-metric-label">Avg Interest</div><div class="fc-metric-value" style="font-size:20px">'+(avgRate>0?avgRate.toFixed(1)+'%':'<span style="color:var(--fc-text-faint)">—</span>')+'</div></div>'
+            +'<div class="fc-metric-card"><div class="fc-metric-label">Monthly Min.</div><div class="fc-metric-value" style="font-size:20px">'+(totalMin>0?FCData.formatCurrency(totalMin):'<span style="color:var(--fc-text-faint)">—</span>')+'</div></div>'
+            +'<div class="fc-metric-card"><div class="fc-metric-label">Extra This Month</div><div class="fc-metric-value" style="font-size:20px">$0</div></div>'
+          +'</div>'
+        : '')
+
+      +(debtAccts.length > 0
+        ? '<div class="fc-eyebrow" style="margin-bottom:8px">Debts</div>'
+          +'<div class="fc-card" style="padding:4px 16px;margin-bottom:14px">'
+            +debtAccts.map(a => {
+              const bal  = Math.max(0, a.balance_current||0);
+              const rate = a.interest_rate ? a.interest_rate.toFixed(2)+'%' : null;
+              const pd   = a.payoff_date || null;
+              const sub  = [rate, pd?'Payoff '+pd:null, a.institution_name].filter(Boolean).join(' · ');
+              return '<div class="fc-bill-row">'
+                +'<div class="fc-bill-icon">'+_ic('credit-card','var(--fc-text-muted)',18)+'</div>'
+                +'<div class="fc-bill-info">'
+                  +'<div class="fc-bill-name">'+(a.name||'Credit Card')+'</div>'
+                  +(sub?'<div class="fc-bill-due">'+sub+'</div>':'')
+                +'</div>'
+                +'<div class="fc-bill-right">'
+                  +'<div class="fc-bill-amount" style="color:var(--fc-danger)">'+FCData.formatCurrency(bal)+'</div>'
+                  +(a.min_payment?'<div style="font-size:11px;color:var(--fc-text-faint)">min '+FCData.formatCurrency(a.min_payment)+'</div>':'')
+                +'</div>'
+              +'</div>';
+            }).join('')
+          +'</div>'
+          +'<div class="fc-card" style="padding:14px 16px;background:var(--fc-accent-soft);border-color:var(--fc-border-accent)">'
+            +'<div style="display:flex;gap:10px;align-items:flex-start"><span style="flex-shrink:0;margin-top:1px">'+_ic('lightbulb','var(--fc-accent)',16)+'</span><div style="font-size:14px;color:var(--fc-text);line-height:1.5">Adding even $50 extra per month can significantly reduce your payoff time and save on interest.</div></div>'
+          +'</div>'
+        : '<div class="fc-card" style="padding:40px;text-align:center">'
+            +'<div style="width:48px;height:48px;border-radius:50%;background:var(--fc-success-soft);display:flex;align-items:center;justify-content:center;margin:0 auto 12px">'+_ic('check','var(--fc-success)',22)+'</div>'
+            +'<div style="font-size:16px;font-weight:600;color:var(--fc-text);margin-bottom:6px">No debt accounts</div>'
+            +'<div style="font-size:13px;color:var(--fc-text-muted)">Add a debt to build your payoff plan.</div>'
+          +'</div>');
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     COACH — rule-based money coaching, structured answers.
+     Deterministic and computed from state; an LLM backend can
+     upgrade the copy later without changing this UI contract.
+     ───────────────────────────────────────────────────────────── */
+
+  function _coachAnswers() {
+    const accts = state.accounts || [];
+    const bills = _billsForDisplay();
+    const goals = _goalsForDisplay();
+    const now = new Date();
+    const fmt = v => FCData.formatCurrency(Math.abs(v || 0));
+
+    // Shared inputs
+    let safe = 0;
+    try { safe = Math.max(0, Number(_buildSafeSpendProjection().safe || 0)); } catch (_e) {}
+    const debts = accts.filter(a => a.type === 'credit' || a.type === 'loan')
+      .map(a => ({ name: a.name || 'Debt', bal: Math.max(0, a.balance_current || a.balance || 0), min: a.min_payment || 0 }))
+      .filter(d => d.bal > 0).sort((a, b) => a.bal - b.bal);
+    const extra = Math.max(0, Math.round(safe * 0.25 / 5) * 5);
+
+    const answers = {};
+
+    // ── Debt coach ──
+    if (debts.length >= 1) {
+      const target = debts[0];
+      const second = debts[1];
+      answers.debt = {
+        title: 'Debt Coach',
+        question: debts.length > 1 ? 'Should I pay ' + esc(target.name) + ' or ' + esc(second.name) + ' first?' : 'How do I pay off ' + esc(target.name) + ' faster?',
+        happening: debts.length > 1
+          ? 'You have ' + fmt(debts.reduce((s,d)=>s+d.bal,0)) + ' across ' + debts.length + ' balances. ' + esc(target.name) + ' is the smallest at ' + fmt(target.bal) + '.'
+          : esc(target.name) + ' has a balance of ' + fmt(target.bal) + '.',
+        why: 'Paying off the smallest balance first gives you a quick win, frees its minimum payment, and builds momentum — the snowball method.',
+        todo: extra > 0
+          ? 'Put ' + fmt(extra) + ' extra toward ' + esc(target.name) + ' this month. Keep paying minimums on everything else.'
+          : 'Keep paying minimums this month — your safe-to-spend is tight, so protect your bills first.',
+        highlight: extra > 0 ? { label: 'Extra available this month', value: fmt(extra), sub: 'Apply to ' + esc(target.name) + '?' } : null,
+        cta: 'See full debt plan',
+        action: "FCApp.closeCoachSheet();FCApp.switchTab('wealth');setTimeout(function(){FCApp.switchWealthTab&&FCApp.switchWealthTab('debt')},250)",
+      };
+    }
+
+    // ── Bill coach ──
+    const unpaid = bills.filter(b => b.status !== 'paid' && b.due_date)
+      .map(b => ({ ...b, days: FCData.daysUntil(b.due_date) }))
+      .filter(b => b.days !== null && b.days >= 0 && b.days <= 14)
+      .sort((a, b) => a.days - b.days);
+    if (unpaid.length) {
+      const cluster = unpaid.filter(b => b.days <= 5);
+      const clusterTotal = cluster.reduce((s, b) => s + (b.amount || 0), 0);
+      answers.bill = {
+        title: 'Bill Coach',
+        question: 'Can I move any due dates?',
+        happening: cluster.length > 1
+          ? cluster.length + ' bills totaling ' + fmt(clusterTotal) + ' land within the next 5 days: ' + cluster.map(b => esc(b.name)).join(', ') + '.'
+          : 'Your next bill is ' + esc(unpaid[0].name) + ' (' + fmt(unpaid[0].amount) + ') in ' + unpaid[0].days + ' day' + (unpaid[0].days === 1 ? '' : 's') + '.',
+        why: cluster.length > 1
+          ? 'Bills clustered before payday squeeze your cash. Spreading them across the month smooths your cash flow.'
+          : 'Aligning due dates with paydays means bills never catch you off guard.',
+        todo: cluster.length > 1
+          ? 'Most billers let you change the due date in their app or with one call. Try moving ' + esc(cluster[cluster.length - 1].name) + ' to mid-month.'
+          : 'You\'re in good shape. If money feels tight before payday, ask your biller to shift the date a few days later.',
+        highlight: null,
+        cta: 'Review bills',
+        action: "FCApp.closeCoachSheet();FCApp.switchTab('plan')",
+      };
+    }
+
+    // ── Savings coach ──
+    const activeGoals = goals.filter(g => (g.current || 0) < (g.target || 0));
+    if (activeGoals.length) {
+      const rec = Math.min(Math.max(0, Math.round(safe * 0.3 / 5) * 5), 200);
+      answers.savings = {
+        title: 'Savings Coach',
+        question: 'How much should I save next paycheck?',
+        happening: 'You have ' + activeGoals.length + ' active goal' + (activeGoals.length === 1 ? '' : 's') + ' and about ' + fmt(safe) + ' safe to spend after bills and your buffer.',
+        why: 'Saving right after payday — before spending happens — is the single most reliable way to hit goals. Pay yourself first.',
+        todo: rec > 0
+          ? 'Move ' + fmt(rec) + ' to ' + esc(activeGoals[0].name || 'your top goal') + ' the morning your paycheck lands.'
+          : 'This paycheck is tight — skip saving this cycle and protect your bills. Resume next paycheck.',
+        highlight: rec > 0 ? { label: 'Recommended next paycheck', value: fmt(rec), sub: 'To ' + esc(activeGoals[0].name || 'your top goal') } : null,
+        cta: 'Open goals',
+        action: "FCApp.closeCoachSheet();FCApp.switchTab('goals')",
+      };
+    }
+
+    // ── Spending coach ──
+    const mStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const catTotals = {};
+    (state.transactions || []).forEach(t => {
+      if (!_isSpendTxn(t)) return;
+      try { if (FCData.parseDateLocal(t.date) < mStart) return; } catch (_e) { return; }
+      const c = FCData.normalizePlaidCategory((Array.isArray(t.category) ? t.category[0] : t.category) || 'Other');
+      catTotals[c] = (catTotals[c] || 0) + (t.amount || 0);
+    });
+    const topCat = Object.entries(catTotals).sort((a, b) => b[1] - a[1])[0];
+    if (topCat) {
+      const cut = Math.max(10, Math.round(topCat[1] * 0.15 / 5) * 5);
+      answers.spending = {
+        title: 'Spending Coach',
+        question: 'Where can I cut back without hurting my goals?',
+        happening: esc(topCat[0]) + ' is your biggest category this month at ' + fmt(topCat[1]) + '.',
+        why: 'Cutting your largest category by even 15% frees more cash than eliminating three small ones — effort goes where the money is.',
+        todo: 'Aim to trim ' + esc(topCat[0]) + ' by ' + fmt(cut) + ' this month. That\'s usually one or two skipped purchases, not a lifestyle change.',
+        highlight: { label: 'Potential monthly savings', value: fmt(cut), sub: 'From ' + esc(topCat[0]) + ' alone' },
+        cta: 'See spending',
+        action: "FCApp.closeCoachSheet();FCApp.switchTab('activity')",
+      };
+    }
+
+    return answers;
+  }
+
+  function _renderCoach() {
+    const el = document.getElementById('coach-content');
+    if (!el) return;
+    const answers = _coachAnswers();
+
+    // This week vs last week spend (same math as spending pulse)
+    const now = new Date();
+    const msDay = 86400000;
+    const startThis = new Date(now.getTime() - now.getDay() * msDay); startThis.setHours(0,0,0,0);
+    const startLast = new Date(startThis.getTime() - 7 * msDay);
+    let thisWeek = 0, lastWeek = 0;
+    for (const t of (state.transactions || [])) {
+      if (!_isSpendTxn(t)) continue;
+      let d; try { d = FCData.parseDateLocal(t.date).getTime(); } catch (_e) { continue; }
+      if (d >= startThis.getTime()) thisWeek += t.amount || 0;
+      else if (d >= startLast.getTime()) lastWeek += t.amount || 0;
+    }
+    const subs = _detectSubscriptions(state.transactions || []) || [];
+    const subsTotal = subs.reduce((s, x) => s + (x.amount || 0), 0);
+    const weekDelta = lastWeek - thisWeek;
+    const reviewLine = lastWeek > 0
+      ? (weekDelta >= 0
+          ? 'You spent ' + FCData.formatCurrency(weekDelta) + ' less than this time last week.'
+          : 'You\'ve spent ' + FCData.formatCurrency(Math.abs(weekDelta)) + ' more than this time last week.')
+      : 'Your week is just getting started.';
+    const reviewSub = subs.length ? subs.length + ' subscriptions run you ' + FCData.formatCurrency(subsTotal) + '/mo.' : '';
+
+    const coachRow = (key, icon, color, soft, title, sub) => answers[key]
+      ? '<div class="fc-card" style="margin-bottom:10px;padding:14px 16px;display:flex;align-items:center;gap:13px;cursor:pointer;-webkit-tap-highlight-color:transparent" onclick="FCApp.openCoachAnswer(\''+key+'\')">'
+          +'<div style="width:40px;height:40px;border-radius:12px;background:'+soft+';display:flex;align-items:center;justify-content:center;flex-shrink:0">'+_ic(icon, color, 19)+'</div>'
+          +'<div style="flex:1;min-width:0">'
+            +'<div style="font-size:15px;font-weight:600;color:var(--fc-text)">'+title+'</div>'
+            +'<div style="font-size:12px;color:var(--fc-text-muted);margin-top:1px">'+sub+'</div>'
+          +'</div>'
+          +'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>'
+        +'</div>'
+      : '';
+
+    el.innerHTML =
+      '<header class="fc-page-head">'
+        +'<div class="fc-page-head__text">'
+          +'<h1 class="fc-page-title">Coach</h1>'
+          +'<p class="fc-page-sub">Straight answers from your own numbers</p>'
+        +'</div>'
+      +'</header>'
+
+      +'<div class="fc-card" style="margin-bottom:14px;padding:14px 16px;background:var(--fc-accent-soft);border-color:var(--fc-border-accent);display:flex;align-items:center;gap:13px;cursor:pointer;-webkit-tap-highlight-color:transparent" onclick="FCApp.showAffordSheet&&FCApp.showAffordSheet()">'
+        +'<div style="width:40px;height:40px;border-radius:12px;background:var(--fc-accent);display:flex;align-items:center;justify-content:center;flex-shrink:0">'+_ic('search','#fff',19)+'</div>'
+        +'<div style="flex:1">'
+          +'<div style="font-size:15px;font-weight:600;color:var(--fc-text)">Can I afford this?</div>'
+          +'<div style="font-size:12px;color:var(--fc-text-muted);margin-top:1px">Check any purchase against your real numbers</div>'
+        +'</div>'
+        +'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>'
+      +'</div>'
+
+      +'<div class="fc-card" style="margin-bottom:18px;padding:16px;cursor:pointer;-webkit-tap-highlight-color:transparent" onclick="FCApp.openMoneyStory()">'
+        +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'
+          +'<div class="fc-eyebrow">This Week\'s Review</div>'
+          +'<div style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:700;color:var(--fc-accent)">'
+            +'<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>Play'
+          +'</div>'
+        +'</div>'
+        +'<div style="font-size:15px;font-weight:600;color:var(--fc-text);line-height:1.4">'+reviewLine+'</div>'
+        +(reviewSub ? '<div style="font-size:13px;color:var(--fc-text-muted);margin-top:4px">'+reviewSub+'</div>' : '')
+      +'</div>'
+
+      +'<div class="fc-eyebrow">Your Coaches</div>'
+      +coachRow('debt', 'trending-down', 'var(--fc-danger)', 'var(--fc-danger-soft)', 'Debt Coach', answers.debt ? answers.debt.question : '')
+      +coachRow('bill', 'calendar', 'var(--fc-accent)', 'var(--fc-accent-soft)', 'Bill Coach', answers.bill ? answers.bill.question : '')
+      +coachRow('savings', 'dollar-sign', 'var(--fc-success)', 'var(--fc-success-soft)', 'Savings Coach', answers.savings ? answers.savings.question : '')
+      +coachRow('spending', 'bar-chart', 'var(--fc-warning)', 'var(--fc-warning-soft)', 'Spending Coach', answers.spending ? answers.spending.question : '')
+
+      +'<div class="fc-eyebrow" style="margin:18px 0 10px">More</div>'
+      +'<div class="fc-card" style="padding:0 16px;margin-bottom:14px">'
+        +'<div onclick="FCApp.switchTab(\'more\')" style="display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--fc-border);cursor:pointer;-webkit-tap-highlight-color:transparent">'
+          +'<div style="width:36px;height:36px;border-radius:10px;background:var(--fc-bg-elevated-2);display:flex;align-items:center;justify-content:center;flex-shrink:0">'+_ic('bar-chart','var(--fc-text-muted)',18)+'</div>'
+          +'<div style="flex:1"><div style="font-size:15px;font-weight:500;color:var(--fc-text)">All money tools</div><div style="font-size:12px;color:var(--fc-text-faint);margin-top:1px">Investments, calendar, reports & more</div></div>'
+          +'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>'
+        +'</div>'
+        +'<div onclick="FCApp._openSubScreen(\'settings\')" style="display:flex;align-items:center;gap:14px;padding:14px 0;cursor:pointer;-webkit-tap-highlight-color:transparent">'
+          +'<div style="width:36px;height:36px;border-radius:10px;background:var(--fc-bg-elevated-2);display:flex;align-items:center;justify-content:center;flex-shrink:0">'+_ic('gear','var(--fc-text-muted)',18)+'</div>'
+          +'<div style="flex:1"><div style="font-size:15px;font-weight:500;color:var(--fc-text)">Settings</div></div>'
+          +'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>'
+        +'</div>'
+      +'</div>';
+  }
+
+  function openCoachAnswer(key) {
+    haptic('light');
+    const a = _coachAnswers()[key];
+    if (!a) return;
+    let ov = document.getElementById('fc-coach-sheet');
+    if (!ov) {
+      ov = document.createElement('div');
+      ov.id = 'fc-coach-sheet';
+      ov.className = 'fc-sheet-overlay';
+      ov.setAttribute('role', 'dialog');
+      ov.setAttribute('aria-modal', 'true');
+      ov.addEventListener('click', e => { if (e.target === ov) closeCoachSheet(); });
+      document.body.appendChild(ov);
+    }
+    const section = (n, label, body) =>
+      '<div style="margin-bottom:14px">'
+        +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">'
+          +'<div style="width:20px;height:20px;border-radius:50%;background:var(--fc-accent-soft);color:var(--fc-accent);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+n+'</div>'
+          +'<div style="font-size:13px;font-weight:700;color:var(--fc-text)">'+label+'</div>'
+        +'</div>'
+        +'<div style="font-size:14px;color:var(--fc-text-muted);line-height:1.5;padding-left:28px">'+body+'</div>'
+      +'</div>';
+    ov.innerHTML =
+      '<div class="fc-sheet" onclick="event.stopPropagation()" style="max-height:85vh;overflow-y:auto">'
+        +'<div class="fc-sheet-handle"></div>'
+        +'<div class="fc-sheet-title">'+a.title+'</div>'
+        +'<div style="padding:0 20px 20px">'
+          +'<div style="background:var(--fc-electric-soft);border-radius:12px;padding:10px 14px;font-size:14px;font-weight:600;color:var(--fc-text);margin-bottom:16px">'+a.question+'</div>'
+          +section(1, 'What\'s happening', a.happening)
+          +section(2, 'Why it matters', a.why)
+          +section(3, 'What to do next', a.todo)
+          +(a.highlight
+            ? '<div style="background:var(--fc-warning-soft);border-radius:12px;padding:12px 14px;margin:4px 0 14px;display:flex;align-items:center;justify-content:space-between">'
+                +'<div><div style="font-size:12px;color:var(--fc-text-muted)">'+a.highlight.label+'</div><div style="font-size:12px;color:var(--fc-text-muted)">'+a.highlight.sub+'</div></div>'
+                +'<div style="font-size:20px;font-weight:750;color:var(--fc-text);font-variant-numeric:tabular-nums">'+a.highlight.value+'</div>'
+              +'</div>'
+            : '')
+          +'<button class="fc-btn fc-btn--primary" style="width:100%" onclick="'+a.action+'">'+a.cta+'</button>'
+          +'<button class="fc-btn fc-btn--ghost" style="width:100%;margin-top:8px" onclick="FCApp.closeCoachSheet()">Close</button>'
+        +'</div>'
+      +'</div>';
+    ov.style.display = 'flex';
+    haptic('light');
+  }
+
+  function closeCoachSheet() {
+    const ov = document.getElementById('fc-coach-sheet');
+    if (ov) ov.style.display = 'none';
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     CAN I AFFORD THIS? — purchase check against the safe-spend
+     engine. The answer is a verdict, not a guilt trip.
+     ───────────────────────────────────────────────────────────── */
+
+  function showAffordSheet() {
+    haptic('light');
+    let ov = document.getElementById('fc-afford-sheet');
+    if (!ov) {
+      ov = document.createElement('div');
+      ov.id = 'fc-afford-sheet';
+      ov.className = 'fc-sheet-overlay';
+      ov.setAttribute('role', 'dialog');
+      ov.setAttribute('aria-modal', 'true');
+      ov.addEventListener('click', e => { if (e.target === ov) closeAffordSheet(); });
+      document.body.appendChild(ov);
+    }
+    // Quick amounts make the common case a single tap. Repeat usage is the
+    // metric that signals this became a habit, so every removed keystroke
+    // matters more than any extra chrome would.
+    const _chip = v =>
+      '<button type="button" class="afford-chip" onclick="FCApp.runAffordCheck(' + v + ')">$' + v + '</button>';
+
+    ov.innerHTML =
+      '<div class="fc-sheet afford-sheet" onclick="event.stopPropagation()">'
+        +'<div class="fc-sheet-handle"></div>'
+        +'<div class="fc-sheet-title">Can I Afford This?</div>'
+        +'<div style="padding:0 20px 20px">'
+          +'<label for="afford-amount" style="font-size:12px;font-weight:600;color:var(--fc-text-muted);display:block;margin-bottom:6px">How much is it?</label>'
+          +'<div style="display:flex;align-items:center;gap:8px;background:var(--fc-bg-elevated-2);border-radius:12px;padding:2px 14px;margin-bottom:10px">'
+            +'<span style="font-size:20px;font-weight:700;color:var(--fc-text-muted)">$</span>'
+            +'<input id="afford-amount" type="number" inputmode="decimal" enterkeyhint="go" placeholder="65" style="flex:1;background:none;border:none;outline:none;font-size:22px;font-weight:700;color:var(--fc-text);padding:12px 0;font-family:inherit;font-variant-numeric:tabular-nums" autocomplete="off">'
+          +'</div>'
+          +'<div class="afford-chips">' + [20, 50, 100, 250].map(_chip).join('') + '</div>'
+          +'<button class="fc-btn fc-btn--primary" style="width:100%" onclick="FCApp.runAffordCheck()">Check</button>'
+          +'<div id="afford-result"></div>'
+        +'</div>'
+      +'</div>';
+    ov.style.display = 'flex';
+    setTimeout(() => {
+      const i = document.getElementById('afford-amount');
+      if (!i) return;
+      i.focus();
+      // Return key runs the check — no reaching for the button mid-thought
+      i.addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); runAffordCheck(); }
+      });
+    }, 250);
+  }
+
+  function runAffordCheck(presetAmount) {
+    const input = document.getElementById('afford-amount');
+    const amount = presetAmount != null ? presetAmount : parseFloat(input && input.value);
+    const out = document.getElementById('afford-result');
+    if (!out) return;
+    if (!amount || amount <= 0) { out.innerHTML = '<div style="font-size:13px;color:var(--fc-text-muted);text-align:center;padding:12px 0">Enter an amount to check.</div>'; return; }
+    if (input && presetAmount != null) input.value = String(presetAmount);
+    haptic('medium');
+    if (typeof FCAnalytics !== 'undefined') {
+      // Never send the amount itself — bucket it so the metric stays non-financial
+      FCAnalytics.track('afford_check_run', { preset: presetAmount != null });
+    }
+
+    const p = _buildSafeSpendProjection();
+    const after = p.safe - amount;
+    const billsSafe = (p.cash - amount) >= p.billsTotal;
+    const dailyAfter = Math.max(0, after) / Math.max(1, p.days);
+    const paydayLabel = p.payday
+      ? p.payday.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' (' + p.payday.days + ' day' + (p.payday.days === 1 ? '' : 's') + ')'
+      : 'in ~' + p.days + ' days';
+
+    let tone, verdict, detail;
+    if (amount <= p.safe * 0.5) {
+      tone = 'success'; verdict = 'Yes — comfortably.';
+      detail = 'You\'ll still have ' + FCData.formatCurrency(after) + ' safe to spend after this.';
+    } else if (amount <= p.safe) {
+      tone = 'warning'; verdict = 'Yes, but it makes your week tight.';
+      detail = 'You\'ll have ' + FCData.formatCurrency(Math.max(0, dailyAfter)).replace('.00','') + '/day left until payday after this purchase. Stay under that to keep all your bills safe.';
+    } else if (billsSafe) {
+      tone = 'warning'; verdict = 'Risky — this eats your cushion.';
+      detail = 'Bills would still clear, but this spends past your buffer. One surprise expense could tip you over.';
+    } else {
+      tone = 'danger'; verdict = 'No — this would put your bills at risk.';
+      detail = 'You have ' + FCData.formatCurrency(p.billsTotal) + ' in bills due before payday. This purchase would leave you short.';
+    }
+    const toneColor = 'var(--fc-' + tone + ')';
+    const toneSoft  = 'var(--fc-' + tone + '-soft)';
+    const riskLabel = tone === 'success' ? 'Low' : tone === 'warning' ? 'Medium' : 'High';
+    const saferAmt  = Math.max(5, Math.floor(p.safe * 0.5 / 5) * 5);
+    const row = (label, value, valueColor) =>
+      '<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--fc-border);font-size:13px">'
+        +'<span style="color:var(--fc-text-muted)">'+label+'</span>'
+        +'<span style="font-weight:600;color:'+(valueColor||'var(--fc-text)')+';font-variant-numeric:tabular-nums">'+value+'</span>'
+      +'</div>';
+
+    // Visual impact bar — how much of your safe-to-spend this purchase eats
+    const eatPct = p.safe > 0 ? Math.min(100, Math.round((amount / p.safe) * 100)) : 100;
+    const impactBar =
+      '<div style="margin:2px 0 6px">'
+        +'<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--fc-text-faint);margin-bottom:5px">'
+          +'<span>This purchase</span><span>'+eatPct+'% of your safe-to-spend</span>'
+        +'</div>'
+        +'<div style="height:10px;border-radius:6px;background:var(--fc-bg-elevated-2);overflow:hidden;display:flex">'
+          +'<div style="width:'+eatPct+'%;background:'+toneColor+';border-radius:6px;transition:width 0.6s cubic-bezier(0.22,1,0.36,1)"></div>'
+        +'</div>'
+        +'<div style="display:flex;justify-content:space-between;font-size:11px;margin-top:5px;font-variant-numeric:tabular-nums">'
+          +'<span style="color:'+toneColor+';font-weight:600">'+FCData.formatCurrency(amount)+'</span>'
+          +'<span style="color:var(--fc-text-muted)">'+FCData.formatCurrency(Math.max(0, after))+' would remain</span>'
+        +'</div>'
+      +'</div>';
+
+    // Payday-wait tip — the smartest sentence in the app: when the answer is
+    // "not comfortably", say exactly when it becomes an easy yes.
+    let waitTip = '';
+    if (tone !== 'success' && p.payday) {
+      const _income45 = (state.transactions || []).filter(t => {
+        if (!_isIncomeTxn(t) || !t.date) return false;
+        try { return FCData.parseDateLocal(t.date) >= new Date(Date.now() - 45 * 86400000); } catch (_) { return false; }
+      });
+      const paycheckEst = _income45.length
+        ? Math.max(..._income45.map(t => Math.abs(t.amount || 0)))
+        : 0;
+      const easyAfterPayday = paycheckEst > 0 && amount <= (p.safe + paycheckEst * 0.5);
+      waitTip =
+        '<div style="display:flex;gap:10px;align-items:flex-start;background:var(--fc-accent-soft);border-radius:12px;padding:11px 13px;margin-top:12px">'
+          +'<span style="flex-shrink:0;margin-top:1px">'+_ic('clock', 'var(--fc-accent)', 16)+'</span>'
+          +'<div style="font-size:13px;color:var(--fc-text);line-height:1.45">'
+            +(easyAfterPayday
+              ? '<strong>Wait '+p.payday.days+' day'+(p.payday.days===1?'':'s')+'.</strong> Payday lands '+p.payday.date.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' — after that, this is an easy yes.'
+              : '<strong>Payday is '+p.payday.days+' day'+(p.payday.days===1?'':'s')+' away.</strong> Waiting until then gives you far more breathing room.')
+          +'</div>'
+        +'</div>';
+    }
+
+    out.innerHTML =
+      '<div style="background:'+toneSoft+';border-radius:14px;padding:14px 16px;margin:16px 0 12px;display:flex;gap:12px;align-items:flex-start">'
+        +'<span style="flex-shrink:0;margin-top:1px">'+_ic(tone === 'success' ? 'check' : 'alert', toneColor, 20)+'</span>'
+        +'<div>'
+          +'<div style="font-size:15px;font-weight:700;color:var(--fc-text)">'+verdict+'</div>'
+          +'<div style="font-size:13px;color:var(--fc-text-muted);line-height:1.45;margin-top:3px">'+detail+'</div>'
+        +'</div>'
+      +'</div>'
+      +impactBar
+      +row('Bills still safe', billsSafe ? 'Yes' : 'No', billsSafe ? 'var(--fc-success)' : 'var(--fc-danger)')
+      +row('Payday', paydayLabel)
+      +row('Daily target after purchase', FCData.formatCurrency(dailyAfter) + '/day')
+      +row('Risk level', riskLabel, toneColor)
+      +waitTip
+      +(tone !== 'success' && saferAmt < amount
+        ? '<button class="fc-btn fc-btn--ghost" style="width:100%;margin-top:14px" onclick="FCApp.runAffordCheck('+saferAmt+')">Show safer option ('+FCData.formatCurrency(saferAmt)+')</button>'
+        : '')
+      +'<button class="fc-btn fc-btn--ghost" style="width:100%;margin-top:8px" onclick="FCApp.closeAffordSheet()">Done</button>';
+
+    // Bring the verdict into view. On a small screen the answer can render
+    // just below the fold of the sheet that produced it, which reads as
+    // "nothing happened" — the one thing this interaction must never do.
+    requestAnimationFrame(() => {
+      try { out.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (_) {}
+    });
+  }
+
+  function closeAffordSheet() {
+    const ov = document.getElementById('fc-afford-sheet');
+    if (ov) ov.style.display = 'none';
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     YOUR MONEY WEEK — story-mode weekly recap
+     Wrapped-style full-screen cards built entirely from local state.
+     No network, no new data — pure presentation of the user's week.
+     ───────────────────────────────────────────────────────────── */
+
+  let _storyCards = [];
+  let _storyIdx   = 0;
+  let _storyTimer = null;
+  const _STORY_MS = 5000;
+
+  function _buildMoneyStory() {
+    const msDay = 86400000;
+    const now = Date.now();
+    const txns = state.transactions || [];
+    const inWin = (t, from, to) => {
+      try { const d = FCData.parseDateLocal(t.date).getTime(); return d >= from && d < to; }
+      catch (_) { return false; }
+    };
+    const thisFrom = now - 7 * msDay;
+    const lastFrom = now - 14 * msDay;
+    const spendThis = txns.filter(t => _isSpendTxn(t) && inWin(t, thisFrom, now + msDay));
+    const spendLast = txns.filter(t => _isSpendTxn(t) && inWin(t, lastFrom, thisFrom));
+    const incomeThis = txns.filter(t => _isIncomeTxn(t) && inWin(t, thisFrom, now + msDay));
+    const sum = arr => arr.reduce((s, t) => s + (t.amount || 0), 0);
+    const totThis = sum(spendThis), totLast = sum(spendLast), totIn = sum(incomeThis);
+
+    if (!spendThis.length && !incomeThis.length) return null;
+
+    // Top merchant this week
+    const byName = {};
+    spendThis.forEach(t => {
+      const n = t.merchant_name || t.name || 'Somewhere';
+      if (!byName[n]) byName[n] = { n, amt: 0, count: 0 };
+      byName[n].amt += t.amount || 0;
+      byName[n].count++;
+    });
+    const top = Object.values(byName).sort((a, b) => b.amt - a.amt)[0];
+    const biggest = [...spendThis].sort((a, b) => (b.amount || 0) - (a.amount || 0))[0];
+
+    const subs = _detectSubscriptions() || [];
+    const subsTotal = subs.reduce((s, x) => s + (x.amount || 0), 0);
+    const net = totIn - totThis;
+    const overdue = _billsForDisplay().filter(b => b.status !== 'paid' && (FCData.daysUntil(b.due_date) ?? 0) < 0).length;
+
+    // Letter grade — honest but encouraging
+    let grade, gradeLine, gradeColor;
+    const saveRate = totIn > 0 ? net / totIn : (net >= 0 ? 0 : -1);
+    if (overdue > 0)            { grade = 'C';  gradeLine = 'Clear the overdue bill' + (overdue > 1 ? 's' : '') + ' and this jumps a full grade.'; gradeColor = 'var(--fc-warning)'; }
+    else if (saveRate >= 0.3)   { grade = 'A+'; gradeLine = 'You kept ' + Math.round(saveRate * 100) + '% of what you earned. Elite week.'; gradeColor = 'var(--fc-success)'; }
+    else if (saveRate >= 0.1)   { grade = 'A';  gradeLine = 'Earned more than you spent, bills on track. Keep this rhythm.'; gradeColor = 'var(--fc-success)'; }
+    else if (net >= 0)          { grade = 'B+'; gradeLine = 'You broke even or better. Small tweaks make this an A.'; gradeColor = 'var(--fc-accent)'; }
+    else if (totLast > 0 && totThis < totLast) { grade = 'B'; gradeLine = 'Spent more than you earned, but trending the right way.'; gradeColor = 'var(--fc-accent)'; }
+    else                        { grade = 'C+'; gradeLine = 'Spending outran income this week. Next week is a fresh start.'; gradeColor = 'var(--fc-warning)'; }
+
+    const fmtRange = () => {
+      const a = new Date(thisFrom), b = new Date(now);
+      const f = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      return f(a) + ' – ' + f(b);
+    };
+    const delta = totLast - totThis;
+    const deltaLine = totLast > 0
+      ? (delta >= 0
+          ? '<span style="color:var(--fc-success)">▼ ' + FCData.formatCurrency(delta) + ' less</span> than last week'
+          : '<span style="color:#ff8f88">▲ ' + FCData.formatCurrency(Math.abs(delta)) + ' more</span> than last week')
+      : 'Your first full week of tracking';
+
+    const cards = [];
+    cards.push(
+      '<div class="fcst-eyebrow">FLOWCHECK REWIND</div>'
+      + '<div class="fcst-orb" aria-hidden="true"></div>'
+      + '<h2 class="fcst-hero">Your<br>Money Week</h2>'
+      + '<div class="fcst-sub">' + fmtRange() + '</div>'
+      + '<div class="fcst-hint">Tap to continue ›</div>'
+    );
+    cards.push(
+      '<div class="fcst-eyebrow">THIS WEEK YOU SPENT</div>'
+      + '<div class="fcst-big" data-countup="' + totThis.toFixed(2) + '">$0</div>'
+      + '<div class="fcst-sub">' + deltaLine + '</div>'
+      + '<div class="fcst-meta">' + spendThis.length + ' purchase' + (spendThis.length !== 1 ? 's' : '') + ' across ' + Object.keys(byName).length + ' place' + (Object.keys(byName).length !== 1 ? 's' : '') + '</div>'
+    );
+    if (top) {
+      cards.push(
+        '<div class="fcst-eyebrow">YOUR TOP SPOT</div>'
+        + '<div class="fcst-avatar">' + esc((top.n || '?').charAt(0).toUpperCase()) + '</div>'
+        + '<h2 class="fcst-title">' + esc(top.n) + '</h2>'
+        + '<div class="fcst-sub">' + top.count + ' visit' + (top.count !== 1 ? 's' : '') + ' · ' + FCData.formatCurrency(top.amt) + '</div>'
+        + (biggest && (biggest.merchant_name || biggest.name) !== top.n
+            ? '<div class="fcst-meta">Biggest single hit: <strong>' + FCData.formatCurrency(biggest.amount || 0) + '</strong> at ' + esc(biggest.merchant_name || biggest.name || '—') + '</div>'
+            : (biggest ? '<div class="fcst-meta">Also your biggest single charge: <strong>' + FCData.formatCurrency(biggest.amount || 0) + '</strong></div>' : ''))
+      );
+    }
+    if (subs.length) {
+      cards.push(
+        '<div class="fcst-eyebrow">RUNNING ON AUTOPILOT</div>'
+        + '<div class="fcst-big" data-countup="' + subsTotal.toFixed(2) + '">$0</div>'
+        + '<div class="fcst-sub">' + subs.length + ' subscription' + (subs.length !== 1 ? 's' : '') + ' every month</div>'
+        + '<div class="fcst-meta">That\'s <strong>' + FCData.formatCurrency(subsTotal * 12) + '/year</strong>. Still using all of them?</div>'
+      );
+    }
+    const inW = totIn + totThis > 0 ? Math.max(6, Math.round((totIn / (totIn + totThis)) * 100)) : 50;
+    cards.push(
+      '<div class="fcst-eyebrow">CASH FLOW</div>'
+      + '<div class="fcst-flow">'
+      +   '<div class="fcst-flow-row"><span>In</span><div class="fcst-flow-bar"><div class="fcst-flow-fill fcst-flow-fill--in" style="width:' + inW + '%"></div></div><strong>' + FCData.formatCurrency(totIn) + '</strong></div>'
+      +   '<div class="fcst-flow-row"><span>Out</span><div class="fcst-flow-bar"><div class="fcst-flow-fill fcst-flow-fill--out" style="width:' + (100 - inW) + '%"></div></div><strong>' + FCData.formatCurrency(totThis) + '</strong></div>'
+      + '</div>'
+      + '<div class="fcst-big fcst-big--md ' + (net >= 0 ? 'fcst-green' : 'fcst-red') + '" data-countup="' + Math.abs(net).toFixed(2) + '" data-prefix="' + (net >= 0 ? '+$' : '−$') + '">' + (net >= 0 ? '+$0' : '−$0') + '</div>'
+      + '<div class="fcst-sub">' + (net >= 0 ? 'kept this week. That\'s money working for you.' : 'further than you earned. Next week, flip it.') + '</div>'
+    );
+    cards.push(
+      '<div class="fcst-eyebrow">YOUR WEEK, GRADED</div>'
+      + '<div class="fcst-grade-wrap">'
+      +   '<svg viewBox="0 0 120 120" class="fcst-grade-ring" aria-hidden="true">'
+      +     '<circle cx="60" cy="60" r="52" stroke="rgba(255,255,255,0.10)" stroke-width="7" fill="none"/>'
+      +     '<circle cx="60" cy="60" r="52" stroke="' + gradeColor + '" stroke-width="7" fill="none" stroke-linecap="round" class="fcst-grade-arc"/>'
+      +   '</svg>'
+      +   '<div class="fcst-grade" style="color:' + gradeColor + '">' + grade + '</div>'
+      + '</div>'
+      + '<div class="fcst-sub" style="max-width:270px">' + gradeLine + '</div>'
+      + '<button class="fcst-cta" type="button" onclick="FCApp.closeMoneyStory();FCApp.switchTab(\'plan\')">See my plan →</button>'
+    );
+    return cards;
+  }
+
+  function openMoneyStory() {
+    const cards = _buildMoneyStory();
+    if (!cards) {
+      if (typeof FCAnalytics !== 'undefined') FCAnalytics.track('money_story_empty');
+      toast('Not enough activity yet — check back after a few transactions', 'info');
+      return;
+    }
+    haptic('medium');
+    if (typeof FCAnalytics !== 'undefined') FCAnalytics.track('money_story_opened', { cards: cards.length });
+    _storyCards = cards;
+    _storyIdx = 0;
+
+    let ov = document.getElementById('fc-story');
+    if (!ov) {
+      ov = document.createElement('div');
+      ov.id = 'fc-story';
+      ov.setAttribute('role', 'dialog');
+      ov.setAttribute('aria-modal', 'true');
+      ov.setAttribute('aria-label', 'Your Money Week');
+      document.body.appendChild(ov);
+    }
+    ov.innerHTML =
+      '<div class="fcst-progress" id="fcst-progress">'
+      + _storyCards.map(() => '<div class="fcst-seg"><div class="fcst-seg-fill"></div></div>').join('')
+      + '</div>'
+      + '<button class="fcst-close" type="button" aria-label="Close" onclick="FCApp.closeMoneyStory()">'
+      +   '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>'
+      + '</button>'
+      + '<div class="fcst-card" id="fcst-card"></div>'
+      + '<button class="fcst-tap fcst-tap--l" type="button" aria-label="Previous" onclick="FCApp.storyPrev()"></button>'
+      + '<button class="fcst-tap fcst-tap--r" type="button" aria-label="Next" onclick="FCApp.storyNext()"></button>';
+    ov.style.display = 'flex';
+    requestAnimationFrame(() => ov.classList.add('fcst-open'));
+    _storyRender();
+  }
+
+  function _storyRender() {
+    const card = document.getElementById('fcst-card');
+    if (!card) return;
+    clearTimeout(_storyTimer);
+
+    // Progress segments: done / active / pending
+    const segs = document.querySelectorAll('#fcst-progress .fcst-seg-fill');
+    segs.forEach((s, i) => {
+      s.style.transition = 'none';
+      s.style.width = i < _storyIdx ? '100%' : '0%';
+      if (i === _storyIdx) {
+        // Force reflow so the width transition restarts from 0
+        void s.offsetWidth;
+        s.style.transition = 'width ' + _STORY_MS + 'ms linear';
+        s.style.width = '100%';
+      }
+    });
+
+    card.classList.remove('fcst-enter');
+    void card.offsetWidth;
+    card.innerHTML = _storyCards[_storyIdx];
+    card.classList.add('fcst-enter');
+    haptic('light');
+
+    // Animated count-ups
+    card.querySelectorAll('[data-countup]').forEach(el => {
+      const target = parseFloat(el.dataset.countup) || 0;
+      const prefix = el.dataset.prefix || '$';
+      const t0 = performance.now(), dur = 900;
+      const tick = t => {
+        const p = Math.min(1, (t - t0) / dur);
+        const eased = 1 - Math.pow(1 - p, 3);
+        el.textContent = prefix + (target * eased).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        if (p < 1) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
+
+    // Auto-advance — except on the final (grade) card
+    if (_storyIdx < _storyCards.length - 1) {
+      _storyTimer = setTimeout(() => storyNext(), _STORY_MS);
+    }
+  }
+
+  function storyNext() {
+    if (_storyIdx >= _storyCards.length - 1) return;
+    _storyIdx++;
+    _storyRender();
+  }
+
+  function storyPrev() {
+    if (_storyIdx === 0) return;
+    _storyIdx--;
+    _storyRender();
+  }
+
+  function closeMoneyStory() {
+    clearTimeout(_storyTimer);
+    const ov = document.getElementById('fc-story');
+    if (!ov) return;
+    ov.classList.remove('fcst-open');
+    setTimeout(() => { ov.style.display = 'none'; }, 240);
+    haptic('light');
   }
 
   /* ─────────────────────────────────────────────────────────────
      RENDER: GOALS SCREEN (stub)
      ───────────────────────────────────────────────────────────── */
 
-  function _renderGoalsScreen() {
+  function _renderGoalsScreen(asTab) {
     const el = document.getElementById('goals-screen-content');
     if (!el) return;
     const goals = state.goals || [];
-    el.innerHTML = `
-      <div style="display:flex;align-items:center;gap:12px;padding:20px 0 16px">
-        <button onclick="FCApp._closeSubScreen()" style="background:none;border:none;cursor:pointer;padding:4px;color:var(--fc-accent);font-size:15px;font-weight:500">← Back</button>
-        <div style="flex:1;font-size:22px;font-weight:700;color:var(--fc-text)">Savings Goals</div>
-        <button onclick="FCApp.showAddGoalSheet&&FCApp.showAddGoalSheet()" style="width:36px;height:36px;border-radius:50%;background:var(--fc-accent);border:none;cursor:pointer;color:#fff;font-size:22px;display:flex;align-items:center;justify-content:center;font-weight:300">+</button>
-      </div>
-      ${goals.length > 0 ? `<div class="fc-card" style="padding:4px 16px">
-        ${goals.map(g => {
-          const pct = Math.min(100, Math.round(((g.current||0)/Math.max(1,g.target||1))*100));
-          return `<div class="fc-goal-row" onclick="FCApp.editGoal&&FCApp.editGoal('${g.id}')">
-            <div class="fc-goal-header">
-              <div class="fc-goal-name">${g.name||'Goal'}</div>
-              <div class="fc-goal-pct">${pct}%</div>
-            </div>
-            <div class="fc-progress fc-progress--green"><div class="fc-progress-fill" style="width:${pct}%"></div></div>
-            <div class="fc-goal-amounts"><span>${FCData.formatCurrency(g.current||0)}</span><span>of ${FCData.formatCurrency(g.target||0)}</span></div>
-          </div>`;
-        }).join('')}
-      </div>` : `<div class="fc-card" style="padding:32px;text-align:center;color:var(--fc-text-muted);font-size:15px">No goals yet — tap + to add one</div>`}`;
+    const goalIcon = (g) => _goalIcon(g, 'var(--fc-success)', 18);
+    const targetFmt = (g) => g.target_date
+      ? new Date(g.target_date).toLocaleDateString('en-US',{month:'short',year:'numeric'}) : null;
+
+    // Next Best Goal engine — emergency fund first, always
+    const _efGoal = goals.find(g => /emergency|rainy|reserve/i.test(g.name || ''));
+    const _monthSpend = (state.transactions || []).filter(_isSpendTxn).slice(0, 200)
+      .reduce((s, t) => s + (t.amount || 0), 0);
+    const _efTarget = Math.max(1000, Math.round(_monthSpend / 100) * 100 || 1000);
+    const _needsEF = !_efGoal || (_efGoal.current || 0) < _efTarget;
+    const nextBestHTML = _needsEF
+      ? '<div class="fc-card" style="margin-bottom:14px;padding:16px;background:var(--fc-accent-soft);border-color:var(--fc-border-accent)">'
+          +'<div style="display:flex;align-items:center;gap:14px">'
+            +'<div style="flex:1">'
+              +'<div class="fc-eyebrow" style="color:var(--fc-accent);margin-bottom:4px">Your Next Best Goal</div>'
+              +'<div style="font-size:17px;font-weight:700;color:var(--fc-text);margin-bottom:2px">Emergency Fund</div>'
+              +'<div style="font-size:13px;color:var(--fc-text-muted);line-height:1.45">'
+                +(_efGoal
+                  ? 'You have less than 1 month of expenses saved. Keep building this first.'
+                  : 'You have no safety cushion yet. Build this before anything else.')
+              +'</div>'
+            +'</div>'
+            +'<div style="width:52px;height:52px;border-radius:50%;background:var(--fc-success);display:flex;align-items:center;justify-content:center;flex-shrink:0">'+_ic('shield','#fff',24)+'</div>'
+          +'</div>'
+          +(!_efGoal ? '<button class="fc-btn fc-btn--primary fc-btn--sm" style="width:100%;margin-top:12px" onclick="FCApp.showAddGoalSheet&&FCApp.showAddGoalSheet()">Start Emergency Fund</button>' : '')
+        +'</div>'
+      : '';
+
+    // Recommended contribution per paycheck (assumes ~biweekly pay)
+    const _perPaycheck = (g) => {
+      const remaining = Math.max(0, (g.target || 0) - (g.current || 0));
+      if (remaining <= 0) return null;
+      let paychecks = 12;
+      if (g.target_date) {
+        try {
+          const daysLeft = (FCData.parseDateLocal(g.target_date) - new Date()) / 86400000;
+          if (daysLeft > 0) paychecks = Math.max(1, Math.round(daysLeft / 14));
+        } catch (_e) {}
+      }
+      return Math.max(5, Math.ceil(remaining / paychecks / 5) * 5);
+    };
+
+    el.innerHTML =
+      '<header class="fc-page-head fc-page-head--center">'
+        +(asTab ? '' :
+          '<button onclick="FCApp._closeSubScreen()" style="display:flex;align-items:center;gap:4px;background:none;border:none;cursor:pointer;color:var(--fc-accent);font-size:15px;font-weight:600;padding:4px 0;font-family:inherit">'
+          +'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg> Back'
+          +'</button>')
+        +'<h1 class="fc-page-title'+(asTab?'':' fc-page-title--sub')+'" style="flex:1">Goals</h1>'
+        +'<button class="fc-page-head__action" type="button" aria-label="Add goal" onclick="FCApp.showAddGoalSheet&&FCApp.showAddGoalSheet()">+</button>'
+      +'</header>'
+
+      +nextBestHTML
+
+      +(goals.length > 0 && !_needsEF
+        ? '<div class="fc-card" style="margin-bottom:14px;padding:14px 16px;background:var(--fc-success-soft);border-color:var(--fc-success-border)">'
+            +'<div style="display:flex;align-items:center;gap:12px">'
+              +'<div style="width:40px;height:40px;border-radius:12px;background:var(--fc-success);display:flex;align-items:center;justify-content:center;flex-shrink:0">'+_ic('flame','#fff',20)+'</div>'
+              +'<div>'
+                +'<div class="fc-eyebrow" style="color:var(--fc-success);margin-bottom:2px">Savings Momentum</div>'
+                +'<div style="font-size:15px;font-weight:600;color:var(--fc-text)">Your goals are on track.</div>'
+                +'<div style="font-size:13px;color:var(--fc-text-muted);margin-top:1px">Keep going — small contributions add up.</div>'
+              +'</div>'
+            +'</div>'
+          +'</div>'
+        : '')
+
+      +(goals.length > 0
+        ? '<div class="fc-card" style="padding:4px 16px;margin-bottom:14px">'
+            +goals.map(g => {
+              const pct = Math.min(100, Math.round(((g.current||0)/Math.max(1,g.target||1))*100));
+              const tgt = targetFmt(g);
+              const rec = _perPaycheck(g);
+              return '<div class="fc-goal-row" onclick="FCApp.editGoal&&FCApp.editGoal(\''+g.id+'\')">'
+                +'<div class="fc-goal-header">'
+                  +'<div style="display:flex;align-items:center;gap:10px">'
+                    +'<div style="width:36px;height:36px;border-radius:10px;background:var(--fc-success-soft);display:flex;align-items:center;justify-content:center;flex-shrink:0">'+goalIcon(g)+'</div>'
+                    +'<div>'
+                      +'<div class="fc-goal-name">'+(g.name||'Goal')+'</div>'
+                      +(rec
+                        ? '<div style="font-size:12px;color:var(--fc-text-faint)">Recommended: <span style="color:var(--fc-success);font-weight:600">'+FCData.formatCurrency(rec)+'/paycheck</span>'+(tgt?' · '+tgt:'')+'</div>'
+                        : (tgt?'<div style="font-size:12px;color:var(--fc-text-faint)">Target: '+tgt+'</div>':''))
+                    +'</div>'
+                  +'</div>'
+                  +'<div class="fc-goal-pct">'+pct+'%</div>'
+                +'</div>'
+                +'<div class="fc-progress'+(pct >= 85 ? ' fc-progress--green' : '')+'" style="margin-bottom:6px">'
+                  +'<div class="fc-progress-fill" style="width:'+pct+'%"></div>'
+                +'</div>'
+                +'<div class="fc-goal-amounts">'
+                  +'<span>'+FCData.formatCurrency(g.current||0)+' saved</span>'
+                  +'<span>of '+FCData.formatCurrency(g.target||0)+'</span>'
+                +'</div>'
+              +'</div>';
+            }).join('')
+          +'</div>'
+        : '<div class="fc-card" style="padding:40px;text-align:center">'
+            +'<div style="width:52px;height:52px;border-radius:16px;background:var(--fc-success-soft);display:flex;align-items:center;justify-content:center;margin:0 auto 12px">'+_ic('flag','var(--fc-success)',24)+'</div>'
+            +'<div style="font-size:16px;font-weight:600;color:var(--fc-text);margin-bottom:6px">No goals yet</div>'
+            +'<div style="font-size:13px;color:var(--fc-text-muted);margin-bottom:16px">Start with an emergency fund.</div>'
+            +'<button onclick="FCApp.showAddGoalSheet&&FCApp.showAddGoalSheet()" class="fc-btn fc-btn--primary fc-btn--sm">Add First Goal</button>'
+          +'</div>');
   }
 
   /* ─────────────────────────────────────────────────────────────
@@ -8932,34 +11313,50 @@ window.FCApp = (function () {
   function _renderInvestments() {
     const el = document.getElementById('investments-screen-content');
     if (!el) return;
-    const invAccts = (state.accounts || []).filter(a => a.type === 'investment' || a.type === 'brokerage');
-    const total = invAccts.reduce((s, a) => s + (a.balance_current || 0), 0);
-    el.innerHTML = `
-      <div style="display:flex;align-items:center;gap:12px;padding:20px 0 16px">
-        <button onclick="FCApp._closeSubScreen()" style="background:none;border:none;cursor:pointer;padding:4px;color:var(--fc-accent);font-size:15px;font-weight:500">← Back</button>
-        <div style="flex:1;font-size:22px;font-weight:700;color:var(--fc-text)">Investments</div>
-      </div>
-      <div class="fc-metric-card" style="margin-bottom:14px;text-align:center;padding:24px">
-        <div class="fc-metric-label">Total Invested</div>
-        <div class="fc-metric-value" style="font-size:36px">${FCData.formatCurrency(total)}</div>
-        <div class="fc-metric-sub">${invAccts.length} account${invAccts.length!==1?'s':''}</div>
-      </div>
-      ${invAccts.length > 0 ? `<div class="fc-card" style="padding:4px 16px">
-        ${invAccts.map(a => `<div class="fc-bill-row">
-          <div class="fc-bill-icon">📈</div>
-          <div class="fc-bill-info">
-            <div class="fc-bill-name">${a.name||'Investment Account'}</div>
-            <div class="fc-bill-due">${a.institution_name||''}</div>
-          </div>
-          <div class="fc-bill-right">
-            <div class="fc-bill-amount">${FCData.formatCurrency(a.balance_current||0)}</div>
-          </div>
-        </div>`).join('')}
-      </div>` : `<div class="fc-card" style="padding:32px;text-align:center">
-        <div style="font-size:32px;margin-bottom:12px">📈</div>
-        <div style="font-size:15px;font-weight:600;color:var(--fc-text);margin-bottom:6px">No investment accounts</div>
-        <div style="font-size:13px;color:var(--fc-text-muted)">Connect a brokerage account to see your portfolio here.</div>
-      </div>`}`;
+    const invAccts = (state.accounts || []).filter(a => a.type==='investment'||a.type==='brokerage'||a.subtype==='401k'||a.subtype==='ira');
+    const total = invAccts.reduce((s,a) => s+(a.balance_current||0), 0);
+
+    el.innerHTML =
+      '<header class="fc-page-head fc-page-head--center">'
+        +'<button onclick="FCApp._closeSubScreen()" style="display:flex;align-items:center;gap:4px;background:none;border:none;cursor:pointer;color:var(--fc-accent);font-size:15px;font-weight:600;padding:4px 0;font-family:inherit">'
+          +'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg> Back'
+        +'</button>'
+        +'<div style="flex:1;font-size:22px;font-weight:750;color:var(--fc-text)">Investments</div>'
+      +'</div>'
+
+      +(invAccts.length > 0
+        ? '<div class="fc-metric-card" style="margin-bottom:14px;text-align:center;padding:24px">'
+            +'<div class="fc-metric-label">Total Invested</div>'
+            +'<div class="fc-metric-value" style="font-size:32px">'+FCData.formatCurrency(total)+'</div>'
+            +'<div class="fc-metric-sub">'+invAccts.length+' account'+(invAccts.length!==1?'s':'')+'</div>'
+          +'</div>'
+          +'<div class="fc-card" style="padding:4px 16px;margin-bottom:14px">'
+            +invAccts.map(a => '<div class="fc-bill-row">'
+              +'<div class="fc-bill-icon">'+_ic('trending-up','var(--fc-text-muted)',18)+'</div>'
+              +'<div class="fc-bill-info">'
+                +'<div class="fc-bill-name">'+(a.name||'Investment Account')+'</div>'
+                +'<div class="fc-bill-due">'+(a.institution_name||'')+'</div>'
+              +'</div>'
+              +'<div class="fc-bill-right">'
+                +'<div class="fc-bill-amount">'+FCData.formatCurrency(a.balance_current||0)+'</div>'
+              +'</div>'
+            +'</div>').join('')
+          +'</div>'
+          +'<div class="fc-card" style="padding:16px;background:var(--fc-accent-soft);border-color:var(--fc-border-accent)">'
+            +'<div style="display:flex;gap:10px;align-items:flex-start"><span style="flex-shrink:0;margin-top:1px">'+_ic('lightbulb','var(--fc-accent)',16)+'</span><div>'
+              +'<div style="font-size:14px;font-weight:600;color:var(--fc-text);margin-bottom:4px">Smart Guidance</div>'
+              +'<div style="font-size:13px;color:var(--fc-text-muted);line-height:1.5">Make sure your emergency fund is fully funded before increasing investment contributions.</div>'
+            +'</div></div>'
+          +'</div>'
+        : '<div class="fc-card" style="padding:40px 24px;text-align:center;margin-bottom:14px">'
+            +'<div style="width:56px;height:56px;border-radius:16px;background:var(--fc-electric-soft);display:flex;align-items:center;justify-content:center;margin:0 auto 14px">'+_ic('trending-up','var(--fc-electric)',26)+'</div>'
+            +'<div style="font-size:17px;font-weight:600;color:var(--fc-text);margin-bottom:6px">Track your portfolio</div>'
+            +'<div style="font-size:13px;color:var(--fc-text-muted);line-height:1.5;margin-bottom:20px">Connect a brokerage account and your investments, 401(k), and IRA will show up here automatically.</div>'
+            +'<button class="fc-btn fc-btn--primary fc-btn--sm" onclick="FCApp.startPlaidLink&&FCApp.startPlaidLink()">Connect Brokerage</button>'
+          +'</div>'
+          +'<div class="fc-card" style="padding:14px 16px;background:var(--fc-accent-soft);border-color:var(--fc-border-accent)">'
+            +'<div style="display:flex;gap:10px;align-items:flex-start"><span style="flex-shrink:0;margin-top:1px">'+_ic('lightbulb','var(--fc-accent)',16)+'</span><div style="font-size:13px;color:var(--fc-text-muted);line-height:1.5">Build your emergency fund and pay off high-interest debt before investing aggressively.</div></div>'
+          +'</div>');
   }
 
   /* ─────────────────────────────────────────────────────────────
@@ -8998,8 +11395,10 @@ window.FCApp = (function () {
 
     el.innerHTML = `
       <div style="display:flex;align-items:center;gap:12px;padding:20px 0 16px">
-        <button onclick="FCApp._closeSubScreen()" style="background:none;border:none;cursor:pointer;padding:4px;color:var(--fc-accent);font-size:15px;font-weight:500">← Back</button>
-        <div style="flex:1;font-size:22px;font-weight:700;color:var(--fc-text)">Calendar</div>
+        <button onclick="FCApp._closeSubScreen()" style="display:flex;align-items:center;gap:4px;background:none;border:none;cursor:pointer;color:var(--fc-accent);font-size:15px;font-weight:600;padding:4px 0;font-family:inherit">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg> Back
+        </button>
+        <div style="flex:1;font-size:22px;font-weight:750;color:var(--fc-text)">Calendar</div>
       </div>
       <div class="fc-card" style="padding:16px;margin-bottom:14px">
         <div style="font-size:16px;font-weight:600;color:var(--fc-text);text-align:center;margin-bottom:14px">${monthName}</div>
@@ -9012,10 +11411,10 @@ window.FCApp = (function () {
       <div style="font-size:14px;font-weight:600;color:var(--fc-text-muted);margin-bottom:8px">Upcoming</div>
       <div class="fc-card" style="padding:4px 16px">
         ${upcomingBills.map(b => `<div class="fc-bill-row">
-          <div class="fc-bill-icon">📋</div>
+          <div class="fc-bill-icon">${_billIcon(b, 'var(--fc-text-muted)', 18)}</div>
           <div class="fc-bill-info">
             <div class="fc-bill-name">${b.name||'Bill'}</div>
-            <div class="fc-bill-due">${b.due_date||''}</div>
+            <div class="fc-bill-due">${(() => { try { return 'Due ' + FCData.parseDateLocal(b.due_date).toLocaleDateString('en-US',{month:'short',day:'numeric'}); } catch(_e){ return b.due_date||''; } })()}</div>
           </div>
           <div class="fc-bill-amount">${FCData.formatCurrency(b.amount||0)}</div>
         </div>`).join('')}
@@ -9036,14 +11435,14 @@ window.FCApp = (function () {
     const spend  = txns.filter(t => !t.isCredit && new Date(t.date) >= mStart).reduce((s,t)=>s+(t.amount||0),0);
 
     const reportCards = [
-      { icon: '📊', title: 'Monthly Cash Flow', sub: `${FCData.formatCurrency(income)} in · ${FCData.formatCurrency(spend)} out`, color: 'var(--fc-accent)' },
-      { icon: '🎯', title: 'Budget vs Actual', sub: 'See how spending compares', color: '#22C55E' },
-      { icon: '🏷️', title: 'Spending by Category', sub: 'Where your money goes', color: '#F59E0B' },
-      { icon: '📋', title: 'Bills Report', sub: 'Paid & upcoming', color: '#EF4444' },
-      { icon: '📈', title: 'Net Worth History', sub: '12-month trend', color: '#2563EB' },
+      { icon: 'bar-chart', title: 'Monthly Cash Flow', sub: `${FCData.formatCurrency(income)} in · ${FCData.formatCurrency(spend)} out`, color: 'var(--fc-accent)', soft: 'var(--fc-accent-soft)' },
+      { icon: 'flag', title: 'Budget vs Actual', sub: 'See how spending compares', color: 'var(--fc-success)', soft: 'var(--fc-success-soft)' },
+      { icon: 'pie-chart', title: 'Spending by Category', sub: 'Where your money goes', color: 'var(--fc-warning)', soft: 'var(--fc-warning-soft)' },
+      { icon: 'file-text', title: 'Bills Report', sub: 'Paid & upcoming', color: 'var(--fc-danger)', soft: 'var(--fc-danger-soft)' },
+      { icon: 'trending-up', title: 'Net Worth History', sub: '12-month trend', color: 'var(--fc-electric)', soft: 'var(--fc-electric-soft)' },
     ].map(r => `
       <div class="fc-report-card">
-        <div class="fc-report-icon" style="background:${r.color}15;font-size:22px">${r.icon}</div>
+        <div class="fc-report-icon" style="background:${r.soft}">${_ic(r.icon, r.color, 20)}</div>
         <div class="fc-report-body">
           <div class="fc-report-title">${r.title}</div>
           <div class="fc-report-sub">${r.sub}</div>
@@ -9053,8 +11452,10 @@ window.FCApp = (function () {
 
     el.innerHTML = `
       <div style="display:flex;align-items:center;gap:12px;padding:20px 0 16px">
-        <button onclick="FCApp._closeSubScreen()" style="background:none;border:none;cursor:pointer;padding:4px;color:var(--fc-accent);font-size:15px;font-weight:500">← Back</button>
-        <div style="flex:1;font-size:22px;font-weight:700;color:var(--fc-text)">Reports</div>
+        <button onclick="FCApp._closeSubScreen()" style="display:flex;align-items:center;gap:4px;background:none;border:none;cursor:pointer;color:var(--fc-accent);font-size:15px;font-weight:600;padding:4px 0;font-family:inherit">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg> Back
+        </button>
+        <div style="flex:1;font-size:22px;font-weight:750;color:var(--fc-text)">Reports</div>
       </div>
       ${reportCards}
       <div style="display:flex;gap:10px;margin-top:6px;margin-bottom:20px">
@@ -9329,6 +11730,7 @@ window.FCApp = (function () {
     } catch (_) {
       if (state.user?.plaid_linked && !_isPro()) { showPaywall(); return; }
     }
+    if (typeof FCAnalytics !== 'undefined') FCAnalytics.track('plaid_link_started');
     const btn = document.getElementById('btn-plaid-link');
     if (btn) { btn.disabled = true; btn.textContent = 'Connecting…'; }
 
@@ -9439,7 +11841,7 @@ window.FCApp = (function () {
       // net below recovers if routing never happens (e.g. offline Firestore read).
       setTimeout(() => {
         if (state.screen === startScreen) _resetAuthButtons(_GOOGLE_BTN_IDS, _GOOGLE_BTN_HTML);
-      }, 10000);
+      }, 4000);
     } catch (err) {
       window._fcNewUserFaceIdPending = false;
       _resetAuthButtons(_GOOGLE_BTN_IDS, _GOOGLE_BTN_HTML);
@@ -9466,7 +11868,7 @@ window.FCApp = (function () {
       // See handleGoogleSignIn — same stuck-screen fix, same safety net.
       setTimeout(() => {
         if (state.screen === startScreen) _resetAuthButtons(_APPLE_BTN_IDS, _APPLE_BTN_HTML);
-      }, 10000);
+      }, 4000);
     } catch (err) {
       window._fcNewUserFaceIdPending = false;
       _resetAuthButtons(_APPLE_BTN_IDS, _APPLE_BTN_HTML);
@@ -9688,6 +12090,73 @@ window.FCApp = (function () {
     fcLog('[FCApp] handleSignOut — complete, screen = hero');
   }
 
+  /** Security status shown under the Safe-to-Spend hero. Reports the actual
+   *  device state — never a hardcoded reassurance. */
+  function _updateTrustLine() {
+    const el = document.getElementById('home-trust-text');
+    if (!el) return;
+    const base = 'Read-only · Bank-grade encryption';
+    try {
+      if (!FCAuth || !FCAuth.isBiometricEnabled) { el.textContent = base; return; }
+      FCAuth.isBiometricEnabled()
+        .then(on => { el.textContent = on ? 'Read-only · Face ID on' : base; })
+        .catch(() => { el.textContent = base; });
+    } catch (_) { el.textContent = base; }
+  }
+
+  /* ── Metric #1: first real Safe-to-Spend view ─────────────────
+     The single best predictor of retention (see VISION.md). Fires
+     exactly once per user, ever — guarded by localStorage so it
+     survives reinstalls of the session, not of the app. */
+  function _trackFirstSafeToSpend() {
+    try {
+      if (_isDemoMode) return;
+      if (!state.user?.plaid_linked && !(state.accounts || []).length) return;
+      const uid = FCAuth.currentUser && FCAuth.currentUser()?.uid;
+      if (!uid) return;
+      const key = 'fc_first_sts_' + uid;
+      if (localStorage.getItem(key) === '1') return;
+      localStorage.setItem(key, '1');   // non-financial flag only
+      if (typeof FCAnalytics !== 'undefined') {
+        FCAnalytics.track('first_safe_to_spend_viewed', {
+          accounts: (state.accounts || []).length,
+          has_bills: (state.bills || []).length > 0,
+        });
+      }
+    } catch (_) {}
+  }
+
+  /* ── Retention loop: weekly recap + payday reminders ─────────
+     Scheduled once per session, only when the user has actually
+     opted into notifications. Both are LOCAL notifications, so they
+     work with no backend and cost nothing to send. */
+  let _engagementScheduled = false;
+  function _scheduleEngagementNotifications() {
+    if (_engagementScheduled || _isDemoMode) return;
+    if (!window.FCPush) return;
+    // Respect an explicit opt-out — never re-prompt or schedule against it
+    if (state.user && state.user.notifications_enabled === false) return;
+    if (!(state.transactions || []).length) return;
+    _engagementScheduled = true;
+
+    // Weekly "Your Money Week is ready" — drives the story recap
+    FCPush.scheduleWeeklyRecap().catch(() => {});
+
+    // Payday reminder, using the same predictor the dashboard uses
+    try {
+      const payday = _predictNextPayday();
+      if (payday && payday.date) {
+        const recent = (state.transactions || []).filter(t => {
+          if (!_isIncomeTxn(t) || !t.date) return false;
+          try { return FCData.parseDateLocal(t.date) >= new Date(Date.now() - 45 * 86400000); }
+          catch (_) { return false; }
+        });
+        const est = recent.length ? Math.max(...recent.map(t => Math.abs(t.amount || 0))) : 0;
+        FCPush.schedulePaydayReminder(payday.date, est).catch(() => {});
+      }
+    } catch (_) {}
+  }
+
   /* ── Small UI helpers ────────────────────────────────────── */
 
   function _setLoading(btnId, loading, text) {
@@ -9816,8 +12285,10 @@ window.FCApp = (function () {
    */
   function startTrialFromOnboarding() {
     haptic('medium');
+    if (typeof FCAnalytics !== 'undefined') FCAnalytics.track('trial_cta_tapped', { source: 'onboarding' });
     if (_isPro()) { obNext(); return; }   // already Pro — skip to bank slide
     _selectedPlan = 'monthly';
+    _paywallFromOnboarding = true;        // closePaywall/skipPaywall return to the bank slide
     showPaywall();
   }
 
@@ -9828,6 +12299,7 @@ window.FCApp = (function () {
   async function startDemoMode() {
     haptic('medium');
     _isDemoMode = true;
+    state.initialLoading = false;
     _markOnboardingComplete(false).catch(() => {});
 
     const demoUser = Object.assign({}, state.user || {}, {
@@ -9846,18 +12318,45 @@ window.FCApp = (function () {
       { account_id: 'demo-sav', name: 'Demo Savings',  official_name: 'Demo Savings Account',  type: 'depository', subtype: 'savings',  balance_current: 12800.00, balance_available: 12800.00, mask: '8888', institution_name: 'Demo Bank' },
       { account_id: 'demo-cc',  name: 'Demo Visa',     official_name: 'Demo Visa Card',        type: 'credit',     subtype: 'credit card', balance_current: 723.55, balance_available: null, mask: '1111', institution_name: 'Demo Bank' },
     ];
+    const _demoNow = new Date();
+    // Rolling date helpers — cross month boundaries correctly, so demo bills
+    // are never accidentally overdue at month-end and history spans 2 months.
+    const _demoFmt = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const _demoAgo = (n) => { const d = new Date(_demoNow); d.setDate(d.getDate() - n); return _demoFmt(d); };
+    const _demoIn  = (n) => { const d = new Date(_demoNow); d.setDate(d.getDate() + n); return _demoFmt(d); };
     state.transactions = [
-      { transaction_id: 't1', name: 'Whole Foods Market', amount: 87.43,   date: '2026-06-08', category: ['Food and Drink', 'Groceries'],        account_id: 'demo-chk', isCredit: false },
-      { transaction_id: 't2', name: 'Netflix',            amount: 15.99,   date: '2026-06-07', category: ['Service', 'Subscription'],             account_id: 'demo-cc',  isCredit: false },
-      { transaction_id: 't3', name: 'Uber',               amount: 23.50,   date: '2026-06-06', category: ['Travel', 'Ride Share'],                account_id: 'demo-chk', isCredit: false },
-      { transaction_id: 't4', name: 'Spotify',            amount: 9.99,    date: '2026-06-05', category: ['Service', 'Subscription'],             account_id: 'demo-cc',  isCredit: false },
-      { transaction_id: 't5', name: 'Starbucks',          amount: 6.75,    date: '2026-06-05', category: ['Food and Drink', 'Coffee Shop'],       account_id: 'demo-chk', isCredit: false },
-      { transaction_id: 't6', name: 'Amazon',             amount: 134.99,  date: '2026-06-04', category: ['Shops', 'Online Marketplaces'],        account_id: 'demo-cc',  isCredit: false },
-      { transaction_id: 't7', name: 'Shell Gas Station',  amount: 58.20,   date: '2026-06-03', category: ['Travel', 'Gas Stations'],              account_id: 'demo-chk', isCredit: false },
-      { transaction_id: 't8', name: 'Chipotle',           amount: 14.35,   date: '2026-06-02', category: ['Food and Drink', 'Restaurants'],       account_id: 'demo-chk', isCredit: false },
-      { transaction_id: 't9', name: 'Direct Deposit',     amount: -3200.00, date: '2026-06-01', category: ['Transfer', 'Payroll'],                 account_id: 'demo-chk', isCredit: true  },
+      { transaction_id: 't1',  name: 'Starbucks',          amount: 6.24,    date: _demoAgo(0), category: ['Food and Drink','Coffee Shop'],   account_id: 'demo-chk', isCredit: false },
+      { transaction_id: 't2',  name: 'Salary',             amount: 3200.00, date: _demoAgo(1), category: ['Transfer','Payroll'],             account_id: 'demo-chk', isCredit: true  },
+      { transaction_id: 't3',  name: 'Amazon',             amount: 72.99,   date: _demoAgo(1), category: ['Shops','Online Marketplaces'],   account_id: 'demo-cc',  isCredit: false },
+      { transaction_id: 't4',  name: 'Walmart',            amount: 48.23,   date: _demoAgo(2), category: ['Shops','Groceries'],  account_id: 'demo-chk', isCredit: false },
+      { transaction_id: 't5',  name: 'Netflix',            amount: 15.99,   date: _demoAgo(3), category: ['Service','Subscription'], account_id: 'demo-cc', isCredit: false },
+      { transaction_id: 't6',  name: 'Uber',               amount: 23.50,   date: _demoAgo(4), category: ['Travel','Ride Share'], account_id: 'demo-chk', isCredit: false },
+      { transaction_id: 't7',  name: 'Whole Foods Market', amount: 87.43,   date: _demoAgo(5), category: ['Food and Drink','Groceries'], account_id: 'demo-chk', isCredit: false },
+      { transaction_id: 't8',  name: 'Spotify',            amount: 9.99,    date: _demoAgo(6), category: ['Service','Subscription'], account_id: 'demo-cc', isCredit: false },
+      { transaction_id: 't9',  name: 'Shell Gas Station',  amount: 58.20,   date: _demoAgo(7), category: ['Travel','Gas Stations'], account_id: 'demo-chk', isCredit: false },
+      { transaction_id: 't10', name: 'Chipotle',           amount: 14.35,   date: _demoAgo(8), category: ['Food and Drink','Restaurants'], account_id: 'demo-chk', isCredit: false },
+      { transaction_id: 't11', name: 'Target',             amount: 67.80,   date: _demoAgo(9), category: ['Shops','Department Stores'], account_id: 'demo-cc', isCredit: false },
+      { transaction_id: 't12', name: 'Dining Out',         amount: 462.50,  date: _demoAgo(2), category: ['Food and Drink','Restaurants'], account_id: 'demo-chk', isCredit: false },
+      // Prior month — makes subscription detection light up and gives the
+      // Activity chart real history for demo/App Review sessions.
+      { transaction_id: 't13', name: 'Netflix',            amount: 15.99,   date: _demoAgo(33), category: ['Service','Subscription'], account_id: 'demo-cc', isCredit: false },
+      { transaction_id: 't14', name: 'Spotify',            amount: 9.99,    date: _demoAgo(36), category: ['Service','Subscription'], account_id: 'demo-cc', isCredit: false },
+      { transaction_id: 't15', name: 'Salary',             amount: 3200.00, date: _demoAgo(31), category: ['Transfer','Payroll'],     account_id: 'demo-chk', isCredit: true  },
+      { transaction_id: 't16', name: 'Whole Foods Market', amount: 92.10,   date: _demoAgo(34), category: ['Food and Drink','Groceries'], account_id: 'demo-chk', isCredit: false },
+      { transaction_id: 't17', name: 'Amazon',             amount: 54.37,   date: _demoAgo(40), category: ['Shops','Online Marketplaces'], account_id: 'demo-cc', isCredit: false },
+      { transaction_id: 't18', name: 'Shell Gas Station',  amount: 61.75,   date: _demoAgo(38), category: ['Travel','Gas Stations'], account_id: 'demo-chk', isCredit: false },
     ];
-    state.bills = [];
+    state.bills = [
+      { id: 'b1', name: 'Rent',          amount: 1200.00, due_date: _demoIn(6),  status: 'upcoming', icon: '🏠', category: 'Housing' },
+      { id: 'b2', name: 'Electric',      amount: 89.50,   due_date: _demoIn(12), status: 'upcoming', icon: '⚡', category: 'Utilities' },
+      { id: 'b3', name: 'Internet',      amount: 59.99,   due_date: _demoIn(18), status: 'upcoming', icon: '📡', category: 'Utilities' },
+    ];
+    state.goals = [
+      { id: 'g1', name: 'Emergency Fund', target: 3000, current: 1300, pct: 43, icon: '🛡️' },
+      { id: 'g2', name: 'Vacation Fund',  target: 2000, current:  950, pct: 48, icon: '🌴' },
+      { id: 'g3', name: 'New Car',        target: 5000, current: 1200, pct: 24, icon: '🚗' },
+    ];
+    state.budgets = { total: { limit: 2390 } };
 
     setScreen('app');
     _renderHome();
@@ -10084,7 +12583,7 @@ window.FCApp = (function () {
       await FCAuth.setBiometricEnabled(enable);
       toast(enable ? 'Face ID enabled' : 'Face ID disabled', 'success');
     } catch (err) {
-      console.error('[toggleBiometric]', err.message);
+      fcLog('[toggleBiometric] error:', err.message);
       toast('Could not update Face ID setting', 'error');
       snapBack();
     }
@@ -10178,6 +12677,8 @@ window.FCApp = (function () {
       if (state.tab === 'insights') _renderInsights();
       // Check budget thresholds whenever transactions update
       _checkBudgetAlert();
+      // Retention loop — needs transaction history to predict payday
+      _scheduleEngagementNotifications();
     });
 
     FCData.listenToBills(bills => {
@@ -10471,6 +12972,12 @@ window.FCApp = (function () {
     // Listen for the native lock screen "Use Password Instead" tap
     _initSignOutListener();
 
+    // Safety net: if Firebase auth hasn't fired within 7s, the SDK is likely
+    // blocked (cold start, no network). Route to hero so users aren't stuck.
+    setTimeout(() => {
+      if (state.screen === 'splash') setScreen('hero');
+    }, 7000);
+
     // Observe Firebase auth state
     FCAuth.onAuthStateChanged(async user => {
       if (user) {
@@ -10651,15 +13158,15 @@ window.FCApp = (function () {
               } catch (_) {}
               // Subscription lapsed — update local state and show contextual paywall
               if (state.user) state.user.is_pro = false;
-              if (_shouldShowPaywall(user.uid)) setTimeout(() => showPaywall(), 1200);
+              if (_shouldShowPaywall(user.uid)) setTimeout(() => showPaywall(), 4000);
             } else {
               // RC and Firestore both say not Pro
-              if (_shouldShowPaywall(user.uid)) setTimeout(() => showPaywall(), 1200);
+              if (_shouldShowPaywall(user.uid)) setTimeout(() => showPaywall(), 4000);
             }
           }).catch(() => {
             // RC unavailable — trust Firestore, show paywall only for free users
             if (!userDoc?.is_pro) {
-              if (_shouldShowPaywall(user.uid)) setTimeout(() => showPaywall(), 1200);
+              if (_shouldShowPaywall(user.uid)) setTimeout(() => showPaywall(), 4000);
             } else {
               setTimeout(() => _tryStartTour(), 1400);
             }
@@ -10759,16 +13266,16 @@ window.FCApp = (function () {
 
     const _typeIcon = (type) => {
       const map = {
-        bill_due:       { icon: '💳', bg: 'rgba(255,69,58,0.14)',   border: 'rgba(255,69,58,0.25)'   },
-        budget_alert:   { icon: '⚡', bg: 'rgba(255,159,10,0.14)',  border: 'rgba(255,159,10,0.25)'  },
-        goal_reached:   { icon: '🎯', bg: 'rgba(52,199,89,0.14)',   border: 'rgba(52,199,89,0.25)'   },
-        sync_done:      { icon: '✓',  bg: 'rgba(26,196,240,0.12)',  border: 'rgba(26,196,240,0.22)'  },
-        payday:         { icon: '🎉', bg: 'rgba(52,199,89,0.14)',   border: 'rgba(52,199,89,0.25)'   },
-        large_txn:      { icon: '💸', bg: 'rgba(255,159,10,0.14)',  border: 'rgba(255,159,10,0.25)'  },
-        low_balance:    { icon: '⚠️', bg: 'rgba(255,69,58,0.14)',   border: 'rgba(255,69,58,0.25)'   },
-        unusual_spend:  { icon: '📊', bg: 'rgba(255,159,10,0.14)',  border: 'rgba(255,159,10,0.25)'  },
-        new_sub:        { icon: '🔄', bg: 'rgba(26,196,240,0.12)',  border: 'rgba(26,196,240,0.22)'  },
-        general:        { icon: '🔔', bg: 'rgba(255,255,255,0.07)', border: 'rgba(255,255,255,0.10)' },
+        bill_due:       { icon: _ic('credit-card','var(--fc-danger)',16),   bg: 'var(--fc-danger-soft)',  border: 'var(--fc-danger-border)'  },
+        budget_alert:   { icon: _ic('zap','var(--fc-warning)',16),          bg: 'var(--fc-warning-soft)', border: 'var(--fc-warning-soft)'  },
+        goal_reached:   { icon: _ic('flag','var(--fc-success)',16),         bg: 'var(--fc-success-soft)', border: 'var(--fc-success-border)' },
+        sync_done:      { icon: _ic('check','var(--fc-accent)',16),         bg: 'var(--fc-accent-soft)',  border: 'var(--fc-border-accent)'  },
+        payday:         { icon: _ic('dollar-sign','var(--fc-success)',16),  bg: 'var(--fc-success-soft)', border: 'var(--fc-success-border)' },
+        large_txn:      { icon: _ic('search','var(--fc-warning)',16),       bg: 'var(--fc-warning-soft)', border: 'var(--fc-warning-soft)'  },
+        low_balance:    { icon: _ic('alert','var(--fc-danger)',16),         bg: 'var(--fc-danger-soft)',  border: 'var(--fc-danger-border)'  },
+        unusual_spend:  { icon: _ic('bar-chart','var(--fc-warning)',16),    bg: 'var(--fc-warning-soft)', border: 'var(--fc-warning-soft)'  },
+        new_sub:        { icon: _ic('play-screen','var(--fc-accent)',16),   bg: 'var(--fc-accent-soft)',  border: 'var(--fc-border-accent)'  },
+        general:        { icon: _ic('bell','var(--fc-text-muted)',16),      bg: 'var(--fc-bg-elevated-2)', border: 'var(--fc-border)' },
       };
       return map[type] || map.general;
     };
@@ -10796,7 +13303,7 @@ window.FCApp = (function () {
       return `
       <div onclick="FCApp._notifTap('${esc(n.id)}','${esc(n.type || 'general')}')"
            style="display:flex;align-items:flex-start;gap:13px;padding:14px 20px;cursor:pointer;
-                  border-bottom:0.5px solid rgba(255,255,255,0.045);
+                  border-bottom:0.5px solid var(--fc-border);
                   background:${n.read ? 'transparent' : 'rgba(26,196,240,0.035)'};
                   transition:background .12s">
         <div style="width:40px;height:40px;border-radius:13px;
@@ -10868,7 +13375,7 @@ window.FCApp = (function () {
     try {
       await FCData.markAllNotificationsRead();
     } catch (err) {
-      console.error('[notif] markAllRead failed:', err);
+      fcLog('[notif] markAllRead failed:', err);
     }
   }
 
@@ -10969,7 +13476,7 @@ window.FCApp = (function () {
           </div>`;
       }).join('');
     } catch (err) {
-      console.error('[showBankSheet]', err);
+      fcLog('[showBankSheet] error:', err);
       if (listEl) {
         const isTimeout = err.message && (err.message.includes('timed out') || err.message.includes('reach'));
         listEl.innerHTML = `
@@ -11206,8 +13713,17 @@ window.FCApp = (function () {
 
   let _selectedPlan          = 'annual'; // 'annual' | 'monthly'
   let _pwOfferings           = null;
-  // Accounts that skip OTP and Plaid — used by App Review testers
+  // Accounts that skip OTP and Plaid — used by App Review testers.
+  // SINGLE SOURCE OF TRUTH: exported as FCApp.isDemoEmail() so the onboarding
+  // controller in index.html gates the "Use Demo Account" button off the same
+  // list. If App Review can't reach demo mode, the app gets rejected — so this
+  // must never be duplicated as a hardcoded string again.
   const _DEMO_EMAILS = ['reviewer@flowcheck.app'];
+
+  /** True if the given email is an App Review demo account. */
+  function isDemoEmail(email) {
+    return _DEMO_EMAILS.includes(String(email || '').trim().toLowerCase());
+  }
   let _isDemoMode = false;
 
   let _paywallShownThisSession = false;  // prevents re-trigger within one running session
@@ -11287,13 +13803,30 @@ window.FCApp = (function () {
     _loadPaywallOfferings();
   }
 
-  /** Dismiss the paywall and return to the dashboard. */
+  /** True while the paywall shown was opened from the onboarding trial slide. */
+  let _paywallFromOnboarding = false;
+
+  /** Dismiss the paywall and return to the dashboard (or onboarding bank slide). */
   function closePaywall() {
     // Reset success overlay so it doesn't bleed on next open
     const successOverlay = document.getElementById('pw-success-overlay');
     if (successOverlay) successOverlay.classList.remove('visible');
+    // Opened from onboarding — finish the flow there instead of jumping to
+    // an empty dashboard: the bank-connect slide is the actual last step.
+    if (_paywallFromOnboarding) {
+      _paywallFromOnboarding = false;
+      setScreen('onboarding');
+      if (window.obGoToBankSlide) window.obGoToBankSlide();
+      return;
+    }
     setScreen('app');
     _renderHome();
+    // Pro but no bank yet — nudge them to connect so the dashboard isn't empty
+    if (_isPro() && !state.user?.plaid_linked) {
+      setTimeout(() => {
+        toast('Great — now connect your bank to unlock your dashboard', 'info', 5000);
+      }, 600);
+    }
   }
 
   async function _loadPaywallOfferings() {
@@ -11413,8 +13946,8 @@ window.FCApp = (function () {
         const sub     = document.getElementById('pw-success-sub');
         if (sub) {
           sub.textContent = _selectedPlan === 'annual'
-            ? 'Your annual plan is active — enjoy all premium features.'
-            : 'Your monthly plan is active — enjoy all premium features.';
+            ? 'Your annual plan is active — enjoy all Pro features.'
+            : 'Your monthly plan is active — enjoy all Pro features.';
         }
         if (icon) {
           icon.style.animation = 'none';
@@ -11460,10 +13993,18 @@ window.FCApp = (function () {
         }, 3000);
       }
     } catch (err) {
-      if (err.message?.toLowerCase().includes('cancel')) {
+      const cancelled = !!err.message?.toLowerCase().includes('cancel');
+      if (typeof FCAnalytics !== 'undefined') {
+        // Reason is a coarse enum only — never the raw error text, which can
+        // contain store/account details.
+        FCAnalytics.track(cancelled ? 'purchase_cancelled' : 'purchase_failed', {
+          plan: _selectedPlan === 'annual' ? 'annual' : 'monthly',
+        });
+      }
+      if (cancelled) {
         // User cancelled — just reset button silently
       } else {
-        toast('Purchase failed: ' + err.message, 'error');
+        toast('Purchase failed — check your App Store account and try again', 'error');
       }
       if (btn) {
         btn.disabled = false;
@@ -11529,6 +14070,12 @@ window.FCApp = (function () {
 
   function skipPaywall() {
     haptic('light');
+    if (_paywallFromOnboarding) {
+      _paywallFromOnboarding = false;
+      setScreen('onboarding');
+      if (window.obGoToBankSlide) window.obGoToBankSlide();
+      return;
+    }
     setScreen('app');
     _renderHome();
     setTimeout(() => _doSync(false), 800);
@@ -11930,7 +14477,7 @@ window.FCApp = (function () {
       closeTransactionSheet();
       toast('Reset to original', 'success');
     } catch (err) {
-      toast('Could not reset', 'error');
+      toast('Could not reset transaction — try again', 'error');
     }
   }
 
@@ -11954,7 +14501,7 @@ window.FCApp = (function () {
     } catch (err) {
       rows.forEach(row => { row.style.opacity = ''; row.style.transform = ''; });
       haptic('heavy');
-      toast('Could not update bill', 'error');
+      toast('Could not mark bill as paid — try again', 'error');
     }
   }
 
@@ -12103,9 +14650,84 @@ window.FCApp = (function () {
    * via the CSS rule `body.fc-privacy .fc-amount { filter: blur(7px) }`.
    * The eye icon in the home header controls this.
    */
+  /* ── Privacy mode (hide balances) ─────────────────────────────
+     Safety feature: lets the user blank every money figure on screen
+     when someone can see their phone.
+
+     Masking is class-driven (`.fc-amount`), but relying on every
+     render site remembering that class is fragile — and a privacy
+     feature that silently misses a number is worse than none at all.
+     So while privacy mode is ON we also (a) sweep the DOM tagging any
+     leaf node that looks like currency, and (b) keep a MutationObserver
+     running so freshly-rendered numbers are masked too. The observer
+     only exists while the user has opted in, so there's no idle cost. */
+  // Whole-node currency ("$1,223.48", "−$723.55", "$3.2k")
+  const _MONEY_RE = /^[−\-+]?\s*\$\s?[\d,]+(\.\d{1,2})?\s*$|^[−\-+]?\s*\$[\d.,]+\s?[KkMm]\s*$/;
+  // Currency appearing INSIDE a sentence ("$462.50 — that's 3× your average",
+  // "$1,522.78 left"). These leak if you only mask whole nodes.
+  const _MONEY_INLINE_RE = /[−\-+]?\$\s?\d[\d,]*(?:\.\d{1,2})?\s?[KkMm]?/g;
+  let _privacyObserver = null;
+  let _privacySweepQueued = false;
+
+  function _sweepMoneyNodes() {
+    const root = document.getElementById('screen-app') || document.body;
+    if (!root) return;
+    root.querySelectorAll('*').forEach(el => {
+      if (el.children.length) return;                       // leaf nodes only
+      if (el.classList.contains('fc-amount')) return;       // already masked
+      if (el.dataset.fcMasked === '1') return;              // inline-masked already
+      const t = el.textContent;
+      if (!t || t.length > 400) return;
+      const trimmed = t.trim();
+      if (!trimmed.includes('$')) return;                   // cheap reject
+
+      if (_MONEY_RE.test(trimmed)) {                        // the whole node is money
+        el.classList.add('fc-amount');
+        return;
+      }
+      // Money embedded in a sentence — wrap just the figures so the
+      // surrounding words stay readable.
+      _MONEY_INLINE_RE.lastIndex = 0;
+      if (!_MONEY_INLINE_RE.test(trimmed)) return;
+      _MONEY_INLINE_RE.lastIndex = 0;
+      el.dataset.fcMasked = '1';
+      el.innerHTML = esc(t).replace(
+        _MONEY_INLINE_RE,
+        m => '<span class="fc-amount">' + m + '</span>'
+      );
+    });
+  }
+
+  function _startPrivacyObserver() {
+    if (_privacyObserver || typeof MutationObserver === 'undefined') return;
+    const root = document.getElementById('screen-app') || document.body;
+    if (!root) return;
+    _privacyObserver = new MutationObserver(() => {
+      if (_privacySweepQueued) return;
+      _privacySweepQueued = true;
+      requestAnimationFrame(() => {
+        _privacySweepQueued = false;
+        if (_privacyModeOn) _sweepMoneyNodes();
+      });
+    });
+    _privacyObserver.observe(root, { childList: true, subtree: true });
+  }
+
+  function _stopPrivacyObserver() {
+    if (!_privacyObserver) return;
+    _privacyObserver.disconnect();
+    _privacyObserver = null;
+  }
+
   function togglePrivacyMode() {
     _privacyModeOn = !_privacyModeOn;
     document.body.classList.toggle('fc-privacy', _privacyModeOn);
+
+    if (_privacyModeOn) { _sweepMoneyNodes(); _startPrivacyObserver(); }
+    else                { _stopPrivacyObserver(); }
+
+    // Remember the choice — a UI preference, never financial data
+    try { localStorage.setItem('fc_privacy_mode', _privacyModeOn ? '1' : '0'); } catch (_) {}
 
     // Update eye icon aria-label + visual state
     const btn = document.getElementById('fc-privacy-toggle');
@@ -12115,6 +14737,26 @@ window.FCApp = (function () {
     }
 
     haptic('light');
+    if (typeof FCAnalytics !== 'undefined') {
+      FCAnalytics.track('privacy_mode_toggled', { on: _privacyModeOn });
+    }
+  }
+
+  /** Re-apply a saved privacy preference on launch, before first paint of
+   *  the app screen, so balances never flash visible. */
+  function _restorePrivacyMode() {
+    try {
+      if (localStorage.getItem('fc_privacy_mode') !== '1') return;
+      _privacyModeOn = true;
+      document.body.classList.add('fc-privacy');
+      _sweepMoneyNodes();
+      _startPrivacyObserver();
+      const btn = document.getElementById('fc-privacy-toggle');
+      if (btn) {
+        btn.setAttribute('aria-label', 'Show balances');
+        btn.setAttribute('aria-pressed', 'true');
+      }
+    } catch (_) {}
   }
 
   /* ─────────────────────────────────────────────────────────────
@@ -12289,7 +14931,7 @@ window.FCApp = (function () {
       _renderSettings();
       toast('Profile updated', 'success');
     } catch (err) {
-      console.error('[saveProfileChanges]', err);
+      fcLog('[saveProfileChanges] error:', err);
       const isPermission = err.code === 'permission-denied' || err.code === 'PERMISSION_DENIED';
       if (errEl) {
         errEl.textContent = isPermission
@@ -12729,6 +15371,20 @@ window.FCApp = (function () {
     boot,
     setScreen,
     switchTab,
+    _renderBillsScreen,   // called from Bills hub segment buttons (inline onclick)
+    // Coach + affordability
+    openCoachAnswer,
+    closeCoachSheet,
+    showAffordSheet,
+    runAffordCheck,
+    // Dashboard v9 — exported for verification assertions (DASHBOARD_SPEC.md §7)
+    _buildRunwaySeries,
+    // Money Week story
+    openMoneyStory,
+    closeMoneyStory,
+    storyNext,
+    storyPrev,
+    closeAffordSheet,
     toast,
     haptic,
     manualSync,
@@ -12769,6 +15425,7 @@ window.FCApp = (function () {
     paywallPurchase,
     paywallRestore,
     renderHomeAfterPro,
+    finishPurchaseSuccess,
     // Face ID setup
     handleBiometricSetup,
     skipFaceIdSetup,
@@ -12776,6 +15433,7 @@ window.FCApp = (function () {
     startTrialFromOnboarding,
     skipOnboarding,
     startDemoMode,
+    isDemoEmail,
     handleVerifyEmailCheck,
     resendVerificationEmail,
     otpBoxInput,
@@ -12784,6 +15442,8 @@ window.FCApp = (function () {
     // Wealth tab
     switchWealthTab,
     switchWealthSegment,
+    // Plan tab
+    switchPlanSeg,
     // Goals
     editGoal,
     showAddGoalSheet,
@@ -12926,6 +15586,9 @@ window.FCApp = (function () {
     // Sub-screen navigation (Plan / More hub)
     _openSubScreen,
     _closeSubScreen,
+    _dismissInsight,
+    _carouselGoTo,
+    handleWebSearch,
     _exportCSV,
     _markAllNotifRead,
     _markNotifRead,
@@ -12943,7 +15606,7 @@ window.FCApp = (function () {
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
 
     // Update native WKWebView background to match instantly
-    const bg = isDark ? '#060e18' : '#F3F7FA';
+    const bg = isDark ? '#060e18' : '#F4F7FB';
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.setAttribute('content', bg);
     document.documentElement.style.backgroundColor = bg;
@@ -12959,7 +15622,7 @@ window.FCApp = (function () {
   }
 
   function _load() {
-    return localStorage.getItem(STORAGE_KEY) || 'system';
+    return localStorage.getItem(STORAGE_KEY) || 'light';
   }
 
   // Apply immediately on load (before anything renders)

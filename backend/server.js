@@ -953,6 +953,25 @@ app.post('/plaid/exchange-token', requireAuthStrict, _plaidUserLimiter, async (r
         linked_at:      admin.firestore.FieldValue.serverTimestamp(),
       });
 
+    // Account mask for referral Sybil protection. institution ALONE cannot
+    // distinguish three friends who all bank at Chase from one person farming
+    // rewards with the same account — the mask is what makes the fingerprint
+    // in referral.js meaningful. Fetched server-side (never from client
+    // metadata, per the institution-name policy above). A mask is the last 4
+    // digits only; no full account number is ever stored.
+    let accountMask = '';
+    try {
+      const { data: acctData } = await plaid.accountsGet({ access_token: data.access_token });
+      const masks = (acctData?.accounts || [])
+        .map(a => (a.mask || '').trim())
+        .filter(Boolean)
+        .sort();                       // stable regardless of Plaid ordering
+      accountMask = masks[0] || '';
+    } catch (maskErr) {
+      // Non-fatal: referral dedupe fails open when the mask is missing.
+      console.warn('[exchange-token] account mask lookup failed:', maskErr.message);
+    }
+
     // Maintain top-level user doc — only set plaid_institution on FIRST bank connect
     // so it doesn't overwrite the name when a second/third bank is added.
     const userSnap = await db.collection('users').doc(req.uid).get();
@@ -964,6 +983,7 @@ app.post('/plaid/exchange-token', requireAuthStrict, _plaidUserLimiter, async (r
       ...(!alreadyLinked ? {
         plaid_institution:    institution,
         plaid_institution_id: institution_id,
+        ...(accountMask ? { plaid_account_mask: accountMask } : {}),
       } : {}),
     });
 

@@ -37,13 +37,48 @@ window.FCAnalytics = (function () {
     } catch (_) {}
   }
 
+  /* ── Property sanitiser ───────────────────────────────────────
+     This module's contract is "no PII or financial data leaves the
+     device". Previously that was only a comment — props were passed
+     to PostHog verbatim, so one careless caller could ship a balance
+     or a merchant name. Now it is enforced here, at the boundary.
+
+     Allowed: booleans, finite numbers on non-financial keys, and
+     short enum-ish strings. Everything else is dropped. */
+  const _BLOCKED_KEY = /(amount|balance|total|price|cost|salary|income|spend|worth|debt|saved|target|merchant|vendor|payee|email|phone|address|name|account|mask|institution|token|uid|ssn)/i;
+  const _EMAILISH    = /[^\s@]+@[^\s@]+\.[^\s@]+/;
+
+  function _sanitize(props) {
+    const out = {};
+    if (!props || typeof props !== 'object') return out;
+    for (const [k, v] of Object.entries(props)) {
+      if (_BLOCKED_KEY.test(k)) continue;          // financial / PII key name
+      if (v === null || v === undefined) continue;
+      if (typeof v === 'boolean') { out[k] = v; continue; }
+      if (typeof v === 'number') {
+        if (Number.isFinite(v)) out[k] = v;        // counts, day offsets, indices
+        continue;
+      }
+      if (typeof v === 'string') {
+        if (v.length > 64) continue;               // free text — could be anything
+        if (_EMAILISH.test(v)) continue;
+        out[k] = v;
+        continue;
+      }
+      // objects / arrays / functions are never safe to forward
+    }
+    return out;
+  }
+
   /**
    * Track an event with optional non-PII properties.
+   * Props are sanitised — see _sanitize(). Never pass raw money values;
+   * bucket them first (e.g. `tier: 'over_500'`), never `amount: 512.30`.
    */
   function track(event, props) {
     if (!_enabled()) return;
     try {
-      posthog.capture(event, props || {});
+      posthog.capture(event, _sanitize(props));
     } catch (_) {}
   }
 

@@ -11,7 +11,7 @@
   --fc-premium-glow: rgba(26, 196, 240, 0.12);
   --fc-premium-track: rgba(240, 246, 255, 0.08);
   --fc-premium-grid: rgba(26, 196, 240, 0.045);
-  --fc-premium-nav: rgba(6, 14, 24, 0.9);
+  --fc-premium-nav: rgba(6, 14, 24, 0.96);
 }
 
 [data-theme="light"] {
@@ -23,7 +23,7 @@
   --fc-premium-glow: var(--fc-accent-soft);
   --fc-premium-track: var(--fc-bg-elevated-2);
   --fc-premium-grid: rgba(20, 124, 255, 0.045);
-  --fc-premium-nav: rgba(243, 247, 250, 0.92);
+  --fc-premium-nav: rgba(243, 247, 250, 0.96);
 }
 
 body.fc-theme {
@@ -55,16 +55,8 @@ body.fc-theme {
   padding-right: 20px;
 }
 
-.dash-hero-name,
-.act-title,
-.premium-page-header h1,
-.wv-page-title,
-#view-settings > .fc-view-title {
-  color: var(--fc-text) !important;
-  font-size: 27px !important;
-  font-weight: 700 !important;
-  letter-spacing: -0.035em !important;
-}
+/* Page-title type is owned by CANONICAL SCREEN CHROME in
+   flowcheck-design-system.css — this file must not compete with it. */
 
 .premium-card-kicker {
   color: var(--fc-text-muted);
@@ -359,12 +351,18 @@ body.fc-theme {
   margin: 0 2px;
 }
 
-.act-search-wrap,
+/* Background lives on .fc-search (the visible field), not the taller
+   .act-search-wrap spacer — otherwise a misaligned slab shows below it. */
+.act-search-wrap .fc-search,
 .act-filter-btn,
 .act-segment-wrap,
 .act-type-chip {
   border-color: var(--fc-premium-border) !important;
   background: var(--fc-card-bg) !important;
+}
+.act-search-wrap {
+  background: transparent !important;
+  border: none !important;
 }
 
 .act-segment-btn.active,
@@ -722,10 +720,11 @@ body.fc-theme {
   background: var(--fc-card-bg);
 }
 
+/* Match the Plan tab's segmented control: elevated pill + accent text */
 .wv-tab.active {
-  background: var(--fc-accent-soft) !important;
+  background: var(--fc-bg-elevated) !important;
   color: var(--fc-accent) !important;
-  box-shadow: none !important;
+  box-shadow: var(--fc-shadow-sm) !important;
 }
 
 .wv-card,
@@ -736,12 +735,11 @@ body.fc-theme {
   box-shadow: var(--fc-premium-shadow) !important;
 }
 
-.wv-position-card,
-.wv-goal-hero,
-.wv-sav-hero,
-.wv-debt-hero {
-  border-radius: 20px !important;
-}
+/* Removed a second competing `border-radius: 20px !important` here. Money's
+   heroes were being set by TWO !important rules in this file (this one and the
+   compact-density block further down) plus the .wv-card rule in index.html —
+   three declarations, three different values. Radius now comes from the token
+   on .wv-card alone. (.wv-position-card was dead — no markup uses it.) */
 
 .wv-acct-row,
 .wv-goal-row,
@@ -873,15 +871,8 @@ body.fc-theme {
   padding-top: env(safe-area-inset-top) !important;
 }
 
-.dash-hero-name,
-.act-title,
-.premium-page-header h1,
-.wv-page-title,
-#view-settings > .fc-view-title {
-  font-size: 22px !important;
-  font-weight: 700 !important;
-  letter-spacing: -0.03em !important;
-}
+/* Page-title type is owned by CANONICAL SCREEN CHROME in
+   flowcheck-design-system.css — this file must not compete with it. */
 
 .act-subtitle,
 .wv-page-sub,
@@ -1493,9 +1484,13 @@ body.fc-theme {
   padding: 7px 12px 0 !important;
 }
 
-#act-summary-card,
+/* Recurring banner stays hidden (noise); the summary card is back — it gives
+   Activity its month in/out/net story and spend trend line. */
 #act-recurring-banner {
   display: none !important;
+}
+#act-summary-card {
+  margin: 10px 12px 4px !important;
 }
 
 .act-type-chips {
@@ -1638,22 +1633,22 @@ body.fc-theme {
   border-radius: 11px !important;
 }
 
-.wv-tab {
-  padding: 7px 2px !important;
-  font-size: 10px !important;
-}
+/* .wv-tab type/padding is owned by CANONICAL SCREEN CHROME so Money's
+   segments match Plan's and Activity's exactly. */
 
 .wv-period-row {
   padding: 8px 12px 0 !important;
 }
 
+/* Compact density owns margin and padding here — NOT radius. These heroes all
+   carry .wv-card, so the radius token applies; a local 15px !important made
+   Money's heroes the odd corner out against the app-wide 24px. */
 .wv-position,
 .wv-sav-hero,
 .wv-debt-hero,
 .wv-goal-hero {
   margin: 9px 12px 0 !important;
   padding: 14px !important;
-  border-radius: 15px !important;
 }
 
 .wv-position-amount {
@@ -1677,14 +1672,21 @@ body.fc-theme {
   margin-right: 12px !important;
 }
 
+/* Type here is deliberately identical to .wv-lbl (index.html) — this is a
+   section label like "Your Accounts" or "Your Debts", it just carries an
+   action on the right. It used to render 12px/no-caps/full-strength against
+   .wv-lbl's 10px/uppercase/muted, so Money showed two unrelated section-label
+   treatments on the same screen. Only the flex row is local. */
 .wv-linked-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 13px 15px 6px;
-  color: var(--wv-t1);
-  font-size: 12px;
+  padding: 18px 20px 8px;
+  color: var(--wv-t3);
+  font-size: 10px;
   font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
 }
 
 .wv-linked-heading button {
@@ -1695,6 +1697,8 @@ body.fc-theme {
   font: inherit;
   font-size: 10px;
   font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;   /* an action, not a label */
 }
 
 .wv-linked-row {

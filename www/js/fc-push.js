@@ -15,6 +15,28 @@ window.FCPush = (function () {
   let _listenersAdded = false;
   let _fcmToken = null;
 
+  /* ── Notification ID namespaces ───────────────────────────────
+     Local-notification IDs must be stable and non-colliding. Bill
+     reminders are derived deterministically from the bill id (so a
+     re-sync reschedules the SAME id instead of stacking duplicates),
+     and recurring engagement notifications live in a reserved range
+     that bill re-syncs must never cancel. */
+  const NOTIF_BILL_MIN   = 1000;
+  const NOTIF_BILL_MAX   = 799999;
+  const NOTIF_WEEKLY_RECAP = 900001;
+  const NOTIF_PAYDAY       = 900002;
+  const RESERVED_IDS = [NOTIF_WEEKLY_RECAP, NOTIF_PAYDAY];
+
+  /** Stable 32-bit hash → bill-reminder id. Same bill always maps to the
+   *  same id, so rescheduling replaces rather than duplicates. */
+  function _billNotifId(bill) {
+    if (Number.isFinite(bill && bill.notification_id)) return bill.notification_id;
+    const key = String((bill && (bill.id || bill.name)) || 'bill');
+    let h = 5381;
+    for (let i = 0; i < key.length; i++) h = ((h << 5) + h + key.charCodeAt(i)) | 0;
+    return NOTIF_BILL_MIN + (Math.abs(h) % (NOTIF_BILL_MAX - NOTIF_BILL_MIN));
+  }
+
   /* ── Request permission & register ──────────────────────── */
   async function requestAndRegister() {
     const push = Push();
@@ -154,6 +176,31 @@ window.FCPush = (function () {
     push.addListener('registrationError', (err) => {
       console.error('[FCPush] Registration error:', err);
     });
+
+    // ── LOCAL notification tapped ──────────────────────────────
+    // Separate plugin from PushNotifications — without this listener a
+    // tapped bill/payday/recap reminder just opened the app doing nothing.
+    const local = Local();
+    if (local && typeof local.addListener === 'function') {
+      local.addListener('localNotificationActionPerformed', (action) => {
+        const extra = (action && action.notification && action.notification.extra) || {};
+        fcLog('[FCPush] local notification tapped:', extra.type);
+        if (!window.FCApp) return;
+        // Defer so the app has finished its resume/render pass first
+        setTimeout(() => {
+          try {
+            if (extra.type === 'weekly_recap' && FCApp.openMoneyStory) {
+              FCApp.switchTab && FCApp.switchTab('home');
+              FCApp.openMoneyStory();
+            } else if (extra.type === 'bill_due') {
+              FCApp.switchTab && FCApp.switchTab('plan');
+            } else {
+              FCApp.switchTab && FCApp.switchTab('home');
+            }
+          } catch (_) {}
+        }, 350);
+      });
+    }
   }
 
   /* ── Check current OS permission status (no prompt) ─────── */
@@ -194,7 +241,7 @@ window.FCPush = (function () {
     try {
       await local.schedule({
         notifications: [{
-          id:    bill.notification_id || Math.floor(Math.random() * 10000),
+          id:    _billNotifId(bill),
           title: `${bill.name} due tomorrow`,
           body:  `$${bill.amount.toFixed(2)} will be charged tomorrow. Tap to review.`,
           schedule: { at: notifyAt },
@@ -221,18 +268,85 @@ window.FCPush = (function () {
     }
   }
 
-  /* ── Cancel all scheduled bill reminders ─────────────────── */
+  /* ── Cancel scheduled bill reminders ─────────────────────────
+     Only touches the bill-id range. Recurring engagement
+     notifications (weekly recap, payday) survive a bill re-sync —
+     cancelling everything here used to silently wipe them. */
   async function cancelAllBillReminders() {
     const local = Local();
     if (!local) return;
     try {
       const pending = await local.getPending();
-      if (pending && pending.notifications && pending.notifications.length) {
-        await local.cancel({
-          notifications: pending.notifications.map(n => ({ id: n.id })),
-        });
+      const doomed = (pending && pending.notifications || [])
+        .filter(n => !RESERVED_IDS.includes(n.id));
+      if (doomed.length) {
+        await local.cancel({ notifications: doomed.map(n => ({ id: n.id })) });
       }
     } catch (_) {}
+  }
+
+  /* ── Weekly recap: "Your Money Week is ready" ─────────────────
+     Sundays at 6pm local. This is the retention loop that pulls
+     people back into the Money Week story. */
+  async function scheduleWeeklyRecap() {
+    const local = Local();
+    if (!local) return false;
+    try {
+      await local.cancel({ notifications: [{ id: NOTIF_WEEKLY_RECAP }] }).catch(() => {});
+      await local.schedule({
+        notifications: [{
+          id:    NOTIF_WEEKLY_RECAP,
+          title: 'Your Money Week is ready',
+          body:  'See where your money actually went — a 30-second recap.',
+          // repeats: fires every Sunday at 18:00 local
+          schedule: { on: { weekday: 1, hour: 18, minute: 0 }, allowWhileIdle: true },
+          sound: 'default',
+          extra: { type: 'weekly_recap' },
+          smallIcon: 'ic_notification',
+          iconColor: '#1ac4f0',
+        }],
+      });
+      fcLog('[FCPush] weekly recap scheduled (Sun 6pm)');
+      return true;
+    } catch (err) {
+      fcLog('[FCPush] weekly recap schedule failed:', err && err.message);
+      return false;
+    }
+  }
+
+  /* ── Payday reminder ──────────────────────────────────────────
+     Fired the morning a predicted paycheck lands, so the user opens
+     the app at the exact moment the money-planning decision matters.
+     `at` must be a Date; amount is optional and only used for copy. */
+  async function schedulePaydayReminder(at, amount) {
+    const local = Local();
+    if (!local || !(at instanceof Date) || isNaN(at)) return false;
+    const when = new Date(at);
+    when.setHours(9, 0, 0, 0);
+    if (when <= new Date()) return false; // already passed — nothing to schedule
+    const amt = Number(amount) > 0
+      ? '$' + Math.round(Number(amount)).toLocaleString('en-US') + ' should have landed. '
+      : '';
+    try {
+      await local.cancel({ notifications: [{ id: NOTIF_PAYDAY }] }).catch(() => {});
+      await local.schedule({
+        notifications: [{
+          id:    NOTIF_PAYDAY,
+          title: "It's payday",
+          body:  amt + 'See what\'s safe to spend before it disappears.',
+          schedule: { at: when, allowWhileIdle: true },
+          sound: 'default',
+          extra: { type: 'payday' },
+          smallIcon: 'ic_notification',
+          iconColor: '#1ac4f0',
+        }],
+      });
+      fcLog('[FCPush] payday reminder scheduled for', when.toISOString());
+      return true;
+    } catch (err) {
+      fcLog('[FCPush] payday schedule failed:', err && err.message);
+      return false;
+    }
   }
 
   /* ── Clear delivered notifications on foreground ─────────── */
@@ -273,6 +387,8 @@ window.FCPush = (function () {
     scheduleBillReminder,
     scheduleAllBillReminders,
     cancelAllBillReminders,
+    scheduleWeeklyRecap,
+    schedulePaydayReminder,
     clearDeliveredAndBadge,
     getFcmToken,
     reset,

@@ -1,4 +1,4 @@
-# FlowCheck — Claude Code Context
+# FlowCheck — Codex Context
 
 ## What this app is
 FlowCheck is a personal finance iOS app built with Capacitor 8.x. It connects to bank accounts via Plaid, tracks transactions, bills, net worth, and financial health. It's a consumer finance app — privacy and security are non-negotiable.
@@ -30,47 +30,6 @@ FlowCheck is a personal finance iOS app built with Capacitor 8.x. It connects to
 - CSS vars defined in `flowcheck-design-system.css` — always use vars, never hardcode colors
 - Note: `--fc-purple` is deprecated and inconsistent — use `--fc-electric` instead
 
-### ★ Canonical screen chrome — READ BEFORE STYLING ANY SCREEN
-Every page header, segmented control, chip row, and section label in the app is
-defined ONCE, in the `★ CANONICAL SCREEN CHROME ★` block at the bottom of
-`flowcheck-design-system.css`. Use these classes:
-
-| Element | Class |
-|---|---|
-| Page header | `.fc-page-head` + `.fc-page-head__text` + `.fc-page-title` + `.fc-page-sub` |
-| Header action button | `.fc-page-head__action` (36px accent circle) |
-| Sub-screen title | `.fc-page-title--sub` |
-| Segmented control | `.fc-seg` + `.fc-seg-btn` (`.active` / `aria-selected`) |
-| Time-range chips | `.fc-chip-row` + `.fc-chip` |
-| Section label between cards | `.fc-eyebrow` |
-| Label inside a card | `.fc-section-label` (9px — the smaller one) |
-
-**Never style a page title or segment control inline or per-screen.** The app
-previously had 5 different page-title treatments and 3 unrelated segment systems
-held together by `!important` overrides across 3 stylesheets. Legacy names
-(`.act-title`, `.wv-page-title`, `.wv-tab`, `.fc-segment-btn`, `.wv-period-btn`,
-`.plan-period-btn`) are aliased to the canonical rules — don't add new ones.
-
-Verify a change held with the computed-style assertion, not by eye:
-```js
-new Set([...document.querySelectorAll('.fc-seg-btn,.wv-tab,.fc-segment-btn')]
-  .map(el => getComputedStyle(el).fontSize)).size === 1  // must be true
-```
-
-**Segments and chips are different components — do not assert them together.**
-`.fc-seg-btn` (and its aliases `.wv-tab`, `.fc-segment-btn`) is 12.5px.
-`.fc-chip` (and its aliases `.wv-period-btn`, `.plan-period-btn`) is 12px.
-That 0.5px difference is deliberate; a sweep that mixes them reports a false split.
-
-Card radius must be asserted with **`.wv-card` included and scoped to the
-active view** — Money's cards are `.wv-card`, so the older
-`.fc-ui-card,.fc-card` query silently skipped the entire tab:
-```js
-new Set([...document.querySelectorAll(
-  '.fc-view.active .fc-ui-card, .fc-view.active .fc-card, .fc-view.active .wv-card')]
-  .map(el => getComputedStyle(el).borderRadius)).size === 1  // must be true
-```
-
 ## Deploy flow
 ```bash
 # After editing www/ files:
@@ -99,26 +58,17 @@ Never edit files directly in `ios/App/App/public/` — they get overwritten by `
 - Always fallback: if `getPlaidItems()` returns empty, check `state.user.plaid_institution`
 - **Never store Plaid tokens in localStorage or UserDefaults — Keychain only**
 
-## Known bugs
-
-**All 10 previously-listed bugs are FIXED and verified (2026-07-30).** They are
-kept here only so a future session doesn't "rediscover" them — do not re-fix.
-
-| # | Bug | Resolved by |
-|---|---|---|
-| 1 | Insights tab shake | Insights folded into Plan; render deferred via `requestAnimationFrame` |
-| 2 | "No banks connected" for early users | `plaid_institution` fallback (`fc-app.js` ~13152) |
-| 3 | Streak stuck at Day 1 | `_streakCheckedThisSession` guard (`fc-app.js` ~12366) |
-| 4 / 10 | Pro not ungating after purchase | `_refreshAfterPro()` removes `.fc-pro-gate` + re-renders |
-| 5 | Two paywall integrations | Single `showPaywall()` entry point |
-| 6 | Referral code generation | Client-side by design; revisit only if abuse appears |
-| 7 | Old account data flash | `_wipeUserState()` runs BEFORE `FCAuth.signOut()` |
-| 8 | Lock screen / Face ID jank | Now native (`UIVisualEffectView` in AppDelegate) |
-| 9 | Free-tier limits not enforced | `startPlaidLink()` checks live RC status + real item count |
-
-**Before fixing anything listed as a "known bug" anywhere in this file: verify it
-still reproduces.** This list was stale for weeks and cost a full session of
-re-verification.
+## Known bugs (fix these)
+1. **Insights tab transition** — page shakes on switch. Root cause: `_renderInsights()` runs sync during CSS slide animation, `scrollTop` reset happens after render. Fix: reset `scrollTop` before render, defer `_renderInsights()` with `requestAnimationFrame`.
+2. **Connected Banks shows "No banks connected"** — `getPlaidItems()` returns `[]` for early users. Fix: fallback to `state.user.plaid_institution` in `showBankSheet()`.
+3. **Streak stuck at Day 1** — `_maybeIncrementStreak()` fires on every Firestore listener update (re-entrancy). Fix: add `_streakCheckedThisSession` boolean guard.
+4. **Pro features not ungating after purchase** — paywall closes but UI doesn't re-render. Fix: after successful purchase, call `_renderHome()` and clear all pro-gate elements.
+5. ~~**Two paywall integrations**~~ — resolved: onboarding and settings both call the single `showPaywall()` at `fc-app.js:6144`. Confirm in App Store Connect there's only one offering.
+6. **Referral code generation** — client-side only (no `/referral/generate` endpoint exists). Client generates code via `FCData.updateUserField()` in `fc-app.js:7067`. Decide whether to leave client-side or move to backend for atomicity / abuse-prevention.
+7. **Old account data flash on new account** — Firestore listener not cleaned up on signout. Fix: unsubscribe all listeners on `signOut()`.
+8. **Lock screen / Face ID** — feels janky. Needs premium redesign. Native Face ID dialog appears 450ms after lock screen (jarring). Reduce delay, add smooth blur transition.
+9. **Free mode limits not enforced** — users can add multiple accounts on free plan. Gate `linkBank()` behind pro check.
+10. **Financial health score pro gate doesn't clear after upgrade** — pro-gate overlay stays after purchase.
 
 ## Security & Privacy (non-negotiable)
 - No financial data in `localStorage` or `sessionStorage` — use Keychain via Capacitor Secure Storage

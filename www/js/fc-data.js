@@ -824,8 +824,9 @@ window.FCData = (function () {
     if (days === 1) return { label: 'Due tomorrow',            color: 'var(--fc-warning)' };
     if (days <= 3)  return { label: `Due in ${days} days`,     color: 'var(--fc-warning)' };
     if (days <= 7)  return { label: `Due in ${days} days`,     color: 'var(--fc-text-muted)' };
-    const label = new Date(Date.now() + days * 86400000)
-      .toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ` · ${days} days`;
+    // Same "Due <x>" shape as the near-term labels — one format per list
+    const label = 'Due ' + new Date(Date.now() + days * 86400000)
+      .toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     return { label, color: 'var(--fc-text-faint)' };
   }
 

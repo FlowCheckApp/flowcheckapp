@@ -47,10 +47,16 @@ service cloud.firestore {
         'fcm_token', 'fcm_updated_at',
         // Terms acceptance
         'terms_accepted_at', 'terms_version',
-        // Referral — stored at signup if the user entered a referral code
+        // Referral — stored at signup if the user entered a referral code.
+        // 'referred_by' is just the code the new user TYPED IN; it grants
+        // nothing on its own (the reward path reads referred_by_uid, which
+        // only the backend writes after validating the code in /apply).
         'referred_by',
-        // Referral code — deterministic, generated client-side
-        'referral_code',
+        // NOTE: 'referral_code' is deliberately NOT settable at create either.
+        // Signup does not write it (see fc-auth.js — only 'referred_by' is set);
+        // it is issued server-side by POST /api/referral/generate. Allowing it
+        // here would let someone claim another user's un-indexed code at signup
+        // and steal their referral credit.
       ]);
     }
 
@@ -73,8 +79,12 @@ service cloud.firestore {
         'tour_completed',
         'fcm_token', 'fcm_updated_at',
         'terms_accepted_at', 'terms_version',
-        // Referral system — client generates and persists its own code
-        'referral_code',
+        // NOTE: 'referral_code' is deliberately NOT client-writable.
+        // It is issued server-side by POST /api/referral/generate (Admin SDK,
+        // which bypasses these rules). Allowing clients to set it let a user
+        // write someone else's un-indexed code onto their own doc and steal
+        // the referral credit via the lookup fallback in referral.js /apply.
+        // The client only ever READS this field.
       ]);
     }
 

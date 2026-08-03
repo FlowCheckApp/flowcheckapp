@@ -22,6 +22,8 @@
 
 'use strict';
 
+const crypto = require('crypto');
+
 const express = require('express');
 const router  = express.Router();
 
@@ -189,20 +191,32 @@ module.exports = function makeReferralRouter(admin, db, requireAuthStrict) {
       if (referralSnap.exists) {
         referrerUid = referralSnap.data().uid;
       } else {
-        // Fallback: find the user who owns this code
+        // Fallback for codes issued before the referrals/ index existed.
+        // Defence in depth: `referral_code` is no longer client-writable (see
+        // firestore.rules), but if two docs ever carry the same code we must
+        // NOT silently pick one — that is exactly how referral credit gets
+        // stolen. Ambiguity is treated as "unknown code".
         const q = await db.collection('users')
           .where('referral_code', '==', upperCode)
-          .limit(1)
+          .limit(2)
           .get();
+
+        if (q.size > 1) {
+          console.warn('[referral/apply] ambiguous code claimed by multiple users:', upperCode);
+          return res.status(409).json({ error: 'Code could not be verified' });
+        }
+
         if (!q.empty) {
           referrerUid = q.docs[0].id;
-          // Back-fill the referrals/ index so future lookups are O(1)
-          referralRef.set({
+          // Back-fill the index with create() rather than set(): create() fails
+          // if the doc already exists, so a concurrent request can never
+          // overwrite an authoritative index entry and reassign ownership.
+          referralRef.create({
             uid:          referrerUid,
             created_at:   admin.firestore.FieldValue.serverTimestamp(),
             activations:  0,
             lifetime_pro: false,
-          }).catch(() => {});
+          }).catch(() => {});   // already exists → the index already won
         }
       }
 
@@ -263,6 +277,31 @@ module.exports = function makeReferralRouter(admin, db, requireAuthStrict) {
       const referralRef   = db.collection('referrals').doc(code);
       const referrerRef   = db.collection('users').doc(referrerUid);
 
+      // ── Sybil protection ────────────────────────────────────────
+      // `plaid_linked` proves *a* bank was connected, but not a DISTINCT one.
+      // Without this, one person can connect the same account to three
+      // throwaway signups and farm lifetime Pro — which costs real money at
+      // ~$20-25 net per subscriber. We fingerprint the connected institution
+      // + account mask and refuse to count the same bank twice for the same
+      // referrer. Hashed so we never store raw bank identifiers here.
+      // FAIL OPEN, deliberately. We only dedupe when we have a genuine
+      // per-ACCOUNT identifier. Institution alone is not enough: three real
+      // friends who all bank at Chase would collapse to one activation and we
+      // would silently rob honest users of their reward. Blocking a real
+      // referral is worse than missing a fraudulent one, so with no account
+      // identifier we count the activation and move on.
+      const _inst = (userData.plaid_institution || '').toLowerCase().trim();
+      const _acct = (userData.plaid_account_mask || userData.plaid_item_id || '')
+        .toString().trim().toLowerCase();
+      const bankFingerprint = (_inst && _acct)
+        ? crypto.createHash('sha256').update(_inst + '|' + _acct).digest('hex').slice(0, 32)
+        : null;   // no account id → no dedupe (fail open)
+
+      // `plaid_account_mask` is written server-side by the token-exchange
+      // handler in server.js (from plaid.accountsGet — never client metadata).
+      // When it is absent — accounts linked before that shipped, or a failed
+      // lookup — this stays null and the activation is counted, not blocked.
+
       // Run in a transaction for atomicity.
       // IMPORTANT: Firestore requires ALL reads to happen before ANY writes.
       // We front-load every trx.get() call, then perform all trx.update() calls.
@@ -275,7 +314,17 @@ module.exports = function makeReferralRouter(admin, db, requireAuthStrict) {
         const referrerSnapTrx = await trx.get(referrerRef);
 
         // ── Phase 2: compute, then ALL writes ─────────────────
-        const newActivations = (referralSnap.data().activations || 0) + 1;
+        const refData = referralSnap.data();
+
+        // Refuse to count the same bank twice for this referrer. Marks the
+        // user activated so they aren't retried forever, but grants nothing.
+        const seen = Array.isArray(refData.bank_fingerprints) ? refData.bank_fingerprints : [];
+        if (bankFingerprint && seen.includes(bankFingerprint)) {
+          trx.update(userRef, { referral_activated: true, referral_duplicate_bank: true });
+          return;
+        }
+
+        const newActivations = (refData.activations || 0) + 1;
         const lifetimePro    = newActivations >= 3;
 
         // 1. Mark the referred user as activated
@@ -312,7 +361,11 @@ module.exports = function makeReferralRouter(admin, db, requireAuthStrict) {
               referral_activations: newActivations,
             });
           }
-          trx.update(referralRef, { activations: newActivations, lifetime_pro: true });
+          trx.update(referralRef, {
+            activations: newActivations,
+            lifetime_pro: true,
+            ...(bankFingerprint ? { bank_fingerprints: admin.firestore.FieldValue.arrayUnion(bankFingerprint) } : {}),
+          });
         } else {
           // 1 additional month stacked on referrer's existing expiry
           if (referrerSnapTrx.exists) {
@@ -332,7 +385,10 @@ module.exports = function makeReferralRouter(admin, db, requireAuthStrict) {
               referral_activations: newActivations,
             });
           }
-          trx.update(referralRef, { activations: newActivations });
+          trx.update(referralRef, {
+            activations: newActivations,
+            ...(bankFingerprint ? { bank_fingerprints: admin.firestore.FieldValue.arrayUnion(bankFingerprint) } : {}),
+          });
         }
       });
 

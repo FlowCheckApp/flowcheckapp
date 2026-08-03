@@ -5,47 +5,46 @@
    ============================================================ */
 
 :root {
-  /* --- Surfaces --- */
-  --fc-bg:              #060e18;
-  --fc-bg-elevated:     #0b1826;
-  --fc-bg-elevated-2:   #111f30;
-  --fc-card-bg:         rgba(255, 255, 255, 0.04);
-  --fc-card-bg-hover:   rgba(255, 255, 255, 0.07);
-  --fc-glass:           rgba(12, 24, 40, 0.85);
+  color-scheme: light;
 
-  /* --- Accents --- */
-  --fc-accent:          #1ac4f0;
-  --fc-accent-soft:     rgba(26, 196, 240, 0.12);
-  --fc-accent-glow:     rgba(26, 196, 240, 0.4);
-  --fc-accent-hover:    #38d5ff;
-  --fc-accent-ink:      #001a24;
+  /* --- Light-first surfaces --- */
+  --fc-bg:              #F4F7FB;
+  --fc-bg-elevated:     #FFFFFF;
+  --fc-bg-elevated-2:   #EDF2F8;
+  --fc-card-bg:         #FFFFFF;
+  --fc-card-bg-hover:   #F7F9FC;
+  --fc-glass:           rgba(244, 247, 251, 0.92);
 
-  --fc-electric:        #2563eb;
-  --fc-electric-soft:   rgba(37, 99, 235, 0.15);
-  --fc-electric-glow:   rgba(37, 99, 235, 0.4);
-
-  /* --fc-purple / --fc-purple-2 / --fc-purple-soft removed — use --fc-electric */
+  /* --- Brand --- */
+  --fc-accent:          #147CFF;
+  --fc-accent-soft:     rgba(20, 124, 255, 0.10);
+  --fc-accent-glow:     rgba(20, 124, 255, 0.20);
+  --fc-accent-hover:    #0F6FE6;
+  --fc-accent-ink:      #FFFFFF;
+  --fc-electric:        #147CFF;
+  --fc-electric-soft:   rgba(20, 124, 255, 0.10);
+  --fc-electric-glow:   rgba(20, 124, 255, 0.20);
 
   /* --- Status --- */
-  --fc-success:         #30d158;
-  --fc-success-soft:    rgba(48, 209, 88, 0.14);
-  --fc-success-border:  rgba(48, 209, 88, 0.25);
-  --fc-warning:         #ff9f0a;
-  --fc-warning-soft:    rgba(255, 159, 10, 0.14);
-  --fc-danger:          #ff453a;
-  --fc-danger-soft:     rgba(255, 69, 58, 0.14);
-  --fc-danger-border:   rgba(255, 69, 58, 0.25);
+  --fc-success:         #22C55E;
+  --fc-success-soft:    rgba(34, 197, 94, 0.10);
+  --fc-success-border:  rgba(34, 197, 94, 0.22);
+  --fc-warning:         #F59E0B;
+  --fc-warning-soft:    rgba(245, 158, 11, 0.10);
+  --fc-danger:          #EF4444;
+  --fc-danger-soft:     rgba(239, 68, 68, 0.10);
+  --fc-danger-border:   rgba(239, 68, 68, 0.22);
 
   /* --- Text --- */
-  --fc-text:            #f0f6ff;
-  --fc-text-muted:      rgba(240, 246, 255, 0.58);
-  --fc-text-faint:      rgba(240, 246, 255, 0.36);
-  --fc-text-disabled:   rgba(240, 246, 255, 0.22);
+  --fc-text:            #0D1B2E;
+  --fc-text-muted:      rgba(13, 27, 46, 0.58);
+  --fc-text-faint:      rgba(13, 27, 46, 0.40);
+  --fc-text-disabled:   rgba(13, 27, 46, 0.24);
 
   /* --- Borders --- */
-  --fc-border:          rgba(255, 255, 255, 0.07);
-  --fc-border-strong:   rgba(255, 255, 255, 0.13);
-  --fc-border-accent:   rgba(26, 196, 240, 0.22);
+  --fc-border:          rgba(13, 27, 46, 0.09);
+  --fc-border-strong:   rgba(13, 27, 46, 0.15);
+  --fc-border-accent:   rgba(20, 124, 255, 0.24);
 
   /* --- Radii --- */
   --fc-r-sm:            12px;
@@ -55,10 +54,10 @@
   --fc-r-pill:          9999px;
 
   /* --- Shadows --- */
-  --fc-shadow-sm:       0 2px 10px rgba(0, 0, 0, 0.28);
-  --fc-shadow-md:       0 8px 28px rgba(0, 0, 0, 0.38);
-  --fc-shadow-lg:       0 20px 48px rgba(0, 0, 0, 0.5);
-  --fc-shadow-glow:     0 0 30px rgba(26, 196, 240, 0.18);
+  --fc-shadow-sm:       0 1px 3px rgba(13, 27, 46, 0.04), 0 8px 24px rgba(13, 27, 46, 0.06);
+  --fc-shadow-md:       0 2px 8px rgba(13, 27, 46, 0.05), 0 14px 36px rgba(13, 27, 46, 0.08);
+  --fc-shadow-lg:       0 20px 50px rgba(13, 27, 46, 0.14);
+  --fc-shadow-glow:     0 10px 30px rgba(20, 124, 255, 0.16);
 
   /* --- Motion --- */
   --fc-ease-spring:     cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -81,17 +80,60 @@
 }
 
 /* ============================================================
+   DARK MODE — explicit [data-theme="dark"] on <html>
+   Mirrors :root dark values so dark mode works regardless of
+   whether :root is ever flipped to light-mode-first in future.
+   ============================================================ */
+[data-theme="dark"] {
+  color-scheme: dark;
+  --fc-bg:              #060e18;
+  --fc-bg-elevated:     #0b1826;
+  --fc-bg-elevated-2:   #111f30;
+  --fc-card-bg:         rgba(255, 255, 255, 0.04);
+  --fc-card-bg-hover:   rgba(255, 255, 255, 0.07);
+  --fc-glass:           rgba(12, 24, 40, 0.85);
+  --fc-accent:          #1ac4f0;
+  --fc-accent-soft:     rgba(26, 196, 240, 0.12);
+  --fc-accent-glow:     rgba(26, 196, 240, 0.4);
+  --fc-accent-hover:    #38d5ff;
+  --fc-accent-ink:      #001a24;
+  --fc-electric:        #2563eb;
+  --fc-electric-soft:   rgba(37, 99, 235, 0.15);
+  --fc-electric-glow:   rgba(37, 99, 235, 0.4);
+  --fc-success:         #30d158;
+  --fc-success-soft:    rgba(48, 209, 88, 0.14);
+  --fc-success-border:  rgba(48, 209, 88, 0.25);
+  --fc-warning:         #ff9f0a;
+  --fc-warning-soft:    rgba(255, 159, 10, 0.14);
+  --fc-danger:          #ff453a;
+  --fc-danger-soft:     rgba(255, 69, 58, 0.14);
+  --fc-danger-border:   rgba(255, 69, 58, 0.25);
+  --fc-text:            #f0f6ff;
+  --fc-text-muted:      rgba(240, 246, 255, 0.58);
+  --fc-text-faint:      rgba(240, 246, 255, 0.36);
+  --fc-text-disabled:   rgba(240, 246, 255, 0.22);
+  --fc-border:          rgba(255, 255, 255, 0.07);
+  --fc-border-strong:   rgba(255, 255, 255, 0.13);
+  --fc-border-accent:   rgba(26, 196, 240, 0.22);
+  --fc-shadow-sm:       0 2px 10px rgba(0, 0, 0, 0.28);
+  --fc-shadow-md:       0 8px 28px rgba(0, 0, 0, 0.38);
+  --fc-shadow-lg:       0 20px 48px rgba(0, 0, 0, 0.5);
+  --fc-shadow-glow:     0 0 30px rgba(26, 196, 240, 0.18);
+}
+
+/* ============================================================
    LIGHT MODE — [data-theme="light"] on <html>
    Premium warm-white aesthetic: Monarch Money / Apple Wallet quality
    ============================================================ */
 [data-theme="light"] {
+  color-scheme: light;
   /* --- Surfaces --- */
-  --fc-bg:              #F3F7FA;
-  --fc-bg-elevated:     #ffffff;
-  --fc-bg-elevated-2:   #eaf0f6;
-  --fc-card-bg:         #ffffff;
-  --fc-card-bg-hover:   #f5f8fb;
-  --fc-glass:           rgba(243, 247, 250, 0.96);
+  --fc-bg:              #F4F7FB;
+  --fc-bg-elevated:     #FFFFFF;
+  --fc-bg-elevated-2:   #EDF2F8;
+  --fc-card-bg:         #FFFFFF;
+  --fc-card-bg-hover:   #F7F9FC;
+  --fc-glass:           rgba(244, 247, 251, 0.92);
 
   /* --- Accents — premium blue primary palette --- */
   --fc-accent:          #147CFF;
@@ -105,9 +147,9 @@
   --fc-electric-glow:   rgba(20, 124, 255, 0.20);
 
   /* --- Status --- */
-  --fc-success:         #16A34A;
-  --fc-success-soft:    rgba(22, 163, 74, 0.10);
-  --fc-success-border:  rgba(22, 163, 74, 0.22);
+  --fc-success:         #22C55E;
+  --fc-success-soft:    rgba(34, 197, 94, 0.10);
+  --fc-success-border:  rgba(34, 197, 94, 0.22);
   --fc-warning:         #F59E0B;
   --fc-warning-soft:    rgba(245, 158, 11, 0.10);
   --fc-danger:          #EF4444;
@@ -115,21 +157,21 @@
   --fc-danger-border:   rgba(239, 68, 68, 0.22);
 
   /* --- Text --- */
-  --fc-text:            #071426;
-  --fc-text-muted:      #64748B;
-  --fc-text-faint:      #94A3B8;
-  --fc-text-disabled:   rgba(7, 20, 38, 0.22);
+  --fc-text:            #0D1B2E;
+  --fc-text-muted:      rgba(13, 27, 46, 0.58);
+  --fc-text-faint:      rgba(13, 27, 46, 0.40);
+  --fc-text-disabled:   rgba(13, 27, 46, 0.24);
 
   /* --- Borders --- */
-  --fc-border:          rgba(13, 27, 46, 0.08);
-  --fc-border-strong:   rgba(13, 27, 46, 0.14);
-  --fc-border-accent:   rgba(13, 173, 212, 0.20);
+  --fc-border:          rgba(13, 27, 46, 0.09);
+  --fc-border-strong:   rgba(13, 27, 46, 0.15);
+  --fc-border-accent:   rgba(20, 124, 255, 0.24);
 
   /* --- Shadows — more visible on light --- */
-  --fc-shadow-sm:       0 1px 4px rgba(13, 27, 46, 0.08), 0 2px 10px rgba(13, 27, 46, 0.06);
-  --fc-shadow-md:       0 4px 16px rgba(13, 27, 46, 0.10), 0 1px 4px rgba(13, 27, 46, 0.06);
-  --fc-shadow-lg:       0 12px 40px rgba(13, 27, 46, 0.14), 0 4px 12px rgba(13, 27, 46, 0.08);
-  --fc-shadow-glow:     0 0 24px rgba(13, 173, 212, 0.14);
+  --fc-shadow-sm:       0 1px 3px rgba(13, 27, 46, 0.04), 0 8px 24px rgba(13, 27, 46, 0.06);
+  --fc-shadow-md:       0 2px 8px rgba(13, 27, 46, 0.05), 0 14px 36px rgba(13, 27, 46, 0.08);
+  --fc-shadow-lg:       0 20px 50px rgba(13, 27, 46, 0.14);
+  --fc-shadow-glow:     0 10px 30px rgba(20, 124, 255, 0.16);
 }
 
 /* Light mode body — clean warm-white with very subtle top accent bloom */
@@ -151,14 +193,15 @@
   border-top-color: rgba(13, 27, 46, 0.09);
   box-shadow: 0 -1px 0 rgba(13,27,46,0.06), 0 -8px 24px rgba(13,27,46,0.04);
 }
-/* Light mode nav active tab — deeper accent */
+/* Light mode nav active tab */
 [data-theme="light"] .fc-nav-item.active { color: var(--fc-accent); }
 [data-theme="light"] .fc-nav-item.active svg {
-  filter: drop-shadow(0 0 5px rgba(13,173,212,0.4));
+  filter: drop-shadow(0 2px 6px rgba(20,124,255,0.4));
 }
 [data-theme="light"] .fc-nav-item.active::before {
-  background: linear-gradient(90deg, var(--fc-accent), #60a5fa);
-  box-shadow: 0 0 8px rgba(13,173,212,0.45);
+  background: rgba(20, 124, 255, 0.10);
+  box-shadow: 0 0 14px rgba(20,124,255,0.07),
+              inset 0 1px 0 rgba(20,124,255,0.08);
 }
 
 /* Light mode header */
@@ -629,45 +672,59 @@ body.fc-theme {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding-top: 8px;
+  gap: 3px;
+  padding: 10px 0 7px;
   color: var(--fc-text-faint);
   text-decoration: none;
   font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  transition: color 0.18s var(--fc-ease-out),
-              transform 0.15s var(--fc-ease-spring),
-              opacity 0.1s;
-  will-change: transform;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  transition: color 0.22s var(--fc-ease-out),
+              font-weight 0s,
+              transform 0.1s;
   cursor: pointer;
   user-select: none;
   -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
-.fc-nav-item.active { color: var(--fc-accent); }
-.fc-nav-item.active svg {
-  transform: translateY(-2px);
-  filter: drop-shadow(0 0 7px rgba(26,196,240,0.55));
+.fc-nav-item.active {
+  color: var(--fc-accent);
+  font-weight: 600;
 }
 .fc-nav-item svg {
-  width: 23px; height: 23px;
-  transition: transform 0.17s var(--fc-ease-spring), filter 0.2s;
+  width: 24px; height: 24px;
+  position: relative;
+  z-index: 1;
+  transition: transform 0.28s var(--fc-ease-spring), filter 0.22s;
   will-change: transform;
 }
-.fc-nav-item:active { transform: scale(0.92); opacity: 0.7; }
+.fc-nav-item.active svg {
+  transform: scale(1.1) translateY(-1px);
+  filter: drop-shadow(0 2px 8px rgba(26,196,240,0.5));
+}
+.fc-nav-item:active { transform: scale(0.90); }
 
-/* Active tab indicator — glowing capsule */
-.fc-nav-item.active::before {
+/* Floating pill — scales in behind the active icon */
+.fc-nav-item::before {
   content: '';
   position: absolute;
-  top: 0;
+  top: 5px;
   left: 50%;
-  transform: translateX(-50%);
-  width: 28px;
-  height: 3px;
-  background: linear-gradient(90deg, var(--fc-accent), #60a5fa);
-  border-radius: 0 0 4px 4px;
-  box-shadow: 0 0 12px rgba(26,196,240,0.65), 0 0 24px rgba(26,196,240,0.25);
+  transform: translateX(-50%) scale(0.4);
+  width: 50px;
+  height: 30px;
+  border-radius: 15px;
+  background: transparent;
+  transition: background 0.28s var(--fc-ease-out),
+              transform 0.32s var(--fc-ease-spring);
+  pointer-events: none;
+  z-index: 0;
+}
+.fc-nav-item.active::before {
+  background: rgba(26, 196, 240, 0.14);
+  transform: translateX(-50%) scale(1);
+  box-shadow: 0 0 18px rgba(26,196,240,0.10),
+              inset 0 1px 0 rgba(26,196,240,0.08);
 }
 
 /* ============================================================
@@ -723,6 +780,35 @@ body.fc-theme {
 .fc-stagger > *:nth-child(5) { animation-delay: 0.24s; }
 .fc-stagger > *:nth-child(6) { animation-delay: 0.29s; }
 .fc-stagger > *:nth-child(7) { animation-delay: 0.34s; }
+
+/* Tab-view card stagger — first visit only. .fc-loaded (set when leaving a
+   view) suppresses replay on return, same pattern as .fc-fade-up below. */
+.fc-view:not(.fc-loaded) .home-v8 > *,
+.fc-view:not(.fc-loaded) #plan-content > *,
+.fc-view:not(.fc-loaded) #wv-overview-content > *,
+.fc-view:not(.fc-loaded) #more-content > * {
+  animation: fcFadeUp 0.42s var(--fc-ease-decel) backwards;
+}
+.fc-view:not(.fc-loaded) .home-v8 > *:nth-child(1),
+.fc-view:not(.fc-loaded) #plan-content > *:nth-child(1),
+.fc-view:not(.fc-loaded) #wv-overview-content > *:nth-child(1),
+.fc-view:not(.fc-loaded) #more-content > *:nth-child(1) { animation-delay: 0.03s; }
+.fc-view:not(.fc-loaded) .home-v8 > *:nth-child(2),
+.fc-view:not(.fc-loaded) #plan-content > *:nth-child(2),
+.fc-view:not(.fc-loaded) #wv-overview-content > *:nth-child(2),
+.fc-view:not(.fc-loaded) #more-content > *:nth-child(2) { animation-delay: 0.07s; }
+.fc-view:not(.fc-loaded) .home-v8 > *:nth-child(3),
+.fc-view:not(.fc-loaded) #plan-content > *:nth-child(3),
+.fc-view:not(.fc-loaded) #wv-overview-content > *:nth-child(3),
+.fc-view:not(.fc-loaded) #more-content > *:nth-child(3) { animation-delay: 0.11s; }
+.fc-view:not(.fc-loaded) .home-v8 > *:nth-child(4),
+.fc-view:not(.fc-loaded) #plan-content > *:nth-child(4),
+.fc-view:not(.fc-loaded) #wv-overview-content > *:nth-child(4),
+.fc-view:not(.fc-loaded) #more-content > *:nth-child(4) { animation-delay: 0.15s; }
+.fc-view:not(.fc-loaded) .home-v8 > *:nth-child(n+5),
+.fc-view:not(.fc-loaded) #plan-content > *:nth-child(n+5),
+.fc-view:not(.fc-loaded) #wv-overview-content > *:nth-child(n+5),
+.fc-view:not(.fc-loaded) #more-content > *:nth-child(n+5) { animation-delay: 0.19s; }
 
 /* ============================================================
    Section spacing
@@ -1105,7 +1191,7 @@ body.fc-theme {
 [data-theme="light"] .dash-ins-chevron { color: rgba(13,27,46,0.32) !important; }
 
 /* ── Activity view ───────────────────────────────────────── */
-[data-theme="light"] .act-title   { color: #071426 !important; }
+/* removed: .act-title color is canonical now */
 [data-theme="light"] .act-subtitle { color: rgba(7,20,38,0.50) !important; }
 [data-theme="light"] .fc-date-label { color: rgba(7,20,38,0.42) !important; }
 [data-theme="light"] .fc-date-net  { color: rgba(7,20,38,0.44) !important; }
@@ -1193,6 +1279,31 @@ body.fc-theme {
 [data-theme="light"] .fc-list-title  { color: #071426 !important; }
 [data-theme="light"] .fc-list-meta   { color: rgba(7,20,38,0.44) !important; }
 [data-theme="light"] .fc-list-chevron { color: rgba(7,20,38,0.18) !important; }
+
+/* Act summary card — in/out row (dark + light via CSS vars) */
+.act-inout-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+.act-inout-amt {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.act-inout-amt--in  { color: var(--fc-success); }
+.act-inout-amt--out { color: var(--fc-text); }
+.act-inout-lbl {
+  font-size: 13px;
+  font-weight: 500;
+  margin-right: 8px;
+}
+.act-inout-lbl--in  { color: var(--fc-success); }
+.act-inout-lbl--out { color: var(--fc-text-muted); }
 
 /* ── Insights view ───────────────────────────────────────── */
 [data-theme="light"] .ins-health-card {
@@ -1358,7 +1469,7 @@ body.fc-theme {
 
 /* ── View titles ─────────────────────────────────────────── */
 [data-theme="light"] .fc-view-title { color: #0a1520 !important; }
-[data-theme="light"] .act-title     { color: #0a1520 !important; }
+/* removed: .act-title color is canonical now */
 
 /* ── Carousel dots ──────────────────────────────────────── */
 [data-theme="light"] .dash-dot       { background: rgba(13,27,46,0.16) !important; }
@@ -1695,12 +1806,14 @@ body.fc-theme {
 /* ── Wealth: inactive period tab buttons ─────────────────────── */
 [data-theme="light"] #view-wealth [role="tab"] {
   color: rgba(13,27,46,0.50) !important;
-  background: rgba(13,27,46,0.05) !important;
+  background: transparent !important;
 }
+/* Active pill matches the Plan tab segmented control: elevated + accent */
 [data-theme="light"] #view-wealth [role="tab"].active,
 [data-theme="light"] #view-wealth [role="tab"][aria-selected="true"] {
-  background: rgba(13,173,212,0.14) !important;
+  background: var(--fc-bg-elevated) !important;
   color: var(--fc-accent) !important;
+  box-shadow: var(--fc-shadow-sm) !important;
 }
 
 /* ── Insights: health score ring track (SVG circle) ──────────── */
@@ -2883,13 +2996,8 @@ body.fc-theme,
   display: none;
 }
 
-.act-title,
-.plan-title,
-.wv-page-title,
-.fc-view-title {
-  color: var(--fc-text);
-  font-size: 28px;
-  font-weight: 700;
+/* superseded by CANONICAL SCREEN CHROME (bottom of file) */
+.fc-legacy-title-noop {
   line-height: 1.05;
   letter-spacing: -0.035em;
 }
@@ -2961,4 +3069,433 @@ a[role="tab"]:focus-visible,
 .plan-sts-amount,
 .wv-position-amount {
   font-variant-numeric: tabular-nums lining-nums;
+}
+
+/* ============================================================
+   NEW UTILITY COMPONENTS — Phase 1 additions
+   Used by Plan, Bills, Debt, Goals, Reports, Investments screens
+   ============================================================ */
+
+/* --- Alert cards --- */
+.fc-alert {
+  border-radius: var(--fc-r-md);
+  padding: 14px 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  border-left: 3px solid transparent;
+  margin-bottom: 10px;
+}
+.fc-alert--blue   { background: var(--fc-accent-soft);  border-left-color: var(--fc-accent); }
+.fc-alert--green  { background: var(--fc-success-soft); border-left-color: var(--fc-success); }
+.fc-alert--yellow { background: var(--fc-warning-soft); border-left-color: var(--fc-warning); }
+.fc-alert--red    { background: var(--fc-danger-soft);  border-left-color: var(--fc-danger); }
+.fc-alert-icon    { flex-shrink: 0; margin-top: 1px; }
+.fc-alert-body    { flex: 1; min-width: 0; }
+.fc-alert-title   { font-size: 14px; font-weight: 600; color: var(--fc-text); margin-bottom: 2px; }
+.fc-alert-sub     { font-size: 13px; color: var(--fc-text-muted); line-height: 1.45; }
+
+/* --- Progress bar --- */
+.fc-progress {
+  height: 6px;
+  border-radius: var(--fc-r-pill);
+  background: var(--fc-bg-elevated-2);
+  overflow: hidden;
+  position: relative;
+}
+.fc-progress-fill {
+  height: 100%;
+  border-radius: var(--fc-r-pill);
+  background: var(--fc-accent);
+  transition: width 0.6s var(--fc-ease-out);
+  max-width: 100%;
+}
+.fc-progress--green  .fc-progress-fill { background: var(--fc-success); }
+.fc-progress--red    .fc-progress-fill { background: var(--fc-danger); }
+.fc-progress--yellow .fc-progress-fill { background: var(--fc-warning); }
+
+/* --- Metric card --- */
+.fc-metric-card {
+  background: var(--fc-card-bg);
+  border-radius: var(--fc-r-lg);
+  padding: 16px;
+  border: 1px solid var(--fc-border);
+  box-shadow: var(--fc-shadow-sm);
+}
+.fc-metric-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--fc-text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+.fc-metric-value {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--fc-text);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.5px;
+  line-height: 1.1;
+}
+.fc-metric-sub {
+  font-size: 13px;
+  color: var(--fc-text-muted);
+  margin-top: 5px;
+}
+.fc-metric-delta {
+  font-size: 12px;
+  font-weight: 600;
+  margin-top: 4px;
+}
+.fc-metric-delta--up   { color: var(--fc-success); }
+.fc-metric-delta--down { color: var(--fc-danger); }
+
+/* --- Bill row --- */
+.fc-bill-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--fc-border);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.fc-bill-row:last-child  { border-bottom: none; }
+.fc-bill-row:active      { opacity: 0.7; }
+.fc-bill-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--fc-r-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 18px;
+  background: var(--fc-bg-elevated-2);
+}
+.fc-bill-info   { flex: 1; min-width: 0; }
+.fc-bill-name   { font-size: 15px; font-weight: 500; color: var(--fc-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fc-bill-due    { font-size: 13px; color: var(--fc-text-muted); margin-top: 1px; }
+.fc-bill-right  { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.fc-bill-amount { font-size: 15px; font-weight: 600; color: var(--fc-text); font-variant-numeric: tabular-nums; }
+.fc-bill-status {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: var(--fc-r-pill);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.fc-bill-status--due     { background: var(--fc-danger-soft);  color: var(--fc-danger); }
+.fc-bill-status--soon    { background: var(--fc-warning-soft); color: var(--fc-warning); }
+.fc-bill-status--ok      { background: var(--fc-accent-soft);  color: var(--fc-accent); }
+.fc-bill-status--paid    { background: var(--fc-success-soft); color: var(--fc-success); }
+
+/* --- Goal row --- */
+.fc-goal-row {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--fc-border);
+}
+.fc-goal-row:last-child { border-bottom: none; }
+.fc-goal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.fc-goal-name    { font-size: 15px; font-weight: 500; color: var(--fc-text); }
+.fc-goal-pct     { font-size: 13px; font-weight: 600; color: var(--fc-accent); }
+.fc-goal-amounts { font-size: 13px; color: var(--fc-text-muted); margin-top: 6px; display: flex; justify-content: space-between; }
+
+/* --- Report card --- */
+.fc-report-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  background: var(--fc-card-bg);
+  border-radius: var(--fc-r-lg);
+  border: 1px solid var(--fc-border);
+  box-shadow: var(--fc-shadow-sm);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  margin-bottom: 10px;
+  transition: transform 0.15s var(--fc-ease-out), box-shadow 0.15s;
+}
+.fc-report-card:active { transform: scale(0.985); }
+.fc-report-icon  {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--fc-r-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: var(--fc-accent-soft);
+}
+.fc-report-body  { flex: 1; min-width: 0; }
+.fc-report-title { font-size: 15px; font-weight: 600; color: var(--fc-text); }
+.fc-report-sub   { font-size: 13px; color: var(--fc-text-muted); margin-top: 2px; }
+.fc-report-arrow { color: var(--fc-text-faint); flex-shrink: 0; }
+
+/* --- Section header with action link --- */
+.fc-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.fc-section-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--fc-text);
+  letter-spacing: -0.2px;
+}
+.fc-section-action {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--fc-accent);
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* --- Summary row (two stats side-by-side inside a card) --- */
+.fc-summary-row {
+  display: flex;
+  gap: 12px;
+}
+.fc-summary-row .fc-metric-card {
+  flex: 1;
+}
+
+/* Dark mode overrides for new components */
+[data-theme="dark"] .fc-metric-card,
+[data-theme="dark"] .fc-report-card {
+  background: var(--fc-card-bg);
+  border-color: var(--fc-border);
+  box-shadow: var(--fc-shadow-sm);
+}
+[data-theme="dark"] .fc-progress {
+  background: rgba(255, 255, 255, 0.13);
+}
+[data-theme="dark"] .fc-bill-icon {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   ★ CANONICAL SCREEN CHROME ★
+   ------------------------------------------------------------------
+   ONE page header, ONE segmented control, ONE section label for every
+   screen in the app. Before this existed there were 5 page-title
+   treatments (28/750, 32/700, 26/900, 22/750 + a hardcoded #fff) and
+   3 unrelated segment systems (.fc-segment, .wv-tab, Plan inline).
+
+   RULE: new screens use these classes. Never restyle a title or a
+   segment control inline — change it here and every screen follows.
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ── Page header ─────────────────────────────────────────────────── */
+.fc-page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 20px;
+  margin-bottom: 14px;
+}
+.fc-page-head__text { min-width: 0; }
+/* Centered row variant — for headers that sit in a line with back / action
+   buttons (e.g. Goals: ‹ Back · Goals · +) */
+.fc-page-head--center { align-items: center; }
+
+.fc-page-title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 750;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--fc-text);
+}
+/* Sub-screen variant — smaller title when pushed onto a nav stack */
+.fc-page-title--sub { font-size: 22px; }
+
+.fc-page-sub {
+  margin: 2px 0 0;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.35;
+  color: var(--fc-text-muted);
+}
+
+/* Circular accent action in the header (e.g. Goals "+") */
+.fc-page-head__action {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: var(--fc-accent);
+  color: #fff;
+  font-size: 22px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.14s var(--fc-ease-out);
+}
+.fc-page-head__action:active { transform: scale(0.93); }
+
+/* ── Segmented control ───────────────────────────────────────────
+   Container padding (4px) + button min-height (36px) = 44px tap row. */
+.fc-seg {
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  margin-bottom: 14px;
+  border-radius: 12px;
+  background: var(--fc-bg-elevated-2);
+}
+.fc-seg-btn {
+  flex: 1;
+  min-width: 0;
+  min-height: 36px;
+  padding: 8px 2px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--fc-text-muted);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.2s var(--fc-ease-out), color 0.2s var(--fc-ease-out);
+}
+.fc-seg-btn.active,
+.fc-seg-btn[aria-selected="true"] {
+  background: var(--fc-bg-elevated);
+  color: var(--fc-accent);
+  box-shadow: var(--fc-shadow-sm);
+}
+
+/* ── Section label (between cards) ───────────────────────────────
+   Distinct from .fc-section-label (9px), which labels content INSIDE
+   a card. This is the larger label that heads a group of cards. */
+.fc-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--fc-text-faint);
+  margin-bottom: 10px;
+}
+.fc-eyebrow--tight { margin-bottom: 6px; }
+
+/* ── Legacy aliases → canonical chrome ───────────────────────────
+   Old class names kept so existing markup keeps working, but they now
+   inherit the single source of truth instead of their own styling. */
+.act-title,
+.wv-panel-h1,
+.wv-page-title,
+.plan-title,
+.fc-view-title,
+.premium-page-header h1 {
+  font-size: 28px !important;
+  font-weight: 750 !important;
+  line-height: 1.15 !important;
+  letter-spacing: -0.02em !important;
+  color: var(--fc-text) !important;
+}
+.wv-panel-sub,
+.wv-page-sub,
+.act-subtitle,
+.plan-subtitle {
+  font-size: 14px;
+  color: var(--fc-text-muted);
+  margin-top: 2px;
+}
+
+/* .wv-tab / .fc-segment-btn adopt the canonical segment look */
+.wv-tabs,
+.fc-segment {
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 12px;
+  background: var(--fc-bg-elevated-2);
+  border: none;
+}
+.wv-tab,
+.fc-segment-btn {
+  flex: 1;
+  min-width: 0;
+  min-height: 36px;
+  padding: 8px 2px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--fc-text-muted);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.2s var(--fc-ease-out), color 0.2s var(--fc-ease-out);
+}
+.wv-tab.active,
+.wv-tab[aria-selected="true"],
+.fc-segment-btn.active,
+.fc-segment-btn[aria-selected="true"] {
+  background: var(--fc-bg-elevated);
+  color: var(--fc-accent);
+  box-shadow: var(--fc-shadow-sm);
+  font-weight: 600;
+}
+
+/* ── Chip row (time-range selectors) ─────────────────────────────
+   Distinct from .fc-seg on purpose: chips are a scrollable row of
+   unequal-width filters, segments are an equal-width mode switch.
+   Both now share the accent colour so they read as one family. */
+.fc-chip-row {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.fc-chip-row::-webkit-scrollbar { display: none; }
+
+.fc-chip,
+.wv-period-btn,
+.plan-period-btn {
+  flex-shrink: 0;
+  min-height: 36px;
+  padding: 8px 14px;
+  border: 1px solid var(--fc-border);
+  border-radius: 10px;
+  background: var(--fc-bg-elevated-2);
+  color: var(--fc-text-muted);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s var(--fc-ease-out), color 0.15s var(--fc-ease-out), transform 0.1s;
+}
+.fc-chip:active,
+.wv-period-btn:active,
+.plan-period-btn:active { transform: scale(0.95); }
+
+.fc-chip.active,
+.fc-chip[aria-selected="true"],
+.wv-period-btn.active,
+.plan-period-btn.active {
+  background: var(--fc-accent-soft);
+  border-color: var(--fc-border-accent);
+  color: var(--fc-accent);
 }

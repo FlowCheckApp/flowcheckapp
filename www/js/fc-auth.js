@@ -301,7 +301,13 @@ window.FCAuth = (function () {
       created_at:  firebase.firestore.FieldValue.serverTimestamp(),
       last_seen:   firebase.firestore.FieldValue.serverTimestamp(),
       plaid_linked: false,
-      pro:          false,
+      // NOTE: entitlement fields (pro / is_pro / pro_expires_at) are NOT written
+      // here. firestore.rules deliberately excludes them from
+      // allowedUserCreateFields() so a client can never seed its own
+      // entitlement — only the RevenueCat webhook and the referral grant
+      // (Admin SDK) may set them. Writing `pro: false` here made the whole
+      // signup document violate hasOnly() and rejected account creation.
+      // Every reader treats a missing value as false: !!(user.is_pro || user.pro).
       streak:       0,
       goals:        [],
       budgets:      {},
