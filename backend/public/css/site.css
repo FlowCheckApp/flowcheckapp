@@ -834,3 +834,16 @@ h3 { font-size: clamp(18px, 2vw, 22px); font-weight: 700; }
 .reveal-delay-1 { transition-delay: 0.08s; }
 .reveal-delay-2 { transition-delay: 0.16s; }
 .reveal-delay-3 { transition-delay: 0.24s; }
+
+/* Feature icon boxes carry per-box tints as inline styles (cyan/blue/green
+   left over from the emoji era). Now that the glyphs are real SVGs drawn
+   with currentColor, they inherited body text and read as grey smudges on
+   a coloured tile. Normalise to the single accent — site.css's own stated
+   principle is one accent used sparingly. !important is required only
+   because the tints are inline. */
+.feature-icon {
+  background: var(--accent-dim) !important;
+  color: var(--accent);
+}
+.feature-icon svg { width: 22px; height: 22px; }
+.icon-box svg     { width: 20px; height: 20px; }

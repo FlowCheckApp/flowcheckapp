@@ -107,7 +107,7 @@
             <div class="account-card-title">Subscription</div>
             <div id="sub-free-state">
               <div style="text-align:center;padding:24px 0">
-                <div style="font-size:48px;margin-bottom:12px">⭐</div>
+                <div style="font-size:48px;margin-bottom:12px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div>
                 <div style="font-size:17px;font-weight:700;margin-bottom:8px">Upgrade to Pro</div>
                 <div style="font-size:14px;color:var(--muted);margin-bottom:24px;max-width:300px;margin-left:auto;margin-right:auto">Unlock unlimited accounts, Smart insights, Financial Health Score, and more.</div>
                 <a href="https://apps.apple.com/app/flowcheck/id6742624701" class="btn btn-primary">Start 7-Day Free Trial</a>
@@ -261,7 +261,7 @@
   function shareReferral() {
     if (!_referralCode) return;
     const url = 'https://getflowcheck.app/invite/' + _referralCode;
-    const text = 'Use code ' + _referralCode + ' when you sign up for FlowCheck and we both get 1 free month of Pro. 💰';
+    const text = 'Use code ' + _referralCode + ' when you sign up for FlowCheck and we both get 1 free month of Pro. <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>';
     if (navigator.share) {
       navigator.share({ title: 'Get 1 month of FlowCheck Pro free', text, url }).catch(() => {});
     } else {
