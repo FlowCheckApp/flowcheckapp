@@ -20,8 +20,8 @@
   /* ─────────────────────────────────────────────────────────────
      These are the APP's dark-theme tokens, copied verbatim from
      www/css/flowcheck-design-system.css. The site previously ran its
-     own near-miss palette (#1ac4f0 sky vs the app's #1ac4f0 cyan,
-     #07101e vs #060e18) so the marketing site and the product did not
+     own near-miss palette (a sky blue, vs the app's #1ac4f0 cyan, and a
+     slightly different navy) so the marketing site and the product did not
      look like the same company. Keep these in sync with the app — if
      you change one, change both.
      ───────────────────────────────────────────────────────────── */
@@ -52,6 +52,20 @@
 
   /* Card radius — matches the app's --fc-r-xl */
   --r-card:   24px;
+
+  /* ── Legacy aliases ──────────────────────────────────────────
+     features/account/download/referrals were authored against these
+     names, which were never defined anywhere. `color: var(--muted)`
+     with an undefined custom property is invalid at computed-value
+     time, so it fell back to `unset` and INHERITED — every "muted"
+     paragraph on those pages rendered at full text strength and the
+     green checkmarks lost their colour. Aliased rather than rewritten
+     so the markup stays untouched. Prefer the canonical names above
+     in new work. */
+  --muted:    var(--text-2);
+  --faint:    var(--text-3);
+  --cyan:     var(--accent);
+  --success:  var(--green);
 
   /* Sizing */
   --nav-h:   64px;
@@ -776,3 +790,47 @@ h3 { font-size: clamp(18px, 2vw, 22px); font-weight: 700; }
   letter-spacing: -0.03em;
   text-wrap: balance;
 }
+
+/* Sub-page hero headlines are sentences with authored <br> breaks; the
+   global h1 clamp overran them and re-wrapped into ragged extra lines.
+   Same fix as .hero h1. */
+.page-hero h1 {
+  font-size: clamp(32px, 4vw, 50px);
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+
+/* ── Legacy class aliases ─────────────────────────────────────────
+   features.html (and a few other sub-pages) were authored against a
+   class vocabulary site.css never defined, so those rules silently did
+   nothing: the hero accent word rendered with no gradient at all, the
+   eyebrow had no styling, the icon boxes had no size, and the stagger
+   delays never applied. Aliased to the canonical classes rather than
+   rewriting the markup. Prefer the canonical names in new work:
+     .gradient-text   -> .accent-gradient
+     .section-label   -> .eyebrow
+     .feature-icon    -> .icon-box
+     .reveal-delay-N  -> .dN
+   ───────────────────────────────────────────────────────────────── */
+.gradient-text {
+  background: linear-gradient(135deg, #38d5ff, #1ac4f0 40%, #2563eb);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.section-label {
+  display: inline-block;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--accent);
+  margin-bottom: 16px;
+}
+.feature-icon {
+  width: 44px; height: 44px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; line-height: 1;
+  flex-shrink: 0;
+}
+.reveal-delay-1 { transition-delay: 0.08s; }
+.reveal-delay-2 { transition-delay: 0.16s; }
+.reveal-delay-3 { transition-delay: 0.24s; }
