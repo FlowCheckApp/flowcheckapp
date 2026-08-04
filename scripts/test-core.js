@@ -285,6 +285,47 @@ t('scoreForecast: ignores malformed rows', () => {
   eq(s.count, 1);
 });
 
+/* ── forecast bookkeeping ────────────────────────────────────────── */
+t('forecastToRecord: null without a real payday to be judged against', () => {
+  const r = C.buildRunwaySeries({ accounts: [chk(500)], transactions: [], bills: [] });
+  eq(r.hasPayday, false);
+  eq(C.forecastToRecord(r), null);
+});
+t('forecastToRecord: id is the target date, so re-renders overwrite', () => {
+  const r = C.buildRunwaySeries({
+    accounts: [chk(2000)], transactions: [pay(1500, 1), pay(1500, 15)], bills: [],
+  });
+  const f = C.forecastToRecord(r);
+  ok(f, 'expected a forecast'); eq(f.id, f.target_date);
+  ok(/^\d{4}-\d{2}-\d{2}$/.test(f.id), 'id must be YYYY-MM-DD, got ' + f.id);
+});
+t('forecastToRecord: records the predicted endpoint to the cent', () => {
+  const r = C.buildRunwaySeries({
+    accounts: [chk(2000)], transactions: [pay(1500, 1), pay(1500, 15)], bills: [bill('R', 300, 3)],
+  });
+  const f = C.forecastToRecord(r);
+  near(f.predicted_end, +r.endBalance.toFixed(2), 0.01);
+});
+t('forecastsToSettle: not before the target date', () => {
+  eq(C.forecastsToSettle([{ target_date: iso(3) }]).length, 0);
+});
+t('forecastsToSettle: not ON the day (the paycheck may not have landed)', () => {
+  eq(C.forecastsToSettle([{ target_date: iso(0) }]).length, 0);
+});
+t('forecastsToSettle: yes the day after', () => {
+  eq(C.forecastsToSettle([{ target_date: ago(1) }]).length, 1);
+});
+t('forecastsToSettle: skips ones already settled', () => {
+  eq(C.forecastsToSettle([{ target_date: ago(5), actual_end: 120 }]).length, 0);
+});
+t('forecastsToSettle: a settled value of 0 still counts as settled', () => {
+  // actual_end === 0 is falsy; a truthiness check would re-settle forever.
+  eq(C.forecastsToSettle([{ target_date: ago(5), actual_end: 0 }]).length, 0);
+});
+t('isoDay: local date, no UTC drift', () => {
+  eq(C.isoDay(new Date(2026, 0, 5)), '2026-01-05');
+});
+
 /* ── report ─────────────────────────────────────────────────────── */
 console.log(`fc-core: ${passed} passed, ${failed} failed`);
 if (failed) {

@@ -4875,6 +4875,71 @@ window.FCApp = (function () {
     chart.addEventListener('pointerleave', end);
   }
 
+  /* ═══════════════════════════════════════════════════════════════
+     FORECAST SCORECARD
+     Records what the runway predicted, settles it once the day passes,
+     and shows the result. Every other money app reports the past, so it
+     is never wrong and never verifiably right. This one makes a claim and
+     then shows you whether it held.
+     ═══════════════════════════════════════════════════════════════ */
+  let _forecastStats = null;
+  let _forecastSyncedThisSession = false;
+
+  async function _syncForecasts() {
+    if (_forecastSyncedThisSession || _isDemoMode) return;
+    if (!FCAuth?.currentUser?.() || !FCData?.recordForecast) return;
+    _forecastSyncedThisSession = true;
+    try {
+      const r = _buildRunwaySeries();
+
+      // 1. Put today's prediction on file (idempotent — id is the target date)
+      const entry = FCCore.forecastToRecord(r);
+      if (entry) await FCData.recordForecast(entry);
+
+      // 2. Settle anything whose date has passed, against today's real cash
+      const stored = await FCData.getForecasts(12);
+      const due = FCCore.forecastsToSettle(stored);
+      if (due.length) {
+        const actual = FCCore.spendableCash(state.accounts || []);
+        for (const f of due) await FCData.settleForecast(f.id, actual);
+      }
+
+      // 3. Score whatever is settled
+      const fresh = due.length ? await FCData.getForecasts(12) : stored;
+      _forecastStats = FCCore.scoreForecast(
+        fresh.map(f => ({ predictedEnd: f.predicted_end, actualEnd: f.actual_end })));
+      if (_forecastStats.count > 0) _renderHome();
+    } catch (_) {
+      // Never let the scorecard break the screen it sits on.
+    }
+  }
+
+  function _renderForecastCard() {
+    const s = _forecastStats;
+    if (!s || !s.count) return '';
+    const withinPct = Math.round((s.hitRate || 0) * 100);
+    const over = s.averageBias < 0;
+    return ''
+      + '<section class="fc-ui-card fc-score">'
+        + '<p class="fc-section-label">How accurate we’ve been</p>'
+        + '<p class="fc-score-lead">' + esc(
+            s.count === 1
+              ? 'One payday scored so far.'
+              : 'Within ' + FCData.formatCurrency(50) + ' on ' + s.withinFifty + ' of your last ' + s.count + ' paydays.'
+          ) + '</p>'
+        + '<div class="fc-score-row">'
+          + '<div><p class="fc-score-k">Typical miss</p><p class="fc-score-v fc-amount">'
+            + esc(FCData.formatCurrency(s.medianAbsError)) + '</p></div>'
+          + '<div><p class="fc-score-k">Within $50</p><p class="fc-score-v">' + withinPct + '%</p></div>'
+        + '</div>'
+        + '<p class="fc-score-note">' + esc(
+            over
+              ? 'We’ve been landing a little high on average — we’d rather be under.'
+              : 'We’ve been landing a little under on average, which is the safer side.'
+          ) + '</p>'
+      + '</section>';
+  }
+
   function _getSafeToSpendHome() {
     return _buildSafeSpendProjection().safe;
   }
@@ -6177,6 +6242,7 @@ window.FCApp = (function () {
     _trackFirstSafeToSpend();
     // Runway scrub binds after the card is in the DOM
     requestAnimationFrame(() => _attachRunwayScrub());
+    _syncForecasts();
 
     // ── HERO: Safe to Spend ───────────────────────────────────────────
     // This is the number the whole app exists to produce (VISION.md §4), so
@@ -6401,6 +6467,7 @@ window.FCApp = (function () {
         </header>
 
         ${safeSpendMarkup}
+        ${_renderForecastCard()}
 
         <section class="fc-ui-card home-v8__move" aria-label="Your next best move">
           <div class="home-v8__carousel" id="home-move-carousel">

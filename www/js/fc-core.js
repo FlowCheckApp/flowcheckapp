@@ -426,8 +426,57 @@
     return spendingByCategory(transactions, days).reduce((s, c) => s + c.amount, 0);
   }
 
+  /* ── Forecast bookkeeping ─────────────────────────────────────────
+     Pure decisions about WHAT to record and WHEN to settle. The caller
+     owns the Firestore I/O; keeping the rules here means the phone and the
+     web app can never disagree about what counts as a scored prediction. */
+
+  function isoDay(d) {
+    const x = new Date(d);
+    return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0')
+         + '-' + String(x.getDate()).padStart(2, '0');
+  }
+
+  /**
+   * What prediction should be on file right now, if any.
+   * Only records when there is a real target date to be judged against —
+   * a forecast with no due date can never be scored, so writing one would
+   * just inflate the denominator.
+   */
+  function forecastToRecord(runway) {
+    if (!runway || !runway.hasPayday || !runway.payday) return null;
+    const target = runway.payday.date;
+    if (!target) return null;
+    return {
+      id: isoDay(target),
+      target_date: isoDay(target),
+      predicted_end: +Number(runway.endBalance).toFixed(2),
+      predicted_on: isoDay(new Date()),
+      horizon: runway.horizon,
+      bill_count: runway.billCount,
+    };
+  }
+
+  /**
+   * Which stored forecasts are now due to be settled with what actually
+   * happened. Settles the day AFTER the target so same-day transactions
+   * have landed — settling on the morning of payday would score the
+   * prediction against a balance the paycheck has not hit yet.
+   */
+  function forecastsToSettle(stored, today) {
+    const now = today ? parseDateLocal(today) : new Date();
+    now.setHours(0, 0, 0, 0);
+    return (stored || []).filter(f => {
+      if (!f || f.actual_end !== undefined && f.actual_end !== null) return false;
+      if (!f.target_date) return false;
+      const t = parseDateLocal(f.target_date); t.setHours(0, 0, 0, 0);
+      return (now - t) / 86400000 >= 1;
+    });
+  }
+
   return {
-    parseDateLocal, daysUntil,
+    parseDateLocal, daysUntil, isoDay,
+    forecastToRecord, forecastsToSettle,
     isSpendTxn, isIncomeTxn, normalizeCategory,
     spendableCash, predictNextPayday,
     buildSafeSpendProjection, buildRunwaySeries,

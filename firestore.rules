@@ -306,6 +306,33 @@ service cloud.firestore {
                       && request.resource.data.keys().hasOnly(['data', 'updated_at']);
         allow delete: if false;
       }
+
+      // ─── /forecasts — the app's own scorecard ───────────────────
+      // One doc per predicted payday, id = target date (YYYY-MM-DD), so a
+      // re-render on the same day overwrites rather than stacking duplicates.
+      //
+      // `predicted_end` is locked once written: a forecast you can quietly
+      // revise after the fact is not a forecast. Only `actual_end` and
+      // `settled_at` may be added later, when the date arrives. That single
+      // rule is what makes the accuracy number mean anything.
+      match /forecasts/{targetDate} {
+        allow read:   if isOwner(uid);
+        allow create: if isOwner(uid)
+                      && request.resource.data.keys().hasOnly([
+                           'predicted_end', 'predicted_on', 'target_date',
+                           'horizon', 'bill_count', 'created_at',
+                         ])
+                      && request.resource.data.predicted_end is number;
+        allow update: if isOwner(uid)
+                      // predicted_end must never change after the fact
+                      && request.resource.data.predicted_end == resource.data.predicted_end
+                      && request.resource.data.keys().hasOnly([
+                           'predicted_end', 'predicted_on', 'target_date',
+                           'horizon', 'bill_count', 'created_at',
+                           'actual_end', 'settled_at',
+                         ]);
+        allow delete: if false;
+      }
     }
 
     // ─── /referrals — Admin SDK only ──────────────────────────────

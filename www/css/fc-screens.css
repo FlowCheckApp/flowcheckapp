@@ -2260,3 +2260,110 @@ body.fc-theme .fc-nav {
 .rw-sk-sub + .rw-sk-sub { width: 60%; margin-top: 5px; }
 .rw-sk-end      { width: 78px; height: 30px; margin: 5px 0 0 auto; }
 .rw-sk-cta      { display: block; width: 100%; height: 46px; margin-top: 14px; border-radius: 14px; }
+
+/* ── Forecast scorecard ──────────────────────────────────────────
+   The app grading its own predictions. Deliberately quiet: this is
+   evidence, not a brag. It only renders once there is something real
+   to report — scoreForecast() refuses to claim accuracy under 3 data
+   points, and this card renders nothing at zero. */
+.fc-score { padding: 16px; }
+.fc-score-lead {
+  margin: 4px 0 12px;
+  font-size: 15px; font-weight: 700; letter-spacing: -0.015em;
+  color: var(--fc-text); line-height: 1.3;
+}
+.fc-score-row { display: flex; gap: 28px; }
+.fc-score-k {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--fc-text-faint);
+}
+.fc-score-v {
+  margin-top: 2px;
+  font-size: 20px; font-weight: 800; letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums; color: var(--fc-text);
+}
+.fc-score-note {
+  margin-top: 12px; padding-top: 11px;
+  border-top: 1px solid var(--fc-border);
+  font-size: 12px; line-height: 1.4; color: var(--fc-text-muted);
+}
+
+/* ── Onboarding: first-runway preview (slide 3) ──────────────────
+   Rows set text-align:left explicitly — the onboarding slide wrapper is
+   centred and silently rags every list/label placed inside it. That has
+   caught three separate components already; any NEW onboarding row must
+   do the same. */
+.ob-rw { width: 100%; max-width: 340px; text-align: left; }
+
+.ob-rw-label {
+  display: block;
+  font-size: 12.5px; font-weight: 650;
+  color: var(--fc-text-muted);
+  margin-bottom: 8px; text-align: left;
+}
+
+.ob-rw-money {
+  display: flex; align-items: center; gap: 6px;
+  padding: 12px 14px;
+  background: var(--fc-bg-elevated-2);
+  border: 1px solid var(--fc-border);
+  border-radius: 14px;
+}
+.ob-rw-cur { font-size: 22px; font-weight: 800; color: var(--fc-text-faint); }
+.ob-rw-input {
+  flex: 1; min-width: 0;
+  background: none; border: none; outline: none;
+  color: var(--fc-text);
+  font-family: inherit; font-size: 24px; font-weight: 800;
+  letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
+}
+.ob-rw-input::placeholder { color: var(--fc-text-disabled); }
+
+.ob-rw-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.ob-rw-chip {
+  flex: 1 1 auto; min-height: 36px; padding: 8px 12px;
+  border: 1px solid var(--fc-border);
+  border-radius: 10px;
+  background: var(--fc-bg-elevated-2);
+  color: var(--fc-text-muted);
+  font-family: inherit; font-size: 12px; font-weight: 700;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s var(--fc-ease-out), color 0.15s var(--fc-ease-out);
+}
+.ob-rw-chip.is-on {
+  background: var(--fc-accent-soft);
+  border-color: var(--fc-border-accent);
+  color: var(--fc-accent);
+}
+
+.ob-rw-result {
+  margin-top: 18px; padding: 14px;
+  background: var(--fc-card-bg);
+  border: 1px solid var(--fc-border-accent);
+  border-radius: var(--fc-r-xl);
+}
+.ob-rw-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 12px; margin-bottom: 10px;
+}
+.ob-rw-eyebrow {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--fc-text-faint);
+}
+.ob-rw-verdict {
+  margin-top: 2px; font-size: 13px; font-weight: 650;
+  color: var(--fc-text); line-height: 1.25;
+}
+.ob-rw-end {
+  flex-shrink: 0;
+  font-size: 22px; font-weight: 800; letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums; color: var(--fc-text);
+}
+.ob-rw-end.is-warn { color: var(--fc-danger); }
+.ob-rw-chart { display: block; width: 100%; height: 68px; }
+
+.ob-rw-fine {
+  margin-top: 12px;
+  font-size: 11px; line-height: 1.45;
+  color: var(--fc-text-faint); text-align: left;
+}

@@ -1061,6 +1061,65 @@ window.FCData = (function () {
    * @param {string} date - 'YYYY-MM-DD'
    * @param {number} value - net worth in dollars
    */
+  /* ═══════════════════════════════════════════════════════════════
+     FORECASTS — the app's own scorecard
+     Records what the runway predicted, then settles it against what
+     actually happened. What makes this meaningful is that predicted_end
+     is write-once: firestore.rules refuses any update that changes it.
+     A forecast you can revise afterwards is not a forecast.
+     ═══════════════════════════════════════════════════════════════ */
+
+  function _forecastsRef() {
+    const user = FCAuth.currentUser();
+    const db   = FCAuth.db();
+    if (!user || !db) return null;
+    return db.collection('users').doc(user.uid).collection('forecasts');
+  }
+
+  /** Write today's prediction for the upcoming payday. Idempotent: the doc
+      id is the target date, so re-rendering all day overwrites one row. */
+  async function recordForecast(entry) {
+    const ref = _forecastsRef();
+    if (!ref || !entry || !entry.id) return false;
+    try {
+      await ref.doc(entry.id).set({
+        predicted_end: entry.predicted_end,
+        predicted_on:  entry.predicted_on,
+        target_date:   entry.target_date,
+        horizon:       entry.horizon,
+        bill_count:    entry.bill_count,
+        created_at:    firebase.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
+      return true;
+    } catch (err) {
+      // A rules rejection here means predicted_end was already set for this
+      // target date — which is the rule working, not a failure.
+      return false;
+    }
+  }
+
+  async function getForecasts(limitCount) {
+    const ref = _forecastsRef();
+    if (!ref) return [];
+    try {
+      const snap = await ref.orderBy('target_date', 'desc').limit(limitCount || 12).get();
+      return snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
+    } catch (_) { return []; }
+  }
+
+  /** Fill in what actually happened for any forecast whose date has passed. */
+  async function settleForecast(id, actualEnd) {
+    const ref = _forecastsRef();
+    if (!ref || actualEnd == null) return false;
+    try {
+      await ref.doc(id).update({
+        actual_end: Math.round(actualEnd * 100) / 100,
+        settled_at: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      return true;
+    } catch (_) { return false; }
+  }
+
   async function saveNetWorthSnapshot(date, value) {
     const user = FCAuth.currentUser();
     const db   = FCAuth.db();
@@ -1202,6 +1261,9 @@ window.FCData = (function () {
     saveCreditSnapshot,
     listenToCreditHistory,
     saveNetWorthSnapshot,
+    recordForecast,
+    getForecasts,
+    settleForecast,
     listenToNetWorthHistory,
     listenToNotifications,
     markNotificationRead,
