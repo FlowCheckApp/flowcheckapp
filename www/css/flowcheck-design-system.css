@@ -16,35 +16,36 @@
   --fc-glass:           rgba(244, 247, 251, 0.92);
 
   /* --- Brand --- */
-  --fc-accent:          #147CFF;
-  --fc-accent-soft:     rgba(20, 124, 255, 0.10);
-  --fc-accent-glow:     rgba(20, 124, 255, 0.20);
-  --fc-accent-hover:    #0F6FE6;
+  --fc-accent:          #0D64D4;
+  --fc-accent-soft:     rgba(14, 104, 220, 0.06);
+  --fc-accent-glow:     rgba(14, 104, 220, 0.20);
+  --fc-accent-hover:    #0B5FC7;
   --fc-accent-ink:      #FFFFFF;
-  --fc-electric:        #147CFF;
-  --fc-electric-soft:   rgba(20, 124, 255, 0.10);
-  --fc-electric-glow:   rgba(20, 124, 255, 0.20);
+  --fc-electric:        #0D64D4;
+  --fc-electric-soft:   rgba(14, 104, 220, 0.10);
+  --fc-electric-glow:   rgba(14, 104, 220, 0.20);
 
   /* --- Status --- */
-  --fc-success:         #22C55E;
-  --fc-success-soft:    rgba(34, 197, 94, 0.10);
+  --fc-success:         #166534;
+  --fc-success-ink:     #ffffff;
+  --fc-success-soft:    rgba(21, 128, 61, 0.06);
   --fc-success-border:  rgba(34, 197, 94, 0.22);
   --fc-warning:         #F59E0B;
   --fc-warning-soft:    rgba(245, 158, 11, 0.10);
-  --fc-danger:          #EF4444;
+  --fc-danger:          #DC2626;
   --fc-danger-soft:     rgba(239, 68, 68, 0.10);
   --fc-danger-border:   rgba(239, 68, 68, 0.22);
 
   /* --- Text --- */
   --fc-text:            #0D1B2E;
-  --fc-text-muted:      rgba(13, 27, 46, 0.58);
-  --fc-text-faint:      rgba(13, 27, 46, 0.40);
+  --fc-text-muted:      rgba(13, 27, 46, 0.66);
+  --fc-text-faint:      rgba(13, 27, 46, 0.62);
   --fc-text-disabled:   rgba(13, 27, 46, 0.24);
 
   /* --- Borders --- */
   --fc-border:          rgba(13, 27, 46, 0.09);
   --fc-border-strong:   rgba(13, 27, 46, 0.15);
-  --fc-border-accent:   rgba(20, 124, 255, 0.24);
+  --fc-border-accent:   rgba(14, 104, 220, 0.24);
 
   /* --- Radii --- */
   --fc-r-sm:            12px;
@@ -101,6 +102,7 @@
   --fc-electric-soft:   rgba(37, 99, 235, 0.15);
   --fc-electric-glow:   rgba(37, 99, 235, 0.4);
   --fc-success:         #30d158;
+  --fc-success-ink:     #04250f;
   --fc-success-soft:    rgba(48, 209, 88, 0.14);
   --fc-success-border:  rgba(48, 209, 88, 0.25);
   --fc-warning:         #ff9f0a;
@@ -110,7 +112,7 @@
   --fc-danger-border:   rgba(255, 69, 58, 0.25);
   --fc-text:            #f0f6ff;
   --fc-text-muted:      rgba(240, 246, 255, 0.58);
-  --fc-text-faint:      rgba(240, 246, 255, 0.36);
+  --fc-text-faint:      rgba(240, 246, 255, 0.50);
   --fc-text-disabled:   rgba(240, 246, 255, 0.22);
   --fc-border:          rgba(255, 255, 255, 0.07);
   --fc-border-strong:   rgba(255, 255, 255, 0.13);
@@ -136,36 +138,37 @@
   --fc-glass:           rgba(244, 247, 251, 0.92);
 
   /* --- Accents — premium blue primary palette --- */
-  --fc-accent:          #147CFF;
-  --fc-accent-soft:     rgba(20, 124, 255, 0.10);
-  --fc-accent-glow:     rgba(20, 124, 255, 0.20);
-  --fc-accent-hover:    #0f6ee0;
+  --fc-accent:          #0D64D4;
+  --fc-accent-soft:     rgba(14, 104, 220, 0.06);
+  --fc-accent-glow:     rgba(14, 104, 220, 0.20);
+  --fc-accent-hover:    #0B5FC7;
   --fc-accent-ink:      #ffffff;
 
-  --fc-electric:        #147CFF;
-  --fc-electric-soft:   rgba(20, 124, 255, 0.10);
-  --fc-electric-glow:   rgba(20, 124, 255, 0.20);
+  --fc-electric:        #0D64D4;
+  --fc-electric-soft:   rgba(14, 104, 220, 0.10);
+  --fc-electric-glow:   rgba(14, 104, 220, 0.20);
 
   /* --- Status --- */
-  --fc-success:         #22C55E;
-  --fc-success-soft:    rgba(34, 197, 94, 0.10);
+  --fc-success:         #166534;
+  --fc-success-ink:     #ffffff;
+  --fc-success-soft:    rgba(21, 128, 61, 0.06);
   --fc-success-border:  rgba(34, 197, 94, 0.22);
   --fc-warning:         #F59E0B;
   --fc-warning-soft:    rgba(245, 158, 11, 0.10);
-  --fc-danger:          #EF4444;
+  --fc-danger:          #DC2626;
   --fc-danger-soft:     rgba(239, 68, 68, 0.10);
   --fc-danger-border:   rgba(239, 68, 68, 0.22);
 
   /* --- Text --- */
   --fc-text:            #0D1B2E;
-  --fc-text-muted:      rgba(13, 27, 46, 0.58);
-  --fc-text-faint:      rgba(13, 27, 46, 0.40);
+  --fc-text-muted:      rgba(13, 27, 46, 0.66);
+  --fc-text-faint:      rgba(13, 27, 46, 0.62);
   --fc-text-disabled:   rgba(13, 27, 46, 0.24);
 
   /* --- Borders --- */
   --fc-border:          rgba(13, 27, 46, 0.09);
   --fc-border-strong:   rgba(13, 27, 46, 0.15);
-  --fc-border-accent:   rgba(20, 124, 255, 0.24);
+  --fc-border-accent:   rgba(14, 104, 220, 0.24);
 
   /* --- Shadows — more visible on light --- */
   --fc-shadow-sm:       0 1px 3px rgba(13, 27, 46, 0.04), 0 8px 24px rgba(13, 27, 46, 0.06);
@@ -1087,7 +1090,7 @@ body.fc-theme {
 [data-theme="light"] .dash-nw-amount { color: #0a1520 !important; }
 [data-theme="light"] .dash-nw-pill   { background: rgba(23,163,74,0.10) !important; border-color: rgba(23,163,74,0.25) !important; }
 [data-theme="light"] .dash-nw-pill.neg { background: rgba(220,38,38,0.09) !important; border-color: rgba(220,38,38,0.22) !important; }
-[data-theme="light"] .dash-nf-lbl   { color: rgba(13,27,46,0.38) !important; }
+[data-theme="light"] .dash-nf-lbl   { color: var(--fc-text-faint) !important; }
 [data-theme="light"] .dash-nf-val   { color: #0a1520 !important; }
 [data-theme="light"] .dash-nw-footer{ border-top-color: rgba(13,27,46,0.08) !important; }
 [data-theme="light"] .dash-nw-foot:not(:last-child) { border-right-color: rgba(13,27,46,0.08) !important; }
@@ -1129,7 +1132,7 @@ body.fc-theme {
 [data-theme="light"] .dash-sp-sub { color: rgba(13,27,46,0.40) !important; }
 [data-theme="light"] .dash-stat-icon--cash  { background: rgba(13,173,212,0.12) !important; }
 [data-theme="light"] .dash-stat-icon--spent { background: rgba(217,119,6,0.10)  !important; }
-[data-theme="light"] .dash-stat-icon--bills { background: rgba(13,27,46,0.06)   !important; color: rgba(13,27,46,0.50) !important; }
+[data-theme="light"] .dash-stat-icon--bills { background: rgba(13,27,46,0.06)   !important; color: var(--fc-text-muted) !important; }
 
 /* ── Month Pulse bar ─────────────────────────────────────── */
 [data-theme="light"] .dash-pulse {
@@ -1145,7 +1148,7 @@ body.fc-theme {
 [data-theme="light"] .dash-pulse-amounts  { color: rgba(13,27,46,0.52) !important; }
 [data-theme="light"] .dash-pulse-amounts span { color: #0a1520 !important; }
 [data-theme="light"] .dash-pulse-track    { background: rgba(13,27,46,0.07) !important; }
-[data-theme="light"] .dash-pulse-sub      { color: rgba(13,27,46,0.38) !important; }
+[data-theme="light"] .dash-pulse-sub      { color: var(--fc-text-faint) !important; }
 [data-theme="light"] #fch-cashflow        { color: #0a1520 !important; }
 
 /* ── Section headers ─────────────────────────────────────── */
@@ -1310,7 +1313,7 @@ body.fc-theme {
   border-color: rgba(13,173,212,0.18) !important;
   box-shadow: 0 2px 8px rgba(13,27,46,0.07), 0 12px 32px rgba(13,27,46,0.06) !important;
 }
-[data-theme="light"] .ins-subtitle { color: rgba(13,27,46,0.50) !important; }
+[data-theme="light"] .ins-subtitle { color: var(--fc-text-muted) !important; }
 
 /* Today's Move card */
 [data-theme="light"] .ins-todays-move { box-shadow: 0 1px 4px rgba(13,27,46,0.08); }
@@ -1359,7 +1362,7 @@ body.fc-theme {
 [data-theme="light"] .ins-behavior-text   { color: rgba(13,27,46,0.65) !important; }
 [data-theme="light"] .ins-health-grade-letter  { color: #0a1520 !important; }
 [data-theme="light"] .ins-health-grade-sub     { color: rgba(13,27,46,0.40) !important; }
-[data-theme="light"] .ins-health-metric-lbl    { color: rgba(13,27,46,0.50) !important; }
+[data-theme="light"] .ins-health-metric-lbl    { color: var(--fc-text-muted) !important; }
 [data-theme="light"] .ins-health-val           { color: #0a1520 !important; }
 [data-theme="light"] .ins-health-bar-wrap      { background: rgba(13,27,46,0.07) !important; }
 
@@ -1392,7 +1395,7 @@ body.fc-theme {
 [data-theme="light"] .wealth-hero::after { display: none; }
 [data-theme="light"] .wealth-hero-tag      { color: rgba(13,27,46,0.40) !important; }
 [data-theme="light"] .wealth-hero-amount   { color: #0a1520 !important; }
-[data-theme="light"] .wealth-hero-stat-lbl { color: rgba(13,27,46,0.38) !important; }
+[data-theme="light"] .wealth-hero-stat-lbl { color: var(--fc-text-faint) !important; }
 [data-theme="light"] .wealth-hero-stat-val { color: #0a1520 !important; }
 [data-theme="light"] .wealth-hero-stats    { border-top-color: rgba(13,27,46,0.08) !important; }
 [data-theme="light"] .wealth-hero-divider  { background: rgba(13,27,46,0.09) !important; }
@@ -1457,7 +1460,7 @@ body.fc-theme {
 }
 
 /* ── Eyebrow labels ─────────────────────────────────────── */
-[data-theme="light"] .fc-eyebrow { color: rgba(13,27,46,0.38) !important; }
+[data-theme="light"] .fc-eyebrow { color: var(--fc-text-faint) !important; }
 
 /* ── Toast ──────────────────────────────────────────────── */
 [data-theme="light"] .fc-toast {
@@ -1774,7 +1777,7 @@ body.fc-theme {
 [data-theme="light"] .dash-card [style*="color:rgba(255,255,255,0.4)"],
 [data-theme="light"] .dash-card [style*="color:rgba(255,255,255,0.42)"],
 [data-theme="light"] .dash-card [style*="color:rgba(255,255,255,0.45)"] {
-  color: rgba(13,27,46,0.50) !important;
+  color: var(--fc-text-muted) !important;
 }
 [data-theme="light"] .dash-card [style*="color:rgba(255,255,255,0.50)"],
 [data-theme="light"] .dash-card [style*="color:rgba(255,255,255,0.5)"] {
@@ -1805,7 +1808,7 @@ body.fc-theme {
 
 /* ── Wealth: inactive period tab buttons ─────────────────────── */
 [data-theme="light"] #view-wealth [role="tab"] {
-  color: rgba(13,27,46,0.50) !important;
+  color: var(--fc-text-muted) !important;
   background: transparent !important;
 }
 /* Active pill matches the Plan tab segmented control: elevated + accent */
@@ -1833,7 +1836,7 @@ body.fc-theme {
   color: rgba(13,27,46,0.52) !important;
 }
 [data-theme="light"] #view-settings [style*="color:rgba(255,255,255,0.35)"] {
-  color: rgba(13,27,46,0.50) !important;
+  color: var(--fc-text-muted) !important;
 }
 [data-theme="light"] #view-settings [style*="color:rgba(255,255,255,0.30)"],
 [data-theme="light"] #view-settings [style*="color:rgba(255,255,255,0.3)"] {
@@ -3337,7 +3340,7 @@ a[role="tab"]:focus-visible,
   border: none;
   border-radius: 50%;
   background: var(--fc-accent);
-  color: #fff;
+  color: var(--fc-accent-ink);
   font-size: 22px;
   line-height: 1;
   display: flex;

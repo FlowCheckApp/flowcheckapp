@@ -1957,7 +1957,7 @@ body.fc-theme .fc-nav {
   border: none;
   border-radius: 14px;
   background: var(--fc-accent);
-  color: #fff;
+  color: var(--fc-accent-ink);
   font-family: inherit;
   font-size: 15px;
   font-weight: 700;
@@ -2138,7 +2138,7 @@ body.fc-theme .fc-nav {
 .rw-cta {
   display: block; width: 100%; margin-top: 14px;
   padding: 13px 16px; border: none; border-radius: 14px;
-  background: var(--fc-accent); color: #fff;
+  background: var(--fc-accent); color: var(--fc-accent-ink);
   font-family: inherit; font-size: 15px; font-weight: 700;
   cursor: pointer; -webkit-tap-highlight-color: transparent;
   transition: transform 0.14s var(--fc-ease-out), filter 0.14s var(--fc-ease-out);

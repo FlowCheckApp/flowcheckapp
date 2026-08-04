@@ -5033,7 +5033,7 @@ body:not(.keyboard-open) .fc-sheet {
     .home-move-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
     .home-move-do{
       flex:1;min-height:38px;padding:0 14px;border-radius:10px;border:none;
-      background:var(--fc-accent);color:#fff;font-size:14px;font-weight:700;
+      background:var(--fc-accent);color: var(--fc-accent-ink);font-size:14px;font-weight:700;
       cursor:pointer;-webkit-tap-highlight-color:transparent;
       transition:opacity .12s,transform .12s;letter-spacing:-0.01em;
     }
@@ -5532,7 +5532,7 @@ body:not(.keyboard-open) .fc-sheet {
     .plan-fix-name { flex:1; font-size:13px; color:var(--pl-secondary); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .plan-fix-amt { font-size:14px; font-weight:700; color:var(--fc-danger); font-variant-numeric:tabular-nums; flex-shrink:0; }
     .plan-fix-btn-row { display:flex; gap:8px; margin-top:14px; }
-    .plan-fix-btn-primary   { flex:1; padding:11px; border-radius:13px; border:none; font-size:13px; font-weight:700; cursor:pointer; font-family:inherit; background:var(--fc-accent); color:#fff; -webkit-tap-highlight-color:transparent; transition:opacity .12s; }
+    .plan-fix-btn-primary   { flex:1; padding:11px; border-radius:13px; border:none; font-size:13px; font-weight:700; cursor:pointer; font-family:inherit; background:var(--fc-accent); color: var(--fc-accent-ink); -webkit-tap-highlight-color:transparent; transition:opacity .12s; }
     .plan-fix-btn-primary:active { opacity:.85; }
     .plan-fix-btn-secondary { flex:1; padding:11px; border-radius:13px; border:1.5px solid var(--pl-card-border); background:none; font-size:13px; font-weight:700; cursor:pointer; font-family:inherit; color:var(--fc-accent); -webkit-tap-highlight-color:transparent; }
 
@@ -5543,7 +5543,7 @@ body:not(.keyboard-open) .fc-sheet {
     .plan-cat-tabs { display:flex; gap:6px; overflow-x:auto; padding-bottom:2px; margin-bottom:11px; scrollbar-width:none; }
     .plan-cat-tabs::-webkit-scrollbar { display:none; }
     .plan-cat-tab { padding:6px 14px; border-radius:20px; border:1px solid var(--pl-tab-inactive-bd); background:var(--pl-tab-inactive-bg); font-size:12px; font-weight:600; cursor:pointer; font-family:inherit; color:var(--pl-secondary); white-space:nowrap; -webkit-tap-highlight-color:transparent; transition:all .15s; flex-shrink:0; }
-    .plan-cat-tab.active { background:var(--fc-accent); color:#fff; border-color:var(--fc-accent); }
+    .plan-cat-tab.active { background:var(--fc-accent); color: var(--fc-accent-ink); border-color:var(--fc-accent); }
     .plan-cat-card { background:var(--pl-card-bg); border:1px solid var(--pl-card-border); border-radius:18px; box-shadow:var(--pl-card-shadow); overflow:hidden; }
 
     /* Category row */
@@ -5615,7 +5615,7 @@ body:not(.keyboard-open) .fc-sheet {
     .plan-empty { padding:28px 16px; text-align:center; }
     .plan-empty-title { font-size:14px; font-weight:600; color:var(--pl-primary); margin-bottom:5px; }
     .plan-empty-sub   { font-size:12px; color:var(--pl-secondary); line-height:1.5; }
-    .plan-empty-cta   { margin-top:12px; padding:9px 20px; border-radius:12px; border:none; background:var(--fc-accent); color:#fff; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; -webkit-tap-highlight-color:transparent; }
+    .plan-empty-cta   { margin-top:12px; padding:9px 20px; border-radius:12px; border:none; background:var(--fc-accent); color: var(--fc-accent-ink); font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; -webkit-tap-highlight-color:transparent; }
 
   </style>
 
@@ -5889,7 +5889,7 @@ body:not(.keyboard-open) .fc-sheet {
     [data-theme="light"] #view-wealth {
       --wv-card: #FFFFFF; --wv-border: rgba(15,23,42,0.06);
       --wv-shadow: 0 2px 12px rgba(15,23,42,0.06);
-      --wv-t1: #071426; --wv-t2: #64748B; --wv-t3: #94A3B8;
+      --wv-t1: #071426; --wv-t2: var(--fc-text-muted); --wv-t3: var(--fc-text-faint);
       --wv-divider: rgba(15,23,42,0.05);
       --wv-green-soft: #EAF8EF; --wv-blue-soft: #EAF6FF;
       --wv-red-soft: #FEECEC;
@@ -5937,7 +5937,7 @@ body:not(.keyboard-open) .fc-sheet {
     .wv-move-title { font-size:16px; font-weight:600; color:var(--wv-t1); line-height:1.3; margin-bottom:5px; }
     .wv-move-body { font-size:13px; color:var(--wv-t2); line-height:1.5; margin-bottom:14px; }
     .wv-move-btns { display:flex; gap:8px; }
-    .wv-btn-p { flex:1; padding:12px; border-radius:14px; border:none; font-size:14px; font-weight:700; cursor:pointer; font-family:inherit; color:#fff; background:var(--fc-accent); -webkit-tap-highlight-color:transparent; transition:opacity .12s; }
+    .wv-btn-p { flex:1; padding:12px; border-radius:14px; border:none; font-size:14px; font-weight:700; cursor:pointer; font-family:inherit; color: var(--fc-accent-ink); background:var(--fc-accent); -webkit-tap-highlight-color:transparent; transition:opacity .12s; }
     .wv-btn-p:active { opacity:.82; }
     .wv-btn-s { padding:12px 18px; border-radius:14px; border:1.5px solid var(--wv-border); background:none; font-size:14px; font-weight:600; cursor:pointer; font-family:inherit; color:var(--wv-t2); -webkit-tap-highlight-color:transparent; transition:opacity .12s; }
     .wv-btn-s:active { opacity:.7; }
@@ -5950,7 +5950,7 @@ body:not(.keyboard-open) .fc-sheet {
     .wv-path-node { display:flex; flex-direction:column; align-items:center; flex:1; }
     .wv-path-dot { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:800; }
     .wv-path-dot--done { background:var(--wv-green); color:#fff; }
-    .wv-path-dot--active { background:var(--wv-blue); color:#fff; box-shadow:0 0 0 3px rgba(20,124,255,0.22); }
+    .wv-path-dot--active { background:var(--fc-accent); color:var(--fc-accent-ink); box-shadow:0 0 0 3px rgba(20,124,255,0.22); }
     .wv-path-dot--future { background:var(--wv-pill); border:1.5px solid var(--wv-pill-b); color:var(--wv-t3); }
     .wv-path-conn { flex:1; height:2px; margin-top:13px; }
     .wv-path-conn--done { background:var(--wv-green); }

@@ -10054,7 +10054,7 @@ window.FCApp = (function () {
         ? '<div class="fc-card" style="margin-bottom:14px;padding:14px 16px;background:var(--fc-success-soft);border-color:var(--fc-success-border);display:flex;align-items:center;gap:12px">'
             +'<span style="flex-shrink:0">'+_ic('trending-up','var(--fc-success)',18)+'</span>'
             +'<div style="flex:1;font-size:13px;color:var(--fc-text);line-height:1.45">'+FCData.formatCurrency(payRemaining)+' unassigned. Put it toward a goal or your smallest debt before it disappears.</div>'
-            +'<button onclick="FCApp.openCoachAnswer(\'debt\')" style="background:var(--fc-success);color:#fff;border:none;border-radius:9px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0;font-family:inherit">Assign</button>'
+            +'<button onclick="FCApp.openCoachAnswer(\'debt\')" style="background:var(--fc-success);color:var(--fc-success-ink);border:none;border-radius:9px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0;font-family:inherit">Assign</button>'
           +'</div>'
         : '');
 
