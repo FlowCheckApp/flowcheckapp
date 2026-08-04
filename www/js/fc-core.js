@@ -133,6 +133,101 @@
     return best;
   }
 
+  /* ═══════════════════════════════════════════════════════════════
+     INCOME PROFILE
+     predictNextPayday() answers "when is the next paycheck" and returns
+     null unless it finds a 12-16 or 25-37 day cadence. That silently
+     excludes everyone whose income is irregular — gig drivers, servers
+     living on tips, 1099 contractors, anyone with variable shifts — which
+     is precisely the group with the most cash-flow anxiety and the least
+     served by every competitor.
+
+     For them the question is not "will I make it to payday", because there
+     isn't one. It is "how long am I covered if I don't earn another
+     dollar?" This builds the profile that lets the runway ask the right
+     question for each person.
+     ═══════════════════════════════════════════════════════════════ */
+
+  function median(xs) {
+    if (!xs.length) return 0;
+    const s = xs.slice().sort((a, b) => a - b);
+    const m = Math.floor(s.length / 2);
+    return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+  }
+
+  const CADENCES = [
+    { name: 'weekly',      lo: 5,  hi: 9  },
+    { name: 'biweekly',    lo: 12, hi: 16 },
+    { name: 'semimonthly', lo: 14, hi: 17 },
+    { name: 'monthly',     lo: 25, hi: 37 },
+  ];
+
+  /**
+   * incomeProfile(transactions, windowDays)
+   *  kind: 'regular' | 'irregular' | 'none'
+   *  perDay/perWeek: robust estimate of what actually lands
+   *  typicalLow/typicalHigh: weekly band (IQR-ish), for honest ranges
+   *  confidence: 0..1 — how much history backs the estimate
+   */
+  function incomeProfile(transactions, windowDays) {
+    const win = windowDays || 90;
+    const cutoff = new Date(Date.now() - win * 86400000);
+    const income = (transactions || [])
+      .filter(t => isIncomeTxn(t) && t.date && parseDateLocal(t.date) >= cutoff)
+      .map(t => ({ ts: parseDateLocal(t.date).getTime(), amount: Number(t.amount || 0), key: txnKey(t) }))
+      .filter(t => t.amount > 0)
+      .sort((a, b) => a.ts - b.ts);
+
+    if (!income.length) {
+      return { kind: 'none', cadence: null, nextPayday: null, perDay: 0, perWeek: 0,
+               typicalLow: 0, typicalHigh: 0, sampleCount: 0, confidence: 0 };
+    }
+
+    /* Observed span: from the first deposit we can see, or the window,
+       whichever is shorter. Dividing by the full window when we only have
+       three weeks of history understates income badly. */
+    const spanDays = Math.max(7, Math.min(win, Math.ceil((Date.now() - income[0].ts) / 86400000)));
+    const total = income.reduce((s, t) => s + t.amount, 0);
+    const perDay = total / spanDays;
+
+    /* Weekly buckets give a band that survives one big or one missing week. */
+    const weeks = {};
+    income.forEach(t => {
+      const wk = Math.floor((Date.now() - t.ts) / (7 * 86400000));
+      weeks[wk] = (weeks[wk] || 0) + t.amount;
+    });
+    const weekTotals = Object.values(weeks);
+    const perWeek = weekTotals.length ? median(weekTotals) : perDay * 7;
+    const sorted = weekTotals.slice().sort((a, b) => a - b);
+    const typicalLow  = sorted.length ? sorted[Math.floor(sorted.length * 0.25)] : perWeek;
+    const typicalHigh = sorted.length ? sorted[Math.floor(sorted.length * 0.75)] : perWeek;
+
+    // Regular cadence? Reuse the same grouping predictNextPayday uses.
+    const payday = predictNextPayday(transactions);
+    let cadence = null;
+    if (payday) {
+      const groups = {};
+      income.forEach(t => { (groups[t.key] = groups[t.key] || []).push(t.ts); });
+      for (const dates of Object.values(groups)) {
+        if (dates.length < 2) continue;
+        dates.sort((a, b) => a - b);
+        const gaps = dates.slice(1).map((v, i) => (v - dates[i]) / 86400000);
+        const avg = gaps.reduce((s, g) => s + g, 0) / gaps.length;
+        const hit = CADENCES.find(c => avg >= c.lo && avg <= c.hi);
+        if (hit) { cadence = hit.name; break; }
+      }
+    }
+
+    const confidence = Math.max(0, Math.min(1, (income.length / 6) * (spanDays / win)));
+    return {
+      kind: payday ? 'regular' : 'irregular',
+      cadence, nextPayday: payday,
+      perDay, perWeek, typicalLow, typicalHigh,
+      sampleCount: income.length,
+      confidence: +confidence.toFixed(2),
+    };
+  }
+
   /* ── Safe-to-spend projection ─────────────────────────────────────
      NOTE the horizon: `days` is min(14, paydayDays). `safe` answers "what
      can I spend in the near term", which is why it also holds back a
@@ -206,6 +301,21 @@
       points.push({ day, date, balance, bills: dayBills });
     }
 
+    /* How many days until the money runs out if nothing else comes in.
+       For someone with a paycheck this is a footnote. For someone on
+       irregular income it is the whole question — so the caller uses it
+       instead of "days to payday". */
+    let coveredDays = horizon;
+    if (firstNegativeDay !== null) coveredDays = Math.max(0, firstNegativeDay - 1);
+    else if (dailyBurn > 0) {
+      const end = points[points.length - 1].balance;
+      coveredDays = horizon + Math.floor(end / dailyBurn);
+    } else if (points[points.length - 1].balance >= 0) {
+      coveredDays = Infinity;
+    }
+
+    const income = incomeProfile(input.transactions);
+
     return {
       points, horizon, dailyBurn,
       startBalance: p.cash,
@@ -217,6 +327,61 @@
       billCount: Object.values(billsByDay).reduce((n, a) => n + a.length, 0),
       safe: p.safe,
       projection: p,
+      income,                                   // regular | irregular | none
+      coveredDays,                              // days of runway with zero new income
+      isIrregular: income.kind === 'irregular',
+    };
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     FORECAST ACCURACY
+     Every other money app reports the past, so it is never wrong — and
+     never verifiably right. FlowCheck makes a prediction, which means it
+     can be scored. Scoring it honestly is the strongest trust signal in
+     this category, and it is what turns "do I believe this number?" into
+     evidence instead of faith.
+
+     snapshots: [{ date, predictedEnd, actualEnd }]
+     ═══════════════════════════════════════════════════════════════ */
+  function scoreForecast(snapshots) {
+    /* Coerce ONLY real numbers. `+null` and `+''` are 0 and finite, so a
+       naive Number.isFinite(+x) check scores a MISSING prediction as a
+       $0 prediction — which would quietly poison the very statistic that
+       is supposed to prove this app tells the truth. */
+    const num = v => (typeof v === 'number' && Number.isFinite(v)) ? v
+                   : (typeof v === 'string' && v.trim() !== '' && Number.isFinite(+v)) ? +v
+                   : null;
+    const rows = (snapshots || [])
+      .map(s => s ? { ...s, _p: num(s.predictedEnd), _a: num(s.actualEnd) } : null)
+      .filter(s => s && s._p !== null && s._a !== null);
+
+    if (!rows.length) {
+      return { count: 0, medianAbsError: null, withinFifty: 0, hitRate: null,
+               averageBias: null, verdict: 'not enough history yet' };
+    }
+
+    const errors = rows.map(s => s._a - s._p);   // + = we under-promised
+    const absErrors = errors.map(Math.abs);
+    const within = rows.filter((_, i) => absErrors[i] <= 50).length;
+    const bias = errors.reduce((s, e) => s + e, 0) / errors.length;
+    const med = median(absErrors);
+
+    /* Deliberately conservative wording. Claiming accuracy we cannot
+       support on 2 data points would be exactly the kind of overclaim this
+       product exists to avoid. */
+    let verdict;
+    if (rows.length < 3)      verdict = 'still learning your pattern';
+    else if (med <= 25)       verdict = 'very accurate so far';
+    else if (med <= 75)       verdict = 'close so far';
+    else                      verdict = 'still calibrating';
+
+    return {
+      count: rows.length,
+      medianAbsError: +med.toFixed(2),
+      withinFifty: within,
+      hitRate: +(within / rows.length).toFixed(2),
+      averageBias: +bias.toFixed(2),   // negative = we over-promised, the dangerous direction
+      verdict,
     };
   }
 
@@ -267,5 +432,6 @@
     spendableCash, predictNextPayday,
     buildSafeSpendProjection, buildRunwaySeries,
     netWorth, spendingByCategory, spendTotal,
+    incomeProfile, scoreForecast, median,
   };
 }));

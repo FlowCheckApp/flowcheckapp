@@ -197,15 +197,30 @@
   function runwayCard(r) {
     const pts = r.points;
     const edge = r.hasPayday ? 'Payday' : 'In 2 weeks';
-    const headline = r.goesNegative
-      ? 'You run short on ' + dLabel(pts[r.firstNegativeDay].date)
-      : (r.billCount
-          ? (r.hasPayday ? 'You make it to payday' : 'You are covered for 2 weeks')
-          : (r.hasPayday ? 'Nothing due before payday' : 'Nothing due in the next 2 weeks'));
-    let sub = r.goesNegative
-      ? 'Move or delay a bill to stay above zero.'
-      : (r.billCount ? r.billCount + ' bill' + (r.billCount === 1 ? '' : 's') + ' between now and then.' : 'This is all yours.');
-    if (!r.hasPayday) sub += ' Payday not detected yet.';
+    /* Same question-selection as the phone — see fc-app.js. Irregular
+       earners have no payday, so we answer "how long am I covered?" */
+    const cov = r.coveredDays;
+    const covPhrase = !Number.isFinite(cov) ? null
+      : cov <= 0 ? 'Today is tight'
+      : cov === 1 ? 'Covered for 1 more day'
+      : 'Covered for ' + cov + ' days';
+    let headline, sub;
+    if (r.goesNegative) {
+      headline = 'You run short on ' + dLabel(pts[r.firstNegativeDay].date);
+      sub = 'Move or delay a bill to stay above zero.';
+    } else if (r.isIrregular) {
+      headline = covPhrase || 'You are covered';
+      const wk = r.income.perWeek;
+      sub = (r.billCount ? r.billCount + ' bill' + (r.billCount === 1 ? '' : 's') + ' ahead. ' : 'Nothing due. ')
+          + (wk > 0 ? 'You usually bring in about ' + money(wk) + ' a week.'
+                    : 'Income looks irregular, so this assumes nothing new comes in.');
+    } else {
+      headline = r.billCount
+        ? (r.hasPayday ? 'You make it to payday' : 'You are covered for 2 weeks')
+        : (r.hasPayday ? 'Nothing due before payday' : 'Nothing due in the next 2 weeks');
+      sub = r.billCount ? r.billCount + ' bill' + (r.billCount === 1 ? '' : 's') + ' between now and then.' : 'This is all yours.';
+      if (!r.hasPayday) sub += ' Payday not detected yet.';
+    }
 
     return '<section class="fc-ui-card rw-card">'
       + '<div class="rw-head"><div class="rw-head__text">'
@@ -485,7 +500,36 @@
     applyPrivacy();
   });
 
-  if (new URLSearchParams(location.search).get('demo') === '1') {
+  /* ?demo=gig — the irregular-income case. Same fixtures shape, but the
+     deposits are small, frequent and uneven, so there is no payday to
+     detect and the runway has to answer "how long am I covered?" instead. */
+  function gigFixtures() {
+    const ago = n => { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); };
+    const iso = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
+    const txns = [];
+    for (let d = 1; d <= 60; d += 2) txns.push({ id: 'i' + d, name: 'Rideshare Payout', amount: 70 + (d % 5) * 15, isCredit: true, date: ago(d), category: 'Income' });
+    for (let d = 1; d <= 30; d += 3) txns.push({ id: 's' + d, name: 'Groceries', amount: 38, isCredit: false, date: ago(d), category: 'Food and Drink' });
+    return {
+      user: { name: 'Sam' },
+      accounts: [{ id: 'a1', name: 'Checking', institution: 'Demo Bank', type: 'depository', subtype: 'checking', balance_current: 820 }],
+      bills: [{ id: 'b1', name: 'Phone', amount: 65, due_date: iso(9), status: 'upcoming' }],
+      goals: [],
+      transactions: txns,
+    };
+  }
+
+  const demoParam = new URLSearchParams(location.search).get('demo');
+  if (demoParam === 'gig') {
+    Object.assign(state, gigFixtures());
+    render();
+    const b = document.createElement('div');
+    b.className = 'wa-demo-banner';
+    b.textContent = 'Demo — irregular income (gig work). Not a real account.';
+    document.getElementById('wa-content').prepend(b);
+    return;
+  }
+
+  if (demoParam === '1') {
     Object.assign(state, demoFixtures());
     render();
     const b = document.createElement('div');

@@ -4749,18 +4749,41 @@ window.FCApp = (function () {
 
     /* Headline states the answer in words before the chart explains it.
        With no predicted payday we say "2 weeks" and never invent a date. */
-    const headline = r.goesNegative
-      ? 'You run short on ' + dLabel(pts[r.firstNegativeDay].date)
-      : (r.billCount
-          ? (r.hasPayday ? 'You make it to payday' : 'You are covered for 2 weeks')
-          : (r.hasPayday ? 'Nothing due before payday' : 'Nothing due in the next 2 weeks'));
-    let sub = r.goesNegative
-      ? 'Move or delay a bill to stay above zero.'
-      : (r.billCount
-          ? r.billCount + ' bill' + (r.billCount === 1 ? '' : 's') + ' between now and then.'
-          : 'This is all yours.');
-    // Say plainly that the horizon is a fallback, not a detected payday.
-    if (!r.hasPayday) sub += ' Payday not detected yet.';
+    /* Ask the question that fits the person.
+       With a paycheck: "will I make it to payday?"
+       On irregular income there IS no payday, so the honest question is
+       "how long am I covered if I don't earn another dollar?" — and we can
+       answer it, because coveredDays assumes zero future income. Everyone
+       else in this category just fails these users silently. */
+    const cov = r.coveredDays;
+    const covPhrase = !Number.isFinite(cov) ? null
+      : cov <= 0 ? 'Today is tight'
+      : cov === 1 ? 'Covered for 1 more day'
+      : 'Covered for ' + cov + ' days';
+
+    let headline, sub;
+    if (r.goesNegative) {
+      headline = 'You run short on ' + dLabel(pts[r.firstNegativeDay].date);
+      sub = 'Move or delay a bill to stay above zero.';
+    } else if (r.isIrregular) {
+      headline = covPhrase || 'You are covered';
+      const wk = r.income.perWeek;
+      sub = r.billCount
+        ? r.billCount + ' bill' + (r.billCount === 1 ? '' : 's') + ' ahead. '
+        : 'Nothing due. ';
+      sub += wk > 0
+        ? 'You usually bring in about ' + FCData.formatCurrency(wk) + ' a week.'
+        : 'Income looks irregular, so this assumes nothing new comes in.';
+    } else {
+      headline = r.billCount
+        ? (r.hasPayday ? 'You make it to payday' : 'You are covered for 2 weeks')
+        : (r.hasPayday ? 'Nothing due before payday' : 'Nothing due in the next 2 weeks');
+      sub = r.billCount
+        ? r.billCount + ' bill' + (r.billCount === 1 ? '' : 's') + ' between now and then.'
+        : 'This is all yours.';
+      // Say plainly that the horizon is a fallback, not a detected payday.
+      if (!r.hasPayday) sub += ' Payday not detected yet.';
+    }
 
     return ''
       + '<section class="fc-ui-card rw-card" aria-label="Runway to payday">'
