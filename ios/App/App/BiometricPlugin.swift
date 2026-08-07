@@ -43,10 +43,29 @@ public class BiometricAuthNative: CAPPlugin, CAPBridgedPlugin {
             }
         }
 
+        // Can this device authenticate the owner AT ALL — biometrics OR passcode?
+        //
+        // This is deliberately a different question from `isAvailable`, and the
+        // two were previously conflated. The lock screen unlocks with
+        // .deviceOwnerAuthentication (Face ID *or* passcode), but the gate that
+        // decides whether to SHOW it asked for biometrics specifically. So if
+        // Face ID stopped being enrolled — new phone, user turned it off, or iOS
+        // disabled it after five failed attempts — isBiometricEnabled() flipped
+        // to false and the app quietly stopped locking, while the setting still
+        // read "on". A security control that silently disables itself is worse
+        // than one that was never offered.
+        //
+        // isAvailable      → can we do Face/Touch ID? (drives setup copy)
+        // deviceAuthAvailable → can we lock at all?    (drives the lock gate)
+        var deviceAuthError: NSError?
+        let deviceAuth = LAContext().canEvaluatePolicy(
+            .deviceOwnerAuthentication, error: &deviceAuthError)
+
         call.resolve([
-            "isAvailable":  enrolled,
-            "biometryType": biometryType,
-            "reason":       error?.localizedDescription ?? ""
+            "isAvailable":         enrolled,
+            "deviceAuthAvailable": deviceAuth,
+            "biometryType":        biometryType,
+            "reason":              error?.localizedDescription ?? ""
         ])
     }
 

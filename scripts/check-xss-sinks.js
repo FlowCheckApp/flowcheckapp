@@ -42,10 +42,51 @@ const SAFE = [
   /\bencodeURIComponent\s*\(/,
   /FCData\.formatCurrency\s*\(/,      // numeric
   /\bNumber\s*\(/, /\bparseInt\s*\(/, /\bparseFloat\s*\(/,
-  /\b_ic\s*\(/, /\b_billIcon\s*\(/, /\bsubIcon\s*\(/,   // return trusted SVG
+  /\b_ic\s*\(/, /\b_billIcon\s*\(/, /\b_goalIcon\s*\(/, /\bsubIcon\s*\(/, // trusted SVG
   /\.toFixed\s*\(/, /\.length\b/,
   /JSON\.stringify\s*\(/,             // CSV export path, not HTML
 ];
+
+/* ── Concatenation sinks ──────────────────────────────────────────
+   Everything above only looks at TEMPLATE LITERALS: the scanner keys off
+   /innerHTML\s*=\s*`/ and walks backticks. But most of fc-app.js builds its
+   markup by string concatenation — 44 such statements — and every one of
+   them was invisible to this file.
+
+   Four live stored-XSS sinks were sitting in that blind spot:
+     .fc-bill-name   ← a.name              (Plaid account name)
+     .fc-goal-name   ← g.name              (typed by the user)
+     .fc-bill-name   ← a.name              (Plaid, investments screen)
+     .fc-bill-due    ← a.institution_name  (Plaid)
+
+   Three separate audits missed them, which is exactly the point this file
+   makes in its own header: they were found by reading, not by a check that
+   runs. Now the check runs.
+
+   Line-scoped on purpose. Walking a full concatenation statement means
+   brace/quote matching across arrow functions and regex literals, and a
+   first attempt at that silently swallowed 400 lines and reported garbage.
+   A line that concatenates an expression into a string containing markup is
+   enough signal, and it keeps false positives cheap to read. */
+function concatSinkFindings(src, rel) {
+  const out = [];
+  src.split('\n').forEach((line, i) => {
+    if (!/['"]\s*\+|\+\s*['"]/.test(line)) return;   // no string concatenation
+    if (!/</.test(line)) return;                     // not building markup
+    // Blank out string literals; what remains are the interpolated expressions.
+    const bare = line
+      .replace(/'(?:[^'\\]|\\.)*'/g, "''")
+      .replace(/"(?:[^"\\]|\\.)*"/g, '""');
+    for (const part of bare.split('+')) {
+      const expr = part.trim();
+      if (!expr || expr === "''" || expr === '""') continue;
+      if (!RISKY.test(expr)) continue;
+      if (SAFE.some(rx => rx.test(expr))) continue;
+      out.push({ file: rel, line: i + 1, expr: expr.replace(/\s+/g, ' ').slice(0, 96) });
+    }
+  });
+  return out;
+}
 
 /** Extract template-literal spans that are assigned to innerHTML. */
 function innerHTMLTemplates(src) {
@@ -87,9 +128,11 @@ for (const rel of FILES) {
       findings.push({ file: rel, line, expr: expr.trim().replace(/\s+/g, ' ').slice(0, 96) });
     }
   }
+  // …and the concatenation-built markup the template scan cannot see.
+  concatSinkFindings(src, rel).forEach(f => findings.push(f));
 }
 
-console.log(`innerHTML templates scanned: ${scanned}`);
+console.log(`innerHTML templates scanned: ${scanned} (+ concatenated markup, line-scoped)`);
 
 if (findings.length) {
   console.error(`\n✗ ${findings.length} unescaped interpolation(s) reaching innerHTML:\n`);

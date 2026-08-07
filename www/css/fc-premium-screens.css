@@ -449,7 +449,7 @@ body.fc-theme {
 
 .premium-insights-gate button {
   width: 100%;
-  min-height: 43px;
+  min-height: var(--fc-touch);
   border: 0;
   border-radius: 13px;
   background: linear-gradient(135deg, var(--fc-accent), var(--fc-electric));
@@ -1147,7 +1147,7 @@ body.fc-theme {
 }
 
 .home-safe-status--good { color: var(--fc-success); }
-.home-safe-status--warn { color: var(--fc-warning); }
+.home-safe-status--warn { color: var(--fc-warning-text); }
 .home-safe-status--danger { color: var(--fc-danger); }
 
 .home-runway-chart {
@@ -1204,7 +1204,7 @@ body.fc-theme {
   border: 1.5px solid currentColor;
   border-radius: 50%;
   background: var(--fc-warning-soft);
-  color: var(--fc-warning);
+  color: var(--fc-warning-text);
 }
 
 .home-next-risk-copy {
@@ -1216,7 +1216,7 @@ body.fc-theme {
 
 .home-next-risk-label {
   margin-bottom: 1px;
-  color: var(--fc-warning);
+  color: var(--fc-warning-text);
   font-size: 9px;
   font-weight: 700;
   letter-spacing: .07em;
@@ -1951,7 +1951,7 @@ body.fc-theme {
 }
 
 .fc-settings-row {
-  min-height: 43px !important;
+  min-height: var(--fc-touch) !important;
   gap: 10px !important;
   padding: 7px 11px !important;
 }
@@ -1987,7 +1987,7 @@ body.fc-theme {
 }
 
 .fc-nav-item {
-  min-height: 43px !important;
+  min-height: var(--fc-touch) !important;
   font-size: 8px !important;
 }
 
@@ -2265,7 +2265,7 @@ body.fc-theme {
 }
 
 #view-home .home-move-do {
-  min-height: 43px;
+  min-height: var(--fc-touch);
   border-radius: 12px;
   background: linear-gradient(90deg, var(--fc-accent), var(--fc-electric)) !important;
   color: var(--fc-bg) !important;

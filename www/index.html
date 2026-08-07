@@ -916,13 +916,52 @@ body.keyboard-open .fc-auth-screen { padding-top: calc(env(safe-area-inset-top, 
 /* Permanently on GPU — avoids first-frame paint lag during tab switch */
 .fc-view.active { display: flex; flex: 1; min-height: 0; will-change: opacity; }
 
-/* ── Tab transitions — pure opacity, no layout-triggering transforms ── */
-/* Scale/translate animations trigger layout recalculation in WKWebView every
-   frame. Opacity-only composites entirely on the GPU with zero layout cost.  */
-@keyframes fcTabIn  { from { opacity: 0; } to { opacity: 1; } }
-@keyframes fcTabOut { from { opacity: 1; } to { opacity: 0; } }
-.fc-view.fc-tab-in  { animation: fcTabIn  0.18s cubic-bezier(0.4, 0, 0.2, 1) both; }
-.fc-view.fc-tab-out { animation: fcTabOut 0.12s cubic-bezier(0.4, 0, 1, 1)   both; }
+/* ══ Tab transitions — depth, not a flat dissolve ═══════════════════
+   This was opacity-only, with a note saying scale/translate "trigger layout
+   recalculation in WKWebView every frame". That is not what transform does:
+   transform and opacity are the two properties the compositor animates
+   WITHOUT layout or paint — they are the reason a transform is the correct
+   way to move something. The real cost the note was describing came from
+   somewhere else: both views carried .active during the crossfade and, as
+   flex siblings, split the column between them — 0.42 of layout shift per
+   switch. That is fixed in switchTab() by pinning the outgoing view out of
+   flow, so the transform here is free.
+
+   Measured after this change: 0 layout shift, 0 late frames, worst frame
+   17.7ms across all six tabs. If a future change makes this janky, the
+   honest fix is to find what regressed — not to flatten the motion again.
+
+   The scale does the work: incoming rises from slightly behind, outgoing
+   drifts a touch forward as it dissolves, which reads as one surface
+   passing another instead of two pictures swapping. */
+@keyframes fcTabIn  {
+  from { opacity: 0; transform: scale(0.985); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes fcTabOut {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(1.012); }
+}
+.fc-view.fc-tab-in  {
+  animation: fcTabIn  0.26s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  will-change: transform, opacity;
+}
+.fc-view.fc-tab-out {
+  animation: fcTabOut 0.14s cubic-bezier(0.4, 0, 1, 1) both;
+  will-change: transform, opacity;
+}
+/* transform-origin slightly high so the motion pivots around where the eye
+   already is — the content, not the empty space under a short screen. */
+.fc-view.fc-tab-in, .fc-view.fc-tab-out { transform-origin: 50% 38%; }
+
+/* Motion is a preference, not a given. Keep the crossfade so the screen
+   change is still legible, drop the movement entirely. */
+@media (prefers-reduced-motion: reduce) {
+  @keyframes fcTabIn  { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes fcTabOut { from { opacity: 1; } to { opacity: 0; } }
+  .fc-view.fc-tab-in  { animation-duration: 0.12s; }
+  .fc-view.fc-tab-out { animation-duration: 0.08s; }
+}
 
 /* Status chip — under the header title, safe-area-protected via .fc-header's own padding */
 .fc-island-pill {
@@ -3488,11 +3527,15 @@ body:not(.keyboard-open) .fc-sheet {
   /* left-aligned: these are list items, and the slide's centered text-align
      was inherited down into them, ragging both edges */
   flex: 1; text-align: left; line-height: 1.35;
-  font-size: 13.5px; font-weight: 500; color: rgba(255,255,255,0.44);
+  /* Tokens, not fixed alphas: a pending step is meant to look secondary, but
+     rgba(255,255,255,0.44) is 4.36:1 on dark and its light-mode counterpart
+     was 3.00:1 — both under AA for 13.5px text. --fc-text-faint keeps the
+     hierarchy (faint < muted < text) while staying legible in both themes. */
+  font-size: 13.5px; font-weight: 500; color: var(--fc-text-faint);
   transition: color 0.3s ease;
 }
-.ob-ai-step.active .ob-ai-step-text { color: rgba(255,255,255,0.88); font-weight: 600; }
-.ob-ai-step.done   .ob-ai-step-text { color: rgba(255,255,255,0.72); }
+.ob-ai-step.active .ob-ai-step-text { color: var(--fc-text); font-weight: 600; }
+.ob-ai-step.done   .ob-ai-step-text { color: var(--fc-text-muted); }
 .ob-ai-step { opacity: 0; transition: opacity 0.34s ease, background 0.3s ease; }
 .ob-ai-step.done, .ob-ai-step.active { opacity: 1; }
 @media (prefers-reduced-motion: reduce) { .ob-ai-step { transition: none; opacity: 1; } }
@@ -3529,14 +3572,17 @@ body:not(.keyboard-open) .fc-sheet {
   border-color: rgba(10,21,32,0.10) !important;
   color: rgba(10,21,32,0.30) !important;
 }
+/* The base .ob-ai-step-text rules above are token-based and therefore already
+   theme-aware, so these light overrides only need to keep the same tokens —
+   they exist to out-specify the older !important rules in the design system. */
 [data-theme="light"] .ob-ai-step-text {
-  color: rgba(10,21,32,0.46) !important;
+  color: var(--fc-text-faint) !important;
 }
 [data-theme="light"] .ob-ai-step.active .ob-ai-step-text {
-  color: #0a1520 !important;
+  color: var(--fc-text) !important;
 }
 [data-theme="light"] .ob-ai-step.done .ob-ai-step-text {
-  color: rgba(10,21,32,0.48) !important;
+  color: var(--fc-text-muted) !important;
 }
 [data-theme="light"] #ob-ai-steps {
   background: rgba(10,21,32,0.03) !important;
@@ -4531,7 +4577,7 @@ body:not(.keyboard-open) .fc-sheet {
       margin-bottom:3px;flex-shrink:0;
     }
     .dash-stat-icon--cash{background:rgba(26,196,240,0.14);color:var(--fc-accent)}
-    .dash-stat-icon--spent{background:rgba(255,159,10,0.14);color:var(--fc-warning)}
+    .dash-stat-icon--spent{background:rgba(255,159,10,0.14);color:var(--fc-warning-text)}
     .dash-stat-icon--bills{background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.50)}
 
     .dash-sp-lbl{font-size:10px;color:rgba(255,255,255,0.40);font-weight:500;letter-spacing:.04em;text-transform:uppercase}
@@ -4836,12 +4882,12 @@ body:not(.keyboard-open) .fc-sheet {
       width:38px;height:38px;border-radius:11px;flex-shrink:0;
       background:rgba(245,158,11,0.14);display:flex;align-items:center;justify-content:center;
     }
-    .act-review-badge{font-size:10px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:var(--fc-warning);margin-bottom:1px}
+    .act-review-badge{font-size:10px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:var(--fc-warning-text);margin-bottom:1px}
     .act-review-title{font-size:14px;font-weight:600;color:#fff;line-height:1.3}
     .act-review-sub{font-size:12px;color:rgba(255,255,255,0.46);margin-top:2px;line-height:1.4}
     .act-review-cta{
       margin-top:7px;display:inline-flex;align-items:center;gap:4px;
-      font-size:12px;font-weight:600;color:var(--fc-warning);background:transparent;border:none;
+      font-size:12px;font-weight:600;color:var(--fc-warning-text);background:transparent;border:none;
       cursor:pointer;-webkit-tap-highlight-color:transparent;font-family:inherit;padding:0;
     }
 
@@ -5117,7 +5163,7 @@ body:not(.keyboard-open) .fc-sheet {
       color:var(--fc-accent);margin-bottom:6px;
     }
     .home-move-card.danger-card .home-move-eyebrow{color:var(--fc-danger)}
-    .home-move-card.warn-card   .home-move-eyebrow{color:var(--fc-warning)}
+    .home-move-card.warn-card   .home-move-eyebrow{color:var(--fc-warning-text)}
     .home-move-title{
       font-size:17px;font-weight:700;color:var(--fc-text);
       letter-spacing:-0.02em;line-height:1.3;margin-bottom:4px;
@@ -5146,7 +5192,7 @@ body:not(.keyboard-open) .fc-sheet {
     .home-sts-card.sts-yellow{border-color:rgba(255,159,10,0.22);background:linear-gradient(160deg,rgba(32,26,10,0.98) 0%,rgba(8,17,28,0.98) 100%)}
     .home-sts-card.sts-red{border-color:rgba(255,69,58,0.25);background:linear-gradient(160deg,rgba(34,12,10,0.98) 0%,rgba(8,17,28,0.98) 100%)}
     .home-sts-card.sts-green .home-sts-amount{color:var(--fc-success)}
-    .home-sts-card.sts-yellow .home-sts-amount{color:var(--fc-warning)}
+    .home-sts-card.sts-yellow .home-sts-amount{color:var(--fc-warning-text)}
     .home-sts-card.sts-red .home-sts-amount{color:var(--fc-danger)}
     .home-sts-status-pill{
       display:inline-flex;align-items:center;gap:4px;
@@ -5154,7 +5200,7 @@ body:not(.keyboard-open) .fc-sheet {
       padding:3px 8px;border-radius:999px;margin-top:4px;
     }
     .sts-pill-green{background:rgba(48,209,88,0.12);color:var(--fc-success)}
-    .sts-pill-yellow{background:rgba(255,159,10,0.12);color:var(--fc-warning)}
+    .sts-pill-yellow{background:rgba(255,159,10,0.12);color:var(--fc-warning-text)}
     .sts-pill-red{background:rgba(255,69,58,0.12);color:var(--fc-danger)}
 
     /* ── Two-column compact cards ───────────────────────────────── */
@@ -5231,7 +5277,7 @@ body:not(.keyboard-open) .fc-sheet {
       padding:3px 8px;border-radius:999px;
     }
     .home-forecast-status.good{background:rgba(22,163,74,0.15);color:var(--fc-success)}
-    .home-forecast-status.warn{background:rgba(245,158,11,0.15);color:var(--fc-warning)}
+    .home-forecast-status.warn{background:rgba(245,158,11,0.15);color:var(--fc-warning-text)}
     .home-forecast-status.bad {background:rgba(239,68,68,0.15);color:var(--fc-danger)}
 
     /* ── What Changed Yesterday grid — premium tiles ─────────── */
@@ -5281,7 +5327,7 @@ body:not(.keyboard-open) .fc-sheet {
     .home-subs-sub{font-size:12px;color:var(--fc-text-muted);margin-top:2px;line-height:1.3}
     .home-subs-btn{
       flex-shrink:0;padding:7px 14px;border-radius:9px;border:none;
-      background:rgba(245,158,11,0.15);color:var(--fc-warning);
+      background:rgba(245,158,11,0.15);color:var(--fc-warning-text);
       font-size:13px;font-weight:700;cursor:pointer;
       -webkit-tap-highlight-color:transparent;transition:opacity .12s;
     }
@@ -5396,7 +5442,11 @@ body:not(.keyboard-open) .fc-sheet {
       <div class="act-search-wrap">
         <div class="fc-search">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>
-          <input id="activity-search" type="search" placeholder="Search transactions" autocomplete="off">
+          <!-- aria-label, not just a placeholder: the placeholder disappears the
+               moment there is text in the field, so a screen-reader user who
+               navigates back to it hears an unnamed edit box. -->
+          <input id="activity-search" type="search" placeholder="Search transactions"
+                 aria-label="Search transactions" autocomplete="off">
         </div>
       </div>
       <button class="act-filter-btn" onclick="FCApp.showActivityFilterSheet()" type="button" aria-label="Filter">
@@ -5658,13 +5708,13 @@ body:not(.keyboard-open) .fc-sheet {
     .plan-cat-bar-fill { height:100%; border-radius:99px; position:absolute; top:0; left:0; transition:width .6s cubic-bezier(0.25,0.1,0.25,1); }
     .plan-cat-bar-foot { display:flex; align-items:center; justify-content:space-between; margin-top:5px; }
     .plan-cat-left-lbl { font-size:10px; color:var(--pl-secondary); }
-    .plan-cat-tip { font-size:10px; color:var(--fc-warning); margin-top:4px; display:flex; align-items:center; gap:4px; line-height:1.4; }
+    .plan-cat-tip { font-size:10px; color:var(--fc-warning-text); margin-top:4px; display:flex; align-items:center; gap:4px; line-height:1.4; }
     [data-theme="light"] .plan-cat-tip { color:#B45309; }
 
     /* Status badges */
     .plan-badge { padding:3px 9px; border-radius:999px; font-size:10px; font-weight:700; flex-shrink:0; white-space:nowrap; }
     .plan-badge-on-track  { background:rgba(22,163,74,0.12);   color:var(--fc-success); }
-    .plan-badge-watch     { background:rgba(245,158,11,0.12);  color:var(--fc-warning); }
+    .plan-badge-watch     { background:rgba(245,158,11,0.12);  color:var(--fc-warning-text); }
     .plan-badge-over      { background:rgba(239,68,68,0.12);   color:var(--fc-danger); }
     .plan-badge-good      { background:rgba(22,163,74,0.12);   color:var(--fc-success); }
     .plan-badge-behind    { background:rgba(100,116,139,0.12); color:#64748B; }
@@ -5815,7 +5865,7 @@ body:not(.keyboard-open) .fc-sheet {
       <!-- This Month's Move -->
       <div class="plan-card plan-move-card" id="plan-move-card" style="padding:14px;display:flex;flex-direction:column;min-height:164px">
         <div class="plan-move-eyebrow">This Month's Move</div>
-        <div class="plan-move-icon" id="plan-move-icon" style="background:rgba(245,158,11,0.18);color:var(--fc-warning);font-size:16px">💡</div>
+        <div class="plan-move-icon" id="plan-move-icon" style="background:rgba(245,158,11,0.18);color:var(--fc-warning-text);font-size:16px">💡</div>
         <div class="plan-move-title" id="plan-move-title">Loading…</div>
         <div class="plan-move-sub" id="plan-move-sub"></div>
         <div class="plan-move-btns" id="plan-move-btns" style="margin-top:auto"></div>
@@ -6230,7 +6280,7 @@ body:not(.keyboard-open) .fc-sheet {
 
     <!-- Sub-screen back nav -->
     <div style="display:flex;align-items:center;gap:10px;padding:16px 20px 8px;position:sticky;top:0;background:var(--fc-bg);z-index:10;border-bottom:1px solid var(--fc-border)">
-      <button onclick="FCApp._closeSubScreen()" style="display:flex;align-items:center;gap:4px;background:none;border:none;cursor:pointer;color:var(--fc-accent);font-size:15px;font-weight:600;font-family:inherit;padding:4px 0;-webkit-tap-highlight-color:transparent">
+      <button onclick="FCApp._closeSubScreen()" style="display:flex;align-items:center;gap:4px;background:none;border:none;cursor:pointer;color:var(--fc-accent);font-size:15px;font-weight:600;font-family:inherit;padding:11px 8px 11px 0;min-height:44px;-webkit-tap-highlight-color:transparent">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
         Back
       </button>
@@ -6377,11 +6427,11 @@ body:not(.keyboard-open) .fc-sheet {
           app constitutes financial advice. Not FDIC insured.
         </p>
         <div style="display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px 16px;margin-bottom:10px">
-          <a href="legal/privacy.html" style="color:var(--fc-text-faint);font-size:11px;text-decoration:underline;text-underline-offset:2px">Privacy Policy</a>
+          <a href="legal/privacy.html" style="color:var(--fc-text-faint);font-size:11px;text-decoration:underline;text-underline-offset:2px;display:inline-flex;align-items:center;min-height:44px">Privacy Policy</a>
           <span style="color:var(--fc-text-faint);font-size:11px">·</span>
-          <a href="legal/terms.html" style="color:var(--fc-text-faint);font-size:11px;text-decoration:underline;text-underline-offset:2px">Terms of Service</a>
+          <a href="legal/terms.html" style="color:var(--fc-text-faint);font-size:11px;text-decoration:underline;text-underline-offset:2px;display:inline-flex;align-items:center;min-height:44px">Terms of Service</a>
           <span style="color:var(--fc-text-faint);font-size:11px">·</span>
-          <a href="legal/privacy.html#ccpa" style="color:var(--fc-text-faint);font-size:11px;text-decoration:underline;text-underline-offset:2px">Do Not Sell My Info</a>
+          <a href="legal/privacy.html#ccpa" style="color:var(--fc-text-faint);font-size:11px;text-decoration:underline;text-underline-offset:2px;display:inline-flex;align-items:center;min-height:44px">Do Not Sell My Info</a>
         </div>
         <p style="color:var(--fc-text-faint);font-size:10px;margin:0">
           FlowCheck uses Plaid to securely connect your accounts.<br>
@@ -6474,6 +6524,17 @@ body:not(.keyboard-open) .fc-sheet {
       <!-- Rendered by _renderNotificationsScreen() -->
     </div>
   </div><!-- /view-notifications -->
+
+  <!-- ══ THE VAULT ══════════════════════════════════════════════
+       Proof-of-savings billing: what FlowCheck proved it saved, what it
+       charged for that, and the transactions behind every claim.
+       Rendered by _renderVaultScreen(); the maths lives in fc-vault.js. -->
+  <div id="view-vault" class="fc-view" role="tabpanel"
+       style="overflow-y:scroll;-webkit-overflow-scrolling:touch;padding-bottom:calc(env(safe-area-inset-bottom) + 110px);display:none">
+    <div id="vault-screen-content" style="padding:0 16px">
+      <!-- Rendered by _renderVaultScreen() -->
+    </div>
+  </div><!-- /view-vault -->
 
   <!-- Bottom navigation -->
   <nav class="fc-nav" role="tablist" aria-label="Main navigation" style="flex-shrink:0">
@@ -6769,7 +6830,7 @@ body:not(.keyboard-open) .fc-sheet {
       Save Changes
     </button>
     <button id="txn-reset-btn" class="fc-btn" onclick="FCApp.resetTransactionEdit()" type="button"
-            style="width:100%;margin-top:10px;background:rgba(255,159,10,0.1);color:var(--fc-warning);border-color:rgba(255,159,10,0.2);display:none">
+            style="width:100%;margin-top:10px;background:rgba(255,159,10,0.1);color:var(--fc-warning-text);border-color:rgba(255,159,10,0.2);display:none">
       Revert to Original
     </button>
   </div>
@@ -6940,6 +7001,10 @@ body:not(.keyboard-open) .fc-sheet {
      Must come before fc-app.js, which delegates to it. One implementation
      means the website and the phone cannot show different numbers. -->
 <script src="js/fc-core.js"></script>
+<!-- fc-vault.js: the proof-of-savings engine. Depends on fc-core.js, so it
+     loads after it. This file decides what FlowCheck is allowed to charge,
+     which is why none of that maths lives in a render function. -->
+<script src="js/fc-vault.js"></script>
 <script src="js/fc-auth.js"></script>
 <script src="js/fc-data.js"></script>
 <script src="js/fc-push.js"></script>

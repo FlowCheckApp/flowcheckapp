@@ -496,11 +496,36 @@ window.FCAuth = (function () {
   function db()           { return _db; }
   function auth()         { return _auth; }
 
+  /**
+   * Can this device authenticate its owner at all — Face ID, Touch ID, OR the
+   * device passcode? This is the question the LOCK should ask.
+   *
+   * checkBiometricAvailable() asks the narrower "is Face/Touch ID enrolled",
+   * which is right for deciding whether to offer Face ID setup and wrong for
+   * deciding whether to lock: the native lock screen already unlocks with
+   * .deviceOwnerAuthentication, so a passcode-only device can be locked
+   * perfectly well. Gating on biometrics meant that losing Face ID enrollment
+   * silently switched the lock off while the setting still said "on".
+   *
+   * Falls back to the biometric answer on older plugin builds that do not
+   * report deviceAuthAvailable, so this can never be *less* secure than before.
+   */
+  async function checkDeviceAuthAvailable() {
+    try {
+      const plugin = BiometricAuth();
+      if (!plugin || !plugin.checkBiometry) return checkBiometricAvailable();
+      const result = await plugin.checkBiometry();
+      if (!result) return false;
+      if (typeof result.deviceAuthAvailable === 'boolean') return result.deviceAuthAvailable;
+      return !!result.isAvailable;
+    } catch (_) { return checkBiometricAvailable(); }
+  }
+
   async function isBiometricEnabled() {
     // Always re-check hardware availability — don't use cached value.
     // The cache caused the toggle to be a no-op when _biometricAvailable
     // was set to false on the first call (e.g. plugin not ready yet).
-    const available = await checkBiometricAvailable();
+    const available = await checkDeviceAuthAvailable();
     const setting   = await secureGet('biometric_enabled');
     // Require explicit opt-in ('true' string), not just non-null.
     // SecureStorage values are always strings; migration converts old booleans.
@@ -618,6 +643,7 @@ window.FCAuth = (function () {
     setBiometricEnabled,
     setOnboardingActive,
     checkBiometricAvailable,
+    checkDeviceAuthAvailable,
     promptBiometric,
     getUserDoc,
     getIdToken,

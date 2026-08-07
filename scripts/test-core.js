@@ -30,7 +30,17 @@ function near(actual, expected, tol, msg) {
 function ok(cond, msg) { if (!cond) throw new Error(msg || 'expected truthy'); }
 
 /* ── helpers ─────────────────────────────────────────────────────── */
-const iso = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
+/* LOCAL date components, never toISOString().
+   fc-core parses "YYYY-MM-DD" as local midnight on purpose (a UTC parse makes
+   a bill due today look overdue in US timezones). A fixture helper built on
+   toISOString() is in UTC, so after ~7pm US Central its "today" is already
+   tomorrow — six tests then fail, `npm run check` fails, and deploy.sh
+   refuses to ship. The bug was in this helper, not in the code under test. */
+const iso = n => {
+  const d = new Date(); d.setDate(d.getDate() + n);
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')
+       + '-' + String(d.getDate()).padStart(2, '0');
+};
 const ago = n => iso(-n);
 const chk = bal => ({ type: 'depository', subtype: 'checking', balance_current: bal });
 const pay = (amt, daysAgo, name) => ({ amount: amt, isCredit: true, date: ago(daysAgo), category: 'Income', name: name || 'Payroll' });

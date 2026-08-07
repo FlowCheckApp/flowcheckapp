@@ -1693,6 +1693,69 @@ function _maskEmail(addr) {
   return s[0] + '***' + s.slice(at);
 }
 
+/* ── CAN-SPAM compliance footer ────────────────────────────────────
+   15 U.S.C. § 7704 requires every COMMERCIAL email to carry a valid
+   physical postal address and a working opt-out. FlowCheck's opt-out was
+   already solid — signed unsubscribe links plus RFC 8058 one-click headers
+   — but no email carried a postal address, and there was no shared footer
+   to put one in: all 30 send sites build their own HTML.
+
+   Most of those are transactional and exempt (the OTP code, the new-sign-in
+   alert, the account-deleted notice, purchase receipts). The drip and
+   win-back sequence is not: "Still getting started on FlowCheck?", "Set
+   your first budget", "your finances are waiting" and the referral reward
+   emails are promotional, and each one sent without an address is its own
+   violation.
+
+   The footer is appended here rather than in 30 templates, keyed off the
+   same `uid` argument that already decides whether an email gets
+   unsubscribe headers — if it is addressed to a user, it gets the footer.
+
+   MAILING_ADDRESS has no default on purpose. A fake or guessed address is
+   worse than none: it is a false statement in a commercial email. If it is
+   unset the footer degrades to the opt-out line only and the send is logged
+   loudly, so the gap is visible instead of silent. */
+const MAILING_ADDRESS = process.env.MAILING_ADDRESS || '';
+if (!MAILING_ADDRESS) {
+  console.warn('[Boot] MAILING_ADDRESS is not set — commercial email is NOT CAN-SPAM compliant. '
+             + 'Set it in Railway to your real business postal address.');
+}
+
+function _complianceFooter(uid) {
+  const unsub = _unsubUrl(uid, 'all', BACKEND_URL);
+  return `
+  <div style="margin-top:28px;padding-top:16px;border-top:1px solid #e5e7eb;
+              font-size:11px;line-height:1.6;color:#6b7280;text-align:center;
+              font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+    <div>FlowCheck is not a bank. Not financial advice.</div>
+    ${MAILING_ADDRESS ? `<div style="margin-top:6px">${_escHtml(MAILING_ADDRESS)}</div>` : ''}
+    <div style="margin-top:6px">
+      <a href="${unsub}" style="color:#6b7280;text-decoration:underline">Unsubscribe</a>
+    </div>
+  </div>`;
+}
+
+/**
+ * Length-safe constant-time string compare.
+ * crypto.timingSafeEqual throws on length mismatch, and that throw is itself a
+ * length oracle — so compare lengths separately and always run the digest so
+ * the work done is independent of the input.
+ */
+function _safeEqual(a, b) {
+  const ab = Buffer.from(String(a), 'utf8');
+  const bb = Buffer.from(String(b), 'utf8');
+  const ha = crypto.createHash('sha256').update(ab).digest();
+  const hb = crypto.createHash('sha256').update(bb).digest();
+  return crypto.timingSafeEqual(ha, hb) && ab.length === bb.length;
+}
+
+/** Minimal HTML escape for values interpolated into outbound email. */
+function _escHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 async function _sendEmail(to, subject, html, uid = null) {
   if (!_resendApiKey) {
     console.log('[email] No Resend API key configured — skipping:', subject, '→', _maskEmail(to));
@@ -1703,6 +1766,15 @@ async function _sendEmail(to, subject, html, uid = null) {
     'List-Unsubscribe':      `<${_unsubUrl(uid, 'all', BACKEND_URL)}>`,
     'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
   } : {};
+  // User-addressed mail carries the compliance footer; templates that already
+  // ship their own unsubscribe line are left alone so it is not duplicated.
+  let body = html;
+  if (uid) {
+    if (!/unsubscribe/i.test(html)) body = html + _complianceFooter(uid);
+    else if (!MAILING_ADDRESS) {
+      console.warn(`[email] "${subject}" has no postal address (MAILING_ADDRESS unset)`);
+    }
+  }
   try {
     const resp = await fetch('https://api.resend.com/emails', {
       method:  'POST',
@@ -1710,7 +1782,7 @@ async function _sendEmail(to, subject, html, uid = null) {
         'Authorization': `Bearer ${_resendApiKey}`,
         'Content-Type':  'application/json',
       },
-      body:   JSON.stringify({ from: EMAIL_FROM, to, subject, html, headers }),
+      body:   JSON.stringify({ from: EMAIL_FROM, to, subject, html: body, headers }),
       signal: AbortSignal.timeout(10_000),
     });
     if (!resp.ok) {
@@ -4733,7 +4805,15 @@ app.post('/auth/otp/verify', requireAuth, async (req, res) => {
       await docRef.delete();
       return res.status(400).json({ message: 'Too many attempts — tap Resend for a new code', expired: true });
     }
-    if (String(data.code) !== String(code)) {
+    /* Constant-time compare. To be straight about what this does and does not
+       buy: the real defence on a 6-digit code is the 5-attempt cap above plus
+       the 10-minute TTL — a timing side channel is not practically exploitable
+       through those. But `!==` on a secret short-circuits at the first wrong
+       digit, and a comparison whose duration depends on how much of the secret
+       you guessed correctly is the kind of thing that stops being harmless the
+       moment someone raises the attempt cap or lengthens the code. Cheap to do
+       correctly, so do it correctly. */
+    if (!_safeEqual(String(data.code), String(code))) {
       await docRef.update({ attempts: admin.firestore.FieldValue.increment(1) });
       const left = 4 - data.attempts;
       return res.status(400).json({ message: `Incorrect code — ${left} attempt${left !== 1 ? 's' : ''} left` });

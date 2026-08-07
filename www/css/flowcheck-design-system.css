@@ -31,8 +31,9 @@
   --fc-success-soft:    rgba(21, 128, 61, 0.06);
   --fc-success-border:  rgba(34, 197, 94, 0.22);
   --fc-warning:         #F59E0B;
+  --fc-warning-text:    #B45309;  /* 5.02:1 on white — #F59E0B is 2.15:1 and must never carry text */
   --fc-warning-soft:    rgba(245, 158, 11, 0.10);
-  --fc-danger:          #DC2626;
+  --fc-danger:          #CC1F1F;  /* was #DC2626 — 4.49:1 on the page bg (--fc-bg #f4f7fb), just under AA, and that is where daily net totals sit */
   --fc-danger-soft:     rgba(239, 68, 68, 0.10);
   --fc-danger-border:   rgba(239, 68, 68, 0.22);
 
@@ -106,6 +107,7 @@
   --fc-success-soft:    rgba(48, 209, 88, 0.14);
   --fc-success-border:  rgba(48, 209, 88, 0.25);
   --fc-warning:         #ff9f0a;
+  --fc-warning-text:    #ff9f0a;  /* 9.43:1 on the dark background — already safe */
   --fc-warning-soft:    rgba(255, 159, 10, 0.14);
   --fc-danger:          #ff453a;
   --fc-danger-soft:     rgba(255, 69, 58, 0.14);
@@ -154,8 +156,9 @@
   --fc-success-soft:    rgba(21, 128, 61, 0.06);
   --fc-success-border:  rgba(34, 197, 94, 0.22);
   --fc-warning:         #F59E0B;
+  --fc-warning-text:    #B45309;  /* 5.02:1 on white — #F59E0B is 2.15:1 and must never carry text */
   --fc-warning-soft:    rgba(245, 158, 11, 0.10);
-  --fc-danger:          #DC2626;
+  --fc-danger:          #CC1F1F;  /* was #DC2626 — 4.49:1 on the page bg (--fc-bg #f4f7fb), just under AA, and that is where daily net totals sit */
   --fc-danger-soft:     rgba(239, 68, 68, 0.10);
   --fc-danger-border:   rgba(239, 68, 68, 0.22);
 
@@ -434,7 +437,7 @@ body.fc-theme {
 }
 .fc-pill--accent   { background: var(--fc-accent-soft);   color: var(--fc-accent);   border-color: rgba(26,196,240,0.2); }
 .fc-pill--success  { background: var(--fc-success-soft);  color: var(--fc-success);  border-color: rgba(48,209,88,0.2); }
-.fc-pill--warning  { background: var(--fc-warning-soft);  color: var(--fc-warning);  border-color: rgba(255,159,10,0.2); }
+.fc-pill--warning  { background: var(--fc-warning-soft);  color: var(--fc-warning-text);  border-color: rgba(255,159,10,0.2); }
 .fc-pill--danger   { background: var(--fc-danger-soft);   color: var(--fc-danger);   border-color: rgba(255,69,58,0.2); }
 .fc-pill--ghost    { background: transparent; border-color: var(--fc-border-strong); color: var(--fc-text); }
 .fc-pill--purple {
@@ -598,7 +601,7 @@ body.fc-theme {
   line-height: 1;
 }
 .fc-stat-meta { font-size: 10px; color: var(--fc-text-faint); margin-top: 4px; }
-.fc-stat-meta--warn   { color: var(--fc-warning); }
+.fc-stat-meta--warn   { color: var(--fc-warning-text); }
 .fc-stat-meta--good   { color: var(--fc-success); }
 .fc-stat-meta--danger { color: var(--fc-danger); }
 
@@ -1100,7 +1103,7 @@ body.fc-theme {
   background: rgba(13,27,46,0.05) !important;
   border-color: rgba(13,27,46,0.10) !important;
 }
-[data-theme="light"] .dash-scrub-btn { color: rgba(13,27,46,0.45) !important; }
+[data-theme="light"] .dash-scrub-btn { color: var(--fc-text-faint) !important; }
 [data-theme="light"] .dash-scrub-btn.active {
   background: rgba(13,173,212,0.14) !important;
   color: var(--fc-accent) !important;
@@ -1108,7 +1111,7 @@ body.fc-theme {
 }
 
 /* ── Greeting ────────────────────────────────────────────── */
-[data-theme="light"] .dash-tod  { color: rgba(13,27,46,0.42) !important; }
+[data-theme="light"] .dash-tod  { color: var(--fc-text-faint) !important; }
 [data-theme="light"] .dash-name { color: #0a1520 !important; }
 [data-theme="light"] .dash-safe {
   color: var(--fc-accent) !important;
@@ -1127,7 +1130,7 @@ body.fc-theme {
   border-color: rgba(13,27,46,0.08) !important;
   box-shadow: 0 1px 3px rgba(13,27,46,0.07), 0 6px 20px rgba(13,27,46,0.08) !important;
 }
-[data-theme="light"] .dash-sp-lbl { color: rgba(13,27,46,0.45) !important; }
+[data-theme="light"] .dash-sp-lbl { color: var(--fc-text-faint) !important; }
 [data-theme="light"] .dash-sp-val { color: #0a1520 !important; }
 [data-theme="light"] .dash-sp-sub { color: rgba(13,27,46,0.40) !important; }
 [data-theme="light"] .dash-stat-icon--cash  { background: rgba(13,173,212,0.12) !important; }
@@ -1157,7 +1160,7 @@ body.fc-theme {
 
 /* ── Transaction / list rows ─────────────────────────────── */
 [data-theme="light"] .fc-list-title  { color: #0a1520 !important; }
-[data-theme="light"] .fc-list-meta   { color: rgba(13,27,46,0.42) !important; }
+[data-theme="light"] .fc-list-meta   { color: var(--fc-text-faint) !important; }
 [data-theme="light"] .fc-list-item   { border-bottom-color: rgba(13,27,46,0.06) !important; }
 [data-theme="light"] .fc-home-txn    { border-bottom-color: rgba(13,27,46,0.06) !important; }
 [data-theme="light"] .fc-home-txn:active { background: rgba(13,27,46,0.03) !important; }
@@ -1197,7 +1200,7 @@ body.fc-theme {
 /* removed: .act-title color is canonical now */
 [data-theme="light"] .act-subtitle { color: rgba(7,20,38,0.50) !important; }
 [data-theme="light"] .fc-date-label { color: rgba(7,20,38,0.42) !important; }
-[data-theme="light"] .fc-date-net  { color: rgba(7,20,38,0.44) !important; }
+[data-theme="light"] .fc-date-net  { color: var(--fc-text-muted) !important; }
 
 /* Activity search + filter btn */
 [data-theme="light"] .act-search-wrap .fc-search {
@@ -1217,10 +1220,10 @@ body.fc-theme {
 [data-theme="light"] .fc-segment {
   background: rgba(13,27,46,0.06) !important;
 }
-[data-theme="light"] .fc-segment-btn { color: rgba(13,27,46,0.45) !important; }
+[data-theme="light"] .fc-segment-btn { color: var(--fc-text-faint) !important; }
 [data-theme="light"] #view-activity .fc-segment-btn.active {
   background: #ffffff !important;
-  color: #147CFF !important;
+  color: var(--fc-accent) !important;
   box-shadow: 0 1px 4px rgba(13,27,46,0.12) !important;
 }
 [data-theme="light"] .fc-segment-btn.active {
@@ -1235,20 +1238,20 @@ body.fc-theme {
   border-color: rgba(15,23,42,0.07) !important;
   box-shadow: 0 2px 12px rgba(15,23,42,0.07), 0 8px 28px rgba(15,23,42,0.05) !important;
 }
-[data-theme="light"] .act-summary-label { color: #147CFF !important; }
+[data-theme="light"] .act-summary-label { color: var(--fc-accent) !important; }
 [data-theme="light"] .act-summary-amount { color: #071426 !important; }
 [data-theme="light"] .act-summary-metrics {
   border-top-color: rgba(15,23,42,0.07) !important;
 }
 [data-theme="light"] .act-summary-metric-lbl { color: rgba(7,20,38,0.46) !important; }
 [data-theme="light"] .act-summary-metric-val { color: #071426 !important; }
-[data-theme="light"] .act-period-btn { color: rgba(7,20,38,0.40) !important; }
+[data-theme="light"] .act-period-btn { color: var(--fc-text-faint) !important; }
 [data-theme="light"] .act-period-btn.active {
   background: rgba(15,23,42,0.07) !important;
   color: #071426 !important;
 }
-[data-theme="light"] .act-chart-lbl { color: rgba(7,20,38,0.40) !important; }
-[data-theme="light"] .act-chart-lbl.now { color: #147CFF !important; }
+[data-theme="light"] .act-chart-lbl { color: var(--fc-text-faint) !important; }
+[data-theme="light"] .act-chart-lbl.now { color: var(--fc-accent) !important; }
 
 /* Review / recurring card */
 [data-theme="light"] .act-review-card {
@@ -1268,7 +1271,7 @@ body.fc-theme {
 [data-theme="light"] .act-type-chip--active {
   background: rgba(20,124,255,0.08) !important;
   border-color: rgba(20,124,255,0.24) !important;
-  color: #147CFF !important;
+  color: var(--fc-accent) !important;
 }
 
 /* Transaction cards */
@@ -1280,7 +1283,7 @@ body.fc-theme {
 }
 [data-theme="light"] .fc-list-item { border-bottom-color: rgba(15,23,42,0.06) !important; }
 [data-theme="light"] .fc-list-title  { color: #071426 !important; }
-[data-theme="light"] .fc-list-meta   { color: rgba(7,20,38,0.44) !important; }
+[data-theme="light"] .fc-list-meta   { color: var(--fc-text-muted) !important; }
 [data-theme="light"] .fc-list-chevron { color: rgba(7,20,38,0.18) !important; }
 
 /* Act summary card — in/out row (dark + light via CSS vars) */
@@ -1327,7 +1330,7 @@ body.fc-theme {
   border-color: rgba(13,27,46,0.09) !important;
   box-shadow: 0 1px 3px rgba(13,27,46,0.06), 0 4px 12px rgba(13,27,46,0.05) !important;
 }
-[data-theme="light"] .ins-ms-label  { color: rgba(13,27,46,0.42) !important; }
+[data-theme="light"] .ins-ms-label  { color: var(--fc-text-faint) !important; }
 [data-theme="light"] .ins-ms-amount { color: #0a1520 !important; }
 
 /* What Changed card */
@@ -1356,7 +1359,7 @@ body.fc-theme {
   border-color: rgba(13,27,46,0.09) !important;
   box-shadow: 0 1px 3px rgba(13,27,46,0.06), 0 4px 14px rgba(13,27,46,0.05) !important;
 }
-[data-theme="light"] .ins-behavior-header { color: rgba(13,27,46,0.42) !important; }
+[data-theme="light"] .ins-behavior-header { color: var(--fc-text-faint) !important; }
 [data-theme="light"] .ins-behavior-row    { border-bottom-color: rgba(13,27,46,0.06) !important; }
 [data-theme="light"] .ins-behavior-icon   { background: rgba(13,27,46,0.05) !important; }
 [data-theme="light"] .ins-behavior-text   { color: rgba(13,27,46,0.65) !important; }
@@ -1368,7 +1371,7 @@ body.fc-theme {
 
 /* Insights period switcher */
 [data-theme="light"] #view-insights [role="tab"] {
-  color: rgba(13,27,46,0.45) !important;
+  color: var(--fc-text-faint) !important;
 }
 [data-theme="light"] #view-insights [role="tab"].active,
 [data-theme="light"] #view-insights [role="tab"][aria-selected="true"] {
@@ -1405,7 +1408,7 @@ body.fc-theme {
   background: rgba(13,27,46,0.06) !important;
   border-color: rgba(13,27,46,0.10) !important;
 }
-[data-theme="light"] .fc-wealth-seg { color: rgba(13,27,46,0.45) !important; }
+[data-theme="light"] .fc-wealth-seg { color: var(--fc-text-faint) !important; }
 [data-theme="light"] .fc-wealth-seg--active {
   background: #ffffff !important;
   color: var(--fc-accent) !important;
@@ -1424,20 +1427,20 @@ body.fc-theme {
 [data-theme="light"] .fc-acct-bal  { color: #0a1520 !important; }
 
 /* ── Settings view ───────────────────────────────────────── */
-[data-theme="light"] .settings-section-hdr { color: rgba(13,27,46,0.48) !important; }
+[data-theme="light"] .settings-section-hdr { color: var(--fc-text-faint) !important; }
 
 [data-theme="light"] .settings-profile-card {
   border-color: rgba(13,173,212,0.18) !important;
   box-shadow: 0 2px 8px rgba(13,27,46,0.07), 0 12px 32px rgba(13,27,46,0.07) !important;
 }
 [data-theme="light"] .settings-profile-name   { color: #0a1520 !important; }
-[data-theme="light"] .settings-profile-email  { color: rgba(13,27,46,0.45) !important; }
+[data-theme="light"] .settings-profile-email  { color: var(--fc-text-faint) !important; }
 [data-theme="light"] .settings-profile-streak { color: var(--fc-accent) !important; }
 
 [data-theme="light"] .fc-settings-row   { border-bottom-color: rgba(13,27,46,0.07) !important; }
 [data-theme="light"] .fc-settings-row:active { background: rgba(13,27,46,0.03) !important; }
 [data-theme="light"] .fc-settings-label { color: #0a1520 !important; }
-[data-theme="light"] .fc-settings-value { color: rgba(13,27,46,0.42) !important; }
+[data-theme="light"] .fc-settings-value { color: var(--fc-text-faint) !important; }
 
 /* ── Sheets and overlays ────────────────────────────────── */
 [data-theme="light"] .fc-sheet {
@@ -1448,7 +1451,7 @@ body.fc-theme {
 [data-theme="light"] .fc-sheet-bank-name,
 [data-theme="light"] .fc-sheet-heading { color: #0a1520; }
 [data-theme="light"] .fc-sheet-body { color: rgba(13,27,46,0.50); }
-[data-theme="light"] .fc-sheet-title { color: rgba(13,27,46,0.42); }
+[data-theme="light"] .fc-sheet-title { color: var(--fc-text-faint); }
 
 /* ── Global fc-card in light ────────────────────────────── */
 [data-theme="light"] .fc-card {
@@ -1482,9 +1485,9 @@ body.fc-theme {
 [data-theme="light"] .dash-empty { color: rgba(13,27,46,0.44) !important; }
 [data-theme="light"] .dash-empty::before { border-color: rgba(13,173,212,0.22) !important; }
 [data-theme="light"] .wealth-empty-title { color: #0a1520 !important; }
-[data-theme="light"] .wealth-empty-sub   { color: rgba(13,27,46,0.42) !important; }
+[data-theme="light"] .wealth-empty-sub   { color: var(--fc-text-faint) !important; }
 [data-theme="light"] .act-empty-title    { color: #0a1520 !important; }
-[data-theme="light"] .act-empty-sub      { color: rgba(13,27,46,0.42) !important; }
+[data-theme="light"] .act-empty-sub      { color: var(--fc-text-faint) !important; }
 
 /* ── Dynamic island ─────────────────────────────────────── */
 [data-theme="light"] .fc-island-pill {
@@ -1587,13 +1590,15 @@ body.fc-theme {
 /* ── Onboarding screen (.fc-ob-screen) in light ──────────── */
 /* CSS-class-based overrides */
 [data-theme="light"] .fc-ob-title    { color: #0a1520 !important; }
-[data-theme="light"] .fc-ob-desc     { color: rgba(10,21,32,0.50) !important; }
+/* Was rgba(10,21,32,0.50) — 3.43:1, under AA. This is the subtitle on five
+   of the six slides, so it was the single most-read failing text in the app. */
+[data-theme="light"] .fc-ob-desc     { color: var(--fc-text-muted) !important; }
 [data-theme="light"] .fc-ob-title-grad {
   background: linear-gradient(135deg, #0a1520 20%, var(--fc-accent) 80%) !important;
   -webkit-background-clip: text !important; background-clip: text !important;
   -webkit-text-fill-color: transparent !important;
 }
-[data-theme="light"] .fc-ob-nw-label  { color: rgba(10,21,32,0.40) !important; }
+[data-theme="light"] .fc-ob-nw-label  { color: var(--fc-text-faint) !important; }
 [data-theme="light"] .fc-ob-nw-value  { color: #0a1520 !important; }
 [data-theme="light"] .fc-ob-progress-rail { background: rgba(10,21,32,0.10) !important; }
 [data-theme="light"] .fc-ob-step      { background: rgba(10,21,32,0.14) !important; }
@@ -1614,25 +1619,75 @@ body.fc-theme {
   border-color: rgba(10,21,32,0.08) !important;
   box-shadow: 0 4px 20px rgba(10,21,32,0.08), inset 0 1px 0 rgba(255,255,255,0.80) !important;
 }
-/* Inline white/faint-white text in ob slides */
+/* ══ Inline white text in ob slides — TOKENS, NOT AN ALPHA LIST ══
+   This used to be a hand-written enumeration of every rgba(255,255,255,x)
+   alpha that appears inline in the onboarding markup, each mapped to a dark
+   equivalent for light mode. Two things were wrong with that:
+
+     1. It only covered the alphas someone remembered to list. 0.55 and 0.8
+        were never added, so on the bank-link slide the "Powered by Plaid"
+        trust strip rendered white-on-white in light mode — invisible, on the
+        screen whose entire job is to make a stranger trust us with their
+        bank login. Nothing failed; it just quietly disappeared.
+     2. The values it DID map were chosen to preserve the dark design's
+        visual weight, not to be legible. rgba(10,21,32,0.42) is 2.68:1 on
+        this background, well under WCAG AA's 4.5, so even the "handled"
+        text was too faint to read.
+
+   The replacement is one catch-all that matches the shared prefix of every
+   possible inline white, routed to theme-aware tokens that are already AA
+   in BOTH themes (muted = 5.44 light / 6.38 dark, faint = 4.77 / 4.99).
+   A new alpha appearing in the markup can no longer slip through, because
+   nothing is being enumerated. Tier rules follow to keep the hierarchy;
+   they are after the catch-all deliberately — equal specificity, so source
+   order decides, and the tiers refine rather than escape it.
+
+   Rules are theme-agnostic on purpose: the inline colour is white either
+   way, and the token resolves per theme, so this fixes dark-mode contrast
+   at the same time (0.34 was 3.08:1 and 0.44 was 4.36:1 on dark). */
+.fc-ob-screen [style*="color:rgba(255,255,255"],
+.fc-ob-screen [style*="color: rgba(255,255,255"] { color: var(--fc-text-muted) !important; }
+
+/* Faint tier — labels and secondary captions. */
+.fc-ob-screen [style*="color:rgba(255,255,255,0.20)"],
+.fc-ob-screen [style*="color:rgba(255,255,255,0.22)"],
+.fc-ob-screen [style*="color:rgba(255,255,255,0.34)"],
+.fc-ob-screen [style*="color:rgba(255,255,255,0.36)"],
+.fc-ob-screen [style*="color:rgba(255,255,255,0.38)"],
+.fc-ob-screen [style*="color:rgba(255,255,255,0.42)"],
+.fc-ob-screen [style*="color:rgba(255,255,255,0.44)"],
+.fc-ob-screen [style*="color:rgba(255,255,255,0.46)"],
+.fc-ob-screen [style*="color:rgba(255,255,255,0.48)"] { color: var(--fc-text-faint) !important; }
+
+/* Strong tier — near-primary copy. */
+.fc-ob-screen [style*="color:rgba(255,255,255,0.72)"],
+.fc-ob-screen [style*="color:rgba(255,255,255,0.76)"],
+.fc-ob-screen [style*="color:rgba(255,255,255,0.78)"],
+.fc-ob-screen [style*="color:rgba(255,255,255,0.8)"] { color: var(--fc-text) !important; }
+
+/* Solid white → primary text token (light mode only; already correct on dark). */
 [data-theme="light"] .fc-ob-screen [style*="color:#fff"],
 [data-theme="light"] .fc-ob-screen [style*="color:white"],
-[data-theme="light"] .fc-ob-screen [style*="color: white"]  { color: #0a1520 !important; }
-[data-theme="light"] .fc-ob-screen [style*="color:rgba(255,255,255,0.20)"],
-[data-theme="light"] .fc-ob-screen [style*="color:rgba(255,255,255,0.22)"] { color: rgba(10,21,32,0.30) !important; }
-[data-theme="light"] .fc-ob-screen [style*="color:rgba(255,255,255,0.34)"],
-[data-theme="light"] .fc-ob-screen [style*="color:rgba(255,255,255,0.36)"],
-[data-theme="light"] .fc-ob-screen [style*="color:rgba(255,255,255,0.38)"],
-[data-theme="light"] .fc-ob-screen [style*="color:rgba(255,255,255,0.42)"],
-[data-theme="light"] .fc-ob-screen [style*="color:rgba(255,255,255,0.44)"],
-[data-theme="light"] .fc-ob-screen [style*="color:rgba(255,255,255,0.46)"],
-[data-theme="light"] .fc-ob-screen [style*="color:rgba(255,255,255,0.48)"] { color: rgba(10,21,32,0.42) !important; }
-[data-theme="light"] .fc-ob-screen [style*="color:rgba(255,255,255,0.72)"],
-[data-theme="light"] .fc-ob-screen [style*="color:rgba(255,255,255,0.76)"],
-[data-theme="light"] .fc-ob-screen [style*="color:rgba(255,255,255,0.78)"] { color: rgba(10,21,32,0.80) !important; }
+[data-theme="light"] .fc-ob-screen [style*="color: white"]  { color: var(--fc-text) !important; }
+
+/* Trust-badge green. #30d158 reads at 1.78:1 on the light onboarding
+   background; --fc-success is the AA-checked green for each theme
+   (6.64 light / 9.58 dark). */
+.fc-ob-screen [style*="color:#30d158"] { color: var(--fc-success) !important; }
+
+/* Icons drawn with a hardcoded white stroke rather than currentColor. These
+   are presentation attributes on the <svg>, so no colour rule reaches them —
+   the padlock beside "Powered by Plaid" stayed white-on-white in light mode
+   even after the surrounding text was fixed. CSS beats a presentation
+   attribute, so this is enough to bring them back. */
+.fc-ob-screen svg[stroke^="rgba(255,255,255"],
+.fc-ob-screen svg[stroke^="rgba(255, 255, 255"] { stroke: var(--fc-text-faint) !important; }
+.fc-ob-screen svg[fill^="rgba(255,255,255"],
+.fc-ob-screen svg[fill^="rgba(255, 255, 255"] { fill: var(--fc-text-faint) !important; }
+
 /* Legal note + link colors in ob CTA */
-[data-theme="light"] #ob-legal-note { color: rgba(10,21,32,0.30) !important; }
-[data-theme="light"] #ob-legal-note a { color: rgba(10,21,32,0.45) !important; }
+[data-theme="light"] #ob-legal-note { color: var(--fc-text-faint) !important; }
+[data-theme="light"] #ob-legal-note a { color: var(--fc-accent) !important; }
 
 /* Inline dark-mode glass backgrounds */
 [data-theme="light"] .fc-ob-screen [style*="background:rgba(255,255,255,0.04)"],
@@ -1645,11 +1700,11 @@ body.fc-theme {
 [data-theme="light"] .fc-ob-screen [style*="border:1px solid rgba(255,255,255,0.18)"] { border-color: rgba(10,21,32,0.08) !important; }
 
 /* Back button + AI steps in light */
-[data-theme="light"] #ob-back-btn { background: rgba(10,21,32,0.06) !important; color: rgba(10,21,32,0.55) !important; }
+[data-theme="light"] #ob-back-btn { background: rgba(10,21,32,0.06) !important; color: var(--fc-text-muted) !important; }
 [data-theme="light"] .ob-ai-step  { border-bottom-color: rgba(10,21,32,0.07) !important; }
 [data-theme="light"] .ob-ai-step.active { background: rgba(13,173,212,0.06) !important; }
 [data-theme="light"] .ob-ai-step.done   { background: rgba(23,163,74,0.05) !important; }
-[data-theme="light"] .ob-ai-step-text   { color: #0a1520 !important; }
+[data-theme="light"] .ob-ai-step-text   { color: var(--fc-text-faint) !important; }
 [data-theme="light"] .ob-insight-card   { background: rgba(10,21,32,0.04) !important; border-color: rgba(10,21,32,0.09) !important; }
 
 /* ── Paywall in light ────────────────────────────────────── */
@@ -1840,7 +1895,7 @@ body.fc-theme {
 }
 [data-theme="light"] #view-settings [style*="color:rgba(255,255,255,0.30)"],
 [data-theme="light"] #view-settings [style*="color:rgba(255,255,255,0.3)"] {
-  color: rgba(13,27,46,0.42) !important;
+  color: var(--fc-text-faint) !important;
 }
 [data-theme="light"] #view-settings [style*="color:rgba(255,255,255,0.20)"],
 [data-theme="light"] #view-settings [style*="color:rgba(255,255,255,0.2)"],
@@ -2773,13 +2828,13 @@ body.fc-theme {
 [data-theme="light"] .dash-hero-name   { color: #071426 !important; }
 [data-theme="light"] .dash-sts-footer   { border-top-color: rgba(13,27,46,0.10) !important; color: #64748B !important; }
 [data-theme="light"] .dash-sts-acct-pill { color: #64748B !important; }
-[data-theme="light"] .dash-spend-pct   { color: #147CFF !important; }
+[data-theme="light"] .dash-spend-pct   { color: var(--fc-accent) !important; }
 [data-theme="light"] .dash-spend-of    { color: #64748B !important; }
-[data-theme="light"] .dash-spend-breakdown { color: #147CFF !important; }
+[data-theme="light"] .dash-spend-breakdown { color: var(--fc-accent) !important; }
 [data-theme="light"] .dash-move-card   { background: #fff !important; border-color: rgba(13,27,46,0.08) !important; box-shadow: 0 2px 12px rgba(13,27,46,0.06); }
-[data-theme="light"] .dash-move-label  { color: #147CFF !important; }
+[data-theme="light"] .dash-move-label  { color: var(--fc-accent) !important; }
 [data-theme="light"] .dash-move-text   { color: #071426 !important; }
-[data-theme="light"] .dash-move-cta    { color: #147CFF !important; }
+[data-theme="light"] .dash-move-cta    { color: var(--fc-accent) !important; }
 
 /* NW card secondary treatment */
 .dash-nw-card { margin-top: 12px; }
@@ -2909,7 +2964,7 @@ body.fc-theme {
 }
 
 /* Light mode compat */
-[data-theme="light"] .dash-hero-tod    { color: rgba(13,27,46,0.45) !important; }
+[data-theme="light"] .dash-hero-tod    { color: var(--fc-text-faint) !important; }
 [data-theme="light"] .dash-hero-name   { color: #0a1520 !important; }
 [data-theme="light"] .dash-hero-amount { color: #0a1520 !important; }
 [data-theme="light"] .dash-hero-sub    { color: rgba(13,27,46,0.55) !important; }
@@ -2924,7 +2979,7 @@ body.fc-theme {
 [data-theme="light"] .dash-acct-row       { border-bottom-color: rgba(13,27,46,0.06) !important; }
 [data-theme="light"] .dash-acct-row:active { background: rgba(13,27,46,0.04) !important; }
 [data-theme="light"] .dash-acct-row-name  { color: #0a1520 !important; }
-[data-theme="light"] .dash-acct-row-type  { color: rgba(13,27,46,0.45) !important; }
+[data-theme="light"] .dash-acct-row-type  { color: var(--fc-text-faint) !important; }
 [data-theme="light"] .dash-acct-row-bal   { color: #0a1520 !important; }
 
 /* ── Insights week-over-week card ─────────────────────────────── */
@@ -2953,8 +3008,8 @@ body.fc-theme {
   border-color: rgba(20,124,255,0.30) !important;
   color: var(--fc-accent) !important;
 }
-[data-theme="light"] .ob-ai-step-text { color: rgba(10,21,32,0.55) !important; }
-[data-theme="light"] .ob-ai-step.active .ob-ai-step-text { color: #071426 !important; }
+[data-theme="light"] .ob-ai-step-text { color: var(--fc-text-faint) !important; }
+[data-theme="light"] .ob-ai-step.active .ob-ai-step-text { color: var(--fc-text) !important; }
 
 /* ============================================================
    FLOWCHECK V4 COHERENCE LAYER
@@ -3191,7 +3246,7 @@ a[role="tab"]:focus-visible,
   letter-spacing: 0.3px;
 }
 .fc-bill-status--due     { background: var(--fc-danger-soft);  color: var(--fc-danger); }
-.fc-bill-status--soon    { background: var(--fc-warning-soft); color: var(--fc-warning); }
+.fc-bill-status--soon    { background: var(--fc-warning-soft); color: var(--fc-warning-text); }
 .fc-bill-status--ok      { background: var(--fc-accent-soft);  color: var(--fc-accent); }
 .fc-bill-status--paid    { background: var(--fc-success-soft); color: var(--fc-success); }
 
@@ -3501,4 +3556,135 @@ a[role="tab"]:focus-visible,
   background: var(--fc-accent-soft);
   border-color: var(--fc-border-accent);
   color: var(--fc-accent);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   ★ TAP TARGETS — HIT AREA WITHOUT RESIZING ANYTHING ★
+   ══════════════════════════════════════════════════════════════════
+   Apple's HIG puts the minimum tap target at 44×44pt. A measured sweep of
+   the app found 28 controls under that: period chips at 23px tall, filter
+   chips at 29px, every segmented control at 36px, the header action circle
+   at 36×36, and a "Manage" text link at 13.5px tall.
+
+   The fix is deliberately NOT to make them bigger. The canonical screen
+   chrome block above fixes those sizes on purpose — CLAUDE.md pins the
+   header action to a 36px circle and the segments to one shared size, and
+   the computed-style assertions in that file check exactly that. Growing
+   them would trade an invisible ergonomic bug for a visible design
+   regression, and break the assertions.
+
+   So the visual box is untouched and a transparent ::after overlay carries
+   the extra hit area, the same technique .home-v8__dot already uses.
+
+   TWO RULES, both learned from the dot implementation:
+
+   1. HEIGHT ONLY for anything in a horizontal row. Segments, period chips
+      and filter chips sit edge to edge; a widened overlay would extend under
+      its neighbour, and the later sibling in the DOM wins the tap — so
+      "fixing" the target would break the control next to it. Rows have
+      vertical slack, so height is free.
+   2. BOTH DIMENSIONS only for controls that stand alone, where there is no
+      neighbour to steal from.
+
+   Not fixed here, on purpose: the carousel dots. They sit on a 12px pitch
+   (7px dot + 5px gap), so no per-dot overlay can reach 44px wide without
+   overlapping its neighbour and violating rule 1. They already carry a
+   30px-tall overlay, the carousel is swipeable, and the dots duplicate a
+   gesture rather than being the only way through — a real 44px target
+   there needs a layout change, not a CSS overlay.
+   ══════════════════════════════════════════════════════════════════ */
+
+/* --- Height-only: controls that live in horizontal rows --- */
+.fc-seg-btn,
+.fc-segment-btn,
+.wv-tab,
+.fc-chip,
+.wv-period-btn,
+.plan-period-btn,
+.act-period-btn,
+.act-type-chip,
+.fc-action-button,
+.ob-rw-chip,
+.fc-btn--sm { position: relative; }
+
+.fc-seg-btn::after,
+.fc-segment-btn::after,
+.wv-tab::after,
+.fc-chip::after,
+.wv-period-btn::after,
+.plan-period-btn::after,
+.act-period-btn::after,
+.act-type-chip::after,
+.fc-action-button::after,
+.ob-rw-chip::after,
+.fc-btn--sm::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;               /* width tracks the control — never wider */
+  height: 44px;
+  transform: translateY(-50%);
+  pointer-events: auto;
+}
+
+/* --- Both dimensions: standalone controls with no adjacent target --- */
+.fc-page-head__action,
+.act-filter-btn,
+.wv-linked-heading button { position: relative; }
+
+.fc-page-head__action::after,
+.act-filter-btn::after,
+.wv-linked-heading button::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  min-width: 44px;
+  min-height: 44px;
+  width: 100%;
+  height: 100%;
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+}
+
+/* The search field is a text input, so an overlay would block the caret —
+   grow the control itself instead. It is full-width and stands alone, so
+   there is nothing to collide with. */
+#activity-search { min-height: 44px; }
+
+/* The overlay above can only fix height for row-mounted controls, so the
+   narrowest chips were still under 44 across: M / 6M / Y at 24.8–34.8px and
+   the "All" type chip at 33.8px. Widening the control itself is safe here —
+   the canonical chrome block pins their font-size and radius, not their
+   width — and it costs nothing in a row with this much horizontal room. */
+.act-period-btn { min-width: 44px; }
+.act-type-chip  { min-width: 44px; }
+
+/* The appearance/notification toggles are 52×30. Width already clears 44, so
+   only height needs extending. The overlay is intentionally NOT wider than
+   the switch: it sits inside .fc-settings-row, which is itself tappable, and
+   a wider overlay would swallow taps meant for the row's own action. */
+.fc-toggle { position: relative; }
+.fc-toggle::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 44px;
+  transform: translateY(-50%);
+}
+
+/* Required legal line, appended by _ensureLegalFooter() to any screen whose
+   renderer does not ship its own. Styled to match the existing hand-written
+   copies on Plan/Money/Goals/Coach so the app reads consistently. */
+.fc-legal-footer {
+  font-size: 10px;
+  color: var(--fc-text-faint);
+  text-align: center;
+  padding: 4px 24px 16px;
+  margin: 0;
+  opacity: 0.6;
+  flex-shrink: 0;
 }

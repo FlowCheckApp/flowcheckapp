@@ -184,7 +184,7 @@
   white-space: nowrap;
 }
 .fcs-badge--over { background: var(--fc-danger-soft);  color: var(--fc-danger);  }
-.fcs-badge--warn { background: var(--fc-warning-soft); color: var(--fc-warning); }
+.fcs-badge--warn { background: var(--fc-warning-soft); color: var(--fc-warning-text); }
 .fcs-badge--ok   { background: var(--fc-success-soft); color: var(--fc-success); }
 .fcs-badge--add  {
   background: var(--fc-card-bg-hover);
@@ -649,7 +649,7 @@ body.fc-theme .fc-nav {
 .home-v8__mini { min-height: 142px; padding: 14px; }
 .home-v8__mini-top { display: flex; align-items: center; gap: 9px; margin-bottom: 9px; }
 .home-v8__mini-icon { width: 31px; height: 31px; border-radius: 10px; }
-.home-v8__mini-icon.is-warning { color: var(--fc-warning); background: var(--fc-warning-soft); }
+.home-v8__mini-icon.is-warning { color: var(--fc-warning-text); background: var(--fc-warning-soft); }
 .home-v8__mini-icon.is-success { color: var(--fc-success); background: var(--fc-success-soft); }
 .home-v8__mini-icon.is-danger { color: var(--fc-danger); background: var(--fc-danger-soft); }
 .home-v8__mini-value {
@@ -839,7 +839,7 @@ body.fc-theme .fc-nav {
   font-size: 14px;
   font-weight: 650;
 }
-.home-v8__list-icon.is-warning { background: var(--fc-warning-soft); color: var(--fc-warning); }
+.home-v8__list-icon.is-warning { background: var(--fc-warning-soft); color: var(--fc-warning-text); }
 .home-v8__list-icon.is-success { background: var(--fc-success-soft); color: var(--fc-success); }
 .home-v8__list-copy { flex: 1; min-width: 0; }
 .home-v8__list-title {
@@ -1739,7 +1739,58 @@ body.fc-theme .fc-nav {
   flex: 1; height: 3px; border-radius: 2px;
   background: rgba(255,255,255,0.18); overflow: hidden;
 }
-.fcst-seg-fill { height: 100%; width: 0; border-radius: 2px; background: #fff; }
+/* scaleX, not width. This bar animates every frame for the whole 30-second
+   recap; width is a layout property, transform composites. transform-origin
+   has to be left or the fill grows from the middle outwards. */
+.fcst-seg-fill {
+  height: 100%; width: 100%; border-radius: 2px; background: #fff;
+  transform: scaleX(0); transform-origin: left center;
+  will-change: transform;
+}
+
+/* Held: the whole point of press-and-hold is that the story stops and gets
+   out of the way, so the chrome recedes and the card stays put. */
+#fc-story.fcst-held .fcst-progress,
+#fc-story.fcst-held .fcst-close { opacity: 0.25; }
+#fc-story .fcst-progress, #fc-story .fcst-close { transition: opacity 0.2s ease; }
+#fc-story { transition: opacity 0.24s ease, transform 0.24s cubic-bezier(0.22,1,0.36,1); }
+
+.fcst-paused {
+  position: absolute; bottom: calc(env(safe-area-inset-bottom) + 34px);
+  left: 50%; transform: translateX(-50%) translateY(8px);
+  font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+  color: rgba(255,255,255,0.5); opacity: 0; pointer-events: none; z-index: 5;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+#fc-story.fcst-held .fcst-paused { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* End state — a recap that just stops on the last card is a dead end. */
+.fcst-end {
+  position: absolute; bottom: calc(env(safe-area-inset-bottom) + 26px);
+  left: 0; right: 0; display: flex; gap: 10px; justify-content: center;
+  z-index: 6; opacity: 0; pointer-events: none;
+  transform: translateY(10px);
+  transition: opacity 0.28s ease, transform 0.28s cubic-bezier(0.22,1,0.36,1);
+}
+#fc-story.fcst-done .fcst-end { opacity: 1; pointer-events: auto; transform: translateY(0); }
+.fcst-end-btn {
+  min-height: 44px; padding: 0 22px; border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.22); background: rgba(255,255,255,0.08);
+  color: #fff; font-family: inherit; font-size: 14px; font-weight: 700;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.fcst-end-btn--primary { background: #fff; color: #06121f; border-color: #fff; }
+
+/* Visually hidden live region — the cards are motion, this is the text. */
+.fcst-sr {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fcst-card.fcst-enter > * { animation: none !important; }
+  #fc-story, .fcst-end, .fcst-paused { transition-duration: 0.01ms !important; }
+}
 
 .fcst-close {
   position: absolute; top: calc(env(safe-area-inset-top) + 30px); right: 14px;
@@ -1753,6 +1804,12 @@ body.fc-theme .fc-nav {
   position: relative; z-index: 2;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   text-align: center; padding: 0 32px; max-width: 400px; width: 100%;
+  /* Cards range from ~179px (a headline and a number) to ~335px (the graded
+     summary). Vertically centred, that meant the whole block jumped up and
+     down on every advance — 0.076 of layout shift across five cards, and the
+     text visibly re-seating itself each time you tapped. A fixed box lets the
+     content centre INSIDE it instead of moving it. */
+  min-height: 60vh;
 }
 .fcst-card.fcst-enter > * { animation: fcstUp 0.5s cubic-bezier(0.22,1,0.36,1) both; }
 .fcst-card.fcst-enter > *:nth-child(1) { animation-delay: 0.02s; }
@@ -2321,7 +2378,10 @@ body.fc-theme .fc-nav {
 
 .ob-rw-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .ob-rw-chip {
-  flex: 1 1 auto; min-height: 36px; padding: 8px 12px;
+  /* 44px is the iOS HIG minimum hit target, and these are the only controls
+     on the slide — a 36px chip is a missed tap during the one flow where a
+     missed tap costs you the user. */
+  flex: 1 1 auto; min-height: 44px; padding: 8px 12px;
   border: 1px solid var(--fc-border);
   border-radius: 10px;
   background: var(--fc-bg-elevated-2);

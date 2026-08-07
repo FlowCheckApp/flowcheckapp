@@ -515,7 +515,7 @@ window.FCApp = (function () {
         </div>
         <div class="fcs-detail-row no-border">
           <span class="fcs-row-lbl">Next estimated</span>
-          <span style="font-size:13px;font-weight:600;color:var(--fc-warning)">${nextLabel}</span>
+          <span style="font-size:13px;font-weight:600;color:var(--fc-warning-text)">${nextLabel}</span>
         </div>
       </div>
       <div style="margin-bottom:16px">
@@ -1656,7 +1656,7 @@ window.FCApp = (function () {
     const outgoing = prev ? document.getElementById('view-' + prev) : null;
 
     // ── Clean up any open sub-screens so they don't bleed into tab views ──
-    ['bills','debt','goals','investments','calendar','reports','notifications','settings'].forEach(id => {
+    ['bills','debt','goals','investments','calendar','reports','notifications','settings','vault'].forEach(id => {
       const sub = document.getElementById('view-' + id);
       if (sub) { sub.classList.remove('active'); sub.style.display = 'none'; }
     });
@@ -1672,10 +1672,34 @@ window.FCApp = (function () {
 
     // ── Outgoing: fade out, then hide (120ms matches fcTabOut duration) ───
     // Must deactivate AFTER animation or content disappears before fade ends.
+    //
+    // PIN IT OUT OF FLOW FIRST. For those 120ms both views carry .active, and
+    // .fc-view.active is `display:flex; flex:1` inside a column — so they
+    // become flex siblings and split the column between them. Measured: the
+    // outgoing view jumped from y=62/h=750 to y=429/h=383 mid-fade, a layout
+    // shift of 0.42 on EVERY tab switch (good CLS is under 0.1), and the
+    // incoming content spent the whole fade at half height before snapping
+    // to full. That is exactly the "no layout shifts during animation" bar
+    // in CLAUDE.md, failing six times a minute.
+    //
+    // The rect is captured BEFORE the incoming view is activated, which is
+    // the one moment the outgoing still occupies the correct full-size box.
+    // .fc-screen is position:relative (and transform:translateZ(0)), so it is
+    // the containing block these offsets resolve against.
     if (outgoing) {
+      const parentRect = outgoing.parentElement.getBoundingClientRect();
+      const rect       = outgoing.getBoundingClientRect();
+      outgoing.style.position      = 'absolute';
+      outgoing.style.top           = (rect.top  - parentRect.top)  + 'px';
+      outgoing.style.left          = (rect.left - parentRect.left) + 'px';
+      outgoing.style.width         = rect.width  + 'px';
+      outgoing.style.height        = rect.height + 'px';
+      outgoing.style.pointerEvents = 'none';   // it is leaving; never take a tap
       outgoing.classList.add('fc-tab-out');
       setTimeout(() => {
         outgoing.classList.remove('active', 'fc-tab-out');
+        outgoing.style.position = outgoing.style.top    = outgoing.style.left =
+        outgoing.style.width    = outgoing.style.height = outgoing.style.pointerEvents = '';
       }, 120);
     }
 
@@ -1740,7 +1764,10 @@ window.FCApp = (function () {
         _openSubScreen('reports');
       } else if (tabId === 'notifications') {
         _openSubScreen('notifications');
+      } else if (tabId === 'vault') {
+        _openSubScreen('vault');
       }
+      _ensureLegalFooter(target);
     });
 
     if (typeof FCAnalytics !== 'undefined') FCAnalytics.screen('tab_' + tabId);
@@ -5924,7 +5951,7 @@ window.FCApp = (function () {
       +'<svg width="56" height="56" viewBox="0 0 56 56" fill="none" style="flex-shrink:0"><circle cx="28" cy="28" r="28" fill="rgba(20,124,255,0.07)"/><circle cx="28" cy="28" r="18" fill="var(--fc-accent-soft)" stroke="var(--fc-accent)" stroke-width="1.5"/><circle cx="28" cy="22" r="5" fill="rgba(20,124,255,0.15)" stroke="var(--fc-accent)" stroke-width="1.5"/><rect x="20" y="38" width="16" height="4" rx="2" fill="rgba(20,124,255,0.12)" stroke="var(--fc-accent)" stroke-width="1.2"/></svg>'
       +'</div>'
       +'<div style="display:flex;gap:10px">'
-      +'<button onclick="FCApp.'+moveBtnAction+'" style="flex:1;background:var(--fc-accent);color:#fff;border:none;border-radius:12px;padding:13px 10px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent">'+esc(moveBtnLabel)+'</button>'
+      +'<button onclick="FCApp.'+moveBtnAction+'" style="flex:1;background:var(--fc-accent);color:var(--fc-accent-ink);border:none;border-radius:12px;padding:13px 10px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent">'+esc(moveBtnLabel)+'</button>'
       +'<button onclick="FCApp.switchTab(\'plan\')" style="flex:1;background:var(--fc-bg-elevated);color:var(--fc-accent);border:1.5px solid rgba(20,124,255,0.22);border-radius:12px;padding:13px 10px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent">Review Plan</button>'
       +'</div></div>'
 
@@ -6243,6 +6270,11 @@ window.FCApp = (function () {
     // Runway scrub binds after the card is in the DOM
     requestAnimationFrame(() => _attachRunwayScrub());
     _syncForecasts();
+    // Stamp first-sight on every recurring charge we can currently see. This
+    // has to happen while the subscription is still ALIVE — once it stops
+    // billing it is too late, and fc-vault.js will (correctly) treat the
+    // cancellation as the user's own win and refuse to bill for it.
+    _vaultFlagVisibleSubs();
 
     // ── HERO: Safe to Spend ───────────────────────────────────────────
     // This is the number the whole app exists to produce (VISION.md §4), so
@@ -9932,7 +9964,7 @@ window.FCApp = (function () {
       proBadge.textContent = isPro ? 'Pro ✓' : 'Free';
       proBadge.style.cssText = isPro
         ? 'font-size:10px;padding:4px 10px;background:rgba(26,196,240,0.15);color:var(--fc-accent);border:0.5px solid rgba(26,196,240,0.25);border-radius:999px'
-        : 'font-size:10px;padding:4px 10px;background:rgba(255,159,10,0.12);color:var(--fc-warning);border:0.5px solid rgba(255,159,10,0.25);border-radius:999px';
+        : 'font-size:10px;padding:4px 10px;background:rgba(255,159,10,0.12);color:var(--fc-warning-text);border:0.5px solid rgba(255,159,10,0.25);border-radius:999px';
     }
 
     // Pro row — show status + cancel option for Pro users
@@ -9942,7 +9974,7 @@ window.FCApp = (function () {
       proPill.textContent = isPro ? 'Manage' : 'Upgrade →';
       proPill.style.cssText = isPro
         ? 'font-size:10px;padding:3px 8px;background:rgba(26,196,240,0.12);color:var(--fc-accent);border-radius:999px'
-        : 'font-size:10px;padding:3px 8px;background:rgba(255,159,10,0.12);color:var(--fc-warning);border-radius:999px';
+        : 'font-size:10px;padding:3px 8px;background:rgba(255,159,10,0.12);color:var(--fc-warning-text);border-radius:999px';
     }
     if (proRow) {
       proRow.onclick = isPro ? () => _openCancelSheet() : () => showPaywall();
@@ -9967,6 +9999,28 @@ window.FCApp = (function () {
      SUB-SCREEN NAVIGATION (Plan → Bills/Debt/Goals/etc.)
      ───────────────────────────────────────────────────────────── */
 
+  /* ── Legal footer ──────────────────────────────────────────────
+     CLAUDE.md requires "FlowCheck is not a bank. Not financial advice." to
+     stay visible. It was on Home, Plan, Money, Goals, Coach and Settings —
+     and missing from Activity, More, Bills, Debt, Investments, Calendar,
+     Reports and Notifications, which are the screens showing balances,
+     debts and projections. Every one of those was a renderer that had to
+     remember to append it, and eight of them didn't.
+
+     So it stops being per-screen discipline. The footer is appended to the
+     VIEW element, not to the content container the renderers overwrite, so
+     it survives every re-render, and it is idempotent — screens that ship
+     their own copy are left alone. */
+  function _ensureLegalFooter(view) {
+    if (!view) return;
+    if (view.querySelector('.fc-legal-footer')) return;
+    if (/not a bank/i.test(view.textContent)) return;   // screen has its own
+    const p = document.createElement('p');
+    p.className = 'fc-legal-footer';
+    p.textContent = 'FlowCheck is not a bank. Not financial advice.';
+    view.appendChild(p);
+  }
+
   function _openSubScreen(screenId) {
     haptic('light');
     const el = document.getElementById('view-' + screenId);
@@ -9988,7 +10042,9 @@ window.FCApp = (function () {
       else if (screenId === 'calendar') _renderCalendar();
       else if (screenId === 'reports')  _renderReports();
       else if (screenId === 'notifications') _renderNotificationsScreen();
+      else if (screenId === 'vault')    _renderVaultScreen();
       else if (screenId === 'settings') { _renderSettings(); }
+      _ensureLegalFooter(el);
     });
   }
 
@@ -9996,7 +10052,7 @@ window.FCApp = (function () {
     haptic('light');
     const nav = document.querySelector('.fc-nav');
     if (nav) nav.style.display = '';
-    ['bills','debt','goals','investments','calendar','reports','notifications','settings'].forEach(id => {
+    ['bills','debt','goals','investments','calendar','reports','notifications','settings','vault'].forEach(id => {
       const el = document.getElementById('view-' + id);
       if (el) { el.classList.remove('active'); el.style.display = 'none'; }
     });
@@ -10316,7 +10372,7 @@ window.FCApp = (function () {
                 +'</div>'
                 +'<div class="fc-bill-right">'
                   +'<div class="fc-bill-amount">'+FCData.formatCurrency(b.amount||0)+'</div>'
-                  +'<div class="fc-bill-status '+(b.status==='paid'?'fc-bill-status--paid':st.cls)+'">'+(b.status==='paid'?'Paid':st.label)+'</div>'
+                  +'<div class="fc-bill-status '+(b.status==='paid'?'fc-bill-status--paid':st.cls)+'">'+esc(b.status==='paid'?'Paid':st.label)+'</div>'
                 +'</div>'
               +'</div>';
             }).join('')
@@ -10384,6 +10440,8 @@ window.FCApp = (function () {
         +'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>'
       +'</div>'
 
+      +_vaultMoreCard()
+
       +'<div class="fc-eyebrow">Money Tools</div>'
       +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px">'
         +toolTile('credit-card','Bills','var(--fc-accent)','var(--fc-accent-soft)',"FCApp._openSubScreen('bills')")
@@ -10406,6 +10464,356 @@ window.FCApp = (function () {
           +'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>'
         +'</div>'
       +'</div>';
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     THE VAULT — proof-of-savings billing
+     ═══════════════════════════════════════════════════════════════
+     FlowCheck's price is not a number we picked. It is a share of money
+     this app can prove it saved, drawn from a Vault funded by that money,
+     capped at the list price. Prove nothing, charge nothing.
+
+     This screen is the argument. It has to survive a user reading it line
+     by line against their bank statement, because that is exactly what
+     someone does the first time they are charged. So every claim on it
+     carries the transactions behind it, every number is computed by the
+     tested engine in fc-vault.js rather than here, and the states where
+     FlowCheck earned nothing are written as plainly as the ones where it
+     earned the cap.
+
+     A savings figure nobody can check is marketing. This one is a bill.
+     ═══════════════════════════════════════════════════════════════ */
+
+  /**
+   * The Vault's entry point in More. Shows this month's actual bill once the
+   * attribution flags have loaded — never before, because an unloaded flag
+   * map makes every cancellation look unattributed, and a bill that reads
+   * "free" and then corrects itself upward is the one thing this model
+   * cannot afford to do.
+   */
+  function _vaultMoreCard() {
+    let line = 'See what FlowCheck has proven — and what it costs you';
+    let tint = 'var(--fc-accent)';
+    if (_vaultLoaded && typeof FCVault !== 'undefined') {
+      const s = _vaultBuild().statement;
+      line = s.free
+        ? 'Nothing proven this month — you are not charged'
+        : esc(FCData.formatCurrency(s.fee)) + ' this month, from '
+          + esc(FCData.formatCurrency(s.proven)) + ' we found you';
+      if (s.free) tint = 'var(--fc-success)';
+    } else {
+      _vaultLoad().then(() => { if (state.tab === 'more') _renderMore(); });
+    }
+    return '<div class="fc-card" style="padding:16px;margin-bottom:20px;cursor:pointer;display:flex;'
+      + 'align-items:center;gap:14px" onclick="FCApp._openSubScreen(\'vault\')" role="button" tabindex="0">'
+      + '<div style="width:44px;height:44px;border-radius:12px;background:var(--fc-success-soft);display:flex;'
+        + 'align-items:center;justify-content:center;flex-shrink:0">' + _ic('shield', 'var(--fc-success)', 20) + '</div>'
+      + '<div style="flex:1;min-width:0">'
+        + '<div style="font-size:15px;font-weight:600;color:var(--fc-text)">The Vault</div>'
+        + '<div style="font-size:12px;color:' + tint + ';margin-top:2px;line-height:1.35">' + line + '</div>'
+      + '</div>'
+      + '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" '
+      + 'stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>'
+      + '</div>';
+  }
+
+  let _vaultFlagged   = null;   // { merchantKey: 'YYYY-MM-DD' } from Firestore
+  let _vaultForecasts = null;   // settled forecasts, for overdraft-avoided credits
+  let _vaultLoaded    = false;
+  let _vaultOpenReceipt = null;
+
+  /** Load the two things the Vault cannot recompute, once per session. */
+  async function _vaultLoad() {
+    if (_vaultLoaded) return;
+    _vaultLoaded = true;
+    if (_isDemoMode) {
+      // Demo data end to end, including attribution: without seeded flags the
+      // demo Vault would show every cancellation as the user's own win and
+      // bill $0, which hides the exact mechanic App Review needs to see.
+      _vaultFlagged = {};
+      _detectSubscriptions().forEach(s => {
+        const k = FCVault.merchantKey(s.name);
+        if (k) _vaultFlagged[k] = FCCore.isoDay(new Date(Date.now() - 400 * 86400000));
+      });
+      _vaultForecasts = [];
+      return;
+    }
+    if (!FCAuth?.currentUser?.()) { _vaultFlagged = {}; _vaultForecasts = []; return; }
+    try {
+      _vaultFlagged   = await FCData.getVaultFlags();
+      _vaultForecasts = await FCData.getForecasts(24);
+    } catch (_) {
+      _vaultFlagged = _vaultFlagged || {};
+      _vaultForecasts = _vaultForecasts || [];
+    }
+  }
+
+  /**
+   * Record first-sight for every recurring charge we are currently showing.
+   * This is what earns FlowCheck the right to bill for a cancellation later:
+   * without a flag predating the last charge, fc-vault.js treats the saving
+   * as the user's own and excludes it from the bill.
+   */
+  async function _vaultFlagVisibleSubs() {
+    if (_isDemoMode || !FCAuth?.currentUser?.() || !FCData?.flagVaultSubs) return;
+    await _vaultLoad();
+    const today = FCCore.isoDay(new Date());
+    const fresh = _detectSubscriptions()
+      .map(s => FCVault.merchantKey(s.name))
+      .filter(k => k && !(_vaultFlagged && _vaultFlagged[k]));
+    if (!fresh.length) return;
+    const unique = [...new Set(fresh)];
+    await FCData.flagVaultSubs(unique, today);
+    unique.forEach(k => { _vaultFlagged[k] = today; });
+  }
+
+  /** Everything the Vault screen shows, from the tested engine. */
+  function _vaultBuild() {
+    const events = FCVault.detectEvents({
+      subscriptions: _detectSubscriptions(),
+      flagged:       _vaultFlagged || {},
+      transactions:  state.transactions || [],
+      forecasts:     _vaultForecasts || [],
+      today:         new Date(),
+    });
+    const month = FCCore.isoDay(new Date()).slice(0, 7);
+    return {
+      events:    events,
+      month:     month,
+      statement: FCVault.statementFor(events, month),
+      summary:   FCVault.vaultSummary(events),
+    };
+  }
+
+  const _VAULT_KIND_ICON = {
+    subscription_ended: 'play-screen',
+    overdraft_avoided:  'shield',
+    under_forecast:     'trending-down',
+    refund_recovered:   'credit-card',
+  };
+
+  const _VAULT_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  function _vaultDateLabel(iso) {
+    const d = FCCore.parseDateLocal(iso);
+    if (isNaN(d)) return String(iso || '');
+    return _VAULT_MONTHS[d.getMonth()] + ' ' + d.getDate();
+  }
+
+  function _vaultToggleReceipt(id) {
+    haptic('light');
+    _vaultOpenReceipt = (_vaultOpenReceipt === id) ? null : id;
+    _renderVaultScreen();
+  }
+
+  /** One ledger row: the claim, the amount, and the receipt behind it. */
+  function _vaultEventRow(e) {
+    const open = _vaultOpenReceipt === e.id;
+    const billable = e.billable !== false;
+    const tint = billable ? 'var(--fc-success)' : 'var(--fc-text-muted)';
+
+    // Dollar-valued evidence keys render as money; everything else as-is.
+    // A receipt line reading "Amount 67.8" undercuts the one thing this
+    // block exists to do, which is look checkable against a statement.
+    const MONEY_KEYS = /^(amount|cycleAmount|predictedEnd|actualEnd|yourFee|monthSpend|priorMedian|priorLow)$/;
+    const receiptRows = Object.entries(e.evidence || {})
+      .filter(([, v]) => v !== null && v !== undefined && v !== '')
+      .map(([k, v]) => {
+        const label = k.replace(/([A-Z])/g, ' $1').replace(/^./, c => c.toUpperCase());
+        const val = MONEY_KEYS.test(k) ? FCData.formatCurrency(v)
+                  : Array.isArray(v) ? v.join(', ')
+                  : String(v);
+        return '<div style="display:flex;justify-content:space-between;gap:12px;padding:5px 0;font-size:12px">'
+          + '<span style="color:var(--fc-text-faint)">' + esc(label) + '</span>'
+          + '<span style="color:var(--fc-text-muted);font-variant-numeric:tabular-nums;text-align:right">' + esc(val) + '</span>'
+          + '</div>';
+      }).join('');
+
+    return '<div class="fc-card" style="padding:0;margin-bottom:8px;overflow:hidden">'
+      + '<button type="button" onclick="FCApp._vaultToggleReceipt(' + JSON.stringify(e.id).replace(/"/g, '&quot;') + ')" '
+        + 'aria-expanded="' + (open ? 'true' : 'false') + '" '
+        + 'style="display:flex;align-items:center;gap:12px;width:100%;padding:14px 16px;background:none;border:none;'
+        + 'cursor:pointer;text-align:left;font-family:inherit;-webkit-tap-highlight-color:transparent">'
+        + '<div style="width:36px;height:36px;border-radius:10px;background:var(--fc-bg-elevated-2);display:flex;'
+          + 'align-items:center;justify-content:center;flex-shrink:0">'
+          + _ic(_VAULT_KIND_ICON[e.kind] || 'check', tint, 18) + '</div>'
+        + '<div style="flex:1;min-width:0">'
+          + '<div style="font-size:14px;font-weight:600;color:var(--fc-text)">' + esc(e.title) + '</div>'
+          // The date is not decoration: the ledger spans months, so without it
+          // a row cannot be matched against a statement.
+          + '<div style="font-size:12px;color:var(--fc-text-faint);margin-top:2px">'
+            + esc(_vaultDateLabel(e.date)) + ' · ' + esc(e.detail) + '</div>'
+        + '</div>'
+        + '<div style="text-align:right;flex-shrink:0">'
+          + '<div class="fc-amount" style="font-size:15px;font-weight:700;color:' + tint + '">+'
+            + esc(FCData.formatCurrency(e.amount)) + '</div>'
+          + '<div style="font-size:10px;color:var(--fc-text-faint);margin-top:1px">'
+            + (billable ? esc(e.confidence === 'observed' ? 'Verified' : 'Estimated') : 'Not billed') + '</div>'
+        + '</div>'
+      + '</button>'
+      + (open
+        ? '<div style="padding:2px 16px 14px;border-top:1px solid var(--fc-border);margin:0 0 0 0">'
+            + '<div class="fc-section-label" style="padding-top:10px">Receipt</div>'
+            + receiptRows
+            + (billable ? '' :
+              '<p style="font-size:11px;color:var(--fc-text-muted);margin:8px 0 0;line-height:1.45">'
+              + 'You cancelled this before FlowCheck ever showed it to you, so we take no credit and no fee for it.</p>')
+          + '</div>'
+        : '')
+      + '</div>';
+  }
+
+  function _renderVaultScreen() {
+    const el = document.getElementById('vault-screen-content');
+    if (!el) return;
+
+    // First paint may land before Firestore answers; load, then re-render.
+    if (!_vaultLoaded) { _vaultLoad().then(() => _renderVaultScreen()); }
+
+    const { events, statement: s, summary, month } = _vaultBuild();
+    const billable = events.filter(e => e.billable !== false);
+    const ownWins  = events.filter(e => e.billable === false);
+
+    /* The bill accrues through the month rather than being known on the 1st,
+       so it has to be labelled "so far". Calling a running total "this month"
+       would mean the number rises after the user has read it — on a screen
+       whose entire job is that the number can be trusted. */
+    const prevMonth = (() => {
+      const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1);
+      return FCCore.isoDay(d).slice(0, 7);
+    })();
+    const last = FCVault.statementFor(events, prevMonth);
+    const hasLast = summary.months > 0 && (last.eventCount > 0 || summary.months > 1);
+
+    // ── Hero: what this month has cost so far ───────────────────
+    const feeStr = FCData.formatCurrency(s.fee);
+    const heroSub = s.free
+      ? (summary.proven > 0
+          ? 'Nothing billable has landed yet this month. As it stands, this month is free.'
+          : 'Nothing proven yet. Until there is, FlowCheck costs nothing.')
+      : 'Drawn from ' + FCData.formatCurrency(s.proven) + ' we can prove we saved you.';
+
+    // Meter: FlowCheck's slice against the user's, always to scale.
+    const feePct = s.proven > 0 ? Math.max(2, Math.min(100, (s.fee / s.proven) * 100)) : 0;
+    const meter = s.proven > 0
+      ? '<div style="margin-top:16px">'
+        + '<div style="display:flex;height:10px;border-radius:999px;overflow:hidden;background:var(--fc-bg-elevated-2)">'
+          + '<div style="width:' + feePct.toFixed(1) + '%;background:var(--fc-accent)"></div>'
+          + '<div style="flex:1;background:var(--fc-success)"></div>'
+        + '</div>'
+        + '<div style="display:flex;justify-content:space-between;margin-top:8px;font-size:11px">'
+          + '<span style="color:var(--fc-accent);font-weight:600">FlowCheck ' + esc(feeStr) + '</span>'
+          + '<span style="color:var(--fc-success);font-weight:600">You keep ' + esc(FCData.formatCurrency(s.youKeep)) + '</span>'
+        + '</div>'
+      + '</div>'
+      : '';
+
+    const hero = '<section class="fc-ui-card" style="padding:20px 18px;margin-bottom:14px;'
+        + 'background:linear-gradient(160deg,var(--fc-bg-elevated) 0%,var(--fc-bg-elevated-2) 100%)">'
+      + '<p class="fc-section-label" style="margin:0">This month so far</p>'
+      + '<div class="fc-amount" style="font-size:44px;font-weight:700;letter-spacing:-0.02em;line-height:1.05;'
+        + 'margin:6px 0 4px;color:' + (s.free ? 'var(--fc-success)' : 'var(--fc-text)') + '">' + esc(feeStr) + '</div>'
+      + (s.free
+        ? '<p style="font-size:13px;font-weight:600;color:var(--fc-success);margin:0 0 2px">This month is free.</p>'
+        : '')
+      + '<p style="font-size:13px;color:var(--fc-text-muted);margin:0;line-height:1.45">' + esc(heroSub) + '</p>'
+      + meter
+      + (s.atCap
+        ? '<p style="font-size:11px;color:var(--fc-text-faint);margin:12px 0 0;line-height:1.45">'
+          + 'Capped at ' + esc(FCData.formatCurrency(s.listPrice)) + '. Everything above the cap is yours.</p>'
+        : '')
+      // Last month's closed bill — the number actually charged, next to the
+      // one still accruing, so "so far" has something to be measured against.
+      + (hasLast
+        ? '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-top:16px;'
+          + 'padding-top:14px;border-top:1px solid var(--fc-border)">'
+          + '<span style="font-size:12px;color:var(--fc-text-faint)">Last month, closed</span>'
+          + '<span class="fc-amount" style="font-size:14px;font-weight:600;color:'
+            + (last.free ? 'var(--fc-success)' : 'var(--fc-text-muted)') + '">'
+            + (last.free ? 'Free' : esc(FCData.formatCurrency(last.fee))
+                + ' <span style="color:var(--fc-text-faint);font-weight:500">of '
+                + esc(FCData.formatCurrency(last.proven)) + '</span>')
+          + '</span>'
+        + '</div>'
+        : '')
+      + '</section>';
+
+    // ── The terms, in the fewest words that are still true ──────
+    const terms = '<section class="fc-ui-card" style="padding:16px 18px;margin-bottom:18px">'
+      + '<p class="fc-section-label" style="margin:0 0 8px">How you are billed</p>'
+      + '<p style="font-size:13px;color:var(--fc-text-muted);margin:0;line-height:1.6">'
+        + 'FlowCheck takes <strong style="color:var(--fc-text)">'
+        + Math.round(s.takeRate * 100) + '%</strong> of what it can prove it saved you, capped at <strong style="color:var(--fc-text)">'
+        + esc(FCData.formatCurrency(s.listPrice)) + '</strong> a month. '
+        + 'Every claim below is listed with the transactions behind it. '
+        + 'Prove nothing, charge nothing — <strong style="color:var(--fc-success)">an empty vault is a free month</strong>.'
+      + '</p></section>';
+
+    // ── Ledger ──────────────────────────────────────────────────
+    const ledger = billable.length
+      ? '<div class="fc-eyebrow">Every claim we have made · ' + billable.length + '</div>'
+        + billable.map(_vaultEventRow).join('')
+      : '<div class="fc-eyebrow">Every claim we have made</div>'
+        + '<section class="fc-ui-card" style="padding:22px 18px;margin-bottom:8px;text-align:center">'
+          + '<div style="width:44px;height:44px;border-radius:12px;background:var(--fc-bg-elevated-2);display:flex;'
+            + 'align-items:center;justify-content:center;margin:0 auto 12px">'
+            + _ic('search', 'var(--fc-text-faint)', 20) + '</div>'
+          + '<p style="font-size:14px;font-weight:600;color:var(--fc-text);margin:0 0 6px">Nothing proven yet</p>'
+          + '<p style="font-size:12.5px;color:var(--fc-text-muted);margin:0;line-height:1.5">'
+            + 'FlowCheck only counts savings it can show you on a bank statement — a subscription that '
+            + 'stopped billing, a double charge that came back, an overdraft fee you have actually paid before '
+            + 'and then did not. Until one of those lands, you are not charged.</p>'
+        + '</section>';
+
+    // ── Wins we refuse to bill for ──────────────────────────────
+    const own = ownWins.length
+      ? '<div class="fc-eyebrow" style="margin-top:18px">Your own wins · not billed</div>'
+        + '<p style="font-size:12px;color:var(--fc-text-faint);margin:0 0 8px;line-height:1.5">'
+        + esc(FCData.formatCurrency(summary.ownWins)) + ' you saved before FlowCheck ever flagged it. '
+        + 'It is your work, so it earns us nothing.</p>'
+        + ownWins.map(_vaultEventRow).join('')
+      : '';
+
+    // ── Lifetime ────────────────────────────────────────────────
+    const stat = (label, value, color) =>
+      '<div style="flex:1;min-width:0">'
+      + '<p style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--fc-text-faint);margin:0 0 3px">'
+        + esc(label) + '</p>'
+      + '<p class="fc-amount" style="font-size:17px;font-weight:700;margin:0;color:' + (color || 'var(--fc-text)') + '">'
+        + esc(value) + '</p></div>';
+
+    const lifetime = summary.months
+      ? '<div class="fc-eyebrow" style="margin-top:18px">Lifetime</div>'
+        + '<section class="fc-ui-card" style="padding:16px 18px;margin-bottom:14px">'
+          + '<div style="display:flex;gap:14px;margin-bottom:14px">'
+            + stat('Proven', FCData.formatCurrency(summary.proven), 'var(--fc-success)')
+            + stat('Billed', FCData.formatCurrency(summary.feesBilled))
+          + '</div>'
+          + '<div style="display:flex;gap:14px;padding-top:14px;border-top:1px solid var(--fc-border)">'
+            + stat('Kept by you', FCData.formatCurrency(summary.balance), 'var(--fc-success)')
+            + stat('Free months', String(summary.freeMonths))
+          + '</div>'
+          + (summary.saved > 0
+            ? '<p style="font-size:12px;color:var(--fc-text-muted);margin:14px 0 0;line-height:1.5">'
+              + 'A flat ' + esc(FCData.formatCurrency(s.listPrice)) + '/mo subscription would have charged you '
+              + esc(FCData.formatCurrency(summary.flatWouldBe)) + ' over these ' + summary.months + ' months. '
+              + 'You were charged ' + esc(FCData.formatCurrency(summary.feesBilled)) + '.</p>'
+            : '')
+        + '</section>'
+      : '';
+
+    el.innerHTML =
+      '<header class="fc-page-head">'
+        + '<button onclick="FCApp._closeSubScreen()" style="display:flex;align-items:center;gap:4px;background:none;'
+          + 'border:none;cursor:pointer;color:var(--fc-accent);font-size:15px;font-weight:600;padding:11px 8px 11px 0;font-family:inherit;min-height:44px">'
+          + '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" '
+          + 'stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg> Back'
+        + '</button>'
+        + '<div class="fc-page-head__text"><h1 class="fc-page-title fc-page-title--sub">The Vault</h1>'
+        + '<p class="fc-page-sub">You pay us out of what we find you</p></div>'
+      + '</header>'
+      + hero + terms + ledger + own + lifetime
+      + '<p style="font-size:10px;color:var(--fc-text-faint);text-align:center;padding:4px 24px 16px;margin:0;opacity:0.6">'
+        + 'Savings shown are calculated from your own transaction history. FlowCheck is not a bank. Not financial advice.</p>';
   }
 
   /* ─────────────────────────────────────────────────────────────
@@ -10445,20 +10853,26 @@ window.FCApp = (function () {
       return allBills;
     };
     const billList = filterBills(seg);
+    /* Canonical segmented control, not a per-screen one. This used to be
+       hand-rolled inline styles, which is exactly what the CANONICAL SCREEN
+       CHROME block in CLAUDE.md exists to stop: it rendered at a different
+       size and weight from the identical control on Plan, and because the
+       buttons were sized by their label text the "All" segment came out
+       24px wide — well under the 44px tap minimum. .fc-seg-btn brings the
+       shared styling and the shared hit-area rule with it. */
     const segBtn = (id,label) =>
-      '<button onclick="var e=document.getElementById(\'bills-screen-content\');e._seg=\''+id+'\';FCApp._renderBillsScreen()" '
-      +'style="flex:1;padding:7px 4px;border-radius:8px;border:none;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;'
-      +'background:'+(seg===id?'var(--fc-bg-elevated)':'transparent')+';color:'+(seg===id?'var(--fc-accent)':'var(--fc-text-muted)')+';'
-      +'box-shadow:'+(seg===id?'0 1px 4px rgba(13,27,46,0.1)':'none')+'">'+label+'</button>';
+      '<button class="fc-seg-btn'+(seg===id?' active':'')+'" role="tab" aria-selected="'+(seg===id)+'"'
+      +' type="button" onclick="var e=document.getElementById(\'bills-screen-content\');e._seg=\''+id+'\';FCApp._renderBillsScreen()">'
+      +label+'</button>';
 
     el.innerHTML =
       '<header class="fc-page-head fc-page-head--center">'
-        +'<button onclick="FCApp._closeSubScreen()" style="display:flex;align-items:center;gap:4px;background:none;border:none;cursor:pointer;color:var(--fc-accent);font-size:15px;font-weight:600;padding:4px 0;font-family:inherit">'
+        +'<button onclick="FCApp._closeSubScreen()" style="display:flex;align-items:center;gap:4px;background:none;border:none;cursor:pointer;color:var(--fc-accent);font-size:15px;font-weight:600;padding:11px 8px 11px 0;font-family:inherit;min-height:44px">'
           +'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg> Back'
         +'</button>'
         +'<div style="flex:1;font-size:22px;font-weight:750;color:var(--fc-text)">Bills</div>'
-        +'<button onclick="FCApp.showBillSheet&&FCApp.showBillSheet()" style="width:36px;height:36px;border-radius:50%;background:var(--fc-accent);border:none;cursor:pointer;color:#fff;font-size:22px;display:flex;align-items:center;justify-content:center;flex-shrink:0">+</button>'
-      +'</div>'
+        +'<button class="fc-page-head__action" onclick="FCApp.showBillSheet&&FCApp.showBillSheet()" style="width:36px;height:36px;border-radius:50%;background:var(--fc-accent);border:none;cursor:pointer;color:var(--fc-accent-ink);font-size:22px;display:flex;align-items:center;justify-content:center;flex-shrink:0">+</button>'
+      +'</header>'
 
       +'<div class="fc-card" style="margin-bottom:14px;padding:16px;background:var(--fc-accent-soft);border-color:var(--fc-border-accent)">'
         +'<div style="display:flex;align-items:center;gap:14px">'
@@ -10471,12 +10885,12 @@ window.FCApp = (function () {
             +'<div style="font-size:13px;color:var(--fc-text-muted)">'+(paidTotal>0 ? FCData.formatCurrency(paidTotal)+' paid so far' : 'due this month')+'</div>'
           +'</div>'
           +(unprotected>0
-            ? '<div style="text-align:right"><div style="font-size:13px;color:var(--fc-warning);font-weight:600;font-variant-numeric:tabular-nums">'+FCData.formatCurrency(unprotected)+'</div><div style="font-size:11px;color:var(--fc-text-faint)">left to pay</div></div>'
+            ? '<div style="text-align:right"><div style="font-size:13px;color:var(--fc-warning-text);font-weight:600;font-variant-numeric:tabular-nums">'+FCData.formatCurrency(unprotected)+'</div><div style="font-size:11px;color:var(--fc-text-faint)">left to pay</div></div>'
             : '<div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:2px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--fc-success)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg><div style="font-size:11px;color:var(--fc-text-faint)">all paid</div></div>')
         +'</div>'
       +'</div>'
 
-      +'<div style="display:flex;background:var(--fc-bg-elevated-2);border-radius:12px;padding:4px;gap:2px;margin-bottom:14px">'
+      +'<div class="fc-seg" role="tablist" style="margin-bottom:14px">'
         +segBtn('due','Due Soon')
         +segBtn('upcoming','Upcoming')
         +segBtn('paid','Paid')
@@ -10495,7 +10909,7 @@ window.FCApp = (function () {
                 +'</div>'
                 +'<div class="fc-bill-right">'
                   +'<div class="fc-bill-amount">'+FCData.formatCurrency(b.amount||0)+'</div>'
-                  +'<div class="fc-bill-status '+(b.status==='paid'?'fc-bill-status--paid':st.cls)+'">'+(b.status==='paid'?'Paid':st.label)+'</div>'
+                  +'<div class="fc-bill-status '+(b.status==='paid'?'fc-bill-status--paid':st.cls)+'">'+esc(b.status==='paid'?'Paid':st.label)+'</div>'
                 +'</div>'
               +'</div>';
             }).join('')
@@ -10527,12 +10941,12 @@ window.FCApp = (function () {
 
     el.innerHTML =
       '<header class="fc-page-head fc-page-head--center">'
-        +'<button onclick="FCApp._closeSubScreen()" style="display:flex;align-items:center;gap:4px;background:none;border:none;cursor:pointer;color:var(--fc-accent);font-size:15px;font-weight:600;padding:4px 0;font-family:inherit">'
+        +'<button onclick="FCApp._closeSubScreen()" style="display:flex;align-items:center;gap:4px;background:none;border:none;cursor:pointer;color:var(--fc-accent);font-size:15px;font-weight:600;padding:11px 8px 11px 0;font-family:inherit;min-height:44px">'
           +'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg> Back'
         +'</button>'
         +'<div style="flex:1;font-size:22px;font-weight:750;color:var(--fc-text)">Debt</div>'
-        +'<button style="width:36px;height:36px;border-radius:50%;background:var(--fc-accent);border:none;cursor:pointer;color:#fff;font-size:22px;display:flex;align-items:center;justify-content:center;flex-shrink:0">+</button>'
-      +'</div>'
+        +'<button class="fc-page-head__action" style="width:36px;height:36px;border-radius:50%;background:var(--fc-accent);border:none;cursor:pointer;color:var(--fc-accent-ink);font-size:22px;display:flex;align-items:center;justify-content:center;flex-shrink:0">+</button>'
+      +'</header>'
 
       +(debtFreeDate
         ? '<div class="fc-card" style="margin-bottom:14px;padding:16px;background:var(--fc-success-soft);border-color:var(--fc-success-border)">'
@@ -10572,7 +10986,7 @@ window.FCApp = (function () {
               return '<div class="fc-bill-row">'
                 +'<div class="fc-bill-icon">'+_ic('credit-card','var(--fc-text-muted)',18)+'</div>'
                 +'<div class="fc-bill-info">'
-                  +'<div class="fc-bill-name">'+(a.name||'Credit Card')+'</div>'
+                  +'<div class="fc-bill-name">'+esc(a.name||'Credit Card')+'</div>'
                   +(sub?'<div class="fc-bill-due">'+sub+'</div>':'')
                 +'</div>'
                 +'<div class="fc-bill-right">'
@@ -10818,7 +11232,7 @@ window.FCApp = (function () {
     ov.innerHTML =
       '<div class="fc-sheet" onclick="event.stopPropagation()" style="max-height:85vh;overflow-y:auto">'
         +'<div class="fc-sheet-handle"></div>'
-        +'<div class="fc-sheet-title">'+a.title+'</div>'
+        +'<div class="fc-sheet-title">'+esc(a.title)+'</div>'
         +'<div style="padding:0 20px 20px">'
           +'<div style="background:var(--fc-electric-soft);border-radius:12px;padding:10px 14px;font-size:14px;font-weight:600;color:var(--fc-text);margin-bottom:16px">'+a.question+'</div>'
           +section(1, 'What\'s happening', a.happening)
@@ -10826,7 +11240,7 @@ window.FCApp = (function () {
           +section(3, 'What to do next', a.todo)
           +(a.highlight
             ? '<div style="background:var(--fc-warning-soft);border-radius:12px;padding:12px 14px;margin:4px 0 14px;display:flex;align-items:center;justify-content:space-between">'
-                +'<div><div style="font-size:12px;color:var(--fc-text-muted)">'+a.highlight.label+'</div><div style="font-size:12px;color:var(--fc-text-muted)">'+a.highlight.sub+'</div></div>'
+                +'<div><div style="font-size:12px;color:var(--fc-text-muted)">'+esc(a.highlight.label)+'</div><div style="font-size:12px;color:var(--fc-text-muted)">'+a.highlight.sub+'</div></div>'
                 +'<div style="font-size:20px;font-weight:750;color:var(--fc-text);font-variant-numeric:tabular-nums">'+a.highlight.value+'</div>'
               +'</div>'
             : '')
@@ -11017,8 +11431,39 @@ window.FCApp = (function () {
 
   let _storyCards = [];
   let _storyIdx   = 0;
-  let _storyTimer = null;
-  const _STORY_MS = 5000;
+  const _STORY_MS = 5000;          // average card; real duration is per-card
+
+  /* ── Player state ──────────────────────────────────────────────
+     The progress bar and the auto-advance timer used to be two separate
+     mechanisms — a CSS `width` transition and a setTimeout — which cannot be
+     paused in sync. That is why there was no press-and-hold: you would have
+     had to freeze a CSS transition mid-flight and compute the remaining
+     timeout to match it. Driving both from ONE rAF loop makes elapsed time
+     the single source of truth, so pause, resume and scrubbing are exact. */
+  let _storyRaf     = null;
+  let _storyElapsed = 0;      // ms shown of the current card
+  let _storyDur     = _STORY_MS;
+  let _storyPaused  = false;
+  let _storyLast    = 0;      // timestamp of previous frame
+  let _storyToken   = 0;      // invalidates count-ups from a card we left
+  let _storyDurs    = [];
+  let _storyPrevFocus = null;
+  let _storyKeyHandler = null;
+
+  /* Reduced motion: keep the recap, drop the movement. */
+  const _storyReduced = () =>
+    window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /**
+   * Per-card duration from how much there is to read. A fixed 5s gave the
+   * one-line hero the same time as the six-line grade card — too slow at the
+   * start, too fast exactly where the user is being told something.
+   * Clamped so the whole recap still lands near its advertised 30 seconds.
+   */
+  function _storyDuration(html) {
+    const text = String(html).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    return Math.round(Math.min(7000, Math.max(3600, 2600 + text.length * 34)));
+  }
 
   function _buildMoneyStory() {
     const msDay = 86400000;
@@ -11144,7 +11589,9 @@ window.FCApp = (function () {
     haptic('medium');
     if (typeof FCAnalytics !== 'undefined') FCAnalytics.track('money_story_opened', { cards: cards.length });
     _storyCards = cards;
-    _storyIdx = 0;
+    _storyDurs  = cards.map(_storyDuration);
+    _storyIdx   = 0;
+    _storyPrevFocus = document.activeElement;
 
     let ov = document.getElementById('fc-story');
     if (!ov) {
@@ -11155,37 +11602,101 @@ window.FCApp = (function () {
       ov.setAttribute('aria-label', 'Your Money Week');
       document.body.appendChild(ov);
     }
+    ov.className = '';
     ov.innerHTML =
       '<div class="fcst-progress" id="fcst-progress">'
       + _storyCards.map(() => '<div class="fcst-seg"><div class="fcst-seg-fill"></div></div>').join('')
       + '</div>'
-      + '<button class="fcst-close" type="button" aria-label="Close" onclick="FCApp.closeMoneyStory()">'
+      + '<button class="fcst-close" type="button" aria-label="Close recap" onclick="FCApp.closeMoneyStory()">'
       +   '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>'
       + '</button>'
       + '<div class="fcst-card" id="fcst-card"></div>'
+      // Screen readers get the card as text; the visual card is decorative motion.
+      + '<div class="fcst-sr" id="fcst-live" aria-live="polite" aria-atomic="true"></div>'
       + '<button class="fcst-tap fcst-tap--l" type="button" aria-label="Previous" onclick="FCApp.storyPrev()"></button>'
-      + '<button class="fcst-tap fcst-tap--r" type="button" aria-label="Next" onclick="FCApp.storyNext()"></button>';
+      + '<button class="fcst-tap fcst-tap--r" type="button" aria-label="Next" onclick="FCApp.storyNext()"></button>'
+      + '<div class="fcst-paused" aria-hidden="true">Paused</div>'
+      + '<div class="fcst-end" id="fcst-end">'
+      +   '<button class="fcst-end-btn" type="button" onclick="FCApp.storyReplay()">Replay</button>'
+      +   '<button class="fcst-end-btn fcst-end-btn--primary" type="button" onclick="FCApp.closeMoneyStory()">Done</button>'
+      + '</div>';
     ov.style.display = 'flex';
     requestAnimationFrame(() => ov.classList.add('fcst-open'));
+
+    _storyBindGestures(ov);
+    _storyBindKeys(ov);
     _storyRender();
+    // Move focus into the dialog so the trap has something to hold.
+    setTimeout(() => { const c = ov.querySelector('.fcst-close'); if (c) c.focus(); }, 80);
+  }
+
+  /* ── Playback ──────────────────────────────────────────────────
+     One rAF loop owns both the progress bar and the auto-advance, so
+     "how far through this card are we" has exactly one answer and pause
+     is just: stop adding to it. */
+  function _storyTick(now) {
+    if (!_storyLast) _storyLast = now;
+    if (_storyPaused) { _storyLast = now; _storyRaf = requestAnimationFrame(_storyTick); return; }
+
+    _storyElapsed += now - _storyLast;
+    _storyLast = now;
+    const p = Math.min(1, _storyElapsed / _storyDur);
+
+    const fill = document.querySelectorAll('#fcst-progress .fcst-seg-fill')[_storyIdx];
+    // scaleX, not width: width is a layout property and this runs every frame
+    // for the whole recap. transform composites without layout or paint.
+    if (fill) fill.style.transform = 'scaleX(' + p.toFixed(4) + ')';
+
+    if (p >= 1) {
+      if (_storyIdx < _storyCards.length - 1) { _storyIdx++; _storyRender(); }
+      else _storyFinish();
+      return;
+    }
+    _storyRaf = requestAnimationFrame(_storyTick);
+  }
+
+  function _storyStop() {
+    if (_storyRaf) cancelAnimationFrame(_storyRaf);
+    _storyRaf = null; _storyLast = 0;
+  }
+
+  function _storyPause() {
+    if (_storyPaused) return;
+    _storyPaused = true;
+    const ov = document.getElementById('fc-story');
+    if (ov) ov.classList.add('fcst-held');
+  }
+
+  function _storyResume() {
+    if (!_storyPaused) return;
+    _storyPaused = false; _storyLast = 0;
+    const ov = document.getElementById('fc-story');
+    if (ov) ov.classList.remove('fcst-held');
+  }
+
+  function _storyFinish() {
+    _storyStop();
+    const ov = document.getElementById('fc-story');
+    if (ov) ov.classList.add('fcst-done');
+    haptic('medium');
+    if (typeof FCAnalytics !== 'undefined') FCAnalytics.track('money_story_completed');
   }
 
   function _storyRender() {
     const card = document.getElementById('fcst-card');
     if (!card) return;
-    clearTimeout(_storyTimer);
+    _storyStop();
+    _storyElapsed = 0;
+    _storyDur = _storyDurs[_storyIdx] || _STORY_MS;
+    _storyToken++;
+    const token = _storyToken;
 
-    // Progress segments: done / active / pending
-    const segs = document.querySelectorAll('#fcst-progress .fcst-seg-fill');
-    segs.forEach((s, i) => {
-      s.style.transition = 'none';
-      s.style.width = i < _storyIdx ? '100%' : '0%';
-      if (i === _storyIdx) {
-        // Force reflow so the width transition restarts from 0
-        void s.offsetWidth;
-        s.style.transition = 'width ' + _STORY_MS + 'ms linear';
-        s.style.width = '100%';
-      }
+    const ov = document.getElementById('fc-story');
+    if (ov) ov.classList.remove('fcst-done');
+
+    // Progress segments: filled behind, empty ahead, current driven by the loop.
+    document.querySelectorAll('#fcst-progress .fcst-seg-fill').forEach((s, i) => {
+      s.style.transform = 'scaleX(' + (i < _storyIdx ? 1 : 0) + ')';
     });
 
     card.classList.remove('fcst-enter');
@@ -11194,45 +11705,153 @@ window.FCApp = (function () {
     card.classList.add('fcst-enter');
     haptic('light');
 
-    // Animated count-ups
+    const live = document.getElementById('fcst-live');
+    if (live) live.textContent =
+      'Card ' + (_storyIdx + 1) + ' of ' + _storyCards.length + '. '
+      + card.textContent.replace(/\s+/g, ' ').trim();
+
+    // Animated count-ups. The token check stops a count-up from a card the
+    // user already left writing into a detached node for the rest of its run.
+    const instant = _storyReduced();
     card.querySelectorAll('[data-countup]').forEach(el => {
       const target = parseFloat(el.dataset.countup) || 0;
       const prefix = el.dataset.prefix || '$';
+      const fmt = v => prefix + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      if (instant) { el.textContent = fmt(target); return; }
       const t0 = performance.now(), dur = 900;
       const tick = t => {
+        if (token !== _storyToken) return;         // superseded — stop cleanly
         const p = Math.min(1, (t - t0) / dur);
-        const eased = 1 - Math.pow(1 - p, 3);
-        el.textContent = prefix + (target * eased).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        el.textContent = fmt(target * (1 - Math.pow(1 - p, 3)));
         if (p < 1) requestAnimationFrame(tick);
       };
       requestAnimationFrame(tick);
     });
 
-    // Auto-advance — except on the final (grade) card
-    if (_storyIdx < _storyCards.length - 1) {
-      _storyTimer = setTimeout(() => storyNext(), _STORY_MS);
-    }
+    _storyRaf = requestAnimationFrame(_storyTick);
   }
 
   function storyNext() {
-    if (_storyIdx >= _storyCards.length - 1) return;
+    if (_storyIdx >= _storyCards.length - 1) { _storyFinish(); return; }
     _storyIdx++;
     _storyRender();
   }
 
   function storyPrev() {
-    if (_storyIdx === 0) return;
+    if (_storyIdx === 0) { _storyElapsed = 0; return; }  // restart card 1
     _storyIdx--;
     _storyRender();
   }
 
+  function storyReplay() {
+    _storyIdx = 0;
+    _storyRender();
+  }
+
+  /* ── Gestures ──────────────────────────────────────────────────
+     Press and hold to pause is the one gesture every story format shares,
+     and it was the thing most conspicuously missing: with a 5s auto-advance
+     and no way to stop it, a card you actually wanted to read was gone.
+
+     Taps stay on the existing .fcst-tap buttons so keyboard and screen
+     reader users keep real, labelled controls. This layer only adds hold
+     and swipe, and swallows the click that would otherwise fire at the end
+     of one. */
+  function _storyBindGestures(ov) {
+    if (ov._fcstBound) return;
+    ov._fcstBound = true;
+    let sx = 0, sy = 0, held = false, moved = false, dragging = false, holdT = null;
+
+    const swallowNextClick = () => {
+      const kill = e => { e.preventDefault(); e.stopPropagation(); };
+      ov.addEventListener('click', kill, { capture: true, once: true });
+      setTimeout(() => ov.removeEventListener('click', kill, { capture: true }), 350);
+    };
+
+    ov.addEventListener('pointerdown', e => {
+      if (e.target.closest('.fcst-close,.fcst-cta,.fcst-end-btn')) return;
+      sx = e.clientX; sy = e.clientY; moved = false; held = false; dragging = true;
+      holdT = setTimeout(() => { held = true; _storyPause(); haptic('light'); }, 170);
+    });
+
+    ov.addEventListener('pointermove', e => {
+      if (!dragging) return;
+      const dx = e.clientX - sx, dy = e.clientY - sy;
+      if (!moved && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) { moved = true; clearTimeout(holdT); }
+      // Downward drag follows the finger, so dismissal feels physical.
+      if (moved && dy > 0 && Math.abs(dy) > Math.abs(dx)) {
+        _storyPause();
+        ov.style.transform = 'translateY(' + Math.min(dy, 320) + 'px) scale(' + (1 - Math.min(dy, 320) / 2600) + ')';
+        ov.style.opacity = String(Math.max(0.3, 1 - dy / 520));
+      }
+    });
+
+    const end = e => {
+      if (!dragging) return;
+      dragging = false;
+      clearTimeout(holdT);
+      const dx = e.clientX - sx, dy = e.clientY - sy;
+      ov.style.transform = ''; ov.style.opacity = '';
+
+      if (moved && dy > 110 && Math.abs(dy) > Math.abs(dx)) { swallowNextClick(); closeMoneyStory(); return; }
+      if (moved && Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy)) {
+        swallowNextClick();
+        _storyResume();
+        if (dx < 0) storyNext(); else storyPrev();
+        return;
+      }
+      if (held || moved) { swallowNextClick(); _storyResume(); return; }
+      _storyResume();   // a plain tap — the .fcst-tap button handles navigation
+    };
+    ov.addEventListener('pointerup', end);
+    ov.addEventListener('pointercancel', e => { dragging = false; clearTimeout(holdT);
+      ov.style.transform = ''; ov.style.opacity = ''; _storyResume(); });
+  }
+
+  /* ── Keyboard ──────────────────────────────────────────────────
+     It is aria-modal="true", so Escape has to close it and focus must not
+     wander out to the page underneath. Neither was true before. */
+  function _storyBindKeys(ov) {
+    _storyUnbindKeys();
+    _storyKeyHandler = e => {
+      if (!document.getElementById('fc-story')) return;
+      if (e.key === 'Escape')          { e.preventDefault(); closeMoneyStory(); }
+      else if (e.key === 'ArrowRight') { e.preventDefault(); _storyResume(); storyNext(); }
+      else if (e.key === 'ArrowLeft')  { e.preventDefault(); _storyResume(); storyPrev(); }
+      else if (e.key === ' ' || e.key === 'Spacebar') {
+        e.preventDefault(); _storyPaused ? _storyResume() : _storyPause();
+      } else if (e.key === 'Tab') {
+        const f = [...ov.querySelectorAll('button:not([disabled])')].filter(n => n.offsetParent !== null);
+        if (!f.length) return;
+        const first = f[0], last = f[f.length - 1];
+        if (e.shiftKey ? document.activeElement === first : document.activeElement === last) {
+          e.preventDefault(); (e.shiftKey ? last : first).focus();
+        }
+      }
+    };
+    document.addEventListener('keydown', _storyKeyHandler, true);
+  }
+
+  function _storyUnbindKeys() {
+    if (_storyKeyHandler) document.removeEventListener('keydown', _storyKeyHandler, true);
+    _storyKeyHandler = null;
+  }
+
   function closeMoneyStory() {
-    clearTimeout(_storyTimer);
+    _storyStop();
+    _storyPaused = false;
+    _storyUnbindKeys();
     const ov = document.getElementById('fc-story');
     if (!ov) return;
-    ov.classList.remove('fcst-open');
+    ov.classList.remove('fcst-open', 'fcst-held', 'fcst-done');
+    ov.style.transform = ''; ov.style.opacity = '';
     setTimeout(() => { ov.style.display = 'none'; }, 240);
     haptic('light');
+    // Send focus back where it came from, or the page loses its place.
+    if (_storyPrevFocus && document.contains(_storyPrevFocus)) {
+      try { _storyPrevFocus.focus(); } catch (_) {}
+    }
+    _storyPrevFocus = null;
   }
 
   /* ─────────────────────────────────────────────────────────────
@@ -11288,7 +11907,7 @@ window.FCApp = (function () {
     el.innerHTML =
       '<header class="fc-page-head fc-page-head--center">'
         +(asTab ? '' :
-          '<button onclick="FCApp._closeSubScreen()" style="display:flex;align-items:center;gap:4px;background:none;border:none;cursor:pointer;color:var(--fc-accent);font-size:15px;font-weight:600;padding:4px 0;font-family:inherit">'
+          '<button onclick="FCApp._closeSubScreen()" style="display:flex;align-items:center;gap:4px;background:none;border:none;cursor:pointer;color:var(--fc-accent);font-size:15px;font-weight:600;padding:11px 8px 11px 0;font-family:inherit;min-height:44px">'
           +'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg> Back'
           +'</button>')
         +'<h1 class="fc-page-title'+(asTab?'':' fc-page-title--sub')+'" style="flex:1">Goals</h1>'
@@ -11321,7 +11940,7 @@ window.FCApp = (function () {
                   +'<div style="display:flex;align-items:center;gap:10px">'
                     +'<div style="width:36px;height:36px;border-radius:10px;background:var(--fc-success-soft);display:flex;align-items:center;justify-content:center;flex-shrink:0">'+goalIcon(g)+'</div>'
                     +'<div>'
-                      +'<div class="fc-goal-name">'+(g.name||'Goal')+'</div>'
+                      +'<div class="fc-goal-name">'+esc(g.name||'Goal')+'</div>'
                       +(rec
                         ? '<div style="font-size:12px;color:var(--fc-text-faint)">Recommended: <span style="color:var(--fc-success);font-weight:600">'+FCData.formatCurrency(rec)+'/paycheck</span>'+(tgt?' · '+tgt:'')+'</div>'
                         : (tgt?'<div style="font-size:12px;color:var(--fc-text-faint)">Target: '+tgt+'</div>':''))
@@ -11359,11 +11978,11 @@ window.FCApp = (function () {
 
     el.innerHTML =
       '<header class="fc-page-head fc-page-head--center">'
-        +'<button onclick="FCApp._closeSubScreen()" style="display:flex;align-items:center;gap:4px;background:none;border:none;cursor:pointer;color:var(--fc-accent);font-size:15px;font-weight:600;padding:4px 0;font-family:inherit">'
+        +'<button onclick="FCApp._closeSubScreen()" style="display:flex;align-items:center;gap:4px;background:none;border:none;cursor:pointer;color:var(--fc-accent);font-size:15px;font-weight:600;padding:11px 8px 11px 0;font-family:inherit;min-height:44px">'
           +'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg> Back'
         +'</button>'
         +'<div style="flex:1;font-size:22px;font-weight:750;color:var(--fc-text)">Investments</div>'
-      +'</div>'
+      +'</header>'
 
       +(invAccts.length > 0
         ? '<div class="fc-metric-card" style="margin-bottom:14px;text-align:center;padding:24px">'
@@ -11375,8 +11994,8 @@ window.FCApp = (function () {
             +invAccts.map(a => '<div class="fc-bill-row">'
               +'<div class="fc-bill-icon">'+_ic('trending-up','var(--fc-text-muted)',18)+'</div>'
               +'<div class="fc-bill-info">'
-                +'<div class="fc-bill-name">'+(a.name||'Investment Account')+'</div>'
-                +'<div class="fc-bill-due">'+(a.institution_name||'')+'</div>'
+                +'<div class="fc-bill-name">'+esc(a.name||'Investment Account')+'</div>'
+                +'<div class="fc-bill-due">'+esc(a.institution_name||'')+'</div>'
               +'</div>'
               +'<div class="fc-bill-right">'
                 +'<div class="fc-bill-amount">'+FCData.formatCurrency(a.balance_current||0)+'</div>'
@@ -11424,7 +12043,7 @@ window.FCApp = (function () {
       const hasBill = billDays.has(d);
       cells += `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 0">
         <div style="width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:${isToday?700:400};
-          background:${isToday?'var(--fc-accent)':'transparent'};color:${isToday?'#fff':'var(--fc-text)'}">
+          background:${isToday?'var(--fc-accent)':'transparent'};color:${isToday?'var(--fc-accent-ink)':'var(--fc-text)'}">
           ${d}
         </div>
         ${hasBill ? `<div style="width:5px;height:5px;border-radius:50%;background:var(--fc-warning)"></div>` : '<div style="width:5px;height:5px"></div>'}
@@ -11436,7 +12055,7 @@ window.FCApp = (function () {
 
     el.innerHTML = `
       <div style="display:flex;align-items:center;gap:12px;padding:20px 0 16px">
-        <button onclick="FCApp._closeSubScreen()" style="display:flex;align-items:center;gap:4px;background:none;border:none;cursor:pointer;color:var(--fc-accent);font-size:15px;font-weight:600;padding:4px 0;font-family:inherit">
+        <button onclick="FCApp._closeSubScreen()" style="display:flex;align-items:center;gap:4px;background:none;border:none;cursor:pointer;color:var(--fc-accent);font-size:15px;font-weight:600;padding:11px 8px 11px 0;font-family:inherit;min-height:44px">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg> Back
         </button>
         <div style="flex:1;font-size:22px;font-weight:750;color:var(--fc-text)">Calendar</div>
@@ -11493,7 +12112,7 @@ window.FCApp = (function () {
 
     el.innerHTML = `
       <div style="display:flex;align-items:center;gap:12px;padding:20px 0 16px">
-        <button onclick="FCApp._closeSubScreen()" style="display:flex;align-items:center;gap:4px;background:none;border:none;cursor:pointer;color:var(--fc-accent);font-size:15px;font-weight:600;padding:4px 0;font-family:inherit">
+        <button onclick="FCApp._closeSubScreen()" style="display:flex;align-items:center;gap:4px;background:none;border:none;cursor:pointer;color:var(--fc-accent);font-size:15px;font-weight:600;padding:11px 8px 11px 0;font-family:inherit;min-height:44px">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg> Back
         </button>
         <div style="flex:1;font-size:22px;font-weight:750;color:var(--fc-text)">Reports</div>
@@ -11520,7 +12139,7 @@ window.FCApp = (function () {
 
     el.innerHTML = `
       <div style="display:flex;align-items:center;gap:12px;padding:20px 0 16px">
-        <button onclick="FCApp._closeSubScreen()" style="background:none;border:none;cursor:pointer;padding:4px;color:var(--fc-accent);font-size:15px;font-weight:500">← Back</button>
+        <button onclick="FCApp._closeSubScreen()" style="background:none;border:none;cursor:pointer;padding:11px 8px 11px 0;min-height:44px;color:var(--fc-accent);font-size:15px;font-weight:500">← Back</button>
         <div style="flex:1;font-size:22px;font-weight:700;color:var(--fc-text)">Notifications</div>
         ${unreadCount > 0 ? `<button onclick="FCApp._markAllNotifRead()" style="background:none;border:none;cursor:pointer;font-size:13px;color:var(--fc-accent)">Clear all</button>` : ''}
       </div>
@@ -12386,6 +13005,22 @@ window.FCApp = (function () {
       { transaction_id: 't16', name: 'Whole Foods Market', amount: 92.10,   date: _demoAgo(34), category: ['Food and Drink','Groceries'], account_id: 'demo-chk', isCredit: false },
       { transaction_id: 't17', name: 'Amazon',             amount: 54.37,   date: _demoAgo(40), category: ['Shops','Online Marketplaces'], account_id: 'demo-cc', isCredit: false },
       { transaction_id: 't18', name: 'Shell Gas Station',  amount: 61.75,   date: _demoAgo(38), category: ['Travel','Gas Stations'], account_id: 'demo-chk', isCredit: false },
+      // ── Vault fixtures ────────────────────────────────────────────
+      // App Review has to be able to SEE the billing model, not just read
+      // about it, so demo data includes the two things it pays out on.
+      // A subscription that billed monthly and then stopped — three charges
+      // that never came, which is what funds the demo Vault.
+      { transaction_id: 't19', name: 'Adobe Creative Cloud', amount: 54.99, date: _demoAgo(95),  category: ['Service','Subscription'], account_id: 'demo-cc', isCredit: false },
+      { transaction_id: 't20', name: 'Adobe Creative Cloud', amount: 54.99, date: _demoAgo(125), category: ['Service','Subscription'], account_id: 'demo-cc', isCredit: false },
+      { transaction_id: 't21', name: 'Adobe Creative Cloud', amount: 54.99, date: _demoAgo(155), category: ['Service','Subscription'], account_id: 'demo-cc', isCredit: false },
+      // A double charge that came back — both sides on the statement, which
+      // is the only kind of "we found you money" the Vault counts in full.
+      // Dated into the CURRENT month on purpose: the Vault bills per month,
+      // so a demo whose only wins are historical opens on "this month is
+      // free" and never shows the fee being drawn at all.
+      { transaction_id: 't22', name: 'Target', amount: 67.80, date: _demoAgo(3), category: ['Shops','Department Stores'], account_id: 'demo-cc', isCredit: false },
+      { transaction_id: 't23', name: 'Target', amount: 67.80, date: _demoAgo(2), category: ['Shops','Department Stores'], account_id: 'demo-cc', isCredit: false },
+      { transaction_id: 't24', name: 'Target', amount: 67.80, date: _demoAgo(0), category: ['Shops','Department Stores'], account_id: 'demo-cc', isCredit: true  },
     ];
     state.bills = [
       { id: 'b1', name: 'Rent',          amount: 1200.00, due_date: _demoIn(6),  status: 'upcoming', icon: '🏠', category: 'Housing' },
@@ -15413,6 +16048,12 @@ window.FCApp = (function () {
     setScreen,
     switchTab,
     _renderBillsScreen,   // called from Bills hub segment buttons (inline onclick)
+    // The Vault — proof-of-savings billing
+    _renderVaultScreen,
+    _vaultToggleReceipt,  // ledger receipt expand (inline onclick)
+    _vaultBuild,          // exported for verification assertions
+    _ensureLegalFooter,   // exported for verification assertions
+    _vaultFlagVisibleSubs,
     // Coach + affordability
     openCoachAnswer,
     closeCoachSheet,
@@ -15425,6 +16066,7 @@ window.FCApp = (function () {
     closeMoneyStory,
     storyNext,
     storyPrev,
+    storyReplay,          // end-card Replay (inline onclick)
     closeAffordSheet,
     toast,
     haptic,

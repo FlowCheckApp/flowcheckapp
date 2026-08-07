@@ -333,6 +333,45 @@ service cloud.firestore {
                          ]);
         allow delete: if false;
       }
+
+      // ─── /vault_flags — proof-of-savings attribution ────────────
+      // One doc per merchant key, holding the date FlowCheck FIRST showed
+      // that recurring charge to the user.
+      //
+      // Write-once, and that is the whole point. FlowCheck bills a share of
+      // savings it can prove it caused, and this date is the proof: a
+      // subscription that stopped AFTER we surfaced it is arguably our win,
+      // one that stopped before it never was. If this date could be updated,
+      // attribution could be backdated onto any cancellation in the user's
+      // history — which is to say, the bill could be inflated after the
+      // fact. No update, no delete, ever.
+      match /vault_flags/{merchantKey} {
+        allow read:   if isOwner(uid);
+        allow create: if isOwner(uid)
+                      && request.resource.data.keys().hasOnly(['flagged_on', 'created_at'])
+                      && request.resource.data.flagged_on is string;
+        allow update, delete: if false;
+      }
+
+      // ─── /vault_statements — what was actually billed ───────────
+      // One sealed doc per closed month. Immutable for the same reason a
+      // receipt is: the customer has already been charged this amount.
+      // Revising it later would make the ledger they were shown a different
+      // ledger from the one they paid against.
+      match /vault_statements/{month} {
+        allow read:   if isOwner(uid);
+        allow create: if isOwner(uid)
+                      && request.resource.data.keys().hasOnly([
+                           'month', 'proven', 'fee', 'event_count', 'sealed_at',
+                         ])
+                      && request.resource.data.proven is number
+                      && request.resource.data.fee is number
+                      // A fee above the list price, or above the savings it
+                      // was drawn from, is not a bill this product can issue.
+                      && request.resource.data.fee <= 9.99
+                      && request.resource.data.fee <= request.resource.data.proven;
+        allow update, delete: if false;
+      }
     }
 
     // ─── /referrals — Admin SDK only ──────────────────────────────

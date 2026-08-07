@@ -1120,6 +1120,93 @@ window.FCData = (function () {
     } catch (_) { return false; }
   }
 
+  /* ═══════════════════════════════════════════════════════════════
+     THE VAULT — proof-of-savings bookkeeping
+     ═══════════════════════════════════════════════════════════════
+     Two things here cannot be recomputed from bank data later, so they are
+     the only two things stored. Everything else the Vault shows is derived
+     live by fc-vault.js from transactions the user can go and check.
+
+     1. FLAGS — the date FlowCheck first showed a recurring charge to the
+        user. Months later, when that charge stops, this is the only record
+        of whether we surfaced it while it was alive. Without it we cannot
+        tell "we found this for you" from "you cancelled it yourself in
+        2019", and we would end up billing for the second one. Write-once:
+        firestore.rules refuses any update, because a flag date that can
+        drift later is an attribution claim that can be backdated.
+
+     2. STATEMENTS — what was actually billed for a closed month. Sealed
+        once written, for the same reason predicted_end is: a bill that can
+        be quietly revised after the customer paid it is not a bill, it is
+        a story about one.
+     ═══════════════════════════════════════════════════════════════ */
+
+  function _vaultRef(sub) {
+    const user = FCAuth.currentUser();
+    const db   = FCAuth.db();
+    if (!user || !db) return null;
+    return db.collection('users').doc(user.uid).collection(sub);
+  }
+
+  /** { merchantKey: 'YYYY-MM-DD' } — when we first surfaced each subscription. */
+  async function getVaultFlags() {
+    const ref = _vaultRef('vault_flags');
+    if (!ref) return {};
+    try {
+      const snap = await ref.limit(300).get();
+      const out = {};
+      snap.docs.forEach(d => { const v = d.data(); if (v && v.flagged_on) out[d.id] = v.flagged_on; });
+      return out;
+    } catch (_) { return {}; }
+  }
+
+  /**
+   * Record first-sight for subscriptions we are showing the user right now.
+   * Uses create-only writes: an existing flag must never move, so a rules
+   * rejection on an already-flagged key is the system working.
+   */
+  async function flagVaultSubs(keys, isoDate) {
+    const ref = _vaultRef('vault_flags');
+    if (!ref || !keys || !keys.length) return 0;
+    let written = 0;
+    for (const key of keys.slice(0, 50)) {
+      if (!key) continue;
+      try {
+        await ref.doc(key).set({
+          flagged_on: isoDate,
+          created_at: firebase.firestore.FieldValue.serverTimestamp(),
+        });
+        written++;
+      } catch (_) { /* already flagged — the write-once rule doing its job */ }
+    }
+    return written;
+  }
+
+  /** Seal a closed month's bill. Never overwrites an existing statement. */
+  async function sealVaultStatement(month, statement) {
+    const ref = _vaultRef('vault_statements');
+    if (!ref || !month || !statement) return false;
+    try {
+      await ref.doc(month).set({
+        month:       month,
+        proven:      Math.round((statement.proven || 0) * 100) / 100,
+        fee:         Math.round((statement.fee || 0) * 100) / 100,
+        event_count: statement.eventCount || 0,
+        sealed_at:   firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      return true;
+    } catch (_) { return false; }
+  }
+
+  async function getVaultStatements(limitCount) {
+    const ref = _vaultRef('vault_statements');
+    if (!ref) return [];
+    try {
+      const snap = await ref.orderBy('month', 'desc').limit(limitCount || 24).get();
+      return snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
+    } catch (_) { return []; }
+  }
+
   async function saveNetWorthSnapshot(date, value) {
     const user = FCAuth.currentUser();
     const db   = FCAuth.db();
@@ -1264,6 +1351,10 @@ window.FCData = (function () {
     recordForecast,
     getForecasts,
     settleForecast,
+    getVaultFlags,
+    flagVaultSubs,
+    sealVaultStatement,
+    getVaultStatements,
     listenToNetWorthHistory,
     listenToNotifications,
     markNotificationRead,
