@@ -6,12 +6,22 @@
 <!-- Apply saved theme BEFORE any CSS renders — prevents flash of wrong theme -->
 <script>
   (function(){
-    var p = localStorage.getItem('fc_appearance') || 'light';
+    // Dark by default. This MUST stay in sync with _load() in fc-app.js —
+    // the two are separate copies of the same decision, and if they disagree
+    // the app paints one theme here and corrects to the other a moment later,
+    // which is the exact flash this script exists to prevent.
+    // Only an explicit stored choice wins, so existing preferences survive.
+    var s = localStorage.getItem('fc_appearance');
+    var p = (s === 'light' || s === 'dark' || s === 'system') ? s : 'dark';
     var mq = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)');
     var light = p === 'light' || (p === 'system' && mq && mq.matches);
     document.documentElement.setAttribute('data-theme', light ? 'light' : 'dark');
     var bg = light ? '#F4F7FB' : '#060e18';
     document.documentElement.style.backgroundColor = bg;
+    // NOTE: the theme-color meta is not touched here — it sits further down
+    // the head and has not been parsed yet, so querySelector would return
+    // null. Its static value matches the dark default; fc-app.js's _apply()
+    // rewrites it if the user is on light.
   })();
 </script>
 <!-- Content Security Policy: blocks injected external scripts while allowing
@@ -44,7 +54,7 @@
            style-src 'self' 'unsafe-inline' https:;
            frame-src https://cdn.plaid.com;">
 <title>FlowCheck</title>
-<meta name="theme-color" content="#0a1520">
+<meta name="theme-color" content="#060e18">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="stylesheet" href="css/flowcheck-design-system.css?v=20260624-phase3-web">

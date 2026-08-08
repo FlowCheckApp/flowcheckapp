@@ -4771,7 +4771,12 @@ window.FCApp = (function () {
     if (!pts.length) return '';
 
     const stroke = r.goesNegative ? 'var(--fc-danger)' : 'var(--fc-accent)';
-    const edgeLabel = r.hasPayday ? 'PAYDAY' : 'IN 2 WEEKS';
+    /* "PAYDAY" over a dollar figure reads as "your paycheck is $353.82".
+       The number underneath is r.endBalance — what is LEFT when payday
+       arrives, which is close to the opposite of a paycheck. In an app whose
+       whole promise is that its numbers can be trusted, a label that invites
+       a 10x misreading of your own income is not a small thing. */
+    const edgeLabel = r.hasPayday ? 'LEFT AT PAYDAY' : 'LEFT IN 2 WEEKS';
     const dLabel = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
     /* Headline states the answer in words before the chart explains it.
@@ -10080,6 +10085,23 @@ window.FCApp = (function () {
     const txns    = state.transactions || [];
     const bills   = (state.bills || []).filter(b => b.status !== 'paid')
                       .sort((a,b) => new Date(a.due_date)-new Date(b.due_date)).slice(0,3);
+    /* The Monthly Plan ring needs a DIFFERENT number from the preview list
+       above. `bills` is "the next three still unpaid" — correct for a
+       three-row preview, wrong as a monthly total for two reasons:
+         • .filter(status !== 'paid') zeroes it out the moment you pay your
+           bills, so a user who paid all four saw "Bills $0.00" against
+           $2.9k of income and a ring that said their whole month was
+           discretionary spending.
+         • .slice(0,3) caps the sum at three bills, so anyone with more than
+           three would have had the rest silently missing from the total.
+       Paid bills still consumed this month's income, so the ring counts
+       every bill DUE this month regardless of status. */
+    const _mEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const monthBills = (state.bills || []).filter(b => {
+      if (!b.due_date) return false;
+      const d = FCData.parseDateLocal(b.due_date);
+      return d >= mStart && d <= _mEnd;
+    });
     const budgets  = state.budgets || {};
     const accounts = state.accounts || [];
 
@@ -10092,7 +10114,7 @@ window.FCApp = (function () {
     const daysInMonth = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
     const daysLeft    = daysInMonth - now.getDate();
     const debtAccts   = accounts.filter(a => a.type==='credit' || a.subtype==='credit card' || a.type==='loan');
-    const totalBills  = bills.reduce((s,b) => s+(b.amount||0), 0);
+    const totalBills  = monthBills.reduce((s,b) => s+(b.amount||0), 0);
     const debtPmt     = debtAccts.reduce((s,a) => s+(a.min_payment||0), 0);
     const goalMonthly = (state.goals||[]).reduce((s,g) => s+(g.monthly_target||0), 0);
     const ringIncome  = totalIncome || 1;
@@ -10247,7 +10269,9 @@ window.FCApp = (function () {
 
       +(_planSeg !== 'budget' ? '' : ''
       // ── Monthly Plan ring ──
-      +(totalIncome === 0 && budgetLimit === 0 && bills.length === 0
+      // monthBills, not the unpaid-only preview: a user who has bills and has
+      // paid them all has plan data, and was being shown "No plan data yet".
+      +(totalIncome === 0 && budgetLimit === 0 && monthBills.length === 0
         ? '<div class="fc-card" style="margin-bottom:14px;padding:24px 16px;text-align:center">'
             +'<div style="width:48px;height:48px;border-radius:14px;background:var(--fc-accent-soft);display:flex;align-items:center;justify-content:center;margin:0 auto 12px">'+_ic('bar-chart','var(--fc-accent)',22)+'</div>'
             +'<div style="font-size:16px;font-weight:600;color:var(--fc-text);margin-bottom:6px">No plan data yet</div>'
@@ -10376,7 +10400,13 @@ window.FCApp = (function () {
                 +'</div>'
               +'</div>';
             }).join('')
-          : '<div style="padding:12px 0;text-align:center;color:var(--fc-text-muted);font-size:14px">No upcoming bills</div>')
+          // "No upcoming bills" is technically true when everything is paid,
+          // but it reads as "we have no record of your bills" — which is
+          // alarming on a screen whose job is to reassure. Distinguish the
+          // two states: nothing left to pay vs nothing tracked at all.
+          : (monthBills.length > 0
+              ? '<div style="padding:12px 0;text-align:center;color:var(--fc-success);font-size:14px;font-weight:600">All ' + monthBills.length + ' bill' + (monthBills.length !== 1 ? 's' : '') + ' paid this month</div>'
+              : '<div style="padding:12px 0;text-align:center;color:var(--fc-text-muted);font-size:14px">No bills tracked yet</div>'))
       +'</div>'
       );
   }
@@ -10467,11 +10497,11 @@ window.FCApp = (function () {
   }
 
   /* ═══════════════════════════════════════════════════════════════
-     THE VAULT — proof-of-savings billing
+     THE VAULT — proof of what the subscription is worth
      ═══════════════════════════════════════════════════════════════
-     FlowCheck's price is not a number we picked. It is a share of money
-     this app can prove it saved, drawn from a Vault funded by that money,
-     capped at the list price. Prove nothing, charge nothing.
+     The Vault is a tool included with Pro. It charges nothing — it exists
+     to answer one question with receipts: did the subscription pay for
+     itself this month?
 
      This screen is the argument. It has to survive a user reading it line
      by line against their bank statement, because that is exactly what
@@ -10492,15 +10522,15 @@ window.FCApp = (function () {
    * cannot afford to do.
    */
   function _vaultMoreCard() {
-    let line = 'See what FlowCheck has proven — and what it costs you';
+    let line = 'See what your subscription has found you';
     let tint = 'var(--fc-accent)';
     if (_vaultLoaded && typeof FCVault !== 'undefined') {
       const s = _vaultBuild().statement;
-      line = s.free
-        ? 'Nothing proven this month — you are not charged'
-        : esc(FCData.formatCurrency(s.fee)) + ' this month, from '
-          + esc(FCData.formatCurrency(s.proven)) + ' we found you';
-      if (s.free) tint = 'var(--fc-success)';
+      line = s.empty
+        ? 'Nothing found yet this month'
+        : esc(FCData.formatCurrency(s.proven)) + ' found this month'
+          + (s.paidForItself ? ' — Pro paid for itself' : '');
+      if (!s.empty) tint = 'var(--fc-success)';
     } else {
       _vaultLoad().then(() => { if (state.tab === 'more') _renderMore(); });
     }
@@ -10564,6 +10594,11 @@ window.FCApp = (function () {
     if (!fresh.length) return;
     const unique = [...new Set(fresh)];
     await FCData.flagVaultSubs(unique, today);
+    // The filter above already treats _vaultFlagged as possibly-null; this
+    // line did not, and threw "Cannot set properties of null" the moment a
+    // subscription needed flagging before the map had loaded. Same guard,
+    // both places.
+    if (!_vaultFlagged) _vaultFlagged = {};
     unique.forEach(k => { _vaultFlagged[k] = today; });
   }
 
@@ -10608,8 +10643,8 @@ window.FCApp = (function () {
   /** One ledger row: the claim, the amount, and the receipt behind it. */
   function _vaultEventRow(e) {
     const open = _vaultOpenReceipt === e.id;
-    const billable = e.billable !== false;
-    const tint = billable ? 'var(--fc-success)' : 'var(--fc-text-muted)';
+    const attributed = e.attributed !== false;
+    const tint = attributed ? 'var(--fc-success)' : 'var(--fc-text-muted)';
 
     // Dollar-valued evidence keys render as money; everything else as-is.
     // A receipt line reading "Amount 67.8" undercuts the one thing this
@@ -10647,16 +10682,16 @@ window.FCApp = (function () {
           + '<div class="fc-amount" style="font-size:15px;font-weight:700;color:' + tint + '">+'
             + esc(FCData.formatCurrency(e.amount)) + '</div>'
           + '<div style="font-size:10px;color:var(--fc-text-faint);margin-top:1px">'
-            + (billable ? esc(e.confidence === 'observed' ? 'Verified' : 'Estimated') : 'Not billed') + '</div>'
+            + (attributed ? esc(e.confidence === 'observed' ? 'Verified' : 'Estimated') : 'Your win') + '</div>'
         + '</div>'
       + '</button>'
       + (open
         ? '<div style="padding:2px 16px 14px;border-top:1px solid var(--fc-border);margin:0 0 0 0">'
             + '<div class="fc-section-label" style="padding-top:10px">Receipt</div>'
             + receiptRows
-            + (billable ? '' :
+            + (attributed ? '' :
               '<p style="font-size:11px;color:var(--fc-text-muted);margin:8px 0 0;line-height:1.45">'
-              + 'You cancelled this before FlowCheck ever showed it to you, so we take no credit and no fee for it.</p>')
+              + 'You cancelled this before FlowCheck ever showed it to you, so we do not count it as ours.</p>')
           + '</div>'
         : '')
       + '</div>';
@@ -10670,8 +10705,8 @@ window.FCApp = (function () {
     if (!_vaultLoaded) { _vaultLoad().then(() => _renderVaultScreen()); }
 
     const { events, statement: s, summary, month } = _vaultBuild();
-    const billable = events.filter(e => e.billable !== false);
-    const ownWins  = events.filter(e => e.billable === false);
+    const attributed = events.filter(e => e.attributed !== false);
+    const ownWins  = events.filter(e => e.attributed === false);
 
     /* The bill accrues through the month rather than being known on the 1st,
        so it has to be labelled "so far". Calling a running total "this month"
@@ -10684,74 +10719,87 @@ window.FCApp = (function () {
     const last = FCVault.statementFor(events, prevMonth);
     const hasLast = summary.months > 0 && (last.eventCount > 0 || summary.months > 1);
 
-    // ── Hero: what this month has cost so far ───────────────────
-    const feeStr = FCData.formatCurrency(s.fee);
-    const heroSub = s.free
+    /* ── Hero: what Pro found you this month ────────────────────
+       The headline number is the SAVINGS, not a charge. The Vault is
+       included with the subscription; this screen answers "was it worth
+       it?", so the money shown is money the user kept. */
+    const provenStr = FCData.formatCurrency(s.proven);
+    const heroSub = s.empty
       ? (summary.proven > 0
-          ? 'Nothing billable has landed yet this month. As it stands, this month is free.'
-          : 'Nothing proven yet. Until there is, FlowCheck costs nothing.')
-      : 'Drawn from ' + FCData.formatCurrency(s.proven) + ' we can prove we saved you.';
+          ? 'Nothing new this month yet. Your subscription is unchanged either way.'
+          : 'Nothing proven yet. When we find something, it shows up here with the receipt.')
+      : s.paidForItself
+        ? 'Your ' + FCData.formatCurrency(s.subscriptionCost) + ' subscription paid for itself '
+          + s.multiple + '× over this month.'
+        : 'That is ' + Math.round((s.proven / s.subscriptionCost) * 100) + '% of your '
+          + FCData.formatCurrency(s.subscriptionCost) + ' subscription, earned back so far.';
 
-    // Meter: FlowCheck's slice against the user's, always to scale.
-    const feePct = s.proven > 0 ? Math.max(2, Math.min(100, (s.fee / s.proven) * 100)) : 0;
+    /* Meter: how far this month's savings got against the subscription
+       price. Full bar means it covered itself; beyond that we stop growing
+       the bar and say the multiple instead, because a 20x bar is just a
+       full bar. */
+    const coverPct = s.subscriptionCost > 0
+      ? Math.max(2, Math.min(100, (s.proven / s.subscriptionCost) * 100)) : 0;
     const meter = s.proven > 0
       ? '<div style="margin-top:16px">'
         + '<div style="display:flex;height:10px;border-radius:999px;overflow:hidden;background:var(--fc-bg-elevated-2)">'
-          + '<div style="width:' + feePct.toFixed(1) + '%;background:var(--fc-accent)"></div>'
-          + '<div style="flex:1;background:var(--fc-success)"></div>'
+          + '<div style="width:' + coverPct.toFixed(1) + '%;background:'
+            + (s.paidForItself ? 'var(--fc-success)' : 'var(--fc-accent)') + '"></div>'
         + '</div>'
         + '<div style="display:flex;justify-content:space-between;margin-top:8px;font-size:11px">'
-          + '<span style="color:var(--fc-accent);font-weight:600">FlowCheck ' + esc(feeStr) + '</span>'
-          + '<span style="color:var(--fc-success);font-weight:600">You keep ' + esc(FCData.formatCurrency(s.youKeep)) + '</span>'
+          + '<span style="color:var(--fc-text-faint);font-weight:600">Pro costs '
+            + esc(FCData.formatCurrency(s.subscriptionCost)) + '/mo</span>'
+          + '<span style="color:' + (s.paidForItself ? 'var(--fc-success)' : 'var(--fc-text-faint)')
+            + ';font-weight:600">' + (s.paidForItself ? 'Covered ' + s.multiple + '×' : 'Not yet covered')
+          + '</span>'
         + '</div>'
       + '</div>'
       : '';
 
     const hero = '<section class="fc-ui-card" style="padding:20px 18px;margin-bottom:14px;'
         + 'background:linear-gradient(160deg,var(--fc-bg-elevated) 0%,var(--fc-bg-elevated-2) 100%)">'
-      + '<p class="fc-section-label" style="margin:0">This month so far</p>'
+      + '<p class="fc-section-label" style="margin:0">Found for you this month</p>'
       + '<div class="fc-amount" style="font-size:44px;font-weight:700;letter-spacing:-0.02em;line-height:1.05;'
-        + 'margin:6px 0 4px;color:' + (s.free ? 'var(--fc-success)' : 'var(--fc-text)') + '">' + esc(feeStr) + '</div>'
-      + (s.free
-        ? '<p style="font-size:13px;font-weight:600;color:var(--fc-success);margin:0 0 2px">This month is free.</p>'
-        : '')
+        + 'margin:6px 0 4px;color:' + (s.empty ? 'var(--fc-text-muted)' : 'var(--fc-success)') + '">'
+        + esc(provenStr) + '</div>'
       + '<p style="font-size:13px;color:var(--fc-text-muted);margin:0;line-height:1.45">' + esc(heroSub) + '</p>'
       + meter
-      + (s.atCap
+      + (s.cappedAt
         ? '<p style="font-size:11px;color:var(--fc-text-faint);margin:12px 0 0;line-height:1.45">'
-          + 'Capped at ' + esc(FCData.formatCurrency(s.listPrice)) + '. Everything above the cap is yours.</p>'
+          + 'Counting is capped at ' + esc(FCData.formatCurrency(s.cappedAt))
+          + ' a month so one unusual event cannot distort the picture.</p>'
         : '')
-      // Last month's closed bill — the number actually charged, next to the
-      // one still accruing, so "so far" has something to be measured against.
+      // Last month, for comparison — a closed month is the honest yardstick
+      // for a month still in progress.
       + (hasLast
         ? '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-top:16px;'
           + 'padding-top:14px;border-top:1px solid var(--fc-border)">'
-          + '<span style="font-size:12px;color:var(--fc-text-faint)">Last month, closed</span>'
+          + '<span style="font-size:12px;color:var(--fc-text-faint)">Last month</span>'
           + '<span class="fc-amount" style="font-size:14px;font-weight:600;color:'
-            + (last.free ? 'var(--fc-success)' : 'var(--fc-text-muted)') + '">'
-            + (last.free ? 'Free' : esc(FCData.formatCurrency(last.fee))
-                + ' <span style="color:var(--fc-text-faint);font-weight:500">of '
-                + esc(FCData.formatCurrency(last.proven)) + '</span>')
+            + (last.empty ? 'var(--fc-text-faint)' : 'var(--fc-success)') + '">'
+            + (last.empty ? 'Nothing found' : esc(FCData.formatCurrency(last.proven))
+                + (last.paidForItself
+                    ? ' <span style="color:var(--fc-text-faint);font-weight:500">· paid for itself</span>'
+                    : ''))
           + '</span>'
         + '</div>'
         : '')
       + '</section>';
 
-    // ── The terms, in the fewest words that are still true ──────
+    // ── What this screen is, in the fewest words that are still true ──
     const terms = '<section class="fc-ui-card" style="padding:16px 18px;margin-bottom:18px">'
-      + '<p class="fc-section-label" style="margin:0 0 8px">How you are billed</p>'
+      + '<p class="fc-section-label" style="margin:0 0 8px">How this works</p>'
       + '<p style="font-size:13px;color:var(--fc-text-muted);margin:0;line-height:1.6">'
-        + 'FlowCheck takes <strong style="color:var(--fc-text)">'
-        + Math.round(s.takeRate * 100) + '%</strong> of what it can prove it saved you, capped at <strong style="color:var(--fc-text)">'
-        + esc(FCData.formatCurrency(s.listPrice)) + '</strong> a month. '
-        + 'Every claim below is listed with the transactions behind it. '
-        + 'Prove nothing, charge nothing — <strong style="color:var(--fc-success)">an empty vault is a free month</strong>.'
+        + 'The Vault is included with Pro — <strong style="color:var(--fc-text)">it never charges you anything extra</strong>. '
+        + 'It only counts money we can show you on your own bank statement, so every '
+        + 'claim below opens to the transactions behind it. '
+        + 'If we cannot prove it, we do not count it.'
       + '</p></section>';
 
     // ── Ledger ──────────────────────────────────────────────────
-    const ledger = billable.length
-      ? '<div class="fc-eyebrow">Every claim we have made · ' + billable.length + '</div>'
-        + billable.map(_vaultEventRow).join('')
+    const ledger = attributed.length
+      ? '<div class="fc-eyebrow">Every claim we have made · ' + attributed.length + '</div>'
+        + attributed.map(_vaultEventRow).join('')
       : '<div class="fc-eyebrow">Every claim we have made</div>'
         + '<section class="fc-ui-card" style="padding:22px 18px;margin-bottom:8px;text-align:center">'
           + '<div style="width:44px;height:44px;border-radius:12px;background:var(--fc-bg-elevated-2);display:flex;'
@@ -10766,10 +10814,10 @@ window.FCApp = (function () {
 
     // ── Wins we refuse to bill for ──────────────────────────────
     const own = ownWins.length
-      ? '<div class="fc-eyebrow" style="margin-top:18px">Your own wins · not billed</div>'
+      ? '<div class="fc-eyebrow" style="margin-top:18px">Your own wins · not counted as ours</div>'
         + '<p style="font-size:12px;color:var(--fc-text-faint);margin:0 0 8px;line-height:1.5">'
         + esc(FCData.formatCurrency(summary.ownWins)) + ' you saved before FlowCheck ever flagged it. '
-        + 'It is your work, so it earns us nothing.</p>'
+        + 'It is your work, so we do not count it as ours.</p>'
         + ownWins.map(_vaultEventRow).join('')
       : '';
 
@@ -10781,23 +10829,33 @@ window.FCApp = (function () {
       + '<p class="fc-amount" style="font-size:17px;font-weight:700;margin:0;color:' + (color || 'var(--fc-text)') + '">'
         + esc(value) + '</p></div>';
 
+    /* Lifetime: found vs paid. The net is shown even when it is negative —
+       a subscription that has not earned its keep yet should say so, or the
+       whole screen is just a compliment we pay ourselves. */
+    const netPositive = summary.netBenefit >= 0;
     const lifetime = summary.months
-      ? '<div class="fc-eyebrow" style="margin-top:18px">Lifetime</div>'
+      ? '<div class="fc-eyebrow" style="margin-top:18px">Since you joined</div>'
         + '<section class="fc-ui-card" style="padding:16px 18px;margin-bottom:14px">'
           + '<div style="display:flex;gap:14px;margin-bottom:14px">'
-            + stat('Proven', FCData.formatCurrency(summary.proven), 'var(--fc-success)')
-            + stat('Billed', FCData.formatCurrency(summary.feesBilled))
+            + stat('Found for you', FCData.formatCurrency(summary.proven), 'var(--fc-success)')
+            + stat('Pro cost', FCData.formatCurrency(summary.subscriptionPaid))
           + '</div>'
           + '<div style="display:flex;gap:14px;padding-top:14px;border-top:1px solid var(--fc-border)">'
-            + stat('Kept by you', FCData.formatCurrency(summary.balance), 'var(--fc-success)')
-            + stat('Free months', String(summary.freeMonths))
+            + stat('Net', (netPositive ? '+' : '−')
+                + FCData.formatCurrency(Math.abs(summary.netBenefit)),
+                netPositive ? 'var(--fc-success)' : 'var(--fc-text-muted)')
+            + stat('Months it paid for itself',
+                summary.monthsPaidForThemselves + ' of ' + summary.months)
           + '</div>'
-          + (summary.saved > 0
-            ? '<p style="font-size:12px;color:var(--fc-text-muted);margin:14px 0 0;line-height:1.5">'
-              + 'A flat ' + esc(FCData.formatCurrency(s.listPrice)) + '/mo subscription would have charged you '
-              + esc(FCData.formatCurrency(summary.flatWouldBe)) + ' over these ' + summary.months + ' months. '
-              + 'You were charged ' + esc(FCData.formatCurrency(summary.feesBilled)) + '.</p>'
-            : '')
+          + '<p style="font-size:12px;color:var(--fc-text-muted);margin:14px 0 0;line-height:1.5">'
+            + (netPositive
+              ? 'Pro has cost you ' + esc(FCData.formatCurrency(summary.subscriptionPaid))
+                + ' and found you ' + esc(FCData.formatCurrency(summary.proven))
+                + ' — ' + summary.multiple + '× what you paid.'
+              : 'Pro has cost you ' + esc(FCData.formatCurrency(summary.subscriptionPaid))
+                + ' and found you ' + esc(FCData.formatCurrency(summary.proven))
+                + ' so far. It has not earned that back yet.')
+          + '</p>'
         + '</section>'
       : '';
 
@@ -10809,7 +10867,7 @@ window.FCApp = (function () {
           + 'stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg> Back'
         + '</button>'
         + '<div class="fc-page-head__text"><h1 class="fc-page-title fc-page-title--sub">The Vault</h1>'
-        + '<p class="fc-page-sub">You pay us out of what we find you</p></div>'
+        + '<p class="fc-page-sub">What your subscription found you</p></div>'
       + '</header>'
       + hero + terms + ledger + own + lifetime
       + '<p style="font-size:10px;color:var(--fc-text-faint);text-align:center;padding:4px 24px 16px;margin:0;opacity:0.6">'
@@ -13367,7 +13425,18 @@ window.FCApp = (function () {
 
     FCData.listenToGoals(goals => {
       state.goals = goals;
-      if (state.tab === 'goals' || (state.tab === 'wealth' && _wealthSeg === 'goals')) _renderGoals();
+      /* This line threw a ReferenceError on every goals update: `_wealthSeg`
+         is referenced here and declared nowhere in the file (the real
+         variable is `_wealthTab`). Because the throw happened inside the
+         Firestore listener, the Goals tab silently stopped live-updating —
+         you had to leave and come back to see a goal change.
+
+         The clause it guarded was stale anyway. It dated from when Goals was
+         a panel inside Money; Money's segments are overview/savings/debt and
+         there is no 'goals' one, so `_wealthTab === 'goals'` could never be
+         true. And _renderGoals() renders that old Money panel, not the tab —
+         switchTab('goals') uses _renderGoalsScreen(true). */
+      if (state.tab === 'goals') _renderGoalsScreen(true);
     });
 
     FCData.listenToBudgets(budgets => {
@@ -16305,7 +16374,16 @@ window.FCApp = (function () {
   }
 
   function _load() {
-    return localStorage.getItem(STORAGE_KEY) || 'light';
+    // Dark is the default. The brand is a dark navy surface, the whole
+    // accent/token system was designed against it, and it is what the app
+    // is screenshotted and shipped as. Defaulting to light meant every new
+    // user — and every user who never opened the appearance picker — got the
+    // secondary treatment.
+    //
+    // Only an EXPLICIT stored choice overrides it, so anyone who already
+    // picked light or system keeps what they picked.
+    const stored = localStorage.getItem(STORAGE_KEY);
+    return (stored === 'light' || stored === 'dark' || stored === 'system') ? stored : 'dark';
   }
 
   // Apply immediately on load (before anything renders)

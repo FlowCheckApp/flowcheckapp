@@ -3,44 +3,50 @@
  * ─────────────────────────────────────────────────────────────────
  * Pure functions. No DOM, no network, no globals, no `state`.
  *
+ * THE VAULT DOES NOT CHARGE ANYTHING.
+ * ───────────────────────────────────
+ * It is a tool included with the Pro subscription the user already pays for.
+ * Nothing in this file bills, meters, debits or draws down. `subscriptionCost`
+ * appears only as a yardstick — the savings need something to be measured
+ * against — and any caller that treats it as a fee is wrong.
+ *
  * WHY THIS FILE EXISTS
  * ─────────────────────
- * FlowCheck does not bill a flat subscription. It bills a share of money it
- * can PROVE it saved you, out of a Vault funded by that money, capped at the
- * list price. If the Vault is empty, the month costs nothing.
+ * Every money app claims it saves you money. Almost none will show you the
+ * transactions. This one answers one question, per month, with receipts:
  *
- * That inverts the entire industry. Every other money app is paid the same
- * whether it worked or not — an interchange cut that grows when you spend
- * more, or a subscription that is most profitable from the people who forgot
- * they had it. This one only earns out of a number it had to demonstrate
- * first, in front of the person paying.
+ *     did the subscription pay for itself?
  *
- * Which means THIS FILE IS THE REVENUE MODEL. Every dollar it credits is a
- * dollar FlowCheck can bill against, so an over-generous rule here is not a
- * cosmetic bug — it is billing someone for work that was not done. The whole
- * pitch collapses the first time a user opens the ledger and finds a claim
- * they can disprove.
+ * That is the whole job. A subscriber should be able to open this screen,
+ * read every claim, and check each one against their own bank statement.
  *
- * So the rules below are deliberately, almost painfully conservative:
+ * WHICH MEANS THE RULES BELOW STILL HAVE TO BE BRUTAL. It is tempting to
+ * relax them now that no money rides on the number — that instinct is exactly
+ * backwards. An inflated savings figure is still a lie about someone's money;
+ * it just costs trust instead of dollars, and trust is the only reason
+ * anyone connects a bank account to this. The first time a user disproves a
+ * claim on this screen, every other number in the app becomes suspect.
+ *
+ * So:
  *
  *   1. EVIDENCE OR NOTHING. Every event carries the transactions that prove
- *      it. If it cannot be shown on the screen and checked against a bank
- *      statement, it is not credited.
+ *      it. If it cannot be shown on screen and checked against a statement,
+ *      it does not count.
  *   2. NEVER INVENT A FEE. An "overdraft avoided" is worth the overdraft fee
  *      THIS bank has actually charged THIS user before. No fee history, no
  *      credit — not the $35 industry average, not an estimate. Zero.
  *   3. NO CREDIT WITHOUT ATTRIBUTION. A subscription the user killed before
  *      FlowCheck ever surfaced it is their win. It is shown in the ledger
- *      and explicitly NOT billed against.
+ *      and explicitly excluded from the proven return.
  *   4. HAIRCUT WHAT CANNOT BE PROVEN CAUSAL. Behaviour-change claims get 50%
  *      and have to clear a bar noise cannot clear on its own.
- *   5. CREDITS EXPIRE. A cancelled subscription pays out monthly as the
- *      months actually pass, for at most a year. Nothing is booked up front.
+ *   5. CREDITS EXPIRE. A cancelled subscription counts monthly as the months
+ *      actually pass, for at most a year. Nothing is booked up front.
  *   6. NOTHING COUNTS TWICE. Every event id is deterministic, so re-running
  *      detection over the same data can only ever produce the same ledger.
  *
- * When in doubt, credit nothing. An empty Vault is a free month, which is a
- * cost. A fabricated Vault is a lie about money, which is the company.
+ * When in doubt, count nothing. A month with no receipts is just a quiet
+ * month. A fabricated Vault is a lie about money, which is the company.
  */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory(require('./fc-core.js'));
@@ -50,14 +56,13 @@
 
   const DAY = 86400000;
 
-  /* ── Economics ───────────────────────────────────────────────────
-     TAKE_RATE is the share of proven savings FlowCheck bills. LIST_PRICE
-     caps it, so the fee is min(list, proven × rate) — the user keeps at
-     least 75% of everything, and 100% of everything above the cap. */
+  /* ── Terms ───────────────────────────────────────────────────────
+     subscriptionCost is what Pro already costs. It is quoted so savings
+     have something to be measured against — it is NOT a fee this file
+     charges, and there is no take rate, because the Vault bills nothing. */
   const TERMS = {
-    listPrice:       9.99,   // ceiling on any month's fee
-    takeRate:        0.25,   // share of proven savings billed
-    subCreditMonths: 12,     // a killed subscription pays out for one year
+    subscriptionCost: 9.99,  // what Pro costs — a yardstick, never a charge
+    subCreditMonths: 12,     // a killed subscription counts for one year
     causalHaircut:   0.50,   // applied to anything not directly observed
     maxEventCredit:  500,    // sanity bound: no single event exceeds this
     maxPeriodCredit: 2000,   // sanity bound: no month credits more than this
@@ -179,7 +184,7 @@
           kind:      'subscription_ended',
           date:      isoDay(when),
           amount:    round2(Math.min(sub.amount, TERMS.maxEventCredit)),
-          billable:  attributed,
+          attributed:  attributed,
           confidence: 'observed',
           title:     sub.name + ' stopped billing',
           detail:    'Charge ' + i + ' of ' + TERMS.subCreditMonths + ' that never came',
@@ -237,7 +242,7 @@
         kind:      'overdraft_avoided',
         date:      f.target_date,
         amount:    round2(Math.min(fee * TERMS.causalHaircut, TERMS.maxEventCredit)),
-        billable:  true,
+        attributed:  true,
         confidence: 'inferred',
         title:     'Overdraft called, and dodged',
         detail:    'We projected ' + fmt(f.predicted_end) + '. You landed ' + fmt(f.actual_end) + '.',
@@ -299,7 +304,7 @@
         kind:      'under_forecast',
         date:      m + '-01',
         amount:    credit,
-        billable:  true,
+        attributed:  true,
         confidence: 'inferred',
         title:     'Lowest spending month in four',
         detail:    'Spent ' + fmt(spent) + ' against a ' + fmt(mid) + ' normal',
@@ -359,7 +364,7 @@
           kind:      'refund_recovered',
           date:      isoDay(refund.date),
           amount:    round2(Math.min(amt, TERMS.maxEventCredit)),
-          billable:  true,
+          attributed:  true,
           confidence: 'observed',
           title:     'Double charge, refunded',
           detail:    'Charged twice on ' + shortDay(later.date) + ' — returned ' + shortDay(refund.date),
@@ -399,71 +404,96 @@
   }
 
   /* ═══════════════════════════════════════════════════════════════
-     THE BILL
+     THE RETURN — what the subscription bought
      ═══════════════════════════════════════════════════════════════
-     fee = min(listPrice, provenBillableSavings × takeRate)
+     THE VAULT NEVER CHARGES ANYTHING. It is a benefit of the Pro
+     subscription the user already pays for, not a second bill.
 
-     Nothing proven, nothing billed. This is the whole product in one line,
-     and it is why the maths lives in a tested file instead of a render
-     function: a rounding error here is a wrong charge on a real card. */
+     This started life as a metered billing model — take 25% of proven
+     savings, capped at the list price. That was the wrong shape for a
+     subscription product. It created a bill that moved every month, made
+     the price impossible to state on a pricing page, needed variable
+     billing that RevenueCat does not natively do, and asked a person who
+     had already paid to feel charged again for a good month. A tool
+     included in a subscription should make the subscription feel obvious,
+     not more expensive.
+
+     So the money question flips. Instead of "what do we take?" it is:
+
+         did this month's subscription pay for itself?
+
+     `subscriptionCost` here is a REFERENCE, never a charge — it is what
+     the user is already paying, quoted so the savings have something to be
+     measured against. Nothing in this file bills, debits, or draws down
+     anything, and nothing downstream should read these numbers as if it
+     did. Every detection rule above is unchanged: the credits still have to
+     be provable, because an inflated return is still a lie even when no
+     money moves on the back of it. */
   function statementFor(events, month, opts) {
     const t = Object.assign({}, TERMS, opts || {});
     const inMonth = (events || []).filter(e => e && String(e.date || '').slice(0, 7) === month);
 
-    const billableEvents = inMonth.filter(e => e.billable !== false);
-    const unattributed   = inMonth.filter(e => e.billable === false);
+    /* Attribution still matters with nothing being charged. Claiming credit
+       for a subscription the user cancelled on their own would inflate the
+       return, which is the same dishonesty as overbilling — it just costs
+       trust instead of money. */
+    const attributed   = inMonth.filter(e => e.attributed !== false);
+    const unattributed = inMonth.filter(e => e.attributed === false);
 
-    const rawProven = billableEvents.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+    const rawProven = attributed.reduce((s, e) => s + (Number(e.amount) || 0), 0);
     const proven    = round2(Math.min(rawProven, t.maxPeriodCredit));
     const ownWins   = round2(unattributed.reduce((s, e) => s + (Number(e.amount) || 0), 0));
 
-    const fee       = round2(Math.min(t.listPrice, proven * t.takeRate));
-    const youKeep   = round2(proven - fee);
+    const cost       = t.subscriptionCost;
+    const netBenefit = round2(proven - cost);
+    // "5.4x" only means something once the subscription has been covered;
+    // below that the honest phrasing is how much of it has been earned back.
+    const multiple   = cost > 0 ? Math.round((proven / cost) * 10) / 10 : 0;
 
     return {
-      month:        month,
-      proven:       proven,
-      cappedAt:     rawProven > t.maxPeriodCredit ? t.maxPeriodCredit : null,
-      fee:          fee,
-      youKeep:      youKeep,
-      free:         fee === 0,
-      atCap:        fee >= t.listPrice,
-      ownWins:      ownWins,
-      eventCount:   inMonth.length,
-      events:       inMonth,
-      listPrice:    t.listPrice,
-      takeRate:     t.takeRate,
-      // What a flat subscription would have cost this month, for comparison.
-      flatWouldBe:  t.listPrice,
-      saidNoTo:     round2(t.listPrice - fee),
+      month:            month,
+      proven:           proven,
+      cappedAt:         rawProven > t.maxPeriodCredit ? t.maxPeriodCredit : null,
+      ownWins:          ownWins,
+      eventCount:       inMonth.length,
+      events:           inMonth,
+
+      // Reference values — what Pro costs, and how the month compares.
+      subscriptionCost: cost,
+      netBenefit:       netBenefit,
+      paidForItself:    proven >= cost,
+      multiple:         multiple,
+      // Nothing proven yet this month. Not "free" — the subscription is
+      // unchanged either way; this month simply has no receipts on it.
+      empty:            proven === 0,
     };
   }
 
-  /** Lifetime view: everything proven, everything billed, what's left over. */
+  /** Lifetime view: everything proven against everything paid. */
   function vaultSummary(events, opts) {
     const t = Object.assign({}, TERMS, opts || {});
     const months = [...new Set((events || [])
       .map(e => String(e && e.date || '').slice(0, 7))
       .filter(Boolean))].sort();
 
-    let proven = 0, fees = 0, freeMonths = 0, ownWins = 0;
+    let proven = 0, ownWins = 0, monthsPaidForThemselves = 0;
     const statements = months.map(m => {
       const s = statementFor(events, m, t);
-      proven += s.proven; fees += s.fee; ownWins += s.ownWins;
-      if (s.free) freeMonths++;
+      proven += s.proven; ownWins += s.ownWins;
+      if (s.paidForItself) monthsPaidForThemselves++;
       return s;
     });
 
+    const paid = round2(months.length * t.subscriptionCost);
     return {
-      months:       months.length,
-      freeMonths:   freeMonths,
-      proven:       round2(proven),
-      feesBilled:   round2(fees),
-      balance:      round2(proven - fees),      // the user's money, still theirs
-      ownWins:      round2(ownWins),
-      flatWouldBe:  round2(months.length * t.listPrice),
-      saved:        round2(months.length * t.listPrice - fees),
-      statements:   statements,
+      months:                  months.length,
+      monthsPaidForThemselves: monthsPaidForThemselves,
+      proven:                  round2(proven),
+      ownWins:                 round2(ownWins),
+      subscriptionPaid:        paid,
+      netBenefit:              round2(proven - paid),
+      multiple:                paid > 0 ? Math.round((proven / paid) * 10) / 10 : 0,
+      statements:              statements,
     };
   }
 

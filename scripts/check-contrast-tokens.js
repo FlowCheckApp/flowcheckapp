@@ -103,6 +103,39 @@ if (!/\.fc-ob-screen\s+svg\[stroke\^="rgba\(255,255,255"\]/.test(ds)) {
     '    Onboarding padlock/trust icons will render white-on-white in light mode.');
 }
 
+/* ── Rule 3: the theme default lives in TWO places and they must agree ──
+   The <head> script in index.html picks a theme before any CSS renders, and
+   _load() in fc-app.js picks one when the app boots. They are independent
+   copies of the same decision. If they disagree, the app paints one theme
+   and corrects to the other a beat later — the precise flash the head script
+   exists to prevent, and it only shows up on a cold launch on a device. */
+const appJs = read('www/js/fc-app.js');
+const html  = read('www/index.html');
+const headDefault = html.match(/fc_appearance'\)[\s\S]{0,220}?\?\s*s\s*:\s*'(light|dark|system)'/);
+const loadDefault = appJs.match(/function _load\(\)[\s\S]{0,900}?\?\s*stored\s*:\s*'(light|dark|system)'/);
+
+if (!headDefault || !loadDefault) {
+  failures.push(
+    'theme default: could not read the default from both the index.html head script and\n' +
+    '    _load() in fc-app.js. One of them changed shape — re-check this guard.');
+} else if (headDefault[1] !== loadDefault[1]) {
+  failures.push(
+    `theme default MISMATCH: index.html head script defaults to '${headDefault[1]}' but\n` +
+    `    fc-app.js _load() defaults to '${loadDefault[1]}'. A cold launch will paint\n` +
+    `    '${headDefault[1]}' and then snap to '${loadDefault[1]}'. Make them the same.`);
+}
+
+/* The static theme-color meta paints the status bar before any script runs,
+   so it has to match whatever the head script is about to choose. */
+if (headDefault && headDefault[1] === 'dark') {
+  const meta = html.match(/<meta name="theme-color" content="([^"]+)"/);
+  if (!meta || meta[1].toLowerCase() !== '#060e18') {
+    failures.push(
+      `theme-color meta is ${meta ? meta[1] : 'missing'} but the default theme is dark (#060e18).\n` +
+      '    The status bar paints from this value before any script runs.');
+  }
+}
+
 if (failures.length) {
   console.error('\n✗ contrast-token check failed:\n');
   failures.forEach(f => console.error('  ' + f));

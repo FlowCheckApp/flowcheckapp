@@ -2,12 +2,12 @@
 /**
  * test-vault.js — unit tests for the proof-of-savings engine.
  *
- * fc-vault.js decides how much FlowCheck is allowed to charge someone. Every
- * test below is a way the Vault could inflate a savings number, which is the
- * same thing as overbilling a customer. The generous-rounding failures are
- * the important ones — a bug that credits too little costs the company money,
- * a bug that credits too much costs the company its only claim to being
- * different.
+ * The Vault charges nothing — it is a tool included with the Pro subscription.
+ * What fc-vault.js decides is what FlowCheck may CLAIM it saved someone, and
+ * every test below is a way that claim could be inflated. A number nobody can
+ * disprove is marketing; this screen invites the user to check each line
+ * against their own bank statement, so a generous rounding here costs the
+ * app the only thing that makes it worth connecting a bank account to.
  *
  * No framework, same as test-core.js — runs anywhere Node runs, in
  * `npm run check`, before deploy.sh will let anything ship.
@@ -88,15 +88,15 @@ t('subscriptionsEnded: never credits a cycle that has not happened yet', () => {
   const e = V.subscriptionsEnded([sub('Netflix', 15.99, 'mo', ago(75))], FLAGGED, new Date());
   ok(e.every(x => x.date <= iso(0)), 'no future-dated credits');
 });
-t('subscriptionsEnded: a cancellation we never surfaced is not billable', () => {
+t('subscriptionsEnded: a cancellation we never surfaced is not credited to us', () => {
   const e = V.subscriptionsEnded([sub('Hulu', 17.99, 'mo', ago(75))], FLAGGED, new Date());
   ok(e.length > 0, 'still recorded in the ledger');
-  ok(e.every(x => x.billable === false), 'but never billed against');
+  ok(e.every(x => x.attributed === false), 'but never counted as our win');
 });
 t('subscriptionsEnded: flagged AFTER the last charge is not attributable', () => {
   const late = { [V.merchantKey('Netflix')]: ago(10) };   // we noticed after it died
   const e = V.subscriptionsEnded([sub('Netflix', 15.99, 'mo', ago(75))], late, new Date());
-  ok(e.every(x => x.billable === false));
+  ok(e.every(x => x.attributed === false));
 });
 t('subscriptionsEnded: ids are deterministic so re-running cannot double-count', () => {
   const a = V.subscriptionsEnded([sub('Netflix', 15.99, 'mo', ago(75))], FLAGGED, new Date());
@@ -236,80 +236,90 @@ t('refundsRecovered: different merchants are not the same charge', () => {
 });
 
 /* ═══════════════════════════════════════════════════════════════
-   THE BILL — the line that decides what a customer is charged
-   ═══════════════════════════════════════════════════════════════ */
+   THE RETURN — did the subscription pay for itself?
+   ═══════════════════════════════════════════════════════════════
+   The Vault charges nothing. subscriptionCost is a yardstick, not a fee,
+   so what these tests protect is the honesty of the RETURN: that it never
+   counts money FlowCheck did not cause, never runs away on one anomaly,
+   and never quietly borrows a win from another month. */
 const M = '2026-06';
-const ev = (amount, billable) => ({ id: 'x' + Math.random(), date: M + '-10', amount, billable: billable !== false });
+const ev = (amount, attributed) => ({ id: 'x' + Math.random(), date: M + '-10', amount, attributed: attributed !== false });
 
-t('statementFor: nothing proven means the month is free', () => {
+t('statementFor: nothing proven is an empty month, and costs nothing extra', () => {
   const s = V.statementFor([], M);
-  eq(s.fee, 0); eq(s.free, true);
+  eq(s.proven, 0); eq(s.empty, true); eq(s.paidForItself, false);
 });
-t('statementFor: fee is a quarter of proven savings', () => {
-  const s = V.statementFor([ev(20)], M);
-  near(s.fee, 5.00); near(s.youKeep, 15.00); eq(s.free, false);
-});
-t('statementFor: fee is capped at list price no matter how big the win', () => {
-  const s = V.statementFor([ev(4000)], M);
-  near(s.fee, 9.99); eq(s.atCap, true);
-});
-t('statementFor: the user always keeps at least 75%', () => {
-  for (const amt of [1, 7.5, 40, 39.96, 100, 1999]) {
-    const s = V.statementFor([ev(amt)], M);
-    ok(s.fee <= s.proven * 0.25 + 0.005, `fee ${s.fee} exceeded 25% of ${s.proven}`);
-    ok(s.fee <= 9.99 + 0.005, `fee ${s.fee} exceeded list price`);
-    near(s.proven, s.fee + s.youKeep, 0.01, 'proven must reconcile to fee + keep');
+t('statementFor: the Vault never produces a charge of any kind', () => {
+  const s = V.statementFor([ev(400)], M);
+  // Nothing in the statement may look like money taken from the user.
+  for (const k of ['fee', 'youKeep', 'charge', 'billed', 'amountDue', 'takeRate']) {
+    ok(s[k] === undefined, `statement must not expose a "${k}" — the Vault bills nothing`);
   }
 });
-t('statementFor: unattributed wins are shown but never billed against', () => {
-  const s = V.statementFor([ev(40, false)], M);
-  eq(s.fee, 0); eq(s.free, true); near(s.ownWins, 40);
+t('statementFor: a month that clears the subscription says so', () => {
+  const s = V.statementFor([ev(20)], M);
+  eq(s.paidForItself, true);
+  near(s.netBenefit, 20 - 9.99);
+  near(s.multiple, 2.0);
 });
-t('statementFor: a runaway month is capped before it can be billed', () => {
+t('statementFor: a month that does not clear it is not dressed up', () => {
+  const s = V.statementFor([ev(4)], M);
+  eq(s.paidForItself, false);
+  near(s.netBenefit, 4 - 9.99);   // negative, and stays negative
+  ok(s.netBenefit < 0, 'a short month must report a negative net, not zero');
+});
+t('statementFor: the return is never inflated above what was proven', () => {
+  for (const amt of [1, 7.5, 40, 100, 1999]) {
+    const s = V.statementFor([ev(amt)], M);
+    near(s.proven, Math.min(amt, 2000), 0.01);
+    near(s.netBenefit, s.proven - s.subscriptionCost, 0.01);
+  }
+});
+t('statementFor: unattributed wins are shown but excluded from the return', () => {
+  const s = V.statementFor([ev(40, false)], M);
+  eq(s.proven, 0); eq(s.empty, true); near(s.ownWins, 40);
+});
+t('statementFor: a runaway month is capped before it can be claimed', () => {
   const s = V.statementFor([ev(400), ev(400), ev(400), ev(400), ev(400), ev(400)], M);
   eq(s.proven, 2000); eq(s.cappedAt, 2000);
 });
 t('statementFor: other months do not leak into this one', () => {
-  const s = V.statementFor([{ id: 'a', date: '2026-05-10', amount: 400, billable: true }], M);
-  eq(s.proven, 0); eq(s.free, true);
-});
-t('statementFor: a fee never exceeds what was actually proven', () => {
-  const s = V.statementFor([ev(2)], M);
-  ok(s.fee <= s.proven, 'billing more than we saved is the one unforgivable bug');
-  near(s.fee, 0.50);
+  const s = V.statementFor([{ id: 'a', date: '2026-05-10', amount: 400, attributed: true }], M);
+  eq(s.proven, 0); eq(s.empty, true);
 });
 
 /* ═══════════════════════════════════════════════════════════════
-   LIFETIME — the Vault balance is the user's money
+   LIFETIME — proven against paid
    ═══════════════════════════════════════════════════════════════ */
-t('vaultSummary: balance is everything proven minus everything billed', () => {
+t('vaultSummary: net benefit is everything proven minus everything paid', () => {
   const s = V.vaultSummary([
-    { id: 'a', date: '2026-05-10', amount: 100, billable: true },
-    { id: 'b', date: '2026-06-10', amount: 20,  billable: true },
+    { id: 'a', date: '2026-05-10', amount: 100, attributed: true },
+    { id: 'b', date: '2026-06-10', amount: 20,  attributed: true },
   ]);
   eq(s.months, 2);
   near(s.proven, 120);
-  near(s.feesBilled, 9.99 + 5.00);
-  near(s.balance, 120 - 14.99);
+  near(s.subscriptionPaid, 19.98);
+  near(s.netBenefit, 120 - 19.98);
 });
-t('vaultSummary: months that proved nothing are counted as free', () => {
+t('vaultSummary: counts the months that actually paid for themselves', () => {
   const s = V.vaultSummary([
-    { id: 'a', date: '2026-05-10', amount: 0,  billable: true },
-    { id: 'b', date: '2026-06-10', amount: 80, billable: true },
+    { id: 'a', date: '2026-05-10', amount: 0,  attributed: true },
+    { id: 'b', date: '2026-06-10', amount: 80, attributed: true },
   ]);
-  eq(s.freeMonths, 1);
+  eq(s.monthsPaidForThemselves, 1);
 });
-t('vaultSummary: reports what a flat subscription would have cost instead', () => {
+t('vaultSummary: a losing stretch reports a negative net, not a floor of zero', () => {
   const s = V.vaultSummary([
-    { id: 'a', date: '2026-05-10', amount: 0, billable: true },
-    { id: 'b', date: '2026-06-10', amount: 8, billable: true },
+    { id: 'a', date: '2026-05-10', amount: 0, attributed: true },
+    { id: 'b', date: '2026-06-10', amount: 8, attributed: true },
   ]);
-  near(s.flatWouldBe, 19.98);
-  near(s.saved, 19.98 - 2.00);
+  near(s.subscriptionPaid, 19.98);
+  near(s.netBenefit, 8 - 19.98);
+  ok(s.netBenefit < 0, 'two months and $8 proven is a bad deal — say so');
 });
 t('vaultSummary: empty ledger is a coherent zero, not a crash', () => {
   const s = V.vaultSummary([]);
-  eq(s.months, 0); eq(s.proven, 0); eq(s.feesBilled, 0); eq(s.balance, 0);
+  eq(s.months, 0); eq(s.proven, 0); eq(s.subscriptionPaid, 0); eq(s.netBenefit, 0);
 });
 
 /* ═══════════════════════════════════════════════════════════════
@@ -336,10 +346,10 @@ t('detectEvents: every credit carries evidence you can check', () => {
   ok(e.every(x => x.amount >= 0), 'no negative credits');
   ok(e.every(x => x.id && x.kind && x.date && x.title), 'every event must be renderable');
 });
-t('detectEvents: no data at all yields an empty, free month', () => {
+t('detectEvents: no data at all yields an empty month, not a claim', () => {
   const e = V.detectEvents({});
   eq(e.length, 0);
-  eq(V.statementFor(e, '2026-06').free, true);
+  eq(V.statementFor(e, '2026-06').empty, true);
 });
 t('detectEvents: newest first', () => {
   const e = V.detectEvents({
@@ -347,6 +357,30 @@ t('detectEvents: newest first', () => {
     flagged: FLAGGED,
   });
   for (let i = 1; i < e.length; i++) ok(e[i - 1].date >= e[i].date, 'ledger must read newest first');
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   THE VAULT CHARGES NOTHING — structural guard
+   ═══════════════════════════════════════════════════════════════
+   This began as a metered billing model and was deliberately changed: the
+   Vault is a tool included with Pro. That decision is easy to erode one
+   helper at a time, so it is asserted rather than remembered. */
+t('engine exposes no billing surface at all', () => {
+  const banned = ['takeRate', 'listPrice', 'fee', 'chargeFor', 'bill', 'debit'];
+  for (const k of banned) ok(V[k] === undefined, `FCVault must not export "${k}"`);
+  for (const k of ['takeRate', 'listPrice', 'fee']) {
+    ok(V.TERMS[k] === undefined, `TERMS must not carry "${k}" — the Vault bills nothing`);
+  }
+  ok(typeof V.TERMS.subscriptionCost === 'number', 'subscriptionCost is the yardstick');
+});
+t('no detected event carries a billable flag', () => {
+  const e = V.detectEvents({
+    subscriptions: [sub('Netflix', 15.99, 'mo', ago(75))],
+    flagged: FLAGGED, transactions: FEE_HISTORY, forecasts: [dodged],
+  });
+  ok(e.length > 0);
+  ok(e.every(x => x.billable === undefined), 'events describe attribution, not billing');
+  ok(e.every(x => typeof x.attributed === 'boolean'), 'every event states attribution');
 });
 
 /* ── report ─────────────────────────────────────────────────────── */

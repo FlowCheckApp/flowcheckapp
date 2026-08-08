@@ -707,9 +707,21 @@ body.fc-theme {
 /* Wealth and goals */
 .wv-bar {
   padding-top: 16px !important;
-  background: var(--fc-premium-nav) !important;
+  /* OPAQUE, not translucent-plus-blur.
+     This was rgba(6,14,24,0.96) leaning on backdrop-filter: blur(18px) to
+     hide what scrolled underneath. On device it did not: .fc-screen sets
+     transform: translateZ(0) (see the WebKit blur note in index.html), and a
+     transformed ancestor stops a descendant's backdrop-filter from sampling
+     the page behind it. So the blur silently did nothing and the remaining 4%
+     transparency let the account list read straight through the Money header
+     — "Union Bank and Trust Company" was legible through the tab row.
+
+     A sticky header over a scrolling list does not need translucency; it
+     needs to be opaque. --fc-bg is theme-aware and fully opaque, so this
+     holds in both themes and does not depend on a filter that may be
+     disabled. */
+  background: var(--fc-bg) !important;
   border-bottom: 0 !important;
-  backdrop-filter: blur(18px);
 }
 
 .wv-tabs {
@@ -863,12 +875,22 @@ body.fc-theme {
   display: none !important;
 }
 
+/* NO safe-area padding here — .fc-header already holds it.
+   These views sit BELOW the persistent app header, and that header pads
+   itself with calc(env(safe-area-inset-top) + 8px). Adding the inset again
+   here reserved the notch a second time, in a place the notch is nowhere
+   near: on a Dynamic Island phone that is a 59px band of dead space between
+   the header and the greeting, on the app's most-opened screen.
+
+   It never showed up in a browser because env(safe-area-inset-top) is 0
+   there — the bug only exists on hardware. Measured with a 59px inset
+   simulated: header-to-greeting gap 75px before, 16px after. */
 #view-home,
 #view-activity,
 #view-insights,
 #view-wealth,
 #view-settings {
-  padding-top: env(safe-area-inset-top) !important;
+  padding-top: 0 !important;
 }
 
 /* Page-title type is owned by CANONICAL SCREEN CHROME in
@@ -1625,7 +1647,10 @@ body.fc-theme {
 
 /* Wealth uses a simple net-worth + linked-account hierarchy. */
 .wv-bar {
-  padding: 13px 12px 7px !important;
+  /* The bottom padding is not cosmetic: with 7px the scrolling list ran
+     right up under the tab row with no visual break, which is what made the
+     overlap read as a rendering glitch rather than a header. */
+  padding: 13px 12px 12px !important;
 }
 
 .wv-tabs {

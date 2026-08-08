@@ -1187,10 +1187,11 @@ window.FCData = (function () {
     const ref = _vaultRef('vault_statements');
     if (!ref || !month || !statement) return false;
     try {
+      // No `fee` — the Vault is included with Pro and charges nothing.
+      // firestore.rules rejects any write carrying one.
       await ref.doc(month).set({
         month:       month,
         proven:      Math.round((statement.proven || 0) * 100) / 100,
-        fee:         Math.round((statement.fee || 0) * 100) / 100,
         event_count: statement.eventCount || 0,
         sealed_at:   firebase.firestore.FieldValue.serverTimestamp(),
       });
