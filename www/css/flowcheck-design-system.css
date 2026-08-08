@@ -3116,6 +3116,7 @@ body.fc-theme,
 
 button:focus-visible,
 a[role="tab"]:focus-visible,
+[role="switch"][tabindex]:focus-visible,
 [role="button"][tabindex]:focus-visible {
   outline: 2px solid var(--fc-accent);
   outline-offset: 2px;
@@ -3664,9 +3665,16 @@ a[role="tab"]:focus-visible,
 /* The appearance/notification toggles are 52×30. Width already clears 44, so
    only height needs extending. The overlay is intentionally NOT wider than
    the switch: it sits inside .fc-settings-row, which is itself tappable, and
-   a wider overlay would swallow taps meant for the row's own action. */
+   a wider overlay would swallow taps meant for the row's own action.
+
+   This MUST live on ::before. ::after is already the switch knob (defined
+   above), and an earlier version of this rule reused it — so the knob
+   inherited height:44px/top:50%/left:0 and rendered as a 24×44 white ellipse
+   spilling 8px out of the 30px track, with the ON state landing somewhere
+   else again because .fc-toggle.on::after replaced the centring transform
+   with translateX(). Both settings switches were visibly broken. */
 .fc-toggle { position: relative; }
-.fc-toggle::after {
+.fc-toggle::before {
   content: '';
   position: absolute;
   top: 50%;
