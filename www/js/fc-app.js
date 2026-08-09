@@ -11471,6 +11471,11 @@ window.FCApp = (function () {
       if (!AppPlugin) return;
       AppPlugin.addListener('appStateChange', async ({ isActive }) => {
         if (!isActive) return;
+        // Biometric enrollment can only change while we were backgrounded —
+        // the user turns Face ID off in iOS Settings, or iOS disables it after
+        // five failed attempts. Drop the cached hardware answer so the very
+        // first read after resume asks the device again.
+        try { FCAuth.invalidateDeviceAuthCache?.(); } catch (_) {}
         // Clear any delivered push banners and badge — AppDelegate does this
         // natively but calling here catches the JS-only path (simulator/web).
         if (typeof FCPush !== 'undefined') FCPush.clearDeliveredAndBadge();

@@ -15,7 +15,9 @@ window.FCAuth = (function () {
   let _auth = null;          // Firebase Auth instance
   let _db   = null;          // Firestore instance
   let _currentUser = null;   // Firebase User object
-  let _biometricAvailable = false;
+  // Caches ONLY the hardware answer from checkDeviceAuthAvailable(), and only
+  // when it is `true`. See that function for why a `false` is never cached.
+  let _deviceAuthCache = null;
   const _secureMemory = new Map(); // Browser preview only; never persisted
 
   /* ── Login rate limiting (brute-force protection) ────────── */
@@ -511,20 +513,47 @@ window.FCAuth = (function () {
    * report deviceAuthAvailable, so this can never be *less* secure than before.
    */
   async function checkDeviceAuthAvailable() {
+    // Cached because this is genuinely hot: isBiometricEnabled() runs from
+    // _updateTrustLine() on every Home render, and Home re-renders on every
+    // accounts/transactions/bills snapshot. Each uncached call cost two
+    // bridge round-trips and two LAContext canEvaluatePolicy() evaluations —
+    // ~18 of them on a single cold launch.
+    //
+    // Only `true` is ever cached. An early call can answer `false` simply
+    // because the plugin has not registered yet, and caching THAT is the
+    // exact bug that got the previous cache removed: the Face ID toggle
+    // became a permanent no-op. A `false` therefore always re-checks, so the
+    // cache can only ever make the answer arrive faster, never make it wrong.
+    if (_deviceAuthCache === true) return true;
     try {
       const plugin = BiometricAuth();
       if (!plugin || !plugin.checkBiometry) return checkBiometricAvailable();
       const result = await plugin.checkBiometry();
       if (!result) return false;
-      if (typeof result.deviceAuthAvailable === 'boolean') return result.deviceAuthAvailable;
-      return !!result.isAvailable;
+      const answer = (typeof result.deviceAuthAvailable === 'boolean')
+        ? result.deviceAuthAvailable
+        : !!result.isAvailable;
+      if (answer) _deviceAuthCache = true;
+      return answer;
     } catch (_) { return checkBiometricAvailable(); }
   }
 
+  /**
+   * Drop the cached hardware answer. MUST be called when the app returns to
+   * the foreground: enrollment can only change while we are backgrounded (the
+   * user turns Face ID off in iOS Settings, or iOS disables it after five
+   * failed attempts), and a stale `true` would report the device as lockable
+   * when it is not — the same class of silent-security-downgrade that
+   * checkDeviceAuthAvailable() exists to prevent.
+   */
+  function invalidateDeviceAuthCache() {
+    _deviceAuthCache = null;
+  }
+
   async function isBiometricEnabled() {
-    // Always re-check hardware availability — don't use cached value.
-    // The cache caused the toggle to be a no-op when _biometricAvailable
-    // was set to false on the first call (e.g. plugin not ready yet).
+    // The USER'S SETTING is never cached — it is read from the Keychain on
+    // every call, so a toggle takes effect immediately. Only the hardware
+    // answer is memoised, and only when true (see checkDeviceAuthAvailable).
     const available = await checkDeviceAuthAvailable();
     const setting   = await secureGet('biometric_enabled');
     // Require explicit opt-in ('true' string), not just non-null.
@@ -533,7 +562,7 @@ window.FCAuth = (function () {
   }
 
   async function setBiometricEnabled(enabled) {
-    _biometricAvailable = false; // force re-check on next isBiometricEnabled() call
+    invalidateDeviceAuthCache(); // re-check hardware on the next read
     await secureSet('biometric_enabled', enabled ? 'true' : 'false');
   }
 
@@ -644,6 +673,7 @@ window.FCAuth = (function () {
     setOnboardingActive,
     checkBiometricAvailable,
     checkDeviceAuthAvailable,
+    invalidateDeviceAuthCache,
     promptBiometric,
     getUserDoc,
     getIdToken,
