@@ -3027,7 +3027,12 @@ window.FCApp = (function () {
             + '<h2 class="rw-headline' + (r.goesNegative ? ' rw-headline--warn' : '') + '">' + esc(headline) + '</h2>'
             + '<p class="rw-sub">' + esc(sub) + '</p></div>'
           + '<div class="rw-end"><p class="rw-end-lbl">' + edgeLabel + '</p>'
-            + '<p class="rw-endpoint-value fc-amount' + (r.endBalance < 0 ? ' rw-endpoint-value--warn' : '') + '">'
+            // data-countup lets the caller animate this without needing to
+            // recompute the balance \u2014 see the count-up pass in
+            // _renderHomeDashboard(). Server-rendered text stays correct if
+            // the animation is skipped (reduced motion, unchanged value).
+            + '<p class="rw-endpoint-value fc-amount' + (r.endBalance < 0 ? ' rw-endpoint-value--warn' : '') + '"'
+            + ' id="rw-endpoint-value" data-countup="' + r.endBalance + '">'
             + (r.endBalance < 0 ? '\u2212' : '') + FCData.formatCurrency(Math.abs(r.endBalance)) + '</p></div>'
         + '</div>'
         + '<div class="rw-chart">'
@@ -4344,11 +4349,18 @@ window.FCApp = (function () {
       }, { passive: true });
     }
 
-    // Hero numbers count up on load — static on unchanged re-renders
-    _countup('home-safe-value', safeToSpend);
-    _countup('home-stat-income', monthIncome, '+$');
-    _countup('home-stat-spent', monthSpend);
-    _countup('home-outlook-heading', Math.abs(cashFlow), cashFlow >= 0 ? '+$' : '−$');
+    // Hero numbers count up on load — static on unchanged re-renders.
+    //
+    // These used to name home-safe-value / home-stat-income / home-stat-spent /
+    // home-outlook-heading. The v8 rebuild replaced that markup and none of
+    // those ids exist any more, so every call hit _countup's `if (!el) return`
+    // and Home's numbers simply appeared — while Money's still animated.
+    // Driving it off data-countup means the markup declares what animates, so
+    // this cannot silently rot again the next time the card is rewritten.
+    el.querySelectorAll('[data-countup][id]').forEach(node => {
+      const target = parseFloat(node.dataset.countup);
+      if (!isNaN(target)) _countup(node.id, target);
+    });
 
     // ── Chart scrubbing — press and drag to read any day's value ─────────
     (function () {

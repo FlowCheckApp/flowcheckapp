@@ -2258,17 +2258,20 @@ body:not(.keyboard-open) .fc-sheet {
     <div class="fc-auth-divider fc-auth-field-enter" style="margin:16px 0 14px"><span>or use email</span></div>
 
     <div class="fc-input-group fc-auth-field-enter" style="width:100%">
-      <div class="fc-input-label">Email</div>
+      <label class="fc-input-label" for="login-email">Email</label>
       <input id="login-email" class="fc-input" type="email" autocomplete="email"
              placeholder="you@example.com" inputmode="email" enterkeyhint="next"
              onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('login-password').focus()}">
     </div>
 
     <div class="fc-input-group fc-auth-field-enter" style="width:100%;margin-bottom:4px">
-      <div class="fc-input-label">Password</div>
+      <label class="fc-input-label" for="login-password">Password</label>
       <div class="fc-input-wrap">
+        <!-- No bullet placeholder: it renders as a field that already has a
+             password in it, which reads as "you are signed in" on a login
+             screen. The <label> above names the field. -->
         <input id="login-password" class="fc-input" type="password"
-               autocomplete="current-password" placeholder="••••••••"
+               autocomplete="current-password" placeholder="Enter your password"
                enterkeyhint="go" style="padding-right:50px"
                onkeydown="if(event.key==='Enter'){document.getElementById('btn-login').click()}">
         <button class="fc-input-eye" onclick="togglePasswordVisibility('login-password',this)" type="button" aria-label="Show password">
@@ -2349,17 +2352,17 @@ body:not(.keyboard-open) .fc-sheet {
     <div class="fc-auth-divider fc-auth-field-enter" style="margin:14px 0 12px"><span>or sign up with email</span></div>
 
     <div class="fc-input-group fc-auth-field-enter" style="width:100%">
-      <div class="fc-input-label">First name</div>
+      <label class="fc-input-label" for="reg-name">First name</label>
       <input id="reg-name" class="fc-input" type="text" autocomplete="given-name" autocapitalize="words" placeholder="Your first name" enterkeyhint="next" onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('reg-email').focus()}">
     </div>
 
     <div class="fc-input-group fc-auth-field-enter" style="width:100%">
-      <div class="fc-input-label">Email</div>
+      <label class="fc-input-label" for="reg-email">Email</label>
       <input id="reg-email" class="fc-input" type="email" autocomplete="email" inputmode="email" placeholder="you@example.com" enterkeyhint="next" onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('reg-password').focus()}">
     </div>
 
     <div class="fc-input-group fc-auth-field-enter" style="width:100%;margin-bottom:14px">
-      <div class="fc-input-label">Password</div>
+      <label class="fc-input-label" for="reg-password">Password</label>
       <div class="fc-input-wrap">
         <input id="reg-password" class="fc-input" type="password" autocomplete="new-password"
                placeholder="At least 8 characters" enterkeyhint="go" minlength="8" style="padding-right:50px"
@@ -2434,22 +2437,22 @@ body:not(.keyboard-open) .fc-sheet {
     <div id="otp-boxes" class="fc-auth-field-enter"
          style="display:flex;gap:10px;justify-content:center;width:100%;margin-bottom:20px"
          onpaste="FCApp.handleOtpPaste(event)">
-      <input class="fc-otp-box" type="tel" inputmode="numeric" maxlength="1" pattern="[0-9]"
+      <input class="fc-otp-box" aria-label="Verification code digit 1 of 6" type="tel" inputmode="numeric" maxlength="1" pattern="[0-9]"
              autocomplete="one-time-code" data-index="0"
              oninput="FCApp.otpBoxInput(this)" onkeydown="FCApp.otpBoxKeydown(event,this)">
-      <input class="fc-otp-box" type="tel" inputmode="numeric" maxlength="1" pattern="[0-9]"
+      <input class="fc-otp-box" aria-label="Verification code digit 2 of 6" type="tel" inputmode="numeric" maxlength="1" pattern="[0-9]"
              autocomplete="one-time-code" data-index="1"
              oninput="FCApp.otpBoxInput(this)" onkeydown="FCApp.otpBoxKeydown(event,this)">
-      <input class="fc-otp-box" type="tel" inputmode="numeric" maxlength="1" pattern="[0-9]"
+      <input class="fc-otp-box" aria-label="Verification code digit 3 of 6" type="tel" inputmode="numeric" maxlength="1" pattern="[0-9]"
              autocomplete="one-time-code" data-index="2"
              oninput="FCApp.otpBoxInput(this)" onkeydown="FCApp.otpBoxKeydown(event,this)">
-      <input class="fc-otp-box" type="tel" inputmode="numeric" maxlength="1" pattern="[0-9]"
+      <input class="fc-otp-box" aria-label="Verification code digit 4 of 6" type="tel" inputmode="numeric" maxlength="1" pattern="[0-9]"
              autocomplete="one-time-code" data-index="3"
              oninput="FCApp.otpBoxInput(this)" onkeydown="FCApp.otpBoxKeydown(event,this)">
-      <input class="fc-otp-box" type="tel" inputmode="numeric" maxlength="1" pattern="[0-9]"
+      <input class="fc-otp-box" aria-label="Verification code digit 5 of 6" type="tel" inputmode="numeric" maxlength="1" pattern="[0-9]"
              autocomplete="one-time-code" data-index="4"
              oninput="FCApp.otpBoxInput(this)" onkeydown="FCApp.otpBoxKeydown(event,this)">
-      <input class="fc-otp-box" type="tel" inputmode="numeric" maxlength="1" pattern="[0-9]"
+      <input class="fc-otp-box" aria-label="Verification code digit 6 of 6" type="tel" inputmode="numeric" maxlength="1" pattern="[0-9]"
              autocomplete="one-time-code" data-index="5"
              oninput="FCApp.otpBoxInput(this)" onkeydown="FCApp.otpBoxKeydown(event,this)">
     </div>
@@ -2706,7 +2709,7 @@ body:not(.keyboard-open) .fc-sheet {
     <div id="fp-error" class="fc-auth-error" role="alert" style="display:none"></div>
 
     <div class="fc-input-group" style="width:100%">
-      <div class="fc-input-label">Email address</div>
+      <label class="fc-input-label" for="fp-email">Email address</label>
       <input id="fp-email" class="fc-input" type="email" autocomplete="email" inputmode="email"
              placeholder="you@example.com"
              onkeydown="if(event.key==='Enter'){FCApp.handleForgotPasswordScreen()}">
@@ -4927,12 +4930,17 @@ body:not(.keyboard-open) .fc-sheet {
     .fc-date-label-spacer{flex:1;height:0.5px;background:rgba(255,255,255,0.06)}
     .fc-date-net{font-size:11px;font-weight:600;color:rgba(255,255,255,0.34);flex-shrink:0;font-variant-numeric:tabular-nums;letter-spacing:-0.01em}
 
-    /* Transaction cards */
+    /* Transaction cards.
+       These cards are OWNED by fc-premium-screens.css — it sets background,
+       border, box-shadow, margin and border-radius with !important (the
+       compact-list treatment at the bottom of that file wins the radius at
+       14px). Everything this block used to declare was therefore dead, and
+       its hardcoded dark gradient would have broken light mode had it ever
+       applied. Only overflow:hidden is still ours — it clips the list rows
+       to the card's rounded corners. Change the look in
+       fc-premium-screens.css, not here. */
     #activity-list .fc-card,#bills-full-list .fc-card{
-      background:linear-gradient(145deg,#0d1b2e,#091422);
-      border:0.5px solid rgba(255,255,255,0.07);
-      box-shadow:0 4px 16px rgba(0,0,0,0.3);
-      margin:0 16px 8px;border-radius:22px;overflow:hidden;
+      overflow:hidden;
     }
     .fc-list-item{
       padding:13px 16px;border-bottom:0.5px solid rgba(255,255,255,0.035);
@@ -6776,19 +6784,19 @@ body:not(.keyboard-open) .fc-sheet {
     </div>
     <div style="display:flex;flex-direction:column;gap:14px">
       <div class="fc-input-group" style="margin:0">
-        <label class="fc-input-label">Goal Name</label>
+        <label class="fc-input-label" for="goal-name-input">Goal Name</label>
         <input id="goal-name-input" type="text" class="fc-input" placeholder="e.g. Emergency Fund, New Car…" maxlength="50" autocomplete="off">
       </div>
       <div class="fc-input-group" style="margin:0">
-        <label class="fc-input-label">Target Amount ($)</label>
+        <label class="fc-input-label" for="goal-target-input">Target Amount ($)</label>
         <input id="goal-target-input" type="number" class="fc-input" inputmode="decimal" placeholder="10000" min="1" step="1" oninput="FCApp._updateGoalCalc&&FCApp._updateGoalCalc()">
       </div>
       <div class="fc-input-group" style="margin:0">
-        <label class="fc-input-label">Current Progress ($)</label>
+        <label class="fc-input-label" for="goal-current-input">Current Progress ($)</label>
         <input id="goal-current-input" type="number" class="fc-input" inputmode="decimal" placeholder="0" min="0" step="1" oninput="FCApp._updateGoalCalc&&FCApp._updateGoalCalc()">
       </div>
       <div class="fc-input-group" style="margin:0">
-        <label class="fc-input-label">Target Date <span style="color:var(--fc-text-faint);font-weight:400">(optional)</span></label>
+        <label class="fc-input-label" for="goal-date-input">Target Date <span style="color:var(--fc-text-faint);font-weight:400">(optional)</span></label>
         <input id="goal-date-input" type="month" class="fc-input"
                oninput="FCApp._updateGoalCalc && FCApp._updateGoalCalc()"
                style="color-scheme:dark">
@@ -6831,11 +6839,11 @@ body:not(.keyboard-open) .fc-sheet {
     <!-- Edit fields -->
     <div style="display:flex;flex-direction:column;gap:14px">
       <div class="fc-input-group" style="margin:0">
-        <label class="fc-input-label">Custom Name <span style="color:var(--fc-text-faint);font-weight:400">(optional)</span></label>
+        <label class="fc-input-label" for="txn-name-input">Custom Name <span style="color:var(--fc-text-faint);font-weight:400">(optional)</span></label>
         <input id="txn-name-input" type="text" class="fc-input" placeholder="Leave blank to keep original" maxlength="60" autocomplete="off">
       </div>
       <div class="fc-input-group" style="margin:0">
-        <label class="fc-input-label">Category</label>
+        <label class="fc-input-label" for="txn-cat-select">Category</label>
         <select id="txn-cat-select" class="fc-input" style="color-scheme:dark;cursor:pointer"></select>
       </div>
     </div>
@@ -6861,7 +6869,7 @@ body:not(.keyboard-open) .fc-sheet {
     </div>
     <div id="budget-current-spend" style="font-size:13px;color:var(--fc-text-faint);margin-bottom:14px"></div>
     <div class="fc-input-group" style="margin:0">
-      <label class="fc-input-label">Monthly Budget ($)</label>
+      <label class="fc-input-label" for="budget-limit-input">Monthly Budget ($)</label>
       <input id="budget-limit-input" type="number" class="fc-input" inputmode="decimal" placeholder="e.g. 500" min="0" step="10">
     </div>
     <!-- Quick presets -->
@@ -6888,11 +6896,11 @@ body:not(.keyboard-open) .fc-sheet {
     </div>
     <div style="display:flex;flex-direction:column;gap:14px">
       <div class="fc-input-group" style="margin:0">
-        <label class="fc-input-label">Account Name</label>
+        <label class="fc-input-label" for="manual-acct-name">Account Name</label>
         <input id="manual-acct-name" type="text" class="fc-input" placeholder="e.g. High-Yield Savings" maxlength="50" autocomplete="off">
       </div>
       <div class="fc-input-group" style="margin:0">
-        <label class="fc-input-label">Account Type</label>
+        <label class="fc-input-label" for="manual-acct-type">Account Type</label>
         <select id="manual-acct-type" class="fc-input" style="background:var(--fc-card-bg);color:white;-webkit-appearance:none">
           <option value="savings">Savings</option>
           <option value="checking">Checking</option>
@@ -6902,7 +6910,7 @@ body:not(.keyboard-open) .fc-sheet {
         </select>
       </div>
       <div class="fc-input-group" style="margin:0">
-        <label class="fc-input-label">Balance ($)</label>
+        <label class="fc-input-label" for="manual-acct-balance">Balance ($)</label>
         <input id="manual-acct-balance" type="number" class="fc-input" inputmode="decimal" placeholder="0.00" min="0" step="0.01">
       </div>
     </div>
@@ -6928,19 +6936,19 @@ body:not(.keyboard-open) .fc-sheet {
     <div style="display:flex;flex-direction:column;gap:14px">
       <input type="hidden" id="bill-edit-id">
       <div class="fc-input-group" style="margin:0">
-        <label class="fc-input-label">Bill Name</label>
+        <label class="fc-input-label" for="bill-name">Bill Name</label>
         <input id="bill-name" type="text" class="fc-input" placeholder="e.g. Netflix, Rent, Electric" maxlength="60" autocomplete="off">
       </div>
       <div class="fc-input-group" style="margin:0">
-        <label class="fc-input-label">Amount ($)</label>
+        <label class="fc-input-label" for="bill-amount">Amount ($)</label>
         <input id="bill-amount" type="number" class="fc-input" inputmode="decimal" placeholder="0.00" min="0" step="0.01">
       </div>
       <div class="fc-input-group" style="margin:0">
-        <label class="fc-input-label">Due Date</label>
+        <label class="fc-input-label" for="bill-due-date">Due Date</label>
         <input id="bill-due-date" type="date" class="fc-input" style="color-scheme:dark">
       </div>
       <div class="fc-input-group" style="margin:0">
-        <label class="fc-input-label">Category</label>
+        <label class="fc-input-label" for="bill-category">Category</label>
         <select id="bill-category" class="fc-input" style="background:var(--fc-card-bg);color:var(--fc-text);-webkit-appearance:none">
           <option value="Subscription">Subscription</option>
           <option value="Utilities">Utilities</option>
@@ -6952,7 +6960,7 @@ body:not(.keyboard-open) .fc-sheet {
         </select>
       </div>
       <div class="fc-input-group" style="margin:0">
-        <label class="fc-input-label">Frequency</label>
+        <label class="fc-input-label" for="bill-frequency">Frequency</label>
         <select id="bill-frequency" class="fc-input" style="background:var(--fc-card-bg);color:var(--fc-text);-webkit-appearance:none">
           <option value="monthly">Monthly</option>
           <option value="weekly">Weekly</option>
@@ -7786,18 +7794,18 @@ attachToFCApp();
     <div class="fc-sheet-title">Edit Profile</div>
     <div style="padding:0 20px 8px">
       <div style="margin-bottom:14px">
-        <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.4);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px">Display Name</div>
+        <label for="edit-profile-name" style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.4);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px">Display Name</label>
         <input id="edit-profile-name" type="text" autocomplete="name" autocapitalize="words" placeholder="Your name"
                style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:13px 16px;font-size:15px;color:#fff;font-family:inherit;outline:none;-webkit-appearance:none">
       </div>
       <div style="margin-bottom:14px">
-        <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.4);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px">Email Address</div>
+        <label for="edit-profile-email" style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.4);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px">Email Address</label>
         <input id="edit-profile-email" type="email" inputmode="email" autocomplete="email" placeholder="you@example.com"
                style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:13px 16px;font-size:15px;color:#fff;font-family:inherit;outline:none;-webkit-appearance:none">
         <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:5px;padding-left:4px">Changing email requires recent sign-in for security.</div>
       </div>
       <div style="margin-bottom:20px">
-        <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.4);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px">Phone (optional)</div>
+        <label for="edit-profile-phone" style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.4);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px">Phone (optional)</label>
         <input id="edit-profile-phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+1 (555) 000-0000"
                style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:13px 16px;font-size:15px;color:#fff;font-family:inherit;outline:none;-webkit-appearance:none">
       </div>
