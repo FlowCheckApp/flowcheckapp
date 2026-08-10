@@ -1201,8 +1201,6 @@ window.FCApp = (function () {
     container.innerHTML = html;
   }
 
-  const _TAB_ORDER = ['home', 'activity', 'plan', 'wealth', 'more'];
-  let _tabFadeTimer = null; // tracks the outgoing-view fade timeout so rapid taps can cancel it
 
   function handleWebSearch(value) {
     state.searchQuery = String(value || '').trim();
@@ -1520,141 +1518,6 @@ window.FCApp = (function () {
      FINANCIAL HEALTH SCORE  (0 – 850, proprietary)
      ───────────────────────────────────────────────────────────── */
 
-  function _calcHealthScore(monthIncome, monthSpend, unpaidBills, overdueCount) {
-    let score = 0;
-
-    // 1. Savings rate — up to 250 pts
-    if (monthIncome > 0) {
-      const rate = (monthIncome - monthSpend) / monthIncome;
-      score += rate >= 0.20 ? 250 : rate >= 0.10 ? 200 : rate >= 0.05 ? 140 : rate >= 0 ? 90 : 40;
-    } else { score += 150; } // no data yet
-
-    // 2. Bills paid on time — up to 200 pts
-    score += overdueCount === 0 ? 200 : overdueCount === 1 ? 140 : overdueCount <= 3 ? 90 : 40;
-
-    // 3. Budget adherence — up to 200 pts (skip if no budget set — don't penalise new users)
-    const bLimit = (state.budgets && state.budgets['total'] && state.budgets['total'].limit > 0)
-                 ? state.budgets['total'].limit : 0;
-    if (bLimit > 0) {
-      const bPct = monthSpend / bLimit;
-      score += bPct <= 0.75 ? 200 : bPct <= 0.90 ? 170 : bPct <= 1.0 ? 130 : bPct <= 1.2 ? 80 : 30;
-    } else {
-      score += 150; // neutral — user hasn't set a budget yet
-    }
-
-    // 4. Emergency fund progress — up to 200 pts
-    const ef = state.goals.find(g => /emergency|rainy|reserve/i.test(g.name));
-    if (ef) {
-      const p = ef.pct || 0;
-      score += p >= 100 ? 200 : p >= 75 ? 175 : p >= 50 ? 140 : p >= 25 ? 100 : 60;
-    } else { score += 100; }
-
-    return Math.min(Math.round(score), 850);
-  }
-
-  function _renderHomeHealthScore(score, monthIncome, monthSpend, unpaidBills, overdueCount) {
-    const numEl   = document.getElementById('health-score-num');
-    const homeRing = document.getElementById('home-health-ring');
-    const ringEl  = document.getElementById('health-score-ring');
-    const labelEl = document.getElementById('health-score-label');
-    const subEl   = document.getElementById('health-score-sub');
-    const factEl  = document.getElementById('health-factors');
-
-    if (!_isPro()) {
-      if (numEl) { numEl.textContent = 'PRO'; numEl.style.color = 'var(--fc-accent)'; }
-      if (homeRing) homeRing.style.setProperty('--health-score', '18');
-      if (labelEl) labelEl.textContent = 'Pro feature';
-      if (subEl) subEl.textContent = 'Upgrade to calculate your score';
-      return;
-    }
-
-    if (!state.user || !state.user.plaid_linked) {
-      if (numEl)   numEl.textContent  = '—';
-      if (homeRing) homeRing.style.setProperty('--health-score', '0');
-      if (labelEl) labelEl.textContent = 'Not scored';
-      if (subEl)   subEl.textContent   = 'Connect a bank to calculate your score';
-      if (ringEl)  ringEl.style.strokeDashoffset = '214';
-      if (factEl)  factEl.innerHTML = '';
-      return;
-    }
-
-    const label = score >= 750 ? 'Excellent' : score >= 650 ? 'Great' : score >= 500 ? 'Good' : score >= 350 ? 'Fair' : 'Needs Work';
-    const color = score >= 750 ? 'var(--fc-success)' : score >= 500 ? 'var(--fc-accent)' : score >= 350 ? 'var(--fc-warning)' : 'var(--fc-danger)';
-    // ring: 214 = full circumference, 0 = full fill
-    const offset = 214 - (214 * score / 850);
-
-    const normalizedScore = Math.round(score / 8.5);
-    if (numEl)   { numEl.textContent = normalizedScore; numEl.style.color = color; }
-    if (homeRing) homeRing.style.setProperty('--health-score', String(normalizedScore));
-    if (ringEl)  { ringEl.style.stroke = color; ringEl.style.strokeDashoffset = offset; }
-    if (labelEl) { labelEl.textContent = label; labelEl.style.color = color; }
-    if (subEl)   {
-      const bLimit = (state.budgets && state.budgets['total'] && state.budgets['total'].limit > 0)
-                   ? state.budgets['total'].limit : 0;
-      const bPctStr = bLimit > 0
-        ? `Budget ${Math.round((monthSpend / bLimit) * 100)}% used`
-        : 'Budget not set';
-      subEl.textContent = `Savings ${monthIncome > 0 ? Math.round(((monthIncome - monthSpend) / monthIncome) * 100) : 0}% · ${bPctStr} · ${overdueCount === 0 ? 'All bills current' : overdueCount + ' bill' + (overdueCount > 1 ? 's' : '') + ' overdue'}`;
-    }
-
-    if (factEl) {
-      const factors = [
-        { label: 'Savings',      ok: monthIncome > 0 && (monthIncome - monthSpend) / monthIncome >= 0.10 },
-        { label: 'Bills',        ok: overdueCount === 0 },
-        { label: 'Budget',       ok: monthIncome > 0 && monthSpend <= (state.budgets?.['total']?.limit || 3000) },
-        { label: 'Emrg. Fund',   ok: !!state.goals.find(g => /emergency|rainy|reserve/i.test(g.name) && (g.pct || 0) >= 50) },
-      ];
-      factEl.innerHTML = factors.map(f => `
-        <div class="fcs-factor-pill">
-          <span style="color:${f.ok ? 'var(--fc-success)' : 'var(--fc-warning)'};font-size:11px">${f.ok ? '✓' : '!'}</span>
-          <span style="font-size:11px;font-weight:500;color:${f.ok ? 'var(--fc-text-muted)' : 'var(--fc-warning)'}">${f.label}</span>
-        </div>`).join('');
-    }
-  }
-
-  function _renderPremiumHomeChart(netWorth) {
-    const svg = document.getElementById('home-balance-chart');
-    if (!svg) return;
-    const deltaEl = document.getElementById('hero-delta');
-
-    const history = state.nwHistory || {};
-    const periodDays = { '1W': 7, '1M': 30, '3M': 90, '1Y': 365, 'ALL': 0 }[state.period] ?? 30;
-    const cutoff = new Date();
-    if (periodDays) cutoff.setDate(cutoff.getDate() - periodDays);
-    const cutoffKey = cutoff.toISOString().slice(0, 10);
-    let values = Object.keys(history).sort()
-      .filter(key => !periodDays || key >= cutoffKey)
-      .map(key => Number(history[key]))
-      .filter(Number.isFinite);
-
-    const email = (FCAuth.currentUser?.()?.email || state.user?.email || '').toLowerCase();
-    if (values.length < 2 && _DEMO_EMAILS.includes(email)) {
-      values = [0.86,0.875,0.87,0.895,0.91,0.905,0.93,0.945,0.97,0.965,0.99,1].map(scale => netWorth * scale);
-    } else if (values.length < 2) {
-      values = [netWorth, netWorth];
-    }
-    const delta = values[values.length - 1] - values[0];
-    if (deltaEl) {
-      deltaEl.textContent = `${delta >= 0 ? '+' : '-'}${FCData.formatCurrency(Math.abs(delta))}`;
-      deltaEl.style.display = Math.abs(delta) > 0.5 ? '' : 'none';
-      deltaEl.style.color = delta >= 0 ? 'var(--fc-success)' : 'var(--fc-danger)';
-      deltaEl.style.background = delta >= 0 ? 'var(--fc-success-soft)' : 'var(--fc-danger-soft)';
-    }
-    const width = 320, height = 86, pad = 5;
-    const min = Math.min(...values), max = Math.max(...values), range = max - min || 1;
-    const points = values.map((value, index) => ({
-      x: values.length === 1 ? width : (index / (values.length - 1)) * width,
-      y: pad + (height - pad * 2) * (1 - (value - min) / range),
-    }));
-    let line = `M${points[0].x.toFixed(1)},${points[0].y.toFixed(1)}`;
-    for (let i = 1; i < points.length; i++) {
-      const prev = points[i - 1], point = points[i], middle = (prev.x + point.x) / 2;
-      line += ` C${middle.toFixed(1)},${prev.y.toFixed(1)} ${middle.toFixed(1)},${point.y.toFixed(1)} ${point.x.toFixed(1)},${point.y.toFixed(1)}`;
-    }
-    const last = points[points.length - 1];
-    svg.innerHTML = `<defs><linearGradient id="premiumHomeArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="var(--fc-accent)" stop-opacity=".30"/><stop offset="100%" stop-color="var(--fc-accent)" stop-opacity="0"/></linearGradient></defs><path d="${line} L${width},${height} L0,${height} Z" fill="url(#premiumHomeArea)"/><path d="${line}" fill="none" stroke="var(--fc-accent)" stroke-width="2.5" stroke-linecap="round"/><circle cx="${last.x.toFixed(1)}" cy="${last.y.toFixed(1)}" r="4" fill="var(--fc-accent)" stroke="var(--fc-bg-elevated)" stroke-width="2"/>`;
-  }
-
   /* ─────────────────────────────────────────────────────────────
      SPENDING PULSE  (week-over-week)
      ───────────────────────────────────────────────────────────── */
@@ -1662,16 +1525,6 @@ window.FCApp = (function () {
   /* ─────────────────────────────────────────────────────────────
      CREDIT SCORE — manual entry (user enters their own score)
      ───────────────────────────────────────────────────────────── */
-
-  // Map numeric score to label + arc color
-  function _creditLabel(score) {
-    if (!score) return { label: '—', color: 'rgba(255,255,255,0.3)' };
-    if (score >= 800) return { label: 'Exceptional',  color: 'var(--fc-success)' };
-    if (score >= 740) return { label: 'Very Good',    color: '#30d158' };
-    if (score >= 670) return { label: 'Good',         color: 'var(--fc-accent)' };
-    if (score >= 580) return { label: 'Fair',         color: '#ffb020' };
-    return               { label: 'Poor',         color: 'var(--fc-danger)' };
-  }
 
   /* ── Affiliate Offer Card ─────────────────────────────────────
      Picks the single most relevant offer based on the user's
@@ -1865,113 +1718,6 @@ window.FCApp = (function () {
      compares against the classic 50/30/20 rule. Only shown when the user
      has income data — otherwise the denominator is undefined.
      ─────────────────────────────────────────────────────────────────── */
-  function _renderBudgetWizard(monthIncome, monthSpend) {
-    const section = document.getElementById('home-budget-wizard-section');
-    if (!section) return;
-    if (!_isPro()) {
-      _renderProGate(section, '🎯', '50/30/20 Budget Wizard',
-        'See exactly how your spending splits into needs, wants, and savings — then get a plan to fix it.');
-      return;
-    }
-    if (!state.user?.plaid_linked || !_incomeIsReliable(monthIncome, monthSpend)) { section.style.display = 'none'; return; }
-
-    // Category → bucket mapping
-    const _NEEDS_CATS = new Set([
-      'supermarkets and groceries', 'groceries', 'food delivery',
-      'gas stations', 'gas', 'public transportation services', 'taxi', 'ride share',
-      'utilities', 'telecommunications', 'healthcare', 'pharmacies',
-      'insurance', 'subscription', 'streaming', 'rent', 'mortgage',
-      'home improvement', 'home maintenance',
-    ]);
-    const _WANTS_CATS = new Set([
-      'food and drink', 'restaurants', 'fast food', 'coffee shop', 'bars', 'alcohol and bars',
-      'entertainment', 'travel', 'airlines and aviation services', 'hotels and motels',
-      'sporting goods', 'hobbies', 'arts and entertainment',
-      'shopping', 'clothing and accessories', 'electronics',
-      'personal care', 'hair', 'spa and beauty', 'gym and fitness', 'health and fitness',
-      'pets', 'gifts', 'toys', 'books and magazines',
-    ]);
-
-    // Get calendar-month transactions
-    const now     = new Date();
-    const monStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const monTxns  = state.transactions.filter(t =>
-      t.date && FCData.parseDateLocal(t.date) >= monStart && _isSpendTxn(t)
-    );
-
-    let needs = 0, wants = 0;
-    for (const t of monTxns) {
-      const rawCat = (Array.isArray(t.category) ? t.category[0] : t.category) || '';
-      const norm   = FCData.normalizePlaidCategory(rawCat).toLowerCase();
-      if (_NEEDS_CATS.has(norm))      needs += t.amount || 0;
-      else if (_WANTS_CATS.has(norm)) wants += t.amount || 0;
-      // else: uncategorized — skip (don't pollute buckets)
-    }
-    const base        = Math.max(monthIncome, 1); // safe denominator — wizard is only shown when income is reliable
-    const savings     = Math.max(0, monthIncome - needs - wants);
-    const savingsPct  = Math.round((savings / base) * 100);
-    const needsPct    = Math.round((needs   / base) * 100);
-    const wantsPct    = Math.round((wants   / base) * 100);
-
-    // Render rows
-    const rowsEl = document.getElementById('budget-wizard-rows');
-    if (!rowsEl) return;
-
-    function makeRow(label, actual, target, color, icon, tip) {
-      const pct     = Math.round((actual / base) * 100);
-      const barPct  = Math.min(pct, 100);
-      const isOver  = pct > target + 5;
-      const isUnder = pct < target - 5;
-      const status  = isOver ? `${pct - target}% over` : isUnder ? `${target - pct}% under` : 'On target ✓';
-      const statusColor = isOver ? 'var(--fc-danger)' : isUnder ? 'var(--fc-warning)' : 'var(--fc-success)';
-      return `
-        <div>
-          <div class="fcs-bw-row-header">
-            <div class="fcs-bw-row-lhs">
-              <span style="font-size:16px">${icon}</span>
-              <div>
-                <div class="fcs-row-val">${label}</div>
-                <div class="fcs-sub">Target: ${target}% · ${FCData.formatCurrency(Math.round(actual))}</div>
-              </div>
-            </div>
-            <div class="fcs-bw-row-rhs">
-              <div style="font-size:16px;font-weight:800;color:${color}">${pct}%</div>
-              <div style="font-size:10px;color:${statusColor};font-weight:600">${status}</div>
-            </div>
-          </div>
-          <div class="dash-bar-track fcs-bar-track">
-            <div class="dash-bar-fill" style="width:${barPct}%;background:${isOver ? 'var(--fc-danger)' : color}"></div>
-          </div>
-          <div style="height:6px;position:relative;margin-top:2px">
-            <div style="position:absolute;left:${target}%;top:-8px;width:1px;height:16px;background:var(--fc-border-strong)"></div>
-          </div>
-        </div>`;
-    }
-
-    rowsEl.innerHTML =
-      makeRow('Needs',   needs,   50, 'var(--fc-accent)', '🏠', '') +
-      makeRow('Wants',   wants,   30, '#60a5fa', '✨', '') +
-      makeRow('Savings', savings, 20, 'var(--fc-success)', '💰', '');
-
-    // Tip
-    const tipEl = document.getElementById('budget-wizard-tip');
-    if (tipEl) {
-      let tip = '';
-      if (needsPct > 55)       tip = `Your needs are ${needsPct}% of income — above the 50% guideline. Look for fixed costs to trim: subscriptions, insurance, or phone plans.`;
-      else if (wantsPct > 35)  tip = `Wants at ${wantsPct}% is above the 30% target. Dining and entertainment are usually the biggest levers — review your recent activity.`;
-      else if (savingsPct < 15) tip = `You're saving ${savingsPct}% of income — aim for 20%. Even automating an extra $50/mo builds a powerful habit.`;
-      else                      tip = `You're following the 50/30/20 rule well. Keep it up — consistency compounds.`;
-      tipEl.textContent = tip;
-      tipEl.style.display = '';
-    }
-
-    // Subtitle
-    const subEl = document.getElementById('budget-wizard-subtitle');
-    if (subEl) subEl.textContent = `Based on ${FCData.formatCurrency(Math.round(monthIncome))} income this month`;
-
-    section.style.display = '';
-  }
-
   /* ── Zombie Subscription Finder ─────────────────────────────────────
      Surfaces auto-detected recurring charges that are NOT in the user's
      tracked bills list. Helps users discover and cancel forgotten subs.
@@ -2014,106 +1760,6 @@ window.FCApp = (function () {
      All computation is local — no data leaves the device.
      ─────────────────────────────────────────────────────────────── */
   // Render the credit score card from cached user data (state.user.credit_score)
-  function _renderCreditScore() {
-    const noScore  = document.getElementById('credit-no-score');
-    const display  = document.getElementById('credit-score-display');
-    const refreshBtn = document.getElementById('credit-refresh-btn');
-    if (!noScore || !display) return;
-
-    const score = state.user?.credit_score;
-    if (!score) {
-      noScore.style.display  = '';
-      display.style.display  = 'none';
-      if (refreshBtn) refreshBtn.style.display = 'none';
-      return;
-    }
-
-    // Show score
-    noScore.style.display  = 'none';
-    display.style.display  = '';
-    if (refreshBtn) refreshBtn.style.display = '';
-
-    const numEl     = document.getElementById('cs-number');
-    const typeEl    = document.getElementById('cs-type');
-    const labelEl   = document.getElementById('cs-label');
-    const arcEl     = document.getElementById('cs-arc');
-    const updatedEl = document.getElementById('cs-updated');
-    const factorsEl = document.getElementById('cs-factors');
-
-    const { label, color } = _creditLabel(score);
-
-    if (numEl) numEl.textContent = score;
-    if (typeEl) {
-      // Abbreviate long score type names so they fit inside the 88px gauge circle
-      const rawType = (state.user.credit_score_type || 'FICO').trim();
-      const shortType = rawType.replace(/vantagescore\s*/i, 'VS ').replace(/\s+/g, ' ').trim();
-      typeEl.textContent = shortType;
-    }
-    if (labelEl){ labelEl.textContent = label; labelEl.style.color = color; }
-
-    // Animate arc: 188 total arc units for 300–850 range
-    if (arcEl) {
-      const pct  = Math.max(0, Math.min(1, (score - 300) / 550));
-      const dash = Math.round(pct * 188);
-      arcEl.setAttribute('stroke-dasharray', `${dash} 226`);
-      arcEl.setAttribute('stroke', color);
-    }
-
-    if (updatedEl && state.user.credit_score_updated_at) {
-      const d = state.user.credit_score_updated_at.toDate
-              ? state.user.credit_score_updated_at.toDate()
-              : new Date(state.user.credit_score_updated_at);
-      updatedEl.textContent = 'Updated ' + d.toLocaleDateString('en-US', { month:'short', day:'numeric' });
-    }
-
-    if (factorsEl) {
-      const factors = state.user.credit_factors || [];
-      factorsEl.innerHTML = factors.slice(0, 3).map(f =>
-        `<div class="fcs-factor-chip">${esc(f)}</div>`
-      ).join('');
-    }
-
-    // Credit score history sparkline (if we have ≥2 months)
-    const histEl = document.getElementById('cs-history-chart');
-    if (histEl && state.creditHistory && state.creditHistory.length >= 2) {
-      const W = 280, H = 48, PAD = 4;
-      const vals = state.creditHistory.map(h => h.score || 0).filter(v => v > 0);
-      if (vals.length >= 2) {
-        const minV = Math.min(...vals) - 10;
-        const maxV = Math.max(...vals) + 10;
-        const range = maxV - minV || 1;
-        const toX = i => Math.round(PAD + (i / (vals.length - 1)) * (W - PAD * 2));
-        const toY = v => Math.round(PAD + (1 - (v - minV) / range) * (H - PAD * 2));
-        let d = `M${toX(0)},${toY(vals[0])}`;
-        for (let i = 1; i < vals.length; i++) {
-          const x0 = toX(i-1), y0 = toY(vals[i-1]), x1 = toX(i), y1 = toY(vals[i]);
-          const cpX = (x0 + x1) / 2;
-          d += ` C${cpX},${y0} ${cpX},${y1} ${x1},${y1}`;
-        }
-        const lastX = toX(vals.length - 1), lastY = toY(vals[vals.length - 1]);
-        const firstMonth = state.creditHistory[0].month || '';
-        const lastMonth  = state.creditHistory[state.creditHistory.length - 1].month || '';
-        histEl.innerHTML = `
-          <div style="font-size:10px;color:var(--fc-text-faint);margin-bottom:6px;font-weight:500">Score trend · ${firstMonth} → ${lastMonth}</div>
-          <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="overflow:visible">
-            <defs>
-              <linearGradient id="cs-grad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="${color}" stop-opacity="0.3"/>
-                <stop offset="100%" stop-color="${color}" stop-opacity="0"/>
-              </linearGradient>
-            </defs>
-            <path d="${d} L${lastX},${H} L${PAD},${H} Z" fill="url(#cs-grad)"/>
-            <path d="${d}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round"/>
-            <circle cx="${lastX}" cy="${lastY}" r="4" fill="${color}"/>
-            <circle cx="${lastX}" cy="${lastY}" r="7" fill="${color}" opacity="0.2"/>
-          </svg>`;
-        histEl.style.display = 'block';
-      }
-    } else if (histEl) {
-      histEl.style.display = 'none';
-    }
-  }
-
   /* ── Open affiliate offer ─────────────────────────────────────
      Opens the partner URL in the in-app browser.
      Logs the click to localStorage for future analytics.
@@ -2194,7 +1840,6 @@ window.FCApp = (function () {
       state.user.credit_factors          = data.factors || [];
       state.user.credit_score_updated_at = { toDate: () => new Date() };
 
-      _renderCreditScore();
       haptic('medium');
 
       // Persist monthly snapshot for history chart (best-effort)
@@ -2265,58 +1910,6 @@ window.FCApp = (function () {
   /* ─────────────────────────────────────────────────────────────
      RENDER: ACCOUNT ROWS (v2 compact list)
      ───────────────────────────────────────────────────────────── */
-  function _renderAccountRows() {
-    const section   = document.getElementById('home-acct-rows-section');
-    const container = document.getElementById('home-account-rows');
-    if (!section || !container) return;
-
-    // Accounts section is not shown on Home — managed via Wealth tab
-    section.style.display = 'none';
-    return;
-
-    const _PILL_ORDER = { depository: 0, savings: 1, credit: 2, investment: 3, loan: 4, mortgage: 5, other: 6 };
-    const sorted = [...state.accounts].sort((a, b) =>
-      (_PILL_ORDER[a.type] ?? 6) - (_PILL_ORDER[b.type] ?? 6)
-    );
-
-    const typeLabel = t => ({ depository:'Checking', savings:'Savings', credit:'Credit Card', investment:'Investment', loan:'Loan', mortgage:'Mortgage' }[t] || 'Account');
-    const typeColor = t => ({ depository:'rgba(55,138,221,0.18)', savings:'rgba(29,158,117,0.18)', credit:'rgba(216,90,48,0.18)', investment:'rgba(96,165,250,0.18)', loan:'rgba(255,159,10,0.18)', mortgage:'rgba(255,159,10,0.18)' }[t] || 'var(--fc-bg-elevated-2)');
-    const typeAccent = t => ({ depository:'#378ADD', savings:'#1D9E75', credit:'#D85A30', investment:'#60a5fa', loan:'var(--fc-warning)', mortgage:'var(--fc-warning)' }[t] || '#888');
-    const typeIcon = t => ({ depository:'🏦', savings:'💰', credit:'💳', investment:'📈', loan:'🏠', mortgage:'🏠' }[t] || '🏦');
-
-    const shown = sorted.slice(0, 4);
-    const extra = sorted.length - shown.length;
-    const isDebtType = t => ['credit','loan','mortgage'].includes(t);
-
-    container.innerHTML = shown.map(a => {
-      const type   = (a.type === 'depository' && (a.subtype||'').toLowerCase().includes('saving')) ? 'savings' : (a.type || 'other');
-      const bal    = a.balance_current ?? a.balance ?? 0;
-      const isDebt = isDebtType(type);
-      const name   = esc(a.name || a.official_name || typeLabel(type));
-      const mask   = a.mask ? ` ••${esc(a.mask)}` : '';
-      const balFmt = FCData.formatCurrency(Math.abs(bal));
-      const balColor = isDebt ? 'var(--fc-danger)' : 'var(--fc-text)';
-      const balPrefix = isDebt ? '−' : (bal < 0 ? '−' : '');
-      return `<div class="dash-acct-row" onclick="FCApp.switchTab('wealth')" role="button" tabindex="0" aria-label="${name} ${balFmt}">
-        <div class="dash-acct-row-icon" style="background:${typeColor(type)};color:${typeAccent(type)}">${typeIcon(type)}</div>
-        <div class="dash-acct-row-body">
-          <div class="dash-acct-row-name">${name}</div>
-          <div class="dash-acct-row-type">${typeLabel(type)}${mask}</div>
-        </div>
-        <div class="dash-acct-row-bal" style="color:${balColor}">${balPrefix}${balFmt}</div>
-      </div>`;
-    }).join('') +
-      (extra > 0
-        ? `<div class="dash-acct-row-cta" onclick="FCApp.switchTab('wealth')" role="button" tabindex="0">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
-            View ${extra} more account${extra !== 1 ? 's' : ''}
-          </div>`
-        : `<div class="dash-acct-row-cta" onclick="FCApp.startPlaidLink()" role="button" tabindex="0">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-            Add account
-          </div>`);
-  }
-
   // Maps the output of FCData.normalizePlaidCategory() → clean display label
   function _prettyCategory(normalized) {
     const map = {
@@ -2351,61 +1944,6 @@ window.FCApp = (function () {
   /* ─────────────────────────────────────────────────────────────
      RENDER: RECENT TRANSACTIONS (home preview)
      ───────────────────────────────────────────────────────────── */
-  function _renderRecentTransactions() {
-    const container = document.getElementById('home-recent-txns');
-    const section   = document.getElementById('recent-activity-section');
-    if (!container) return;
-
-    const recent = state.transactions
-      .filter(t => t.date)
-      .sort((a, b) => FCData.parseDateLocal(b.date) - FCData.parseDateLocal(a.date))
-      .slice(0, 3);
-
-    const skeleton = document.getElementById('home-txn-skeleton');
-    if (!recent.length) {
-      if (section) section.style.display = state.user?.plaid_linked ? '' : 'none';
-      // Show shimmer skeleton while syncing, plain empty state otherwise
-      if (state.user?.plaid_linked && (state.syncing || state.initialLoading)) {
-        if (skeleton) skeleton.style.display = '';
-        return;
-      }
-      if (skeleton) skeleton.style.display = 'none';
-      container.innerHTML = '<div class="fc-empty"><div class="fc-empty-icon">💳</div><div class="fc-empty-title">No transactions yet</div><div class="fc-empty-sub">Your recent activity will appear here</div></div>';
-      return;
-    }
-    if (skeleton) skeleton.style.display = 'none';
-    if (section) section.style.display = '';
-
-    const now       = new Date(); now.setHours(0,0,0,0);
-    const yesterday = new Date(now.getTime() - 86400000);
-
-    container.innerHTML = recent.map(t => {
-      const rawCat   = (t.category && t.category[0]) || t.category || 'Other';
-      const cat      = FCData.normalizePlaidCategory(rawCat);
-      const emoji    = (typeof FCData.categoryEmoji === 'function') ? FCData.categoryEmoji(rawCat, t.name) : '💳';
-      const color    = (typeof FCData.categoryColor === 'function') ? FCData.categoryColor(rawCat) : '#636366';
-      const d        = FCData.parseDateLocal(t.date); d.setHours(0,0,0,0);
-      const dateStr  = d.getTime() === now.getTime()       ? 'Today'
-                     : d.getTime() === yesterday.getTime() ? 'Yesterday'
-                     : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      const name     = _cleanTxnName(t);
-      const amt      = t.amount || 0;
-      const isCredit = t.isCredit;
-      return `
-        <div class="fc-home-txn" onclick="FCApp.openTransactionDetail('${esc(t.id)}')" role="button" tabindex="0">
-          <div class="fc-home-txn-icon" style="background:${esc(color)}22">${esc(emoji)}</div>
-          <div style="flex:1;min-width:0">
-            <div class="fc-txn-name">${esc(name)}</div>
-            <div class="fc-txn-meta">${esc(cat)}</div>
-          </div>
-          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex-shrink:0">
-            <div class="fc-txn-amt${isCredit ? ' fc-txn-credit' : ''}">${isCredit ? '+' : '−'}${FCData.formatCurrency(amt)}</div>
-            <div style="font-size:11px;color:var(--fc-text-faint);font-variant-numeric:tabular-nums">${esc(dateStr)}</div>
-          </div>
-        </div>`;
-    }).join('');
-  }
-
   /* ─────────────────────────────────────────────────────────────
      RENDER: THIS MONTH'S MOVE — insight card below recent activity
      ───────────────────────────────────────────────────────────── */
@@ -2414,9 +1952,6 @@ window.FCApp = (function () {
      Generates prioritised insights from live user data.
      ───────────────────────────────────────────────────────────── */
 
-  // Internal state — index cycles when user taps "Next →"
-  let _focusInsights = [];
-  let _focusIdx      = 0;
   const _dismissedInsightLabels = new Set();
 
   // Build an ordered list of insights from current state data
@@ -2554,12 +2089,6 @@ window.FCApp = (function () {
   }
 
   // Color + icon config per insight type
-  const _FOCUS_COLORS = {
-    danger: { bar:'var(--fc-danger)',   label:'rgba(255,69,58,0.90)',  border:'rgba(255,69,58,0.28)',  bg:'rgba(255,69,58,0.08)',  iconBg:'rgba(255,69,58,0.15)',  icon:'⚠️' },
-    warn:   { bar:'var(--fc-warning)',  label:'rgba(255,159,10,0.90)', border:'rgba(255,159,10,0.28)', bg:'rgba(255,159,10,0.06)', iconBg:'rgba(255,159,10,0.14)', icon:'🔔' },
-    info:   { bar:'var(--fc-electric)', label:'rgba(96,165,250,0.90)', border:'rgba(37,99,235,0.28)',  bg:'rgba(37,99,235,0.06)',  iconBg:'rgba(37,99,235,0.14)',  icon:'💡' },
-    good:   { bar:'var(--fc-success)',  label:'rgba(52,199,89,0.90)',  border:'rgba(52,199,89,0.28)',  bg:'rgba(52,199,89,0.06)',  iconBg:'rgba(52,199,89,0.14)',  icon:'✨' },
-  };
 
   function _dismissInsight(label) {
     if (label) _dismissedInsightLabels.add(label);
@@ -2570,60 +2099,6 @@ window.FCApp = (function () {
     const el = document.getElementById(id);
     if (!el) return;
     el.scrollTo({ left: idx * el.offsetWidth, behavior: 'smooth' });
-  }
-
-  function _applyFocusInsight(idx) {
-    const insight     = _focusInsights[idx];
-    if (!insight) return;
-    const c           = _FOCUS_COLORS[insight.type] || _FOCUS_COLORS.info;
-    const card        = document.getElementById('todays-focus-card');
-    const leftBar     = card?.querySelector('.dash-focus-left-bar');
-    const dot         = card?.querySelector('.dash-focus-dot');
-    const labelEl     = card?.querySelector('.dash-focus-label');
-    const bodyEl      = document.getElementById('focus-body');
-    const actionText  = document.getElementById('focus-action-text');
-    const counter     = document.getElementById('focus-counter');
-    const nextBtn     = document.getElementById('todays-focus-next-btn');
-
-    const iconEl = document.getElementById('focus-icon');
-    if (card)    { card.style.background = c.bg; card.style.border = `0.5px solid ${c.border}`; }
-    if (leftBar) leftBar.style.background = `linear-gradient(180deg, ${c.bar} 0%, transparent 100%)`;
-    if (iconEl)  { iconEl.textContent = c.icon; iconEl.style.background = c.iconBg; }
-    if (labelEl) { labelEl.textContent = insight.label; labelEl.style.color = c.label; }
-
-    // For bill insights, highlight due-day text in large cyan
-    if (bodyEl) {
-      const highlighted = insight.body.replace(
-        /\b(today|tomorrow|in \d+ days?)\b/gi,
-        m => `<span style="color:var(--fc-accent);font-weight:800">${m}</span>`
-      );
-      bodyEl.innerHTML = highlighted;
-    }
-
-    // For "Mark as paid" → filled cyan button; otherwise default ghost pill
-    const actionEl = document.getElementById('focus-action');
-    if (actionText) actionText.textContent = insight.action;
-    if (actionEl && insight.action === 'Mark as paid') {
-      actionEl.style.cssText = 'font-size:13px;font-weight:700;display:inline-flex;align-items:center;gap:5px;padding:9px 16px;border-radius:999px;background:var(--fc-accent);color:#000;border:none;box-shadow:0 4px 14px rgba(26,196,240,0.35)';
-      if (actionText) actionText.style.color = '#000';
-    } else if (actionEl) {
-      actionEl.style.cssText = 'font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:5px;padding:5px 10px 5px 8px;border-radius:999px;background:rgba(255,255,255,0.07);border:0.5px solid rgba(255,255,255,0.10)';
-      if (actionText) actionText.style.color = c.label;
-    }
-
-    // Counter badge: "2 / 3"
-    if (counter && _focusInsights.length > 1) {
-      counter.textContent = `${idx + 1} / ${_focusInsights.length}`;
-      counter.style.display = '';
-    } else if (counter) {
-      counter.style.display = 'none';
-    }
-
-    // Show "Next →" only when there are multiple insights
-    if (nextBtn) nextBtn.style.display = _focusInsights.length > 1 ? '' : 'none';
-
-    // Store pending tap action on the card element
-    if (card) card._focusTap = insight.tap;
   }
 
   /* ─────────────────────────────────────────────────────────────
@@ -2650,114 +2125,6 @@ window.FCApp = (function () {
       const d = FCData.daysUntil(b.due_date);
       return d !== null && d >= 0 && d <= n;
     });
-  }
-
-  function _getYesterdayChanges() {
-    const now = new Date();
-    const yesterday = new Date(now.getTime() - 24 * 3600000);
-
-    const recent = (state.transactions || []).filter(t =>
-      FCData.parseDateLocal(t.date) >= yesterday
-    );
-    const cashDelta = recent.reduce((s, t) =>
-      s + (t.isCredit ? Math.abs(t.amount || 0) : -(t.amount || 0)), 0
-    );
-    const catSpend = {};
-    recent.filter(_isSpendTxn).forEach(t => {
-      const cat = FCData.normalizePlaidCategory((t.category && t.category[0]) || 'Other');
-      catSpend[cat] = (catSpend[cat] || 0) + (t.amount || 0);
-    });
-    const topCatEntry = Object.entries(catSpend).sort((a, b) => b[1] - a[1])[0];
-    const nextBill = (state.bills || [])
-      .filter(b => b.status !== 'paid')
-      .sort((a, b) => (FCData.daysUntil(a.due_date) ?? 999) - (FCData.daysUntil(b.due_date) ?? 999))[0];
-    const noUpcomingBills = !nextBill || (FCData.daysUntil(nextBill.due_date) ?? 999) > 7;
-    return { cashDelta, txnCount: recent.length, topCatEntry, noUpcomingBills };
-  }
-
-  /* ── Today's Money Move ──────────────────────────────────────── */
-  function _renderHomeMoveCard() {
-    const section = document.getElementById('home-move-section');
-    if (!section) return;
-    if (!state.user?.plaid_linked) {
-      section.style.display = 'none'; return;
-    }
-    const insights = _buildFocusInsights();
-    let pick = insights[0];
-
-    // When no urgent issue exists, turn the card into a concrete wealth-building
-    // action instead of restating a balance or congratulating the user.
-    if (!pick || pick.fallback) {
-      const emergencyGoal = (state.goals || []).find(g => /emergency|rainy|reserve/i.test(g.name || ''));
-      if (emergencyGoal) {
-        const remaining = Math.max(0, (emergencyGoal.target || 0) - (emergencyGoal.current || 0));
-        const contribution = Math.min(50, remaining || 50);
-        pick = {
-          type: 'good',
-          title: `Add ${FCData.formatCurrency(contribution)} to ${emergencyGoal.name}`,
-          body: remaining > contribution
-            ? `A small contribution keeps your safety net moving without putting upcoming bills at risk.`
-            : `This contribution completes your ${emergencyGoal.name} goal.`,
-          action: `Add ${FCData.formatCurrency(contribution)}`,
-          healthLift: 3,
-          tap: async () => {
-            try {
-              await FCData.updateGoal(emergencyGoal.id, {
-                current: Math.min(emergencyGoal.target || Infinity, (emergencyGoal.current || 0) + contribution)
-              });
-              haptic('success');
-              toast(`${FCData.formatCurrency(contribution)} added to ${emergencyGoal.name}`, 'success');
-            } catch (_) {
-              toast('Could not update this goal. Please try again.', 'error');
-            }
-          }
-        };
-      } else {
-        pick = {
-          type: 'info',
-          title: 'Move $50 to Emergency Fund',
-          body: 'You’ll stay on track and start building a buffer for unexpected expenses.',
-          action: 'Move $50',
-          healthLift: 3,
-          tap: () => FCApp.showAddGoalSheet()
-        };
-      }
-    }
-    section.style.display = '';
-
-    const card    = document.getElementById('home-move-card');
-    const titleEl = document.getElementById('home-move-title');
-    const subEl   = document.getElementById('home-move-sub');
-    const doBtn   = document.getElementById('home-move-do');
-    if (titleEl) titleEl.textContent = pick.title || pick.label || '';
-    if (subEl)   subEl.textContent   = pick.body  || '';
-    if (card) {
-      card.classList.toggle('danger-card', pick.type === 'danger');
-      card.classList.toggle('warn-card', pick.type === 'warn');
-      card.dataset.tone = pick.type || 'info';
-    }
-    if (doBtn) {
-      const isDanger = pick.type === 'danger';
-      const isWarn   = pick.type === 'warn';
-      const isGood   = pick.type === 'good';
-      doBtn.style.background = isDanger ? 'var(--fc-danger)' : isWarn ? 'var(--fc-warning)' : isGood ? 'var(--fc-accent)' : 'var(--fc-electric)';
-      doBtn.textContent = pick.action || 'View';
-      doBtn.onclick = () => { haptic('medium'); if (pick.tap) pick.tap(); };
-    }
-
-    const now = new Date();
-    const monthTxns = (state.transactions || []).filter(t => t.date && FCData.isCurrentMonth(t.date));
-    const monthSpend = monthTxns.filter(_isSpendTxn).reduce((sum, t) => sum + (t.amount || 0), 0);
-    const monthIncome = monthTxns.filter(_isIncomeTxn).reduce((sum, t) => sum + (t.amount || 0), 0);
-    const unpaidBills = (state.bills || []).filter(b => b.status !== 'paid');
-    const overdueCount = unpaidBills.filter(b => (FCData.daysUntil(b.due_date) ?? 1) < 0).length;
-    const currentHealth = Math.round(_calcHealthScore(monthIncome, monthSpend, unpaidBills, overdueCount) / 8.5);
-    const defaultLift = pick.type === 'danger' ? 4 : pick.type === 'warn' ? 3 : pick.type === 'good' ? 3 : 2;
-    const nextHealth = Math.min(100, currentHealth + (pick.healthLift || defaultLift));
-    const healthCurrentEl = document.getElementById('home-move-health-current');
-    const healthNextEl = document.getElementById('home-move-health-next');
-    if (healthCurrentEl) healthCurrentEl.textContent = currentHealth;
-    if (healthNextEl) healthNextEl.textContent = nextHealth;
   }
 
   function _predictNextPayday() {
@@ -3278,96 +2645,6 @@ window.FCApp = (function () {
     }
   }
 
-  /* ── What Changed Since Yesterday ──────────────────────────── */
-  function _renderHomeYesterday() {
-    const section = document.getElementById('home-yesterday-section');
-    const grid    = document.getElementById('home-yesterday-grid');
-    if (!section || !grid) return;
-    if (!state.user?.plaid_linked || !state.transactions?.length) {
-      section.style.display = 'none'; return;
-    }
-    section.style.display = '';
-
-    const ch = _getYesterdayChanges();
-    const tiles = [];
-
-    const _svgCash = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="1" y="4" width="22" height="16" rx="2"/><path d="M1 10h22"/></svg>`;
-    const _svgTxn  = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
-    const _svgCat  = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`;
-    const _svgBill = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
-    const _svgOk   = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
-
-    const cashSign  = ch.cashDelta >= 0 ? '+' : '−';
-    const cashColor = ch.cashDelta >= 0 ? 'var(--fc-success)' : 'var(--fc-danger)';
-    const cashBg    = ch.cashDelta >= 0 ? 'rgba(48,209,88,0.12)' : 'rgba(255,69,58,0.12)';
-    tiles.push({
-      icon: _svgCash, iconBg: cashBg, iconColor: cashColor,
-      value: `${cashSign}${FCData.formatCurrency(Math.abs(ch.cashDelta))}`,
-      label: 'Cash · 24h', color: cashColor
-    });
-
-    const txnBg = ch.txnCount === 0 ? 'rgba(48,209,88,0.12)' : 'rgba(26,196,240,0.12)';
-    const txnColor = ch.txnCount === 0 ? 'var(--fc-success)' : 'var(--fc-accent)';
-    tiles.push({
-      icon: _svgTxn, iconBg: txnBg, iconColor: txnColor,
-      value: ch.txnCount === 0 ? '0' : String(ch.txnCount),
-      label: ch.txnCount === 0 ? 'No activity' : `Transaction${ch.txnCount !== 1 ? 's' : ''}`,
-      color: txnColor
-    });
-
-    if (ch.topCatEntry) {
-      const [cat, amt] = ch.topCatEntry;
-      tiles.push({
-        icon: _svgCat, iconBg: 'rgba(255,159,10,0.12)', iconColor: 'var(--fc-warning)',
-        value: FCData.formatCurrency(amt), label: cat, color: 'var(--fc-warning)'
-      });
-    } else {
-      tiles.push({
-        icon: _svgOk, iconBg: 'rgba(48,209,88,0.12)', iconColor: 'var(--fc-success)',
-        value: '—', label: 'No spending', color: 'var(--fc-success)'
-      });
-    }
-
-    const billBg    = ch.noUpcomingBills ? 'rgba(48,209,88,0.12)' : 'rgba(255,159,10,0.12)';
-    const billColor = ch.noUpcomingBills ? 'var(--fc-success)' : 'var(--fc-warning)';
-    tiles.push({
-      icon: ch.noUpcomingBills ? _svgOk : _svgBill,
-      iconBg: billBg, iconColor: billColor,
-      value: ch.noUpcomingBills ? '✓' : '1',
-      label: ch.noUpcomingBills ? 'Bills clear' : 'Bill due soon',
-      color: billColor
-    });
-
-    grid.innerHTML = tiles.map(t =>
-      `<div class="home-yesterday-tile">
-        <div class="home-ytile-icon-wrap" style="background:${t.iconBg};color:${t.iconColor}">${t.icon}</div>
-        <div class="home-ytile-val" style="color:${t.color}">${t.value}</div>
-        <div class="home-ytile-label">${t.label}</div>
-      </div>`
-    ).join('');
-  }
-
-  /* ── Subscriptions to Review (Home) ────────────────────────── */
-  function _renderHomeSubsCard() {
-    const section  = document.getElementById('home-subs-section');
-    const titleEl  = document.getElementById('home-subs-title');
-    const subEl    = document.getElementById('home-subs-sub');
-    const badgeEl  = document.getElementById('home-subs-badge');
-    if (!section) return;
-    if (!state.user?.plaid_linked || !state.transactions?.length) {
-      section.style.display = 'none'; return;
-    }
-    try {
-      const zombies = _detectSubscriptions().filter(s => !s.tracked);
-      if (!zombies.length) { section.style.display = 'none'; return; }
-      const total = zombies.reduce((s, z) => s + (z.amount || 0), 0);
-      section.style.display = '';
-      if (titleEl) titleEl.textContent = `You could save ${FCData.formatCurrency(total)}/month`;
-      if (subEl)   subEl.textContent   = `${zombies.length} recurring charge${zombies.length !== 1 ? 's' : ''} to review`;
-      if (badgeEl) { badgeEl.textContent = zombies.length; badgeEl.style.display = 'flex'; }
-    } catch(_) { section.style.display = 'none'; }
-  }
-
   function _renderHome() {
     // Update island text based on bank link status — only when truly no accounts at all
     if (state.user && !state.user.plaid_linked && state.accounts.length === 0) {
@@ -3378,7 +2655,6 @@ window.FCApp = (function () {
     const netWorth = FCData.calcNetWorth(state.accounts);
     const nwEl     = document.getElementById('hero-networth');
     if (nwEl) animateNumber(nwEl, netWorth, '$');
-    _renderPremiumHomeChart(netWorth);
 
     // Last synced timestamp — shown in the header status chip
     const syncWrapEl = document.getElementById('islandSyncWrap');
@@ -3494,13 +2770,6 @@ window.FCApp = (function () {
     // monthSpendRaw: ALL debits including transfers — used only for safe-to-spend committed calculation
     const monthSpendRaw    = calMonthTxns.filter(t => !t.isCredit).reduce((s, t) => s + (t.amount || 0), 0);
     const overdueCount     = unpaidBills.filter(b => (FCData.daysUntil(b.due_date) ?? 1) < 0).length;
-    _renderHomeHealthScore(
-      _calcHealthScore(monthIncome, monthSpend, unpaidBills, overdueCount),
-      monthIncome,
-      monthSpend,
-      unpaidBills,
-      overdueCount
-    );
 
     // Cash flow → Money at a Glance tile — only meaningful when income is detectable
     const cfEl = document.getElementById('fch-cashflow');
@@ -3650,16 +2919,13 @@ window.FCApp = (function () {
     }
 
     // ── Today's Money Move (Home primary hero) ───────────────────
-    _renderHomeMoveCard();
 
     // ── Next Bill compact card ────────────────────────────────────
     _renderHomeNextBill();
 
     // ── Recent transactions preview ───────────────────────────────
-    _renderRecentTransactions();
 
     // ── Account rows (compact list) ───────────────────────────────
-    _renderAccountRows();
 
     // ── Net worth sparkline snapshot ─────────────────────────────
     _snapshotNetWorth(netWorth);
@@ -3802,11 +3068,8 @@ window.FCApp = (function () {
     if (glanceNwSubEl) glanceNwSubEl.style.display = state.accounts.length ? 'none' : '';
 
     // ── New Home sections (forecast, yesterday, subs) ────────────
-    _renderHomeYesterday();
-    _renderHomeSubsCard();
 
     // Feedback banner
-    _renderFeedbackBanner();
 
     // New mockup-matching dashboard (writes full HTML into #home-dash)
     _renderHomeDashboard();
@@ -7467,7 +6730,6 @@ window.FCApp = (function () {
   }
 
   function _openBudgetWizard() {
-    if (typeof _renderBudgetWizard === 'function') _renderBudgetWizard();
   }
 
   /* ─────────────────────────────────────────────────────────────
@@ -10514,7 +9776,6 @@ window.FCApp = (function () {
     // Credit score history (monthly snapshots for sparkline)
     FCData.listenToCreditHistory(history => {
       state.creditHistory = history;
-      if (state.tab === 'home') _renderCreditScore();
     });
 
     // Net worth history (daily snapshots — Firestore-backed for cross-device persistence)
@@ -10522,7 +9783,6 @@ window.FCApp = (function () {
       state.nwHistory = history;
       // Re-draw sparkline with the authoritative Firestore data
       _drawNetWorthSparkline(history);
-      if (state.tab === 'home') _renderPremiumHomeChart(FCData.calcNetWorth(state.accounts));
       if (state.tab === 'insights') _renderInsights();
     });
   }
@@ -13018,20 +12278,6 @@ window.FCApp = (function () {
      FEEDBACK BANNER
      ───────────────────────────────────────────────────────────── */
 
-  function _renderFeedbackBanner() {
-    const banner = document.getElementById('home-feedback-banner');
-    if (!banner) return;
-    banner.style.display = state.user?.feedback_banner_dismissed ? 'none' : 'block';
-  }
-
-  function dismissFeedbackBanner() {
-    haptic('light');
-    const banner = document.getElementById('home-feedback-banner');
-    if (banner) banner.style.display = 'none';
-    if (state.user) state.user.feedback_banner_dismissed = true;
-    FCData.updateUserField('feedback_banner_dismissed', true).catch(() => {});
-  }
-
   /* ─────────────────────────────────────────────────────────────
      FEEDBACK SCREEN
      ───────────────────────────────────────────────────────────── */
@@ -13380,36 +12626,6 @@ window.FCApp = (function () {
     // Dashboard UI
     toggleInsights,
     // Today's Focus card
-    nextFocusInsight() {
-      if (!_focusInsights.length) return;
-      _focusIdx = (_focusIdx + 1) % _focusInsights.length;
-      _applyFocusInsight(_focusIdx);
-    },
-    _focusCardTap() {
-      const card = document.getElementById('todays-focus-card');
-      if (!card) return;
-      // Show "Done ✓" resolution state for 1.8s, then advance to next insight
-      const bodyEl = document.getElementById('focus-body');
-      const actionEl = document.getElementById('focus-action');
-      if (bodyEl) {
-        const prevText = bodyEl.textContent;
-        bodyEl.textContent = 'Done ✓';
-        bodyEl.style.color = 'var(--fc-success)';
-        if (actionEl) actionEl.style.opacity = '0';
-        haptic('medium');
-        setTimeout(() => {
-          bodyEl.style.color = '';
-          if (actionEl) actionEl.style.opacity = '';
-          if (_focusInsights.length > 1) {
-            _focusIdx = (_focusIdx + 1) % _focusInsights.length;
-            _applyFocusInsight(_focusIdx);
-          } else {
-            bodyEl.textContent = prevText;
-          }
-        }, 1800);
-      }
-      if (typeof card._focusTap === 'function') card._focusTap();
-    },
     // Referral sheet
     showReferralSheet,
     closeReferralSheet,
@@ -13428,7 +12644,6 @@ window.FCApp = (function () {
     // Feedback system
     showFeedbackScreen,
     closeFeedbackScreen,
-    dismissFeedbackBanner,
     submitFeedback,
     _fbSetPriority,
     _fbToggleDiag,

@@ -46,49 +46,41 @@ const FILES = [
 ];
 
 /**
- * Ids the Home v8 rebuild orphaned. Every one of these is looked up by a
- * renderer whose markup no longer exists; all are null-safe, so the only cost
- * is wasted work on every _renderHome(). Tracked for removal — when those
- * renderers go, delete the corresponding entries here. This list must only
- * ever get shorter.
+ * Ids still looked up by a renderer whose markup no longer exists. Every one
+ * is null-safe — the enclosing code guards and returns — so the only cost is
+ * wasted work. This is a RATCHET: it must only ever get shorter, and the check
+ * fails if an entry goes stale, so a cleanup cannot silently leave it behind.
+ *
+ * The large Home v8 batch was removed in the cleanup that took fc-app.js from
+ * 13,464 to 12,728 lines. What is left splits into:
+ *   - legacy Home ids inside renderers that still do live work elsewhere
+ *     (_renderHome, _renderSafeSpendCommand, _drawNetWorthSparkline, the
+ *     greeting and notification-badge helpers)
+ *   - the registration referral + password-strength ids, which belong to
+ *     markup that is built conditionally
+ *   - screen-app, read by the privacy sweep against a container that the
+ *     current shell does not use
  */
 const KNOWN_ORPHANS = new Set([
-  // health score ring
-  'health-score-num', 'home-health-ring', 'health-score-ring', 'health-score-label',
-  'health-score-sub', 'health-factors', 'ins-health-tip',
-  // spending pulse
+  // legacy Home surfaces still referenced from live renderers
+  'sparkline-line', 'sparkline-area', 'sparkline-dot', 'sparkline-dot-bg', 'hero-delta',
+  'home-user-avatar', 'home-accounts-list', 'home-txn-list', 'home-nw-amount',
+  'home-greeting', 'home-acct-skeleton', 'home-txn-skeleton',
+  'home-safe-horizon', 'home-runway-scale-high', 'home-runway-scale-mid',
+  'home-runway-scale-low', 'home-runway-date-mid', 'home-runway-date-end',
+  'home-next-bill-amount', 'hero-networth', 'hero-liabilities', 'home-bills-list',
+  'bills-badge', 'fch-cashflow', 'home-month-spent', 'home-goal-card',
+  'home-notif-badge', 'smart-insights-list-wrap', 'ins-health-tip', 'wealth-sparkline',
+  // spending pulse, still read by _renderHome
   'dash-pulse-row', 'dash-pulse-fill', 'dash-pulse-spent', 'dash-pulse-income',
   'dash-pulse-days', 'dash-pulse-projected', 'dash-pulse-nobudget',
   'dash-pulse-income-label', 'dash-pulse-pct', 'dash-pulse-of-label',
-  // legacy hero / net worth
-  'hero-networth', 'hero-liabilities', 'hero-delta', 'home-nw-amount',
-  'sparkline-line', 'sparkline-area', 'sparkline-dot', 'sparkline-dot-bg',
-  'home-balance-chart', 'wealth-sparkline', 'fch-cashflow', 'home-month-spent',
-  // legacy home sections
-  'home-bills-list', 'bills-badge', 'home-goal-card', 'home-move-section',
-  'home-move-card', 'home-move-title', 'home-move-sub', 'home-move-do',
-  'home-move-health-current', 'home-move-health-next',
-  'home-next-bill-amount', 'home-recent-txns', 'recent-activity-section',
-  'home-acct-rows-section', 'home-account-rows', 'home-accounts-list',
-  'home-txn-list', 'home-acct-skeleton', 'home-txn-skeleton',
-  'home-yesterday-section', 'home-yesterday-grid',
-  'home-subs-section', 'home-subs-title', 'home-subs-sub', 'home-subs-badge',
-  'home-user-avatar', 'home-greeting', 'home-feedback-banner', 'home-notif-badge',
-  'home-safe-horizon', 'home-runway-scale-high', 'home-runway-scale-mid',
-  'home-runway-scale-low', 'home-runway-date-mid', 'home-runway-date-end',
-  // budget wizard + credit score (features not in the v8 dashboard)
-  'home-budget-wizard-section', 'budget-wizard-rows', 'budget-wizard-tip',
-  'budget-wizard-subtitle',
-  'credit-no-score', 'credit-score-display', 'credit-refresh-btn', 'credit-connect-btn',
-  'cs-number', 'cs-type', 'cs-label', 'cs-arc', 'cs-updated', 'cs-factors',
-  'cs-history-chart',
-  // today's focus card
-  'todays-focus-card', 'focus-body', 'focus-action-text', 'focus-counter',
-  'todays-focus-next-btn', 'focus-icon', 'focus-action',
-  // misc legacy
-  'smart-insights-list-wrap', 'screen-app',
-  'reg-referral-code', 'reg-referral-wrap', 'reg-referral-chevron',
-  'reg-pw-strength-label',
+  // credit score buttons, read by the live fetch/refresh handlers
+  'credit-connect-btn', 'credit-refresh-btn',
+  // registration extras built conditionally
+  'reg-pw-strength-label', 'reg-referral-wrap', 'reg-referral-chevron', 'reg-referral-code',
+  // privacy sweep container
+  'screen-app',
 ]);
 
 /* ── collect every id that exists anywhere ─────────────────────── */
@@ -148,6 +140,5 @@ if (staleEntries.length) {
 }
 
 console.log(
-  `✓ every getElementById resolves (${KNOWN_ORPHANS.size} known orphans from the Home v8 ` +
-  `rebuild still pending removal).`
+  `✓ every getElementById resolves (${KNOWN_ORPHANS.size} known orphans still pending removal).`
 );
