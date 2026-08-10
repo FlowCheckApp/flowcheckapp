@@ -9272,7 +9272,7 @@ window.FCApp = (function () {
 
   function _exportCSV() {
     const txns = state.transactions || [];
-    if (!txns.length) { showToast('No transactions to export', 'warning'); return; }
+    if (!txns.length) { toast('No transactions to export', 'info'); return; }
     const header = 'Date,Name,Amount,Category,Type,Account\n';
     const rows = txns.map(t =>
       `${t.date||''},${JSON.stringify(t.name||'')},${t.isCredit?t.amount:-(t.amount||0)},${JSON.stringify((Array.isArray(t.category)?t.category[0]:t.category)||'')},${t.isCredit?'Income':'Expense'},${t.account_id||''}`
@@ -9282,7 +9282,7 @@ window.FCApp = (function () {
     const a = document.createElement('a');
     a.href = url; a.download = `flowcheck-transactions-${new Date().toISOString().slice(0,10)}.csv`;
     a.click(); URL.revokeObjectURL(url);
-    showToast('CSV downloaded', 'success');
+    toast('CSV downloaded', 'success');
   }
 
   function _openCancelSheet() {
