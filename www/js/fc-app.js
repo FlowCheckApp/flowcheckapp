@@ -10126,7 +10126,14 @@ window.FCApp = (function () {
       { transaction_id: 't22', name: 'Target', amount: 67.80, date: _demoAgo(3), category: ['Shops','Department Stores'], account_id: 'demo-cc', isCredit: false },
       { transaction_id: 't23', name: 'Target', amount: 67.80, date: _demoAgo(2), category: ['Shops','Department Stores'], account_id: 'demo-cc', isCredit: false },
       { transaction_id: 't24', name: 'Target', amount: 67.80, date: _demoAgo(0), category: ['Shops','Department Stores'], account_id: 'demo-cc', isCredit: true  },
-    ];
+    ]
+      // Real transactions come out of listenToTransactions() carrying `id`
+      // (the Firestore doc id); demo rows only declared transaction_id, so
+      // every row rendered onclick="openTransactionDetail('')" and the detail
+      // sheet could not be opened at all in demo mode. Give demo data the
+      // same shape as the real thing rather than teaching each reader about
+      // two id fields.
+      .map(t => ({ ...t, id: t.transaction_id }));
     state.bills = [
       { id: 'b1', name: 'Rent',          amount: 1200.00, due_date: _demoIn(6),  status: 'upcoming', icon: '🏠', category: 'Housing' },
       { id: 'b2', name: 'Electric',      amount: 89.50,   due_date: _demoIn(12), status: 'upcoming', icon: '⚡', category: 'Utilities' },
@@ -12215,26 +12222,42 @@ window.FCApp = (function () {
     if (!txn) return;
 
     // Apply any existing overrides
-    const ov   = state.txnOverrides[txnId] || {};
-    const name = ov.name || txn.name || '';
-    const cat  = (ov.category) || (txn.category && txn.category[0]) || 'Other';
+    const ov      = state.txnOverrides[txnId] || {};
+    const origCat = (txn.category && txn.category[0]) || 'Other';
+    const cat     = ov.category || origCat;
 
-    const sheet   = document.getElementById('fc-txn-sheet');
-    const nameEl  = document.getElementById('txn-edit-name');
-    const catEl   = document.getElementById('txn-edit-category');
-    const amtEl   = document.getElementById('txn-edit-amount');
-    const dateEl  = document.getElementById('txn-edit-date');
-    const origEl  = document.getElementById('txn-edit-original');
+    const sheet    = document.getElementById('fc-txn-sheet');
+    const nameEl   = document.getElementById('txn-name-input');
+    const catEl    = document.getElementById('txn-cat-select');
+    const oNameEl  = document.getElementById('txn-orig-name');
+    const oCatEl   = document.getElementById('txn-orig-cat');
+    const oAmtEl   = document.getElementById('txn-orig-amount');
+    const resetBtn = document.getElementById('txn-reset-btn');
 
-    if (nameEl)  nameEl.value  = name;
-    if (catEl)   catEl.value   = cat;
-    if (amtEl)   amtEl.textContent = (txn.isCredit ? '+' : '−') + FCData.formatCurrency(txn.amount);
-    if (amtEl)   amtEl.style.color = txn.isCredit ? 'var(--fc-success)' : 'var(--fc-danger)';
-    if (dateEl)  dateEl.textContent = txn.date ? FCData.parseDateLocal(txn.date).toLocaleDateString('en-US', { weekday:'short', month:'long', day:'numeric' }) : '';
-    if (origEl)  {
-      origEl.textContent = ov.name ? `Original: ${txn.name}` : '';
-      origEl.style.display = ov.name ? '' : 'none';
+    // The picker ships empty in the markup — fill it once.
+    if (catEl && !catEl.options.length) {
+      catEl.innerHTML = CATEGORIES_LIST.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
     }
+    // Plaid emits categories outside our list. Without this the select would
+    // silently land on whatever option happened to be first and a plain Save
+    // would recategorise the transaction the user never touched.
+    if (catEl && cat && !Array.prototype.some.call(catEl.options, o => o.value === cat)) {
+      catEl.insertAdjacentHTML('afterbegin', `<option value="${esc(cat)}">${esc(cat)}</option>`);
+    }
+
+    // Blank means "keep the original" — that is what the placeholder promises
+    // and what the render fallback (ov.name || t.name) already does.
+    if (nameEl)  nameEl.value = ov.name || '';
+    if (catEl)   catEl.value  = cat;
+    if (oNameEl) oNameEl.textContent = txn.name || '';
+    if (oCatEl)  oCatEl.textContent  = origCat +
+      (txn.date ? ' · ' + FCData.parseDateLocal(txn.date).toLocaleDateString('en-US', { month:'short', day:'numeric' }) : '');
+    if (oAmtEl) {
+      oAmtEl.textContent = (txn.isCredit ? '+' : '−') + FCData.formatCurrency(txn.amount);
+      oAmtEl.style.color = txn.isCredit ? 'var(--fc-success)' : 'var(--fc-danger)';
+    }
+    // Revert only means something once an override exists.
+    if (resetBtn) resetBtn.style.display = (ov.name || ov.category) ? '' : 'none';
 
     if (sheet) { sheet.style.display = 'flex'; haptic('light'); }
     setTimeout(() => nameEl && nameEl.focus(), 200);
@@ -12249,27 +12272,37 @@ window.FCApp = (function () {
 
   async function saveTransactionEdit() {
     if (!_editingTxnId) return;
-    const nameEl = document.getElementById('txn-edit-name');
-    const catEl  = document.getElementById('txn-edit-category');
+    const nameEl = document.getElementById('txn-name-input');
+    const catEl  = document.getElementById('txn-cat-select');
     const btn    = document.getElementById('txn-save-btn');
 
-    const name     = nameEl?.value.trim();
-    const category = catEl?.value;
+    // Blank name is legitimate — it means "keep the original", which is what
+    // the field's placeholder says and what the render fallback already does.
+    // Rejecting it made the sheet impossible to submit with a category-only
+    // edit.
+    const name     = nameEl?.value.trim() || '';
+    const category = catEl?.value || '';
+    // name:'' is meaningful ("keep the original"). category:'' is not — a
+    // <select> reports '' only when it holds no matching option, and writing
+    // that would store an empty override. Omit it so the merge leaves the
+    // existing value alone.
+    const fields = category ? { name, category } : { name };
 
-    if (!name) { toast('Enter a name', 'info'); return; }
-
+    const label = btn ? btn.textContent : '';
     if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
     haptic('light');
 
     try {
-      await FCData.setTransactionOverride(_editingTxnId, { name, category });
+      await FCData.setTransactionOverride(_editingTxnId, fields);
       closeTransactionSheet();
       toast('Transaction updated', 'success');
       haptic('medium');
     } catch (err) {
       toast('Could not save: ' + err.message, 'error');
     } finally {
-      if (btn) { btn.disabled = false; btn.textContent = 'Save'; }
+      // Restore the button's own label — hardcoding 'Save' silently renamed
+      // the markup's "Save Changes" after the first attempt.
+      if (btn) { btn.disabled = false; btn.textContent = label; }
     }
   }
 

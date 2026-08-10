@@ -1,0 +1,153 @@
+#!/usr/bin/env node
+/**
+ * check-dom-ids.js
+ *
+ * Every document.getElementById('x') must have a matching id="x" somewhere —
+ * in index.html, or in a template literal that a renderer writes to innerHTML.
+ *
+ * This exists because the app has shipped this bug twice, and neither time did
+ * anything fail:
+ *
+ *   1. The transaction edit sheet. openTransactionDetail() and
+ *      saveTransactionEdit() look up txn-edit-name / txn-edit-category /
+ *      txn-edit-amount / txn-edit-date / txn-edit-original. index.html defines
+ *      txn-name-input / txn-cat-select / txn-orig-*. Every lookup returns null,
+ *      so the sheet opens blank and Save always bails on "Enter a name".
+ *      Editing a transaction is impossible and has been for a long time.
+ *
+ *   2. Home's count-up animations. _countup() was called with four ids the v8
+ *      dashboard rebuild had deleted, so it hit `if (!el) return` every time
+ *      and the numbers just appeared, while Money's still animated.
+ *
+ * Both are the same failure mode: a null lookup is silent. Nothing throws,
+ * nothing logs, tests pass, and the feature is simply gone. A renderer that
+ * guards with `if (!el) return` is indistinguishable from one that is wired up.
+ *
+ * KNOWN_ORPHANS is a ratchet, not an allowlist to grow. It holds the ids left
+ * behind by the Home v8 rebuild, which are tracked separately for removal.
+ * Adding to it should be rare and deliberate; deleting from it is the goal.
+ *
+ * Exit 0 = clean. Exit 1 = at least one lookup that can never resolve.
+ */
+'use strict';
+
+const fs = require('fs');
+const path = require('path');
+
+const ROOT = path.join(__dirname, '..');
+const FILES = [
+  'www/index.html',
+  'www/js/fc-app.js',
+  'www/js/fc-auth.js',
+  'www/js/fc-data.js',
+  'www/js/fc-iap.js',
+  'www/js/fc-push.js',
+  'www/js/fc-vault.js',
+];
+
+/**
+ * Ids the Home v8 rebuild orphaned. Every one of these is looked up by a
+ * renderer whose markup no longer exists; all are null-safe, so the only cost
+ * is wasted work on every _renderHome(). Tracked for removal — when those
+ * renderers go, delete the corresponding entries here. This list must only
+ * ever get shorter.
+ */
+const KNOWN_ORPHANS = new Set([
+  // health score ring
+  'health-score-num', 'home-health-ring', 'health-score-ring', 'health-score-label',
+  'health-score-sub', 'health-factors', 'ins-health-tip',
+  // spending pulse
+  'dash-pulse-row', 'dash-pulse-fill', 'dash-pulse-spent', 'dash-pulse-income',
+  'dash-pulse-days', 'dash-pulse-projected', 'dash-pulse-nobudget',
+  'dash-pulse-income-label', 'dash-pulse-pct', 'dash-pulse-of-label',
+  // legacy hero / net worth
+  'hero-networth', 'hero-liabilities', 'hero-delta', 'home-nw-amount',
+  'sparkline-line', 'sparkline-area', 'sparkline-dot', 'sparkline-dot-bg',
+  'home-balance-chart', 'wealth-sparkline', 'fch-cashflow', 'home-month-spent',
+  // legacy home sections
+  'home-bills-list', 'bills-badge', 'home-goal-card', 'home-move-section',
+  'home-move-card', 'home-move-title', 'home-move-sub', 'home-move-do',
+  'home-move-health-current', 'home-move-health-next',
+  'home-next-bill-amount', 'home-recent-txns', 'recent-activity-section',
+  'home-acct-rows-section', 'home-account-rows', 'home-accounts-list',
+  'home-txn-list', 'home-acct-skeleton', 'home-txn-skeleton',
+  'home-yesterday-section', 'home-yesterday-grid',
+  'home-subs-section', 'home-subs-title', 'home-subs-sub', 'home-subs-badge',
+  'home-user-avatar', 'home-greeting', 'home-feedback-banner', 'home-notif-badge',
+  'home-safe-horizon', 'home-runway-scale-high', 'home-runway-scale-mid',
+  'home-runway-scale-low', 'home-runway-date-mid', 'home-runway-date-end',
+  // budget wizard + credit score (features not in the v8 dashboard)
+  'home-budget-wizard-section', 'budget-wizard-rows', 'budget-wizard-tip',
+  'budget-wizard-subtitle',
+  'credit-no-score', 'credit-score-display', 'credit-refresh-btn', 'credit-connect-btn',
+  'cs-number', 'cs-type', 'cs-label', 'cs-arc', 'cs-updated', 'cs-factors',
+  'cs-history-chart',
+  // today's focus card
+  'todays-focus-card', 'focus-body', 'focus-action-text', 'focus-counter',
+  'todays-focus-next-btn', 'focus-icon', 'focus-action',
+  // misc legacy
+  'smart-insights-list-wrap', 'screen-app',
+  'reg-referral-code', 'reg-referral-wrap', 'reg-referral-chevron',
+  'reg-pw-strength-label',
+]);
+
+/* ── collect every id that exists anywhere ─────────────────────── */
+const sources = FILES.map(rel => ({ rel, src: fs.readFileSync(path.join(ROOT, rel), 'utf8') }));
+const all = sources.map(s => s.src).join('\n');
+
+const defined = new Set();
+// static markup and template literals: id="x" / id='x'
+for (const m of all.matchAll(/\bid\s*=\s*(["'])([A-Za-z_][\w:-]*)\1/g)) defined.add(m[2]);
+// escaped inside a JS string: id=\"x\"
+for (const m of all.matchAll(/\bid\s*=\s*\\(["'])([A-Za-z_][\w:-]*)\\\1/g)) defined.add(m[2]);
+// el.id = 'x'  /  setAttribute('id', 'x')
+for (const m of all.matchAll(/\.id\s*=\s*(["'`])([A-Za-z_][\w:-]*)\1/g)) defined.add(m[2]);
+for (const m of all.matchAll(/setAttribute\(\s*(["'])id\1\s*,\s*(["'])([A-Za-z_][\w:-]*)\2/g)) defined.add(m[3]);
+
+/* ── collect every static lookup ───────────────────────────────── */
+const lookups = new Map(); // id -> "file:line"
+let scanned = 0;
+for (const { rel, src } of sources) {
+  for (const m of src.matchAll(/getElementById\(\s*(["'])([A-Za-z_][\w:-]*)\1\s*\)/g)) {
+    scanned++;
+    if (!lookups.has(m[2])) {
+      lookups.set(m[2], `${rel}:${src.slice(0, m.index).split('\n').length}`);
+    }
+  }
+}
+// getElementById(someVariable) is unresolvable statically and is skipped.
+
+const missing = [...lookups.entries()].filter(([id]) => !defined.has(id));
+const newlyBroken = missing.filter(([id]) => !KNOWN_ORPHANS.has(id));
+const staleEntries = [...KNOWN_ORPHANS].filter(id => defined.has(id) || !lookups.has(id));
+
+console.log(
+  `dom-id check: ${scanned} static getElementById calls, ${lookups.size} distinct ids, ` +
+  `${defined.size} ids defined`
+);
+
+if (newlyBroken.length) {
+  console.error(`\n✗ ${newlyBroken.length} getElementById target(s) that exist nowhere:\n`);
+  for (const [id, where] of newlyBroken) console.error(`  #${id}\n      looked up at ${where}`);
+  console.error(
+    '\nThis lookup returns null forever, and null is silent — the feature will\n' +
+    'simply not work while every test still passes. Either fix the id to match\n' +
+    'the markup, or add the element. Only add to KNOWN_ORPHANS if the code is\n' +
+    'genuinely dead and scheduled for removal.\n'
+  );
+  process.exit(1);
+}
+
+if (staleEntries.length) {
+  console.error(`\n✗ ${staleEntries.length} stale KNOWN_ORPHANS entr(y/ies):\n`);
+  for (const id of staleEntries) {
+    console.error(`  #${id} — ${defined.has(id) ? 'now exists in markup' : 'no longer looked up'}`);
+  }
+  console.error('\nThe orphan list must only shrink. Delete these entries.\n');
+  process.exit(1);
+}
+
+console.log(
+  `✓ every getElementById resolves (${KNOWN_ORPHANS.size} known orphans from the Home v8 ` +
+  `rebuild still pending removal).`
+);
