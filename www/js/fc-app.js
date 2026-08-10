@@ -2095,12 +2095,6 @@ window.FCApp = (function () {
     _renderHomeDashboard();
   }
 
-  function _carouselGoTo(id, idx) {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.scrollTo({ left: idx * el.offsetWidth, behavior: 'smooth' });
-  }
-
   /* ─────────────────────────────────────────────────────────────
      RENDER: HOME
      ───────────────────────────────────────────────────────────── */
@@ -3540,6 +3534,51 @@ window.FCApp = (function () {
         }).join('');
     })();
 
+    /* ── First run — nothing connected yet ────────────────────────────────
+       Before there is data every card on this screen renders as an empty
+       shell: a flat runway, "no bills due soon", zeroed stats. That is the
+       worst possible first impression for a finance app, and until now it is
+       exactly what a new user got — isLinked was computed and then used only
+       to hide the Sync pill.
+
+       So first run gets its own screen. One promise, the three answers the
+       app actually exists to give, one action, and the trust line — because
+       "is this safe?" is the only real question standing between a new user
+       and connecting a bank. */
+    if (!isLinked) {
+      const promise = (icon, text) =>
+        `<li class="home-v8__firstrun-item">
+           <span class="home-v8__firstrun-icon" aria-hidden="true">${_ic(icon, 'var(--fc-accent)', 16)}</span>
+           <span>${esc(text)}</span>
+         </li>`;
+      el.innerHTML = `
+        <div class="home-v8">
+          <header class="home-v8__greeting">
+            <div>
+              <h1>${esc(greeting)}, ${esc(firstName)}</h1>
+              <p class="home-v8__date">${esc(dateLabel)}</p>
+            </div>
+          </header>
+
+          <section class="fc-ui-card home-v8__firstrun" aria-labelledby="home-firstrun-title">
+            <p class="fc-section-label">Get started</p>
+            <h2 class="home-v8__firstrun-title" id="home-firstrun-title">Will you make it to payday?</h2>
+            <p class="home-v8__firstrun-text">Connect your bank and FlowCheck answers that every morning — after the bills that haven’t hit yet, not just the balance you can already see.</p>
+            <ul class="home-v8__firstrun-list">
+              ${promise('trending-up', 'Your runway to the next paycheck')}
+              ${promise('calendar', 'What’s left once upcoming bills clear')}
+              ${promise('search', 'Subscriptions quietly charging you')}
+            </ul>
+            <button class="fc-action-button fc-action-button--primary home-v8__firstrun-cta" type="button"
+                    onclick="FCApp.startPlaidLink()">Connect your bank</button>
+            ${_RW_TRUST_ROW}
+          </section>
+
+          <p class="home-v8__disclaimer">FlowCheck is not a bank. Not financial advice.</p>
+        </div>`;
+      return;
+    }
+
     el.innerHTML = `
       <div class="home-v8">
         <header class="home-v8__greeting">
@@ -3553,36 +3592,40 @@ window.FCApp = (function () {
         ${safeSpendMarkup}
         ${_renderForecastCard()}
 
+        <!-- These moves used to be a horizontal carousel: one card visible,
+             the other two behind 12px dots that nothing signposted. The
+             moves are already ranked, so paginating them hid the second and
+             third behind a gesture almost nobody performs. Now the top move
+             keeps the full treatment and the rest are listed under it —
+             everything visible, still ordered, no hidden state. -->
         <section class="fc-ui-card home-v8__move" aria-label="Your next best move">
-          <div class="home-v8__carousel" id="home-move-carousel">
-            ${carouselCards.map((card) => `
-              <div class="home-v8__slide">
-                <div class="home-v8__move-copy">
-                  <p class="fc-section-label">${esc(card.label)}</p>
-                  <h2 class="home-v8__move-title">${esc(card.title)}</h2>
-                  <p class="home-v8__move-text">${esc(card.body)}</p>
-                  <div class="home-v8__move-actions">
-                    <button class="fc-action-button fc-action-button--primary" type="button" onclick="${card.onclick}">${esc(card.action)}</button>
-                  </div>
-                </div>
-                <div class="home-v8__slide-emoji" aria-hidden="true">${card.emoji}</div>
-              </div>`).join('')}
+          <div class="home-v8__move-primary">
+            <div class="home-v8__move-copy">
+              <p class="fc-section-label">${esc(carouselCards[0].label)}</p>
+              <h2 class="home-v8__move-title">${esc(carouselCards[0].title)}</h2>
+              <p class="home-v8__move-text">${esc(carouselCards[0].body)}</p>
+              <div class="home-v8__move-actions">
+                <button class="fc-action-button fc-action-button--primary" type="button" onclick="${carouselCards[0].onclick}">${esc(carouselCards[0].action)}</button>
+              </div>
+            </div>
+            <div class="home-v8__slide-emoji" aria-hidden="true">${carouselCards[0].emoji}</div>
           </div>
-          ${carouselCards.length > 1 ? `<div class="home-v8__dots" id="home-move-dots">${carouselCards.map((_,ci) => `<button class="home-v8__dot${ci===0?' is-active':''}" onclick="FCApp._carouselGoTo('home-move-carousel',${ci})" aria-label="Slide ${ci+1}"></button>`).join('')}</div>` : ''}
+          ${carouselCards.length > 1 ? `
+          <ul class="home-v8__move-rest">
+            ${carouselCards.slice(1).map((card) => `
+              <li>
+                <button class="home-v8__move-row" type="button" onclick="${card.onclick}">
+                  <span class="home-v8__move-row-emoji" aria-hidden="true">${card.emoji}</span>
+                  <span class="home-v8__move-row-copy">
+                    <span class="home-v8__move-row-title">${esc(card.title)}</span>
+                    <span class="home-v8__move-row-label">${esc(card.label)}</span>
+                  </span>
+                  <span class="home-v8__move-row-chevron" aria-hidden="true">›</span>
+                </button>
+              </li>`).join('')}
+          </ul>` : ''}
         </section>
 
-
-        ${(state.transactions || []).length >= 3 ? `
-        <button class="fcst-banner" type="button" onclick="FCApp.openMoneyStory()" aria-label="Play Your Money Week recap">
-          <span class="fcst-banner-play" aria-hidden="true">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-          </span>
-          <span class="fcst-banner-copy">
-            <span class="fcst-banner-title">Your Money Week is ready</span>
-            <span class="fcst-banner-sub">30-second recap of your week</span>
-          </span>
-          <span class="fcst-banner-chevron" aria-hidden="true">›</span>
-        </button>` : ''}
 
         <!-- Dashboard v9 (DASHBOARD_SPEC.md §3): bills, monthly stats, the
              Cash Flow Outlook chart and Goals were all removed from Today.
@@ -3599,18 +3642,23 @@ window.FCApp = (function () {
           </div>
         </section>
 
+        <!-- Money Week sits below the actions on purpose. It is a recap, not a
+             decision — above the fold it was competing with the runway for
+             attention while answering nothing the user came here to ask. -->
+        ${(state.transactions || []).length >= 3 ? `
+        <button class="fcst-banner" type="button" onclick="FCApp.openMoneyStory()" aria-label="Play Your Money Week recap">
+          <span class="fcst-banner-play" aria-hidden="true">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          </span>
+          <span class="fcst-banner-copy">
+            <span class="fcst-banner-title">Your Money Week is ready</span>
+            <span class="fcst-banner-sub">30-second recap of your week</span>
+          </span>
+          <span class="fcst-banner-chevron" aria-hidden="true">›</span>
+        </button>` : ''}
+
         <p class="home-v8__disclaimer">FlowCheck is not a bank. Not financial advice.</p>
       </div>`;
-
-    // Carousel scroll → dot sync
-    const _car = document.getElementById('home-move-carousel');
-    if (_car) {
-      const _carDots = el.querySelectorAll('#home-move-dots .home-v8__dot');
-      _car.addEventListener('scroll', () => {
-        const ci = Math.round(_car.scrollLeft / Math.max(1, _car.offsetWidth));
-        _carDots.forEach((d, i) => d.classList.toggle('is-active', i === ci));
-      }, { passive: true });
-    }
 
     // Hero numbers count up on load — static on unchanged re-renders.
     //
@@ -12651,7 +12699,6 @@ window.FCApp = (function () {
     _openSubScreen,
     _closeSubScreen,
     _dismissInsight,
-    _carouselGoTo,
     handleWebSearch,
     _exportCSV,
     _markAllNotifRead,
