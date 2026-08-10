@@ -51,11 +51,14 @@ const BENIGN = [
 ];
 
 const CHROME = [
+  process.env.CHROME_PATH,                     // explicit wins
   '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
   '/Applications/Chromium.app/Contents/MacOS/Chromium',
   '/usr/bin/google-chrome',
+  '/usr/bin/google-chrome-stable',             // GitHub ubuntu runners
   '/usr/bin/chromium',
-  process.env.CHROME_PATH,
+  '/usr/bin/chromium-browser',
+  '/snap/bin/chromium',
 ].filter(Boolean).find(p => { try { return fs.existsSync(p); } catch { return false; } });
 
 if (!CHROME) {
@@ -257,6 +260,9 @@ const DRIVE = `(async () => {
     '--no-default-browser-check',
     '--disable-background-timer-throttling',
     '--window-size=390,844',
+    // CI runners have no usable sandbox and a small /dev/shm; without these
+    // Chrome exits before it ever prints a debugging port.
+    ...(process.env.CI ? ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu'] : []),
     'about:blank',
   ], { stdio: ['ignore', 'ignore', 'pipe'] });
 

@@ -1,13 +1,23 @@
+# Runs on EVERY branch, not just main.
+#
+# This used to be `branches: [main]`, which meant a feature branch got no CI at
+# all — and in practice that is where the work happens. Three features
+# (Export CSV, the transaction edit sheet, Home's count-ups) shipped completely
+# dead off a feature branch without anything failing.
 name: CI
 
 on:
   push:
-    branches: [main]
+    branches: ['**']
   pull_request:
-    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  lint-backend:
+  backend:
     name: Backend syntax check
     runs-on: ubuntu-latest
     defaults:
@@ -17,8 +27,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Use Node.js 20
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
@@ -33,24 +42,43 @@ jobs:
       - name: Syntax check referral.js
         run: node --check referral.js
 
-  lint-frontend:
-    name: Frontend syntax check
+  verify:
+    name: Frontend verify (check + smoke)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
+    # No `npm ci` on purpose. Every script in scripts/ uses only node builtins
+    # and the app's own files under www/ — nothing reads node_modules. Skipping
+    # the install keeps this fast and avoids the `postinstall` hook, which
+    # patches Capacitor's iOS Package.swift and is irrelevant here.
     steps:
       - uses: actions/checkout@v4
 
-      - name: Use Node.js 20
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22' # smoke.js needs the built-in WebSocket (Node >= 22)
 
-      - name: Syntax check JS files
+      # Fail here with a clear message rather than letting smoke.js report
+      # "no Chrome found" two steps later.
+      - name: Locate Chrome
         run: |
-          for f in www/js/fc-app.js www/js/fc-auth.js www/js/fc-data.js www/js/fc-iap.js; do
-            echo "Checking $f..."
-            node --check "$f"
+          for p in /usr/bin/google-chrome /usr/bin/google-chrome-stable \
+                   /usr/bin/chromium /usr/bin/chromium-browser; do
+            if [ -x "$p" ]; then echo "CHROME_PATH=$p" >> "$GITHUB_ENV"; echo "using $p"; exit 0; fi
           done
+          echo "::error::No Chrome on the runner — smoke.js cannot run."
+          exit 1
 
-      - name: Check privacy and brand invariants
-        run: node scripts/check-privacy-invariants.js
+      # Static gate: syntax, privacy invariants, Firestore rules sync, XSS
+      # sinks, dom ids, inline handlers, CSS vars/classes, contrast tokens,
+      # motion invariants, plus the core and vault unit tests.
+      # Supersedes the old lint-frontend job, which only syntax-checked four
+      # files and ran the privacy invariants.
+      - name: npm run check
+        run: npm run check
+
+      # Behavioural gate: boots the real app in headless Chrome and drives
+      # every tab, segment, auth screen and the transaction sheet. Catches
+      # dead features that parse perfectly.
+      - name: npm run smoke
+        run: npm run smoke
