@@ -93,18 +93,80 @@
     return String(name).toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 18);
   }
 
+  /* ── Account classification — ONE definition ──────────────────────
+     Two vocabularies reach us and they do not overlap:
+
+       Plaid   type: depository | credit | loan | investment | brokerage | other
+       Manual  type: savings | checking | investment | credit | loan
+               (the Add Account sheet writes type === subtype)
+
+     Before this existed every rollup rolled its own test, and most of them
+     only understood Plaid's. The visible consequence: a manual checking
+     account with $5,000 raised net worth by $5,000, showed under Savings,
+     and was invisible to Safe to Spend, the Cash tile and the allocation
+     bar — the totals on screen did not add up to the total at the top.
+
+     Returns exactly one of: 'debt' | 'cash' | 'investment' | 'other'.
+     Debt is tested FIRST so a manual 'credit' can never fall through to a
+     cash test that matches on subtype. */
+
+  const DEBT_TYPES    = new Set(['credit', 'loan']);
+  const DEBT_SUBTYPES = new Set([
+    'credit card', 'line of credit', 'mortgage', 'auto', 'student',
+    'home equity', 'consumer', 'commercial', 'construction', 'overdraft',
+  ]);
+  const CASH_TYPES    = new Set(['depository', 'checking', 'savings']);
+  const CASH_SUBTYPES = new Set([
+    'checking', 'savings', 'money market', 'cd', 'cash management',
+    'prepaid', 'paypal', 'hsa', 'ebt',
+  ]);
+  const INVEST_TYPES  = new Set(['investment', 'brokerage']);
+  /* Balances you cannot spend today. Savings/CDs are excluded from
+     spendable on purpose: money mentally earmarked is not money you can
+     spend this afternoon. */
+  const PARKED_SUBTYPES = /savings|money market|cd|hsa/;
+
+  function accountClass(account) {
+    const a = account || {};
+    const type    = String(a.type    || '').toLowerCase();
+    const subtype = String(a.subtype || '').toLowerCase();
+    if (DEBT_TYPES.has(type)   || DEBT_SUBTYPES.has(subtype))   return 'debt';
+    if (CASH_TYPES.has(type)   || CASH_SUBTYPES.has(subtype))   return 'cash';
+    if (INVEST_TYPES.has(type) || subtype === 'brokerage'
+        || /^(401|403|457|529)/.test(subtype) || /ira|roth|pension|mutual fund/.test(subtype)) {
+      return 'investment';
+    }
+    return 'other';
+  }
+
+  const isDebtAccount  = a => accountClass(a) === 'debt';
+  const isCashAccount  = a => accountClass(a) === 'cash';
+  /** Assets = everything that is not a debt. `other` counts here: Plaid uses
+   *  it for anything it cannot classify, and netWorth already treats it as an
+   *  asset — excluding it from the rollups is what made those two disagree. */
+  const isAssetAccount = a => accountClass(a) !== 'debt';
+
+  /** Cash you could actually spend today — checking-like only. */
+  function isSpendableAccount(a) {
+    if (accountClass(a) !== 'cash') return false;
+    const type    = String((a && a.type)    || '').toLowerCase();
+    const subtype = String((a && a.subtype) || '').toLowerCase();
+    // Manual accounts carry their kind in `type` (type === subtype), Plaid
+    // carries it in `subtype`. Test both or manual savings reads as spendable.
+    return !PARKED_SUBTYPES.test(subtype) && !PARKED_SUBTYPES.test(type);
+  }
+
+  const accountBalance = a => (a && (a.balance_current || a.balance)) || 0;
+
   /* ── Spendable cash ───────────────────────────────────────────────
-     Checking only. Savings/money-market/CD are excluded deliberately:
-     money you have mentally earmarked is not money you can spend today. */
+     Checking only, falling back to all cash when nothing looks like a
+     current account — otherwise somebody who banks entirely from a
+     savings account sees a Safe to Spend of zero. */
   function spendableCash(accounts) {
-    const all = accounts || [];
-    const checking = all.filter(a => {
-      const type = String(a.type || '').toLowerCase();
-      const subtype = String(a.subtype || '').toLowerCase();
-      return type === 'depository' && !/savings|money market|cd/.test(subtype);
-    });
-    const source = checking.length ? checking : all.filter(a => a.type === 'depository');
-    return source.reduce((sum, a) => sum + (a.balance_current || a.balance || 0), 0);
+    const all = (accounts || []).filter(isCashAccount);
+    const checking = all.filter(isSpendableAccount);
+    const source = checking.length ? checking : all;
+    return source.reduce((sum, a) => sum + accountBalance(a), 0);
   }
 
   /* ── Payday prediction ────────────────────────────────────────────
@@ -393,12 +455,15 @@
 
   function netWorth(accounts) {
     const all = accounts || [];
+    // Uses the same classifier as every rollup, so the tiles always add up to
+    // the total. Previously this tested LIABILITY_TYPES directly, which meant
+    // a manual debt whose kind was only in `subtype` counted as an asset.
     const assets = all
-      .filter(a => !LIABILITY_TYPES.has(String(a.type || '').toLowerCase()))
-      .reduce((s, a) => s + (a.balance_current || a.balance || 0), 0);
+      .filter(isAssetAccount)
+      .reduce((s, a) => s + accountBalance(a), 0);
     const liabilities = all
-      .filter(a => LIABILITY_TYPES.has(String(a.type || '').toLowerCase()))
-      .reduce((s, a) => s + Math.max(0, a.balance_current || a.balance || 0), 0);
+      .filter(isDebtAccount)
+      .reduce((s, a) => s + Math.max(0, accountBalance(a)), 0);
     return { assets, liabilities, net: assets - liabilities };
   }
 
@@ -479,6 +544,8 @@
     forecastToRecord, forecastsToSettle,
     isSpendTxn, isIncomeTxn, normalizeCategory,
     spendableCash, predictNextPayday,
+    accountClass, isDebtAccount, isCashAccount, isAssetAccount,
+    isSpendableAccount, accountBalance,
     buildSafeSpendProjection, buildRunwaySeries,
     netWorth, spendingByCategory, spendTotal,
     incomeProfile, scoreForecast, median,

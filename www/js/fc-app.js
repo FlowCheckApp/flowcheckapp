@@ -1542,6 +1542,24 @@ window.FCApp = (function () {
      financial state and renders it on the home dashboard.
      Offer definitions live in FC_CONFIG.offers (fc-config.js).
      ───────────────────────────────────────────────────────────── */
+  /* ── Account classification ───────────────────────────────────────────
+     Thin wrappers over FCCore's single classifier. Every rollup on every
+     screen goes through these, so the Cash tile, the allocation bar, the
+     Money panels and net worth cannot disagree about what an account is.
+
+     They used to each test `a.type === 'depository'` (or one of four other
+     variants) inline. None of those understood the manual-entry vocabulary —
+     the Add Account sheet writes type 'checking'/'savings', not Plaid's
+     'depository' — so a manual checking account added to net worth while
+     contributing nothing to cash, Safe to Spend or the allocation bar.
+
+     Defined defensively: fc-core is a separate script tag and a render can
+     fire before it parses. */
+  const _acctBal     = a => (window.FCCore ? FCCore.accountBalance(a) : (a && (a.balance_current || a.balance)) || 0);
+  const _isCashAcct  = a => (window.FCCore ? FCCore.isCashAccount(a)  : a && a.type === 'depository');
+  const _isDebtAcct  = a => (window.FCCore ? FCCore.isDebtAccount(a)  : a && (a.type === 'credit' || a.type === 'loan'));
+  const _isAssetAcct = a => (window.FCCore ? FCCore.isAssetAccount(a) : !_isDebtAcct(a));
+
   /* ── Pro gate helpers ────────────────────────────────────────────────
      _isPro()           → true if user has an active Pro entitlement
      _renderProGate()   → replaces a section with the locked-card UI
@@ -2706,7 +2724,7 @@ window.FCApp = (function () {
     const liabsEl = document.getElementById('hero-liabilities');
     if (liabsEl) {
       const liabs = state.accounts
-        .filter(a => ['credit','loan','mortgage'].includes(a.type))
+        .filter(_isDebtAcct)
         .reduce((s, a) => s + Math.max(0, a.balance_current || a.balance || 0), 0);
       liabsEl.textContent = FCData.formatCurrency(liabs);
     }
@@ -3091,12 +3109,12 @@ window.FCApp = (function () {
     const glanceCashSubEl = document.getElementById('glance-cash-sub');
     if (glanceCashEl) animateNumber(glanceCashEl, cash, '$');
     if (glanceCashSubEl) {
-      const cashAccts = state.accounts.filter(a => a.type === 'depository').length;
+      const cashAccts = state.accounts.filter(_isCashAcct).length;
       glanceCashSubEl.textContent = cashAccts ? `Across ${cashAccts} account${cashAccts !== 1 ? 's' : ''}` : 'Connect a bank';
     }
     const glanceDebtSubEl = document.getElementById('glance-debt-sub');
     if (glanceDebtSubEl) {
-      const debtAccts = state.accounts.filter(a => ['credit','loan','mortgage'].includes(a.type)).length;
+      const debtAccts = state.accounts.filter(_isDebtAcct).length;
       glanceDebtSubEl.textContent = debtAccts ? `${debtAccts} account${debtAccts !== 1 ? 's' : ''}` : 'No debt linked';
     }
     const glanceNwSubEl = document.getElementById('glance-nw-sub');
@@ -3154,7 +3172,7 @@ window.FCApp = (function () {
     const budgetTone = budgetPct > 100 ? 'is-danger' : budgetPct >= 85 ? 'is-warning' : 'is-success';
 
     const availableCash = accounts
-      .filter(account => account.type === 'depository')
+      .filter(_isCashAcct)
       .reduce((sum, account) => sum + Number(account.balance_available ?? account.balance_current ?? account.balance ?? 0), 0);
     let safeToSpend = 0;
     try { safeToSpend = Math.max(0, Number(_buildSafeSpendProjection().safe || 0)); }
@@ -4013,7 +4031,7 @@ window.FCApp = (function () {
     // `income` already computed above for spendRatio fallback
     const incomeOkScore = _incomeIsReliable(income, spent);
     const savingsRate  = incomeOkScore ? (income - spent) / income : null;
-    const savingsAccts = accts.filter(a => a.type === 'depository');
+    const savingsAccts = accts.filter(_isCashAcct);
     const totalSavings = savingsAccts.reduce((s, a) => s + (a.balance_current || a.balance || 0), 0);
     let savingsScore = 0;
     if (savingsRate !== null) {
@@ -4028,10 +4046,10 @@ window.FCApp = (function () {
 
     // ── 3. Net Worth Score (0-33) ─────────────────────────────
     const assets = accts
-      .filter(a => a.type === 'depository' || a.type === 'investment' || a.type === 'brokerage')
+      .filter(_isAssetAcct)
       .reduce((s, a) => s + (a.balance_current || a.balance || 0), 0);
     const debts  = accts
-      .filter(a => a.type === 'credit' || a.type === 'loan')
+      .filter(_isDebtAcct)
       .reduce((s, a) => s + Math.max(0, a.balance_current || a.balance || 0), 0);
     const nw = assets - debts;
     let nwScore = 0;
@@ -4190,7 +4208,7 @@ window.FCApp = (function () {
     const budget     = state.budgets?.['total']?.limit || 3000;
     const unpaid     = (state.bills || []).filter(b => b.status !== 'paid');
     const unpaidTotal = unpaid.reduce((s, b) => s + (b.amount || 0), 0);
-    const cash       = Math.max(0, state.accounts ? state.accounts.filter(a => a.type === 'depository').reduce((s, a) => s + (a.balance_current || a.balance || 0), 0) : 0);
+    const cash       = Math.max(0, state.accounts ? state.accounts.filter(_isCashAcct).reduce((s, a) => s + _acctBal(a), 0) : 0);
     const incomeOk   = _incomeIsReliable(periodIncome, periodSpend);
 
     const items = [];
@@ -5249,10 +5267,10 @@ window.FCApp = (function () {
   function _renderWealthHero() {
     const accts = state.accounts || [];
     const assets = accts
-      .filter(a => a.type === 'depository' || a.type === 'investment' || a.type === 'brokerage')
+      .filter(_isAssetAcct)
       .reduce((s, a) => s + (a.balance_current || a.balance || 0), 0);
     const liabilities = accts
-      .filter(a => a.type === 'credit' || a.type === 'loan')
+      .filter(_isDebtAcct)
       .reduce((s, a) => s + Math.max(0, a.balance_current || a.balance || 0), 0);
     const nw = assets - liabilities;
 
@@ -5389,11 +5407,11 @@ window.FCApp = (function () {
   function _buildWealthPath() {
     const accts = state.accounts || [];
     const goals = state.goals || [];
-    const debtAccts = accts.filter(a=>a.type==='credit'||a.type==='loan');
+    const debtAccts = accts.filter(_isDebtAcct);
     const totalDebt = debtAccts.reduce((s,a)=>s+Math.max(0,a.balance_current||a.balance||0),0);
     const efGoal    = goals.find(g=>/emergency|starter/i.test(g.name||''));
     const efCurrent = efGoal ? (efGoal.current||0) : 0;
-    const cashTotal = accts.filter(a=>a.type==='depository').reduce((s,a)=>s+(a.balance_current||a.balance||0),0);
+    const cashTotal = accts.filter(_isCashAcct).reduce((s,a)=>s+_acctBal(a),0);
     const now=new Date(), monthStart=new Date(now.getFullYear(),now.getMonth(),1);
     const monthSpend=(state.transactions||[]).filter(t=>{
       const d=FCData.parseDateLocal(t.date||''); return d>=monthStart&&_isSpendTxn(t);
@@ -5449,8 +5467,8 @@ window.FCApp = (function () {
     const el = document.getElementById('wv-overview-content');
     if (!el) return;
     const accts=state.accounts||[], goals=state.goals||[], hist=state.nwHistory||{};
-    const assets      = accts.filter(a=>a.type==='depository'||a.type==='investment'||a.type==='brokerage').reduce((s,a)=>s+(a.balance_current||a.balance||0),0);
-    const liabilities = accts.filter(a=>a.type==='credit'||a.type==='loan').reduce((s,a)=>s+Math.max(0,a.balance_current||a.balance||0),0);
+    const assets      = accts.filter(_isAssetAcct).reduce((s,a)=>s+_acctBal(a),0);
+    const liabilities = accts.filter(_isDebtAcct).reduce((s,a)=>s+Math.max(0,_acctBal(a)),0);
     const nw = assets-liabilities;
     // Delta vs 30d
     const histKeys=Object.keys(hist).sort();
@@ -5475,7 +5493,7 @@ window.FCApp = (function () {
     const dSign  = delta!==null ? (delta>=0?'+':'−') : '';
     const deltaHTML = delta!==null ? `<div class="wv-position-delta" style="background:${dBg};color:${dColor}">${dSign}${FCData.formatCurrency(Math.abs(delta))} <span style="font-weight:500;opacity:0.75">this month</span></div>` : '';
     const accountRows = accts.slice(0, 6).map(account => {
-      const isDebt = account.type === 'credit' || account.type === 'loan';
+      const isDebt = _isDebtAcct(account);
       const balance = Math.max(0, account.balance_current || account.balance || 0);
       const subtext = _acctSubtext(account) || (account.mask ? `•••• ${account.mask}` : (account.subtype || 'Account'));
       return `<div class="wv-linked-row">
@@ -5489,7 +5507,7 @@ window.FCApp = (function () {
     }).join('');
 
     // Asset allocation — cash vs investments vs debt at a glance
-    const _allocCash   = accts.filter(a=>a.type==='depository').reduce((s,a)=>s+(a.balance_current||a.balance||0),0);
+    const _allocCash   = accts.filter(_isCashAcct).reduce((s,a)=>s+_acctBal(a),0);
     const _allocInvest = accts.filter(a=>a.type==='investment'||a.type==='brokerage').reduce((s,a)=>s+(a.balance_current||a.balance||0),0);
     const _allocTotal  = _allocCash + _allocInvest + liabilities;
     const _allocSeg = (v, color) => _allocTotal > 0 && v > 0
@@ -5537,7 +5555,7 @@ window.FCApp = (function () {
     const el=document.getElementById('wv-savings-content');
     if (!el) return;
     const accts = state.accounts||[];
-    const savAccts=accts.filter(a=>a.type==='depository'||['savings','checking','money market','cd','cash management'].includes((a.subtype||'').toLowerCase()));
+    const savAccts=accts.filter(_isCashAcct);
     const total=savAccts.reduce((s,a)=>s+(a.balance_current||a.balance||0),0);
     const goals=_goalsForDisplay();
     const efGoal=goals.find(g=>/emergency|starter/i.test(g.name||''));
@@ -7493,7 +7511,7 @@ window.FCApp = (function () {
     // Shared inputs
     let safe = 0;
     try { safe = Math.max(0, Number(_buildSafeSpendProjection().safe || 0)); } catch (_e) {}
-    const debts = accts.filter(a => a.type === 'credit' || a.type === 'loan')
+    const debts = accts.filter(_isDebtAcct)
       .map(a => ({ name: a.name || 'Debt', bal: Math.max(0, a.balance_current || a.balance || 0), min: a.min_payment || 0 }))
       .filter(d => d.bal > 0).sort((a, b) => a.bal - b.bal);
     const extra = Math.max(0, Math.round(safe * 0.25 / 5) * 5);

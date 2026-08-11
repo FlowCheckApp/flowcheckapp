@@ -366,8 +366,16 @@ window.FCData = (function () {
     'line of credit', 'overdraft', 'other_liability',
   ]);
 
+  /* Both of these delegate to FCCore's single classifier. They each used to
+     carry their own account test, and neither understood the manual-entry
+     vocabulary (type 'checking'/'savings' rather than Plaid's 'depository'),
+     so a manual checking account raised net worth while contributing nothing
+     to cash. The tiles did not add up to the total above them.
+     Falls back to the old local logic only if FCCore is somehow absent. */
   function calcNetWorth(accounts) {
-    return accounts.reduce((sum, a) => {
+    const all = accounts || [];
+    if (window.FCCore && FCCore.netWorth) return FCCore.netWorth(all).net;
+    return all.reduce((sum, a) => {
       const bal  = a.balance_current || a.balance || 0;
       const sign = _LIABILITY_TYPES.has((a.type || '').toLowerCase()) ? -1 : 1;
       return sum + sign * bal;
@@ -375,10 +383,12 @@ window.FCData = (function () {
   }
 
   function calcCash(accounts) {
-    // Plaid types: 'depository' covers checking, savings, money market, cd, etc.
-    // 'checking' and 'savings' are subtypes, NOT types — filtering by them on .type
-    // would always return 0. Only 'depository' (and possibly 'investment' cash) applies.
-    return accounts
+    const all = accounts || [];
+    if (window.FCCore && FCCore.isCashAccount) {
+      return all.filter(FCCore.isCashAccount)
+                .reduce((sum, a) => sum + FCCore.accountBalance(a), 0);
+    }
+    return all
       .filter(a => a.type === 'depository')
       .reduce((sum, a) => sum + (a.balance_current || a.balance || 0), 0);
   }

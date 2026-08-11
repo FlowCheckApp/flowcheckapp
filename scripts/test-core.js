@@ -336,6 +336,83 @@ t('isoDay: local date, no UTC drift', () => {
   eq(C.isoDay(new Date(2026, 0, 5)), '2026-01-05');
 });
 
+/* ── account classification ──────────────────────────────────────
+   Two vocabularies reach these functions and they do not overlap:
+   Plaid writes type 'depository'/'credit'/'loan'/'investment', the manual
+   Add Account sheet writes 'checking'/'savings'/'credit'/'loan'/'investment'.
+   Before one shared classifier existed, a manual checking account raised net
+   worth while contributing nothing to cash, Safe to Spend or the allocation
+   bar — the tiles did not add up to the total above them. */
+const acct = (type, subtype, balance, manual) =>
+  ({ type, subtype, balance_current: balance, manual: !!manual });
+
+t('accountClass: Plaid shapes', () => {
+  eq(C.accountClass(acct('depository', 'checking', 1)), 'cash');
+  eq(C.accountClass(acct('depository', 'savings', 1)), 'cash');
+  eq(C.accountClass(acct('credit', 'credit card', 1)), 'debt');
+  eq(C.accountClass(acct('loan', 'mortgage', 1)), 'debt');
+  eq(C.accountClass(acct('investment', 'brokerage', 1)), 'investment');
+  eq(C.accountClass(acct('other', 'other', 1)), 'other');
+});
+t('accountClass: manual shapes (type === subtype)', () => {
+  eq(C.accountClass(acct('checking', 'checking', 1, true)), 'cash');
+  eq(C.accountClass(acct('savings', 'savings', 1, true)), 'cash');
+  eq(C.accountClass(acct('credit', 'credit', 1, true)), 'debt');
+  eq(C.accountClass(acct('loan', 'loan', 1, true)), 'debt');
+  eq(C.accountClass(acct('investment', 'investment', 1, true)), 'investment');
+});
+t('accountClass: debt wins over a cash-looking subtype', () => {
+  // A line of credit must never be counted as cash just because something
+  // else about it matches — debt is tested first, on purpose.
+  eq(C.accountClass(acct('credit', 'line of credit', 1)), 'debt');
+});
+t('isSpendableAccount: checking yes, parked money no', () => {
+  eq(C.isSpendableAccount(acct('depository', 'checking', 1)), true);
+  eq(C.isSpendableAccount(acct('checking', 'checking', 1, true)), true);
+  eq(C.isSpendableAccount(acct('depository', 'savings', 1)), false);
+  eq(C.isSpendableAccount(acct('savings', 'savings', 1, true)), false);
+  eq(C.isSpendableAccount(acct('depository', 'cd', 1)), false);
+  eq(C.isSpendableAccount(acct('credit', 'credit card', 1)), false);
+});
+t('spendableCash: counts manual checking alongside Plaid checking', () => {
+  eq(C.spendableCash([
+    acct('depository', 'checking', 2500),
+    acct('checking', 'checking', 1500, true),
+    acct('depository', 'savings', 8000),
+  ]), 4000);
+});
+t('spendableCash: falls back to all cash when nothing is checking-like', () => {
+  // Somebody who banks entirely from savings must not see zero.
+  eq(C.spendableCash([acct('depository', 'savings', 900)]), 900);
+});
+t('netWorth: buckets reconcile with the total', () => {
+  const portfolio = [
+    acct('depository', 'checking', 2500),
+    acct('depository', 'savings', 8000),
+    acct('credit', 'credit card', 1200),
+    acct('loan', 'auto', 9500),
+    acct('investment', 'brokerage', 15000),
+    acct('other', 'other', 300),
+    acct('checking', 'checking', 1500, true),
+    acct('savings', 'savings', 4000, true),
+    acct('credit', 'credit', 800, true),
+    acct('investment', 'investment', 2000, true),
+  ];
+  const bal = a => C.accountBalance(a);
+  const cash  = portfolio.filter(C.isCashAccount).reduce((s, a) => s + bal(a), 0);
+  const inv   = portfolio.filter(a => C.accountClass(a) === 'investment').reduce((s, a) => s + bal(a), 0);
+  const other = portfolio.filter(a => C.accountClass(a) === 'other').reduce((s, a) => s + bal(a), 0);
+  const nw = C.netWorth(portfolio);
+  eq(cash, 16000, 'cash includes both manual cash accounts');
+  eq(cash + inv + other, nw.assets, 'every asset lands in exactly one bucket');
+  eq(nw.liabilities, 11500, 'manual debt counted');
+  eq(nw.assets - nw.liabilities, nw.net, 'assets - liabilities = net');
+});
+t('netWorth: a debt never adds to the total', () => {
+  eq(C.netWorth([acct('credit', 'credit card', 500)]).net, -500);
+  eq(C.netWorth([acct('credit', 'credit', 500, true)]).net, -500);
+});
+
 /* ── report ─────────────────────────────────────────────────────── */
 console.log(`fc-core: ${passed} passed, ${failed} failed`);
 if (failed) {
