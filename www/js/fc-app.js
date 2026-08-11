@@ -10095,54 +10095,19 @@ window.FCApp = (function () {
       focused.blur();
     }, { passive: true });
 
-    // ── Keyboard handling (Capacitor Keyboard plugin) ─────────────
-    // Three jobs:
-    //   1. Set --keyboard-height CSS var so sheets can slide up via CSS
-    //   2. Add/remove body.keyboard-open for the CSS transition hook
-    //   3. Scroll the focused input into view within its own scroll container
-    //      (document.activeElement.scrollIntoView scrolls <body>, which is a
-    //      no-op when the actual scroll is inside a .fc-sheet or .fc-view)
-    const _kbPlugin = window.Capacitor?.Plugins?.Keyboard;
-    if (_kbPlugin?.addListener) {
-      let _kbH = 0;
+    /* Keyboard handling lives in ONE place: the 'Keyboard avoidance' IIFE in
+       index.html. A second implementation used to sit here and the two fought.
 
-      _kbPlugin.addListener('keyboardWillShow', (info) => {
-        _kbH = info?.keyboardHeight ?? 0;
-        document.documentElement.style.setProperty('--keyboard-height', `${_kbH}px`);
-        document.body.classList.add('keyboard-open');
+       That one scrolls on keyboardDidShow, and its own comment explains why:
+       scrolling any earlier races the iOS animation and produces the 'jumps
+       high then snaps down' artifact. This copy scrolled on keyboardWillShow
+       inside a requestAnimationFrame — precisely that race — while also
+       adjusting scrollTop on a container the other one had just padded, so
+       every focus was corrected twice.
 
-        // Wait one rAF so the CSS keyboard-open transition has started, then
-        // scroll the focused input into view within its actual scroll container.
-        requestAnimationFrame(() => {
-          const el = document.activeElement;
-          if (!el || !['INPUT','TEXTAREA','SELECT'].includes(el.tagName)) return;
-
-          const elRect      = el.getBoundingClientRect();
-          const visibleBtm  = window.innerHeight - _kbH - 20; // 20px breathing room
-          if (elRect.bottom <= visibleBtm) return; // already fully visible
-
-          // Walk up the DOM to find the actual scrollable container
-          let scroller = el.parentElement;
-          while (scroller && scroller !== document.documentElement) {
-            const ov = getComputedStyle(scroller).overflowY;
-            if ((ov === 'auto' || ov === 'scroll') && scroller.scrollHeight > scroller.clientHeight) break;
-            scroller = scroller.parentElement;
-          }
-
-          if (scroller && scroller !== document.documentElement) {
-            // Scroll just enough to bring the input above the keyboard
-            scroller.scrollTop += (elRect.bottom - visibleBtm);
-          }
-          // If no scroll container found, the sheet CSS transform handles it
-        });
-      });
-
-      _kbPlugin.addListener('keyboardWillHide', () => {
-        _kbH = 0;
-        document.documentElement.style.setProperty('--keyboard-height', '0px');
-        document.body.classList.remove('keyboard-open');
-      });
-    }
+       The class moved with it: CSS keys off body.keyboard-open, which only
+       this copy set, while the surviving system set body.fc-keyboard-open
+       that nothing styled. index.html now sets keyboard-open. */
 
     // Period scrubber buttons have onclick="FCApp.switchPeriod(...)" — no extra wiring needed here.
 

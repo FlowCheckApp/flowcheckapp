@@ -7274,7 +7274,7 @@ window._btnLoad = _btnLoad;
 
   function _onKeyboardHide() {
     _kbOpen = false;
-    document.body.classList.remove('fc-keyboard-open');
+    document.body.classList.remove('keyboard-open');
     document.documentElement.style.setProperty('--keyboard-height', '0px');
     clearTimeout(_kbTimer);
     _kbTimer = setTimeout(() => {
@@ -7294,7 +7294,7 @@ window._btnLoad = _btnLoad;
   if (KbPlugin) {
     KbPlugin.addListener('keyboardWillShow', (info) => {
       _kbOpen = true;
-      document.body.classList.add('fc-keyboard-open');
+      document.body.classList.add('keyboard-open');
       // Expose keyboard height as a CSS variable so sheets and animations can
       // react smoothly without polling visualViewport on every frame.
       document.documentElement.style.setProperty(
@@ -7313,7 +7313,7 @@ window._btnLoad = _btnLoad;
       const kbH = Math.max(0, _fullH - window.visualViewport.height);
       if (kbH > 100) {
         _kbOpen = true;
-        document.body.classList.add('fc-keyboard-open');
+        document.body.classList.add('keyboard-open');
         document.documentElement.style.setProperty('--keyboard-height', kbH + 'px');
         clearTimeout(_resizeTimer);
         _resizeTimer = setTimeout(_scrollToActive, 80);
