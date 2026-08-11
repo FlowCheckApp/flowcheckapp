@@ -2698,6 +2698,38 @@ window.FCApp = (function () {
     }
   }
 
+  /* Coalesced Home render.
+     _renderHome() rebuilds #home-dash wholesale, and on launch it is called
+     once per Firestore listener — accounts, transactions and bills all land
+     within tens of milliseconds of each other. Three full rebuilds back to
+     back is what the dashboard flicker actually was.
+
+     Leading-edge: the first call still paints immediately, so nothing feels
+     slower. Anything arriving inside the window collapses into ONE trailing
+     render with the complete data.
+
+     setTimeout, not requestAnimationFrame — rAF is throttled when the
+     WebView is not visible, which would strand a queued render until the app
+     came back to the foreground. */
+  const _HOME_RENDER_WINDOW_MS = 120;
+  let _homeRenderAt = 0;
+  let _homeRenderTimer = null;
+  function _scheduleHomeRender() {
+    if (state.tab !== 'home') return;
+    const since = Date.now() - _homeRenderAt;
+    if (since >= _HOME_RENDER_WINDOW_MS && !_homeRenderTimer) {
+      _homeRenderAt = Date.now();
+      _renderHome();
+      return;
+    }
+    if (_homeRenderTimer) return;                    // already coalescing
+    _homeRenderTimer = setTimeout(() => {
+      _homeRenderTimer = null;
+      _homeRenderAt = Date.now();
+      if (state.tab === 'home') _renderHome();
+    }, Math.max(0, _HOME_RENDER_WINDOW_MS - since));
+  }
+
   function _renderHome() {
     // Update island text based on bank link status — only when truly no accounts at all
     if (state.user && !state.user.plaid_linked && state.accounts.length === 0) {
@@ -3137,11 +3169,17 @@ window.FCApp = (function () {
   function _renderHomeDashboard() {
     const el = document.getElementById('home-dash');
     if (!el) return;
-    if (!el.dataset.homeMounted) {
+    /* First mount gets the entrance animation; every later render does not.
+       The animation lives on .home-v8--enter rather than .home-v8 because
+       this function rebuilds that element wholesale, so an animation on the
+       element itself replays on every data update. */
+    const firstMount = !el.dataset.homeMounted;
+    if (firstMount) {
       const homeView = document.getElementById('view-home');
       if (homeView) homeView.scrollTop = 0;
       el.dataset.homeMounted = 'true';
     }
+    const enterClass = firstMount ? ' home-v8--enter' : '';
 
     const user = state.user || {};
     const accounts = state.accounts || [];
@@ -3285,6 +3323,31 @@ window.FCApp = (function () {
       const soft  = type === 'danger' ? 'var(--fc-danger-soft)' : type === 'warn' ? 'var(--fc-warning-soft)' : type === 'good' ? 'var(--fc-success-soft)' : 'var(--fc-accent-soft)';
       return `<div style="width:56px;height:56px;border-radius:50%;background:${soft};display:flex;align-items:center;justify-content:center">${_ic(iconName, color, 26)}</div>`;
     };
+    /* Trim to a sentence, not to a character.
+       These bodies are "<finding>. <generic advice>." and only the finding
+       earns space on the dashboard. A CSS line-clamp cut mid-word — the
+       card read "Canceling unused ones is the easies…" on device, which
+       looks broken rather than condensed. Ending on the first full stop
+       says the same thing and never cuts a word in half. */
+    const _cardBody = (text, max) => {
+      const t = String(text || '').trim();
+      if (t.length <= max) return t;
+      const cut  = t.slice(0, max);
+      const stop = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('! '), cut.lastIndexOf('? '));
+      if (stop > 30) return t.slice(0, stop + 1);        // keep the full stop
+      const space = cut.lastIndexOf(' ');
+      return (space > 0 ? cut.slice(0, space) : cut) + '…';
+    };
+
+    /* The 56px art above belongs to the primary move. The secondary rows are
+       34px, and dropping a fixed 56px circle into a 34px slot is what made
+       those icons render as squashed ovals on device. Same icon, same tone,
+       sized for the row it actually sits in. */
+    const _rowArt = (iconName, type) => {
+      const color = type === 'danger' ? 'var(--fc-danger)' : type === 'warn' ? 'var(--fc-warning)' : type === 'good' ? 'var(--fc-success)' : 'var(--fc-accent)';
+      const soft  = type === 'danger' ? 'var(--fc-danger-soft)' : type === 'warn' ? 'var(--fc-warning-soft)' : type === 'good' ? 'var(--fc-success-soft)' : 'var(--fc-accent-soft)';
+      return `<span style="width:34px;height:34px;flex-shrink:0;border-radius:50%;background:${soft};display:flex;align-items:center;justify-content:center">${_ic(iconName, color, 17)}</span>`;
+    };
     const carouselCards = [];
     _allInsights.filter(ins => !ins.fallback).slice(0, 2).forEach(ins => {
       carouselCards.push({
@@ -3294,6 +3357,7 @@ window.FCApp = (function () {
         action:  ins.action || 'Take Action',
         onclick: `window._homeInsights[${_allInsights.indexOf(ins)}]?.tap()`,
         emoji:   _slideArt(_insightIconName(ins), ins.type),
+        rowArt:  _rowArt(_insightIconName(ins), ins.type),
         type:    ins.type,
       });
     });
@@ -3306,6 +3370,7 @@ window.FCApp = (function () {
         action:  'Take Action',
         onclick: "FCApp._openSubScreen('goals')",
         emoji:   _slideArt('dollar-sign', 'good'),
+        rowArt:  _rowArt('dollar-sign', 'good'),
         type:    'good',
       });
     }
@@ -3320,6 +3385,7 @@ window.FCApp = (function () {
         action:  'Review Budget',
         onclick: "FCApp.switchTab('plan')",
         emoji:   budgetPct >= 90 ? _slideArt('bar-chart', 'warn') : _slideArt('check', 'good'),
+        rowArt:  budgetPct >= 90 ? _rowArt('bar-chart', 'warn') : _rowArt('check', 'good'),
         type:    budgetPct >= 90 ? 'warn' : 'good',
       });
     }
@@ -3331,6 +3397,7 @@ window.FCApp = (function () {
         action:  'Open Plan',
         onclick: "FCApp.switchTab('plan')",
         emoji:   _slideArt('flag', 'info'),
+        rowArt:  _rowArt('flag', 'info'),
         type:    'info',
       });
     }
@@ -3611,7 +3678,7 @@ window.FCApp = (function () {
            <span>${esc(text)}</span>
          </li>`;
       el.innerHTML = `
-        <div class="home-v8">
+        <div class="home-v8${enterClass}">
           <header class="home-v8__greeting">
             <div>
               <h1>${esc(greeting)}, ${esc(firstName)}</h1>
@@ -3639,7 +3706,7 @@ window.FCApp = (function () {
     }
 
     el.innerHTML = `
-      <div class="home-v8">
+      <div class="home-v8${enterClass}">
         <header class="home-v8__greeting">
           <div>
             <h1>${esc(greeting)}, ${esc(firstName)}</h1>
@@ -3662,7 +3729,7 @@ window.FCApp = (function () {
             <div class="home-v8__move-copy">
               <p class="fc-section-label">${esc(carouselCards[0].label)}</p>
               <h2 class="home-v8__move-title">${esc(carouselCards[0].title)}</h2>
-              <p class="home-v8__move-text">${esc(carouselCards[0].body)}</p>
+              <p class="home-v8__move-text">${esc(_cardBody(carouselCards[0].body, 75))}</p>
               <div class="home-v8__move-actions">
                 <button class="fc-action-button fc-action-button--primary" type="button" onclick="${carouselCards[0].onclick}">${esc(carouselCards[0].action)}</button>
               </div>
@@ -3674,7 +3741,7 @@ window.FCApp = (function () {
             ${carouselCards.slice(1).map((card) => `
               <li>
                 <button class="home-v8__move-row" type="button" onclick="${card.onclick}">
-                  <span class="home-v8__move-row-emoji" aria-hidden="true">${card.emoji}</span>
+                  ${card.rowArt}
                   <span class="home-v8__move-row-copy">
                     <span class="home-v8__move-row-title">${esc(card.title)}</span>
                     <span class="home-v8__move-row-label">${esc(card.label)}</span>
@@ -9841,7 +9908,7 @@ window.FCApp = (function () {
       if (_isDemoMode) return;
       state.initialLoading = false;
       state.accounts = accounts;
-      if (state.tab === 'home') _renderHome();
+      _scheduleHomeRender();
       if (state.tab === 'insights') _renderInsights();
       // Snapshot net worth on every account update (daily dedup inside)
       _snapshotNetWorth(FCData.calcNetWorth(accounts));
@@ -9852,7 +9919,7 @@ window.FCApp = (function () {
       state.initialLoading = false;
       state.transactions = transactions;
       // Re-render home so "Recent Activity" and "Safe to Spend" update immediately
-      if (state.tab === 'home')     _renderHome();
+      _scheduleHomeRender();
       if (state.tab === 'activity') _renderActivity();
       if (state.tab === 'insights') _renderInsights();
       // Check budget thresholds whenever transactions update
@@ -9864,7 +9931,7 @@ window.FCApp = (function () {
     FCData.listenToBills(bills => {
       if (_isDemoMode) return;
       state.bills = bills;
-      if (state.tab === 'home') _renderHome();
+      _scheduleHomeRender();
       if (state.tab === 'activity' && _activitySegment === 'bills') _renderBillsList();
       FCPush.scheduleAllBillReminders(bills).catch(() => {});
     });
@@ -12141,7 +12208,7 @@ window.FCApp = (function () {
     });
 
     // Re-render home with new period data (chart + insights update inside _renderHome)
-    if (state.tab === 'home') _renderHome();
+    _scheduleHomeRender();
     // Also refresh chart in insights view if that tab is active
     if (state.tab === 'insights') _renderInsights();
     // Wealth overview responds to period change

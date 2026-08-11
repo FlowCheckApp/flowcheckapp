@@ -476,6 +476,12 @@ body.fc-theme .fc-nav {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 14px;
+  /* Scoped to --enter, which _renderHomeDashboard() adds only on first mount.
+     This used to sit on .home-v8 itself, and that element is rebuilt on every
+     render — so each Firestore snapshot that landed during launch replayed the
+     360ms fade. Three listeners, three fades, under a second: the flicker. */
+}
+.home-v8--enter {
   animation: fc-home-enter 360ms var(--fc-ease-decel) both;
 }
 
@@ -849,7 +855,7 @@ body.fc-theme .fc-nav {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .home-v8 { animation: none; }
+  .home-v8, .home-v8--enter { animation: none; }
   .fc-progress-line__fill,
   .fc-ui-card--interactive,
   .fc-action-button { transition: none; }
@@ -2423,18 +2429,6 @@ body.fc-theme .fc-nav {
 }
 [data-theme="light"] .home-v8__move-row:active { background: rgba(10, 21, 32, 0.05); }
 
-.home-v8__move-row-emoji {
-  flex-shrink: 0;
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.10);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 17px;
-}
-[data-theme="light"] .home-v8__move-row-emoji { background: rgba(10, 21, 32, 0.06); }
 
 .home-v8__move-row-copy { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
 .home-v8__move-row-title {
