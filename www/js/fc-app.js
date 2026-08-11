@@ -10569,11 +10569,22 @@ window.FCApp = (function () {
             </div>
             <button
               style="background:rgba(255,69,58,0.12);color:var(--fc-danger);border:1px solid rgba(255,69,58,0.22);border-radius:10px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0;white-space:nowrap"
-              onclick="FCApp.confirmDisconnectItem('','${legacyName}')"
+              data-disconnect-id=""
+              data-disconnect-name="${legacyName}"
               type="button">
               Disconnect
             </button>
           </div>`;
+        /* Same treatment as the item rows above. This one interpolated the
+           name into a single-quoted JS string, and esc() turns an apostrophe
+           into &#39; — which the HTML parser decodes back to a real quote
+           inside the attribute, ending the string early. A bank with an
+           apostrophe in its name broke this button the same way. */
+        listEl.querySelectorAll('[data-disconnect-id]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            confirmDisconnectItem(btn.dataset.disconnectId, btn.dataset.disconnectName);
+          });
+        });
         return;
       }
 
@@ -10601,12 +10612,33 @@ window.FCApp = (function () {
             </div>
             <button
               style="background:rgba(255,69,58,0.12);color:var(--fc-danger);border:1px solid rgba(255,69,58,0.22);border-radius:10px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0;white-space:nowrap"
-              onclick="FCApp.confirmDisconnectItem(${JSON.stringify(itemId)},${JSON.stringify(name)})"
+              data-disconnect-id="${itemId}"
+              data-disconnect-name="${name}"
               type="button">
               Disconnect
             </button>
           </div>`;
       }).join('');
+
+      /* The bank name and id ride on data attributes and the handler is bound
+         here, rather than being interpolated into an onclick.
+
+         This button was built as
+           onclick="FCApp.confirmDisconnectItem(${JSON.stringify(id)},…)"
+         and JSON.stringify emits real double quotes, which closed the
+         double-quoted attribute at the first one. Every Disconnect button
+         rendered as onclick="FCApp.confirmDisconnectItem(" and threw a
+         SyntaxError on tap — a bank called "Bank of America" additionally
+         split the remainder into three junk attributes. Nobody could
+         disconnect a bank, and the markup looked fine in source.
+
+         esc() already makes these safe as attribute VALUES, and dataset
+         hands them back decoded, so no quoting rules apply to the data. */
+      listEl.querySelectorAll('[data-disconnect-id]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          confirmDisconnectItem(btn.dataset.disconnectId, btn.dataset.disconnectName);
+        });
+      });
     } catch (err) {
       fcLog('[showBankSheet] error:', err);
       if (listEl) {
