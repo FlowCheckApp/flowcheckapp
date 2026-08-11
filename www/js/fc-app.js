@@ -11354,7 +11354,15 @@ window.FCApp = (function () {
   function _renderInvestments() {
     const el = document.getElementById('investments-screen-content');
     if (!el) return;
-    const invAccts = (state.accounts || []).filter(a => a.type==='investment'||a.type==='brokerage'||a.subtype==='401k'||a.subtype==='ira');
+    // `other` is Plaid's bucket for anything it cannot classify. It counts as
+    // an asset in calcNetWorth, but it matched neither the Savings filter
+    // (depository/cash subtypes) nor the Debt filter (credit/loan) — so its
+    // balance was inside the net worth total while appearing in no list at
+    // all, and the figure could not be reconciled against the accounts shown.
+    // Assets we cannot place belong with the other assets.
+    const invAccts = (state.accounts || []).filter(a =>
+      a.type==='investment' || a.type==='brokerage' || a.type==='other'
+      || a.subtype==='401k' || a.subtype==='ira');
     const total = invAccts.reduce((s,a) => s+(a.balance_current||0), 0);
 
     el.innerHTML =
