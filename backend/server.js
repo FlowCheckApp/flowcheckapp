@@ -896,7 +896,13 @@ app.post('/plaid/exchange-token', requireAuthStrict, _plaidUserLimiter, async (r
     if (!isPro) {
       const existingItems = await db.collection('users').doc(req.uid)
         .collection('plaid_items').limit(1).get();
-      if (!existingItems.empty) {
+      // An early user's only bank lives in the legacy top-level
+      // plaid_items/{uid} doc, so counting the subcollection alone reported
+      // zero and let them link a second bank for free. Same blind spot that
+      // broke their disconnect.
+      const hasLegacyItem = existingItems.empty
+        && (await db.collection('plaid_items').doc(req.uid).get()).exists;
+      if (!existingItems.empty || hasLegacyItem) {
         return res.status(403).json({ message: 'Upgrade to Pro to connect additional bank accounts.' });
       }
     }
