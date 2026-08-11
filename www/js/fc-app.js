@@ -5773,7 +5773,7 @@ window.FCApp = (function () {
       const sub=(a.subtype||'').toLowerCase(), rn=(a.name||'').toLowerCase();
       const dispName=sub==='auto'||rn.includes('dealer')||rn.includes('auto')?'Auto Loan':sub==='student'?'Student Loan':sub==='mortgage'?'Mortgage':(a.name||'Account');
       const isUrgentBal = util!=null && util > 70;
-      return `<div class="wv-debt-row" onclick="haptic&&haptic('light')">
+      return `<div class="wv-debt-row" onclick="FCApp.haptic&&FCApp.haptic('light')">
         <div class="wv-debt-icon">${_accountIcon(a)}</div>
         <div style="flex:1;min-width:0">
           <div class="wv-debt-name">${esc(dispName)}</div>

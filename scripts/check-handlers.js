@@ -102,9 +102,15 @@ function handlerCode(body) {
 }
 
 function scan(src, rel) {
+  const lines = src.split('\n');
   for (const m of src.matchAll(ATTR)) {
     const body = handlerCode(m[2]);
     const line = src.slice(0, m.index).split('\n').length;
+    /* Skip handlers quoted inside a comment. Documenting a broken handler in
+       a comment — which is exactly how the fixes in this codebase get
+       explained — must not fail the build that the comment describes. */
+    const text = (lines[line - 1] || '').trim();
+    if (text.startsWith('//') || text.startsWith('*') || text.startsWith('/*')) continue;
     for (const c of body.matchAll(CALL)) {
       const mod = c[2], modFn = c[3], bare = c[5];
       let key, ok;
@@ -114,7 +120,18 @@ function scan(src, rel) {
       } else {
         if (!bare || BUILTIN.has(bare)) continue;
         key = bare;
-        ok = globals.has(bare) || exportsOf.FCApp.has(bare);
+        /* A bare call in an inline handler resolves against element →
+           document → window. It CANNOT see fc-app.js's module internals, so
+           being on the FCApp export object is not enough — only FCApp.foo()
+           reaches those.
+
+           This used to accept `globals.has(bare) || exportsOf.FCApp.has(bare)`
+           and that second clause is exactly why it passed
+           onclick="haptic&&haptic('light')" on every Money > Debt row.
+           `haptic` is exported as FCApp.haptic, so the checker was satisfied,
+           while the device threw ReferenceError: Can't find variable: haptic
+           the moment anyone tapped a debt row. */
+        ok = globals.has(bare);
       }
       if (seen.has(key)) continue;
       seen.add(key);

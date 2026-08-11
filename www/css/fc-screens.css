@@ -2127,15 +2127,24 @@ body.fc-theme .fc-nav {
   font-size: 10px; font-weight: 600; color: var(--fc-text-faint);
 }
 
-/* Wow #1: the line draws itself, markers land as it passes them */
-.rw-line {
-  stroke-dasharray: 1000;
+/* Wow #1: the line draws itself, markers land as it passes them.
+   Scoped under .home-v8--enter — the dashboard's first-mount class — because
+   _renderHomeDashboard() rebuilds this SVG on every render. Unscoped, every
+   Firestore snapshot made the line vanish and redraw, the markers fade back
+   in from nothing and the endpoint dot pop again: a ~1.4s chart flicker on
+   every resume. The resting state below is the finished state, so a
+   re-rendered chart simply appears, already drawn. */
+.rw-line   { stroke-dasharray: 1000; stroke-dashoffset: 0; }
+.rw-marker { opacity: 1; }
+.rw-endpoint { opacity: 1; }
+
+.home-v8--enter .rw-line {
   stroke-dashoffset: 1000;
   animation: rwDraw 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.1s forwards;
 }
 @keyframes rwDraw { to { stroke-dashoffset: 0; } }
-.rw-marker  { opacity: 0; animation: rwFade 0.4s ease 0.55s forwards; }
-.rw-endpoint{ opacity: 0; animation: rwPop 0.45s cubic-bezier(0.34,1.56,0.64,1) 0.95s forwards; }
+.home-v8--enter .rw-marker  { opacity: 0; animation: rwFade 0.4s ease 0.55s forwards; }
+.home-v8--enter .rw-endpoint{ opacity: 0; animation: rwPop 0.45s cubic-bezier(0.34,1.56,0.64,1) 0.95s forwards; }
 @keyframes rwFade { to { opacity: 1; } }
 @keyframes rwPop  { from { opacity: 0; r: 1; } to { opacity: 1; r: 4.5; } }
 
@@ -2158,8 +2167,9 @@ body.fc-theme .fc-nav {
 .rw-trust svg { flex-shrink: 0; opacity: 0.85; }
 
 @media (prefers-reduced-motion: reduce) {
-  .rw-line { animation: none; stroke-dashoffset: 0; }
-  .rw-marker, .rw-endpoint { animation: none; opacity: 1; }
+  .rw-line, .home-v8--enter .rw-line { animation: none; stroke-dashoffset: 0; }
+  .rw-marker, .rw-endpoint,
+  .home-v8--enter .rw-marker, .home-v8--enter .rw-endpoint { animation: none; opacity: 1; }
 }
 
 /* ── Runway scrub (DASHBOARD_SPEC.md §4, wow #2) ──────────────── */
