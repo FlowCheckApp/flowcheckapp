@@ -904,10 +904,29 @@ window.FCData = (function () {
     });
   }
 
+  /**
+   * Update a manually-added account.
+   *
+   * Only fields on the firestore.rules allowlist may be written, and the rule
+   * checks request.resource.data — the whole document after the write, not just
+   * the changed keys — so anything extra rejects the entire update. `manual`
+   * stays true on the existing doc, which is what keeps the rule satisfied and
+   * what stops this being used to edit a Plaid-synced account.
+   */
+  async function updateManualAccount(accountId, fields) {
+    const user = FCAuth.currentUser();
+    const db   = FCAuth.db();
+    if (!user || !db) throw new Error('Not authenticated');
+    await db.collection('users').doc(user.uid).collection('accounts').doc(accountId).update({
+      ...fields,
+      updated_at: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+  }
+
   async function deleteManualAccount(accountId) {
     const user = FCAuth.currentUser();
     const db   = FCAuth.db();
-    if (!user || !db) return;
+    if (!user || !db) throw new Error('Not authenticated');
     await db.collection('users').doc(user.uid).collection('accounts').doc(accountId).delete();
   }
 
@@ -1372,6 +1391,7 @@ window.FCData = (function () {
     updateGoal,
     deleteGoal,
     createManualAccount,
+    updateManualAccount,
     deleteManualAccount,
     calcNetWorth,
     calcCash,

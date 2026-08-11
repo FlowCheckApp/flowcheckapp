@@ -2495,3 +2495,26 @@ body.fc-theme .fc-nav {
 /* .fc-action-button is sized for inline use and lands at 38px here. This is
    the one button a new user has to press, so it gets the full 44pt. */
 .home-v8__firstrun-cta { width: 100%; min-height: 44px; font-size: 15px; }
+
+/* ── Manual accounts are editable; Plaid-synced ones are not ────────────
+   Only rows carrying data-edit-account get the affordance, so the UI never
+   invites a tap that firestore.rules would refuse. */
+.wv-acct-row--editable {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background var(--fc-dur-fast, 0.18s) ease;
+}
+.wv-acct-row--editable:active { background: rgba(255, 255, 255, 0.05); }
+[data-theme="light"] .wv-acct-row--editable:active { background: rgba(10, 21, 32, 0.04); }
+.wv-acct-row--editable:focus-visible {
+  outline: 2px solid var(--fc-accent);
+  outline-offset: -2px;
+  border-radius: 10px;
+}
+.wv-acct-chevron {
+  flex-shrink: 0;
+  margin-left: 8px;
+  color: var(--fc-text-faint);
+  font-size: 17px;
+  line-height: 1;
+}

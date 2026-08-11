@@ -6889,7 +6889,7 @@ body:not(.keyboard-open) .fc-sheet {
 <div id="fc-manual-account-sheet" class="fc-sheet-overlay" onclick="if(event.target===this)FCApp.closeManualAccountSheet()" style="display:none">
   <div class="fc-sheet" onclick="event.stopPropagation()" style="padding:24px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
-      <div class="fc-h3">Add Account</div>
+      <div class="fc-h3" id="manual-acct-title">Add Account</div>
       <button class="fc-iconbtn" onclick="FCApp.closeManualAccountSheet()" type="button" aria-label="Close">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
@@ -6920,6 +6920,12 @@ body:not(.keyboard-open) .fc-sheet {
     <button class="fc-btn fc-btn--primary" id="manual-acct-save-btn" onclick="FCApp.saveManualAccount()" type="button"
             style="width:100%;margin-top:16px">
       Add Account
+    </button>
+    <!-- Edit mode only. Shown by showManualAccountSheet() when an existing
+         manual account is passed in; hidden for the add flow. -->
+    <button class="fc-btn" id="manual-acct-delete-btn" onclick="FCApp.deleteManualAccountById()" type="button"
+            style="width:100%;margin-top:10px;background:rgba(255,69,58,0.1);color:var(--fc-danger);border-color:rgba(255,69,58,0.2);display:none">
+      Delete Account
     </button>
   </div>
 </div>

@@ -5556,13 +5556,20 @@ window.FCApp = (function () {
     const nameCounts={};
     savAccts.forEach(a=>{ nameCounts[a.name||'']=(nameCounts[a.name||']']||0)+1; });
     const displayName=a=>{ const b=a.name||'Account'; return (nameCounts[b]>1&&a.mask)?`${b} ••${a.mask}`:b; };
-    const acctRow=a=>`<div class="wv-acct-row">
+    /* Manual accounts are editable, Plaid-synced ones are not: the backend
+       owns those and firestore.rules refuses client writes to them, so an
+       edit affordance there would be a button that cannot work. The id rides
+       on a data attribute and the handler is bound after render — never
+       interpolated into an onclick, which is what silently broke every
+       Disconnect button. */
+    const acctRow=a=>`<div class="wv-acct-row${a.manual?' wv-acct-row--editable':''}"${a.manual?` data-edit-account="${esc(a.id)}" role="button" tabindex="0"`:''}>
       <div class="wv-acct-icon" style="background:var(--wv-green-soft)">${_accountIcon(a)}</div>
       <div style="flex:1;min-width:0">
         <div class="wv-acct-name">${esc(displayName(a))}</div>
         ${_acctSubtext(a)?`<div class="wv-acct-sub">${esc(_acctSubtext(a))}</div>`:''}
       </div>
       <div class="wv-acct-bal">${FCData.formatCurrency(a.balance_current||a.balance||0)}</div>
+      ${a.manual?'<span class="wv-acct-chevron" aria-hidden="true">›</span>':''}
     </div>`;
     const renderGroup=(list,label)=>list.length?`<div class="wv-lbl">${label}</div><div class="wv-card wv-acct-card">${list.map(acctRow).join('')}</div>`:'';
     // Monthly save target
@@ -5620,6 +5627,14 @@ window.FCApp = (function () {
         ${monthsToTarget?`<div class="wv-plan-row"><div class="wv-plan-k">Est. Completion</div><div class="wv-plan-v">~${monthsToTarget} months</div></div>`:''}
       </div>`:''}
       <div style="height:8px"></div>`;
+
+    el.querySelectorAll('[data-edit-account]').forEach(row => {
+      const open = () => editManualAccount(row.dataset.editAccount);
+      row.addEventListener('click', open);
+      row.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+      });
+    });
   }
 
   /* ─── Wealth: Debt panel ─── */
@@ -11422,22 +11437,84 @@ window.FCApp = (function () {
      MANUAL ACCOUNTS
      ───────────────────────────────────────────────────────────── */
 
-  function showManualAccountSheet() {
-    const sheet = document.getElementById('fc-manual-account-sheet');
-    const name  = document.getElementById('manual-acct-name');
-    const bal   = document.getElementById('manual-acct-balance');
-    if (name) name.value = '';
-    if (bal)  bal.value  = '';
+  /** Set when the manual-account sheet is opened on an existing account.
+   *  Mirrors _editingBillId — same dual-mode sheet pattern as bills. */
+  let _editingAccountId = null;
+
+  /**
+   * Open the manual-account sheet.
+   *
+   * With no argument this is the add flow, unchanged. Passing an account
+   * switches it to edit: fields are populated, the title and button change,
+   * and Delete appears. Only manual accounts may be passed — a Plaid-synced
+   * account is backend-owned and firestore.rules refuses client writes to it,
+   * so offering an edit UI for one would be a button that cannot work.
+   */
+  function showManualAccountSheet(account) {
+    const sheet   = document.getElementById('fc-manual-account-sheet');
+    const titleEl = document.getElementById('manual-acct-title');
+    const name    = document.getElementById('manual-acct-name');
+    const typeEl  = document.getElementById('manual-acct-type');
+    const bal     = document.getElementById('manual-acct-balance');
+    const saveBtn = document.getElementById('manual-acct-save-btn');
+    const delBtn  = document.getElementById('manual-acct-delete-btn');
+
+    const editing = !!(account && account.id && account.manual);
+    _editingAccountId = editing ? account.id : null;
+
+    if (name)  name.value = editing ? (account.name || '') : '';
+    if (bal)   bal.value  = editing
+      ? String(Math.abs(Number(account.balance_current ?? account.balance ?? 0)))
+      : '';
+    if (typeEl) {
+      const t = String(account?.type || account?.subtype || 'savings').toLowerCase();
+      // Fall back rather than leaving the select on whatever was there last —
+      // a silently wrong type flips an asset into a debt on save.
+      typeEl.value = [...typeEl.options].some(o => o.value === t) ? t : 'savings';
+    }
+    if (titleEl) titleEl.textContent = editing ? 'Edit Account' : 'Add Account';
+    if (saveBtn) saveBtn.textContent = editing ? 'Save Changes' : 'Add Account';
+    if (delBtn)  delBtn.style.display = editing ? '' : 'none';
+
     if (sheet) { sheet.style.display = 'flex'; }
     haptic('light');
     setTimeout(() => name && name.focus(), 200);
+  }
+
+  /** Entry point from an account row. Looks the account up by id so the row
+   *  markup carries only an id, never a serialised object in an attribute. */
+  function editManualAccount(accountId) {
+    const acct = (state.accounts || []).find(a => a.id === accountId);
+    if (!acct || !acct.manual) return;
+    showManualAccountSheet(acct);
   }
 
   function closeManualAccountSheet() {
     const sheet = document.getElementById('fc-manual-account-sheet');
     if (!sheet) return;
     sheet.classList.add('fc-sheet--closing');
-    setTimeout(() => { sheet.style.display = 'none'; sheet.classList.remove('fc-sheet--closing'); }, 280);
+    setTimeout(() => {
+      sheet.style.display = 'none';
+      sheet.classList.remove('fc-sheet--closing');
+      _editingAccountId = null;
+    }, 280);
+  }
+
+  async function deleteManualAccountById() {
+    if (!_editingAccountId) return;
+    const btn = document.getElementById('manual-acct-delete-btn');
+    const label = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.textContent = 'Deleting…'; }
+    haptic('medium');
+    try {
+      await FCData.deleteManualAccount(_editingAccountId);
+      closeManualAccountSheet();
+      toast('Account deleted', 'success');
+    } catch (err) {
+      toast('Could not delete: ' + err.message, 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = label; }
+    }
   }
 
   async function saveManualAccount() {
@@ -11452,26 +11529,36 @@ window.FCApp = (function () {
 
     if (!name) { toast('Enter an account name', 'info'); return; }
 
+    const editing = !!_editingAccountId;
+    const label   = btn ? btn.textContent : '';
     if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
     haptic('light');
 
+    const fields = {
+      name,
+      type,
+      subtype:          type,
+      balance_current:  balance,
+      balance:          balance,
+      currency:         'USD',
+      mask:             null,
+    };
+
     try {
-      await FCData.createManualAccount({
-        name,
-        type,
-        subtype:          type,
-        balance_current:  balance,
-        balance:          balance,
-        currency:         'USD',
-        mask:             null,
-      });
+      if (editing) {
+        await FCData.updateManualAccount(_editingAccountId, fields);
+      } else {
+        await FCData.createManualAccount(fields);
+      }
       closeManualAccountSheet();
-      toast('Account added!', 'success');
+      toast(editing ? 'Account updated' : 'Account added!', 'success');
       haptic('medium');
     } catch (err) {
-      toast('Could not add account: ' + err.message, 'error');
+      toast(`Could not ${editing ? 'update' : 'add'} account: ` + err.message, 'error');
     } finally {
-      if (btn) { btn.disabled = false; btn.textContent = 'Add Account'; }
+      // Restore the button's own label rather than hardcoding one — this sheet
+      // now has two of them.
+      if (btn) { btn.disabled = false; btn.textContent = label; }
     }
   }
 
@@ -12706,6 +12793,8 @@ window.FCApp = (function () {
     showAllActivity,
     // Manual accounts
     showManualAccountSheet,
+    editManualAccount,
+    deleteManualAccountById,
     closeManualAccountSheet,
     saveManualAccount,
     // Notification center
