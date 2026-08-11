@@ -1310,6 +1310,54 @@ app.get('/plaid/sync', requireAuth, perUserLimiter(30), async (req, res) => {
 });
 
 /* ─────────────────────────────────────────────────────────────
+   Shared disconnect helpers.
+
+   Both disconnect routes need the same teardown. They used to carry
+   their own copies, and the per-item route's copy silently lacked the
+   legacy handling the full route had — which is how single-bank
+   disconnect came to fail for every early user.
+   ───────────────────────────────────────────────────────────── */
+
+/** Best-effort Plaid revocation. Never throws: a token Plaid has already
+ *  forgotten must not block us from deleting our own copy of the data. */
+async function _revokeItem(itemDoc, tag, uid) {
+  const { access_token } = itemDoc.data();
+  if (!access_token) return;
+  try {
+    await plaid.itemRemove({ access_token });
+    console.log(`[${tag}] uid:${uid} revoked item:${itemDoc.id}`);
+  } catch (plaidErr) {
+    console.error(`[${tag}] uid:${uid} revoke failed for item:${itemDoc.id}:`, plaidErr.message);
+  }
+}
+
+/** Delete every account and transaction document for a user, in batches. */
+async function _wipeFinancialCollections(userRef) {
+  for (const sub of ['accounts', 'transactions']) {
+    let snap;
+    do {
+      snap = await userRef.collection(sub).limit(400).get();
+      if (!snap.empty) {
+        const batch = db.batch();
+        snap.docs.forEach(d => batch.delete(d.ref));
+        await batch.commit();
+      }
+    } while (!snap.empty);
+  }
+}
+
+/** Clear the Plaid fields from the user doc once the last bank is gone. */
+async function _clearPlaidUserFields(userRef) {
+  await userRef.update({
+    plaid_linked:         false,
+    plaid_institution:    admin.firestore.FieldValue.delete(),
+    plaid_institution_id: admin.firestore.FieldValue.delete(),
+    plaid_linked_at:      admin.firestore.FieldValue.delete(),
+    last_synced:          admin.firestore.FieldValue.delete(),
+  });
+}
+
+/* ─────────────────────────────────────────────────────────────
    DELETE /plaid/disconnect
    Revokes Plaid item, wipes all financial data, sets
    plaid_linked: false. Compliant with Plaid ToS + CCPA.
@@ -1334,14 +1382,7 @@ app.delete('/plaid/disconnect', requireAuthStrict, async (req, res) => {
 
     // Revoke all Plaid items — best-effort
     for (const itemDoc of allItems) {
-      const { access_token } = itemDoc.data();
-      if (!access_token) continue;
-      try {
-        await plaid.itemRemove({ access_token });
-        console.log(`[disconnect] uid:${uid} revoked item:${itemDoc.id}`);
-      } catch (plaidErr) {
-        console.error(`[disconnect] uid:${uid} revoke failed for item:${itemDoc.id}:`, plaidErr.message);
-      }
+      await _revokeItem(itemDoc, 'disconnect', uid);
     }
 
     // Delete all plaid_items subcollection docs
@@ -1351,27 +1392,8 @@ app.delete('/plaid/disconnect', requireAuthStrict, async (req, res) => {
     // Delete legacy top-level doc if it exists
     if (legacyItemSnap.exists) await legacyItemSnap.ref.delete();
 
-    // Wipe all financial subcollections (accounts, transactions)
-    for (const sub of ['accounts', 'transactions']) {
-      let snap;
-      do {
-        snap = await userRef.collection(sub).limit(400).get();
-        if (!snap.empty) {
-          const batch = db.batch();
-          snap.docs.forEach(d => batch.delete(d.ref));
-          await batch.commit();
-        }
-      } while (!snap.empty);
-    }
-
-    // Clear Plaid fields from user doc
-    await userRef.update({
-      plaid_linked:         false,
-      plaid_institution:    admin.firestore.FieldValue.delete(),
-      plaid_institution_id: admin.firestore.FieldValue.delete(),
-      plaid_linked_at:      admin.firestore.FieldValue.delete(),
-      last_synced:          admin.firestore.FieldValue.delete(),
-    });
+    await _wipeFinancialCollections(userRef);
+    await _clearPlaidUserFields(userRef);
 
     console.log(`[disconnect] uid:${uid} fully disconnected (${allItems.length} item(s))`);
     res.json({ success: true });
@@ -1392,28 +1414,61 @@ app.delete('/plaid/disconnect/:itemId', requireAuthStrict, async (req, res) => {
   const userRef = db.collection('users').doc(uid);
 
   try {
-    const itemDoc = await userRef.collection('plaid_items').doc(itemId).get();
+    /* Resolve the item the client asked for.
+       Three layouts have existed and all three are still in the wild:
+         1. users/{uid}/plaid_items/{item_id}  — current; doc id IS the item id
+         2. the same subcollection where the doc id and the stored item_id
+            have drifted apart
+         3. legacy top-level plaid_items/{uid} — early users, doc id is the UID
+       GET /plaid/items reports (3) as { id: <uid>, item_id: <plaid id> }, and
+       the client sends item_id, so a doc-id-only lookup missed it and every
+       early user got "Bank not found" on every disconnect attempt. */
+    const subRef = userRef.collection('plaid_items');
+    let itemDoc = await subRef.doc(itemId).get();
+
+    if (!itemDoc.exists) {
+      const byField = await subRef.where('item_id', '==', itemId).limit(1).get();
+      if (!byField.empty) itemDoc = byField.docs[0];
+    }
+
+    let isLegacy = false;
+    if (!itemDoc.exists) {
+      const legacySnap = await db.collection('plaid_items').doc(uid).get();
+      if (legacySnap.exists && (uid === itemId || legacySnap.data().item_id === itemId)) {
+        itemDoc  = legacySnap;
+        isLegacy = true;
+      }
+    }
+
     if (!itemDoc.exists) {
       return res.status(404).json({ message: 'Bank not found' });
     }
 
-    // Revoke Plaid access token — best-effort
-    const { access_token } = itemDoc.data();
-    if (access_token) {
-      try {
-        await plaid.itemRemove({ access_token });
-        console.log(`[disconnect-item] uid:${uid} revoked item:${itemId}`);
-      } catch (plaidErr) {
-        console.error(`[disconnect-item] revoke failed for item:${itemId}:`, plaidErr.message);
-      }
-    }
-
-    // Delete the plaid_items doc
+    await _revokeItem(itemDoc, 'disconnect-item', uid);
     await itemDoc.ref.delete();
 
-    // Find all accounts for this item
-    const accountsSnap = await userRef.collection('accounts')
-      .where('item_id', '==', itemId).get();
+    /* A legacy user has exactly one bank, and their accounts and transactions
+       predate the item_id field entirely — so the per-item queries below would
+       match nothing and leave the data behind while reporting success. Tear it
+       all down instead, which for one bank is the same thing. */
+    if (isLegacy) {
+      await _wipeFinancialCollections(userRef);
+      await _clearPlaidUserFields(userRef);
+      console.log(`[disconnect-item] uid:${uid} legacy item removed, all data wiped`);
+      return res.json({ success: true, remaining: 0 });
+    }
+
+    /* Find this item's accounts by every id it is known under. When the doc id
+       and the stored item_id have drifted, querying only the one the client
+       happened to send leaves the other's accounts orphaned — still listed,
+       still counted in net worth, with no bank left to explain them. */
+    const itemKeys = [...new Set([itemDoc.id, itemDoc.data().item_id, itemId].filter(Boolean))];
+    const accountDocs = new Map();
+    for (const key of itemKeys) {
+      const snap = await userRef.collection('accounts').where('item_id', '==', key).get();
+      snap.docs.forEach(d => accountDocs.set(d.id, d));
+    }
+    const accountsSnap = { docs: [...accountDocs.values()] };
     const accountIds = accountsSnap.docs.map(d => d.id);
 
     // Delete transactions for each account
@@ -1442,13 +1497,7 @@ app.delete('/plaid/disconnect/:itemId', requireAuthStrict, async (req, res) => {
     const remainingSnap = await userRef.collection('plaid_items').get();
     if (remainingSnap.empty) {
       // Last bank — clear plaid state from user doc
-      await userRef.update({
-        plaid_linked:         false,
-        plaid_institution:    admin.firestore.FieldValue.delete(),
-        plaid_institution_id: admin.firestore.FieldValue.delete(),
-        plaid_linked_at:      admin.firestore.FieldValue.delete(),
-        last_synced:          admin.firestore.FieldValue.delete(),
-      });
+      await _clearPlaidUserFields(userRef);
     } else {
       // Update user doc to reflect most-recently-connected remaining bank
       const lastItem = remainingSnap.docs[remainingSnap.docs.length - 1].data();
