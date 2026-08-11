@@ -90,8 +90,24 @@ Never edit files directly in `ios/App/App/public/` — they get overwritten by `
 - `FCPurchases.isPro()` — async, live entitlement check via RevenueCat
 - `_isPro()` in fc-app.js — sync helper using cached state
 - `_renderProGate()` — renders locked card UI for non-pro users
-- Free plan: 1 bank account, basic transactions, no insights/health score
-- Pro: unlimited accounts, insights, financial health score, bills tracking
+- **FlowCheck is subscription-only. There is no free plan.** A free trial
+  (7 days on the annual product) is the only unpaid access, and it carries the
+  RevenueCat entitlement, so trial users pass every `_isPro()` check.
+- After the trial the app is hard-gated: `setScreen('app')` routes to the
+  paywall unless `_mayEnterApp()` passes. That check lives in `setScreen`
+  on purpose — there are a dozen `setScreen('app')` call sites and gating them
+  individually is how a hole gets left.
+- `grandfathered: true` exempts accounts that already had a bank connected when
+  the requirement shipped. Server-set only: it is in neither Firestore rules
+  allowlist, and both use `hasOnly()`, so a client write containing it is
+  rejected outright — same protection as `is_pro`.
+- The client gate is UX. **The enforcement is `requireEntitlement` in
+  `backend/server.js`**, which refuses `/plaid/sync` without an entitlement.
+  Disconnect, account deletion and `GET /plaid/items` stay open on purpose —
+  people must always be able to revoke bank access and delete their data,
+  and `/plaid/items` is what lists the banks to disconnect.
+- Demo mode is exempt from the gate. It shows fabricated data, touches no real
+  account, and is how App Review evaluates the app without subscribing.
 
 ## Plaid data architecture
 - Plaid tokens stored in `users/{uid}/plaid_items/{item_id}` subcollection (NEW)

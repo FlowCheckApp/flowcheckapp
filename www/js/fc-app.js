@@ -913,6 +913,17 @@ window.FCApp = (function () {
   let _screenTransitioning = false;
 
   function setScreen(name) {
+    /* The subscription gate lives here because this is the only door.
+       There are a dozen setScreen('app') call sites — onboarding, sign-in,
+       paywall close, purchase success, resume, deep links — and gating them
+       one at a time is precisely how one gets missed. Demo mode is exempt: it
+       shows fabricated data and never touches a real account, and it is what
+       lets App Review evaluate the product without a subscription. */
+    if (name === 'app' && !_isDemoMode && !_mayEnterApp()) {
+      _doSetScreen('paywall');
+      return;
+    }
+
     // Auto-skip the Face ID setup screen on devices without biometric hardware
     if (name === 'faceid-setup') {
       FCAuth.checkBiometricAvailable().then(available => {
@@ -1543,6 +1554,36 @@ window.FCApp = (function () {
     const rcPro    = !!(window.FCPurchases && typeof FCPurchases.isPro === 'function' && FCPurchases.isPro());
     const localPro = !!(state.user?.is_pro || state.user?.pro);
     return rcPro || localPro;
+  }
+
+  /**
+   * May this account reach the app shell at all?
+   *
+   * FlowCheck is subscription-only. An active RevenueCat entitlement covers
+   * the free trial too — a user inside the trial window holds the entitlement,
+   * so trial users pass here without a separate check.
+   *
+   * `grandfathered` is set by the backend for accounts that were already using
+   * the app when the requirement shipped. It is absent from both Firestore
+   * rules allowlists, which use hasOnly(), so a client that tries to write it
+   * has the whole update rejected — it cannot be self-granted, exactly like
+   * is_pro.
+   *
+   * NOTE ON WHAT THIS IS: a UX gate, not the enforcement. This runs in a
+   * WKWebView and anyone determined can get past it. The real boundary is the
+   * backend refusing to serve financial data without an entitlement. That is
+   * also why the unknown case below fails OPEN: showing a paywall to somebody
+   * who has already paid is a far worse failure than briefly showing the shell
+   * to somebody who has not, and the server gives the latter no data anyway.
+   */
+  function _mayEnterApp() {
+    if (_isPro()) return true;
+    if (state.user?.grandfathered === true) return true;
+    // Entitlement not resolved yet (cold start, RevenueCat still configuring,
+    // user doc not loaded). Do not bounce a paying customer to the paywall.
+    const rcReady = !!(window.FCPurchases && FCPurchases.isConfigured && FCPurchases.isConfigured());
+    if (!state.user || !rcReady) return true;
+    return false;
   }
 
   /** Wipe every per-user piece of in-memory state. Called from handleSignOut
@@ -10988,6 +11029,17 @@ window.FCApp = (function () {
       if (window.obGoToBankSlide) window.obGoToBankSlide();
       return;
     }
+    /* Without a subscription there is no app to close back to, and letting
+       setScreen('app') bounce off the gate would make this button appear
+       broken — the one thing the comment above it in index.html says must not
+       happen. Send them to demo mode instead: the whole product, entirely
+       fabricated data, paywall one tap away. It is also how App Review
+       evaluates the app without buying a subscription. */
+    if (!_isDemoMode && !_mayEnterApp()) {
+      toast('Showing sample data — subscribe to use your own', 'info', 4000);
+      startDemoMode();
+      return;
+    }
     setScreen('app');
     _renderHome();
     // Pro but no bank yet — nudge them to connect so the dashboard isn't empty
@@ -11245,6 +11297,8 @@ window.FCApp = (function () {
       if (window.obGoToBankSlide) window.obGoToBankSlide();
       return;
     }
+    // Same reasoning as closePaywall(): there is nothing to skip to.
+    if (!_isDemoMode && !_mayEnterApp()) { startDemoMode(); return; }
     setScreen('app');
     _renderHome();
     setTimeout(() => _doSync(false), 800);

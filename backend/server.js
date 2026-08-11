@@ -1177,7 +1177,7 @@ app.get('/plaid/items', requireAuth, async (req, res) => {
   }
 });
 
-app.get('/plaid/sync', requireAuth, perUserLimiter(30), async (req, res) => {
+app.get('/plaid/sync', requireAuth, requireEntitlement, perUserLimiter(30), async (req, res) => {
   try {
     const userRef = db.collection('users').doc(req.uid);
 
@@ -1314,6 +1314,56 @@ app.get('/plaid/sync', requireAuth, perUserLimiter(30), async (req, res) => {
     res.status(500).json({ message: msg });
   }
 });
+
+/* ─────────────────────────────────────────────────────────────
+   requireEntitlement — FlowCheck is subscription-only.
+
+   The client has a paywall gate, but it runs in a WKWebView and anyone
+   determined gets past it. This is the boundary that actually holds: no
+   entitlement, no financial data.
+
+   Deliberately NOT applied to:
+     - DELETE /plaid/disconnect and /plaid/disconnect/:itemId
+     - DELETE /user/account
+   Revoking bank access and deleting your own data must work whether or
+   not you are paying. Holding someone's bank connection hostage to a
+   lapsed subscription is wrong, and Plaid's ToS and CCPA both require
+   erasure on request regardless of billing state.
+     - GET /plaid/items
+   It is how the Banks & accounts sheet lists what to disconnect, so
+   gating it would break the disconnect flow for exactly the lapsed users
+   who need it. It carries no financial data: the access_token is
+   stripped, leaving an institution name and a linked-at date.
+
+   /plaid/sync is the one that matters — it is where balances and
+   transactions come from.
+
+   `grandfathered` covers accounts that were already using FlowCheck when
+   the requirement shipped. Neither it nor is_pro appears in the Firestore
+   rules allowlists — both use hasOnly(), so a client that tries to write
+   either has the whole update rejected.
+   ───────────────────────────────────────────────────────────── */
+async function requireEntitlement(req, res, next) {
+  try {
+    const snap = await db.collection('users').doc(req.uid).get();
+    const u = snap.data() || {};
+    if (u.is_pro || u.pro || u.grandfathered === true) return next();
+    return res.status(402).json({
+      message: 'A FlowCheck subscription is required.',
+      code:    'subscription_required',
+    });
+  } catch (err) {
+    // Fail CLOSED on anything but a transient Firestore problem — the whole
+    // point of this middleware is that it cannot be talked around.
+    const transient = ['unavailable', 'deadline-exceeded', 'resource-exhausted'].includes(err.code);
+    if (transient) {
+      console.warn('[entitlement] transient lookup failure, allowing:', err.message);
+      return next();
+    }
+    console.error('[entitlement] lookup failed:', err.code, err.message);
+    return res.status(503).json({ message: 'Service temporarily unavailable. Please try again.' });
+  }
+}
 
 /* ─────────────────────────────────────────────────────────────
    Shared disconnect helpers.
