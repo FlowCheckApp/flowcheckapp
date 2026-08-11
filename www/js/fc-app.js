@@ -10576,7 +10576,12 @@ window.FCApp = (function () {
 
       listEl.innerHTML = items.map(item => {
         const name   = esc(item.institution || 'Bank Account');
-        const itemId = esc(item.item_id || item.id || '');
+        // `id` is the Firestore doc id, which is what DELETE
+        // /plaid/disconnect/:itemId looks up first. This preferred item_id,
+        // and for a legacy user those are two different values — the doc id
+        // is their uid — so the lookup missed and disconnect always 404'd.
+        // The backend now resolves either, but send the one it keys on.
+        const itemId = esc(item.id || item.item_id || '');
         return `
           <div class="fcs-detail-row">
             <div style="min-width:0;flex:1;margin-right:12px">
