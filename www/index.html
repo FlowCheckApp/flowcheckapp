@@ -1469,6 +1469,27 @@ body {
   -webkit-user-select: none; user-select: none;
   box-shadow: 0 -20px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.07);
 }
+/* Form sheets. This was an inline style="padding:24px" on five sheets, which
+   dropped the bottom safe-area inset the class sets (the last control sat
+   under the home indicator) and, being inline, also beat the keyboard-open
+   padding override below. Same padding, in the cascade where it can be
+   overridden. */
+.fc-sheet--form {
+  padding: 24px 24px calc(env(safe-area-inset-bottom) + 24px);
+}
+
+/* …but never on the form controls inside it. Every in-app text field lives in
+   a sheet, and on iOS an inherited -webkit-user-select:none is what takes away
+   caret placement, the selection loupe and the tap-to-select handles — you can
+   type into the field but you cannot tap into the middle of it to fix a typo.
+   Form controls are the one thing in a sheet that must stay selectable. */
+.fc-sheet input,
+.fc-sheet textarea,
+.fc-sheet select,
+.fc-sheet [contenteditable] {
+  -webkit-user-select: text; user-select: text;
+  -webkit-touch-callout: default;
+}
 /* Deliberately NO translate when the keyboard opens.
 
    With resize:"native" the WebView has already been resized to the area above
@@ -1484,6 +1505,14 @@ body {
    settles smoothly if a transform is ever applied for another reason. */
 body.keyboard-open .fc-sheet {
   transition: transform 0.25s cubic-bezier(0.32, 0.72, 0, 1);
+  /* With resize:"native" the viewport is ALREADY only the area above the
+     keyboard, so the 90% cap above throws away a tenth of the only space the
+     form has left — the reason fields ended up just under the fold with the
+     keyboard up. Use the full height here and let the sheet scroll inside it.
+     The bottom safe-area inset also collapses to 0 while the keyboard covers
+     the home indicator, so the padding below must not reserve room for it. */
+  max-height: 100dvh;
+  padding-bottom: 16px;
 }
 body:not(.keyboard-open) .fc-sheet {
   transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
@@ -2368,7 +2397,7 @@ body:not(.keyboard-open) .fc-sheet {
 
     <div class="fc-input-group fc-auth-field-enter" style="width:100%">
       <label class="fc-input-label" for="reg-name">First name</label>
-      <input id="reg-name" class="fc-input" type="text" autocomplete="given-name" autocapitalize="words" placeholder="Your first name" enterkeyhint="next" onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('reg-email').focus()}">
+      <input id="reg-name" class="fc-input" type="text" autocomplete="given-name" autocapitalize="words" autocorrect="off" spellcheck="false" placeholder="Your first name" enterkeyhint="next" onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('reg-email').focus()}">
     </div>
 
     <div class="fc-input-group fc-auth-field-enter" style="width:100%">
@@ -2727,7 +2756,7 @@ body:not(.keyboard-open) .fc-sheet {
       <label class="fc-input-label" for="fp-email">Email address</label>
       <input id="fp-email" class="fc-input" type="email" autocomplete="email" inputmode="email"
              placeholder="you@example.com"
-             onkeydown="if(event.key==='Enter'){FCApp.handleForgotPasswordScreen()}">
+             onkeydown="if(event.key==='Enter'){FCApp.handleForgotPasswordScreen()}" autocapitalize="none" enterkeyhint="go">
     </div>
 
     <button id="btn-fp-send" class="fc-btn fc-btn--primary fc-btn--block"
@@ -3324,7 +3353,7 @@ body:not(.keyboard-open) .fc-sheet {
         <div class="ob-rw-money">
           <span class="ob-rw-cur">$</span>
           <input class="ob-rw-input" id="ob-rw-cash" type="text" inputmode="decimal"
-                 placeholder="340" autocomplete="off" aria-label="Amount in checking">
+                 placeholder="340" autocomplete="off" aria-label="Amount in checking" enterkeyhint="next">
         </div>
 
         <p class="ob-rw-label" style="margin-top:16px">When do you next get paid?</p>
@@ -3339,7 +3368,7 @@ body:not(.keyboard-open) .fc-sheet {
         <div class="ob-rw-money">
           <span class="ob-rw-cur">$</span>
           <input class="ob-rw-input" id="ob-rw-bill" type="text" inputmode="decimal"
-                 placeholder="Rent, car payment…" autocomplete="off" aria-label="Largest bill due before payday">
+                 placeholder="Rent, car payment…" autocomplete="off" aria-label="Largest bill due before payday" enterkeyhint="done">
         </div>
 
         <div class="ob-rw-result" id="ob-rw-result" aria-live="polite">
@@ -4376,7 +4405,7 @@ body:not(.keyboard-open) .fc-sheet {
     </div>
     <label class="fc-web-search" aria-label="Search FlowCheck activity">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>
-      <input type="search" placeholder="Search transactions" autocomplete="off" oninput="FCApp.handleWebSearch && FCApp.handleWebSearch(this.value)">
+      <input type="search" placeholder="Search transactions" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" enterkeyhint="search" oninput="FCApp.handleWebSearch && FCApp.handleWebSearch(this.value)">
     </label>
     <div class="fc-header-actions">
       <button class="fc-iconbtn" aria-label="Sync accounts" id="header-sync-btn" onclick="FCApp.manualSync && FCApp.manualSync()">
@@ -5479,7 +5508,8 @@ body:not(.keyboard-open) .fc-sheet {
                moment there is text in the field, so a screen-reader user who
                navigates back to it hears an unnamed edit box. -->
           <input id="activity-search" type="search" placeholder="Search transactions"
-                 aria-label="Search transactions" autocomplete="off">
+                 aria-label="Search transactions" autocomplete="off"
+                 autocorrect="off" autocapitalize="none" spellcheck="false" enterkeyhint="search">
         </div>
       </div>
       <button class="act-filter-btn" onclick="FCApp.showActivityFilterSheet()" type="button" aria-label="Filter">
@@ -6790,7 +6820,7 @@ body:not(.keyboard-open) .fc-sheet {
 
 <!-- ════════════════════ SHEET: ADD / EDIT GOAL ════════════════ -->
 <div id="fc-goal-sheet" class="fc-sheet-overlay" onclick="if(event.target===this)FCApp.closeGoalSheet()" style="display:none">
-  <div class="fc-sheet" onclick="event.stopPropagation()" style="padding:24px">
+  <div class="fc-sheet fc-sheet--form" onclick="event.stopPropagation()">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
       <div class="fc-h3" id="goal-sheet-title">Add Goal</div>
       <button class="fc-iconbtn" onclick="FCApp.closeGoalSheet()" type="button" aria-label="Close">
@@ -6800,15 +6830,15 @@ body:not(.keyboard-open) .fc-sheet {
     <div style="display:flex;flex-direction:column;gap:14px">
       <div class="fc-input-group" style="margin:0">
         <label class="fc-input-label" for="goal-name-input">Goal Name</label>
-        <input id="goal-name-input" type="text" class="fc-input" placeholder="e.g. Emergency Fund, New Car…" maxlength="50" autocomplete="off">
+        <input id="goal-name-input" type="text" class="fc-input" placeholder="e.g. Emergency Fund, New Car…" maxlength="50" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" enterkeyhint="next">
       </div>
       <div class="fc-input-group" style="margin:0">
         <label class="fc-input-label" for="goal-target-input">Target Amount ($)</label>
-        <input id="goal-target-input" type="number" class="fc-input" inputmode="decimal" placeholder="10000" min="1" step="1" oninput="FCApp._updateGoalCalc&&FCApp._updateGoalCalc()">
+        <input id="goal-target-input" type="number" class="fc-input" inputmode="decimal" placeholder="10000" min="1" step="1" oninput="FCApp._updateGoalCalc&&FCApp._updateGoalCalc()" enterkeyhint="next">
       </div>
       <div class="fc-input-group" style="margin:0">
         <label class="fc-input-label" for="goal-current-input">Current Progress ($)</label>
-        <input id="goal-current-input" type="number" class="fc-input" inputmode="decimal" placeholder="0" min="0" step="1" oninput="FCApp._updateGoalCalc&&FCApp._updateGoalCalc()">
+        <input id="goal-current-input" type="number" class="fc-input" inputmode="decimal" placeholder="0" min="0" step="1" oninput="FCApp._updateGoalCalc&&FCApp._updateGoalCalc()" enterkeyhint="next">
       </div>
       <div class="fc-input-group" style="margin:0">
         <label class="fc-input-label" for="goal-date-input">Target Date <span style="color:var(--fc-text-faint);font-weight:400">(optional)</span></label>
@@ -6833,7 +6863,7 @@ body:not(.keyboard-open) .fc-sheet {
 
 <!-- ════════════════════ SHEET: TRANSACTION DETAIL ═════════════════ -->
 <div id="fc-txn-sheet" class="fc-sheet-overlay" onclick="if(event.target===this)FCApp.closeTransactionSheet()" style="display:none" role="dialog" aria-modal="true" aria-label="Edit Transaction">
-  <div class="fc-sheet" onclick="event.stopPropagation()" style="padding:24px;max-height:85dvh;overflow-y:auto">
+  <div class="fc-sheet fc-sheet--form" onclick="event.stopPropagation()" style="max-height:85dvh;overflow-y:auto">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
       <div class="fc-h3">Transaction Detail</div>
       <button class="fc-iconbtn" onclick="FCApp.closeTransactionSheet()" type="button" aria-label="Close">
@@ -6855,7 +6885,7 @@ body:not(.keyboard-open) .fc-sheet {
     <div style="display:flex;flex-direction:column;gap:14px">
       <div class="fc-input-group" style="margin:0">
         <label class="fc-input-label" for="txn-name-input">Custom Name <span style="color:var(--fc-text-faint);font-weight:400">(optional)</span></label>
-        <input id="txn-name-input" type="text" class="fc-input" placeholder="Leave blank to keep original" maxlength="60" autocomplete="off">
+        <input id="txn-name-input" type="text" class="fc-input" placeholder="Leave blank to keep original" maxlength="60" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" enterkeyhint="done">
       </div>
       <div class="fc-input-group" style="margin:0">
         <label class="fc-input-label" for="txn-cat-select">Category</label>
@@ -6875,7 +6905,7 @@ body:not(.keyboard-open) .fc-sheet {
 
 <!-- ════════════════════ SHEET: CATEGORY BUDGET ══════════════════ -->
 <div id="fc-budget-sheet" class="fc-sheet-overlay" onclick="if(event.target===this)FCApp.closeCategoryBudgetSheet()" style="display:none" role="dialog" aria-modal="true" aria-label="Set Category Budget">
-  <div class="fc-sheet" onclick="event.stopPropagation()" style="padding:24px">
+  <div class="fc-sheet fc-sheet--form" onclick="event.stopPropagation()">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
       <div class="fc-h3" id="budget-sheet-title">Set Budget</div>
       <button class="fc-iconbtn" onclick="FCApp.closeCategoryBudgetSheet()" type="button" aria-label="Close">
@@ -6885,7 +6915,7 @@ body:not(.keyboard-open) .fc-sheet {
     <div id="budget-current-spend" style="font-size:13px;color:var(--fc-text-faint);margin-bottom:14px"></div>
     <div class="fc-input-group" style="margin:0">
       <label class="fc-input-label" for="budget-limit-input">Monthly Budget ($)</label>
-      <input id="budget-limit-input" type="number" class="fc-input" inputmode="decimal" placeholder="e.g. 500" min="0" step="10">
+      <input id="budget-limit-input" type="number" class="fc-input" inputmode="decimal" placeholder="e.g. 500" min="0" step="10" enterkeyhint="done">
     </div>
     <!-- Quick presets -->
     <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap" id="budget-presets"></div>
@@ -6902,7 +6932,7 @@ body:not(.keyboard-open) .fc-sheet {
 
 <!-- ════════════════════ SHEET: MANUAL ACCOUNT ═════════════════ -->
 <div id="fc-manual-account-sheet" class="fc-sheet-overlay" onclick="if(event.target===this)FCApp.closeManualAccountSheet()" style="display:none">
-  <div class="fc-sheet" onclick="event.stopPropagation()" style="padding:24px">
+  <div class="fc-sheet fc-sheet--form" onclick="event.stopPropagation()">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
       <div class="fc-h3" id="manual-acct-title">Add Account</div>
       <button class="fc-iconbtn" onclick="FCApp.closeManualAccountSheet()" type="button" aria-label="Close">
@@ -6912,7 +6942,7 @@ body:not(.keyboard-open) .fc-sheet {
     <div style="display:flex;flex-direction:column;gap:14px">
       <div class="fc-input-group" style="margin:0">
         <label class="fc-input-label" for="manual-acct-name">Account Name</label>
-        <input id="manual-acct-name" type="text" class="fc-input" placeholder="e.g. High-Yield Savings" maxlength="50" autocomplete="off">
+        <input id="manual-acct-name" type="text" class="fc-input" placeholder="e.g. High-Yield Savings" maxlength="50" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" enterkeyhint="next">
       </div>
       <div class="fc-input-group" style="margin:0">
         <label class="fc-input-label" for="manual-acct-type">Account Type</label>
@@ -6926,7 +6956,7 @@ body:not(.keyboard-open) .fc-sheet {
       </div>
       <div class="fc-input-group" style="margin:0">
         <label class="fc-input-label" for="manual-acct-balance">Balance ($)</label>
-        <input id="manual-acct-balance" type="number" class="fc-input" inputmode="decimal" placeholder="0.00" min="0" step="0.01">
+        <input id="manual-acct-balance" type="number" class="fc-input" inputmode="decimal" placeholder="0.00" min="0" step="0.01" enterkeyhint="done">
       </div>
     </div>
     <p style="font-size:12px;color:var(--fc-text-faint);margin-top:14px;line-height:1.5">
@@ -6947,7 +6977,7 @@ body:not(.keyboard-open) .fc-sheet {
 
 <!-- ════════════════════════════════ BILL SHEET (add / edit) ════ -->
 <div id="fc-bill-sheet" class="fc-sheet-overlay" onclick="if(event.target===this)FCApp.closeBillSheet()" style="display:none">
-  <div class="fc-sheet" onclick="event.stopPropagation()" style="padding:24px">
+  <div class="fc-sheet fc-sheet--form" onclick="event.stopPropagation()">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
       <div class="fc-h3" id="bill-sheet-title">Add Bill</div>
       <button class="fc-iconbtn" onclick="FCApp.closeBillSheet()" type="button" aria-label="Close">
@@ -6958,11 +6988,11 @@ body:not(.keyboard-open) .fc-sheet {
       <input type="hidden" id="bill-edit-id">
       <div class="fc-input-group" style="margin:0">
         <label class="fc-input-label" for="bill-name">Bill Name</label>
-        <input id="bill-name" type="text" class="fc-input" placeholder="e.g. Netflix, Rent, Electric" maxlength="60" autocomplete="off">
+        <input id="bill-name" type="text" class="fc-input" placeholder="e.g. Netflix, Rent, Electric" maxlength="60" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" enterkeyhint="next">
       </div>
       <div class="fc-input-group" style="margin:0">
         <label class="fc-input-label" for="bill-amount">Amount ($)</label>
-        <input id="bill-amount" type="number" class="fc-input" inputmode="decimal" placeholder="0.00" min="0" step="0.01">
+        <input id="bill-amount" type="number" class="fc-input" inputmode="decimal" placeholder="0.00" min="0" step="0.01" enterkeyhint="next">
       </div>
       <div class="fc-input-group" style="margin:0">
         <label class="fc-input-label" for="bill-due-date">Due Date</label>
@@ -7236,9 +7266,25 @@ window._btnLoad = _btnLoad;
     return _screenEl();
   }
 
-  // Track the last container that had paddingBottom injected so we can clean
-  // it up on hide even if the active element has changed by then.
-  let _paddedContainer = null;
+  // Every container that had paddingBottom injected, so we can clean them all
+  // up on hide even if the active element has changed by then.
+  // A single slot was not enough: focusing a field in a sheet padded the
+  // sheet, then focusing one on the screen behind it overwrote the reference
+  // and the sheet's padding was never removed — it survived until the next
+  // full re-render, leaving a dead gap under the form.
+  const _paddedContainers = new Set();
+  const _basePad = new WeakMap();   // container -> its padding before we touched it
+
+  // Fields that open a picker rather than a keyboard. iOS presents these
+  // through the same input-view mechanism, so keyboardWillShow DOES fire and
+  // the WebView DOES shrink — but the old guard below only let INPUT and
+  // TEXTAREA through, so a <select> or date field at the bottom of a sheet
+  // was left sitting behind the picker with nothing scrolling it into view.
+  const _PICKER_TYPES = new Set(['date', 'month', 'time', 'datetime-local', 'week']);
+  function _isFocusableField(el) {
+    if (!el) return false;
+    return el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT';
+  }
 
   // Sheet overlay IDs that contain input fields — used to decide whether
   // paddingBottom injection is needed when the keyboard appears.
@@ -7262,29 +7308,40 @@ window._btnLoad = _btnLoad;
 
   function _scrollToActive() {
     const active = document.activeElement;
-    if (!active || (active.tagName !== 'INPUT' && active.tagName !== 'TEXTAREA')) return;
+    if (!_isFocusableField(active)) return;
     if (!_kbOpen) return;
     const container = _scrollableParent(active);
     if (!container) return;
 
     // With resize:"native" the WebView has already shrunk to fit above the
     // keyboard, so vv.height IS the usable area — no kbH calculation needed.
-    const vvH     = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-    // Auth screens and in-app sheets both need bottom padding so the CTA
-    // button stays visible above the keyboard. Pure scroll views (home,
-    // activity, insights) only need the scrollTop nudge.
-    const needsPad = _isAuth() || _isInSheet(active);
-    const padding  = needsPad ? 100 : 20;
+    const vvH  = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    // Breathing room under the focused field. Sheets and auth screens keep a
+    // CTA below the field, so they need more of it than a plain scroll view.
+    const margin = (_isAuth() || _isInSheet(active)) ? 88 : 20;
 
-    if (needsPad) {
-      container.style.paddingBottom = Math.max(80, padding) + 'px';
-      _paddedContainer = container;
-    }
+    const rect  = active.getBoundingClientRect();
+    const delta = rect.bottom - (vvH - margin);
+    if (delta <= 0) return;                       // already comfortably visible
 
-    const rect = active.getBoundingClientRect();
-    if (rect.bottom > vvH - padding) {
-      container.scrollTop += rect.bottom - (vvH - padding);
+    /* Pad only by what is actually missing. This used to inject a flat 100px
+       into every sheet on every focus — visible as a jump, unrelated to where
+       the field actually was, and still not enough for the last field in a
+       long form (there was nothing below it to scroll against). Measure the
+       scroll room that remains and top up only the shortfall. */
+    const room = container.scrollHeight - container.scrollTop - container.clientHeight;
+    if (room < delta) {
+      // Always measure from the container's ORIGINAL padding, remembered the
+      // first time we touch it. Reading back the computed value would include
+      // the padding we just injected, so switching between fields would
+      // compound it and the form would grow a larger gap on every tap.
+      if (!_basePad.has(container)) {
+        _basePad.set(container, parseFloat(getComputedStyle(container).paddingBottom) || 0);
+      }
+      container.style.paddingBottom = _basePad.get(container) + Math.ceil(delta - room) + 'px';
+      _paddedContainers.add(container);
     }
+    container.scrollTop += delta;
   }
 
   function _onKeyboardHide() {
@@ -7293,8 +7350,9 @@ window._btnLoad = _btnLoad;
     document.documentElement.style.setProperty('--keyboard-height', '0px');
     clearTimeout(_kbTimer);
     _kbTimer = setTimeout(() => {
-      // Clear padding on whichever container we injected it into
-      if (_paddedContainer) { _paddedContainer.style.paddingBottom = ''; _paddedContainer = null; }
+      // Clear padding on EVERY container we injected into, not just the last.
+      _paddedContainers.forEach(c => { c.style.paddingBottom = ''; _basePad.delete(c); });
+      _paddedContainers.clear();
       const el = _screenEl();
       if (el && _isAuth()) el.scrollTop = 0;
     }, 100);
@@ -7318,6 +7376,11 @@ window._btnLoad = _btnLoad;
     });
     KbPlugin.addListener('keyboardDidShow', _scrollToActive);
     KbPlugin.addListener('keyboardWillHide', _onKeyboardHide);
+    // Safety net: an interactive dismiss (drag the keyboard down) can fire
+    // willHide for a hide that then gets cancelled, and a hide during a screen
+    // transition can be missed entirely. didHide is the authoritative "it is
+    // actually gone", and re-running the teardown is idempotent.
+    KbPlugin.addListener('keyboardDidHide', _onKeyboardHide);
   } else if (window.visualViewport) {
     // ── Fallback: visualViewport (web / simulator) ────────────────────────
     // Debounce so we only scroll after the viewport STOPS changing, not while
@@ -7343,10 +7406,28 @@ window._btnLoad = _btnLoad;
   // Don't fire on initial focus — let keyboardDidShow handle that. Only fire
   // when the keyboard is already open so a tap to the next field scrolls it in.
   document.addEventListener('focusin', (e) => {
-    if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') return;
+    if (!_isFocusableField(e.target)) return;
     if (!_kbOpen) return;
     requestAnimationFrame(_scrollToActive);
   }, { passive: true });
+
+  /* Picker fields on the web/simulator fallback. A <select> or date field
+     never changes visualViewport in a browser, so the fallback path above
+     never marks the keyboard open and these were never scrolled into view at
+     all. On device the plugin path covers them; this keeps the two surfaces
+     behaving the same so the difference cannot hide a bug again. */
+  if (!KbPlugin) {
+    document.addEventListener('focusin', (e) => {
+      const el = e.target;
+      if (!el || (el.tagName !== 'SELECT' && !_PICKER_TYPES.has(el.type))) return;
+      setTimeout(() => {
+        const wasOpen = _kbOpen;
+        _kbOpen = true;              // _scrollToActive requires it; restore after
+        _scrollToActive();
+        _kbOpen = wasOpen;
+      }, 120);
+    }, { passive: true });
+  }
 })();
 
 /* ── Wire btn-login and btn-register to use premium loading state ── */
@@ -7817,18 +7898,18 @@ attachToFCApp();
       <div style="margin-bottom:14px">
         <label for="edit-profile-name" style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.4);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px">Display Name</label>
         <input id="edit-profile-name" type="text" autocomplete="name" autocapitalize="words" placeholder="Your name"
-               style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:13px 16px;font-size:15px;color:#fff;font-family:inherit;outline:none;-webkit-appearance:none">
+               style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:13px 16px;font-size:15px;color:#fff;font-family:inherit;outline:none;-webkit-appearance:none" autocorrect="off" spellcheck="false" enterkeyhint="next">
       </div>
       <div style="margin-bottom:14px">
         <label for="edit-profile-email" style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.4);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px">Email Address</label>
         <input id="edit-profile-email" type="email" inputmode="email" autocomplete="email" placeholder="you@example.com"
-               style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:13px 16px;font-size:15px;color:#fff;font-family:inherit;outline:none;-webkit-appearance:none">
+               style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:13px 16px;font-size:15px;color:#fff;font-family:inherit;outline:none;-webkit-appearance:none" autocapitalize="none" enterkeyhint="next">
         <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:5px;padding-left:4px">Changing email requires recent sign-in for security.</div>
       </div>
       <div style="margin-bottom:20px">
         <label for="edit-profile-phone" style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.4);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px">Phone (optional)</label>
         <input id="edit-profile-phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+1 (555) 000-0000"
-               style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:13px 16px;font-size:15px;color:#fff;font-family:inherit;outline:none;-webkit-appearance:none">
+               style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:13px 16px;font-size:15px;color:#fff;font-family:inherit;outline:none;-webkit-appearance:none" enterkeyhint="done">
       </div>
       <div id="edit-profile-error" style="font-size:13px;color:var(--fc-danger);margin-bottom:12px;min-height:18px"></div>
       <button id="edit-profile-save-btn" onclick="FCApp.saveProfileChanges()"

@@ -1,0 +1,126 @@
+#!/usr/bin/env node
+/**
+ * check-keyboard-invariants.js
+ *
+ * The keyboard is the one surface where a missing attribute is invisible in a
+ * browser and obvious on a phone. Every rule here is something that was
+ * actually wrong and was actually felt:
+ *
+ *   · A text field with no autocorrect="off" gets its merchant or bill name
+ *     rewritten by iOS as you type it.
+ *   · A field with no enterkeyhint shows a Return key labelled "return" that
+ *     does nothing, on a form whose only other exit is tapping the background.
+ *   · An inline style="padding:24px" on a sheet drops the bottom safe-area
+ *     inset AND outranks the keyboard-open override, because inline styles win.
+ *   · -webkit-user-select:none inherited into an <input> takes away caret
+ *     placement and the selection loupe — you can type but not correct.
+ *   · A SECOND keyboard listener set is the bug this whole area keeps having
+ *     (94e7c1c deleted one, and the two had been fighting for weeks).
+ *
+ * Exit 0 = clean. Exit 1 = something regressed.
+ */
+'use strict';
+
+const fs = require('fs');
+const path = require('path');
+
+const root = path.resolve(__dirname, '..');
+const html = fs.readFileSync(path.join(root, 'www/index.html'), 'utf8');
+const appJs = fs.readFileSync(path.join(root, 'www/js/fc-app.js'), 'utf8');
+
+const failures = [];
+const lineOf = (src, idx) => src.slice(0, idx).split('\n').length;
+
+/* ── 1. Field attributes ──────────────────────────────────────────── */
+// Types that open a keyboard with a Return key. select/date/month/number-pad
+// fields have no Return key on iOS, so enterkeyhint is meaningless for them.
+const NEEDS_ENTERKEYHINT = new Set(['text', 'email', 'password', 'search', 'url']);
+// Free-text fields where iOS autocorrect actively corrupts input.
+const NEEDS_AUTOCORRECT_OFF = new Set(['text', 'search']);
+
+const fields = [];
+const tagRe = /<(input|textarea|select)\b[\s\S]{0,500}?>/g;
+let m;
+while ((m = tagRe.exec(html))) {
+  const tag = m[0];
+  if (/type=["']?(hidden|checkbox|radio|submit|button)/.test(tag)) continue;
+  fields.push({
+    tag,
+    line: lineOf(html, m.index),
+    id: (tag.match(/id=["']([^"']+)/) || [])[1] || '(no id)',
+    type: (tag.match(/type=["']([^"']+)/) || [])[1] || m[1],
+  });
+}
+
+for (const f of fields) {
+  /* A numeric inputmode gets the number pad, which has no autocorrect, no
+     shift key and no Return key. Demanding autocorrect/autocapitalize on
+     those is noise — the keyboard cannot do either. */
+  const numericPad = /inputmode=["'](decimal|numeric|tel)/.test(f.tag);
+
+  if (NEEDS_ENTERKEYHINT.has(f.type) && !numericPad && !/enterkeyhint=/.test(f.tag)) {
+    failures.push(`www/index.html:${f.line} ${f.id} [${f.type}] has no enterkeyhint — `
+      + `its Return key will say "return" and do nothing`);
+  }
+  if (NEEDS_AUTOCORRECT_OFF.has(f.type) && !numericPad && !/autocorrect=["']off/.test(f.tag)) {
+    failures.push(`www/index.html:${f.line} ${f.id} [${f.type}] has no autocorrect="off" — `
+      + `iOS will rewrite what the user types`);
+  }
+  // A field the user types a name into must not be sentence-capitalised, and
+  // must not be left to iOS's default. email/tel/number suppress this natively.
+  if (f.type === 'text' && !numericPad && !/autocapitalize=/.test(f.tag)) {
+    failures.push(`www/index.html:${f.line} ${f.id} [text] has no autocapitalize`);
+  }
+}
+
+/* ── 2. Sheets must not carry inline padding ──────────────────────── */
+const inlinePad = [...html.matchAll(/<div[^>]*class="[^"]*fc-sheet[^"]*"[^>]*style="[^"]*padding:\s*24px/g)];
+inlinePad.forEach(hit => {
+  failures.push(`www/index.html:${lineOf(html, hit.index)} a sheet still has inline `
+    + `padding:24px — it drops env(safe-area-inset-bottom) and outranks the `
+    + `body.keyboard-open override. Use class="fc-sheet fc-sheet--form".`);
+});
+
+/* ── 3. Inputs inside sheets must stay selectable ─────────────────── */
+if (!/\.fc-sheet input[\s\S]{0,200}user-select:\s*text/.test(html)) {
+  failures.push('www/index.html — the rule restoring user-select:text on form '
+    + 'controls inside .fc-sheet is gone. .fc-sheet sets user-select:none, and '
+    + 'inheriting that into an input removes caret placement on iOS.');
+}
+
+/* ── 4. Exactly ONE keyboard listener set ─────────────────────────── */
+// Counted across both files: index.html owns it, fc-app.js must not re-add one.
+const kbListeners = [
+  ...html.matchAll(/addListener\(\s*['"]keyboard(WillShow|DidShow|WillHide|DidHide)['"]/g),
+  ...appJs.matchAll(/addListener\(\s*['"]keyboard(WillShow|DidShow|WillHide|DidHide)['"]/g),
+];
+const inApp = [...appJs.matchAll(/addListener\(\s*['"]keyboard(WillShow|DidShow|WillHide|DidHide)['"]/g)];
+if (inApp.length) {
+  failures.push(`www/js/fc-app.js has ${inApp.length} keyboard listener(s). Keyboard `
+    + `handling lives ONLY in the "Keyboard avoidance" IIFE in index.html — a `
+    + `second set was deleted in 94e7c1c after the two fought for weeks.`);
+}
+if (!kbListeners.length) {
+  failures.push('no keyboard listeners found at all — the avoidance IIFE is gone');
+}
+
+/* ── 5. The class CSS keys off must be the one JS sets ────────────── */
+const setsClass = /classList\.add\(\s*['"]keyboard-open['"]/.test(html);
+const stylesClass = /body\.keyboard-open/.test(html);
+if (!setsClass || !stylesClass) {
+  failures.push('the keyboard-open class is set by JS but unused by CSS (or vice '
+    + 'versa) — this exact mismatch (fc-keyboard-open vs keyboard-open) is why '
+    + 'the avoidance system silently did nothing.');
+}
+
+/* ── Report ───────────────────────────────────────────────────────── */
+if (failures.length) {
+  console.error('Keyboard invariant check FAILED:\n');
+  failures.forEach(f => console.error('  ✗ ' + f));
+  console.error(`\n${failures.length} problem(s).\n`);
+  process.exit(1);
+}
+
+console.log(`keyboard check: ${fields.length} fields, `
+  + `${kbListeners.length} listener(s) in one place`);
+console.log('✓ every field declares its keyboard, and sheets stay selectable.');

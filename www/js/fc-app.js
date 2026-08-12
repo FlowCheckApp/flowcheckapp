@@ -9972,10 +9972,45 @@ window.FCApp = (function () {
     if (focusFirst && boxes[0]) boxes[0].focus();
   }
 
+  /** Spread a multi-digit string across the boxes starting at `from`.
+   *  Returns the number of boxes filled. */
+  function _fillOtpFrom(from, digits) {
+    const boxes = document.querySelectorAll('.fc-otp-box');
+    let n = 0;
+    for (let i = 0; i < digits.length && from + i < boxes.length; i++) {
+      const b = boxes[from + i];
+      b.value = digits[i];
+      b.classList.toggle('filled', true);
+      b.classList.remove('error');
+      n++;
+    }
+    const last = boxes[Math.min(from + n, boxes.length - 1)];
+    if (from + n >= boxes.length) { if (last) last.blur(); }
+    else if (last) last.focus();
+    return n;
+  }
+
   /** Auto-advance to next box on digit entry, mark filled */
   function otpBoxInput(el) {
     const val = el.value.replace(/\D/g, '');
-    el.value = val ? val[val.length - 1] : '';
+
+    /* iOS SMS/email autofill drops the WHOLE code into the box that carries
+       autocomplete="one-time-code" and fires `input`, not `paste` — so
+       handleOtpPaste never saw it, and this used to keep only
+       val[val.length - 1]. Tapping "From Messages: 123456" put a lone "6" in
+       the first box and silently threw the rest away. Anything longer than a
+       single digit is an autofill or a paste: spread it across the boxes. */
+    if (val.length > 1) {
+      el.value = '';
+      // A full-length code always starts at box 1, whichever box received it —
+      // every box carries one-time-code, so autofill can land in any of them.
+      const from = val.length >= 6 ? 0 : (+el.dataset.index || 0);
+      _fillOtpFrom(from, val);
+      if (_getOtpValue().length === 6) handleVerifyEmailCheck();
+      return;
+    }
+
+    el.value = val;
     el.classList.toggle('filled', !!el.value);
     el.classList.remove('error');
     if (el.value) {
