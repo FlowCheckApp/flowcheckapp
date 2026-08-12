@@ -13350,6 +13350,19 @@ window.FCApp = (function () {
     document.documentElement.style.backgroundColor = bg;
     document.body && (document.body.style.backgroundColor = bg);
 
+    /* Keep the native keyboard in the same appearance as the app. The plugin
+       is configured with a style, but that is a launch default — this is the
+       only thing that tracks a runtime change, and without it someone who
+       picks dark in-app on a light-mode phone gets a white keyboard against a
+       dark navy form. */
+    try {
+      const kb = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Keyboard;
+      if (kb && kb.setStyle) {
+        const p = kb.setStyle({ style: isDark ? 'dark' : 'light' });
+        if (p && p.catch) p.catch(() => {});
+      }
+    } catch (_) {}
+
     // Highlight the active picker button
     document.querySelectorAll('#appearance-picker button').forEach(btn => {
       const isActive = btn.dataset.themeVal === pref;

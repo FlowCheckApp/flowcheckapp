@@ -11,7 +11,7 @@
   "plugins": {
     "Keyboard": {
       "resize": "native",
-      "style": "default",
+      "style": "dark",
       "resizeOnFullScreen": true,
       "hideFormAccessoryBar": true
     },

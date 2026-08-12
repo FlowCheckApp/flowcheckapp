@@ -33,10 +33,28 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
         guard let windowScene = scene as? UIWindowScene else { return }
 
-        // Match the default light-mode background (#f2f4f8) so UIWindow edges
-        // don't bleed dark navy into safe-area gutters during sheet transitions.
-        // Users who switch to dark mode see a brief edge flash only during transitions.
-        window?.backgroundColor = UIColor(red: 242/255, green: 244/255, blue: 248/255, alpha: 1)
+        // The window shows wherever the WebView does not, so its colour has to
+        // follow the appearance rather than being pinned to one of them.
+        //
+        // This used to be hardcoded to the light background (#f2f4f8), on the
+        // reasoning that it stopped dark navy bleeding into the safe-area
+        // gutters during sheet transitions, and that dark-mode users would see
+        // "a brief edge flash only during transitions".
+        //
+        // That underestimated it. capacitor.config.json sets the Keyboard
+        // plugin to resize:"native", so whenever the keyboard is up the WebView
+        // has shrunk away from the bottom of the screen and the window is
+        // exposed around the keyboard's rounded corners for as long as it is
+        // open — a permanent near-white frame on a dark app, not a flash.
+        //
+        // A dynamic colour keeps the original intent (no dark bleed in light
+        // mode) and fixes the frame, and it re-resolves automatically when the
+        // appearance changes. Values match the web layer's own backgrounds.
+        window?.backgroundColor = UIColor { traits in
+            traits.userInterfaceStyle == .dark
+                ? UIColor(red:   6/255, green:  14/255, blue:  24/255, alpha: 1)  // #060e18
+                : UIColor(red: 244/255, green: 247/255, blue: 251/255, alpha: 1)  // #f4f7fb
+        }
         window?.windowScene = windowScene
 
         // Cold launch via URL (e.g. OAuth redirect reopening a killed app)
