@@ -1100,8 +1100,40 @@ window.FCApp = (function () {
     haptic('light');
   }
 
+  /* Show/hide Activity's search field.
+     The row is collapsed by default so it stops costing a permanent 54px
+     band — see the note on .act-search-row. Focus goes through _focusField
+     so summoning the keyboard cannot race the row's own expand animation,
+     which is the same class of bug as the sheet bounce.
+     Closing clears the query and dispatches `input`, because leaving a
+     filtered list behind a hidden search box is how someone concludes their
+     transactions have disappeared. */
+  function toggleActivitySearch(force) {
+    const view  = document.getElementById('view-activity');
+    const input = document.getElementById('activity-search');
+    if (!view || !input) return;
+    const open = (force === undefined) ? !view.classList.contains('act-searching') : !!force;
+    if (open === view.classList.contains('act-searching')) return;
+    haptic('light');
+    view.classList.toggle('act-searching', open);
+    const btn = document.getElementById('activity-search-toggle');
+    if (btn) btn.setAttribute('aria-expanded', String(open));
+    if (open) {
+      _focusField(input, view);
+    } else {
+      if (input.value) {
+        input.value = '';
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+      input.blur();
+    }
+  }
+
   function switchActivitySegment(segment) {
     haptic('light');
+    // Bills has no search of its own; leaving the box open over it would
+    // filter a list the query does not apply to.
+    if (segment === 'bills') toggleActivitySearch(false);
     _activitySegment = segment;
     const txnsPanel  = document.getElementById('activity-txns-panel');
     const billsPanel = document.getElementById('activity-bills-panel');
@@ -13259,6 +13291,7 @@ window.FCApp = (function () {
     deleteBillById,
     editBill,
     switchActivitySegment,
+    toggleActivitySearch,
     filterActivity,
     filterActivityType,
     switchActivitySummaryPeriod,
