@@ -1648,6 +1648,33 @@ window.FCApp = (function () {
     return false;
   }
 
+  /* Keys that survive a sign-out wipe.
+     PRESERVE uid-keyed routing flags (fc_ob_done_, fc_pw_seen_) — they are
+     keyed by UID so they cannot cross-contaminate between users, and they
+     provide cross-session onboarding + paywall cooldown for the same user.
+     ALSO PRESERVE:
+       fc_privacy_mode  — a DEVICE-level safety preference ("hide my balances
+         when people can see my screen"). It describes the user's physical
+         surroundings, not their account, and reveals nothing about any user.
+         Clearing it silently re-exposed every balance after a relaunch, so
+         keeping it is both correct and the fail-closed choice.
+       fc_first_sts_    — uid-keyed analytics de-dupe flag; wiping it would
+         re-fire the once-per-user "first Safe to Spend" event. */
+  const _WIPE_PRESERVE = ['fc_ob_done_', 'fc_pw_seen_', 'fc_first_sts_', 'fc_privacy_mode'];
+
+  /** Clear per-user fc_ localStorage keys, honouring _WIPE_PRESERVE.
+   *  Every sign-out path must go through this. The resume handler used to
+   *  inline its own `startsWith('fc_')` sweep with no preserve list, so a
+   *  token revoked while backgrounded wiped fc_privacy_mode and re-exposed
+   *  every balance on next launch — the exact failure the list documents. */
+  function _wipeLocalUserKeys() {
+    try {
+      Object.keys(localStorage)
+        .filter(k => k.startsWith('fc_') && !_WIPE_PRESERVE.some(p => k.startsWith(p)))
+        .forEach(k => localStorage.removeItem(k));
+    } catch (_) { /* localStorage unavailable in strict CSP — safe to ignore */ }
+  }
+
   /** Wipe every per-user piece of in-memory state. Called from handleSignOut
    *  AND from the auth observer when Firebase reports no user, so a session
    *  ended by token expiry or programmatic signOut doesn't leak the previous
@@ -1701,23 +1728,7 @@ window.FCApp = (function () {
     // Wipe per-user localStorage caches (net-worth history, budget alert
     // flags, debt start, milestone flags, RC pro cache, etc.) so they can't
     // leak into the next user's session.
-    // PRESERVE uid-keyed routing flags (fc_ob_done_, fc_pw_seen_) — they are
-    // keyed by UID so they cannot cross-contaminate between users, and they
-    // provide cross-session onboarding + paywall cooldown for the same user.
-    // ALSO PRESERVE:
-    //   fc_privacy_mode  — a DEVICE-level safety preference ("hide my balances
-    //     when people can see my screen"). It describes the user's physical
-    //     surroundings, not their account, and reveals nothing about any user.
-    //     Clearing it silently re-exposed every balance after a relaunch, so
-    //     keeping it is both correct and the fail-closed choice.
-    //   fc_first_sts_    — uid-keyed analytics de-dupe flag; wiping it would
-    //     re-fire the once-per-user "first Safe to Spend" event.
-    const _PRESERVE = ['fc_ob_done_', 'fc_pw_seen_', 'fc_first_sts_', 'fc_privacy_mode'];
-    try {
-      Object.keys(localStorage)
-        .filter(k => k.startsWith('fc_') && !_PRESERVE.some(p => k.startsWith(p)))
-        .forEach(k => localStorage.removeItem(k));
-    } catch (_) { /* localStorage unavailable in strict CSP — safe to ignore */ }
+    _wipeLocalUserKeys();
 
     // Blank out the home DOM immediately so the previous user's rendered
     // content is never visible during the gap between wipe and first render.
@@ -11240,10 +11251,7 @@ window.FCApp = (function () {
           toast('Your session expired — please sign in again', 'info', 5000);
           try { FCData.detachAllListeners(); } catch (_) {}
           try { await FCAuth.signOut(); } catch (_) {}
-          try {
-            Object.keys(localStorage).filter(k => k.startsWith('fc_'))
-              .forEach(k => localStorage.removeItem(k));
-          } catch (_) {}
+          _wipeLocalUserKeys(); // same preserve policy as every other sign-out
           setScreen('hero');
         }
       });

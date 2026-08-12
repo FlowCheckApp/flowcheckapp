@@ -4732,25 +4732,6 @@ app.post('/attest/verify', requireAuth, _attestLimiter, async (req, res) => {
   }
 });
 
-/* ── Sentry error handler — must come BEFORE the generic error handler ── */
-// Captures unhandled errors and passes them to Sentry before responding.
-if (process.env.SENTRY_DSN) {
-  Sentry.setupExpressErrorHandler(app);
-}
-
-/* ── Global Express error handler ──────────────────────────────── */
-// Catches any error passed to next(err) or thrown in async routes
-// that isn't caught by their own try/catch.
-// Must be defined with 4 params so Express recognises it as error middleware.
-// eslint-disable-next-line no-unused-vars
-app.use((err, req, res, next) => {
-  console.error(`[Error] ${req.method} ${req.path} →`, err.message || err);
-  if (res.headersSent) return;
-  res.status(err.status || 500).json({
-    message: _safeMsg(err, 'An unexpected error occurred — please try again'),
-  });
-});
-
 /* ─────────────────────────────────────────────────────────────
    OTP EMAIL VERIFICATION
    POST /auth/otp/send   — generate & email a 6-digit code
@@ -4978,6 +4959,13 @@ app.post('/email/signup-followup/complete', requireAuth, async (req, res) => {
 //   fields: completed ASC, sent ASC, followup_at ASC
 setInterval(async () => {
   if (!_resendApiKey) return;
+  // Every cron.schedule job above takes a lock; this one is the only scheduled
+  // job that did not, and it is the one that sends mail. The query below reads
+  // `sent == false` and only marks `sent: true` after the send, so two Railway
+  // instances ticking together both saw the same batch as unsent and mailed it
+  // twice. TTL is 4 min — under the 5 min interval, so a crashed run's stale
+  // lock expires before the next tick instead of wedging the job.
+  if (!await _acquireCronLock('signup-followup', 4 * 60 * 1000)) return;
   try {
     const now  = Date.now();
     const snap = await db.collection('signup_followups')
@@ -5024,6 +5012,8 @@ setInterval(async () => {
     }
   } catch (err) {
     console.error('[signup-followup] Background job error:', err.message);
+  } finally {
+    await _releaseCronLock('signup-followup');
   }
 }, 5 * 60 * 1000);
 
@@ -5224,6 +5214,39 @@ app.post('/webhooks/revenuecat', async (req, res) => {
   }
 
   res.json({ ok: true });
+});
+
+/* ─────────────────────────────────────────────────────────────
+   ERROR HANDLERS — MUST STAY BELOW EVERY ROUTE
+   ─────────────────────────────────────────────────────────────
+   Express matches middleware in registration order, so an error
+   handler only sees routes registered before it. These used to sit
+   just above the OTP block, which left six routes uncovered —
+   /auth/login-event, /auth/otp/send, /auth/otp/verify, both
+   /email/signup-followup/* and, worst of all, /webhooks/revenuecat,
+   the endpoint that grants entitlements. Errors there reached
+   neither Sentry nor the JSON error shape below.
+
+   If you add a route, add it ABOVE this block.
+   ─────────────────────────────────────────────────────────────── */
+
+/* ── Sentry error handler — must come BEFORE the generic error handler ── */
+// Captures unhandled errors and passes them to Sentry before responding.
+if (process.env.SENTRY_DSN) {
+  Sentry.setupExpressErrorHandler(app);
+}
+
+/* ── Global Express error handler ──────────────────────────────── */
+// Catches any error passed to next(err) or thrown in async routes
+// that isn't caught by their own try/catch.
+// Must be defined with 4 params so Express recognises it as error middleware.
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+  console.error(`[Error] ${req.method} ${req.path} →`, err.message || err);
+  if (res.headersSent) return;
+  res.status(err.status || 500).json({
+    message: _safeMsg(err, 'An unexpected error occurred — please try again'),
+  });
 });
 
 /* ─────────────────────────────────────────────────────────────
