@@ -5038,7 +5038,7 @@ window.FCApp = (function () {
           </div>
           <div class="fc-category-bar" style="position:relative;margin:4px 0 10px">
             <div class="fc-category-bar-fill" style="width:${p}%;background:${col};opacity:0.25"></div>
-            ${budLim > 0 ? `<div style="position:absolute;top:0;left:0;height:100%;width:${Math.min(budPct,100)}%;background:${budColor};border-radius:99px;transition:width 0.5s ease"></div>` : ''}
+            ${budLim > 0 ? `<div style="position:absolute;top:0;left:0;height:100%;width:${Math.min(budPct,100)}%;background:${budColor};border-radius:999px;transition:width 0.5s ease"></div>` : ''}
           </div>`;
       }).join('');
     }
@@ -5387,7 +5387,7 @@ window.FCApp = (function () {
         <div style="font-size:9px;font-weight:700;color:${isCur?'var(--fc-accent)':'var(--fc-text-faint)'};letter-spacing:0.5px;text-transform:uppercase;margin-bottom:5px">${name}</div>
         <div style="font-size:13px;font-weight:800;color:${amtCol};margin-bottom:5px;letter-spacing:-0.02em">${amtTxt}</div>
         <div class="fcs-bar-track" style="height:3px;margin-bottom:3px">
-          <div style="height:100%;width:${isFut?0:pct}%;background:${color};border-radius:99px"></div>
+          <div style="height:100%;width:${isFut?0:pct}%;background:${color};border-radius:999px"></div>
         </div>
         <div style="font-size:9px;font-weight:600;color:${color}">${isFut?'':pct+'%'}</div>
       </div>`;
@@ -5585,13 +5585,28 @@ window.FCApp = (function () {
     // <2 snapshots: a bare flat line reads as a broken chart. Show a designed
     // "tracking starts today" state instead — dashed baseline, live dot, caption.
     if (!vals || vals.length < 2) {
-      return `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;padding:6px 0 2px">
-        <svg viewBox="0 0 320 14" width="100%" height="14" preserveAspectRatio="none" aria-hidden="true">
-          <line x1="4" y1="7" x2="304" y2="7" stroke="var(--fc-border)" stroke-width="2" stroke-dasharray="1 7" stroke-linecap="round"/>
-          <circle cx="312" cy="7" r="3.5" fill="var(--fc-accent)"/>
-          <circle cx="312" cy="7" r="6" fill="none" stroke="var(--fc-accent)" stroke-width="1" opacity="0.35"/>
-        </svg>
-        <div style="font-size:11px;font-weight:500;color:var(--fc-text-faint);letter-spacing:0.1px">Tracking your net worth from today</div>
+      /* Day-one state. Three things made the old version read as broken
+         rather than designed:
+
+         · it was 14px tall where the real chart is 56, so the card visibly
+           RESIZED the moment a second data point landed — a layout shift on
+           the card you are looking at reads as a glitch, not as progress;
+         · the baseline was 1px of --fc-border, which is the divider colour,
+           so it looked like a stray rule rather than an axis waiting to be
+           drawn on;
+         · preserveAspectRatio="none" on a 320-wide viewBox squashed both
+           circles into ellipses at any width but exactly 320.
+
+         Now it holds the chart's real height and geometry, the dot is plain
+         HTML so it stays round at every width, and the baseline sits where
+         the line will actually start. Nothing moves when the data arrives —
+         the dot just grows a line to its left. */
+      return `<div style="height:56px;display:flex;flex-direction:column;justify-content:flex-end;gap:9px">
+        <div style="display:flex;align-items:center;padding-bottom:12px">
+          <div style="flex:1;height:0;border-top:1.5px dashed var(--fc-border)"></div>
+          <div style="width:9px;height:9px;border-radius:999px;background:var(--fc-accent);flex-shrink:0;margin-left:-1px;box-shadow:0 0 0 4px rgba(26,196,240,0.14)"></div>
+        </div>
+        <div style="font-size:11px;font-weight:500;color:var(--fc-text-faint);letter-spacing:0.1px;text-align:center">Tracking your net worth from today</div>
       </div>`;
     }
     const W=320, H=56, pad=6;
@@ -6916,8 +6931,8 @@ window.FCApp = (function () {
           +'<div style="font-size:17px;font-weight:700;color:var(--fc-text)">'+paydayTitle+'</div>'
           +'<div style="text-align:right"><div style="font-size:11px;color:var(--fc-text-faint)">Expected</div><div style="font-size:17px;font-weight:750;color:var(--fc-text);font-variant-numeric:tabular-nums">'+(expectedPay>0?FCData.formatCurrency(expectedPay):'—')+'</div></div>'
         +'</div>'
-        +'<div style="height:8px;background:var(--fc-bg-elevated-2);border-radius:99px;overflow:hidden;margin-bottom:8px">'
-          +'<div style="height:100%;width:'+(expectedPay>0?Math.min(100,Math.round(assigned/expectedPay*100)):0)+'%;background:'+(payRemaining>=0?'var(--fc-success)':'var(--fc-danger)')+';border-radius:99px"></div>'
+        +'<div style="height:8px;background:var(--fc-bg-elevated-2);border-radius:999px;overflow:hidden;margin-bottom:8px">'
+          +'<div style="height:100%;width:'+(expectedPay>0?Math.min(100,Math.round(assigned/expectedPay*100)):0)+'%;background:'+(payRemaining>=0?'var(--fc-success)':'var(--fc-danger)')+';border-radius:999px"></div>'
         +'</div>'
         +'<div style="display:flex;justify-content:space-between;margin-bottom:14px">'
           +'<div><div style="font-size:11px;color:var(--fc-text-faint)">Assigned</div><div style="font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--fc-text)">'+FCData.formatCurrency(assigned)+'</div></div>'
@@ -7064,8 +7079,8 @@ window.FCApp = (function () {
                   +'<div style="font-size:14px;font-weight:500;color:var(--fc-text)">'+r.cat+'</div>'
                   +'<div style="font-size:12px;color:'+(r.pct>100?'var(--fc-danger)':r.pct>80?'var(--fc-warning)':'var(--fc-text-muted)')+'">'+FCData.formatCurrency(r.spent)+' of '+FCData.formatCurrency(r.limit)+'</div>'
                 +'</div>'
-                +'<div style="height:6px;background:var(--fc-bg-elevated-2);border-radius:99px;overflow:hidden">'
-                  +'<div style="height:100%;width:'+r.displayPct+'%;background:'+r.color+';border-radius:99px;transition:width 0.5s ease"></div>'
+                +'<div style="height:6px;background:var(--fc-bg-elevated-2);border-radius:999px;overflow:hidden">'
+                  +'<div style="height:100%;width:'+r.displayPct+'%;background:'+r.color+';border-radius:999px;transition:width 0.5s ease"></div>'
                 +'</div>'
                 +'<div style="font-size:11px;color:'+(r.pct>100?'var(--fc-danger)':r.pct>80?'var(--fc-warning)':'var(--fc-text-faint)')+';margin-top:2px;text-align:right">'+r.pct+'%</div>'
               +'</div>'

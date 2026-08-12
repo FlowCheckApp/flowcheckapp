@@ -196,7 +196,7 @@
 /* ── Mini progress bar track (spending bars, budget bars) ── */
 .fcs-bar-track {
   background: var(--fc-card-bg-hover);
-  border-radius: 99px;
+  border-radius: 999px;
   overflow: hidden;
 }
 
