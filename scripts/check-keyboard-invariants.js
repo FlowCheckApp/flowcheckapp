@@ -104,7 +104,31 @@ if (!kbListeners.length) {
   failures.push('no keyboard listeners found at all — the avoidance IIFE is gone');
 }
 
-/* ── 5. The class CSS keys off must be the one JS sets ────────────── */
+/* ── 5. No focusing a field on a setTimeout guess ─────────────────── */
+/* Focusing summons the keyboard, and resize:"native" makes the keyboard
+   resize the WebView. Doing that while a container is still animating means
+   the sheet is repositioned toward a new viewport bottom while an animation
+   still drives it toward the old one — the bounce Brandon reported.
+   The app had FOUR different guesses at the animation length (150/200/250/
+   400ms) against a 360ms overshooting spring. _focusField() asks the browser
+   what is actually running instead. Use it.
+
+   Allowed: focusing a BUTTON (no keyboard, so no resize, so no race). */
+const ALLOWED_TIMEOUT_FOCUS = [
+  'fcst-close',   // story overlay close button — a button, not a text field
+];
+for (const [src, name] of [[appJs, 'www/js/fc-app.js'], [html, 'www/index.html']]) {
+  const re = /setTimeout\([\s\S]{0,200}?\.focus\(\)/g;
+  let hit;
+  while ((hit = re.exec(src))) {
+    if (ALLOWED_TIMEOUT_FOCUS.some(ok => hit[0].includes(ok))) continue;
+    failures.push(`${name}:${lineOf(src, hit.index)} focuses a field inside a `
+      + `setTimeout. Use _focusField(input[, scope]) — it waits for whatever is `
+      + `actually animating instead of guessing a duration.`);
+  }
+}
+
+/* ── 6. The class CSS keys off must be the one JS sets ────────────── */
 const setsClass = /classList\.add\(\s*['"]keyboard-open['"]/.test(html);
 const stylesClass = /body\.keyboard-open/.test(html);
 if (!setsClass || !stylesClass) {

@@ -8082,15 +8082,16 @@ window.FCApp = (function () {
         +'</div>'
       +'</div>';
     ov.style.display = 'flex';
-    setTimeout(() => {
+    (function () {
       const i = document.getElementById('afford-amount');
       if (!i) return;
-      i.focus();
+      // Wait for the overlay's entrance before summoning the keyboard.
+      _focusField(i, ov);
       // Return key runs the check — no reaching for the button mid-thought
       i.addEventListener('keydown', e => {
         if (e.key === 'Enter') { e.preventDefault(); runAffordCheck(); }
       });
-    }, 250);
+    })();
   }
 
   function runAffordCheck(presetAmount) {
@@ -9421,11 +9422,8 @@ window.FCApp = (function () {
         // Credentials have expired — hide the Face ID button and guide the user to sign in
         if (wrapEl) wrapEl.style.display = 'none';
         _showError('login-error', 'Face ID session expired. Please sign in with your email and password.');
-        // Focus the email field
-        setTimeout(() => {
-          const emailEl = document.getElementById('login-email');
-          if (emailEl) emailEl.focus();
-        }, 150);
+        // Focus the email field once the error banner has finished animating in
+        _focusField(document.getElementById('login-email'));
       } else {
         // Generic failure (Face ID unavailable, hardware error, etc.)
         _showError('login-error', 'Face ID unavailable — please sign in with your email and password.');
@@ -9443,7 +9441,7 @@ window.FCApp = (function () {
       if (!trimmedName) {
         _showError('register-error', 'Please enter your first name.');
         _setLoading('btn-register', false, 'Create Account');
-        document.getElementById('reg-name')?.focus();
+        _focusField(document.getElementById('reg-name'));
         return;
       }
 
@@ -9508,11 +9506,9 @@ window.FCApp = (function () {
     // Reset to default state in case user previously reached the success state
     resetForgotPasswordScreen();
     setScreen('forgot-password');
-    // Focus email input after transition
-    setTimeout(() => {
-      const fpInput = document.getElementById('fp-email');
-      if (fpInput && !fpInput.value) fpInput.focus();
-    }, 400);
+    // Focus the email input once the screen transition has finished
+    const fpInput = document.getElementById('fp-email');
+    if (fpInput && !fpInput.value) _focusField(fpInput);
   }
 
   // Handle the Send Reset Link button on the forgot-password screen
@@ -9526,7 +9522,7 @@ window.FCApp = (function () {
     if (errorEl) { errorEl.style.display = 'none'; errorEl.textContent = ''; }
 
     if (!email) {
-      if (emailEl) emailEl.focus();
+      _focusField(emailEl);
       if (errorEl) { errorEl.textContent = 'Please enter your email address.'; errorEl.style.display = ''; }
       return;
     }
@@ -9969,7 +9965,8 @@ window.FCApp = (function () {
   function _clearOtpBoxes(focusFirst) {
     const boxes = document.querySelectorAll('.fc-otp-box');
     boxes.forEach(b => { b.value = ''; b.classList.remove('filled', 'error'); });
-    if (focusFirst && boxes[0]) boxes[0].focus();
+    // Via _focusField: this runs on entry to the verify screen, which animates.
+    if (focusFirst && boxes[0]) _focusField(boxes[0]);
   }
 
   /** Spread a multi-digit string across the boxes starting at `from`.
@@ -11697,32 +11694,73 @@ window.FCApp = (function () {
   let _editingGoalId = null;
 
   /** Called from goal card tap — looks up goal by ID then opens edit sheet */
-  /* Focus a sheet's first field only once the sheet has finished animating in.
-     Every form sheet used to do `setTimeout(… .focus(), 200)`, but .fc-sheet
-     enters on `fcSheetUp 0.36s cubic-bezier(0.34, 1.56, 0.64, 1)` — a 360ms
-     spring that deliberately OVERSHOOTS. Focusing at 200ms summoned the
-     keyboard while the sheet was still mid-spring, and with resize:"native"
-     the WebView then shrank underneath it: the sheet was repositioned to a new
-     viewport bottom while an animation was still driving it toward the old
-     one. That is the bounce — the sheet lands high, then drops.
+  /* ── Focusing a field without racing an animation ────────────────────────
+     THE ONE WAY TO FOCUS A TEXT FIELD. Do not call .focus() directly from a
+     setTimeout — that is the bug this replaced.
 
-     Waiting on animationend rather than a bigger magic number means this stays
-     correct if the entrance timing is ever retuned. The timeout is only a
-     fallback for the case where no animation runs at all (reduced motion, or
-     the sheet was already open). */
-  function _focusWhenSheetSettled(input, sheetOverlay) {
+     Focusing summons the keyboard, and capacitor.config.json sets
+     resize:"native", so the keyboard resizes the WebView itself. If the
+     container is still animating when that happens, the sheet is being
+     repositioned toward a new viewport bottom while an animation is still
+     driving it toward the old one — two motions with different targets at the
+     same time. On device that reads as the sheet landing in one place and
+     then bouncing to another.
+
+     The app had FOUR different guesses at "how long is the animation" —
+     150ms (login), 200ms (all five form sheets), 250ms (affordability),
+     400ms (forgot password) — against a sheet entrance of
+     `fcSheetUp 0.36s cubic-bezier(0.34, 1.56, 0.64, 1)`, a 360ms spring that
+     deliberately overshoots. Every one of them fired mid-flight.
+
+     So: do not guess. Ask the browser what is actually running and wait for
+     it. This stays correct when any animation is retuned, and it costs
+     nothing when none is running — the common case, where it focuses on the
+     next frame. */
+  const _FOCUS_ANIM_CAP_MS = 600;   // backstop: never block focus indefinitely
+
+  function _focusField(input, root) {
     if (!input) return;
-    const panel = sheetOverlay && sheetOverlay.querySelector('.fc-sheet');
-    let done = false;
-    const go = () => {
-      if (done) return;
-      done = true;
-      input.focus();
-    };
-    if (!panel) { setTimeout(go, 200); return; }
-    panel.addEventListener('animationend', go, { once: true });
-    // Fallback: no animation (prefers-reduced-motion, or already-open sheet).
-    setTimeout(go, 420);
+    const scope = root
+      || input.closest('.fc-sheet, .fc-sheet-overlay, .fc-screen, .fc-view')
+      || document.body;
+
+    const focusNow = () => { try { input.focus(); } catch (_) {} };
+
+    /* Two frames, not one: a CSS animation started by a display change in
+       this same task has not been registered with the timeline yet when the
+       first frame runs, so getAnimations() would report nothing and we would
+       focus straight into the animation we were trying to avoid. */
+    /* Only animations on the field's OWN ancestor chain can move it. A
+       staggered fade on a sibling card cannot, and waiting for one made the
+       forgot-password screen focus at 648ms instead of the 398ms its own
+       entrance actually took. Build the chain once and filter against it. */
+    const chain = new Set();
+    for (let n = input; n && n !== document.documentElement; n = n.parentElement) chain.add(n);
+
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      let running = [];
+      try {
+        running = (scope.getAnimations ? scope.getAnimations({ subtree: true }) : [])
+          .filter(a => {
+            if (a.playState !== 'running') return false;
+            /* Spinners, pulses and the sync dot loop forever. Waiting on one
+               would mean never focusing at all. */
+            let iterations = 1;
+            try { iterations = a.effect.getComputedTiming().iterations; } catch (_) {}
+            if (iterations === Infinity) return false;
+            let target = null;
+            try { target = a.effect.target; } catch (_) {}
+            return target ? chain.has(target) : false;
+          });
+      } catch (_) { /* no Web Animations API — fall through and focus */ }
+
+      if (!running.length) { focusNow(); return; }
+
+      let done = false;
+      const go = () => { if (done) return; done = true; focusNow(); };
+      Promise.all(running.map(a => a.finished.catch(() => {}))).then(go);
+      setTimeout(go, _FOCUS_ANIM_CAP_MS);
+    }));
   }
 
   function editGoal(goalId) {
@@ -11751,7 +11789,7 @@ window.FCApp = (function () {
     if (sheet) { sheet.style.display = 'flex'; }
     haptic('light');
     _updateGoalCalc();
-    _focusWhenSheetSettled(nameInput, sheet);
+    _focusField(nameInput, sheet);
   }
 
   function _updateGoalCalc() {
@@ -11877,7 +11915,7 @@ window.FCApp = (function () {
 
     if (sheet) { sheet.style.display = 'flex'; }
     haptic('light');
-    _focusWhenSheetSettled(name, sheet);
+    _focusField(name, sheet);
   }
 
   /** Entry point from an account row. Looks the account up by id so the row
@@ -12008,7 +12046,7 @@ window.FCApp = (function () {
 
     sheet.style.display = 'flex';
     haptic('light');
-    _focusWhenSheetSettled(nameEl, sheet);
+    _focusField(nameEl, sheet);
   }
 
   function closeBillSheet() {
@@ -12153,7 +12191,7 @@ window.FCApp = (function () {
     if (resetBtn) resetBtn.style.display = (ov.name || ov.category) ? '' : 'none';
 
     if (sheet) { sheet.style.display = 'flex'; haptic('light'); }
-    _focusWhenSheetSettled(nameEl, sheet);
+    _focusField(nameEl, sheet);
   }
 
   function closeTransactionSheet() {
@@ -12329,7 +12367,7 @@ window.FCApp = (function () {
     }
 
     if (sheet) { sheet.style.display = 'flex'; haptic('light'); }
-    _focusWhenSheetSettled(inputEl, sheet);
+    _focusField(inputEl, sheet);
   }
 
   function closeCategoryBudgetSheet() {
