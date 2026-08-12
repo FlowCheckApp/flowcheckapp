@@ -1226,7 +1226,18 @@ window.FCApp = (function () {
     _renderActivity();
   }
 
+  /* Where a sub-screen's Back button should return to.
+
+     It used to be hardcoded: _closeSubScreen() always went to 'more', so
+     opening Bills from Home and pressing Back dumped you in the More hub.
+     state.tab cannot be used for this either — switchTab() sets it to the
+     sub-screen's own id before delegating to _openSubScreen() — so the last
+     real tab is tracked separately. Sub-screens never update it. */
+  const _NAV_TABS = new Set(['home', 'activity', 'plan', 'wealth', 'goals', 'coach', 'more']);
+  let _lastNavTab = 'more';
+
   function switchTab(tabId) {
+    if (_NAV_TABS.has(tabId)) _lastNavTab = tabId;
     if (state.tab === tabId) return;
     haptic('light');
     // Dismiss keyboard before tab switch so stale viewport state doesn't carry over
@@ -6682,23 +6693,20 @@ window.FCApp = (function () {
   }
 
   function _closeSubScreen() {
-    haptic('light');
     const nav = document.querySelector('.fc-nav');
     if (nav) nav.style.display = '';
     ['bills','debt','goals','investments','calendar','reports','notifications','settings','vault'].forEach(id => {
       const el = document.getElementById('view-' + id);
       if (el) { el.classList.remove('active'); el.style.display = 'none'; }
     });
-    // switchTab early-returns if state.tab is already 'more', so force-show directly
-    state.tab = 'more';
-    document.querySelectorAll('.fc-nav-item').forEach(item => {
-      const active = item.dataset.view === 'more';
-      item.classList.toggle('active', active);
-      item.setAttribute('aria-selected', active ? 'true' : 'false');
-    });
-    const moreView = document.getElementById('view-more');
-    if (moreView) { moreView.classList.add('active'); moreView.scrollTop = 0; }
-    requestAnimationFrame(() => _renderMore());
+    /* Hand off to switchTab so the nav state, view activation and the tab's
+       own render all happen the one way they happen everywhere else — this
+       used to reimplement all three inline, for 'more' only. state.tab is
+       cleared first because switchTab early-returns when it already matches,
+       and it currently holds the sub-screen's id. */
+    const back = _NAV_TABS.has(_lastNavTab) ? _lastNavTab : 'more';
+    state.tab = null;
+    switchTab(back);
   }
 
   /* ─────────────────────────────────────────────────────────────
