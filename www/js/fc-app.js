@@ -5563,19 +5563,28 @@ window.FCApp = (function () {
       const isDebt = _isDebtAcct(account);
       const balance = Math.max(0, account.balance_current || account.balance || 0);
       const subtext = _acctSubtext(account) || (account.mask ? `•••• ${account.mask}` : (account.subtype || 'Account'));
-      return `<div class="wv-linked-row">
+      /* This is the complete account list — cash AND debt — so it is where a
+         manual account is actually findable. The edit affordance only reached
+         the Savings panel before, which meant a manually-added loan (the most
+         common kind) could be created and then never corrected or removed.
+         Plaid rows stay inert: the backend owns them and the rules refuse
+         client writes. */
+      const editable = !!account.manual;
+      return `<div class="wv-linked-row${editable ? ' wv-linked-row--editable' : ''}"${
+        editable ? ` data-edit-account="${esc(account.id)}" role="button" tabindex="0" aria-label="Edit ${esc(account.name || 'account')}"` : ''}>
         <div class="wv-linked-icon">${_accountIcon(account)}</div>
         <div style="flex:1;min-width:0">
           <div class="wv-linked-name">${esc(account.name || 'Account')}</div>
           <div class="wv-linked-sub">${esc(subtext)}</div>
         </div>
         <div class="wv-linked-balance" style="color:${isDebt ? 'var(--wv-red)' : 'var(--wv-t1)'}">${isDebt ? '−' : ''}${FCData.formatCurrency(balance)}</div>
+        ${editable ? '<span class="wv-linked-chevron" aria-hidden="true">›</span>' : ''}
       </div>`;
     }).join('');
 
     // Asset allocation — cash vs investments vs debt at a glance
     const _allocCash   = accts.filter(_isCashAcct).reduce((s,a)=>s+_acctBal(a),0);
-    const _allocInvest = accts.filter(a=>a.type==='investment'||a.type==='brokerage').reduce((s,a)=>s+(a.balance_current||a.balance||0),0);
+    const _allocInvest = accts.filter(a=>window.FCCore&&FCCore.accountClass(a)==='investment').reduce((s,a)=>s+_acctBal(a),0);
     const _allocTotal  = _allocCash + _allocInvest + liabilities;
     const _allocSeg = (v, color) => _allocTotal > 0 && v > 0
       ? `<div style="width:${Math.max(2,(v/_allocTotal)*100)}%;background:${color};height:100%"></div>` : '';
@@ -5615,6 +5624,14 @@ window.FCApp = (function () {
       <div style="height:8px"></div>`;
 
     _countup('wv-nw-amount', nw);
+
+    el.querySelectorAll('[data-edit-account]').forEach(row => {
+      const open = () => editManualAccount(row.dataset.editAccount);
+      row.addEventListener('click', open);
+      row.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+      });
+    });
   }
 
   /* ─── Wealth: Savings panel ─── */
