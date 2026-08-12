@@ -4913,7 +4913,12 @@ body:not(.keyboard-open) .fc-sheet {
        ACTIVITY TAB
        ══════════════════════════════════════════════════════════════ */
     #view-activity{overflow-y:scroll;-webkit-overflow-scrolling:touch;padding-bottom:100px;overscroll-behavior:contain}
-    .act-header{display:flex;align-items:flex-end;justify-content:space-between;padding:18px 20px 0}
+    /* The single owner of .act-header padding — see the note in
+       fc-premium-screens.css where three competing copies used to live.
+       Tightened from 18px/0 to 13px/7px: Activity spends six stacked bands
+       before the first transaction, and this is the cheapest of them to give
+       back. */
+    .act-header{display:flex;align-items:flex-end;justify-content:space-between;padding:13px 20px 7px}
     /* .act-title styling → CANONICAL SCREEN CHROME (flowcheck-design-system.css) */
     .act-subtitle{font-size:14px;font-weight:400;color:rgba(255,255,255,0.44);padding:5px 20px 0;line-height:1.4}
 
@@ -5600,7 +5605,14 @@ body:not(.keyboard-open) .fc-sheet {
           <div id="act-metric-avgdaily">—</div>
         </div>
         <div class="act-summary-chart">
-          <svg id="act-summary-chart-svg" width="100%" height="80" preserveAspectRatio="none" style="display:block"></svg>
+          <!-- 52, not 80. Activity is a LIST screen: the transactions are the
+               content and the summary is orientation. At 80 the first
+               transaction sat at y=583 on an 812pt screen — 72% of the view
+               spent on six stacked bands (header, title, search, segments,
+               summary, type chips) before a single row of the thing you
+               opened the tab for. The full-height version of this chart
+               already has a proper home in Money › Activity. -->
+          <svg id="act-summary-chart-svg" width="100%" height="52" preserveAspectRatio="none" style="display:block"></svg>
           <div id="act-chart-labels" class="act-chart-labels"></div>
         </div>
       </div>

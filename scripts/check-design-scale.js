@@ -51,7 +51,7 @@ const CEILING = {
   distinctFontSizes:  40,
   distinctRadii:      27,
   offScaleWeights:     5,   // 560, 650, 750, 800, 900
-  offScaleSpacing:   480,
+  offScaleSpacing:   479,
   pillSpellings:       1,   // 999px only — 99px and 9999px are gone, keep it that way
 };
 

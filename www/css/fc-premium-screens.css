@@ -311,10 +311,13 @@ body.fc-theme {
 }
 
 /* Activity */
-.act-header {
-  padding-top: 16px;
-  padding-bottom: 10px;
-}
+/* .act-header lived here AND at ~line 1486 of this same file, where the second
+   copy overrode this one with !important. Two rules for one element, in one
+   file, settled by force rather than by deleting the loser — the mechanism
+   behind the 728 !important declarations, in miniature. The surviving rule is
+   the one that was actually winning; this copy is removed rather than kept as
+   a decoy for the next person who tries to change the padding here and finds
+   nothing happens. */
 
 .act-summary-card,
 #activity-list .fc-card,
@@ -1483,9 +1486,12 @@ body.fc-theme {
 }
 
 /* Activity mirrors the approved list-first screen. */
-.act-header {
-  padding: 13px 16px 7px !important;
-}
+/* .act-header padding is owned by ONE rule, in index.html's style block —
+   which is the only one that ever actually won, because it comes after this
+   file in document order. There were FOUR declarations for this one
+   element's padding across the two files, held together by an !important
+   here. Removing that flag simply handed the win to index.html, which is
+   where it had been going all along. Do not add a fifth here. */
 
 .act-search-row {
   margin: 6px 12px 0 !important;
