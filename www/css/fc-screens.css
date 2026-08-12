@@ -2545,3 +2545,18 @@ body.fc-theme .fc-nav {
   font-size: 16px;
   line-height: 1;
 }
+
+/* Manual debts are editable from the Debt panel — the screen someone is
+   actually on when they want to correct a loan balance. */
+.wv-debt-row--editable {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background var(--fc-dur-fast, 0.18s) ease;
+}
+.wv-debt-row--editable:active { background: rgba(255, 255, 255, 0.05); }
+[data-theme="light"] .wv-debt-row--editable:active { background: rgba(10, 21, 32, 0.04); }
+.wv-debt-row--editable:focus-visible {
+  outline: 2px solid var(--fc-accent);
+  outline-offset: -2px;
+  border-radius: 10px;
+}

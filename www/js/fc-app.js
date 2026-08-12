@@ -2283,8 +2283,30 @@ window.FCApp = (function () {
      change one and you must change the other. */
   function _rwGeom(r) {
     const W = 300, H = 104, PAD_T = 10, PAD_B = 20;
-    const maxV = Math.max(r.startBalance, 0);
-    const minV = Math.min(r.lowest.balance, 0);
+
+    /* The y-axis used to be anchored at zero: minV = min(lowest, 0). That
+       made every healthy runway a flat line — a $9.62 bill against a $600
+       balance is 1.6% of the height, roughly one pixel — so the chart looked
+       broken precisely when the news was good.
+
+       Scale to the data instead, and only force zero into view when the
+       balance actually reaches it. That is the one case where the zero line
+       carries the meaning, and it still does. */
+    const hi = Math.max(r.startBalance, r.endBalance, r.lowest.balance);
+    const lo = Math.min(r.lowest.balance, r.endBalance, r.startBalance);
+    const goesNegative = lo < 0;
+
+    let maxV, minV;
+    if (goesNegative) {
+      maxV = Math.max(hi, 0);
+      minV = Math.min(lo, 0);
+    } else {
+      // Floor the range so a genuinely flat line still gets a sane scale
+      // instead of dividing by ~0.
+      const range = Math.max(hi - lo, Math.abs(hi) * 0.02, 1);
+      maxV = hi + range * 0.18;
+      minV = Math.max(0, lo - range * 0.30);
+    }
     const span = Math.max(1, maxV - minV);
     return {
       W, H, PAD_T, PAD_B, minV,
@@ -5790,7 +5812,16 @@ window.FCApp = (function () {
       const sub=(a.subtype||'').toLowerCase(), rn=(a.name||'').toLowerCase();
       const dispName=sub==='auto'||rn.includes('dealer')||rn.includes('auto')?'Auto Loan':sub==='student'?'Student Loan':sub==='mortgage'?'Mortgage':(a.name||'Account');
       const isUrgentBal = util!=null && util > 70;
-      return `<div class="wv-debt-row" onclick="FCApp.haptic&&FCApp.haptic('light')">
+      /* Manual debts are editable from here — this is the screen someone is
+         on when they want to correct a loan balance, so making them hunt for
+         the Net Worth list instead was the wrong answer. The row previously
+         fired a haptic and went nowhere at all. Plaid rows keep that
+         behaviour: the backend owns them and the rules refuse client writes. */
+      const editable = !!a.manual;
+      return `<div class="wv-debt-row${editable ? ' wv-debt-row--editable' : ''}"${
+        editable
+          ? ` data-edit-account="${esc(a.id)}" role="button" tabindex="0" aria-label="Edit ${esc(a.name || 'account')}"`
+          : ' onclick="FCApp.haptic&&FCApp.haptic(\'light\')"'}>
         <div class="wv-debt-icon">${_accountIcon(a)}</div>
         <div style="flex:1;min-width:0">
           <div class="wv-debt-name">${esc(dispName)}</div>
@@ -5839,6 +5870,14 @@ window.FCApp = (function () {
         <div class="wv-impact-body">Paying an extra ${FCData.formatCurrency(extraAmt)}/month toward <strong>${esc(topCard.name||'your card')}</strong> could pay it off in roughly ${monthsToPayoff} months — freeing up ${FCData.formatCurrency((topCard.balance_current||topCard.balance||0)/12*0.2)} monthly.</div>
       </div>`:''}
       <div style="height:8px"></div>`;
+
+    el.querySelectorAll('[data-edit-account]').forEach(row => {
+      const open = () => editManualAccount(row.dataset.editAccount);
+      row.addEventListener('click', open);
+      row.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+      });
+    });
   }
 
   /* ─── Wealth: Goals panel ─── */
@@ -6935,7 +6974,22 @@ window.FCApp = (function () {
     _renderPlan();
   }
 
+  /**
+   * "Edit Paycheck Plan" (Plan > Paycheck) and "Edit Plan" (Plan > Budget).
+   *
+   * This was an empty function, so both buttons did nothing at all. It used to
+   * call _renderBudgetWizard(), which had itself been a no-op since the Home
+   * v8 rebuild deleted the #home-budget-wizard-section it rendered into — so
+   * the buttons had been dead well before that function was removed.
+   *
+   * The thing they should edit already exists: the monthly budget total, which
+   * openCategoryBudgetSheet() handles as the 'total' category, complete with
+   * its own title and presets.
+   */
   function _openBudgetWizard() {
+    const budgets = state.budgets || {};
+    const current = Number(budgets.total && budgets.total.limit) || 0;
+    openCategoryBudgetSheet('total', current);
   }
 
   /* ─────────────────────────────────────────────────────────────
