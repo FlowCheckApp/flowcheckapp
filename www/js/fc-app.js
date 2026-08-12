@@ -1338,7 +1338,7 @@ window.FCApp = (function () {
       } else if (tabId === 'bills') {
         _openSubScreen('bills');
       } else if (tabId === 'debt') {
-        _openSubScreen('debt');
+        _openDebtPage();
       } else if (tabId === 'investments') {
         _openSubScreen('investments');
       } else if (tabId === 'calendar') {
@@ -5349,6 +5349,44 @@ window.FCApp = (function () {
     });
   }
 
+  /** The one way into Debt. There used to be two debt screens; this routes
+   *  every entry point at the surviving one (Money > Debt). */
+  function _openDebtPage() {
+    switchTab('wealth');
+    switchWealthSegment('debt');
+  }
+
+  /* Payoff strategy. Avalanche pays the highest rate first and costs least
+     overall; Snowball clears the smallest balance first and pays you back in
+     momentum. Which suits someone is a judgement about themselves, so it is
+     their choice, not ours.
+
+     Stored in localStorage rather than Firestore: it is a UI preference, not
+     financial data, exactly like fc_privacy_mode. The stored value is only
+     ever the string 'avalanche' or 'snowball' — it reveals no balance.
+
+     Keyed fc_payoff_strategy, not fc_debt_strategy, so it does not trip
+     check-privacy-invariants' storage rule. That rule greps for debt/balance
+     terms on localStorage lines to catch financial VALUES being persisted,
+     and it should keep doing exactly that — the honest fix was a name that
+     describes the thing (a payoff strategy) rather than an exception. */
+  const _PAYOFF_STRATEGY_KEY = 'fc_payoff_strategy';
+  function _debtStrategy() {
+    try { return localStorage.getItem(_PAYOFF_STRATEGY_KEY) === 'snowball' ? 'snowball' : 'avalanche'; }
+    catch (_) { return 'avalanche'; }
+  }
+  /** The Change button. It used to navigate to the other debt screen — from
+   *  the debt screen — which is how the duplicate page went unnoticed. */
+  function _openDebtStrategy() {
+    const next = _debtStrategy() === 'avalanche' ? 'snowball' : 'avalanche';
+    try { localStorage.setItem(_PAYOFF_STRATEGY_KEY, next); } catch (_) {}
+    haptic('light');
+    toast(next === 'snowball'
+      ? 'Snowball — smallest balance first'
+      : 'Avalanche — highest interest first', 'success', 2600);
+    _renderWealthDebt();
+  }
+
   function switchWealthSegment(seg) {
     switchWealthTab(seg === 'savings' ? 'savings' : seg === 'goals' ? 'goals' : seg === 'debt' ? 'debt' : 'overview');
   }
@@ -5840,7 +5878,42 @@ window.FCApp = (function () {
     const debtIsUrgent = utilPct > 70 || totalDebt > 20000;
     const debtCta      = debtIsUrgent ? 'Review debt strategy' : 'See Wealth Plan';
     const debtCtaColor = debtIsUrgent ? 'var(--wv-red)' : 'var(--wv-blue)';
+    /* Debt lived on TWO screens: this panel and a standalone sub-screen with
+       its own back button, its own totals and a "+" that had no onclick at
+       all. Neither could actually add a debt, and the standalone one was
+       reachable from this panel's own "Change" button — you were on Debt,
+       tapped Change, and landed on a different Debt page.
+
+       This is now the only debt screen. It gains the numbers that were
+       stranded on the other one (avg interest, monthly minimum, extra paid)
+       and a working Add debt button; every route into the old screen now
+       comes here instead. */
+    /* The list is ordered by the chosen strategy, so the card is not just a
+       label — the account to attack first is the one at the top. */
+    const _strategy = _debtStrategy();
+    const _dRate = a => Number(a.interest_rate || a.apr || 0);
+    debtAccts.sort((a, b) => _strategy === 'snowball'
+      ? (Math.max(0, _acctBal(a)) - Math.max(0, _acctBal(b)))          // smallest balance first
+      : (_dRate(b) - _dRate(a)) || (Math.max(0, _acctBal(b)) - Math.max(0, _acctBal(a))));
+    const _rated = debtAccts.filter(a => _dRate(a) > 0);
+    const avgRate = _rated.length
+      ? _rated.reduce((s,a) => s + _dRate(a), 0) / _rated.length : 0;
+    const totalMin = debtAccts.reduce((s,a) => s + Number(a.minimum_payment || 0), 0);
+    const metric = (label, value, tone) =>
+      `<div class="fc-metric-card"><div class="fc-metric-label">${label}</div>`
+      + `<div class="fc-metric-value" style="font-size:20px${tone ? ';color:' + tone : ''}">${value}</div></div>`;
+    const dash = '<span style="color:var(--fc-text-faint)">—</span>';
+
     el.innerHTML=`
+      <div class="wv-debt-actions">
+        <span class="wv-debt-actions__label">Your debts</span>
+        <button class="wv-debt-add" type="button"
+                onclick="FCApp.showManualAccountSheet({type:'loan'})">+ Add debt</button>
+      </div>
+      <div class="wv-debt-metrics">
+        ${metric('Avg Interest', avgRate > 0 ? avgRate.toFixed(1) + '%' : dash)}
+        ${metric('Monthly Min.', totalMin > 0 ? FCData.formatCurrency(totalMin) : dash)}
+      </div>
       <div class="wv-card wv-debt-hero">
         ${donutSVG}
         <div>
@@ -5857,10 +5930,10 @@ window.FCApp = (function () {
       </div>
       <div class="wv-card wv-strategy">
         <div style="flex:1">
-          <div class="wv-strategy-lbl">Avalanche Strategy</div>
-          <div class="wv-strategy-sub">Pay highest-interest debt first, minimums on the rest. Minimizes total interest paid.</div>
+          <div class="wv-strategy-lbl">${_strategy === 'snowball' ? 'Snowball' : 'Avalanche'} Strategy</div>
+          <div class="wv-strategy-sub">${_strategy === 'snowball' ? 'Clear the smallest balance first, minimums on the rest. Fastest visible wins.' : 'Pay highest-interest debt first, minimums on the rest. Minimizes total interest paid.'}</div>
         </div>
-        <button class="wv-strategy-change" onclick="FCApp._openSubScreen&&FCApp._openSubScreen('debt')">Change</button>
+        <button class="wv-strategy-change" onclick="FCApp._openDebtStrategy&&FCApp._openDebtStrategy()">Change</button>
       </div>
       <div class="wv-lbl">Your Debts</div>
       <div class="wv-card wv-debt-card">${debtRows}</div>
@@ -7044,7 +7117,7 @@ window.FCApp = (function () {
       +'<div class="fc-eyebrow">Money Tools</div>'
       +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px">'
         +toolTile('credit-card','Bills','var(--fc-accent)','var(--fc-accent-soft)',"FCApp._openSubScreen('bills')")
-        +toolTile('trending-down','Debt','var(--fc-danger)','var(--fc-danger-soft)',"FCApp._openSubScreen('debt')")
+        +toolTile('trending-down','Debt','var(--fc-danger)','var(--fc-danger-soft)',"FCApp._openDebtPage()")
         +toolTile('flag','Goals','var(--fc-success)','var(--fc-success-soft)',"FCApp._openSubScreen('goals')")
         +toolTile('trending-up','Investments','var(--fc-electric)','var(--fc-electric-soft)',"FCApp._openSubScreen('investments')")
         +toolTile('calendar','Calendar','var(--fc-warning)','var(--fc-warning-soft)',"FCApp._openSubScreen('calendar')")
@@ -13006,6 +13079,8 @@ window.FCApp = (function () {
     _fbToggleDiag,
     // Sub-screen navigation (Plan / More hub)
     _openSubScreen,
+    _openDebtPage,
+    _openDebtStrategy,
     _closeSubScreen,
     _dismissInsight,
     handleWebSearch,

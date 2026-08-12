@@ -2560,3 +2560,40 @@ body.fc-theme .fc-nav {
   outline-offset: -2px;
   border-radius: 10px;
 }
+
+/* ── Debt panel: add-debt action + stranded metrics ────────────────────
+   Both came from the standalone debt sub-screen that this panel replaced. */
+.wv-debt-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 0 10px;
+}
+.wv-debt-actions__label {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fc-text-faint);
+}
+.wv-debt-add {
+  min-height: 32px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--fc-border-strong);
+  background: transparent;
+  color: var(--fc-accent);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background var(--fc-dur-fast, 0.18s) ease, transform 0.12s ease;
+}
+.wv-debt-add:active { background: var(--fc-accent-soft); transform: scale(0.97); }
+.wv-debt-metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
