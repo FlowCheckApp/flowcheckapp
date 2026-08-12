@@ -636,22 +636,55 @@ window.FCApp = (function () {
   /* ── Net Worth History (Firestore-backed) ── */
   // Financial history never lives in browser storage. Firestore is the durable
   // source of truth and state.nwHistory is the in-memory render cache.
+  //
+  // The write dedup below is load-bearing, not an optimisation.
+  // saveNetWorthSnapshot() always stamps updated_at: serverTimestamp(), so the
+  // document changes even when net worth is identical — and every write fires
+  // the nw_history listener TWICE (the local pending emit, then the
+  // server-resolved one). This used to be called unguarded from _renderHome,
+  // which itself runs once per Firestore batch commit, so a Plaid sync turned
+  // into a self-feeding render/write storm: ~10s of visible churn on resume.
+  // Same serverTimestamp re-entrancy the streak counter guards against with
+  // _streakCheckedThisSession — see _attachDataListeners.
+  let _nwLastWritten = { uid: null, date: null, value: null };
+
   function _snapshotNetWorth(netWorth) {
     // Capture uid before any async gap to avoid races with sign-out
     const uid = state.user?.uid;
     if (!uid || !state.user?.plaid_linked) return;
 
-    const today = new Date().toISOString().split('T')[0];
+    const today   = new Date().toISOString().split('T')[0];
+    // Round to what Firestore actually stores, so the comparison below is exact
+    const rounded = Math.round(netWorth * 100) / 100;
 
-    // Firestore write — best-effort, never blocks the UI
-    FCData.saveNetWorthSnapshot(today, netWorth).catch(() => {});
-
-    // One-time cleanup of legacy localStorage net worth data
+    // One-time cleanup of legacy localStorage net worth data.
+    // Stays above the dedup so it still runs on a skipped write.
     try {
       if (localStorage.getItem('fc_nw_history')) localStorage.removeItem('fc_nw_history');
       const legacyKey = `fc_nw_history_${uid}`;
       if (localStorage.getItem(legacyKey)) localStorage.removeItem(legacyKey);
     } catch (_) {}
+
+    // Write only when today's value actually changed. state.nwHistory covers
+    // the already-stored case; _nwLastWritten closes the race where several
+    // renders fire before the listener round-trip lands. Keyed by uid so a
+    // different account can never inherit the previous user's guard.
+    const known    = state.nwHistory?.[today];
+    const inFlight = _nwLastWritten.uid === uid
+                  && _nwLastWritten.date === today
+                  && _nwLastWritten.value === rounded;
+
+    if (!inFlight && known !== rounded) {
+      _nwLastWritten = { uid, date: today, value: rounded };
+      // Firestore write — best-effort, never blocks the UI
+      FCData.saveNetWorthSnapshot(today, rounded).catch(() => {
+        // Clear the guard so a later update retries, rather than pinning a
+        // value that never actually landed.
+        if (_nwLastWritten.uid === uid && _nwLastWritten.date === today) {
+          _nwLastWritten = { uid: null, date: null, value: null };
+        }
+      });
+    }
 
     _drawNetWorthSparkline(state.nwHistory);
   }
@@ -2747,8 +2780,23 @@ window.FCApp = (function () {
   const _HOME_RENDER_WINDOW_MS = 120;
   let _homeRenderAt = 0;
   let _homeRenderTimer = null;
+  let _homeRenderDeferred = false;
   function _scheduleHomeRender() {
     if (state.tab !== 'home') return;
+
+    /* A Plaid sync does not arrive as one update. The backend commits accounts
+       in one batch, then transactions in chunks of 400, then removals in
+       chunks of 400 — looped once per linked bank. Every commit is a separate
+       Firestore snapshot, and every snapshot lands here. Rendering each
+       intermediate state rebuilds #home-dash via innerHTML for no user
+       benefit; that is the churn visible on resume.
+
+       Hold renders for the duration and paint once, with complete data, from
+       _doSync's finally block. The island already shows "Syncing…" so the app
+       is not silently frozen, and the finally block always runs — including on
+       the throw path — so a render can never be stranded. */
+    if (state.syncing) { _homeRenderDeferred = true; return; }
+
     const since = Date.now() - _homeRenderAt;
     if (since >= _HOME_RENDER_WINDOW_MS && !_homeRenderTimer) {
       _homeRenderAt = Date.now();
@@ -2758,9 +2806,21 @@ window.FCApp = (function () {
     if (_homeRenderTimer) return;                    // already coalescing
     _homeRenderTimer = setTimeout(() => {
       _homeRenderTimer = null;
+      // A sync can start after this timer was armed — defer rather than paint
+      // a half-synced state that is about to be replaced anyway.
+      if (state.syncing) { _homeRenderDeferred = true; return; }
       _homeRenderAt = Date.now();
       if (state.tab === 'home') _renderHome();
     }, Math.max(0, _HOME_RENDER_WINDOW_MS - since));
+  }
+
+  /* Paint once after a sync settles, if renders were held while it ran.
+     Called from _doSync's finally block, after state.syncing is cleared. */
+  function _flushDeferredHomeRender() {
+    if (!_homeRenderDeferred) return;
+    _homeRenderDeferred = false;
+    _homeRenderAt = 0;          // bypass the coalescing window — paint now
+    _scheduleHomeRender();
   }
 
   function _renderHome() {
@@ -2777,11 +2837,14 @@ window.FCApp = (function () {
     // Last synced timestamp — shown in the header status chip
     const syncWrapEl = document.getElementById('islandSyncWrap');
     const syncTimeEl = document.getElementById('islandSyncTime');
-    if (syncTimeEl && state.lastSyncAt) {
-      const mins = Math.floor((Date.now() - state.lastSyncAt) / 60000);
+    // _getLastSyncAt(), not state.lastSyncAt — so the chip reads correctly on a
+    // cold start instead of staying blank until the first sync of the session.
+    const lastSyncAt = _getLastSyncAt();
+    if (syncTimeEl && lastSyncAt) {
+      const mins = Math.floor((Date.now() - lastSyncAt) / 60000);
       syncTimeEl.textContent = mins < 1 ? 'Updated just now'
         : mins < 60 ? `Updated ${mins} min ago`
-        : `Updated at ${new Date(state.lastSyncAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`;
+        : `Updated at ${new Date(lastSyncAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`;
       if (syncWrapEl) syncWrapEl.style.display = '';
     }
 
@@ -3045,8 +3108,13 @@ window.FCApp = (function () {
 
     // ── Account rows (compact list) ───────────────────────────────
 
-    // ── Net worth sparkline snapshot ─────────────────────────────
-    _snapshotNetWorth(netWorth);
+    // ── Net worth sparkline ──────────────────────────────────────
+    // Draw only. This used to call _snapshotNetWorth(), which writes to
+    // Firestore — a render function must not write to the database, because
+    // the write comes straight back as a listener emit and re-enters the
+    // render. The accounts listener in _attachDataListeners still snapshots
+    // net worth, which is the correct place: it fires when the value changes.
+    _drawNetWorthSparkline(state.nwHistory);
 
     // ── Safe to Spend hero ───────────────────────────────────────
     const safeEl    = document.getElementById('stat-safe-to-spend');
@@ -8969,11 +9037,51 @@ window.FCApp = (function () {
     });
   }
 
+  /* ── Last-sync timestamp, persisted per uid ────────────────────
+     state.lastSyncAt is in-memory, so a cold start (swipe the app away,
+     reopen) reset it to 0 and timeSinceLast below became Infinity — the
+     5-minute background-sync cooldown could never fire on the one path that
+     needs it most. Every single app open therefore ran a full Plaid sync, and
+     each of that sync's batch commits fired the Firestore listeners into
+     another home re-render.
+
+     A millisecond timestamp is not financial data: it carries no balance, no
+     merchant, no account. It is wiped with every other fc_ key on sign-out. */
+  function _lastSyncKey() {
+    const uid = state.user?.uid || FCAuth.currentUser?.()?.uid || '';
+    return uid ? `fc_last_sync_${uid}` : '';
+  }
+
+  function _getLastSyncAt() {
+    if (state.lastSyncAt) return state.lastSyncAt;
+    try {
+      const key = _lastSyncKey();
+      const stored = key ? parseInt(localStorage.getItem(key), 10) : 0;
+      // Ignore a clock-skewed future timestamp — it would suppress syncing forever
+      if (stored > 0 && stored <= Date.now()) {
+        state.lastSyncAt = stored;
+        return stored;
+      }
+    } catch (_) {}
+    return 0;
+  }
+
+  function _setLastSyncAt(ts) {
+    state.lastSyncAt = ts;
+    try {
+      const key = _lastSyncKey();
+      if (key) localStorage.setItem(key, String(ts));
+    } catch (_) {}
+  }
+
   async function _doSync(showToast = false) {
     // Safety: auto-clear stuck syncing flag after 30s so button never stays locked
     if (state.syncing) {
       if (state._syncStartedAt && (Date.now() - state._syncStartedAt) > 30000) {
         state.syncing = false;
+        // This clears syncing outside the finally block, so release any render
+        // held by the stuck sync — the checks below can still early-return.
+        _flushDeferredHomeRender();
         const stuck = document.getElementById('header-sync-btn');
         if (stuck) stuck.classList.remove('is-busy');
       } else {
@@ -9000,7 +9108,8 @@ window.FCApp = (function () {
     // Manual syncs (showToast=true) bypass the cooldown but show a friendly message
     // if synced very recently (< 30s) so the button doesn't feel broken.
     const MIN_SYNC_INTERVAL_MS = 5 * 60 * 1000;
-    const timeSinceLast = state.lastSyncAt ? Date.now() - state.lastSyncAt : Infinity;
+    const lastSyncAt    = _getLastSyncAt(); // survives a cold start — see above
+    const timeSinceLast = lastSyncAt ? Date.now() - lastSyncAt : Infinity;
     if (!showToast && timeSinceLast < MIN_SYNC_INTERVAL_MS) {
       fcLog('Sync skipped — rate limited');
       return;
@@ -9033,7 +9142,7 @@ window.FCApp = (function () {
 
     try {
       const syncResult = await FCData.syncTransactions();
-      state.lastSyncAt = Date.now();
+      _setLastSyncAt(Date.now());
       _syncSucceeded = true;
       _lastSyncFailed = false;
       haptic('medium');
@@ -9067,6 +9176,9 @@ window.FCApp = (function () {
       if (showToast) toast('Sync failed — check connection', 'error');
     } finally {
       state.syncing = false;
+      // Must come after state.syncing is cleared, or the flush re-defers itself.
+      // Runs on the throw path too, so a held render is never stranded.
+      _flushDeferredHomeRender();
       if (_syncBtn) _syncBtn.classList.remove('is-busy');
       // After a successful sync the island already says "All caught up" — no reset needed.
       // After a user-triggered failure, give the user a moment to read "Sync failed"
@@ -10574,8 +10686,14 @@ window.FCApp = (function () {
   }
 
   /* ── Public API ───────────────────────────────────────────── */
-  function manualSync() {
-    _doSync(true); // user-initiated — show toast
+  /* showToast defaults to true so the header button (which calls this with no
+     args) still behaves as a user-initiated sync: bypasses the cooldown, pops
+     a toast. The parameter exists because the resume handler already called
+     manualSync(false) intending a silent background retry — the argument was
+     simply ignored, so every resume after a failed sync ran a cooldown-bypassing
+     sync and toasted "Accounts synced" over it. */
+  function manualSync(showToast = true) {
+    _doSync(showToast);
   }
 
   async function sendTestEmail() {
