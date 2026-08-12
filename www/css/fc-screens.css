@@ -2095,12 +2095,20 @@ body.fc-theme .fc-nav {
   gap: 12px;
   margin-bottom: 12px;
 }
+/* The card's headline is the thing the card is ABOUT — "Covered for 58 days".
+   It was 19px/750 in a 169px column, wrapping to two lines, while the
+   supporting metric beside it ($ left before payday) was 24px/800. The side
+   number outranked the story: bigger, heavier, and on one line while the
+   headline broke. Money's net-worth card already gets this right — one
+   eyebrow, one dominant number — and Home now matches it.
+   Two lines of large type reads as deliberate; two lines of small type
+   squeezed next to something bigger reads as broken. */
 .rw-headline {
   margin: 3px 0 2px;
-  font-size: 19px;
-  font-weight: 750;
-  line-height: 1.15;
-  letter-spacing: -0.02em;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
   color: var(--fc-text);
   text-wrap: balance;
 }
@@ -2113,9 +2121,12 @@ body.fc-theme .fc-nav {
   font-size: 9px; font-weight: 700; letter-spacing: 0.1em;
   text-transform: uppercase; color: var(--fc-text-faint);
 }
+/* Supporting metric, not the hero. Demoted from 24px/800 so it stops
+   outranking .rw-headline above — and a narrower right column gives the
+   headline back the width it was being squeezed out of. */
 .rw-endpoint-value {
   margin: 0;
-  font-size: 24px; font-weight: 800; letter-spacing: -0.03em;
+  font-size: 17px; font-weight: 600; letter-spacing: -0.02em;
   color: var(--fc-text); font-variant-numeric: tabular-nums;
 }
 
