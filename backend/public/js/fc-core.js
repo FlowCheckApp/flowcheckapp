@@ -170,29 +170,197 @@
   }
 
   /* ── Payday prediction ────────────────────────────────────────────
-     Group income by payer, look for a consistent bi-weekly (12-16d) or
-     monthly (25-37d) cadence. Returns null when there is no clear
-     pattern — the caller must fall back to a horizon, never invent a date. */
-  function predictNextPayday(transactions) {
+     Answers "when does the next paycheque land". Returns null when there
+     is no clear pattern — the caller must fall back to a horizon and never
+     invent a date.
+
+     Every rule below exists because the previous version was measured
+     getting one of these wrong:
+
+       · Paid today read as "14 days away". `next` was compared against
+         Date.now() while deposit dates parse to local midnight, so from
+         00:01 on payday the prediction skipped to the cheque after it.
+       · Weekly earners got null — only 12-16d and 25-37d were recognised —
+         and the caller then invented a flat 7-day horizon.
+       · Semi-monthly (1st & 15th) was averaged to ~15.2d and drifted off
+         both dates. For an Aug 1 / Aug 15 payer it predicted Aug 16.
+       · Monthly drifted the same way: last + 30.4d turns the 1st into the
+         31st, then the 2nd, then the 4th.
+       · One missed cheque killed the prediction outright, because the MEAN
+         gap left the window: [14,14,14,45] → 21.75 → null.
+       · Gaps of [5, 25] have a mean of 15 and were reported, confidently,
+         as biweekly. Nothing tested that the gaps agreed with each other.
+       · A payroll that stopped 150 days ago still produced a date 4 days
+         out, because the loop simply advanced until it passed today.
+       · A $3/month interest credit was indistinguishable from a salary.
+
+     Returns { date, days, cadence }. `days` is 0 on payday itself, so
+     callers must use an explicit null test rather than `|| fallback`. */
+
+  const _PAYDAY_MIN_AMOUNT = 100;   // below this it is a refund, not a wage
+  const _FIXED_CADENCES = [
+    { name: 'weekly',   step:  7, lo:  6, hi:  8,  tol: 2 },
+    { name: 'biweekly', step: 14, lo: 12, hi: 16,  tol: 3 },
+    { name: 'monthly',  step: 30, lo: 26, hi: 37,  tol: 6 },
+  ];
+
+  /** Payer key for cadence grouping. Digits are stripped rather than sliced
+   *  around: payroll descriptors carry a changing reference or date
+   *  ("ACME DIRECT DEP 0615" → "…0629"), which split one employer into two
+   *  groups of one and made the cadence invisible. */
+  function _payerKey(t) {
+    const name = t.customName || t.merchant_name || t.name || 'Transaction';
+    return String(name).toLowerCase().replace(/[^a-z]/g, '').slice(0, 20) || 'income';
+  }
+
+  function _startOfDay(ms) { const d = new Date(ms); d.setHours(0, 0, 0, 0); return d; }
+
+  /** Add whole months, clamping into shorter ones: paid on the 31st means
+   *  the 30th in April, not the 1st of May. */
+  function _addMonths(from, n, dom) {
+    const d = new Date(from.getFullYear(), from.getMonth() + n, 1);
+    const lastDom = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+    d.setDate(Math.min(dom, lastDom));
+    return d;
+  }
+
+  /** Direct deposits settle on business days — a weekend payday lands the
+   *  Friday before. Never shifts back past today. */
+  function _toBusinessDay(date, todayMs) {
+    const d = new Date(date);
+    if (d.getDay() === 6) d.setDate(d.getDate() - 1);       // Sat → Fri
+    else if (d.getDay() === 0) d.setDate(d.getDate() - 2);  // Sun → Fri
+    return d.getTime() < todayMs ? new Date(date) : d;
+  }
+
+  /** Two fixed days of the month (1st & 15th, 15th & last), or null.
+   *  Detected by clustering day-of-month, because semi-monthly gaps
+   *  legitimately alternate (13/18, 14/17) and fail any gap-consistency
+   *  test — which is why averaging them drifted off both dates. */
+  function _semiMonthlyDoms(doms) {
+    if (doms.length < 4) return null;   // two of each date is the minimum evidence
+    const counts = new Map();
+    doms.forEach(d => counts.set(d, (counts.get(d) || 0) + 1));
+    const top = [...counts.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0] - b[0])
+      .slice(0, 2).map(e => e[0]);
+    if (top.length < 2) return null;
+    const spread = Math.abs(top[0] - top[1]);
+    if (spread < 10 || spread > 20) return null;            // must be ~half a month apart
+
+    /* Both clusters must hold at least two deposits. Any four scattered
+       days-of-month contain *some* pair 10-20 apart, so a coverage ratio
+       alone declared biweekly runs semi-monthly and then snapped them to
+       invented dates — [17, 1, 15, 29] became "the 1st and the 15th".
+       Requiring each date to have been seen twice is what makes this
+       evidence of a schedule rather than an artefact of arithmetic. */
+    const sizes = [0, 0];
+    doms.forEach(d => {
+      const i = Math.abs(d - top[0]) <= 3 ? 0 : Math.abs(d - top[1]) <= 3 ? 1 : -1;
+      if (i >= 0) sizes[i]++;                               // ±3 absorbs the weekend shift
+    });
+    if (sizes[0] < 2 || sizes[1] < 2) return null;
+    if ((sizes[0] + sizes[1]) / doms.length < 0.7) return null;
+    return top.slice().sort((a, b) => a - b);
+  }
+
+  function _nextSemiMonthly(doms, todayMs) {
+    const today = new Date(todayMs);
+    const cands = [];
+    for (let m = 0; m <= 2; m++) {
+      doms.forEach(dom => cands.push(_addMonths(new Date(today.getFullYear(), today.getMonth(), 1), m, dom)));
+    }
+    cands.sort((a, b) => a - b);
+    return cands.find(d => d.getTime() >= todayMs) || cands[cands.length - 1];
+  }
+
+  /** Cadence + next date for one payer's deposit dates, or null. */
+  function _cadenceFor(dates, todayMs) {
+    const last = dates[dates.length - 1];
+    const gaps = dates.slice(1).map((v, i) => (v - dates[i]) / 86400000);
+    if (!gaps.length) return null;
+    const med  = median(gaps);
+    const doms = dates.map(ms => new Date(ms).getDate());
+
+    // Semi-monthly first: its gaps overlap the biweekly window, so testing
+    // fixed cadences first would classify it as biweekly and drift.
+    const semi = _semiMonthlyDoms(doms);
+    if (semi && med >= 12 && med <= 18) {
+      if ((todayMs - last) / 86400000 > 40) return null;    // schedule has stopped
+      return { date: _toBusinessDay(_nextSemiMonthly(semi, todayMs), todayMs), cadence: 'semimonthly' };
+    }
+
+    for (const c of _FIXED_CADENCES) {
+      if (med < c.lo || med > c.hi) continue;
+      /* Gaps must agree with each other, not merely average into range.
+         A gap of 2x or 3x the cadence still agrees: a missed deposit, a
+         payroll correction or a hole in Plaid's history leaves the schedule
+         intact and one cheque unseen. Counting that as disagreement threw
+         away an otherwise perfect biweekly run on a single skipped week. */
+      const agree = gaps.filter(g => {
+        for (let k = 1; k <= 3; k++) if (Math.abs(g - med * k) <= c.tol) return true;
+        return false;
+      }).length;
+      if (agree / gaps.length < 0.7) continue;
+      // Two cadences of silence means the job ended or the account changed.
+      if ((todayMs - last) / 86400000 > c.step * 2 + 5) continue;
+
+      let next;
+      if (c.name === 'monthly') {
+        const dom = Math.round(median(doms));
+        const from = new Date(last);
+        let n = 1;
+        next = _addMonths(from, n, dom);
+        while (next.getTime() < todayMs && n < 4) next = _addMonths(from, ++n, dom);
+      } else {
+        next = new Date(last + c.step * 86400000);
+        let guard = 0;
+        while (next.getTime() < todayMs && guard++ < 8) {
+          next = new Date(next.getTime() + c.step * 86400000);
+        }
+      }
+      if (next.getTime() < todayMs) continue;
+      return { date: _toBusinessDay(next, todayMs), cadence: c.name };
+    }
+    return null;
+  }
+
+  function predictNextPayday(transactions, nowMs) {
+    const todayMs = _startOfDay(nowMs == null ? Date.now() : nowMs).getTime();
+
     const groups = {};
     (transactions || []).filter(isIncomeTxn).forEach(t => {
       if (!t.date || !t.amount) return;
-      const key = txnKey(t);
-      (groups[key] = groups[key] || []).push(parseDateLocal(t.date).getTime());
+      const d = parseDateLocal(t.date);
+      if (isNaN(d.getTime())) return;
+      d.setHours(0, 0, 0, 0);
+      const key = _payerKey(t);
+      (groups[key] = groups[key] || []).push({ ms: d.getTime(), amount: Math.abs(t.amount) });
     });
+
     let best = null;
-    Object.values(groups).forEach(dates => {
-      if (dates.length < 2) return;
-      dates.sort((a, b) => a - b);
-      const gaps = dates.slice(1).map((v, i) => (v - dates[i]) / 86400000);
-      const avg = gaps.reduce((s, g) => s + g, 0) / gaps.length;
-      if (!((avg >= 12 && avg <= 16) || (avg >= 25 && avg <= 37))) return;
-      let next = dates[dates.length - 1] + avg * 86400000;
-      while (next < Date.now()) next += avg * 86400000;
-      const days = Math.max(1, Math.ceil((next - Date.now()) / 86400000));
-      if (days <= 31 && (!best || days < best.days)) best = { date: new Date(next), days };
+    Object.values(groups).forEach(entries => {
+      // A split direct deposit is one payday, not two — collapse same-day
+      // credits from one payer before measuring gaps.
+      const byDay = new Map();
+      entries.forEach(e => byDay.set(e.ms, (byDay.get(e.ms) || 0) + e.amount));
+      const dates = [...byDay.keys()].sort((a, b) => a - b);
+
+      // Two dates is a single gap, which cannot show consistency. Requiring
+      // three is what stops a coincidence from being reported as a schedule.
+      if (dates.length < 3) return;
+      const amount = median(dates.map(ms => byDay.get(ms)));
+      if (amount < _PAYDAY_MIN_AMOUNT) return;
+
+      const pred = _cadenceFor(dates, todayMs);
+      // Prefer the biggest cheque, not the soonest credit: the salary is the
+      // payday even when a smaller deposit lands before it.
+      if (pred && (!best || amount > best.amount)) best = Object.assign({ amount }, pred);
     });
-    return best;
+
+    if (!best) return null;
+    const days = Math.round((_startOfDay(best.date.getTime()).getTime() - todayMs) / 86400000);
+    return { date: best.date, days, cadence: best.cadence };
   }
 
   /* ═══════════════════════════════════════════════════════════════
@@ -264,21 +432,13 @@
     const typicalLow  = sorted.length ? sorted[Math.floor(sorted.length * 0.25)] : perWeek;
     const typicalHigh = sorted.length ? sorted[Math.floor(sorted.length * 0.75)] : perWeek;
 
-    // Regular cadence? Reuse the same grouping predictNextPayday uses.
+    /* Cadence comes straight off the prediction now. This used to be a
+       second, independent mean-of-gaps loop that could disagree with the
+       date it sat next to — and it carried every bug predictNextPayday was
+       just fixed for (mean not median, no consistency test, semi-monthly
+       overlapping biweekly). One measurement, one answer. */
     const payday = predictNextPayday(transactions);
-    let cadence = null;
-    if (payday) {
-      const groups = {};
-      income.forEach(t => { (groups[t.key] = groups[t.key] || []).push(t.ts); });
-      for (const dates of Object.values(groups)) {
-        if (dates.length < 2) continue;
-        dates.sort((a, b) => a - b);
-        const gaps = dates.slice(1).map((v, i) => (v - dates[i]) / 86400000);
-        const avg = gaps.reduce((s, g) => s + g, 0) / gaps.length;
-        const hit = CADENCES.find(c => avg >= c.lo && avg <= c.hi);
-        if (hit) { cadence = hit.name; break; }
-      }
-    }
+    const cadence = payday ? payday.cadence : null;
 
     const confidence = Math.max(0, Math.min(1, (income.length / 6) * (spanDays / win)));
     return {
@@ -301,7 +461,10 @@
 
     const cash = Math.max(0, spendableCash(accounts));
     const payday = predictNextPayday(transactions);
-    const days = Math.min(14, (payday && payday.days) || 7);
+    /* Math.max(1, …), not `|| 7`: payday.days is legitimately 0 on payday
+       itself, and `0 || 7` silently turned "today" into a week-long spending
+       horizon. The horizon is clamped; the prediction stays truthful. */
+    const days = Math.min(14, payday ? Math.max(1, payday.days) : 7);
 
     const bills = allBills.filter(b => {
       if (b.status === 'paid') return false;
@@ -335,7 +498,8 @@
     const p = buildSafeSpendProjection(input);
     const allBills = input.bills || [];
 
-    const horizon = Math.max(1, Math.min(31, (p.payday && p.payday.days) || 14));
+    // Same `|| 14` falsy trap as the projection horizon — days can be 0.
+    const horizon = Math.max(1, Math.min(31, p.payday ? p.payday.days : 14));
     const dailyBurn = p.expectedEverydaySpend / Math.max(1, p.days || horizon);
 
     const billsByDay = {};

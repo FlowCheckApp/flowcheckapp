@@ -99,7 +99,17 @@ t('isIncomeTxn: excludes credit card payments', () => {
   eq(C.isIncomeTxn({ isCredit: true, date: ago(1), category: 'credit card payment' }), false);
 });
 
-/* ── payday prediction ───────────────────────────────────────────── */
+/* ── payday prediction ─────────────────────────────────────────────
+   Fixed calendar dates and an injected `now`. Every bug guarded here is
+   a date bug, and a relative helper would drift with whichever weekday
+   the suite happened to run on — which is how several of them survived.
+   All chosen dates are midweek unless the test is specifically about the
+   weekend rule. */
+const on  = (date, amt, name) => ({ amount: amt, isCredit: true, date,
+                                    category: 'Income', name: name || 'ACME PAYROLL' });
+const NOW = d => new Date(d + 'T12:00:00').getTime();
+const dateOf = p => `${p.date.getFullYear()}-${String(p.date.getMonth() + 1).padStart(2, '0')}-${String(p.date.getDate()).padStart(2, '0')}`;
+
 t('predictNextPayday: detects biweekly', () => {
   const p = C.predictNextPayday([pay(2000, 1), pay(2000, 15), pay(2000, 29)]);
   ok(p, 'expected a payday'); ok(p.days >= 1 && p.days <= 16, 'days in range, got ' + p.days);
@@ -111,8 +121,158 @@ t('predictNextPayday: detects monthly', () => {
 t('predictNextPayday: null on a single paycheck', () => {
   eq(C.predictNextPayday([pay(2000, 3)]), null);
 });
+t('predictNextPayday: null on two paychecks — one gap proves nothing', () => {
+  eq(C.predictNextPayday([pay(2000, 1), pay(2000, 15)]), null);
+});
 t('predictNextPayday: null on irregular gaps', () => {
   eq(C.predictNextPayday([pay(100, 1), pay(90, 3), pay(120, 9)]), null);
+});
+
+/* Payday TODAY must read 0, not a full cycle away. next was compared
+   against Date.now() while deposit dates parse to local midnight, so from
+   00:01 on payday the prediction skipped to the cheque after it. */
+t('predictNextPayday: payday today is 0 days, not 14', () => {
+  const p = C.predictNextPayday(
+    [on('2026-07-01', 2000), on('2026-07-15', 2000), on('2026-07-29', 2000)],
+    NOW('2026-08-12'));
+  ok(p, 'expected a payday');
+  eq(p.days, 0, 'days');
+  eq(dateOf(p), '2026-08-12', 'date');
+});
+t('predictNextPayday: a cheque already banked today rolls to the next one', () => {
+  const p = C.predictNextPayday(
+    [on('2026-07-15', 2000), on('2026-07-29', 2000), on('2026-08-12', 2000)],
+    NOW('2026-08-12'));
+  ok(p, 'expected a payday');
+  eq(p.days, 14, 'days');
+  eq(dateOf(p), '2026-08-26', 'date');
+});
+
+/* Weekly earners used to get null, and the caller then invented a flat
+   7-day horizon that happened to look plausible. */
+t('predictNextPayday: detects weekly', () => {
+  const p = C.predictNextPayday(
+    [on('2026-07-22', 900), on('2026-07-29', 900), on('2026-08-05', 900)],
+    NOW('2026-08-10'));
+  ok(p, 'expected a payday');
+  eq(p.cadence, 'weekly', 'cadence');
+  eq(dateOf(p), '2026-08-12', 'date');
+});
+
+/* Semi-monthly gaps alternate 13-18d, so averaging them drifted off both
+   dates: for an Aug 1 / Aug 15 payer this predicted Aug 16. */
+t('predictNextPayday: semi-monthly snaps to the 15th, not last+15.2d', () => {
+  const p = C.predictNextPayday([
+    on('2026-06-15', 1800), on('2026-07-01', 1800),
+    on('2026-07-15', 1800), on('2026-08-03', 1800),
+  ], NOW('2026-08-10'));
+  ok(p, 'expected a payday');
+  eq(p.cadence, 'semimonthly', 'cadence');
+  // The 15th is a Saturday — direct deposit lands the Friday before.
+  eq(dateOf(p), '2026-08-14', 'date');
+});
+
+/* last + 30.4d turned the 1st into the 31st, then the 2nd. Stepping by
+   calendar month holds the day, and clamps into shorter months. */
+t('predictNextPayday: monthly holds the day of month', () => {
+  const p = C.predictNextPayday([
+    on('2026-06-15', 4000), on('2026-07-15', 4000), on('2026-08-15', 4000),
+  ], NOW('2026-08-20'));
+  ok(p, 'expected a payday');
+  eq(p.cadence, 'monthly', 'cadence');
+  eq(dateOf(p), '2026-09-15', 'date');
+});
+t('predictNextPayday: monthly on the 31st clamps into a short month', () => {
+  const p = C.predictNextPayday([
+    on('2025-10-31', 4000), on('2025-11-30', 4000),
+    on('2025-12-31', 4000), on('2026-01-31', 4000),
+  ], NOW('2026-02-10'));
+  ok(p, 'expected a payday');
+  // February has no 31st; the 28th is a Saturday, so Friday the 27th.
+  eq(dateOf(p), '2026-02-27', 'date');
+});
+
+/* A mean gap of [14,14,45] is 24.3 and fell out of every window, so one
+   skipped deposit threw away an otherwise perfect biweekly run. */
+t('predictNextPayday: survives a missed paycheck', () => {
+  const p = C.predictNextPayday([
+    on('2026-06-17', 2000), on('2026-07-01', 2000),
+    on('2026-07-15', 2000), /* one missed */ on('2026-08-12', 2000),
+  ], NOW('2026-08-20'));
+  ok(p, 'expected a payday');
+  eq(p.cadence, 'biweekly', 'cadence');
+  eq(dateOf(p), '2026-08-26', 'date');
+});
+
+/* Gaps of 5 and 25 days average to exactly 15 and were reported as
+   biweekly. Nothing tested that the gaps agreed with one another. */
+t('predictNextPayday: null when gaps only average into range', () => {
+  eq(C.predictNextPayday([
+    on('2026-07-13', 1500), on('2026-07-18', 1500), on('2026-08-12', 1500),
+  ], NOW('2026-08-13')), null);
+});
+
+/* A payroll that stopped months ago still produced a date days out,
+   because the loop simply advanced until it passed today. */
+t('predictNextPayday: null once the payroll has gone quiet', () => {
+  eq(C.predictNextPayday([
+    on('2026-02-04', 2000), on('2026-02-18', 2000), on('2026-03-04', 2000),
+  ], NOW('2026-08-12')), null);
+});
+
+/* A $3 monthly interest credit is a perfect cadence and not a payday. */
+t('predictNextPayday: ignores small recurring credits', () => {
+  eq(C.predictNextPayday([
+    on('2026-06-10', 3, 'INTEREST PAID'), on('2026-07-10', 3, 'INTEREST PAID'),
+    on('2026-08-10', 3, 'INTEREST PAID'),
+  ], NOW('2026-08-12')), null);
+});
+
+/* The salary is the payday even when a smaller credit lands sooner —
+   picking the soonest group let a side deposit win. */
+t('predictNextPayday: prefers the salary over a sooner small deposit', () => {
+  const p = C.predictNextPayday([
+    on('2026-06-17', 2400, 'ACME PAYROLL'), on('2026-07-01', 2400, 'ACME PAYROLL'),
+    on('2026-07-15', 2400, 'ACME PAYROLL'), on('2026-07-29', 2400, 'ACME PAYROLL'),
+    on('2026-06-20', 150, 'SIDE GIG'), on('2026-07-20', 150, 'SIDE GIG'),
+    on('2026-08-20', 150, 'SIDE GIG'),
+  ], NOW('2026-08-05'));
+  ok(p, 'expected a payday');
+  eq(dateOf(p), '2026-08-12', 'should be the payroll date, not the side gig');
+});
+
+/* Payroll descriptors carry a changing reference, which split one
+   employer into three groups of one and hid the cadence entirely. */
+t('predictNextPayday: groups a payer whose descriptor carries a ref number', () => {
+  const p = C.predictNextPayday([
+    on('2026-07-01', 2000, 'ACME CORP DIRECT DEP 0701'),
+    on('2026-07-15', 2000, 'ACME CORP DIRECT DEP 0715'),
+    on('2026-07-29', 2000, 'ACME CORP DIRECT DEP 0729'),
+  ], NOW('2026-08-05'));
+  ok(p, 'expected a payday');
+  eq(dateOf(p), '2026-08-12', 'date');
+});
+
+/* A split direct deposit is one payday, not two — two same-day credits
+   used to register as a zero-day gap. */
+t('predictNextPayday: collapses a split deposit into one payday', () => {
+  const p = C.predictNextPayday([
+    on('2026-07-01', 1200), on('2026-07-01', 800),
+    on('2026-07-15', 1200), on('2026-07-15', 800),
+    on('2026-07-29', 1200), on('2026-07-29', 800),
+  ], NOW('2026-08-05'));
+  ok(p, 'expected a payday');
+  eq(p.cadence, 'biweekly', 'cadence');
+  eq(dateOf(p), '2026-08-12', 'date');
+});
+
+t('predictNextPayday: a weekend payday lands the Friday before', () => {
+  const p = C.predictNextPayday([
+    on('2026-06-20', 2000), on('2026-07-04', 2000), on('2026-07-18', 2000),
+  ], NOW('2026-07-20'));
+  ok(p, 'expected a payday');
+  // Aug 1 is a Saturday.
+  eq(dateOf(p), '2026-07-31', 'date');
 });
 
 /* ── the runway ──────────────────────────────────────────────────── */
@@ -137,7 +297,9 @@ t('runway: counts bills PAST day 14 (the capped-window bug)', () => {
   // bills and overstates the landing balance.
   const r = C.buildRunwaySeries({
     accounts: [chk(5000)],
-    transactions: [pay(3000, 1), pay(3000, 31)],   // monthly -> long horizon
+    // Three deposits, not two: one gap cannot show a consistent cadence, so
+    // predictNextPayday requires three before it will name a date.
+    transactions: [pay(3000, 1), pay(3000, 31), pay(3000, 61)],  // monthly -> long horizon
     bills: [bill('Late', 500, 20)],
   });
   ok(r.horizon >= 20, 'horizon should reach day 20, got ' + r.horizon);
@@ -303,7 +465,7 @@ t('forecastToRecord: null without a real payday to be judged against', () => {
 });
 t('forecastToRecord: id is the target date, so re-renders overwrite', () => {
   const r = C.buildRunwaySeries({
-    accounts: [chk(2000)], transactions: [pay(1500, 1), pay(1500, 15)], bills: [],
+    accounts: [chk(2000)], transactions: [pay(1500, 1), pay(1500, 15), pay(1500, 29)], bills: [],
   });
   const f = C.forecastToRecord(r);
   ok(f, 'expected a forecast'); eq(f.id, f.target_date);
@@ -311,7 +473,7 @@ t('forecastToRecord: id is the target date, so re-renders overwrite', () => {
 });
 t('forecastToRecord: records the predicted endpoint to the cent', () => {
   const r = C.buildRunwaySeries({
-    accounts: [chk(2000)], transactions: [pay(1500, 1), pay(1500, 15)], bills: [bill('R', 300, 3)],
+    accounts: [chk(2000)], transactions: [pay(1500, 1), pay(1500, 15), pay(1500, 29)], bills: [bill('R', 300, 3)],
   });
   const f = C.forecastToRecord(r);
   near(f.predicted_end, +r.endBalance.toFixed(2), 0.01);

@@ -2235,27 +2235,24 @@ window.FCApp = (function () {
     });
   }
 
+  /* Delegates to FCCore — see the note on _buildSafeSpendProjection below.
+     This was a second, independent copy of the payday algorithm, and it
+     carried every bug the core version was just fixed for: mean gaps
+     instead of median, no consistency test, no staleness test, no weekly
+     or semi-monthly cadence, and a comparison against Date.now() that made
+     payday itself read as a full cycle away. Two copies of the same money
+     math is how the number on one screen stops matching the number on the
+     next. Returns { date, days, cadence } — days is 0 on payday itself. */
   function _predictNextPayday() {
-    const groups = {};
-    (state.transactions || []).filter(_isIncomeTxn).forEach(t => {
-      if (!t.date || !t.amount) return;
-      const key = _cleanTxnName(t).toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 18);
-      if (!groups[key]) groups[key] = [];
-      groups[key].push(FCData.parseDateLocal(t.date).getTime());
-    });
-    let best = null;
-    Object.values(groups).forEach(dates => {
-      if (dates.length < 2) return;
-      dates.sort((a, b) => a - b);
-      const gaps = dates.slice(1).map((value, index) => (value - dates[index]) / 86400000);
-      const averageGap = gaps.reduce((sum, gap) => sum + gap, 0) / gaps.length;
-      if (!((averageGap >= 12 && averageGap <= 16) || (averageGap >= 25 && averageGap <= 37))) return;
-      let next = dates[dates.length - 1] + averageGap * 86400000;
-      while (next < Date.now()) next += averageGap * 86400000;
-      const days = Math.max(1, Math.ceil((next - Date.now()) / 86400000));
-      if (days <= 31 && (!best || days < best.days)) best = { date: new Date(next), days };
-    });
-    return best;
+    return FCCore.predictNextPayday(state.transactions || []);
+  }
+
+  /* Phrasing for "when is payday". The old prediction could never return 0 —
+     it forced a minimum of 1 day and skipped the cheque landing today — so
+     every call site below would have rendered "0 days away" the moment that
+     was fixed. */
+  function _paydayWhen(days) {
+    return days <= 0 ? 'today' : days === 1 ? 'tomorrow' : 'in ' + days + ' days';
   }
 
   /* Inputs for the shared core (www/js/fc-core.js). Kept in one place so
@@ -6891,7 +6888,9 @@ window.FCApp = (function () {
     const lastIncomeTxn = txns.filter(_isIncomeTxn)
       .sort((a,b) => String(b.date||'').localeCompare(String(a.date||'')))[0];
     const expectedPay = lastIncomeTxn ? (lastIncomeTxn.amount || 0) : 0;
-    const payWindow = payday ? payday.days : 14;
+    // Math.max(1, …): days is 0 on payday itself, and a 0-day bill window
+    // would show an empty paycheck plan on the very day it matters most.
+    const payWindow = payday ? Math.max(1, payday.days) : 14;
     const payBills = allUnpaidBills.filter(b => {
       const d = FCData.daysUntil(b.due_date);
       return d !== null && d >= 0 && d <= payWindow;
@@ -8112,7 +8111,7 @@ window.FCApp = (function () {
     const billsSafe = (p.cash - amount) >= p.billsTotal;
     const dailyAfter = Math.max(0, after) / Math.max(1, p.days);
     const paydayLabel = p.payday
-      ? p.payday.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' (' + p.payday.days + ' day' + (p.payday.days === 1 ? '' : 's') + ')'
+      ? p.payday.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' (' + _paydayWhen(p.payday.days) + ')'
       : 'in ~' + p.days + ' days';
 
     let tone, verdict, detail;
@@ -8172,8 +8171,13 @@ window.FCApp = (function () {
           +'<span style="flex-shrink:0;margin-top:1px">'+_ic('clock', 'var(--fc-accent)', 16)+'</span>'
           +'<div style="font-size:13px;color:var(--fc-text);line-height:1.45">'
             +(easyAfterPayday
-              ? '<strong>Wait '+p.payday.days+' day'+(p.payday.days===1?'':'s')+'.</strong> Payday lands '+p.payday.date.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' — after that, this is an easy yes.'
-              : '<strong>Payday is '+p.payday.days+' day'+(p.payday.days===1?'':'s')+' away.</strong> Waiting until then gives you far more breathing room.')
+              ? (p.payday.days <= 0
+                  ? '<strong>Payday lands today.</strong> Once it clears, this is an easy yes.'
+                  : '<strong>Wait '+(p.payday.days===1?'a day':p.payday.days+' days')+'.</strong> Payday lands '+p.payday.date.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' — after that, this is an easy yes.')
+              : '<strong>Payday is '+_paydayWhen(p.payday.days)+'.</strong> '
+                +(p.payday.days <= 0
+                    ? 'Once it clears you\'ll have far more breathing room.'
+                    : 'Waiting until then gives you far more breathing room.'))
           +'</div>'
         +'</div>';
     }
