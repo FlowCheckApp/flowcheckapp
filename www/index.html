@@ -1543,8 +1543,14 @@ body.keyboard-open .fc-sheet {
      keyboard up. Use the full height here and let the sheet scroll inside it.
      The bottom safe-area inset also collapses to 0 while the keyboard covers
      the home indicator, so the padding below must not reserve room for it. */
-  max-height: 100dvh;
-  padding-bottom: 16px;
+  /* Nearly the full area above the keyboard, but never touching the top —
+     100dvh put the sheet's rounded corners flush under the Dynamic Island.
+     The floor guarantees a gap whether or not the WebView starts below the
+     status bar, since env() is 0 in the browser and on some configs.
+     Bottom padding is deliberately NOT overridden here: with the keyboard up
+     the home indicator is covered, so env(safe-area-inset-bottom) already
+     collapses to 0 on its own. One less thing changing mid-animation. */
+  max-height: min(92dvh, calc(100dvh - env(safe-area-inset-top, 0px) - 16px));
 }
 /* The Done bar is fixed at the viewport bottom, so it sits over whatever the
    sheet has down there — which is the Save button. Reserve its height (44px

@@ -11697,6 +11697,34 @@ window.FCApp = (function () {
   let _editingGoalId = null;
 
   /** Called from goal card tap — looks up goal by ID then opens edit sheet */
+  /* Focus a sheet's first field only once the sheet has finished animating in.
+     Every form sheet used to do `setTimeout(… .focus(), 200)`, but .fc-sheet
+     enters on `fcSheetUp 0.36s cubic-bezier(0.34, 1.56, 0.64, 1)` — a 360ms
+     spring that deliberately OVERSHOOTS. Focusing at 200ms summoned the
+     keyboard while the sheet was still mid-spring, and with resize:"native"
+     the WebView then shrank underneath it: the sheet was repositioned to a new
+     viewport bottom while an animation was still driving it toward the old
+     one. That is the bounce — the sheet lands high, then drops.
+
+     Waiting on animationend rather than a bigger magic number means this stays
+     correct if the entrance timing is ever retuned. The timeout is only a
+     fallback for the case where no animation runs at all (reduced motion, or
+     the sheet was already open). */
+  function _focusWhenSheetSettled(input, sheetOverlay) {
+    if (!input) return;
+    const panel = sheetOverlay && sheetOverlay.querySelector('.fc-sheet');
+    let done = false;
+    const go = () => {
+      if (done) return;
+      done = true;
+      input.focus();
+    };
+    if (!panel) { setTimeout(go, 200); return; }
+    panel.addEventListener('animationend', go, { once: true });
+    // Fallback: no animation (prefers-reduced-motion, or already-open sheet).
+    setTimeout(go, 420);
+  }
+
   function editGoal(goalId) {
     haptic('light');
     const goal = state.goals.find(g => g.id === goalId);
@@ -11723,7 +11751,7 @@ window.FCApp = (function () {
     if (sheet) { sheet.style.display = 'flex'; }
     haptic('light');
     _updateGoalCalc();
-    setTimeout(() => nameInput && nameInput.focus(), 200);
+    _focusWhenSheetSettled(nameInput, sheet);
   }
 
   function _updateGoalCalc() {
@@ -11849,7 +11877,7 @@ window.FCApp = (function () {
 
     if (sheet) { sheet.style.display = 'flex'; }
     haptic('light');
-    setTimeout(() => name && name.focus(), 200);
+    _focusWhenSheetSettled(name, sheet);
   }
 
   /** Entry point from an account row. Looks the account up by id so the row
@@ -11980,7 +12008,7 @@ window.FCApp = (function () {
 
     sheet.style.display = 'flex';
     haptic('light');
-    setTimeout(() => nameEl && nameEl.focus(), 200);
+    _focusWhenSheetSettled(nameEl, sheet);
   }
 
   function closeBillSheet() {
@@ -12125,7 +12153,7 @@ window.FCApp = (function () {
     if (resetBtn) resetBtn.style.display = (ov.name || ov.category) ? '' : 'none';
 
     if (sheet) { sheet.style.display = 'flex'; haptic('light'); }
-    setTimeout(() => nameEl && nameEl.focus(), 200);
+    _focusWhenSheetSettled(nameEl, sheet);
   }
 
   function closeTransactionSheet() {
@@ -12301,7 +12329,7 @@ window.FCApp = (function () {
     }
 
     if (sheet) { sheet.style.display = 'flex'; haptic('light'); }
-    setTimeout(() => inputEl && inputEl.focus(), 200);
+    _focusWhenSheetSettled(inputEl, sheet);
   }
 
   function closeCategoryBudgetSheet() {
