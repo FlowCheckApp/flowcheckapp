@@ -1469,6 +1469,38 @@ body {
   -webkit-user-select: none; user-select: none;
   box-shadow: 0 -20px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.07);
 }
+/* ── Done bar for keyboards with no Return key ──────────────────────────
+   With resize:"native" the viewport bottom IS the top of the keyboard, so
+   bottom:0 pins this exactly above it with no height maths. Only shown while
+   a numeric-pad field has focus — every other keyboard has its own Return. */
+#fc-kb-done {
+  position: fixed; left: 0; right: 0; bottom: 0;
+  z-index: 500;                      /* above .fc-sheet-overlay (400) */
+  display: none;
+  justify-content: flex-end; align-items: center;
+  padding: 4px 12px;
+  background: rgba(19, 31, 48, 0.94);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  border-top: 0.5px solid rgba(255, 255, 255, 0.10);
+  animation: fcKbDoneIn 0.16s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+body.fc-kb-numeric #fc-kb-done { display: flex; }
+#fc-kb-done button {
+  appearance: none; -webkit-appearance: none; border: 0; background: transparent;
+  font-family: inherit; font-size: 16px; font-weight: 600;
+  color: var(--fc-accent);
+  padding: 10px 10px; min-height: 44px;   /* full-size tap target */
+  -webkit-tap-highlight-color: transparent;
+}
+#fc-kb-done button:active { opacity: 0.55; }
+@keyframes fcKbDoneIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #fc-kb-done { animation: none; }
+}
+
 /* Form sheets. This was an inline style="padding:24px" on five sheets, which
    dropped the bottom safe-area inset the class sets (the last control sat
    under the home indicator) and, being inline, also beat the keyboard-open
@@ -1513,6 +1545,12 @@ body.keyboard-open .fc-sheet {
      the home indicator, so the padding below must not reserve room for it. */
   max-height: 100dvh;
   padding-bottom: 16px;
+}
+/* The Done bar is fixed at the viewport bottom, so it sits over whatever the
+   sheet has down there — which is the Save button. Reserve its height (44px
+   target + 8px padding + hairline) so the CTA can still scroll clear of it. */
+body.keyboard-open.fc-kb-numeric .fc-sheet {
+  padding-bottom: 69px;
 }
 body:not(.keyboard-open) .fc-sheet {
   transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
@@ -7069,6 +7107,17 @@ body:not(.keyboard-open) .fc-sheet {
 <!-- FlowCheck modules (order matters) -->
 <script src="js/fc-config.js"></script>
 <script src="js/fc-analytics.js"></script>
+<!-- Done bar for keyboards that have no Return key.
+     iOS's decimal/number pad has no Return, and capacitor.config.json sets
+     hideFormAccessoryBar:true, so on an amount field there was no
+     keyboard-native way to dismiss — you had to already know to tap the
+     background. iOS's own accessory bar is grey system chrome that clashes
+     with the dark sheets and would also appear on the auth screens, so this
+     is ours, shown only while a field without a Return key has focus. -->
+<div id="fc-kb-done" role="toolbar" aria-label="Keyboard">
+  <button type="button" id="fc-kb-done-btn">Done</button>
+</div>
+
 <script src="js/fc-debug.js"></script>
 <!-- fc-core.js: shared money math, also loaded by the web app at /app.
      Must come before fc-app.js, which delegates to it. One implementation
@@ -7286,6 +7335,36 @@ window._btnLoad = _btnLoad;
     return el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT';
   }
 
+  /* ── Done bar ────────────────────────────────────────────────────────────
+     iOS's decimal/numeric pad has no Return key, so a field using one has no
+     keyboard-native dismissal once hideFormAccessoryBar removes the system
+     bar. Show ours for exactly those fields and nothing else. */
+  const _NUMERIC_MODES = new Set(['decimal', 'numeric', 'tel']);
+  function _needsDoneBar(el) {
+    if (!el || el.tagName !== 'INPUT') return false;
+    const mode = (el.getAttribute('inputmode') || '').toLowerCase();
+    if (_NUMERIC_MODES.has(mode)) return true;
+    // type=number falls back to the same pad when no inputmode is declared.
+    return !mode && el.type === 'number';
+  }
+  function _syncDoneBar() {
+    const on = _kbOpen && _needsDoneBar(document.activeElement);
+    document.body.classList.toggle('fc-kb-numeric', on);
+  }
+  (function _wireDoneBar() {
+    const btn = document.getElementById('fc-kb-done-btn');
+    if (!btn) return;
+    // pointerdown, not click: the field blurs the moment the bar is touched,
+    // and a click listener would fire after the keyboard had already begun
+    // closing on some paths, leaving the bar visible for a frame.
+    btn.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      const el = document.activeElement;
+      if (el && typeof el.blur === 'function') el.blur();
+      document.body.classList.remove('fc-kb-numeric');
+    });
+  })();
+
   // Sheet overlay IDs that contain input fields — used to decide whether
   // paddingBottom injection is needed when the keyboard appears.
   const _SHEET_IDS = new Set([
@@ -7347,6 +7426,7 @@ window._btnLoad = _btnLoad;
   function _onKeyboardHide() {
     _kbOpen = false;
     document.body.classList.remove('keyboard-open');
+    document.body.classList.remove('fc-kb-numeric');
     document.documentElement.style.setProperty('--keyboard-height', '0px');
     clearTimeout(_kbTimer);
     _kbTimer = setTimeout(() => {
@@ -7373,6 +7453,7 @@ window._btnLoad = _btnLoad;
       document.documentElement.style.setProperty(
         '--keyboard-height', (info.keyboardHeight || 0) + 'px'
       );
+      _syncDoneBar();
     });
     KbPlugin.addListener('keyboardDidShow', _scrollToActive);
     KbPlugin.addListener('keyboardWillHide', _onKeyboardHide);
@@ -7393,6 +7474,7 @@ window._btnLoad = _btnLoad;
         _kbOpen = true;
         document.body.classList.add('keyboard-open');
         document.documentElement.style.setProperty('--keyboard-height', kbH + 'px');
+        _syncDoneBar();
         clearTimeout(_resizeTimer);
         _resizeTimer = setTimeout(_scrollToActive, 80);
       } else if (_kbOpen) {
@@ -7408,6 +7490,7 @@ window._btnLoad = _btnLoad;
   document.addEventListener('focusin', (e) => {
     if (!_isFocusableField(e.target)) return;
     if (!_kbOpen) return;
+    _syncDoneBar();          // amount field -> text field and back
     requestAnimationFrame(_scrollToActive);
   }, { passive: true });
 
