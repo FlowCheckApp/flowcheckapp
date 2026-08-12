@@ -157,7 +157,13 @@ const DRIVE = `(async () => {
   await w(2800);
 
   const TABS = ['home','activity','plan','wealth','more','settings','vault','goals',
-                'coach','bills','debt','reports','calendar','investments','notifications'];
+                'coach','bills','reports','calendar','investments','notifications'];
+
+  /* Tabs that deliberately land somewhere other than view-<name>. 'debt' used
+     to be its own screen; there are no longer two debt pages, so it routes to
+     Money > Debt. Asserting the old destination would fail the build for
+     behaving correctly. */
+  const REDIRECTS = { debt: 'view-wealth' };
   for (const t of TABS) {
     FCApp.switchTab(t);
     await w(420);
@@ -167,6 +173,17 @@ const DRIVE = `(async () => {
     rendered[t] = text.length;
     if (id !== 'view-' + t) problems.push('tab ' + t + ' did not activate (active=' + id + ')');
     else if (text.length < ${MIN_CHARS}) problems.push('tab ' + t + ' rendered only ' + text.length + ' chars');
+  }
+
+  for (const [tab, expected] of Object.entries(REDIRECTS)) {
+    FCApp.switchTab(tab);
+    await w(500);
+    const landed = document.querySelector('.fc-view.active');
+    if (!landed || landed.id !== expected) {
+      problems.push('tab ' + tab + ' should route to ' + expected + ' (got ' + (landed && landed.id) + ')');
+    } else if ((landed.innerText || '').replace(/\s+/g,' ').trim().length < ${MIN_CHARS}) {
+      problems.push('tab ' + tab + ' routed to ' + expected + ' but it rendered near-empty');
+    }
   }
 
   // Segmented controls — these re-render whole panels and have broken before.
