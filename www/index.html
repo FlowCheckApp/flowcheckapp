@@ -1455,7 +1455,11 @@ body {
   padding: 12px 20px calc(env(safe-area-inset-bottom) + 24px);
   /* svh = small viewport height (keyboard visible) — sheet never overflows keyboard.
      Falls back to 90vh on older iOS that doesn't support svh. */
-  max-height: min(90dvh, 90svh, calc(100vh - var(--keyboard-height, 0px) - 16px));
+  /* No --keyboard-height subtraction: capacitor.config.json sets the Keyboard
+     plugin to resize:"native", so the WebView is ALREADY shrunk to sit above
+     the keyboard and dvh/svh report that reduced height. Subtracting again
+     double-counted it and squashed the sheet. */
+  max-height: min(90dvh, 90svh, calc(100vh - 16px));
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   transform: translateY(0);
@@ -1465,9 +1469,20 @@ body {
   -webkit-user-select: none; user-select: none;
   box-shadow: 0 -20px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.07);
 }
-/* When keyboard is open, slide sheet up to keep inputs visible */
+/* Deliberately NO translate when the keyboard opens.
+
+   With resize:"native" the WebView has already been resized to the area above
+   the keyboard, so a bottom sheet is by definition already fully visible.
+   Translating it up by --keyboard-height on top of that pushed it off the top
+   of the screen — the Add Bill sheet rendered with its title jammed against
+   the status bar and everything below the first field cut off, and tapping
+   where a field appeared hit nothing because the real field was elsewhere.
+
+   The JS in the "Keyboard avoidance" IIFE below already knows this; its own
+   comment says the WebView "has already shrunk to fit above the keyboard".
+   Only the CSS still double-corrected. Keeping the transition so the sheet
+   settles smoothly if a transform is ever applied for another reason. */
 body.keyboard-open .fc-sheet {
-  transform: translateY(calc(-1 * var(--keyboard-height, 0px)));
   transition: transform 0.25s cubic-bezier(0.32, 0.72, 0, 1);
 }
 body:not(.keyboard-open) .fc-sheet {
