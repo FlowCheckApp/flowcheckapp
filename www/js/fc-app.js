@@ -1270,6 +1270,18 @@ window.FCApp = (function () {
   let _lastNavTab = 'more';
 
   function switchTab(tabId) {
+    /* No view behind this id? Do nothing at all.
+       The incoming activation below is guarded by `if (target)`, but the
+       outgoing teardown was not — so an unknown id removed .active from the
+       current view, activated nothing, and left a blank screen under the nav
+       with state.tab pointing at something that does not exist.
+       Easy to hit because a wrong id can look right: "Money" is the nav
+       LABEL for the 'wealth' view, so switchTab('money') reads as correct
+       and blanks the app. */
+    if (!document.getElementById('view-' + tabId)) {
+      fcLog('[FCApp] switchTab: no view-' + tabId + ' — ignoring');
+      return;
+    }
     if (_NAV_TABS.has(tabId)) _lastNavTab = tabId;
     if (state.tab === tabId) return;
     haptic('light');
@@ -3840,7 +3852,16 @@ window.FCApp = (function () {
               <h2 class="home-v8__move-title">${esc(carouselCards[0].title)}</h2>
               <p class="home-v8__move-text">${esc(_cardBody(carouselCards[0].body, 75))}</p>
               <div class="home-v8__move-actions">
-                <button class="fc-action-button fc-action-button--primary" type="button" onclick="${carouselCards[0].onclick}">${esc(carouselCards[0].action)}</button>
+                <!-- --secondary, not --primary: the runway card directly above
+                     already carries a full-width filled .rw-cta, and two filled
+                     accent buttons stacked on one screen is what dilutes the
+                     signature moment the hero glow is supposed to own. The
+                     ghost treatment already exists in the system — accent
+                     border, card background, accent text — so this reads as
+                     the second action rather than a rival first one.
+                     The first-run CTA above keeps --primary: it is alone on an
+                     otherwise empty screen with nothing to compete with. -->
+                <button class="fc-action-button fc-action-button--secondary" type="button" onclick="${carouselCards[0].onclick}">${esc(carouselCards[0].action)}</button>
               </div>
             </div>
             <div class="home-v8__slide-emoji" aria-hidden="true">${carouselCards[0].emoji}</div>
