@@ -9171,13 +9171,17 @@ window.FCApp = (function () {
       // Only pop a toast when the user explicitly triggered the sync
       if (showToast) toast('Accounts synced', 'success');
     } catch (err) {
+      // Set unconditionally, before any DOM work. This used to live inside the
+      // setTimeout below, inside `if (islandText)` — so a missing #islandText
+      // meant a failed sync never recorded that it failed, and the resume
+      // handler's retry (which is gated on this flag) never fired.
+      _lastSyncFailed = true;
       if (islandText) {
         islandText.classList.add('fc-fade');
         setTimeout(() => {
           // Background syncs fail silently — keep island neutral
           // User-initiated syncs show "Sync failed" briefly
           islandText.textContent = showToast ? 'Sync failed' : _idleText();
-          _lastSyncFailed = true;
           islandText.classList.remove('fc-fade');
         }, 200);
       }
