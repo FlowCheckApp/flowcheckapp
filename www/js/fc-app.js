@@ -8008,23 +8008,67 @@ window.FCApp = (function () {
      predictNextPayday, _detectSubscriptions and _getBillsDueInDays. The tab
      already promised "straight answers from your own numbers"; this makes
      that literally true instead of a tagline over a list of canned rows. */
+  /* Last question, so follow-ups work. "Can I afford $200?" then "what about
+     300?" is how people actually talk; without this the second one is a
+     bare number with no verb and falls through to nothing useful. */
+  let _coachLast = null;
+
+  /** Pull a money amount out of ordinary phrasing: $1,200 · 1.2k · 200 bucks. */
+  function _coachAmount(s) {
+    const k = s.match(/\$?\s*([0-9]+(?:\.[0-9]+)?)\s*k\b/);
+    if (k) return Math.round(parseFloat(k[1]) * 1000);
+    const m = s.match(/\$\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)/)
+           || s.match(/\b([0-9][0-9,]*(?:\.[0-9]{1,2})?)\s*(?:dollars?|bucks)\b/)
+           || s.match(/\b([0-9][0-9,]{2,}(?:\.[0-9]{1,2})?)\b/)
+           || s.match(/\b([0-9]+(?:\.[0-9]{1,2})?)\b/);
+    return m ? parseFloat(m[1].replace(/,/g, '')) : null;
+  }
+
   function _coachParse(q) {
     const s = String(q || '').toLowerCase().trim();
     if (!s) return null;
-    // An amount anywhere in the sentence turns most phrasings into "afford".
-    const amt = (s.match(/\$?\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)/) || [])[1];
-    const money = amt ? parseFloat(amt.replace(/,/g, '')) : null;
+    const money = _coachAmount(s);
 
-    if (/afford|should i buy|can i buy|worth it|ok to (?:buy|spend)/.test(s) || (money && /buy|spend|get|cost/.test(s))) {
+    // Follow-up: "what about 300", "and 500?", or just "300" after an afford.
+    const bare = /^(?:what about|how about|and|or)?\s*\$?\s*[0-9][0-9,.k]*\s*\??$/.test(s);
+    if (bare && money != null && _coachLast && _coachLast.intent === 'afford') {
+      return { intent: 'afford', amount: money, followUp: true };
+    }
+
+    if (/afford|should i buy|can i buy|worth it|ok to (?:buy|spend)|splurge/.test(s)
+        || (money != null && /buy|spend|get|cost|purchase|pay for/.test(s))) {
       return { intent: 'afford', amount: money };
     }
-    if (/safe to spend|how much (?:can|should) i spend|spending money|left to spend/.test(s)) return { intent: 'safe' };
-    if (/paid|payday|pay ?check|next check/.test(s))                                          return { intent: 'payday' };
-    if (/subscription|recurring|streaming/.test(s))                                           return { intent: 'subs' };
-    if (/bill|due|owe/.test(s))                                                               return { intent: 'bills' };
-    if (/runway|run out|run short|make it|short/.test(s))                                     return { intent: 'runway' };
-    if (money) return { intent: 'afford', amount: money };
+    if (/safe to spend|how much (?:can|should) i spend|spending money|left to spend|spare/.test(s)) return { intent: 'safe' };
+    if (/paid|payday|pay ?check|next check/.test(s))                    return { intent: 'payday' };
+    if (/subscription|recurring|streaming/.test(s))                     return { intent: 'subs' };
+    if (/debt|owe|credit card|loan|payoff|pay off/.test(s))             return { intent: 'debt' };
+    if (/saving|save|goal|emergency fund/.test(s))                      return { intent: 'savings' };
+    if (/bill|due/.test(s))                                             return { intent: 'bills' };
+    if (/runway|run out|run short|make it|short|broke/.test(s))         return { intent: 'runway' };
+    if (money != null) return { intent: 'afford', amount: money };
     return { intent: 'unknown' };
+  }
+
+  /* What a purchase actually does to you, from the runway's own daily
+     balances. Spending today lowers every future point by the same amount,
+     so the first day that crosses zero simply moves earlier — no re-forecast,
+     no second model that could disagree with the chart on Today. */
+  function _coachImpact(amount) {
+    let r = null;
+    try { r = _buildRunwaySeries(); } catch (_) { return null; }
+    if (!r || !Array.isArray(r.points) || !r.points.length) return null;
+    const fmtD = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const firstNeg = pts => { for (const p of pts) if (p.balance < 0) return p; return null; };
+    const before = firstNeg(r.points);
+    const after  = firstNeg(r.points.map(p => ({ ...p, balance: p.balance - amount })));
+    if (!after) return null;                       // still fine after buying
+    return {
+      beforeDate: before ? fmtD(before.date) : null,
+      afterDate:  fmtD(after.date),
+      movedEarlier: !!(before && after.day < before.day),
+      newlyShort: !before,
+    };
   }
 
   /** Returns { verdict, detail, tone } — tone drives colour only. */
@@ -8042,17 +8086,60 @@ window.FCApp = (function () {
         return { tone: 'neutral', verdict: 'How much?',
                  detail: 'Give me an amount — "Can I afford $200?" — and I\'ll check it against your real numbers.' };
       }
-      const after = safe - parsed.amount;
+      const amt   = parsed.amount;
+      const after = safe - amt;
+      const until = p.payday
+        ? p.payday.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        : null;
+      const impact = _coachImpact(amt);
+
       if (after >= 0) {
-        return { tone: 'good', verdict: 'Yes — that works.',
-                 detail: 'You\'d still have ' + money(after) + ' safe to spend'
-                       + (p.payday ? ' before ' + p.payday.date.toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '')
-                       + '.' };
+        return {
+          tone: 'good', verdict: 'Yes — that works.',
+          detail: 'You\'d still have ' + money(after) + ' safe to spend'
+                + (until ? ' before ' + until : '') + '.',
+          consequence: impact && impact.newlyShort
+            ? 'It would leave you short by ' + impact.afterDate + ', though.' : null,
+          options: [{ key: 'math', label: 'Show the math', note: 'How safe to spend is worked out' }],
+        };
       }
-      return { tone: 'bad', verdict: 'I\'d wait.',
-               detail: 'That\'s ' + money(Math.abs(after)) + ' more than you can safely spend right now. '
-                     + 'You have ' + money(safe)
-                     + (p.payday ? ' until ' + p.payday.date.toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '') + '.' };
+      return {
+        tone: 'bad', verdict: 'I\'d wait.',
+        detail: 'That\'s ' + money(Math.abs(after)) + ' more than you can safely spend right now — '
+              + 'you have ' + money(safe) + (until ? ' until ' + until : '') + '.',
+        consequence: impact
+          ? (impact.movedEarlier
+              ? 'Buying it moves your shortfall from ' + impact.beforeDate + ' to ' + impact.afterDate + '.'
+              : 'Buying it would leave you short by ' + impact.afterDate + '.')
+          : null,
+        options: [
+          until ? { key: 'wait', label: 'Wait until ' + until, note: 'Payday clears it', recommended: true } : null,
+          safe > 0 ? { key: 'spend-safe', label: 'Spend ' + money(safe) + ' instead', note: 'The most you can safely do today' } : null,
+          { key: 'trim', label: 'Find something to trim', note: 'Review recurring charges' },
+        ].filter(Boolean),
+      };
+    }
+
+    if (parsed.intent === 'debt') {
+      const debts = (state.accounts || []).filter(a => FCCore.accountClass(a) === 'debt');
+      if (!debts.length) return { tone: 'good', verdict: 'No debt on file.', detail: 'Nothing to pay down.' };
+      const total = debts.reduce((s, a) => s + Math.abs(FCCore.accountBalance ? FCCore.accountBalance(a) : (a.balance_current || a.balance || 0)), 0);
+      return { tone: 'neutral', verdict: money(total) + ' in debt',
+               detail: 'Across ' + debts.length + ' account' + (debts.length === 1 ? '' : 's') + '.',
+               options: [{ key: 'debt', label: 'See payoff plan', note: 'Money › Debt', recommended: true }] };
+    }
+
+    if (parsed.intent === 'savings') {
+      const goals = state.goals || [];
+      if (!goals.length) return { tone: 'neutral', verdict: 'No goals set yet.',
+                                  detail: 'A goal gives the spare money somewhere to go.',
+                                  options: [{ key: 'goals', label: 'Set a goal', recommended: true }] };
+      const g = goals[0];
+      const tgt = g.target_amount || g.target || 0, cur = g.current_amount || g.current || 0;
+      const pct = tgt > 0 ? Math.round(cur / tgt * 100) : 0;
+      return { tone: 'good', verdict: pct + '% to ' + (g.name || 'your goal'),
+               detail: money(cur) + ' of ' + money(tgt) + '.',
+               options: [{ key: 'goals', label: 'See all goals' }] };
     }
 
     if (parsed.intent === 'safe') {
@@ -8115,20 +8202,86 @@ window.FCApp = (function () {
     haptic('light');
     if (input && q != null) input.value = q;
 
+    _coachLast = parsed;
     const a = _coachAnswer(parsed);
     const TONE = { good: 'var(--fc-success)', bad: 'var(--fc-danger)',
                    warn: 'var(--fc-warning)', neutral: 'var(--fc-accent)' };
     const c = TONE[a.tone] || TONE.neutral;
-    /* esc() on both fields: verdict/detail are built from our own numbers,
-       but the unknown-intent branch is the shape most likely to grow an echo
-       of what the user typed, and escaping here means it can never become a
-       sink. */
+
+    /* esc() on every field: these are built from our own numbers, but the
+       unknown-intent branch is the shape most likely to grow an echo of what
+       the user typed, and escaping here means it can never become a sink. */
+    /* The key rides in a data- attribute and the handler is a static string.
+       Interpolating esc(o.key) straight into the onclick made check-handlers
+       read `esc()` as the handler being called — and a handler that does not
+       resolve throws the moment someone taps it, with nothing else to warn
+       you. Each esc() also gets its own line so the line-scoped XSS check can
+       see it. */
+    const opts = (a.options || []).map(o => {
+      let note = '';
+      if (o.note) {
+        note = '<span class="coach-opt-note">' + esc(o.note) + '</span>';
+      }
+      let rec = '';
+      if (o.recommended) {
+        rec = '<span class="coach-opt-rec">Recommended</span>';
+      }
+      return '<button type="button" class="coach-opt" data-coach-opt="' + esc(o.key) + '"'
+          + ' onclick="FCApp.coachOption(this.dataset.coachOpt)">'
+        + '<span class="coach-opt-main">'
+          + '<span class="coach-opt-label">' + esc(o.label) + '</span>'
+          + note
+        + '</span>'
+        + rec
+        + '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>'
+      + '</button>';
+    }).join('');
+
     out.style.display = '';
     out.innerHTML =
       '<div class="coach-answer" style="border-left:3px solid ' + c + '">'
         + '<p class="coach-answer-verdict">' + esc(a.verdict) + '</p>'
         + '<p class="coach-answer-detail">' + esc(a.detail) + '</p>'
+        // The consequence is the whole point: not "no", but what "yes" costs.
+        + (a.consequence ? '<p class="coach-answer-impact">' + esc(a.consequence) + '</p>' : '')
+        + (opts ? '<div class="coach-opts">' + opts + '</div>' : '')
+        + '<div id="coach-answer-math"></div>'
       + '</div>';
+  }
+
+  /** An option is a real action, not a label. */
+  function coachOption(key) {
+    haptic('light');
+    if (key === 'wait')       { toast('Good call — I\'ll keep an eye on it.', 'success', 2600); return; }
+    if (key === 'trim')       { switchTab('activity'); switchActivitySegment('bills'); return; }
+    if (key === 'debt')       { switchTab('wealth'); return; }
+    if (key === 'goals')      { switchTab('goals'); return; }
+    if (key === 'spend-safe') {
+      const p = _buildSafeSpendProjection();
+      coachAsk('Can I afford ' + Math.floor(Math.max(0, p.safe || 0)) + '?');
+      return;
+    }
+    if (key === 'math') {
+      /* Progressive disclosure: the answer stays on the surface, the
+         arithmetic sits one tap under it. Same projection the answer used,
+         so the rows always sum to the number above them. */
+      const el = document.getElementById('coach-answer-math');
+      if (!el) return;
+      if (el.innerHTML) { el.innerHTML = ''; return; }   // tap again to close
+      const p = _buildSafeSpendProjection();
+      const row = (label, val, neg) =>
+        '<div class="coach-math-row"><span>' + esc(label) + '</span>'
+        + '<span class="' + (neg ? 'coach-math-neg' : '') + '">'
+        + (neg ? '−' : '') + FCData.formatCurrency(Math.abs(val)) + '</span></div>';
+      el.innerHTML = '<div class="coach-math">'
+        + row('Cash you can spend', p.cash)
+        + row('Bills before payday', p.billsTotal, true)
+        + row('Usual spending', p.expectedEverydaySpend, true)
+        + row('Buffer kept back', p.reserve, true)
+        + '<div class="coach-math-row coach-math-total"><span>Safe to spend</span>'
+        + '<span>' + FCData.formatCurrency(Math.max(0, p.safe || 0)) + '</span></div>'
+      + '</div>';
+    }
   }
 
   function coachAskKey(e) {
@@ -13478,6 +13631,7 @@ window.FCApp = (function () {
     toggleActivitySearch,
     coachAsk,
     coachAskKey,
+    coachOption,
     filterActivity,
     filterActivityType,
     switchActivitySummaryPeriod,

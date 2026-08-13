@@ -2184,6 +2184,49 @@ body.fc-theme .fc-nav {
   margin: 6px 0 0; font-size: 13.5px; line-height: 1.45;
   color: var(--fc-text-muted);
 }
+/* The consequence line. Not "no" — what "yes" actually costs you. */
+.coach-answer-impact {
+  margin: 8px 0 0; padding: 8px 12px;
+  background: var(--fc-bg-elevated-2, rgba(255,255,255,0.04));
+  border-radius: 10px;
+  font-size: 13px; font-weight: 600; line-height: 1.4;
+  color: var(--fc-text);
+}
+.coach-opts { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+.coach-opt {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  padding: 12px; min-height: 44px;
+  background: var(--fc-bg-elevated-2, rgba(255,255,255,0.04));
+  border: 0; border-radius: 12px;
+  font-family: inherit; text-align: left; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s var(--fc-ease-out), transform 0.12s var(--fc-ease-out);
+}
+.coach-opt:active { transform: scale(0.985); background: rgba(255,255,255,0.08); }
+.coach-opt-main  { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.coach-opt-label { font-size: 14px; font-weight: 600; color: var(--fc-text); }
+.coach-opt-note  { font-size: 11.5px; color: var(--fc-text-muted); }
+.coach-opt-rec {
+  flex-shrink: 0; font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
+  text-transform: uppercase; color: var(--fc-success);
+  background: rgba(52,199,89,0.12); padding: 4px 8px; border-radius: 999px;
+}
+/* The math, one tap under the answer. */
+.coach-math {
+  margin-top: 12px; padding-top: 12px;
+  border-top: 0.5px solid var(--fc-border);
+}
+.coach-math-row {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 13px; color: var(--fc-text-muted); padding: 4px 0;
+  font-variant-numeric: tabular-nums;
+}
+.coach-math-neg { color: var(--fc-danger); }
+.coach-math-total {
+  margin-top: 4px; padding-top: 8px;
+  border-top: 0.5px solid var(--fc-border);
+  font-weight: 700; color: var(--fc-text);
+}
 @keyframes fcCoachIn {
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: none; }
