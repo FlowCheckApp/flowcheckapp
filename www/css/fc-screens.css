@@ -2129,6 +2129,13 @@ body.fc-theme .fc-nav {
   font-size: 17px; font-weight: 600; letter-spacing: -0.02em;
   color: var(--fc-text); font-variant-numeric: tabular-nums;
 }
+/* "until Aug 20" — the deadline is what makes the number mean anything.
+   Without it "$42" is a quantity; with it, it is a budget. */
+.rw-end-meta {
+  margin: 1px 0 0;
+  font-size: 11px; font-weight: 500;
+  color: var(--fc-text-faint);
+}
 
 .rw-chart { position: relative; }
 .rw-chart svg { display: block; width: 100%; height: 104px; overflow: visible; }

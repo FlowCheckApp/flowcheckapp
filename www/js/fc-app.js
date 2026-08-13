@@ -2558,20 +2558,38 @@ window.FCApp = (function () {
       if (!r.hasPayday) sub += ' Payday not detected yet.';
     }
 
+    /* Safe to Spend, not the projected end balance.
+       This number was already being computed on every render and written
+       straight into the hidden compat block in index.html \u2014 calculated, then
+       thrown away. Meanwhile the hero's second slot carried the balance you
+       are projected to land on at payday, which is a fact about the future
+       rather than something you can act on this afternoon.
+       "You have $42 you can safely spend before Tuesday" is the question
+       people actually open the app with. It is also the one figure here that
+       already accounts for upcoming bills and typical spending, so it is the
+       honest answer rather than the raw one. */
+    const _sp   = _buildSafeSpendProjection();
+    const _safe = Math.max(0, _sp.safe || 0);
+    const _until = (_sp.payday && _sp.payday.date)
+      ? _sp.payday.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      : '';
+
     return ''
       + '<section class="fc-ui-card rw-card" aria-label="Runway to payday">'
         + '<div class="rw-head">'
           + '<div class="rw-head__text"><p class="fc-section-label">Runway</p>'
             + '<h2 class="rw-headline' + (r.goesNegative ? ' rw-headline--warn' : '') + '">' + esc(headline) + '</h2>'
             + '<p class="rw-sub">' + esc(sub) + '</p></div>'
-          + '<div class="rw-end"><p class="rw-end-lbl">' + edgeLabel + '</p>'
+          + '<div class="rw-end"><p class="rw-end-lbl">Safe to spend</p>'
             // data-countup lets the caller animate this without needing to
-            // recompute the balance \u2014 see the count-up pass in
+            // recompute the value \u2014 see the count-up pass in
             // _renderHomeDashboard(). Server-rendered text stays correct if
             // the animation is skipped (reduced motion, unchanged value).
-            + '<p class="rw-endpoint-value fc-amount' + (r.endBalance < 0 ? ' rw-endpoint-value--warn' : '') + '"'
-            + ' id="rw-endpoint-value" data-countup="' + r.endBalance + '">'
-            + (r.endBalance < 0 ? '\u2212' : '') + FCData.formatCurrency(Math.abs(r.endBalance)) + '</p></div>'
+            + '<p class="rw-endpoint-value fc-amount"'
+            + ' id="rw-endpoint-value" data-countup="' + _safe + '">'
+            + FCData.formatCurrency(_safe) + '</p>'
+            + (_until ? '<p class="rw-end-meta">until ' + esc(_until) + '</p>' : '')
+          + '</div>'
         + '</div>'
         + '<div class="rw-chart">'
           + _rwChartSVG(r, stroke)
