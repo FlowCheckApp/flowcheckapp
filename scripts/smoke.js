@@ -157,13 +157,18 @@ const DRIVE = `(async () => {
   await w(2800);
 
   const TABS = ['home','activity','plan','wealth','more','settings','vault','goals',
-                'coach','bills','reports','calendar','investments','notifications'];
+                'coach','reports','calendar','investments','notifications'];
 
-  /* Tabs that deliberately land somewhere other than view-<name>. 'debt' used
-     to be its own screen; there are no longer two debt pages, so it routes to
-     Money > Debt. Asserting the old destination would fail the build for
-     behaving correctly. */
-  const REDIRECTS = { debt: 'view-wealth' };
+  /* Tabs that deliberately land somewhere other than view-<name>. Both of
+     these used to be standalone screens duplicating a segment of another
+     tab; neither #view-debt nor #view-bills exists any more, so switchTab
+     redirects the ids to the one surviving page. Asserting the old
+     destination would fail the build for behaving correctly.
+     These ids belong HERE and not in TABS above: that loop asserts the
+     active view is view-<name>, with no knowledge of redirects, so leaving
+     'bills' in it would fail the build for landing where it should. The
+     loop below is what actually covers the redirect. */
+  const REDIRECTS = { debt: 'view-wealth', bills: 'view-activity' };
   for (const t of TABS) {
     FCApp.switchTab(t);
     await w(420);

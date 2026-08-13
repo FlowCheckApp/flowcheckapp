@@ -63,7 +63,10 @@ const FILES = [
  */
 const KNOWN_ORPHANS = new Set([
   // legacy Home surfaces still referenced from live renderers
-  'sparkline-line', 'sparkline-area', 'sparkline-dot', 'sparkline-dot-bg', 'hero-delta',
+  // (sparkline-line/-area/-dot/-dot-bg and hero-delta were removed here when
+  //  _drawNetWorthSparkline was deleted — every id it read had been gone since
+  //  the v8 Home rebuild, so the function guarded on the missing nodes and
+  //  did nothing at all. The list only shrinks.)
   'home-user-avatar', 'home-accounts-list', 'home-txn-list', 'home-nw-amount',
   'home-greeting', 'home-acct-skeleton', 'home-txn-skeleton',
   'home-safe-horizon', 'home-runway-scale-high', 'home-runway-scale-mid',

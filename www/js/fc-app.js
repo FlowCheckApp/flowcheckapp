@@ -686,111 +686,8 @@ window.FCApp = (function () {
       });
     }
 
-    _drawNetWorthSparkline(state.nwHistory);
   }
 
-  function _drawNetWorthSparkline(history) {
-    const linePath = document.getElementById('sparkline-line');
-    const areaPath = document.getElementById('sparkline-area');
-    const dot      = document.getElementById('sparkline-dot');
-    const dotBg    = document.getElementById('sparkline-dot-bg');
-    const deltaEl  = document.getElementById('hero-delta');
-
-    // Filter history to the selected period window
-    const _PERIOD_DAYS = { '1D': 1, '1W': 7, '1M': 30, '3M': 90, '1Y': 365, 'ALL': 0 };
-    const windowDays = _PERIOD_DAYS[state.period];
-    let allKeys = Object.keys(history).sort();
-    if (windowDays) {
-      const cutoff = new Date();
-      cutoff.setDate(cutoff.getDate() - windowDays);
-      const cutoffStr = cutoff.toISOString().split('T')[0];
-      allKeys = allKeys.filter(k => k >= cutoffStr);
-    }
-
-    const keys   = allKeys;
-    const values = keys.map(k => history[k]);
-    // Need at least 1 data point to draw; pad to 2 so the bezier always has a path
-    if (values.length < 1) return;
-    const displayValues = values.length === 1 ? [values[0], values[0]] : values;
-
-    // The full sparkline SVG only exists on screens that still render it (e.g. Wealth).
-    // The delta badge below is independent — it can't depend on this block running.
-    if (linePath && areaPath) {
-      const W = 320, H = 60, PAD = 4;
-      const min  = Math.min(...displayValues);
-      const max  = Math.max(...displayValues);
-      // When all values are identical (flat), offset min slightly so the line renders midscreen
-      const range = max - min || Math.abs(max) * 0.01 || 1;
-
-      const toX = (i) => Math.round((i / (displayValues.length - 1)) * W);
-      const toY = (v) => Math.round(PAD + (1 - (v - min) / range) * (H - PAD * 2));
-
-      // Build smooth cubic bezier path
-      let line = `M${toX(0)},${toY(displayValues[0])}`;
-      for (let i = 1; i < displayValues.length; i++) {
-        const x0 = toX(i - 1), y0 = toY(displayValues[i - 1]);
-        const x1 = toX(i),     y1 = toY(displayValues[i]);
-        const cpX = (x0 + x1) / 2;
-        line += ` C${cpX},${y0} ${cpX},${y1} ${x1},${y1}`;
-      }
-      const lastX = toX(displayValues.length - 1);
-      const lastY = toY(displayValues[displayValues.length - 1]);
-
-      // Thicker line + stronger glow
-      linePath.setAttribute('d', line);
-      linePath.setAttribute('stroke-width', '2.5');
-      areaPath.setAttribute('d', `${line} L${lastX},${H} L0,${H} Z`);
-
-      // Animate the endpoint dot with a CSS pulse
-      if (dot) {
-        dot.setAttribute('cx', lastX);
-        dot.setAttribute('cy', lastY);
-        dot.setAttribute('r', '3.5');
-        // Add pulse ring as sibling element if not already present
-        const sparkSvg = dot.closest('svg');
-        if (sparkSvg) {
-          let pulse = sparkSvg.querySelector('#sparkline-pulse');
-          if (!pulse) {
-            pulse = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-            pulse.setAttribute('id', 'sparkline-pulse');
-            pulse.setAttribute('fill', 'none');
-            pulse.setAttribute('stroke-width', '1.5');
-            pulse.setAttribute('opacity', '0');
-            pulse.style.cssText = 'stroke:var(--fc-accent);animation:sparkPulse 2s ease-out infinite';
-            sparkSvg.appendChild(pulse);
-            // Inject keyframes once
-            if (!document.getElementById('spark-pulse-style')) {
-              const s = document.createElement('style');
-              s.id = 'spark-pulse-style';
-              s.textContent = '@keyframes sparkPulse{0%{r:3.5px;opacity:0.8}100%{r:10px;opacity:0}}';
-              document.head.appendChild(s);
-            }
-          }
-          pulse.setAttribute('cx', lastX);
-          pulse.setAttribute('cy', lastY);
-        }
-      }
-      if (dotBg) { dotBg.setAttribute('cx', lastX); dotBg.setAttribute('cy', lastY); dotBg.setAttribute('r', '7'); dotBg.setAttribute('opacity', '0.25'); }
-    }
-
-    // Delta badge: compare today vs 30 days ago (or earliest available)
-    if (deltaEl && values.length >= 2) {
-      const first   = values[Math.max(0, values.length - 30)]; // use original (non-padded) array
-      const last    = values[values.length - 1];
-      const delta   = last - first;
-      // Only show delta badge if the reference point is meaningful (not zero / first-ever snapshot)
-      if (first !== 0) {
-        const up      = delta >= 0;
-        deltaEl.style.display     = '';
-        deltaEl.textContent       = (up ? '↑' : '↓') + ' ' + FCData.formatCurrency(Math.abs(delta));
-        deltaEl.style.background  = up ? 'var(--fc-success-soft)' : 'var(--fc-danger-soft)';
-        deltaEl.style.color       = up ? 'var(--fc-success)'      : 'var(--fc-danger)';
-        deltaEl.style.border      = up ? '1px solid var(--fc-success-border)' : '1px solid var(--fc-danger-border)';
-      } else {
-        deltaEl.style.display = 'none';
-      }
-    }
-  }
 
   function toggleInsights(toggleEl) {
     const body    = document.getElementById('smart-insights-list-wrap');
@@ -1253,7 +1150,47 @@ window.FCApp = (function () {
         </div>`;
     };
 
+    /* "Bills This Month" — ported here when the standalone Bills screen was
+       deleted. That screen was a second, parallel bills page: five entry
+       points routed to Activity > Bills and three to the standalone one, so
+       Home showed "View bills" and "View all bills ›" going to two different
+       pages — the same split-routing bug that had two Debt screens.
+       This summary was the one thing the standalone had that this list did
+       not, so consolidating meant bringing it across rather than dropping it.
+       Month window matches the old screen exactly (same calendar month, same
+       paid/unpaid split) so the numbers people were reading do not change. */
+    const _now = new Date();
+    const _monthBills = displayBills.filter(b => {
+      if (!b.due_date) return false;
+      const d = FCData.parseDateLocal(b.due_date);
+      return d.getMonth() === _now.getMonth() && d.getFullYear() === _now.getFullYear();
+    });
+    const _totalDue  = _monthBills.reduce((s, b) => s + (b.amount || 0), 0);
+    const _paidTotal = _monthBills.filter(b => b.status === 'paid').reduce((s, b) => s + (b.amount || 0), 0);
+    const _leftToPay = Math.max(0, _totalDue - _paidTotal);
+
     let html = '';
+
+    if (_monthBills.length) {
+      html += `<article class="fc-card" style="margin-bottom:14px;padding:16px;background:var(--fc-accent-soft);border-color:var(--fc-border-accent)">
+                 <div style="display:flex;align-items:center;gap:14px">
+                   <div style="flex:1;min-width:0">
+                     <div class="fc-eyebrow" style="color:var(--fc-accent)">Bills This Month</div>
+                     <div style="font-size:24px;font-weight:700;color:var(--fc-text);font-variant-numeric:tabular-nums">${FCData.formatCurrency(_totalDue)}</div>
+                     <div style="font-size:13px;color:var(--fc-text-muted)">${_paidTotal > 0 ? FCData.formatCurrency(_paidTotal) + ' paid so far' : 'due this month'}</div>
+                   </div>
+                   ${_leftToPay > 0
+                     ? `<div style="text-align:right;flex-shrink:0">
+                          <div style="font-size:13px;color:var(--fc-warning-text);font-weight:600;font-variant-numeric:tabular-nums">${FCData.formatCurrency(_leftToPay)}</div>
+                          <div style="font-size:11px;color:var(--fc-text-faint)">left to pay</div>
+                        </div>`
+                     : `<div style="text-align:right;flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:2px">
+                          ${_ic('check','var(--fc-success)',20)}
+                          <div style="font-size:11px;color:var(--fc-text-faint)">all paid</div>
+                        </div>`}
+                 </div>
+               </article>`;
+    }
 
     if (overdue.length) {
       html += `<div class="fc-date-label" style="color:var(--fc-danger);display:flex;align-items:center;gap:5px">${_ic('alert','var(--fc-danger)',12)} Overdue</div>
@@ -1302,6 +1239,22 @@ window.FCApp = (function () {
   let _lastNavTab = 'more';
 
   function switchTab(tabId) {
+    /* Ids that are NOT screens — they are names old entry points still use
+       for pages that were consolidated into a segment of another tab.
+       Debt and Bills each used to have a second, standalone screen; both
+       are gone, but the desktop sidebar, deep links and older call sites
+       still say switchTab('debt') / switchTab('bills'), and those should
+       keep working rather than dead-ending.
+
+       This MUST run before the view-exists guard below: with the screens
+       deleted there is no #view-debt or #view-bills to find, so the guard
+       would swallow both and the buttons would silently do nothing. */
+    const _TAB_REDIRECTS = {
+      debt:  () => { switchTab('wealth');   switchWealthSegment('debt'); },
+      bills: () => { switchTab('activity'); switchActivitySegment('bills'); },
+    };
+    if (_TAB_REDIRECTS[tabId]) { _TAB_REDIRECTS[tabId](); return; }
+
     /* No view behind this id? Do nothing at all.
        The incoming activation below is guarded by `if (target)`, but the
        outgoing teardown was not — so an unknown id removed .active from the
@@ -1327,7 +1280,7 @@ window.FCApp = (function () {
     const outgoing = prev ? document.getElementById('view-' + prev) : null;
 
     // ── Clean up any open sub-screens so they don't bleed into tab views ──
-    ['bills','debt','goals','investments','calendar','reports','notifications','settings','vault'].forEach(id => {
+    ['goals','investments','calendar','reports','notifications','settings','vault'].forEach(id => {
       const sub = document.getElementById('view-' + id);
       if (sub) { sub.classList.remove('active'); sub.style.display = 'none'; }
     });
@@ -1423,10 +1376,6 @@ window.FCApp = (function () {
         _renderGoalsScreen(true);
       } else if (tabId === 'coach') {
         _renderCoach();
-      } else if (tabId === 'bills') {
-        _openSubScreen('bills');
-      } else if (tabId === 'debt') {
-        _openDebtPage();
       } else if (tabId === 'investments') {
         _openSubScreen('investments');
       } else if (tabId === 'calendar') {
@@ -3179,12 +3128,13 @@ window.FCApp = (function () {
     // ── Account rows (compact list) ───────────────────────────────
 
     // ── Net worth sparkline ──────────────────────────────────────
-    // Draw only. This used to call _snapshotNetWorth(), which writes to
-    // Firestore — a render function must not write to the database, because
-    // the write comes straight back as a listener emit and re-enters the
-    // render. The accounts listener in _attachDataListeners still snapshots
-    // net worth, which is the correct place: it fires when the value changes.
-    _drawNetWorthSparkline(state.nwHistory);
+    // Nothing to draw here. This used to call _snapshotNetWorth() (a render
+    // must not write to the database) and then _drawNetWorthSparkline(),
+    // which turned out to be inert — every id it looked up
+    // (sparkline-line/-area/-dot/-dot-bg, hero-delta) was deleted with the
+    // v8 Home rebuild, so it guarded on the missing nodes and returned.
+    // The accounts listener in _attachDataListeners still snapshots net
+    // worth, which is the correct place: it fires when the value changes.
 
     // ── Safe to Spend hero ───────────────────────────────────────
     const safeEl    = document.getElementById('stat-safe-to-spend');
@@ -3585,7 +3535,7 @@ window.FCApp = (function () {
         </div>
       </div>
       <div class="home-v8__mini-value">${fmt(nextBill.amount)}</div>
-      <button class="fc-text-link" type="button" onclick="FCApp._openSubScreen('bills')">View all bills ›</button>` : `
+      <button class="fc-text-link" type="button" onclick="FCApp.switchTab('activity');FCApp.switchActivitySegment('bills')">View all bills ›</button>` : `
       <div class="fc-empty-state">No bills due soon.<br>Your cash flow is clear.</div>`;
 
     const budgetMarkup = budgetLimit > 0 ? `
@@ -6874,9 +6824,10 @@ window.FCApp = (function () {
     el.scrollTop = 0;
     // Render
     requestAnimationFrame(() => {
-      if (screenId === 'bills')         _renderBillsScreen();
-      else if (screenId === 'debt')     _renderDebtScreen();
-      else if (screenId === 'goals')    _renderGoalsScreen();
+      /* No 'bills' or 'debt' branch: both had a second, standalone screen
+         that has been deleted. They are now segments of Activity and Money
+         respectively, and switchTab() redirects those ids there. */
+      if (screenId === 'goals')         _renderGoalsScreen();
       else if (screenId === 'investments') _renderInvestments();
       else if (screenId === 'calendar') _renderCalendar();
       else if (screenId === 'reports')  _renderReports();
@@ -6890,7 +6841,7 @@ window.FCApp = (function () {
   function _closeSubScreen() {
     const nav = document.querySelector('.fc-nav');
     if (nav) nav.style.display = '';
-    ['bills','debt','goals','investments','calendar','reports','notifications','settings','vault'].forEach(id => {
+    ['goals','investments','calendar','reports','notifications','settings','vault'].forEach(id => {
       const el = document.getElementById('view-' + id);
       if (el) { el.classList.remove('active'); el.style.display = 'none'; }
     });
@@ -7321,7 +7272,7 @@ window.FCApp = (function () {
 
       +'<div class="fc-eyebrow">Money Tools</div>'
       +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px">'
-        +toolTile('credit-card','Bills','var(--fc-accent)','var(--fc-accent-soft)',"FCApp._openSubScreen('bills')")
+        +toolTile('credit-card','Bills','var(--fc-accent)','var(--fc-accent-soft)',"FCApp.switchTab('activity');FCApp.switchActivitySegment('bills')")
         +toolTile('trending-down','Debt','var(--fc-danger)','var(--fc-danger-soft)',"FCApp._openDebtPage()")
         +toolTile('flag','Goals','var(--fc-success)','var(--fc-success-soft)',"FCApp._openSubScreen('goals')")
         +toolTile('trending-up','Investments','var(--fc-electric)','var(--fc-electric-soft)',"FCApp._openSubScreen('investments')")
@@ -7725,191 +7676,11 @@ window.FCApp = (function () {
      RENDER: BILLS SCREEN (stub — full build in Phase 4)
      ───────────────────────────────────────────────────────────── */
 
-  function _renderBillsScreen() {
-    const el = document.getElementById('bills-screen-content');
-    if (!el) return;
-    const allBills = (state.bills || []).sort((a,b) => new Date(a.due_date)-new Date(b.due_date));
-    const now = new Date();
-    const monthBills  = allBills.filter(b => {
-      if (!b.due_date) return false;
-      const d = new Date(b.due_date);
-      return d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear();
-    });
-    const totalDue    = monthBills.reduce((s,b) => s+(b.amount||0), 0);
-    const paidTotal   = monthBills.filter(b => b.status==='paid').reduce((s,b) => s+(b.amount||0), 0);
-    const unprotected = Math.max(0, totalDue - paidTotal);
-    const seg = el._seg || 'due';
-
-    const daysUntil = (dateStr) => dateStr ? Math.round((new Date(dateStr)-now)/86400000) : null;
-    const fmtDue = (d) => { try { return FCData.parseDateLocal(d).toLocaleDateString('en-US',{month:'short',day:'numeric'}); } catch(_e){ return d||''; } };
-    const billSt = (b) => {
-      const d = FCData.daysUntil ? FCData.daysUntil(b.due_date) : daysUntil(b.due_date);
-      if (d===null) return {label:'',cls:'fc-bill-status--ok'};
-      if (d<0)  return {label:'Overdue',cls:'fc-bill-status--due'};
-      if (d===0) return {label:'Due today',cls:'fc-bill-status--due'};
-      if (d<=3)  return {label:d+'d',cls:'fc-bill-status--soon'};
-      return {label:d+'d',cls:'fc-bill-status--ok'};
-    };
-    const billEmoji = (b) => _billIcon(b, 'var(--fc-text-muted)', 18);
-    const filterBills = (s) => {
-      if (s==='due')      return allBills.filter(b => { const d=daysUntil(b.due_date); return b.status!=='paid'&&(d===null||d<=7); });
-      if (s==='upcoming') return allBills.filter(b => b.status!=='paid');
-      if (s==='paid')     return allBills.filter(b => b.status==='paid');
-      return allBills;
-    };
-    const billList = filterBills(seg);
-    /* Canonical segmented control, not a per-screen one. This used to be
-       hand-rolled inline styles, which is exactly what the CANONICAL SCREEN
-       CHROME block in CLAUDE.md exists to stop: it rendered at a different
-       size and weight from the identical control on Plan, and because the
-       buttons were sized by their label text the "All" segment came out
-       24px wide — well under the 44px tap minimum. .fc-seg-btn brings the
-       shared styling and the shared hit-area rule with it. */
-    const segBtn = (id,label) =>
-      '<button class="fc-seg-btn'+(seg===id?' active':'')+'" role="tab" aria-selected="'+(seg===id)+'"'
-      +' type="button" onclick="var e=document.getElementById(\'bills-screen-content\');e._seg=\''+id+'\';FCApp._renderBillsScreen()">'
-      +label+'</button>';
-
-    el.innerHTML =
-      '<header class="fc-page-head fc-page-head--center">'
-        +'<button onclick="FCApp._closeSubScreen()" style="display:flex;align-items:center;gap:4px;background:none;border:none;cursor:pointer;color:var(--fc-accent);font-size:15px;font-weight:600;padding:11px 8px 11px 0;font-family:inherit;min-height:44px">'
-          +'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg> Back'
-        +'</button>'
-        +'<div style="flex:1;font-size:22px;font-weight:750;color:var(--fc-text)">Bills</div>'
-        +'<button class="fc-page-head__action" onclick="FCApp.showBillSheet&&FCApp.showBillSheet()" style="width:36px;height:36px;border-radius:50%;background:var(--fc-accent);border:none;cursor:pointer;color:var(--fc-accent-ink);font-size:22px;display:flex;align-items:center;justify-content:center;flex-shrink:0">+</button>'
-      +'</header>'
-
-      +'<div class="fc-card" style="margin-bottom:14px;padding:16px;background:var(--fc-accent-soft);border-color:var(--fc-border-accent)">'
-        +'<div style="display:flex;align-items:center;gap:14px">'
-          +'<div style="width:44px;height:44px;border-radius:12px;background:var(--fc-accent);display:flex;align-items:center;justify-content:center;flex-shrink:0">'
-            +'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>'
-          +'</div>'
-          +'<div style="flex:1">'
-            +'<div class="fc-eyebrow" style="color:var(--fc-accent)">Bills This Month</div>'
-            +'<div style="font-size:24px;font-weight:750;color:var(--fc-text);font-variant-numeric:tabular-nums">'+FCData.formatCurrency(totalDue)+'</div>'
-            +'<div style="font-size:13px;color:var(--fc-text-muted)">'+(paidTotal>0 ? FCData.formatCurrency(paidTotal)+' paid so far' : 'due this month')+'</div>'
-          +'</div>'
-          +(unprotected>0
-            ? '<div style="text-align:right"><div style="font-size:13px;color:var(--fc-warning-text);font-weight:600;font-variant-numeric:tabular-nums">'+FCData.formatCurrency(unprotected)+'</div><div style="font-size:11px;color:var(--fc-text-faint)">left to pay</div></div>'
-            : '<div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:2px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--fc-success)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg><div style="font-size:11px;color:var(--fc-text-faint)">all paid</div></div>')
-        +'</div>'
-      +'</div>'
-
-      +'<div class="fc-seg" role="tablist" style="margin-bottom:14px">'
-        +segBtn('due','Due Soon')
-        +segBtn('upcoming','Upcoming')
-        +segBtn('paid','Paid')
-        +segBtn('all','All')
-      +'</div>'
-
-      +(billList.length>0
-        ? '<div class="fc-card" style="padding:4px 16px">'
-            +billList.map(b => {
-              const st = billSt(b);
-              return '<div class="fc-bill-row" onclick="FCApp.editBill&&FCApp.editBill(\''+b.id+'\')">'
-                +'<div class="fc-bill-icon">'+billEmoji(b)+'</div>'
-                +'<div class="fc-bill-info">'
-                  +'<div class="fc-bill-name">'+esc(b.name)+'</div>'
-                  +'<div class="fc-bill-due">Due '+fmtDue(b.due_date)+(b.autopay?' · AutoPay':'')+'</div>'
-                +'</div>'
-                +'<div class="fc-bill-right">'
-                  +'<div class="fc-bill-amount">'+FCData.formatCurrency(b.amount||0)+'</div>'
-                  +'<div class="fc-bill-status '+(b.status==='paid'?'fc-bill-status--paid':st.cls)+'">'+esc(b.status==='paid'?'Paid':st.label)+'</div>'
-                +'</div>'
-              +'</div>';
-            }).join('')
-          +'</div>'
-        : '<div class="fc-card" style="padding:32px;text-align:center">'
-            +'<div style="font-size:32px;margin-bottom:12px">📋</div>'
-            +'<div style="font-size:15px;font-weight:600;color:var(--fc-text);margin-bottom:6px">No bills here</div>'
-            +'<div style="font-size:13px;color:var(--fc-text-muted)">Add your first bill to protect your money.</div>'
-          +'</div>');
-  }
 
   /* ─────────────────────────────────────────────────────────────
      RENDER: DEBT SCREEN (stub)
      ───────────────────────────────────────────────────────────── */
 
-  function _renderDebtScreen() {
-    const el = document.getElementById('debt-screen-content');
-    if (!el) return;
-    const debtAccts = (state.accounts || []).filter(a => a.type==='credit'||a.subtype==='credit card'||a.type==='loan');
-    const total     = debtAccts.reduce((s,a) => s+Math.max(0,a.balance_current||0), 0);
-    const totalMin  = debtAccts.reduce((s,a) => s+(a.min_payment||0), 0);
-    const weighted  = debtAccts.reduce((s,a) => s+(a.interest_rate||0)*(a.balance_current||0), 0);
-    const avgRate   = total > 0 ? weighted/total : 0;
-    const monthsToFree = totalMin > 0 ? Math.ceil(total/totalMin) : null;
-    const debtFreeDate = monthsToFree ? (() => {
-      const d = new Date(); d.setMonth(d.getMonth()+monthsToFree);
-      return d.toLocaleDateString('en-US',{month:'short',year:'numeric'});
-    })() : null;
-
-    el.innerHTML =
-      '<header class="fc-page-head fc-page-head--center">'
-        +'<button onclick="FCApp._closeSubScreen()" style="display:flex;align-items:center;gap:4px;background:none;border:none;cursor:pointer;color:var(--fc-accent);font-size:15px;font-weight:600;padding:11px 8px 11px 0;font-family:inherit;min-height:44px">'
-          +'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg> Back'
-        +'</button>'
-        +'<div style="flex:1;font-size:22px;font-weight:750;color:var(--fc-text)">Debt</div>'
-        +'<button class="fc-page-head__action" style="width:36px;height:36px;border-radius:50%;background:var(--fc-accent);border:none;cursor:pointer;color:var(--fc-accent-ink);font-size:22px;display:flex;align-items:center;justify-content:center;flex-shrink:0">+</button>'
-      +'</header>'
-
-      +(debtFreeDate
-        ? '<div class="fc-card" style="margin-bottom:14px;padding:16px;background:var(--fc-success-soft);border-color:var(--fc-success-border)">'
-            +'<div style="display:flex;align-items:center;gap:14px">'
-              +'<div style="width:44px;height:44px;border-radius:12px;background:var(--fc-success-soft);display:flex;align-items:center;justify-content:center;flex-shrink:0">'+_ic('trending-down','var(--fc-success)',20)+'</div>'
-              +'<div style="flex:1">'
-                +'<div class="fc-eyebrow" style="color:var(--fc-success);margin-bottom:4px">Debt-Free Plan</div>'
-                +'<div style="font-size:16px;font-weight:700;color:var(--fc-text)">Debt-free by <span style="color:var(--fc-success)">'+debtFreeDate+'</span></div>'
-                +'<button style="background:none;border:none;color:var(--fc-accent);font-size:13px;font-weight:600;cursor:pointer;padding:4px 0;margin-top:2px;font-family:inherit">View payoff plan →</button>'
-              +'</div>'
-            +'</div>'
-          +'</div>'
-        : debtAccts.length > 0
-        ? '<div class="fc-card" style="margin-bottom:14px;padding:20px;text-align:center">'
-            +'<div style="font-size:15px;font-weight:600;color:var(--fc-text);margin-bottom:4px">Build Your Debt-Free Plan</div>'
-            +'<div style="font-size:13px;color:var(--fc-text-muted)">Add minimum payments to your debts to see your payoff timeline.</div>'
-          +'</div>'
-        : '')
-
-      +(total > 0
-        ? '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">'
-            +'<div class="fc-metric-card"><div class="fc-metric-label">Total Debt</div><div class="fc-metric-value" style="font-size:20px;color:var(--fc-danger)">'+FCData.formatCurrency(total)+'</div></div>'
-            +'<div class="fc-metric-card"><div class="fc-metric-label">Avg Interest</div><div class="fc-metric-value" style="font-size:20px">'+(avgRate>0?avgRate.toFixed(1)+'%':'<span style="color:var(--fc-text-faint)">—</span>')+'</div></div>'
-            +'<div class="fc-metric-card"><div class="fc-metric-label">Monthly Min.</div><div class="fc-metric-value" style="font-size:20px">'+(totalMin>0?FCData.formatCurrency(totalMin):'<span style="color:var(--fc-text-faint)">—</span>')+'</div></div>'
-            +'<div class="fc-metric-card"><div class="fc-metric-label">Extra This Month</div><div class="fc-metric-value" style="font-size:20px">$0</div></div>'
-          +'</div>'
-        : '')
-
-      +(debtAccts.length > 0
-        ? '<div class="fc-eyebrow" style="margin-bottom:8px">Debts</div>'
-          +'<div class="fc-card" style="padding:4px 16px;margin-bottom:14px">'
-            +debtAccts.map(a => {
-              const bal  = Math.max(0, a.balance_current||0);
-              const rate = a.interest_rate ? a.interest_rate.toFixed(2)+'%' : null;
-              const pd   = a.payoff_date || null;
-              const sub  = [rate, pd?'Payoff '+pd:null, a.institution_name].filter(Boolean).join(' · ');
-              return '<div class="fc-bill-row">'
-                +'<div class="fc-bill-icon">'+_ic('credit-card','var(--fc-text-muted)',18)+'</div>'
-                +'<div class="fc-bill-info">'
-                  +'<div class="fc-bill-name">'+esc(a.name||'Credit Card')+'</div>'
-                  +(sub?'<div class="fc-bill-due">'+sub+'</div>':'')
-                +'</div>'
-                +'<div class="fc-bill-right">'
-                  +'<div class="fc-bill-amount" style="color:var(--fc-danger)">'+FCData.formatCurrency(bal)+'</div>'
-                  +(a.min_payment?'<div style="font-size:11px;color:var(--fc-text-faint)">min '+FCData.formatCurrency(a.min_payment)+'</div>':'')
-                +'</div>'
-              +'</div>';
-            }).join('')
-          +'</div>'
-          +'<div class="fc-card" style="padding:14px 16px;background:var(--fc-accent-soft);border-color:var(--fc-border-accent)">'
-            +'<div style="display:flex;gap:10px;align-items:flex-start"><span style="flex-shrink:0;margin-top:1px">'+_ic('lightbulb','var(--fc-accent)',16)+'</span><div style="font-size:14px;color:var(--fc-text);line-height:1.5">Adding even $50 extra per month can significantly reduce your payoff time and save on interest.</div></div>'
-          +'</div>'
-        : '<div class="fc-card" style="padding:40px;text-align:center">'
-            +'<div style="width:48px;height:48px;border-radius:50%;background:var(--fc-success-soft);display:flex;align-items:center;justify-content:center;margin:0 auto 12px">'+_ic('check','var(--fc-success)',22)+'</div>'
-            +'<div style="font-size:16px;font-weight:600;color:var(--fc-text);margin-bottom:6px">No debt accounts</div>'
-            +'<div style="font-size:13px;color:var(--fc-text-muted)">Add a debt to build your payoff plan.</div>'
-          +'</div>');
-  }
 
   /* ─────────────────────────────────────────────────────────────
      COACH — rule-based money coaching, structured answers.
@@ -10731,8 +10502,6 @@ window.FCApp = (function () {
     // Net worth history (daily snapshots — Firestore-backed for cross-device persistence)
     FCData.listenToNetWorthHistory(history => {
       state.nwHistory = history;
-      // Re-draw sparkline with the authoritative Firestore data
-      _drawNetWorthSparkline(history);
       if (state.tab === 'insights') _renderInsights();
     });
   }
@@ -13614,7 +13383,6 @@ window.FCApp = (function () {
     boot,
     setScreen,
     switchTab,
-    _renderBillsScreen,   // called from Bills hub segment buttons (inline onclick)
     // The Vault — proof-of-savings billing
     _renderVaultScreen,
     _vaultToggleReceipt,  // ledger receipt expand (inline onclick)

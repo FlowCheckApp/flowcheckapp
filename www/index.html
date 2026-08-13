@@ -57,9 +57,9 @@
 <meta name="theme-color" content="#060e18">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="stylesheet" href="css/flowcheck-design-system.css?v=20260813">
-<link rel="stylesheet" href="css/fc-screens.css?v=20260813">
-<link rel="stylesheet" href="css/fc-premium-screens.css?v=20260813">
+<link rel="stylesheet" href="css/flowcheck-design-system.css?v=20260813b">
+<link rel="stylesheet" href="css/fc-screens.css?v=20260813b">
+<link rel="stylesheet" href="css/fc-premium-screens.css?v=20260813b">
 
 <!-- Sentry — error & crash monitoring (vanilla JS, no npm required) -->
 <script
@@ -6650,21 +6650,12 @@ body:not(.keyboard-open) .fc-sheet {
     </div>
   </div><!-- /view-more -->
 
-  <!-- ══ BILLS SCREEN ══════════════════════════════════════════ -->
-  <div id="view-bills" class="fc-view" role="tabpanel"
-       style="overflow-y:scroll;-webkit-overflow-scrolling:touch;padding-bottom:calc(env(safe-area-inset-bottom) + 110px);display:none">
-    <div id="bills-screen-content" style="padding:0 16px">
-      <!-- Rendered by _renderBillsScreen() -->
-    </div>
-  </div><!-- /view-bills -->
-
-  <!-- ══ DEBT SCREEN ════════════════════════════════════════════ -->
-  <div id="view-debt" class="fc-view" role="tabpanel"
-       style="overflow-y:scroll;-webkit-overflow-scrolling:touch;padding-bottom:calc(env(safe-area-inset-bottom) + 110px);display:none">
-    <div id="debt-screen-content" style="padding:0 16px">
-      <!-- Rendered by _renderDebtScreen() -->
-    </div>
-  </div><!-- /view-debt -->
+  <!-- No BILLS or DEBT screen here any more. Each had a SECOND, standalone
+       page that duplicated a segment of another tab, and entry points were
+       split between the two copies — on Home, "View bills" went to
+       Activity › Bills while "View all bills ›" went to the standalone one.
+       Bills now lives only at Activity › Bills, Debt only at Money › Debt,
+       and switchTab('bills'|'debt') redirects there for any older caller. -->
 
   <!-- ══ GOALS SCREEN ═══════════════════════════════════════════ -->
   <div id="view-goals" class="fc-view" role="tabpanel"
@@ -7234,7 +7225,7 @@ body:not(.keyboard-open) .fc-sheet {
 <script src="js/fc-data.js"></script>
 <script src="js/fc-push.js"></script>
 <script src="js/fc-iap.js"></script>
-<script src="js/fc-app.js?v=20260813"></script>
+<script src="js/fc-app.js?v=20260813b"></script>
 
 <script>
 'use strict';
