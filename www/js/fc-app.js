@@ -7992,6 +7992,149 @@ window.FCApp = (function () {
     return answers;
   }
 
+  /* ── Ask — a coach you can actually talk to ──────────────────────────────
+     Deliberately NOT an LLM, and that is the feature rather than a shortcut:
+
+       · Privacy is the product. Answering "can I afford this" through a
+         third-party model means shipping balances and merchant history off
+         the device, which is the one thing this app promises not to do.
+       · Money advice has to be auditable. Every number below is traceable to
+         the same engines the rest of the app renders from, so Coach can never
+         quote a figure that disagrees with the screen behind it — which is
+         exactly what a model that has been handed a summary will eventually do.
+       · It is instant, works with no signal, and costs nothing per question.
+
+     So: parse the intent locally, answer from _buildSafeSpendProjection,
+     predictNextPayday, _detectSubscriptions and _getBillsDueInDays. The tab
+     already promised "straight answers from your own numbers"; this makes
+     that literally true instead of a tagline over a list of canned rows. */
+  function _coachParse(q) {
+    const s = String(q || '').toLowerCase().trim();
+    if (!s) return null;
+    // An amount anywhere in the sentence turns most phrasings into "afford".
+    const amt = (s.match(/\$?\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)/) || [])[1];
+    const money = amt ? parseFloat(amt.replace(/,/g, '')) : null;
+
+    if (/afford|should i buy|can i buy|worth it|ok to (?:buy|spend)/.test(s) || (money && /buy|spend|get|cost/.test(s))) {
+      return { intent: 'afford', amount: money };
+    }
+    if (/safe to spend|how much (?:can|should) i spend|spending money|left to spend/.test(s)) return { intent: 'safe' };
+    if (/paid|payday|pay ?check|next check/.test(s))                                          return { intent: 'payday' };
+    if (/subscription|recurring|streaming/.test(s))                                           return { intent: 'subs' };
+    if (/bill|due|owe/.test(s))                                                               return { intent: 'bills' };
+    if (/runway|run out|run short|make it|short/.test(s))                                     return { intent: 'runway' };
+    if (money) return { intent: 'afford', amount: money };
+    return { intent: 'unknown' };
+  }
+
+  /** Returns { verdict, detail, tone } — tone drives colour only. */
+  function _coachAnswer(parsed) {
+    const money = v => FCData.formatCurrency(v);
+    if (!parsed || parsed.intent === 'unknown') {
+      return { tone: 'neutral', verdict: 'Ask me about a purchase, your bills, or payday.',
+               detail: 'Try "Can I afford $200?" or "When do I get paid?"' };
+    }
+    const p = _buildSafeSpendProjection();
+    const safe = Math.max(0, p.safe || 0);
+
+    if (parsed.intent === 'afford') {
+      if (parsed.amount == null) {
+        return { tone: 'neutral', verdict: 'How much?',
+                 detail: 'Give me an amount — "Can I afford $200?" — and I\'ll check it against your real numbers.' };
+      }
+      const after = safe - parsed.amount;
+      if (after >= 0) {
+        return { tone: 'good', verdict: 'Yes — that works.',
+                 detail: 'You\'d still have ' + money(after) + ' safe to spend'
+                       + (p.payday ? ' before ' + p.payday.date.toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '')
+                       + '.' };
+      }
+      return { tone: 'bad', verdict: 'I\'d wait.',
+               detail: 'That\'s ' + money(Math.abs(after)) + ' more than you can safely spend right now. '
+                     + 'You have ' + money(safe)
+                     + (p.payday ? ' until ' + p.payday.date.toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '') + '.' };
+    }
+
+    if (parsed.intent === 'safe') {
+      return { tone: safe > 0 ? 'good' : 'bad', verdict: money(safe) + ' safe to spend',
+               detail: p.payday
+                 ? 'That\'s what\'s left after your upcoming bills and usual spending, through '
+                   + p.payday.date.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + '.'
+                 : 'That\'s what\'s left after your upcoming bills and usual spending.' };
+    }
+
+    if (parsed.intent === 'payday') {
+      const pd = _predictNextPayday();
+      if (!pd) return { tone: 'neutral', verdict: 'I can\'t see a pay pattern yet.',
+                        detail: 'Once a few paycheques land I\'ll be able to tell you.' };
+      return { tone: 'good', verdict: 'Payday is ' + _paydayWhen(pd.days) + '.',
+               detail: pd.date.toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'})
+                     + (pd.cadence ? ' — you\'re paid ' + pd.cadence.replace('semimonthly','twice a month') + '.' : '') };
+    }
+
+    if (parsed.intent === 'subs') {
+      const subs = _detectSubscriptions(state.transactions || []) || [];
+      if (!subs.length) return { tone: 'good', verdict: 'No recurring charges spotted.',
+                                 detail: 'Nothing looks like a subscription in your recent activity.' };
+      const total = subs.reduce((s, x) => s + (x.amount || 0), 0);
+      return { tone: 'neutral', verdict: money(total) + '/mo in subscriptions',
+               detail: subs.length + ' recurring charge' + (subs.length === 1 ? '' : 's') + ' — that\'s '
+                     + money(total * 12) + ' a year.' };
+    }
+
+    if (parsed.intent === 'bills') {
+      const due = _getBillsDueInDays(14) || [];
+      if (!due.length) return { tone: 'good', verdict: 'Nothing due in the next two weeks.',
+                                detail: 'Your upcoming bills are clear.' };
+      const total = due.reduce((s, b) => s + (b.amount || 0), 0);
+      const next = due[0];
+      return { tone: due.length > 2 ? 'warn' : 'neutral',
+               verdict: money(total) + ' due in the next two weeks',
+               detail: due.length + ' bill' + (due.length === 1 ? '' : 's')
+                     + (next && next.name ? ' — ' + next.name + ' is next.' : '.') };
+    }
+
+    // runway
+    const r = _buildRunwaySeries ? _buildRunwaySeries() : null;
+    if (r && r.goesNegative) {
+      return { tone: 'bad', verdict: 'Money runs short before payday.',
+               detail: 'Safe to spend is ' + money(safe) + '. Trimming there is the quickest fix.' };
+    }
+    return { tone: 'good', verdict: 'You make it to payday.',
+             detail: money(safe) + ' safe to spend between now and then.' };
+  }
+
+  /** Handle the ask bar. Renders one calm answer — never a transcript. */
+  function coachAsk(q) {
+    const input = document.getElementById('coach-ask-input');
+    const query = q != null ? q : (input && input.value);
+    const out   = document.getElementById('coach-ask-answer');
+    if (!out) return;
+    const parsed = _coachParse(query);
+    if (!parsed) { out.innerHTML = ''; out.style.display = 'none'; return; }
+    haptic('light');
+    if (input && q != null) input.value = q;
+
+    const a = _coachAnswer(parsed);
+    const TONE = { good: 'var(--fc-success)', bad: 'var(--fc-danger)',
+                   warn: 'var(--fc-warning)', neutral: 'var(--fc-accent)' };
+    const c = TONE[a.tone] || TONE.neutral;
+    /* esc() on both fields: verdict/detail are built from our own numbers,
+       but the unknown-intent branch is the shape most likely to grow an echo
+       of what the user typed, and escaping here means it can never become a
+       sink. */
+    out.style.display = '';
+    out.innerHTML =
+      '<div class="coach-answer" style="border-left:3px solid ' + c + '">'
+        + '<p class="coach-answer-verdict">' + esc(a.verdict) + '</p>'
+        + '<p class="coach-answer-detail">' + esc(a.detail) + '</p>'
+      + '</div>';
+  }
+
+  function coachAskKey(e) {
+    if (e && (e.key === 'Enter' || e.keyCode === 13)) { e.preventDefault(); coachAsk(); }
+  }
+
   function _renderCoach() {
     const el = document.getElementById('coach-content');
     if (!el) return;
@@ -8037,6 +8180,29 @@ window.FCApp = (function () {
           +'<p class="fc-page-sub">Straight answers from your own numbers</p>'
         +'</div>'
       +'</header>'
+      /* The ask bar. Three starters rather than a wall of them — enough to
+         teach the shape of a question without becoming a menu. */
+      +'<div class="coach-ask">'
+        +'<div class="coach-ask-field">'
+          +_ic('search','var(--fc-text-faint)',16)
+          +'<input id="coach-ask-input" type="text" placeholder="Ask about your money…"'
+            +' aria-label="Ask Coach a question" autocomplete="off" autocorrect="off"'
+            +' autocapitalize="sentences" spellcheck="false" enterkeyhint="send"'
+            +' onkeydown="FCApp.coachAskKey(event)">'
+        +'</div>'
+        +'<button class="coach-ask-go" type="button" onclick="FCApp.coachAsk()" aria-label="Ask">'
+          /* 'send', not 'arrow-right' — _ic falls back to file-text for an
+             unknown name, so a typo here renders a document icon on the ask
+             button and nothing errors. */
+          +_ic('send','var(--fc-accent-ink)',17)
+        +'</button>'
+      +'</div>'
+      +'<div class="coach-ask-starters">'
+        +'<button type="button" class="fc-chip" onclick="FCApp.coachAsk(\'Can I afford $200?\')">Can I afford $200?</button>'
+        +'<button type="button" class="fc-chip" onclick="FCApp.coachAsk(\'When do I get paid?\')">When do I get paid?</button>'
+        +'<button type="button" class="fc-chip" onclick="FCApp.coachAsk(\'What\\u2019s safe to spend?\')">What’s safe to spend?</button>'
+      +'</div>'
+      +'<div id="coach-ask-answer" style="display:none"></div>'
 
       +'<div class="fc-card" style="margin-bottom:14px;padding:14px 16px;background:var(--fc-accent-soft);border-color:var(--fc-border-accent);display:flex;align-items:center;gap:13px;cursor:pointer;-webkit-tap-highlight-color:transparent" onclick="FCApp.showAffordSheet&&FCApp.showAffordSheet()">'
         +'<div style="width:40px;height:40px;border-radius:12px;background:var(--fc-accent);display:flex;align-items:center;justify-content:center;flex-shrink:0">'+_ic('search','#fff',19)+'</div>'
@@ -13310,6 +13476,8 @@ window.FCApp = (function () {
     editBill,
     switchActivitySegment,
     toggleActivitySearch,
+    coachAsk,
+    coachAskKey,
     filterActivity,
     filterActivityType,
     switchActivitySummaryPeriod,

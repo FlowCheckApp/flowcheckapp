@@ -2129,6 +2129,69 @@ body.fc-theme .fc-nav {
   font-size: 17px; font-weight: 600; letter-spacing: -0.02em;
   color: var(--fc-text); font-variant-numeric: tabular-nums;
 }
+/* ── Coach ask bar ────────────────────────────────────────────────
+   One question in, one answer out. Deliberately not a chat transcript:
+   a scrolling history of your own money questions is a log, not an
+   assistant, and it would turn the calmest tab in the app into the
+   busiest one. The answer replaces itself. */
+.coach-ask {
+  display: flex; gap: 8px; align-items: center;
+  margin: 0 16px 10px;
+}
+.coach-ask-field {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 9px;
+  height: 46px; padding: 0 14px;
+  background: var(--fc-card-bg);
+  border: 0.5px solid var(--fc-border);
+  border-radius: 14px;
+}
+.coach-ask-field input {
+  flex: 1; min-width: 0;
+  background: transparent; border: 0; outline: none;
+  font-family: inherit; font-size: 15px; color: var(--fc-text);
+}
+.coach-ask-field input::placeholder { color: var(--fc-text-faint); }
+.coach-ask-go {
+  width: 46px; height: 46px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--fc-accent); border: 0; border-radius: 14px;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: transform 0.14s var(--fc-ease-out), filter 0.14s var(--fc-ease-out);
+}
+.coach-ask-go:active { transform: scale(0.94); filter: brightness(0.95); }
+
+.coach-ask-starters {
+  display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none;
+  padding: 0 16px 14px; -webkit-overflow-scrolling: touch;
+}
+.coach-ask-starters::-webkit-scrollbar { display: none; }
+.coach-ask-starters .fc-chip { flex-shrink: 0; }
+
+/* The answer. One verdict, one line of support, nothing else — the rule
+   the whole tab is built on. */
+.coach-answer {
+  margin: 0 16px 16px; padding: 14px 16px;
+  background: var(--fc-card-bg);
+  border: 0.5px solid var(--fc-border);
+  border-radius: 16px;
+  animation: fcCoachIn 0.22s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+.coach-answer-verdict {
+  margin: 0; font-size: 19px; font-weight: 700; letter-spacing: -0.02em;
+  color: var(--fc-text); line-height: 1.25;
+}
+.coach-answer-detail {
+  margin: 6px 0 0; font-size: 13.5px; line-height: 1.45;
+  color: var(--fc-text-muted);
+}
+@keyframes fcCoachIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .coach-answer { animation: none; }
+}
+
 /* "until Aug 20" — the deadline is what makes the number mean anything.
    Without it "$42" is a quantity; with it, it is a budget. */
 .rw-end-meta {
