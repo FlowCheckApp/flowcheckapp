@@ -167,11 +167,17 @@ service cloud.firestore {
         allow read: if isOwner(uid);
 
         // Manual accounts created by the user from the UI
+        // interest_rate/minimum_payment added so a manual credit card or loan
+        // can feed the Debt screen's Avg Interest / Monthly Min. tiles — both
+        // were permanently stuck on "—" for manual debts because there was no
+        // field for them anywhere, client or rules. Both are optional: absence
+        // just means those two tiles keep showing the dash, same as today.
         allow create: if isOwner(uid)
                       && request.resource.data.manual == true
                       && request.resource.data.keys().hasOnly([
                            'name', 'type', 'subtype', 'balance', 'balance_current',
                            'currency', 'mask', 'manual', 'created_at', 'updated_at',
+                           'interest_rate', 'minimum_payment',
                          ]);
         allow update: if isOwner(uid)
                       && resource.data.manual == true
@@ -179,6 +185,7 @@ service cloud.firestore {
                       && request.resource.data.keys().hasOnly([
                            'name', 'type', 'subtype', 'balance', 'balance_current',
                            'currency', 'mask', 'manual', 'created_at', 'updated_at',
+                           'interest_rate', 'minimum_payment',
                          ]);
         allow delete: if isOwner(uid) && resource.data.manual == true;
 

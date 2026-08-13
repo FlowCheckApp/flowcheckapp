@@ -6011,7 +6011,28 @@ window.FCApp = (function () {
       cumA+=angle;
       return `<path d="${path}" fill="${seg.color}" opacity="0.88"/>`;
     });
-    const donutSVG=`<svg viewBox="0 0 104 104" width="90" height="90" style="flex-shrink:0" aria-hidden="true">${arcs.join('')}<circle cx="${cx}" cy="${cy}" r="${r}" fill="var(--fc-bg-elevated,#0b1826)"/><text x="${cx}" y="${cy-1}" text-anchor="middle" fill="var(--fc-text)" font-size="14" font-weight="800" font-family="inherit">−${totalDebt>=1000?`$${(totalDebt/1000).toFixed(0)}K`:`$${Math.round(totalDebt)}`}</text><text x="${cx}" y="${cy+12}" text-anchor="middle" fill="var(--fc-text-faint)" font-size="10" font-family="inherit">total</text></svg>`;
+    /* No number inside the hole. It used to repeat the total — "−$724 /
+       total" in 14px, sitting 18px from the SAME figure again in 26px right
+       next to it ("$723.55"). Two numbers, one meaning, cramped together, is
+       what read as "too close and looks bad": the fix is not more padding
+       around a duplicate, it is removing the duplicate. The ring is now a
+       pure composition indicator (Cards vs Loans, from `segs`, already
+       computed above) with a plain icon at rest in the hole; the dollar
+       figure lives in exactly one place, the big text beside it. */
+    const donutSVG=`<svg viewBox="0 0 104 104" width="90" height="90" style="flex-shrink:0" aria-hidden="true">${arcs.join('')}<circle cx="${cx}" cy="${cy}" r="${r}" fill="var(--fc-bg-elevated,#0b1826)"/><g transform="translate(${cx-11},${cy-11})">${_ic('credit-card','var(--fc-text-faint)',22)}</g></svg>`;
+    /* Cards-vs-Loans legend. Only when the ring actually has two colours to
+       explain — segs is already filtered to val>0 above, so a single-segment
+       donut (all cards, or all loans) would make a legend that just repeats
+       the total a THIRD time. Same dot+label+value convention as the
+       Cash/Invested/Debt legend on Net Worth (_allocLegend), not a new one. */
+    const debtLegendHTML = segs.length > 1 ? `
+      <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:8px">
+        ${segs.map(s => `<div style="display:flex;align-items:center;gap:5px">`
+          + `<span style="width:7px;height:7px;border-radius:2px;background:${s.color};flex-shrink:0"></span>`
+          + `<span style="font-size:11px;color:var(--wv-t3);font-weight:500">${esc(s.lbl)}</span>`
+          + `<span style="font-size:11px;color:var(--wv-t2);font-weight:600;font-variant-numeric:tabular-nums">${FCData.formatCurrency(s.val)}</span>`
+        + `</div>`).join('')}
+      </div>` : '';
     // Next payment from bills
     const nextBill=state.bills?.filter(b=>!b.paid&&(b.category||'').toLowerCase().includes('debt')||['card','loan','mortgage'].some(k=>(b.name||'').toLowerCase().includes(k))).sort((a,b)=>(a.due_date||'').localeCompare(b.due_date||''))[0];
     // Debt rows
@@ -6094,6 +6115,7 @@ window.FCApp = (function () {
           <div class="wv-debt-total${debtIsUrgent?' wv-debt-total--urgent':''}">${FCData.formatCurrency(totalDebt)}</div>
           ${ccLimit>0?`<div class="wv-debt-status" style="color:${utilColor};font-size:12px;margin-top:3px">${utilPct}% credit utilized${utilPct>30?' — consider paying down':''}</div>`:''}
           ${nextBill?`<div style="font-size:12px;color:var(--wv-t2);margin-top:4px">Next payment: <strong style="color:var(--wv-t1)">${FCData.formatCurrency(nextBill.amount||0)}</strong></div>`:''}
+          ${debtLegendHTML}
         </div>
       </div>
       <div class="wv-card wv-debt-move">
@@ -6341,11 +6363,22 @@ window.FCApp = (function () {
     const svgEl = document.getElementById('act-summary-chart-svg');
     const labelsEl = document.getElementById('act-chart-labels');
     if (svgEl) {
-      const chartH = 80, chartW = 320; // viewBox units
+      /* chartH used to be hardcoded to 80 here while the svg's actual height
+         attribute in index.html was 52 (shrunk when Activity's chrome was
+         compacted). preserveAspectRatio="none" on this element stretches the
+         viewBox to fill whatever the real box is, so every point computed
+         against an 80-tall canvas was then squashed by 52/80 — the graph's
+         true dynamic range and headroom were both ~35% smaller than the math
+         below assumed, which is what "the graph isn't up to par" actually
+         was: flattened peaks, a top margin that had shrunk to nothing.
+         Reading the real height means the two can never drift apart again —
+         change the markup and this follows automatically. */
+      const chartH = parseFloat(svgEl.getAttribute('height')) || 52, chartW = 320; // viewBox units
+      const topPad = 6, bottomPad = 2;   // headroom sized for the actual canvas, not inherited from 80
       const maxVal = Math.max(...buckets, 1);
       const pts = buckets.map((v, i) => {
         const x = (i / (bucketCount - 1)) * chartW;
-        const y = chartH - (v / maxVal) * (chartH - 8);
+        const y = (chartH - bottomPad) - (v / maxVal) * (chartH - topPad - bottomPad);
         return [x, y];
       });
 
@@ -12292,12 +12325,33 @@ window.FCApp = (function () {
    * account is backend-owned and firestore.rules refuses client writes to it,
    * so offering an edit UI for one would be a button that cannot work.
    */
+  /** credit / loan only. Savings, checking and investment accounts have no
+   *  APR or minimum payment — showing the fields for them invited a number
+   *  that means nothing for that account type. */
+  const _DEBT_ACCT_TYPES = new Set(['credit', 'loan']);
+
+  /** Show/hide the interest-rate + minimum-payment fields to match whatever
+   *  the type select currently reads. Called on open (both add and edit) and
+   *  on every change to the select, so the sheet is never caught showing
+   *  debt fields for a savings account or hiding them for a credit card. */
+  function _toggleManualAcctDebtFields() {
+    const typeEl = document.getElementById('manual-acct-type');
+    const wrap   = document.getElementById('manual-acct-debt-fields');
+    if (!typeEl || !wrap) return;
+    wrap.style.display = _DEBT_ACCT_TYPES.has(typeEl.value) ? 'flex' : 'none';
+  }
+  function _onManualAcctTypeChange() {
+    _toggleManualAcctDebtFields();
+  }
+
   function showManualAccountSheet(account) {
     const sheet   = document.getElementById('fc-manual-account-sheet');
     const titleEl = document.getElementById('manual-acct-title');
     const name    = document.getElementById('manual-acct-name');
     const typeEl  = document.getElementById('manual-acct-type');
     const bal     = document.getElementById('manual-acct-balance');
+    const rateEl  = document.getElementById('manual-acct-rate');
+    const minEl   = document.getElementById('manual-acct-min-payment');
     const saveBtn = document.getElementById('manual-acct-save-btn');
     const delBtn  = document.getElementById('manual-acct-delete-btn');
 
@@ -12308,12 +12362,19 @@ window.FCApp = (function () {
     if (bal)   bal.value  = editing
       ? String(Math.abs(Number(account.balance_current ?? account.balance ?? 0)))
       : '';
+    // Populated whether editing or not: showManualAccountSheet({type:'loan'})
+    // is also how the Debt screen's "+ Add debt" button opens this sheet, and
+    // a stale rate left over from the LAST account this sheet edited must not
+    // survive into a fresh Add flow.
+    if (rateEl) rateEl.value = (editing && account.interest_rate != null) ? String(account.interest_rate) : '';
+    if (minEl)  minEl.value  = (editing && account.minimum_payment != null) ? String(account.minimum_payment) : '';
     if (typeEl) {
       const t = String(account?.type || account?.subtype || 'savings').toLowerCase();
       // Fall back rather than leaving the select on whatever was there last —
       // a silently wrong type flips an asset into a debt on save.
       typeEl.value = [...typeEl.options].some(o => o.value === t) ? t : 'savings';
     }
+    _toggleManualAcctDebtFields();
     if (titleEl) titleEl.textContent = editing ? 'Edit Account' : 'Add Account';
     if (saveBtn) saveBtn.textContent = editing ? 'Save Changes' : 'Add Account';
     if (delBtn)  delBtn.style.display = editing ? '' : 'none';
@@ -12363,6 +12424,8 @@ window.FCApp = (function () {
     const nameEl  = document.getElementById('manual-acct-name');
     const typeEl  = document.getElementById('manual-acct-type');
     const balEl   = document.getElementById('manual-acct-balance');
+    const rateEl  = document.getElementById('manual-acct-rate');
+    const minEl   = document.getElementById('manual-acct-min-payment');
     const btn     = document.getElementById('manual-acct-save-btn');
 
     const name    = nameEl?.value.trim();
@@ -12370,6 +12433,20 @@ window.FCApp = (function () {
     const balance = parseFloat(balEl?.value) || 0;
 
     if (!name) { toast('Enter an account name', 'info'); return; }
+
+    /* Gated on the CURRENT type at save time, not on whether the fields were
+       visible — so switching Credit Card -> Savings and saving cannot leave a
+       stale APR sitting on a savings account just because the wrapper was
+       hidden rather than the input cleared. Always written (never omitted):
+       an update() that omits a key leaves whatever was there before
+       untouched, which is how a converted account would go on quietly
+       carrying its old rate forever. null says, explicitly, "not a debt". */
+    const isDebtType = _DEBT_ACCT_TYPES.has(type);
+    let rate = isDebtType ? parseFloat(rateEl?.value) : NaN;
+    if (!isFinite(rate) || rate < 0) rate = null;
+    else rate = Math.min(rate, 100);
+    let minPayment = isDebtType ? parseFloat(minEl?.value) : NaN;
+    if (!isFinite(minPayment) || minPayment < 0) minPayment = null;
 
     const editing = !!_editingAccountId;
     const label   = btn ? btn.textContent : '';
@@ -12384,6 +12461,8 @@ window.FCApp = (function () {
       balance:          balance,
       currency:         'USD',
       mask:             null,
+      interest_rate:    rate,
+      minimum_payment:  minPayment,
     };
 
     try {
@@ -13639,6 +13718,7 @@ window.FCApp = (function () {
     showAllActivity,
     // Manual accounts
     showManualAccountSheet,
+    _onManualAcctTypeChange,
     editManualAccount,
     deleteManualAccountById,
     closeManualAccountSheet,

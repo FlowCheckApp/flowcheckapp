@@ -57,9 +57,9 @@
 <meta name="theme-color" content="#060e18">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="stylesheet" href="css/flowcheck-design-system.css?v=20260812">
-<link rel="stylesheet" href="css/fc-screens.css?v=20260812">
-<link rel="stylesheet" href="css/fc-premium-screens.css?v=20260812">
+<link rel="stylesheet" href="css/flowcheck-design-system.css?v=20260813">
+<link rel="stylesheet" href="css/fc-screens.css?v=20260813">
+<link rel="stylesheet" href="css/fc-premium-screens.css?v=20260813">
 
 <!-- Sentry — error & crash monitoring (vanilla JS, no npm required) -->
 <script
@@ -6307,7 +6307,18 @@ body:not(.keyboard-open) .fc-sheet {
     .wv-plan-k { font-size:13px; color:var(--wv-t2); }
     .wv-plan-v { font-size:14px; font-weight:700; color:var(--wv-t1); font-variant-numeric:tabular-nums; }
     /* DEBT */
-    .wv-debt-hero { margin:16px 16px 0; padding:20px; display:flex; align-items:center; gap:18px; }
+    /* margin/padding below are dead weight, not a bug: fc-premium-screens.css
+       carries an !important override on this same selector for exactly
+       those two properties, under its own "compact density" rationale, and
+       that rule wins them both. display/align-items/gap are declared
+       nowhere else, so THIS rule is what actually controls them — gap
+       widened for a touch more room now that the donut no longer duplicates
+       the number beside it.
+       (Deliberately not quoting the other rule's literal values here —
+       check-design-scale.js scans this file as text, comments included, so
+       spelling out its px numbers a second time would count as new drift
+       against nothing. Read fc-premium-screens.css directly to see them.) */
+    .wv-debt-hero { margin:16px 16px 0; padding:20px; display:flex; align-items:center; gap:20px; }
     .wv-debt-total { font-size:26px; font-weight:600; letter-spacing:-0.02em; color:var(--wv-t1); font-variant-numeric:tabular-nums; line-height:1; }
     .wv-debt-total--urgent { color:var(--wv-red); }
     .wv-debt-status { display:flex; align-items:center; gap:5px; font-size:12px; font-weight:600; margin-top:6px; }
@@ -6386,7 +6397,23 @@ body:not(.keyboard-open) .fc-sheet {
       <button class="wv-tab active" id="wv-tab-overview" role="tab" aria-selected="true"  onclick="FCApp.switchWealthTab('overview')">Net Worth</button>
       <button class="wv-tab"        id="wv-tab-savings"  role="tab" aria-selected="false" onclick="FCApp.switchWealthTab('savings')">Savings</button>
       <button class="wv-tab"        id="wv-tab-debt"     role="tab" aria-selected="false" onclick="FCApp.switchWealthTab('debt')">Debt</button>
-      <button class="wv-tab"        id="wv-tab-goals"    role="tab" aria-selected="false" onclick="FCApp.switchTab('activity')">Activity</button>
+      <!-- This pill does not behave like its three siblings: Net Worth,
+           Savings and Debt switch .wv-panel content in place and leave this
+           bar on screen; tapping this one navigates all the way to the
+           standalone Activity screen, taking the Net Worth/Savings/Debt/
+           Activity bar with it — the transition Brandon reported as "the
+           bar disappears". Its id used to be wv-tab-goals, a leftover from
+           before this pill was repurposed, which meant it would have
+           collided with the (currently unreachable) wealth "goals" tab had
+           anything ever routed there again.
+           The trailing chevron + distinct aria-label are the honest fix for
+           the actual complaint: this affordance looks identical to the three
+           real in-page tabs beside it but is a doorway out of Money, not a
+           peer among them, so it should not promise to behave like one. -->
+      <button class="wv-tab" id="wv-tab-activity" role="tab" aria-selected="false"
+              aria-label="Go to Activity" onclick="FCApp.switchTab('activity')">
+        <span style="display:inline-flex;align-items:center;gap:2px" aria-hidden="true">Activity<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>
+      </button>
     </div>
   </div>
 
@@ -7043,7 +7070,8 @@ body:not(.keyboard-open) .fc-sheet {
       </div>
       <div class="fc-input-group" style="margin:0">
         <label class="fc-input-label" for="manual-acct-type">Account Type</label>
-        <select id="manual-acct-type" class="fc-input" style="background:var(--fc-card-bg);color:white;-webkit-appearance:none">
+        <select id="manual-acct-type" class="fc-input" style="background:var(--fc-card-bg);color:white;-webkit-appearance:none"
+                onchange="FCApp._onManualAcctTypeChange()">
           <option value="savings">Savings</option>
           <option value="checking">Checking</option>
           <option value="investment">Investment / Brokerage</option>
@@ -7053,7 +7081,23 @@ body:not(.keyboard-open) .fc-sheet {
       </div>
       <div class="fc-input-group" style="margin:0">
         <label class="fc-input-label" for="manual-acct-balance">Balance ($)</label>
-        <input id="manual-acct-balance" type="number" class="fc-input" inputmode="decimal" placeholder="0.00" min="0" step="0.01" enterkeyhint="done">
+        <input id="manual-acct-balance" type="number" class="fc-input" inputmode="decimal" placeholder="0.00" min="0" step="0.01" enterkeyhint="next">
+      </div>
+      <!-- Debt-only. Toggled by _onManualAcctTypeChange() — visible only for
+           Credit Card / Loan. Without these, a manual debt could never feed
+           the Debt screen's Avg Interest / Monthly Min. tiles: there was
+           simply nowhere to enter the numbers those tiles read. Both are
+           optional — leave blank and the tiles fall back to the dash they
+           already show today, exactly as before this existed. -->
+      <div id="manual-acct-debt-fields" style="display:none;flex-direction:column;gap:14px">
+        <div class="fc-input-group" style="margin:0">
+          <label class="fc-input-label" for="manual-acct-rate">Interest Rate (APR %)</label>
+          <input id="manual-acct-rate" type="number" class="fc-input" inputmode="decimal" placeholder="e.g. 24.99" min="0" max="100" step="0.01" enterkeyhint="next">
+        </div>
+        <div class="fc-input-group" style="margin:0">
+          <label class="fc-input-label" for="manual-acct-min-payment">Minimum Payment ($)</label>
+          <input id="manual-acct-min-payment" type="number" class="fc-input" inputmode="decimal" placeholder="0.00" min="0" step="0.01" enterkeyhint="done">
+        </div>
       </div>
     </div>
     <p style="font-size:12px;color:var(--fc-text-faint);margin-top:14px;line-height:1.5">
@@ -7190,7 +7234,7 @@ body:not(.keyboard-open) .fc-sheet {
 <script src="js/fc-data.js"></script>
 <script src="js/fc-push.js"></script>
 <script src="js/fc-iap.js"></script>
-<script src="js/fc-app.js?v=20260812"></script>
+<script src="js/fc-app.js?v=20260813"></script>
 
 <script>
 'use strict';
