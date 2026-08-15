@@ -845,6 +845,21 @@ app.post('/plaid/link-token', requireAuth, _plaidUserLimiter, async (req, res) =
       user:          { client_user_id: req.uid },
       client_name:   'FlowCheck',
       products:      [Products.Transactions],
+      /* Liabilities is what turns "—" into a real APR and minimum payment on
+         the Debt screen, and it is the input the debt-free date needs.
+
+         OPTIONAL, not required. Listing it in `products` would make Link FAIL
+         at institutions that do not support liabilities — trading a working
+         bank connection for a nice-to-have field, which is exactly backwards.
+         As an optional product it is initialised where available and simply
+         absent everywhere else, and the sync below treats a missing response
+         as "unknown", never as zero.
+
+         Note for existing users: items linked BEFORE this shipped were created
+         without the product, so /liabilities/get will refuse them until they
+         reconnect. The sync swallows that specific error rather than logging
+         noise, and those accounts keep the manual fields as the fallback. */
+      optional_products: [Products.Liabilities],
       country_codes: [CountryCode.Us],
       language:      'en',
       // Webhook registered at link time — Plaid calls this whenever
@@ -1150,6 +1165,107 @@ app.post('/plaid/exchange-token', requireAuthStrict, _plaidUserLimiter, async (r
 });
 
 /* ─────────────────────────────────────────────────────────────
+   PLAID LIABILITIES → interest_rate + minimum_payment
+
+   The Debt screen showed "—" for Avg Interest and Monthly Min. because
+   nothing ever supplied them, which also meant the debt-free date could not
+   be computed at all. /liabilities/get carries both, in three different
+   shapes depending on the kind of debt.
+
+   Everything here is defensive on purpose: a missing field must come back as
+   null (unknown), never 0. A 0% APR and an unknown APR are different claims,
+   and downstream the difference is a payoff date versus an honest refusal to
+   guess one.
+   ───────────────────────────────────────────────────────────── */
+
+/** The APR a payoff plan should actually use.
+ *  Plaid returns several per card (purchase, cash advance, balance transfer,
+ *  promotional). The one that matters is whichever is charging the balance
+ *  the user is carrying, so prefer an APR with a real balance behind it and
+ *  fall back to the purchase rate. Picking the highest would overstate the
+ *  cost of debt; picking the first would be arbitrary. */
+function _pickApr(aprs) {
+  if (!Array.isArray(aprs) || !aprs.length) return null;
+  /* Prefer the PURCHASE apr, not whichever balance is largest.
+
+     The tempting rule — "use the APR the balance is actually sitting at" — is
+     right about today and wrong about the projection. A 0% balance-transfer
+     promo carrying $1,200 would drive the debt-free date at 0% for years,
+     when the promo expires in months and reverts to the purchase rate. That
+     is a wildly optimistic payoff date built from a temporary number, and
+     Plaid does not tell us when the promo ends.
+
+     The purchase APR is the rate that governs the balance for most of a
+     multi-year horizon, so it is the honest basis for a projection and errs
+     toward "this will take at least this long" — the safe direction for a
+     debt app. Falls back to the highest rate we were given. */
+  const purchase = aprs.find(a =>
+    String(a.apr_type || '').toLowerCase().includes('purchase'));
+  if (purchase) {
+    const v = _num(purchase.apr_percentage);
+    if (v !== null) return v;
+  }
+  const rates = aprs.map(a => _num(a.apr_percentage)).filter(v => v !== null);
+  return rates.length ? Math.max(...rates) : null;
+}
+
+/* Number(null) is 0 and Number('') is 0, so a bare Number.isFinite guard
+   turns "the bank did not tell us" into "0%". On a card with no APR data that
+   produced a 0% payoff projection — a fantasy debt-free date, which is the
+   precise over-optimism this feature exists to refuse. Absent stays absent. */
+const _num = v => {
+  if (v === null || v === undefined || v === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+};
+
+/** @returns {Object<string,{interest_rate:number|null,minimum_payment:number|null}>} keyed by account_id */
+function _liabilityDetails(liabilities) {
+  const out = {};
+  if (!liabilities) return out;
+  const put = (id, rate, min) => {
+    if (!id) return;
+    out[id] = { interest_rate: _num(rate), minimum_payment: _num(min) };
+  };
+
+  (liabilities.credit || []).forEach(c =>
+    put(c.account_id, _pickApr(c.aprs), c.minimum_payment_amount));
+
+  (liabilities.student || []).forEach(sl =>
+    put(sl.account_id, sl.interest_rate_percentage, sl.minimum_payment_amount));
+
+  /* Mortgages report the scheduled monthly payment rather than a "minimum",
+     which is the same thing for payoff purposes: it is what leaves the
+     account each month if you do nothing. */
+  (liabilities.mortgage || []).forEach(mg =>
+    put(mg.account_id,
+        mg.interest_rate && mg.interest_rate.percentage,
+        mg.next_monthly_payment));
+
+  return out;
+}
+
+/** Fetch liabilities for one item, or {} if unavailable.
+ *  Never throws: an institution without liabilities support, or an item
+ *  linked before the product was added, must not break a balance sync. */
+async function _fetchLiabilities(access_token) {
+  try {
+    const { data } = await plaid.liabilitiesGet({ access_token });
+    return _liabilityDetails(data && data.liabilities);
+  } catch (err) {
+    const code = err?.response?.data?.error_code;
+    // Expected and uninteresting: the product simply is not on this item.
+    const expected = ['PRODUCTS_NOT_SUPPORTED', 'PRODUCT_NOT_READY',
+                      'NO_LIABILITY_ACCOUNTS', 'ADDITIONAL_CONSENT_REQUIRED',
+                      'INSUFFICIENT_CREDENTIALS', 'ITEM_LOGIN_REQUIRED'];
+    if (!expected.includes(code)) {
+      console.warn('[liabilities] unexpected failure:', code || err.message);
+    }
+    return {};
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────
    GET /plaid/sync
    Fetches accounts + last 90 days transactions → writes to Firestore
    ───────────────────────────────────────────────────────────── */
@@ -1207,6 +1323,10 @@ app.get('/plaid/sync', requireAuth, requireEntitlement, perUserLimiter(30), asyn
 
         /* ── Accounts (always fresh — small write, critical for balance accuracy) ── */
         const { data: acctData } = await plaid.accountsGet({ access_token });
+        /* Real APR + minimum payment where the institution supplies them.
+           Returns {} for anything unsupported, so a bank without
+           liabilities costs nothing but the round trip. */
+        const liab = await _fetchLiabilities(access_token);
         const accounts = acctData.accounts.map(a => ({
           id:                a.account_id,
           name:              a.name,
@@ -1220,6 +1340,11 @@ app.get('/plaid/sync', requireAuth, requireEntitlement, perUserLimiter(30), asyn
           mask:              a.mask           || null,
           item_id:           itemData.item_id || itemDoc.id,
           institution_name:  itemData.institution || '',
+          /* null, never 0, when unknown. A 0% APR and an unknown APR are
+             different claims, and downstream that is the difference between
+             a payoff date and an honest refusal to guess one. */
+          interest_rate:     (liab[a.account_id] || {}).interest_rate   ?? null,
+          minimum_payment:   (liab[a.account_id] || {}).minimum_payment ?? null,
         }));
 
         let batch = db.batch();
@@ -3788,6 +3913,10 @@ async function _webhookSyncItem(itemId, retryCount = 0) {
 
     // ── Accounts (always fresh — small write, critical for balance accuracy) ──
     const { data: acctData } = await plaid.accountsGet({ access_token });
+    /* Real APR + minimum payment where the institution supplies them.
+       Returns {} for anything unsupported, so a bank without
+       liabilities costs nothing but the round trip. */
+    const liab = await _fetchLiabilities(access_token);
     const accounts = acctData.accounts.map(a => ({
       id:                a.account_id,
       name:              a.name,
@@ -3801,6 +3930,9 @@ async function _webhookSyncItem(itemId, retryCount = 0) {
       mask:              a.mask           || null,
       item_id:           itemId,
       institution_name:  itemData.institution || '',
+      // See the note at the other write site: null means unknown, not 0%.
+      interest_rate:     (liab[a.account_id] || {}).interest_rate   ?? null,
+      minimum_payment:   (liab[a.account_id] || {}).minimum_payment ?? null,
     }));
 
     let batch = db.batch();
