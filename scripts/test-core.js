@@ -575,6 +575,81 @@ t('netWorth: a debt never adds to the total', () => {
   eq(C.netWorth([acct('credit', 'credit', 500, true)]).net, -500);
 });
 
+/* ═══════════════════════════════════════════════════════════════
+   DEBT-FREE DATE
+   A balance is a fact about the past. A date is a fact about the future the
+   user can move — so it has to be right, and it has to refuse to answer
+   rather than guess.
+   ═══════════════════════════════════════════════════════════════ */
+const debt = (name, balance, rate, minimum) => ({ name, balance, rate, minimum });
+const JAN = new Date(2026, 0, 1);
+
+t('debtFreePlan: no debt is a finished plan, not an error', () => {
+  const p = C.debtFreePlan([], 0, 'avalanche', JAN);
+  eq(p.ok, true); eq(p.months, 0); eq(p.reason, 'no_debt');
+});
+t('debtFreePlan: refuses to guess when a minimum is missing', () => {
+  const p = C.debtFreePlan([debt('Visa', 1000, 22, 0)], 0, 'avalanche', JAN);
+  eq(p.ok, false); eq(p.reason, 'missing_minimums'); eq(p.date, null);
+});
+t('debtFreePlan: says never when the payment cannot clear the interest', () => {
+  // 22% on 5000 is ~91.67/mo of interest; paying 40 never gets there.
+  const p = C.debtFreePlan([debt('Visa', 5000, 22, 40)], 0, 'avalanche', JAN);
+  eq(p.ok, false); eq(p.reason, 'never_pays_off');
+});
+t('debtFreePlan: 0% debt is simple division', () => {
+  const p = C.debtFreePlan([debt('Loan', 1200, 0, 100)], 0, 'avalanche', JAN);
+  eq(p.ok, true); eq(p.months, 12);
+});
+t('debtFreePlan: matches an independent amortisation for a single debt', () => {
+  // Independent reference: closed-form n = -ln(1 - rB/P) / ln(1+r)
+  const B = 5000, apr = 22, P = 150;
+  const r = apr / 100 / 12;
+  const expected = Math.ceil(-Math.log(1 - (r * B) / P) / Math.log(1 + r));
+  const p = C.debtFreePlan([debt('Visa', B, apr, P)], 0, 'avalanche', JAN);
+  ok(Math.abs(p.months - expected) <= 1,
+     `simulation ${p.months} vs closed form ${expected}`);
+});
+t('debtFreePlan: extra payment shortens the date', () => {
+  const base  = C.debtFreePlan([debt('Visa', 5000, 22, 150)], 0,  'avalanche', JAN);
+  const extra = C.debtFreePlan([debt('Visa', 5000, 22, 150)], 100,'avalanche', JAN);
+  ok(extra.months < base.months, 'more money must not take longer');
+  ok(extra.totalInterest < base.totalInterest, 'and must cost less interest');
+});
+t('debtFreePlan: a cleared debt rolls its minimum onto the next', () => {
+  // Two debts. If the cascade works, total time beats paying them in
+  // isolation with no rollover.
+  const debts = [debt('Small', 500, 0, 100), debt('Big', 2000, 0, 100)];
+  const p = C.debtFreePlan(debts, 0, 'snowball', JAN);
+  // Without the cascade Big alone takes 20 months. With it, Small clears at
+  // month 5 and hands over 100/mo, so Big finishes materially sooner.
+  ok(p.months < 20, `expected the rollover to beat 20 months, got ${p.months}`);
+  eq(p.cleared[0].name, 'Small', 'snowball clears the smallest first');
+});
+t('debtFreePlan: avalanche attacks the highest rate first', () => {
+  const debts = [debt('Cheap', 1000, 3, 50), debt('Pricey', 1000, 28, 50)];
+  const p = C.debtFreePlan(debts, 200, 'avalanche', JAN);
+  eq(p.cleared[0].name, 'Pricey');
+});
+t('debtFreePlan: avalanche costs no more interest than snowball', () => {
+  const mk = () => [debt('A', 3000, 26, 75), debt('B', 900, 6, 40)];
+  const av = C.debtFreePlan(mk(), 150, 'avalanche', JAN);
+  const sn = C.debtFreePlan(mk(), 150, 'snowball',  JAN);
+  ok(av.totalInterest <= sn.totalInterest + 0.01,
+     `avalanche ${av.totalInterest} should not exceed snowball ${sn.totalInterest}`);
+});
+t('debtFreePlan: the date lands the right number of months out', () => {
+  const p = C.debtFreePlan([debt('Loan', 1200, 0, 100)], 0, 'avalanche', JAN);
+  eq(p.date.getFullYear(), 2027);
+  eq(p.date.getMonth(), 0, 'Jan 2026 + 12 months = Jan 2027');
+});
+t('debtFreePlan: does not mutate the caller\'s accounts', () => {
+  const debts = [debt('Visa', 1000, 10, 100)];
+  C.debtFreePlan(debts, 50, 'avalanche', JAN);
+  eq(debts[0].balance, 1000, 'input must survive the simulation');
+});
+
+
 /* ── report ─────────────────────────────────────────────────────── */
 console.log(`fc-core: ${passed} passed, ${failed} failed`);
 if (failed) {

@@ -710,6 +710,108 @@
     });
   }
 
+  /* ═══════════════════════════════════════════════════════════════
+     DEBT-FREE DATE
+     ═══════════════════════════════════════════════════════════════
+     The one number that turns a balance into a finish line. A balance is a
+     fact about the past and cannot be acted on; a date is a fact about the
+     future that the user can MOVE, and watching it move is the only reward
+     loop that survives a bad month.
+
+     Simulated month by month rather than solved in closed form, because the
+     thing that actually makes payoff accelerate cannot be expressed as one
+     equation: when a debt clears, its minimum payment does not disappear —
+     it rolls onto the next debt. That cascade is most of the difference
+     between "eleven years" and "four years", and a per-debt closed form
+     misses it entirely.
+
+     Refuses to answer rather than guess. If we do not know the minimum
+     payments we cannot simulate, and a plausible invented date on the screen
+     someone is using to decide how to live would be the worst number in the
+     product. `reason` says why, so the UI can ask for what is missing.
+
+     @param {Array} debts  [{ name, balance, rate (APR %), minimum }]
+     @param {number} extraPerMonth  additional payment above the minimums
+     @param {'avalanche'|'snowball'} strategy  which debt the extra attacks
+     @param {Date} [from]  simulation start, for tests
+     @returns {{
+       ok: boolean, reason: string|null, months: number|null, date: Date|null,
+       totalInterest: number, cleared: Array<{name, month}>
+     }}
+  */
+  function debtFreePlan(debts, extraPerMonth, strategy, from) {
+    const start = from ? new Date(from) : new Date();
+    const EMPTY = { ok: false, reason: null, months: null, date: null, totalInterest: 0, cleared: [] };
+
+    const live = (debts || [])
+      .map(d => ({
+        name:    d.name || 'Debt',
+        balance: Math.max(0, Number(d.balance) || 0),
+        rate:    Math.max(0, Number(d.rate) || 0),
+        minimum: Math.max(0, Number(d.minimum) || 0),
+      }))
+      .filter(d => d.balance > 0);
+
+    if (!live.length)                       return { ...EMPTY, reason: 'no_debt', ok: true, months: 0 };
+    if (live.some(d => d.minimum <= 0))     return { ...EMPTY, reason: 'missing_minimums' };
+
+    /* Order the queue once. The extra always attacks position 0; everything
+       else pays its minimum. Avalanche targets the highest rate (cheapest
+       overall), snowball the smallest balance (fastest first win). */
+    const queue = live.slice().sort((a, b) => strategy === 'snowball'
+      ? a.balance - b.balance
+      : (b.rate - a.rate) || (b.balance - a.balance));
+
+    let extra = Math.max(0, Number(extraPerMonth) || 0);
+    let totalInterest = 0;
+    const cleared = [];
+    const MAX_MONTHS = 600;                  // 50 years — past this it is "never"
+
+    for (let m = 1; m <= MAX_MONTHS; m++) {
+      // Interest first, on every balance still open.
+      for (const d of queue) {
+        if (d.balance <= 0) continue;
+        const i = d.balance * (d.rate / 100 / 12);
+        d.balance += i;
+        totalInterest += i;
+      }
+
+      // Minimums on everything, then the extra onto the first open debt.
+      let pool = extra;
+      for (const d of queue) {
+        if (d.balance <= 0) continue;
+        const pay = Math.min(d.minimum, d.balance);
+        d.balance -= pay;
+      }
+      for (const d of queue) {
+        if (pool <= 0) break;
+        if (d.balance <= 0) continue;
+        const pay = Math.min(pool, d.balance);
+        d.balance -= pay;
+        pool -= pay;
+      }
+
+      // Anything cleared this month hands its minimum to the pool for good.
+      for (const d of queue) {
+        if (d.balance <= 0.005 && !d.done) {
+          d.done = true;
+          d.balance = 0;
+          extra += d.minimum;                // the cascade
+          cleared.push({ name: d.name, month: m });
+        }
+      }
+
+      if (queue.every(d => d.balance <= 0.005)) {
+        const date = new Date(start.getFullYear(), start.getMonth() + m, 1);
+        return { ok: true, reason: null, months: m, date,
+                 totalInterest: Math.round(totalInterest * 100) / 100, cleared };
+      }
+    }
+
+    // Payments never overtake the interest.
+    return { ...EMPTY, reason: 'never_pays_off' };
+  }
+
   return {
     parseDateLocal, daysUntil, isoDay,
     forecastToRecord, forecastsToSettle,
@@ -720,5 +822,6 @@
     buildSafeSpendProjection, buildRunwaySeries,
     netWorth, spendingByCategory, spendTotal,
     incomeProfile, scoreForecast, median,
+    debtFreePlan,
   };
 }));

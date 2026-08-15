@@ -2834,6 +2834,44 @@ body.fc-theme .fc-nav {
    These two were the only ones with no horizontal margin at all, so the
    "Your debts" label and the "+ Add debt" button sat flush against the
    screen edges and the metric cards were visibly clipped on both sides. */
+/* ── Debt-free date ───────────────────────────────────────────────
+   The finish line, and deliberately the first thing on the Debt panel.
+   Everything below it describes the hole; this is the way out, so it gets
+   the largest type on the screen and a calm accent rather than danger — a
+   payoff date is good news even when the balance is not. */
+.wv-df {
+  margin: 16px 16px 0;
+  padding: 20px;
+}
+.wv-df-eyebrow {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--fc-text-faint);
+  margin: 0 0 4px;
+}
+.wv-df-date {
+  margin: 0;
+  font-size: 28px; font-weight: 800; letter-spacing: -0.03em;
+  color: var(--fc-text); line-height: 1.05;
+}
+.wv-df-sub {
+  margin: 6px 0 0;
+  font-size: 12.5px; color: var(--fc-text-muted); line-height: 1.4;
+}
+/* The lever. Success-tinted because it is the one row on this panel that
+   tells the user something they can do to move the date. */
+.wv-df-lever {
+  display: flex; align-items: flex-start; gap: 8px;
+  margin-top: 12px; padding-top: 12px;
+  border-top: 1px solid var(--fc-border);
+  font-size: 12.5px; line-height: 1.45; color: var(--fc-text-muted);
+}
+.wv-df-lever svg { flex-shrink: 0; margin-top: 1px; }
+.wv-df-lever strong { color: var(--fc-success); font-weight: 700; }
+/* The state where we do not know enough to answer. Asking is the content. */
+.wv-df--ask .wv-df-ask {
+  margin: 0; font-size: 13px; line-height: 1.5; color: var(--fc-text-muted);
+}
+
 /* Mark-a-bill-as-paid. Theme tokens rather than white-alpha, so the ring and
    the tick are visible on the light card as well as the dark one. */
 .fc-bill-check {

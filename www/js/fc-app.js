@@ -6540,6 +6540,76 @@ window.FCApp = (function () {
     const avgRate = _rated.length
       ? _rated.reduce((s,a) => s + _dRate(a), 0) / _rated.length : 0;
     const totalMin = debtAccts.reduce((s,a) => s + _minPayment(a), 0);
+
+    /* ── The finish line ──────────────────────────────────────────
+       Everything above this point describes the hole. This is the way out.
+
+       A balance is a fact about the past and cannot be acted on. A DATE is a
+       fact about the future that the user can move, and moving it is the
+       only reward loop that survives a bad month — which is the whole job of
+       an app meant to get somebody debt-free rather than merely informed.
+
+       Computed by FCCore.debtFreePlan, which simulates month by month so the
+       cascade is real: when a debt clears, its minimum rolls onto the next.
+       That cascade is most of the difference between "eleven years" and
+       "four years" and no per-debt formula captures it.
+
+       It refuses to answer without minimum payments, and we surface that
+       refusal as the ask rather than papering over it with an estimate. */
+    const _dfDebts = debtAccts.map(a => ({
+      name:    a.name || 'Debt',
+      balance: Math.max(0, _acctBal(a)),
+      rate:    Number(a.interest_rate || a.apr || 0),
+      minimum: _minPayment(a),
+    }));
+    const _EXTRA_STEP = 50;
+    const _dfNow   = FCCore.debtFreePlan(_dfDebts, 0, _strategy);
+    const _dfBoost = FCCore.debtFreePlan(_dfDebts, _EXTRA_STEP, _strategy);
+    const _dfMonth = d => d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    const _dfYears = m => {
+      const y = Math.floor(m / 12), mo = m % 12;
+      if (!y) return mo + ' month' + (mo === 1 ? '' : 's');
+      if (!mo) return y + ' year' + (y === 1 ? '' : 's');
+      return y + 'y ' + mo + 'm';
+    };
+
+    const debtFreeCard = (() => {
+      if (!_dfNow.ok && _dfNow.reason === 'missing_minimums') {
+        return '<div class="wv-card wv-df wv-df--ask">'
+          + '<p class="wv-df-eyebrow">Debt-free date</p>'
+          + '<p class="wv-df-ask">Add the minimum payment on each debt and we\u2019ll show you the month you are free \u2014 and what an extra ' + FCData.formatCurrency(_EXTRA_STEP) + ' a month does to it.</p>'
+          + '</div>';
+      }
+      if (!_dfNow.ok && _dfNow.reason === 'never_pays_off') {
+        return '<div class="wv-card wv-df wv-df--ask">'
+          + '<p class="wv-df-eyebrow">Debt-free date</p>'
+          + '<p class="wv-df-ask">At the current minimums the interest is growing faster than the payments, so there is no payoff date yet. Paying anything above the minimum changes that.</p>'
+          + '</div>';
+      }
+      if (!_dfNow.ok || !_dfNow.date) return '';
+
+      // Only claim the improvement when the extra actually buys months.
+      const saved = _dfBoost.ok && _dfBoost.months ? _dfNow.months - _dfBoost.months : 0;
+      return '<div class="wv-card wv-df">'
+        + '<p class="wv-df-eyebrow">Debt-free</p>'
+        + '<p class="wv-df-date">' + esc(_dfMonth(_dfNow.date)) + '</p>'
+        + '<p class="wv-df-sub">' + esc(_dfYears(_dfNow.months)) + ' away at your current payments'
+          + (_dfNow.totalInterest > 0
+              ? ' \u00b7 ' + FCData.formatCurrency(_dfNow.totalInterest) + ' of interest'
+              : '')
+        + '</p>'
+        + (saved > 0
+            ? '<div class="wv-df-lever">'
+                + _ic('trending-up', 'var(--fc-success)', 15)
+                + '<span>An extra <strong>' + FCData.formatCurrency(_EXTRA_STEP) + '/month</strong> makes it '
+                + '<strong>' + esc(_dfMonth(_dfBoost.date)) + '</strong> \u2014 '
+                + saved + ' month' + (saved === 1 ? '' : 's') + ' sooner, and '
+                + FCData.formatCurrency(Math.max(0, _dfNow.totalInterest - _dfBoost.totalInterest))
+                + ' less interest.</span>'
+              + '</div>'
+            : '')
+      + '</div>';
+    })();
     const metric = (label, value, tone) =>
       `<div class="fc-metric-card"><div class="fc-metric-label">${label}</div>`
       + `<div class="fc-metric-value" style="font-size:20px${tone ? ';color:' + tone : ''}">${value}</div></div>`;
@@ -6554,6 +6624,7 @@ window.FCApp = (function () {
       <!-- The second "Your Debts" heading that used to sit directly above
            the account list is gone: this row already names the section, and
            the list is the only thing on the panel it could be labelling. -->
+      ${debtFreeCard}
       <div class="wv-debt-metrics">
         ${metric('Avg Interest', avgRate > 0 ? avgRate.toFixed(1) + '%' : dash)}
         ${metric('Monthly Min.', totalMin > 0 ? FCData.formatCurrency(totalMin) : dash)}
