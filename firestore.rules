@@ -302,6 +302,27 @@ service cloud.firestore {
         allow delete: if false;
       }
 
+      /* ─── /account_details — what the bank did not tell us ──────
+         APR and minimum payment, supplied by the user, for accounts the
+         BACKEND owns. /accounts is `allow write: if false` because Plaid
+         writes it, so the user has nowhere to correct or complete it — and
+         Plaid Liabilities only covers credit cards, student loans and
+         mortgages. An auto loan, which for a real user can be the largest
+         debt they have, can never be populated automatically.
+
+         Same shape as /transaction_overrides: a separate collection holding
+         only user-supplied fields, merged on read, so the client never writes
+         to a backend-owned document. Two numeric fields and nothing else —
+         it can never carry a balance or a name. */
+      match /account_details/{accountId} {
+        allow read: if isOwner(uid);
+        allow create, update: if isOwner(uid)
+                      && request.resource.data.keys().hasOnly([
+                           'interest_rate', 'minimum_payment', 'updated_at',
+                         ]);
+        allow delete: if isOwner(uid);
+      }
+
       // ─── /budget_history — what a finished month actually cost ──
       // One doc per CLOSED calendar month, id = YYYY-MM. Holds each
       // category's limit and actual spend for that month, plus the totals.

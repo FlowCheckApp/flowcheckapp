@@ -1317,6 +1317,53 @@ window.FCData = (function () {
   }
 
   /* ─────────────────────────────────────────────────────────────
+     FIRESTORE — ACCOUNT DETAILS (user-supplied)
+     users/{uid}/account_details/{accountId} — APR + minimum payment for
+     accounts the backend owns.
+
+     /accounts is backend-managed and closed to client writes, and Plaid
+     Liabilities only reports credit cards, student loans and mortgages. An
+     auto loan therefore has no route to an APR at all. This is the overlay
+     that gives the user one, merged on read so a real Plaid value always
+     wins and this only ever fills a gap.
+     ───────────────────────────────────────────────────────────── */
+
+  async function saveAccountDetails(accountId, { interest_rate, minimum_payment }) {
+    const user = FCAuth.currentUser();
+    const db   = FCAuth.db();
+    if (!user || !db || !accountId) return;
+    const clean = v => {
+      if (v === null || v === undefined || v === '') return null;
+      const n = Number(v);
+      return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : null;
+    };
+    await db.collection('users').doc(user.uid)
+      .collection('account_details').doc(accountId)
+      .set({
+        // Always written, never omitted: an update() that omits a key leaves
+        // the old value in place, so clearing a field would silently fail.
+        interest_rate:   clean(interest_rate),
+        minimum_payment: clean(minimum_payment),
+        updated_at:      firebase.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
+  }
+
+  function listenToAccountDetails(callback) {
+    const user = FCAuth.currentUser();
+    const db   = FCAuth.db();
+    if (!user || !db) return;
+    const unsub = db.collection('users').doc(user.uid)
+      .collection('account_details')
+      .onSnapshot(snap => {
+        const out = {};
+        snap.docs.forEach(d => { out[d.id] = d.data(); });
+        callback(out);
+      }, err => _listenerErr('AccountDetails', err));
+    _listeners.push(unsub);
+    return unsub;
+  }
+
+  /* ─────────────────────────────────────────────────────────────
      FIRESTORE — BUDGET HISTORY
      users/{uid}/budget_history/{YYYY-MM} — one doc per CLOSED month.
 
@@ -1481,6 +1528,7 @@ window.FCData = (function () {
     listenToCreditHistory,
     saveNetWorthSnapshot,
     saveBudgetMonth,
+    saveAccountDetails,
     recordForecast,
     getForecasts,
     settleForecast,
@@ -1490,6 +1538,7 @@ window.FCData = (function () {
     getVaultStatements,
     listenToNetWorthHistory,
     listenToBudgetHistory,
+    listenToAccountDetails,
     listenToNotifications,
     markNotificationRead,
     markAllNotificationsRead,

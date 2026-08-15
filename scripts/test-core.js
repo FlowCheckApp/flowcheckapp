@@ -651,6 +651,41 @@ t('debtFreePlan: does not mutate the caller\'s accounts', () => {
 
 
 /* ── report ─────────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════
+   weightedApr — the "Avg Interest" tile
+   The unweighted mean shipped, and on a real debt load (a small card at a
+   card rate, a large loan at a loan rate) it nearly doubled the number.
+   ═══════════════════════════════════════════════════════════════ */
+t('weightedApr: weights by balance, not by count', () => {
+  // The exact case that was wrong: unweighted this is 14.945%.
+  const r = C.weightedApr([
+    { balance: 723.55, rate: 22.99 },
+    { balance: 14250,  rate: 6.9   },
+  ]);
+  eq(Math.round(r * 100) / 100, 7.68);
+  if (r > 10) throw new Error(`weighted APR came back ${r} — that is the unweighted mean`);
+});
+t('weightedApr: a rate-less debt is excluded, not counted as 0%', () => {
+  // Counting the unknown as 0% would give 11.495% and understate the cost.
+  const r = C.weightedApr([
+    { balance: 1000, rate: 22.99 },
+    { balance: 1000, rate: 0     },
+  ]);
+  eq(Math.round(r * 100) / 100, 22.99);
+});
+t('weightedApr: a paid-off debt does not drag the average', () => {
+  const r = C.weightedApr([
+    { balance: 0,    rate: 29.99 },
+    { balance: 5000, rate: 6     },
+  ]);
+  eq(r, 6);
+});
+t('weightedApr: nothing to average is 0, not NaN', () => {
+  eq(C.weightedApr([]), 0);
+  eq(C.weightedApr(null), 0);
+  eq(C.weightedApr([{ balance: 500, rate: null }]), 0);
+});
+
 console.log(`fc-core: ${passed} passed, ${failed} failed`);
 if (failed) {
   console.error('');

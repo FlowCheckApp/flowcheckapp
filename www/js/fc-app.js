@@ -27,6 +27,7 @@ window.FCApp = (function () {
     txnOverrides:    {},         // { [txnId]: {name?, category?} }
     creditHistory:   [],         // [{month:'YYYY-MM', score:number}, …] oldest-first
     nwHistory:       {},         // {'YYYY-MM-DD': number} — Firestore-backed net worth sparkline
+    accountDetails:  {},         // {accountId: {interest_rate, minimum_payment}} — user-supplied overlay
     budgetHistory:   {},         // {'YYYY-MM': {categories,total_limit,total_spent}} — closed months, drives rollover
   };
 
@@ -799,8 +800,26 @@ window.FCApp = (function () {
      `minimum_payment_amount` is Plaid's own spelling on the liabilities
      product, accepted here so the same helper keeps working if those
      fields start arriving from the backend. */
+  /* Which key identifies an account. The backend maps Plaid's `account_id`
+     to `id` on the way out (server.js:1347), but demo mode and older manual
+     records still carry the raw `account_id` — and an overlay keyed on
+     `undefined` silently collapses every account onto one entry. */
+  function _acctKey(a) { return a?.id || a?.account_id || ''; }
+
   function _minPayment(a) {
-    return Number(a?.minimum_payment ?? a?.min_payment ?? a?.minimum_payment_amount ?? 0) || 0;
+    const own = a?.minimum_payment ?? a?.min_payment ?? a?.minimum_payment_amount;
+    if (own !== null && own !== undefined && own !== '') return Number(own) || 0;
+    // Fall back to what the user told us. Plaid wins when it knows; this only
+    // ever fills a gap Plaid cannot fill — auto loans have no Liabilities data.
+    const ov = state.accountDetails?.[_acctKey(a)]?.minimum_payment;
+    return Number(ov) || 0;
+  }
+
+  /** APR, same precedence: the bank's number first, the user's as a fallback. */
+  function _debtRate(a) {
+    const own = a?.interest_rate ?? a?.apr;
+    if (own !== null && own !== undefined && own !== '') return Number(own) || 0;
+    return Number(state.accountDetails?.[_acctKey(a)]?.interest_rate) || 0;
   }
 
   /* ── Rollover ─────────────────────────────────────────────────────
@@ -6423,6 +6442,92 @@ window.FCApp = (function () {
     });
   }
 
+  /* ── Debt details sheet — APR + minimum payment ──────────────────
+     The two fields the app needs and the bank often will not give us.
+     Deliberately NOT the manual-account editor: on a Plaid-linked account
+     the name, type and balance belong to the backend, and offering to edit
+     them would be offering something the rules refuse. Two numbers, saved to
+     the /account_details overlay, merged on read behind any real Plaid value. */
+  let _editingDetailsId = null;
+
+  function showDebtDetailsSheet(accountId) {
+    const acct = (state.accounts || []).find(a => _acctKey(a) === accountId);
+    if (!acct) return;
+    _editingDetailsId = accountId;
+    const sheet = document.getElementById('fc-debt-details-sheet');
+    if (!sheet) return;
+    const nameEl = document.getElementById('debt-details-name');
+    const rateEl = document.getElementById('debt-details-rate');
+    const minEl  = document.getElementById('debt-details-min');
+    const noteEl = document.getElementById('debt-details-note');
+    if (nameEl) nameEl.textContent = acct.name || 'This debt';
+
+    /* Show what is already known, and where it came from. A value Plaid
+       supplied is not the user's to change here — saying so is better than
+       silently ignoring their edit. */
+    const fromBank = (acct.interest_rate != null && acct.interest_rate !== '')
+                  || (acct.minimum_payment != null && acct.minimum_payment !== '');
+    const ov = state.accountDetails?.[accountId] || {};
+    if (rateEl) rateEl.value = (acct.interest_rate ?? ov.interest_rate ?? '') === null ? '' : String(acct.interest_rate ?? ov.interest_rate ?? '');
+    if (minEl)  minEl.value  = (acct.minimum_payment ?? ov.minimum_payment ?? '') === null ? '' : String(acct.minimum_payment ?? ov.minimum_payment ?? '');
+    if (noteEl) {
+      const mine = ov.interest_rate != null || ov.minimum_payment != null;
+      noteEl.textContent = fromBank
+        ? 'Some of this came from your bank. What you enter here is used only where the bank left a gap.'
+        : mine
+        ? 'You added these — your bank does not report them for this account. Change them any time.'
+        : 'Your bank does not report these for this account — auto loans in particular. Add them and the payoff date can include this debt.';
+    }
+    sheet.style.display = 'flex';
+    haptic('light');
+  }
+
+  function closeDebtDetailsSheet() {
+    const sheet = document.getElementById('fc-debt-details-sheet');
+    if (!sheet) return;
+    sheet.classList.add('fc-sheet--closing');
+    setTimeout(() => { sheet.style.display = 'none'; sheet.classList.remove('fc-sheet--closing'); }, 280);
+    _editingDetailsId = null;
+  }
+
+  async function saveDebtDetails() {
+    if (!_editingDetailsId) return;
+    const btn    = document.getElementById('debt-details-save');
+    const rateEl = document.getElementById('debt-details-rate');
+    const minEl  = document.getElementById('debt-details-min');
+    // Clamp the rate: a typo of 2400 instead of 24 would otherwise drive a
+    // payoff projection straight to "never pays off".
+    let rate = parseFloat(rateEl?.value);
+    rate = (isFinite(rate) && rate >= 0) ? Math.min(rate, 100) : null;
+    let min = parseFloat(minEl?.value);
+    min = (isFinite(min) && min >= 0) ? min : null;
+
+    const label = btn ? btn.textContent : '';
+    const id    = _editingDetailsId;
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+    try {
+      /* Paint first. The Firestore listener will deliver the same values a
+         moment later, but waiting for that round-trip means tapping Save and
+         watching the row stay unchanged — the number the user just typed
+         should already be on screen when the sheet slides away. Demo mode
+         never reaches Firestore at all, so this is the only write it gets. */
+      state.accountDetails = state.accountDetails || {};
+      state.accountDetails[id] = { interest_rate: rate, minimum_payment: min };
+      if (!_isDemoMode) {
+        await FCData.saveAccountDetails(id, { interest_rate: rate, minimum_payment: min });
+      }
+      haptic('medium');
+      closeDebtDetailsSheet();
+      _renderWealth();
+      toast('Saved', 'success', 1800);
+    } catch (err) {
+      fcLog('[saveDebtDetails]', err.message);
+      toast('Could not save — try again', 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = label || 'Save'; }
+    }
+  }
+
   /* ─── Wealth: Debt panel ─── */
   function _renderWealthDebt() {
     const el=document.getElementById('wv-debt-content');
@@ -6518,15 +6623,44 @@ window.FCApp = (function () {
          the Net Worth list instead was the wrong answer. The row previously
          fired a haptic and went nowhere at all. Plaid rows keep that
          behaviour: the backend owns them and the rules refuse client writes. */
-      const editable = !!a.manual;
-      return `<div class="wv-debt-row${editable ? ' wv-debt-row--editable' : ''}"${
-        editable
-          ? ` data-edit-account="${esc(a.id)}" role="button" tabindex="0" aria-label="Edit ${esc(a.name || 'account')}"`
-          : ' onclick="FCApp.haptic&&FCApp.haptic(\'light\')"'}>
+      /* Every debt row now carries its own APR and minimum, because the
+         totals above cannot be read without them: "Monthly min $25" against
+         a $45k balance only makes sense once you can see that four of the
+         five debts have no minimum on file.
+
+         Rows are tappable for ALL debts, not just manual ones. Plaid owns
+         /accounts and refuses client writes, and Liabilities covers only
+         credit cards, student loans and mortgages — so an auto loan, which
+         here is the largest debt by far, has no route to an APR at all
+         unless the user can supply one. The overlay in /account_details is
+         that route. */
+      const _r   = _debtRate(a);
+      const _m   = _minPayment(a);
+      /* One row of small facts, and the gap sits IN that row rather than on a
+         line of its own — a debt with a rate but no minimum then reads
+         "6.9% APR · + Add minimum", which is the whole state of the account
+         at a glance. Do not name the gap chip `.wv-debt-add`: that class
+         already exists as the pill-shaped "Add debt" button at the top of
+         this panel, and reusing it inherited a 32px pill into the row. */
+      const meta = [];
+      if (_r > 0) meta.push(`<span class="wv-debt-fact">${_r.toFixed(_r % 1 ? 2 : 0)}% APR</span>`);
+      if (_m > 0) meta.push(`<span class="wv-debt-fact">${FCData.formatCurrency(_m)}/mo min</span>`);
+      if (bal > 0 && (_r <= 0 || _m <= 0)) {
+        meta.push(`<span class="wv-debt-fact wv-debt-fact--gap">${
+            _r <= 0 && _m <= 0 ? 'Add rate &amp; minimum'
+          : _r <= 0            ? 'Add rate'
+          :                      'Add minimum'
+        }</span>`);
+      }
+
+      return `<div class="wv-debt-row wv-debt-row--editable"
+                   data-edit-details="${esc(_acctKey(a))}" role="button" tabindex="0"
+                   aria-label="Edit rate and minimum for ${esc(a.name || 'account')}">
         <div class="wv-debt-icon">${_accountIcon(a)}</div>
         <div style="flex:1;min-width:0">
           <div class="wv-debt-name">${esc(dispName)}</div>
           <div class="wv-debt-sub">${esc(_cleanInstitutionName(a.institution_name||a.official_name||'')||(_acctSubtext(a)))}</div>
+          ${meta.length ? `<div class="wv-debt-facts">${meta.join('')}</div>` : ''}
           ${util!=null?`<div class="wv-debt-util" style="color:${uColor}">${util}% used${util>70?' — high':util>30?' — watch':''}</div>`:''}
         </div>
         <div style="text-align:right;flex-shrink:0">
@@ -6591,14 +6725,27 @@ window.FCApp = (function () {
     /* The list is ordered by the chosen strategy, so the card is not just a
        label — the account to attack first is the one at the top. */
     const _strategy = _debtStrategy();
-    const _dRate = a => Number(a.interest_rate || a.apr || 0);
+    const _dRate = _debtRate;
     debtAccts.sort((a, b) => _strategy === 'snowball'
       ? (Math.max(0, _acctBal(a)) - Math.max(0, _acctBal(b)))          // smallest balance first
       : (_dRate(b) - _dRate(a)) || (Math.max(0, _acctBal(b)) - Math.max(0, _acctBal(a))));
-    const _rated = debtAccts.filter(a => _dRate(a) > 0);
-    const avgRate = _rated.length
-      ? _rated.reduce((s,a) => s + _dRate(a), 0) / _rated.length : 0;
-    const totalMin = debtAccts.reduce((s,a) => s + _minPayment(a), 0);
+    /* Balance-WEIGHTED, not a plain mean. A $723 card at 22.99% alongside a
+       $14,250 auto loan at 6.9% averages to 14.9% unweighted — nearly double
+       what this debt actually costs, and shown as the headline number on the
+       page. Weighting by balance answers the question the tile is really
+       asking: what rate is the money borrowed at. */
+    const _rated  = debtAccts.filter(a => _dRate(a) > 0);
+    const avgRate = FCCore.weightedApr(
+      _rated.map(a => ({ balance: Math.max(0, _acctBal(a)), rate: _dRate(a) })));
+    /* Coverage matters as much as the total. "Monthly min. $25.00" against a
+       $45,000 balance is not wrong — it is the sum of what we know — but
+       presented bare it reads as the real obligation, and it is not. Four of
+       five debts having no minimum on file is the actual story. */
+    const _withMin  = debtAccts.filter(a => _minPayment(a) > 0);
+    const _withBal  = debtAccts.filter(a => Math.max(0, _acctBal(a)) > 0);
+    const totalMin  = _withMin.reduce((s,a) => s + _minPayment(a), 0);
+    const _minPartial  = _withMin.length  < _withBal.length;
+    const _ratePartial = _rated.length    < _withBal.length;
 
     /* ── The finish line ──────────────────────────────────────────
        Everything above this point describes the hole. This is the way out.
@@ -6618,7 +6765,7 @@ window.FCApp = (function () {
     const _dfDebts = debtAccts.map(a => ({
       name:    a.name || 'Debt',
       balance: Math.max(0, _acctBal(a)),
-      rate:    Number(a.interest_rate || a.apr || 0),
+      rate:    _debtRate(a),
       minimum: _minPayment(a),
     }));
     const _EXTRA_STEP = 50;
@@ -6669,9 +6816,13 @@ window.FCApp = (function () {
             : '')
       + '</div>';
     })();
-    const metric = (label, value, tone) =>
+    /* `note` is the coverage caption — it says how much of the picture the
+       number above actually covers, so a partial sum cannot pass for a total. */
+    const metric = (label, value, tone, note) =>
       `<div class="fc-metric-card"><div class="fc-metric-label">${label}</div>`
-      + `<div class="fc-metric-value" style="font-size:20px${tone ? ';color:' + tone : ''}">${value}</div></div>`;
+      + `<div class="fc-metric-value" style="font-size:20px${tone ? ';color:' + tone : ''}">${value}</div>`
+      + (note ? `<div class="fc-metric-note">${esc(note)}</div>` : '')
+      + `</div>`;
     const dash = '<span style="color:var(--fc-text-faint)">—</span>';
 
     el.innerHTML=`
@@ -6685,8 +6836,14 @@ window.FCApp = (function () {
            the list is the only thing on the panel it could be labelling. -->
       ${debtFreeCard}
       <div class="wv-debt-metrics">
-        ${metric('Avg Interest', avgRate > 0 ? avgRate.toFixed(1) + '%' : dash)}
-        ${metric('Monthly Min.', totalMin > 0 ? FCData.formatCurrency(totalMin) : dash)}
+        ${metric('Avg Interest',
+            avgRate > 0 ? avgRate.toFixed(1) + '%' : dash,
+            null,
+            avgRate > 0 && _ratePartial ? `${_rated.length} of ${_withBal.length} debts` : '')}
+        ${metric('Monthly Min.',
+            totalMin > 0 ? FCData.formatCurrency(totalMin) : dash,
+            null,
+            totalMin > 0 && _minPartial ? `${_withMin.length} of ${_withBal.length} debts` : '')}
       </div>
       <div class="wv-card wv-debt-hero">
         ${donutSVG}
@@ -6728,6 +6885,16 @@ window.FCApp = (function () {
       </div>`:''}
       <div style="height:8px"></div>`;
 
+      /* Debt rows open the rate/minimum sheet, not the manual-account editor:
+         name, type and balance belong to Plaid on a linked account, and only
+         these two fields are ours to set. */
+      el.querySelectorAll('[data-edit-details]').forEach(row => {
+        const open = () => showDebtDetailsSheet(row.dataset.editDetails);
+        row.addEventListener('click', open);
+        row.addEventListener('keydown', e => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+        });
+      });
     el.querySelectorAll('[data-edit-account]').forEach(row => {
       const open = () => editManualAccount(row.dataset.editAccount);
       row.addEventListener('click', open);
@@ -10946,7 +11113,13 @@ window.FCApp = (function () {
     state.accounts = [
       { account_id: 'demo-chk', name: 'Demo Checking', official_name: 'Demo Checking Account', type: 'depository', subtype: 'checking', balance_current: 3241.87, balance_available: 3100.00, mask: '4242', institution_name: 'Demo Bank' },
       { account_id: 'demo-sav', name: 'Demo Savings',  official_name: 'Demo Savings Account',  type: 'depository', subtype: 'savings',  balance_current: 12800.00, balance_available: 12800.00, mask: '8888', institution_name: 'Demo Bank' },
-      { account_id: 'demo-cc',  name: 'Demo Visa',     official_name: 'Demo Visa Card',        type: 'credit',     subtype: 'credit card', balance_current: 723.55, balance_available: null, mask: '1111', institution_name: 'Demo Bank' },
+      { account_id: 'demo-cc',  name: 'Demo Visa',     official_name: 'Demo Visa Card',        type: 'credit',     subtype: 'credit card', balance_current: 723.55, balance_available: null, mask: '1111', institution_name: 'Demo Bank', interest_rate: 22.99, minimum_payment: 35 },
+      /* An auto loan with no APR is not an oversight in the demo data — it is
+         the single most common real case. Plaid's Liabilities product covers
+         credit, student and mortgage only, so this is what a real user's
+         largest debt looks like, and the demo should show the row that asks
+         for the two missing numbers rather than pretend every debt has them. */
+      { account_id: 'demo-auto', name: 'Demo Auto Loan', official_name: 'Demo Auto Loan',     type: 'loan',       subtype: 'auto',        balance_current: 14250.00, balance_available: null, mask: '7788', institution_name: 'Demo Bank' },
     ];
     const _demoNow = new Date();
     // Rolling date helpers — cross month boundaries correctly, so demo bills
@@ -11399,6 +11572,14 @@ window.FCApp = (function () {
       _snapshotBudgetMonths();
       if (state.tab === 'insights') _renderInsights();
       if (state.tab === 'plan') _renderPlan();
+    });
+
+    FCData.listenToAccountDetails(details => {
+      state.accountDetails = details;
+      // These feed Avg Interest, Monthly Min., the payoff order and the
+      // debt-free date, so the screens showing them have to re-read.
+      if (state.tab === 'wealth') _renderWealth();
+      _scheduleHomeRender();
     });
 
     FCData.listenToBudgetHistory(history => {
@@ -14435,6 +14616,9 @@ window.FCApp = (function () {
     confirmDisconnectItem,
     closeDisconnectSheet,
     showDeleteSheet,
+    showDebtDetailsSheet,
+    closeDebtDetailsSheet,
+    saveDebtDetails,
     closeDeleteSheet,
     disconnectBank,
     deleteAccount,

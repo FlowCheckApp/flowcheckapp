@@ -57,9 +57,9 @@
 <meta name="theme-color" content="#060e18">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="stylesheet" href="css/flowcheck-design-system.css?v=20260815c">
-<link rel="stylesheet" href="css/fc-screens.css?v=20260815c">
-<link rel="stylesheet" href="css/fc-premium-screens.css?v=20260815c">
+<link rel="stylesheet" href="css/flowcheck-design-system.css?v=20260815d">
+<link rel="stylesheet" href="css/fc-screens.css?v=20260815d">
+<link rel="stylesheet" href="css/fc-premium-screens.css?v=20260815d">
 
 <!-- Sentry — error & crash monitoring (vanilla JS, no npm required) -->
 <script
@@ -6397,6 +6397,19 @@ body:not(.keyboard-open) .fc-sheet {
     .wv-debt-icon { width:36px; height:36px; border-radius:11px; background:var(--wv-red-soft); display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:18px; }
     .wv-debt-name { font-size:14px; font-weight:600; color:var(--wv-t1); }
     .wv-debt-sub { font-size:11px; color:var(--wv-t3); margin-top:1px; }
+    /* APR and minimum, on the row itself. Two small facts side by side rather
+       than two more lines of prose — the row already carries a name, an
+       institution and a balance, and this has to sit under all of it without
+       turning the list into paragraphs. */
+    .wv-debt-facts { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+    .wv-debt-fact { font-size:10px; font-weight:600; color:var(--wv-t2); background:var(--wv-pill); border:1px solid var(--wv-pill-b); border-radius:6px; padding:2px 6px; font-variant-numeric:tabular-nums; white-space:nowrap; }
+    /* The gap, stated as an invitation rather than an error. A missing APR is
+       not the user's mistake — their bank simply does not report it — and a
+       red warning on four of five rows would make the page feel broken. It is
+       a fact chip in the accent colour, so it queues up with the real facts
+       instead of forming a second, louder line. */
+    .wv-debt-fact--gap { color:var(--wv-blue); background:var(--wv-blue-soft); border-color:transparent; }
+    .wv-debt-fact--gap::before { content:"+ "; font-weight:700; }
     .wv-debt-bal { font-size:15px; font-weight:600; color:var(--wv-t1); font-variant-numeric:tabular-nums; flex-shrink:0; }
     .wv-debt-bal--urgent { color:var(--wv-red); }
     .wv-debt-util { font-size:10px; margin-top:2px; }
@@ -7128,6 +7141,44 @@ body:not(.keyboard-open) .fc-sheet {
   </div>
 </div>
 
+<!-- ═════════════════ SHEET: DEBT RATE & MINIMUM ═══════════════ -->
+<!-- Plaid's Liabilities product covers credit cards, student loans and
+     mortgages. It does NOT cover auto loans, and it returns nothing for a
+     manually-added debt. Those are exactly the debts with the largest
+     balances, so without somewhere to type these two numbers the payoff
+     date silently excludes them. -->
+<div id="fc-debt-details-sheet" class="fc-sheet-overlay" onclick="if(event.target===this)FCApp.closeDebtDetailsSheet()" style="display:none" role="dialog" aria-modal="true" aria-label="Interest rate and minimum payment">
+  <div class="fc-sheet fc-sheet--form" onclick="event.stopPropagation()">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+      <div class="fc-h3">Rate &amp; minimum</div>
+      <button class="fc-iconbtn" onclick="FCApp.closeDebtDetailsSheet()" type="button" aria-label="Close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div id="debt-details-name" style="font-size:14px;font-weight:600;color:var(--fc-text);margin-bottom:4px"></div>
+    <div id="debt-details-note" style="font-size:12px;line-height:1.5;color:var(--fc-text-faint);margin-bottom:16px"></div>
+    <div class="fc-input-group" style="margin:0">
+      <label class="fc-input-label" for="debt-details-rate">Interest rate (APR %)</label>
+      <input id="debt-details-rate" type="number" class="fc-input" inputmode="decimal" placeholder="e.g. 6.9" min="0" max="100" step="0.01">
+    </div>
+    <div class="fc-input-group" style="margin:14px 0 0">
+      <label class="fc-input-label" for="debt-details-min">Minimum payment ($/mo)</label>
+      <input id="debt-details-min" type="number" class="fc-input" inputmode="decimal" placeholder="e.g. 425" min="0" step="1">
+    </div>
+    <div style="font-size:11px;line-height:1.5;color:var(--fc-text-faint);margin-top:12px">
+      Check your statement or your lender&rsquo;s app. An estimate is fine &mdash; you can change it any time.
+    </div>
+    <button class="fc-btn fc-btn--primary" id="debt-details-save" onclick="FCApp.saveDebtDetails()" type="button"
+            style="width:100%;margin-top:20px">
+      Save
+    </button>
+    <button class="fc-btn" onclick="FCApp.closeDebtDetailsSheet()" type="button"
+            style="width:100%;margin-top:10px">
+      Cancel
+    </button>
+  </div>
+</div>
+
 <!-- ════════════════════ SHEET: MANUAL ACCOUNT ═════════════════ -->
 <div id="fc-manual-account-sheet" class="fc-sheet-overlay" onclick="if(event.target===this)FCApp.closeManualAccountSheet()" style="display:none">
   <div class="fc-sheet fc-sheet--form" onclick="event.stopPropagation()">
@@ -7308,7 +7359,7 @@ body:not(.keyboard-open) .fc-sheet {
 <script src="js/fc-data.js"></script>
 <script src="js/fc-push.js"></script>
 <script src="js/fc-iap.js"></script>
-<script src="js/fc-app.js?v=20260815c"></script>
+<script src="js/fc-app.js?v=20260815d"></script>
 
 <script>
 'use strict';

@@ -739,6 +739,31 @@
        totalInterest: number, cleared: Array<{name, month}>
      }}
   */
+  /* ── Weighted average APR ─────────────────────────────────────────
+     Weighted by balance, because the unweighted mean is not an answer to
+     any question a person has. A $723 card at 22.99% next to a $14,250 auto
+     loan at 6.9% averages to 14.9% unweighted — nearly double what the debt
+     actually costs — and that number was the headline on the Debt page.
+
+     Debts with no rate on file are excluded rather than counted as 0%:
+     folding an unknown in as zero drags the average down and understates
+     the cost, which is the more dangerous direction to be wrong in.
+
+     @param {Array} debts  [{ balance, rate (APR %) }]
+     @returns {number} weighted APR, or 0 when nothing has a rate
+  */
+  function weightedApr(debts) {
+    let num = 0, den = 0;
+    for (const d of (debts || [])) {
+      const rate = Number(d?.rate) || 0;
+      const bal  = Math.max(0, Number(d?.balance) || 0);
+      if (rate <= 0 || bal <= 0) continue;
+      num += rate * bal;
+      den += bal;
+    }
+    return den > 0 ? num / den : 0;
+  }
+
   function debtFreePlan(debts, extraPerMonth, strategy, from) {
     const start = from ? new Date(from) : new Date();
     const EMPTY = { ok: false, reason: null, months: null, date: null, totalInterest: 0, cleared: [] };
@@ -823,5 +848,6 @@
     netWorth, spendingByCategory, spendTotal,
     incomeProfile, scoreForecast, median,
     debtFreePlan,
+    weightedApr,
   };
 }));

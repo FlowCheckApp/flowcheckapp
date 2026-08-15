@@ -3197,6 +3197,16 @@ a[role="tab"]:focus-visible,
   letter-spacing: -0.5px;
   line-height: 1.1;
 }
+/* Coverage caption under a metric. A partial sum is still useful — "$25/mo"
+   is what we actually know — but it must not be allowed to read as the total.
+   Deliberately quiet: this is a footnote, not a warning. */
+.fc-metric-note {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--fc-text-faint);
+  margin-top: 4px;
+  letter-spacing: 0.1px;
+}
 .fc-metric-sub {
   font-size: 13px;
   color: var(--fc-text-muted);
