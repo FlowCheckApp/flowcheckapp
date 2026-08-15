@@ -34,7 +34,30 @@ const FILES = [
 ];
 
 /* Fields that carry user- or third-party-controlled text. */
-const RISKY = /\.(name|merchant_name|title|body|institution|institution_name|email|description|note|memo|label|display_name|subject)\b/;
+const RISKY_PROP = /\.(name|merchant_name|title|body|institution|institution_name|email|description|note|memo|label|display_name|subject)\b/;
+
+/* ── Taint laundered through a local ───────────────────────────────
+   RISKY_PROP only sees PROPERTY ACCESSES. That was enough right up until
+   someone wrote
+
+     const displayName  = user.name || authUser?.displayName || '…';
+     const displayEmail = authUser?.email || user.email || '';
+     … '<div>' + displayName + '</div>'      ← straight into innerHTML
+
+   in _renderMore(). The dangerous value is identical; it is just sitting in
+   a local by the time it reaches the sink, so `.name` never appears on the
+   offending line and the scanner saw nothing. That is a stored-XSS sink —
+   user.name is written by saveProfileChanges() after a .trim() and a
+   non-empty check — and it survived every run of this file.
+
+   So also flag bare identifiers that NAME the same thing. Deliberately
+   matched on the whole identifier rather than a substring: `filename` and
+   `nameCounts` are not taint, and a checker that cries wolf gets muted. */
+const RISKY_LOCAL = /^(?:display|user|profile|account|acct|merchant|institution|bank|goal|bill|txn|transaction)?(?:Name|Email|Title|Label|Description|Institution|MerchantName)$/;
+
+const RISKY = {
+  test: (expr) => RISKY_PROP.test(expr) || RISKY_LOCAL.test(expr.trim()),
+};
 
 /* Wrappers that make an interpolation safe. */
 const SAFE = [
