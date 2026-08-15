@@ -3165,7 +3165,7 @@ window.FCApp = (function () {
     return '';
   }
 
-  /* Update the pill WITHOUT a render. _scheduleHomeRender deliberately holds
+  /* Update the pill WITHOUT a render. _scheduleTabRender deliberately holds
      every render for the duration of a sync — that hold is the resume-flicker
      fix — so the one element that must change while a sync runs has to be
      written directly. */
@@ -3178,8 +3178,40 @@ window.FCApp = (function () {
   let _paintedAccountsThisSync = false;
   let _accountsAtSyncStart = 0;
 
-  function _scheduleHomeRender() {
-    if (state.tab !== 'home') return;
+  /* Who repaints the tab that is currently on screen.
+
+     This map is the whole point of the rename below. The scheduler used to
+     be `_scheduleHomeRender` and opened with `if (state.tab !== 'home')
+     return;` — so every Firestore update that arrived while the user was on
+     any OTHER tab was dropped on the floor. The listeners patched around it
+     one tab at a time (`if (state.tab === 'activity') _renderActivity()`),
+     and the tabs nobody remembered to patch simply never live-updated.
+
+     Money was one of them. Connect a bank, sit on Money, and the accounts
+     land in Firestore within seconds — but Debt, Savings and Net Worth do
+     not repaint until you leave the tab and come back. That is the "it took
+     forever for the debts and savings to push over" report: the data had
+     already arrived, the screen was just never told.
+
+     `more` is deliberately absent — it hosts sub-screens rendered on top of
+     it, and repainting underneath them is churn nobody asked for. */
+  function _activeTabRenderer() {
+    switch (state.tab) {
+      case 'home':     return _renderHome;
+      case 'wealth':   return _renderWealth;
+      case 'plan':     return _renderPlan;
+      case 'coach':    return _renderCoach;
+      case 'insights': return _renderInsights;
+      case 'goals':    return () => _renderGoalsScreen(true);
+      case 'activity': return () => (_activitySegment === 'bills'
+                                       ? _renderBillsList() : _renderActivity());
+      default:         return null;
+    }
+  }
+
+  function _scheduleTabRender() {
+    const _render = _activeTabRenderer();
+    if (!_render) return;
 
     /* A Plaid sync does not arrive as one update. The backend commits accounts
        in one batch, then transactions in chunks of 400, then removals in
@@ -3223,7 +3255,7 @@ window.FCApp = (function () {
     const since = Date.now() - _homeRenderAt;
     if (since >= _HOME_RENDER_WINDOW_MS && !_homeRenderTimer) {
       _homeRenderAt = Date.now();
-      _renderHome();
+      _render();
       return;
     }
     if (_homeRenderTimer) return;                    // already coalescing
@@ -3233,17 +3265,20 @@ window.FCApp = (function () {
       // a half-synced state that is about to be replaced anyway.
       if (state.syncing) { _homeRenderDeferred = true; return; }
       _homeRenderAt = Date.now();
-      if (state.tab === 'home') _renderHome();
+      // Re-resolve: the user can switch tabs between arming and firing, and
+      // painting the tab they just left is worse than painting nothing.
+      const _late = _activeTabRenderer();
+      if (_late) _late();
     }, Math.max(0, _HOME_RENDER_WINDOW_MS - since));
   }
 
   /* Paint once after a sync settles, if renders were held while it ran.
      Called from _doSync's finally block, after state.syncing is cleared. */
-  function _flushDeferredHomeRender() {
+  function _flushDeferredTabRender() {
     if (!_homeRenderDeferred) return;
     _homeRenderDeferred = false;
     _homeRenderAt = 0;          // bypass the coalescing window — paint now
-    _scheduleHomeRender();
+    _scheduleTabRender();
   }
 
   function _renderHome() {
@@ -10382,7 +10417,7 @@ window.FCApp = (function () {
         // This clears syncing outside the finally block, so release any render
         // held by the stuck sync — the checks below can still early-return.
         _updateSyncPill();
-        _flushDeferredHomeRender();
+        _flushDeferredTabRender();
         const stuck = document.getElementById('header-sync-btn');
         if (stuck) stuck.classList.remove('is-busy');
       } else {
@@ -10426,7 +10461,7 @@ window.FCApp = (function () {
     // screen had anything on it — that is what decides if the paint is earned.
     _paintedAccountsThisSync = false;
     _accountsAtSyncStart = (state.accounts || []).length;
-    // Surgical, not a render: _scheduleHomeRender holds renders for the
+    // Surgical, not a render: _scheduleTabRender holds renders for the
     // whole sync, so this is the only way the badge can say "Syncing…".
     _updateSyncPill();
     let _syncSucceeded = false;
@@ -10491,7 +10526,7 @@ window.FCApp = (function () {
       // Must come after state.syncing is cleared, or the flush re-defers itself.
       // Runs on the throw path too, so a held render is never stranded.
       _updateSyncPill();
-      _flushDeferredHomeRender();
+      _flushDeferredTabRender();
       if (_syncBtn) _syncBtn.classList.remove('is-busy');
       // After a successful sync the island already says "All caught up" — no reset needed.
       // After a user-triggered failure, give the user a moment to read "Sync failed"
@@ -11523,8 +11558,11 @@ window.FCApp = (function () {
       if (_isDemoMode) return;
       state.initialLoading = false;
       state.accounts = accounts;
-      _scheduleHomeRender();
-      if (state.tab === 'insights') _renderInsights();
+      /* One call, every tab. _scheduleTabRender routes to whichever screen is
+         actually up and coalesces the ~12 commits a Plaid sync produces into
+         one paint — the per-tab `if` ladder that used to live here is what
+         left Money, Plan, Goals and Coach frozen until you switched away. */
+      _scheduleTabRender();
       // Snapshot net worth on every account update (daily dedup inside)
       _snapshotNetWorth(FCData.calcNetWorth(accounts));
     });
@@ -11533,10 +11571,7 @@ window.FCApp = (function () {
       if (_isDemoMode) return;
       state.initialLoading = false;
       state.transactions = transactions;
-      // Re-render home so "Recent Activity" and "Safe to Spend" update immediately
-      _scheduleHomeRender();
-      if (state.tab === 'activity') _renderActivity();
-      if (state.tab === 'insights') _renderInsights();
+      _scheduleTabRender();
       // Check budget thresholds whenever transactions update
       _checkBudgetAlert();
       // Retention loop — needs transaction history to predict payday
@@ -11546,8 +11581,7 @@ window.FCApp = (function () {
     FCData.listenToBills(bills => {
       if (_isDemoMode) return;
       state.bills = bills;
-      _scheduleHomeRender();
-      if (state.tab === 'activity' && _activitySegment === 'bills') _renderBillsList();
+      _scheduleTabRender();
       FCPush.scheduleAllBillReminders(bills).catch(() => {});
     });
 
@@ -11564,30 +11598,27 @@ window.FCApp = (function () {
          there is no 'goals' one, so `_wealthTab === 'goals'` could never be
          true. And _renderGoals() renders that old Money panel, not the tab —
          switchTab('goals') uses _renderGoalsScreen(true). */
-      if (state.tab === 'goals') _renderGoalsScreen(true);
+      _scheduleTabRender();
     });
 
     FCData.listenToBudgets(budgets => {
       state.budgets = budgets;
       _snapshotBudgetMonths();
-      if (state.tab === 'insights') _renderInsights();
-      if (state.tab === 'plan') _renderPlan();
+      _scheduleTabRender();
     });
 
     FCData.listenToAccountDetails(details => {
       state.accountDetails = details;
       // These feed Avg Interest, Monthly Min., the payoff order and the
       // debt-free date, so the screens showing them have to re-read.
-      if (state.tab === 'wealth') _renderWealth();
-      _scheduleHomeRender();
+      _scheduleTabRender();
     });
 
     FCData.listenToBudgetHistory(history => {
       state.budgetHistory = history;
       // Rollover changes the ceiling every budget figure is measured
       // against, so the screens showing those figures have to re-read it.
-      if (state.tab === 'plan') _renderPlan();
-      _scheduleHomeRender();
+      _scheduleTabRender();
     });
 
     // Notification center listener
@@ -11599,8 +11630,7 @@ window.FCApp = (function () {
     // Transaction overrides (user edits to names/categories)
     FCData.listenToTransactionOverrides(overrides => {
       state.txnOverrides = overrides;
-      if (state.tab === 'activity') _renderActivity();
-      if (state.tab === 'insights') _renderInsights();
+      _scheduleTabRender();
     });
 
     // Credit score history (monthly snapshots for sparkline)
@@ -11611,7 +11641,9 @@ window.FCApp = (function () {
     // Net worth history (daily snapshots — Firestore-backed for cross-device persistence)
     FCData.listenToNetWorthHistory(history => {
       state.nwHistory = history;
-      if (state.tab === 'insights') _renderInsights();
+      // Net Worth is a Money panel too — this listener only knew about
+      // Insights, so the Money chart lagged a day behind its own history.
+      _scheduleTabRender();
     });
   }
 
@@ -14014,12 +14046,9 @@ window.FCApp = (function () {
       }
     });
 
-    // Re-render home with new period data (chart + insights update inside _renderHome)
-    _scheduleHomeRender();
-    // Also refresh chart in insights view if that tab is active
-    if (state.tab === 'insights') _renderInsights();
-    // Wealth overview responds to period change
-    if (state.tab === 'wealth') _renderWealth();
+    // Repaint whatever is on screen with the new period — home's chart,
+    // Insights, and Money's overview all read it.
+    _scheduleTabRender();
   }
 
   /* ─────────────────────────────────────────────────────────────

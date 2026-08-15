@@ -52,6 +52,9 @@ const compression  = require('compression');
 const admin        = require('firebase-admin');
 const crypto       = require('crypto');
 const path         = require('path');
+/* Write-then-advance cursor walk for /plaid/sync. Extracted so it can be
+   tested — this file listens on require, so nothing in it can be. */
+const { syncTransactionPages } = require('./lib/sync-pages');
 const {
   Configuration, PlaidApi, PlaidEnvironments,
   Products, CountryCode,
@@ -1327,13 +1330,22 @@ app.get('/plaid/sync', requireAuth, requireEntitlement, perUserLimiter(30), asyn
 
     const itemErrors = [];
 
-    for (const itemDoc of itemSnaps) {
+    /* Banks sync CONCURRENTLY. This was a plain `for…of` with awaits inside,
+       so three linked banks took three times as long as the slowest one —
+       and the phone shows "Syncing…" for the whole wall-clock duration. The
+       work is almost entirely waiting on Plaid and Firestore, so there is
+       nothing to gain from doing it in order.
+
+       Each bank keeps its own try/catch, so one failing bank still cannot
+       abort the others, and the counters are accumulated after the fact
+       rather than mutated from inside concurrent tasks. */
+    const perItem = itemSnaps.map(async (itemDoc) => {
       // Per-item try/catch — one failing bank doesn't abort sync for all others.
       // Common failure: ITEM_LOGIN_REQUIRED (user changed bank password).
       try {
         const itemData = itemDoc.data();
         const { access_token } = itemData;
-        if (!access_token) continue;
+        if (!access_token) return null;   // was `continue` — this is a callback now
 
         /* ── Accounts (always fresh — small write, critical for balance accuracy) ── */
         const { data: acctData } = await plaid.accountsGet({ access_token });
@@ -1363,70 +1375,59 @@ app.get('/plaid/sync', requireAuth, requireEntitlement, perUserLimiter(30), asyn
           minimum_payment:   (liab[a.account_id] || {}).minimum_payment ?? null,
         }));
 
-        let batch = db.batch();
+        const batch = db.batch();
         accounts.forEach(a => {
           batch.set(userRef.collection('accounts').doc(a.id), { ...a, updated_at: TS() }, { merge: true });
         });
         await batch.commit();
 
-        /* ── Transactions — cursor-based (only writes the delta, not all history) ── */
-        let cursor = itemData.plaid_cursor || undefined;
-        let added = [], modified = [], removed = [];
-        let hasMore = true;
+        /* ── Transactions — cursor-based, written PAGE BY PAGE ─────────
+           The write-then-advance ordering, and why it matters, lives in
+           backend/lib/sync-pages.js — it is there rather than here so it can
+           be tested, which this file cannot be (it listens on require). */
+        const writeChunks = async (rows, write) => {
+          for (let i = 0; i < rows.length; i += 400) {
+            const b = db.batch();
+            rows.slice(i, i + 400).forEach(r => write(b, r));
+            await b.commit();
+          }
+        };
 
-        while (hasMore) {
-          const reqBody = { access_token, count: 500 };
-          if (cursor) reqBody.cursor = cursor;
-          const { data } = await plaid.transactionsSync(reqBody);
-          added    = added.concat(data.added);
-          modified = modified.concat(data.modified);
-          removed  = removed.concat(data.removed);
-          hasMore  = data.has_more;
-          cursor   = data.next_cursor;
-        }
+        const { added, modified, removed } = await syncTransactionPages({
+          cursor: itemData.plaid_cursor || undefined,
+          fetchPage: async (cur) => {
+            const reqBody = { access_token, count: 500 };
+            if (cur) reqBody.cursor = cur;
+            const { data } = await plaid.transactionsSync(reqBody);
+            return data;
+          },
+          writePage: async ({ added: a, modified: m, removed: r }) => {
+            await writeChunks([...a, ...m], (b, t) => {
+              b.set(userRef.collection('transactions').doc(t.transaction_id), {
+                id:              t.transaction_id,
+                account_id:      t.account_id,
+                name:            t.name,
+                amount:          Math.abs(t.amount),
+                isCredit:        t.amount < 0,
+                date:            t.date,
+                category:        t.personal_finance_category?.primary
+                                   ? [t.personal_finance_category.primary]
+                                   : (t.category || []),
+                pending:         t.pending,
+                merchant_name:   t.merchant_name    || null,
+                logo_url:        t.logo_url         || null,
+                payment_channel: t.payment_channel  || null,
+                updated_at:      TS(),
+              }, { merge: true });
+            });
+            await writeChunks(r, (b, x) =>
+              b.delete(userRef.collection('transactions').doc(x.transaction_id)));
+          },
+          saveCursor: (cur) => itemDoc.ref.update({ plaid_cursor: cur, needs_reauth: false }),
+        });
 
-        // Persist new cursor so next sync is a true delta
-        await itemDoc.ref.update({ plaid_cursor: cursor, needs_reauth: false });
-
-        /* Write added + modified transactions */
-        const upserts = [...added, ...modified];
-        for (let i = 0; i < upserts.length; i += 400) {
-          batch = db.batch();
-          upserts.slice(i, i + 400).forEach(t => {
-            batch.set(userRef.collection('transactions').doc(t.transaction_id), {
-              id:              t.transaction_id,
-              account_id:      t.account_id,
-              name:            t.name,
-              amount:          Math.abs(t.amount),
-              isCredit:        t.amount < 0,
-              date:            t.date,
-              category:        t.personal_finance_category?.primary
-                                 ? [t.personal_finance_category.primary]
-                                 : (t.category || []),
-              pending:         t.pending,
-              merchant_name:   t.merchant_name    || null,
-              logo_url:        t.logo_url         || null,
-              payment_channel: t.payment_channel  || null,
-              updated_at:      TS(),
-            }, { merge: true });
-          });
-          await batch.commit();
-        }
-
-        /* Delete removed transactions */
-        for (let i = 0; i < removed.length; i += 400) {
-          batch = db.batch();
-          removed.slice(i, i + 400).forEach(r => {
-            batch.delete(userRef.collection('transactions').doc(r.transaction_id));
-          });
-          await batch.commit();
-        }
-
-        totalAccounts  += accounts.length;
-        totalAdded     += added.length;
-        totalModified  += modified.length;
-        totalRemoved   += removed.length;
-        console.log(`[sync] uid:${req.uid} item:${itemDoc.id} → ${accounts.length} accounts, +${added.length}~${modified.length}-${removed.length} txns`);
+        console.log(`[sync] uid:${req.uid} item:${itemDoc.id} → ${accounts.length} accounts, +${added}~${modified}-${removed} txns`);
+        return { accounts: accounts.length, added, modified, removed };
 
       } catch (itemErr) {
         const plaidCode = itemErr.response?.data?.error_code;
@@ -1438,7 +1439,17 @@ app.get('/plaid/sync', requireAuth, requireEntitlement, perUserLimiter(30), asyn
           await itemDoc.ref.update({ needs_reauth: true }).catch(() => {});
         }
         // Continue to next item — one bad bank doesn't fail the whole sync
+        return null;
       }
+    });
+
+    /* allSettled, not all: a bug in the per-item body that escapes its own
+       try/catch must not take the other banks' completed work down with it. */
+    for (const r of await Promise.allSettled(perItem)) {
+      const v = r.status === 'fulfilled' ? r.value : null;
+      if (!v) continue;
+      totalAccounts += v.accounts; totalAdded += v.added;
+      totalModified += v.modified; totalRemoved += v.removed;
     }
 
     await userRef.update({ last_synced: TS() });
