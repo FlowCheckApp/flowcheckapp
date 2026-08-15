@@ -61,7 +61,17 @@
      have something to be measured against — it is NOT a fee this file
      charges, and there is no take rate, because the Vault bills nothing. */
   const TERMS = {
-    subscriptionCost: 9.99,  // what Pro costs — a yardstick, never a charge
+    /* Must match the real monthly price in fc-config.js (premium_monthly).
+       This said 9.99 — a price the product has not charged since it moved to
+       4.99 — so the Vault told users "Pro costs $9.99/mo" and measured its own
+       worth against a fee that does not exist. It understated itself by half
+       (12.3× where the truth was 24.6×), but the damage is the wrong number,
+       not the modesty: this is the one screen whose header promises it will
+       "survive a user reading it line by line against their bank statement",
+       and the first line they can check was wrong.
+       The 51 vault tests did not catch it because they verify the engine's
+       arithmetic, not whether this constant matches what we bill. */
+    subscriptionCost: 4.99,  // what Pro costs — a yardstick, never a charge
     subCreditMonths: 12,     // a killed subscription counts for one year
     causalHaircut:   0.50,   // applied to anything not directly observed
     maxEventCredit:  500,    // sanity bound: no single event exceeds this

@@ -9739,8 +9739,25 @@ window.FCApp = (function () {
     const now = new Date();
     const bills = state.bills || [];
     // Build a set of bill due dates this month
-    const billDays = new Set(bills.map(b => b.due_date ? parseInt(b.due_date.split('-')[2]) : null).filter(Boolean));
+    /* Key on the whole date, not just the day number.
+       This was `parseInt(due_date.split('-')[2])` — the DAY component alone —
+       so a bill due 2026-09-02 put a dot on 2 August, and a bill from any
+       previous year dotted that day too. Demonstrable on the demo data: the
+       August grid marked the 2nd, and nothing is due 2 August; that was
+       Internet, due 2 September.
+       Paid bills are excluded as well. They were included, so a settled bill
+       kept an amber "needs attention" dot for the rest of the month. */
     const year = now.getFullYear(), month = now.getMonth();
+    const billDays = new Set(
+      bills
+        .filter(b => b.due_date && b.status !== 'paid')
+        .map(b => {
+          const d = FCData.parseDateLocal(b.due_date);
+          return (isNaN(d.getTime()) || d.getFullYear() !== year || d.getMonth() !== month)
+            ? null : d.getDate();
+        })
+        .filter(Boolean)
+    );
     const firstDay = new Date(year, month, 1).getDay();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const today = now.getDate();
@@ -9801,17 +9818,73 @@ window.FCApp = (function () {
     const now = new Date();
     const mStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const txns = state.transactions || [];
-    const income = txns.filter(t => t.isCredit && new Date(t.date) >= mStart).reduce((s,t)=>s+(t.amount||0),0);
-    const spend  = txns.filter(t => !t.isCredit && new Date(t.date) >= mStart).reduce((s,t)=>s+(t.amount||0),0);
+
+    /* Two corrections to the month totals:
+       · _isIncomeTxn/_isSpendTxn instead of raw t.isCredit. Every other screen
+         uses these because they exclude transfers — with raw isCredit, moving
+         $500 from checking to savings was reported here as $500 earned AND
+         $500 spent, so this screen disagreed with every other one.
+       · parseDateLocal instead of new Date(). `new Date('2026-08-01')` parses
+         as UTC midnight, which is the previous evening in US timezones, so
+         the first day of the month fell outside its own month. */
+    const inMonth = t => {
+      if (!t.date) return false;
+      try { return FCData.parseDateLocal(t.date) >= mStart; } catch (_) { return false; }
+    };
+    const mTxns  = txns.filter(inMonth);
+    const income = mTxns.filter(_isIncomeTxn).reduce((s,t)=>s+(t.amount||0),0);
+    const spend  = mTxns.filter(_isSpendTxn).reduce((s,t)=>s+(t.amount||0),0);
+
+    /* Real subtitles, and a real destination for every row.
+
+       All five cards were inert: no onclick, no role, and a chevron on each
+       one advertising navigation that did not exist. Four also carried static
+       placeholder copy ("Where your money goes") instead of data.
+
+       None of these needed building — every one of them already exists as a
+       screen. Reports is a hub, so it now routes to the screen that does the
+       job rather than promising a report that was never written. */
+    const budgetLimit = _totalBudgetLimit() + _rolloverTotal();
+    const catTotals = {};
+    mTxns.filter(_isSpendTxn).forEach(t => {
+      const c = t.category?.[1] || t.category?.[0] || 'Other';
+      catTotals[c] = (catTotals[c] || 0) + (t.amount || 0);
+    });
+    const topCat = Object.entries(catTotals).sort((a,b) => b[1]-a[1])[0];
+    const unpaidBills = (state.bills || []).filter(b => b.status !== 'paid');
+    const billsDue = unpaidBills.reduce((s,b) => s + (b.amount||0), 0);
+    const accts = state.accounts || [];
+    const netWorth = accts.filter(_isAssetAcct).reduce((s,a)=>s+_acctBal(a),0)
+                   - accts.filter(_isDebtAcct).reduce((s,a)=>s+Math.max(0,_acctBal(a)),0);
 
     const reportCards = [
-      { icon: 'bar-chart', title: 'Monthly Cash Flow', sub: `${FCData.formatCurrency(income)} in · ${FCData.formatCurrency(spend)} out`, color: 'var(--fc-accent)', soft: 'var(--fc-accent-soft)' },
-      { icon: 'flag', title: 'Budget vs Actual', sub: 'See how spending compares', color: 'var(--fc-success)', soft: 'var(--fc-success-soft)' },
-      { icon: 'pie-chart', title: 'Spending by Category', sub: 'Where your money goes', color: 'var(--fc-warning)', soft: 'var(--fc-warning-soft)' },
-      { icon: 'file-text', title: 'Bills Report', sub: 'Paid & upcoming', color: 'var(--fc-danger)', soft: 'var(--fc-danger-soft)' },
-      { icon: 'trending-up', title: 'Net Worth History', sub: '12-month trend', color: 'var(--fc-electric)', soft: 'var(--fc-electric-soft)' },
+      { icon: 'bar-chart', title: 'Monthly Cash Flow',
+        sub: `${FCData.formatCurrency(income)} in · ${FCData.formatCurrency(spend)} out`,
+        color: 'var(--fc-accent)', soft: 'var(--fc-accent-soft)',
+        go: "FCApp._closeSubScreen();FCApp.switchTab('activity')" },
+      { icon: 'flag', title: 'Budget vs Actual',
+        sub: budgetLimit > 0
+          ? `${FCData.formatCurrency(spend)} of ${FCData.formatCurrency(budgetLimit)} used`
+          : 'Set a budget to compare',
+        color: 'var(--fc-success)', soft: 'var(--fc-success-soft)',
+        go: "FCApp._closeSubScreen();FCApp.switchTab('plan');FCApp.switchPlanSeg('budget')" },
+      { icon: 'pie-chart', title: 'Spending by Category',
+        sub: topCat ? `${topCat[0]} is your biggest at ${FCData.formatCurrency(topCat[1])}`
+                    : 'No spending yet this month',
+        color: 'var(--fc-warning)', soft: 'var(--fc-warning-soft)',
+        go: "FCApp._closeSubScreen();FCApp.switchTab('plan');FCApp.switchPlanSeg('budget')" },
+      { icon: 'file-text', title: 'Bills',
+        sub: unpaidBills.length
+          ? `${unpaidBills.length} unpaid · ${FCData.formatCurrency(billsDue)}`
+          : 'Nothing outstanding',
+        color: 'var(--fc-danger)', soft: 'var(--fc-danger-soft)',
+        go: "FCApp._closeSubScreen();FCApp.switchTab('activity');FCApp.switchActivitySegment('bills')" },
+      { icon: 'trending-up', title: 'Net Worth',
+        sub: `${FCData.formatCurrency(netWorth)} today`,
+        color: 'var(--fc-electric)', soft: 'var(--fc-electric-soft)',
+        go: "FCApp._closeSubScreen();FCApp.switchTab('wealth');FCApp.switchWealthTab('overview')" },
     ].map(r => `
-      <div class="fc-report-card">
+      <div class="fc-report-card" role="button" tabindex="0" onclick="${r.go}">
         <div class="fc-report-icon" style="background:${r.soft}">${_ic(r.icon, r.color, 20)}</div>
         <div class="fc-report-body">
           <div class="fc-report-title">${r.title}</div>
@@ -9828,9 +9901,13 @@ window.FCApp = (function () {
         <div style="flex:1;font-size:22px;font-weight:750;color:var(--fc-text)">Reports</div>
       </div>
       ${reportCards}
-      <div style="display:flex;gap:10px;margin-top:6px;margin-bottom:20px">
-        <button class="fc-btn fc-btn--ghost fc-btn--sm" style="flex:1" onclick="FCApp._exportCSV()">Export CSV</button>
-        <button class="fc-btn fc-btn--ghost fc-btn--sm" style="flex:1" onclick="window.print()">Export PDF</button>
+      <!-- "Export PDF" called window.print(), which does nothing at all in a
+           WKWebView — a second dead control on a screen that was already all
+           dead controls. Removed rather than faked; CSV genuinely works and
+           opens in Numbers, Excel or Sheets, which is what people actually
+           want to do with it. -->
+      <div style="margin-top:6px;margin-bottom:20px">
+        <button class="fc-btn fc-btn--ghost fc-btn--sm" style="width:100%" onclick="FCApp._exportCSV()">Export transactions (CSV)</button>
       </div>`;
   }
 

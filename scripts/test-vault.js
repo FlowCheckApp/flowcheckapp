@@ -32,6 +32,15 @@ function near(actual, expected, tol, msg) {
 }
 function ok(cond, msg) { if (!cond) throw new Error(msg || 'expected truthy'); }
 
+/* The monthly price the engine quotes. Derived, never retyped: these
+   expectations were written as literal 19.98 (2 x the old 9.99) and silently
+   encoded a price the product had stopped charging, so the suite agreed with
+   the bug instead of catching it. */
+const COST = V.TERMS ? V.TERMS.subscriptionCost : (function () {
+  const src = require('fs').readFileSync(require('path').join(__dirname, '../www/js/fc-vault.js'), 'utf8');
+  return parseFloat(src.match(/subscriptionCost:\s*([0-9.]+)/)[1]);
+})();
+
 /* ── helpers ─────────────────────────────────────────────────────── */
 /* LOCAL date components — see the same note in test-core.js. A UTC-based
    helper makes "today" drift a day ahead each evening, which here would
@@ -259,13 +268,13 @@ t('statementFor: the Vault never produces a charge of any kind', () => {
 t('statementFor: a month that clears the subscription says so', () => {
   const s = V.statementFor([ev(20)], M);
   eq(s.paidForItself, true);
-  near(s.netBenefit, 20 - 9.99);
-  near(s.multiple, 2.0);
+  near(s.netBenefit, 20 - COST);
+  near(s.multiple, 20 / COST);
 });
 t('statementFor: a month that does not clear it is not dressed up', () => {
   const s = V.statementFor([ev(4)], M);
   eq(s.paidForItself, false);
-  near(s.netBenefit, 4 - 9.99);   // negative, and stays negative
+  near(s.netBenefit, 4 - COST);   // negative, and stays negative
   ok(s.netBenefit < 0, 'a short month must report a negative net, not zero');
 });
 t('statementFor: the return is never inflated above what was proven', () => {
@@ -298,8 +307,8 @@ t('vaultSummary: net benefit is everything proven minus everything paid', () => 
   ]);
   eq(s.months, 2);
   near(s.proven, 120);
-  near(s.subscriptionPaid, 19.98);
-  near(s.netBenefit, 120 - 19.98);
+  near(s.subscriptionPaid, 2 * COST);
+  near(s.netBenefit, 120 - 2 * COST);
 });
 t('vaultSummary: counts the months that actually paid for themselves', () => {
   const s = V.vaultSummary([
@@ -313,8 +322,8 @@ t('vaultSummary: a losing stretch reports a negative net, not a floor of zero', 
     { id: 'a', date: '2026-05-10', amount: 0, attributed: true },
     { id: 'b', date: '2026-06-10', amount: 8, attributed: true },
   ]);
-  near(s.subscriptionPaid, 19.98);
-  near(s.netBenefit, 8 - 19.98);
+  near(s.subscriptionPaid, 2 * COST);
+  near(s.netBenefit, 8 - 2 * COST);
   ok(s.netBenefit < 0, 'two months and $8 proven is a bad deal — say so');
 });
 t('vaultSummary: empty ledger is a coherent zero, not a crash', () => {
@@ -381,6 +390,36 @@ t('no detected event carries a billable flag', () => {
   ok(e.length > 0);
   ok(e.every(x => x.billable === undefined), 'events describe attribution, not billing');
   ok(e.every(x => typeof x.attributed === 'boolean'), 'every event states attribution');
+});
+
+/* ── the quoted price must be the price we actually charge ────────
+   fc-vault.js hardcodes subscriptionCost as the yardstick every "paid for
+   itself N× over" claim is divided by. It sat at 9.99 long after the product
+   moved to 4.99, so the Vault told users Pro cost twice what it does and
+   understated its own value by half — on the one screen that invites people
+   to check it line by line against a bank statement.
+   The 51 tests above all passed throughout, because they verify the engine's
+   arithmetic and never asked whether the constant matched reality. This asks. */
+t('quoted subscription cost matches the real monthly price', () => {
+  const fs   = require('fs');
+  const path = require('path');
+  const cfg  = fs.readFileSync(path.join(__dirname, '../www/js/fc-config.js'), 'utf8');
+  // fc-config.js documents the store products, e.g. "premium_monthly — $4.99/mo"
+  const m = cfg.match(/premium_monthly\s*—\s*\$([0-9.]+)\s*\/\s*mo/);
+  ok(m, 'could not find the monthly price in fc-config.js — update this test if the format changed');
+  const configured = parseFloat(m[1]);
+  const quoted = V.statementFor([], new Date().toISOString().slice(0, 7)).subscriptionCost
+              ?? V.TERMS?.subscriptionCost;
+  if (quoted == null) {
+    // Engine does not surface it directly — read the constant from source.
+    const src = fs.readFileSync(path.join(__dirname, '../www/js/fc-vault.js'), 'utf8');
+    const q = src.match(/subscriptionCost:\s*([0-9.]+)/);
+    ok(q, 'subscriptionCost constant not found in fc-vault.js');
+    eq(parseFloat(q[1]), configured,
+       'fc-vault subscriptionCost must equal fc-config premium_monthly —');
+    return;
+  }
+  eq(quoted, configured, 'fc-vault subscriptionCost must equal fc-config premium_monthly —');
 });
 
 /* ── report ─────────────────────────────────────────────────────── */
