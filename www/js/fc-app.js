@@ -11721,6 +11721,25 @@ window.FCApp = (function () {
         const localOnboarded     = _onboardingLocallyCached(user.uid);
         const needsOnboarding    = !userDoc ? !localOnboarded : (!firestoreOnboarded && !localOnboarded);
 
+        /* Record the FACT, so it cannot be un-recorded.
+        
+           `plaid_linked` above is EVIDENCE of onboarding, not onboarding itself —
+           and unlike onboarding it is mutable. Disconnecting the last bank sets it
+           false (_clearPlaidUserFields on the backend), so any user carried by
+           that fallback rather than by their own onboarding_complete flag lost the
+           only proof they had ever finished, and the next launch sent them back to
+           slide one. Reported from the device: "every time I delete all my accounts
+           it takes me through the onboarding pages".
+        
+           Onboarding completion is history — it happened or it did not. Bank
+           connection is current state. The moment the evidence is visible, write
+           the durable flag so removing a bank can never rewrite the past.
+           Fire-and-forget and idempotent: only writes when genuinely absent. */
+        if (userDoc && userDoc.plaid_linked && !userDoc.onboarding_complete) {
+          _markOnboardingLocalCache(user.uid);
+          FCData.updateUserField('onboarding_complete', true).catch(() => {});
+        }
+
         // Suppress the native lock screen for the whole post-signup setup window.
         // The notifications permission dialog and Plaid Link's in-app browser both
         // trigger applicationDidBecomeActive on the native side, which would
