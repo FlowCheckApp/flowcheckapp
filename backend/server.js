@@ -1245,6 +1245,20 @@ function _liabilityDetails(liabilities) {
   return out;
 }
 
+/** True if this item has anything liabilities could describe.
+ *  accountsGet already told us the account types, so a cash-only bank can
+ *  skip the /liabilities/get round trip entirely rather than pay for it and
+ *  discard an empty answer. On a first sync every avoidable serial round trip
+ *  is time the user spends looking at an empty screen. */
+function _hasDebtAccounts(accounts) {
+  const DEBT_T = new Set(['credit', 'loan']);
+  const DEBT_S = new Set(['credit card', 'line of credit', 'mortgage', 'auto',
+                          'student', 'home equity', 'paypal credit']);
+  return (accounts || []).some(a =>
+    DEBT_T.has(String(a.type || '').toLowerCase()) ||
+    DEBT_S.has(String(a.subtype || '').toLowerCase()));
+}
+
 /** Fetch liabilities for one item, or {} if unavailable.
  *  Never throws: an institution without liabilities support, or an item
  *  linked before the product was added, must not break a balance sync. */
@@ -1326,7 +1340,9 @@ app.get('/plaid/sync', requireAuth, requireEntitlement, perUserLimiter(30), asyn
         /* Real APR + minimum payment where the institution supplies them.
            Returns {} for anything unsupported, so a bank without
            liabilities costs nothing but the round trip. */
-        const liab = await _fetchLiabilities(access_token);
+        const liab = _hasDebtAccounts(acctData.accounts)
+          ? await _fetchLiabilities(access_token)
+          : {};
         const accounts = acctData.accounts.map(a => ({
           id:                a.account_id,
           name:              a.name,
@@ -3916,7 +3932,9 @@ async function _webhookSyncItem(itemId, retryCount = 0) {
     /* Real APR + minimum payment where the institution supplies them.
        Returns {} for anything unsupported, so a bank without
        liabilities costs nothing but the round trip. */
-    const liab = await _fetchLiabilities(access_token);
+    const liab = _hasDebtAccounts(acctData.accounts)
+      ? await _fetchLiabilities(access_token)
+      : {};
     const accounts = acctData.accounts.map(a => ({
       id:                a.account_id,
       name:              a.name,

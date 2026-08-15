@@ -3155,6 +3155,10 @@ window.FCApp = (function () {
     if (host) host.innerHTML = _syncPillHTML();
   }
 
+  /* Reset at the start of every sync — see the first-paint exception below. */
+  let _paintedAccountsThisSync = false;
+  let _accountsAtSyncStart = 0;
+
   function _scheduleHomeRender() {
     if (state.tab !== 'home') return;
 
@@ -3169,7 +3173,33 @@ window.FCApp = (function () {
        _doSync's finally block. The island already shows "Syncing…" so the app
        is not silently frozen, and the finally block always runs — including on
        the throw path — so a render can never be stranded. */
-    if (state.syncing) { _homeRenderDeferred = true; return; }
+    /* One exception to the hold: the FIRST arrival of accounts.
+
+       The hold exists because a cold-start sync is ~12 Firestore commits and
+       rendering each one is the churn you see on resume. But accounts commit
+       EARLY in the backend loop — before any transaction page is fetched —
+       so balances, debts and savings are sitting in Firestore within seconds
+       while the screen stays empty for the minutes it takes transactions to
+       finish. Reported from the device as the data taking forever to show up;
+       it had already arrived.
+
+       Allowing exactly one paint the moment accounts first appear turns that
+       into "balances immediately, spending fills in". One extra render is not
+       the twelve the hold was built to stop, and it only fires when the
+       screen currently has nothing to show. */
+    if (state.syncing) {
+      /* Gated on the screen having been EMPTY when this sync began, not merely
+         on accounts existing now. Without that, a resume — where the data is
+         already painted — would also take the extra render, which is the very
+         case the hold was built for. First connection has nothing on screen and
+         everything to gain; a resume has the opposite. */
+      const firstAccounts = !_paintedAccountsThisSync
+                         && _accountsAtSyncStart === 0
+                         && (state.accounts || []).length > 0;
+      if (!firstAccounts) { _homeRenderDeferred = true; return; }
+      _paintedAccountsThisSync = true;
+      // fall through and paint once
+    }
 
     const since = Date.now() - _homeRenderAt;
     if (since >= _HOME_RENDER_WINDOW_MS && !_homeRenderTimer) {
@@ -10225,6 +10255,10 @@ window.FCApp = (function () {
 
     state.syncing = true;
     state._syncStartedAt = Date.now();
+    // Re-arm the first-paint exception for this sync, and record whether the
+    // screen had anything on it — that is what decides if the paint is earned.
+    _paintedAccountsThisSync = false;
+    _accountsAtSyncStart = (state.accounts || []).length;
     // Surgical, not a render: _scheduleHomeRender holds renders for the
     // whole sync, so this is the only way the badge can say "Syncing…".
     _updateSyncPill();
