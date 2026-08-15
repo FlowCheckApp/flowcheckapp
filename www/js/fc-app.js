@@ -27,6 +27,7 @@ window.FCApp = (function () {
     txnOverrides:    {},         // { [txnId]: {name?, category?} }
     creditHistory:   [],         // [{month:'YYYY-MM', score:number}, …] oldest-first
     nwHistory:       {},         // {'YYYY-MM-DD': number} — Firestore-backed net worth sparkline
+    budgetHistory:   {},         // {'YYYY-MM': {categories,total_limit,total_spent}} — closed months, drives rollover
   };
 
   // Tracks which specific item is being disconnected (null = disconnect all)
@@ -689,6 +690,95 @@ window.FCApp = (function () {
   }
 
 
+  /* ── Budget month snapshots ───────────────────────────────────────
+     /budgets/{category} is a STANDING limit with no month on it, so until
+     now the app remembered nothing about any month except the one you were
+     standing in. That is why there was no rollover: there was nothing to
+     roll over from.
+
+     This closes each month exactly once, into budget_history/{YYYY-MM}.
+     Three rules keep the record honest:
+
+       · Only CLOSED months. The current month is still moving; writing it
+         would mean rollover was computed from a half-finished number.
+       · Only months we can actually see. If the bank was connected last
+         week, we hold no July transactions — and writing "July: $0 spent"
+         would invent a perfect month and hand out rollover credit for it.
+         Coverage is proven by holding a transaction at or before the
+         month's first day.
+       · create(), not set(). The rules refuse updates, and create() throws
+         on an existing doc — so a second device re-opening the app cannot
+         revise a settled month. First writer wins, deliberately.
+
+     Same dedup discipline as _snapshotNetWorth: this runs from a render,
+     renders run per Firestore batch commit, and serverTimestamp makes every
+     write echo back through the listener. Without the guard that is a
+     write/render storm. */
+  const _budgetMonthsWritten = new Set();
+
+  function _monthKey(d) {
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  }
+
+  function _snapshotBudgetMonths() {
+    const uid = state.user?.uid;
+    if (!uid || !state.user?.plaid_linked) return;
+    const budgets = state.budgets || {};
+    const txns    = state.transactions || [];
+    if (!Object.keys(budgets).length || !txns.length) return;
+
+    // Earliest transaction we hold — the edge of what we can honestly claim.
+    let earliest = Infinity;
+    for (const t of txns) {
+      if (!t.date) continue;
+      const ms = FCData.parseDateLocal(t.date).getTime();
+      if (ms < earliest) earliest = ms;
+    }
+    if (!Number.isFinite(earliest)) return;
+
+    const now = new Date();
+    // Walk back up to 12 closed months and fill any that are missing.
+    for (let back = 1; back <= 12; back++) {
+      const mStart = new Date(now.getFullYear(), now.getMonth() - back, 1);
+      const mEnd   = new Date(now.getFullYear(), now.getMonth() - back + 1, 1);
+      const key    = _monthKey(mStart);
+
+      if (_budgetMonthsWritten.has(uid + ':' + key)) continue;
+      if (state.budgetHistory && state.budgetHistory[key]) continue;
+      if (earliest > mStart.getTime()) continue;   // no coverage — say nothing
+
+      const spendByCat = {};
+      let totalSpent = 0;
+      for (const t of txns) {
+        if (!t.date || !_isSpendTxn(t)) continue;
+        const d = FCData.parseDateLocal(t.date).getTime();
+        if (d < mStart.getTime() || d >= mEnd.getTime()) continue;
+        // Same key the Plan screen buckets by, so history lines up with
+        // what the user was actually shown that month.
+        const cat = t.category?.[1] || t.category?.[0] || 'Other';
+        spendByCat[cat] = (spendByCat[cat] || 0) + (t.amount || 0);
+        totalSpent += t.amount || 0;
+      }
+
+      const categories = {};
+      Object.entries(budgets)
+        .filter(([k]) => k !== 'total')
+        .forEach(([cat, b]) => {
+          const limit = Number(b?.limit || 0);
+          if (limit > 0) categories[cat] = { limit, spent: spendByCat[cat] || 0 };
+        });
+      if (!Object.keys(categories).length) continue;
+
+      _budgetMonthsWritten.add(uid + ':' + key);
+      FCData.saveBudgetMonth(key, categories, _totalBudgetLimit(budgets), totalSpent)
+        .catch(() => {
+          /* Already exists (another device closed it first) or the write
+             failed. Either way the guard stays set for this session — a
+             retry loop against a create-only doc can never succeed. */
+        });
+    }
+  }
+
   function toggleInsights(toggleEl) {
     const body    = document.getElementById('smart-insights-list-wrap');
     const chevron = toggleEl ? toggleEl.querySelector('.fch-ins-chevron') : null;
@@ -697,6 +787,104 @@ window.FCApp = (function () {
     body.classList.toggle('open', !isOpen);
     if (chevron) chevron.classList.toggle('open', !isOpen);
     if (toggleEl) toggleEl.setAttribute('aria-expanded', String(!isOpen));
+  }
+
+  /* ── Minimum payment on a debt account ───────────────────────────
+     Three spellings were in play and they did not agree. The manual
+     account editor writes `minimum_payment`; Money's Debt panel read that
+     and was fine. But Plan's Monthly Plan ring and the Coach's payoff
+     advice both read `min_payment` — a key nothing in the app has ever
+     written — so the ring's Debt slice was permanently $0 and the Coach
+     planned payoffs against a minimum of zero.
+     `minimum_payment_amount` is Plaid's own spelling on the liabilities
+     product, accepted here so the same helper keeps working if those
+     fields start arriving from the backend. */
+  function _minPayment(a) {
+    return Number(a?.minimum_payment ?? a?.min_payment ?? a?.minimum_payment_amount ?? 0) || 0;
+  }
+
+  /* ── Rollover ─────────────────────────────────────────────────────
+     Asymmetric, on purpose.
+
+     Underspend carries forward: come in $80 under on Groceries and next
+     month's Groceries is limit + $80. A good month visibly pays you back,
+     which is the only momentum this app previously had nowhere to put.
+
+     Overspend does NOT carry forward. The textbook envelope system makes
+     last month's overspend a debt against this month, and it compounds —
+     one bad month can leave a category underwater for half a year, with
+     the app reminding you every time you open it. That is the pattern that
+     makes people quit budgeting apps, and it is the opposite of helping
+     someone dig out. The overspend is still shown, once, as a fact about a
+     finished month; it just never becomes a running penalty.
+
+     Only the immediately preceding month rolls. Credit that accumulates
+     forever stops being a signal about how you are doing now. */
+  function _rolloverFor(category) {
+    const hist = state.budgetHistory || {};
+    const now  = new Date();
+    const prev = _monthKey(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+    const m    = hist[prev];
+    if (!m || !m.categories) return 0;
+    const c = m.categories[category];
+    if (!c) return 0;
+    const left = Number(c.limit || 0) - Number(c.spent || 0);
+    return left > 0 ? Math.round(left * 100) / 100 : 0;   // underspend only
+  }
+
+  /** Total credit carried into this month, across every category. */
+  function _rolloverTotal() {
+    const hist = state.budgetHistory || {};
+    const now  = new Date();
+    const prev = _monthKey(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+    const m    = hist[prev];
+    if (!m || !m.categories) return 0;
+    return Object.keys(m.categories)
+      .reduce((s, cat) => s + _rolloverFor(cat), 0);
+  }
+
+  /* ── The monthly budget ceiling ───────────────────────────────────
+     One number, one definition. There were four, and they disagreed:
+
+       • Plan summed EVERY entry in state.budgets — including the `total`
+         key AND each category — so anyone who set both a monthly total and
+         per-category limits had their ceiling silently doubled. Their
+         "Budget Progress" bar read half full at the point they were
+         actually out of money.
+       • Money's spending ring and the exported getTotalBudgetLimit() fell
+         back to a hardcoded 3000 when no total was set, so a user with no
+         budget at all was measured against someone else's.
+       • The budget alert bailed out unless `total` existed, which meant
+         category-only budgets never triggered an alert of any kind.
+
+     `total` is the ceiling when it is set; otherwise the categories sum to
+     one. Never both, never a magic number, and 0 honestly means "no budget
+     set" so callers can render the empty state instead of a false ratio. */
+  function _totalBudgetLimit(budgets) {
+    const b = budgets || state.budgets || {};
+    const total = Number(b.total?.limit || 0);
+    if (total > 0) return total;
+    return Object.entries(b)
+      .filter(([key]) => key !== 'total')
+      .reduce((sum, [, cat]) => sum + Number(cat?.limit || 0), 0);
+  }
+
+  /* Plan's "Budget Suggestion" card. Scoped to the calendar month for the
+     same reason the budget alerts are: next month is a different budget and
+     a different overspend, so a dismissal should not silence it forever. */
+  function _budgetSuggestionKey() {
+    const uid = FCAuth.currentUser?.()?.uid || state.user?.uid || '';
+    const d = new Date();
+    return `fc_budget_suggestion_off_${uid}_${d.getFullYear()}_${d.getMonth()}`;
+  }
+  function _budgetSuggestionDismissed() {
+    try { return localStorage.getItem(_budgetSuggestionKey()) === '1'; }
+    catch (_) { return false; }
+  }
+  function _dismissBudgetSuggestion() {
+    try { localStorage.setItem(_budgetSuggestionKey(), '1'); } catch (_) {}
+    haptic('light');
+    _renderPlan();
   }
 
   /* ── Budget Alert ────────────────────────────────────────────── */
@@ -730,8 +918,7 @@ window.FCApp = (function () {
     });
     // Use filtered spend for budget alert (no transfers)
     const monthSpend  = calMonthTxns.filter(_isSpendTxn).reduce((s, t) => s + (t.amount || 0), 0);
-    if (!state.budgets || !state.budgets['total'] || !state.budgets['total'].limit) return;
-    const budgetLimit = state.budgets['total'].limit;
+    const budgetLimit = _totalBudgetLimit();
     if (budgetLimit <= 0) return;
 
     const pct = (monthSpend / budgetLimit) * 100;
@@ -1102,7 +1289,7 @@ window.FCApp = (function () {
     if (!displayBills.length) {
       container.innerHTML = `
         <div style="width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 24px;color:var(--fc-text-faint);text-align:center">
-          <div style="font-size:48px;margin-bottom:12px">🧾</div>
+          <div style="width:52px;height:52px;border-radius:16px;background:var(--fc-accent-soft);display:flex;align-items:center;justify-content:center;margin-bottom:12px">${_ic('file-text','var(--fc-accent)',24)}</div>
           <div style="font-size:15px;font-weight:500;color:var(--fc-text-muted);margin-bottom:8px">No bills yet</div>
           <div style="font-size:13px;margin-bottom:20px">Track your recurring bills and due dates</div>
           <button class="fc-btn fc-btn--outline" onclick="FCApp.showBillSheet()" type="button" style="height:42px;font-size:14px">
@@ -1120,13 +1307,17 @@ window.FCApp = (function () {
         ? `<span style="color:var(--fc-success);font-size:12px;font-weight:600">✓ Paid</span>`
         : `<span style="color:${color};font-size:12px;font-weight:${days !== null && days <= 3 ? 600 : 400}">${label}</span>`;
 
+      /* The mark-as-paid control. Its border was rgba(255,255,255,0.18) and
+         its tick rgba(255,255,255,0.4) — white at low alpha, which is a soft
+         grey ring on the dark card and very nearly nothing on the light one.
+         The one affordance on this row for the action the row exists to
+         support was invisible in light mode.
+         Tokens now, and the press state moved to CSS :active — the inline
+         onpointerdown/up/cancel trio was re-implementing :active by hand and
+         had to hardcode the resting colour twice more to restore it. */
       const checkBtn = b.status !== 'paid' && !b._preview
-        ? `<button onclick="event.stopPropagation();FCApp.quickPayBill('${b.id}')" aria-label="Mark as paid"
-             style="flex-shrink:0;width:36px;height:36px;border-radius:50%;border:2px solid rgba(255,255,255,0.18);background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;margin-left:10px;transition:border-color 0.15s,background 0.15s"
-             onpointerdown="this.style.borderColor='var(--fc-success)';this.style.background='rgba(48,209,88,0.15)'"
-             onpointerup="this.style.borderColor='rgba(255,255,255,0.18)';this.style.background='transparent'"
-             onpointercancel="this.style.borderColor='rgba(255,255,255,0.18)';this.style.background='transparent'">
-             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        ? `<button class="fc-bill-check" onclick="event.stopPropagation();FCApp.quickPayBill('${esc(b.id)}')" aria-label="Mark ${esc(b.name || 'bill')} as paid" type="button">
+             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
            </button>`
         : '';
 
@@ -1139,7 +1330,7 @@ window.FCApp = (function () {
             <div class="fc-list-title">${esc(b.name)}</div>
             <div class="fc-list-meta" style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">
               <span>${esc(b.category || 'Bill')} · ${esc(b.frequency || 'monthly')}</span>
-              ${b.autopay ? '<span style="display:inline-flex;align-items:center;gap:2px;font-size:10px;font-weight:600;color:var(--fc-success);background:rgba(22,163,74,0.12);border-radius:4px;padding:1px 5px">Auto Pay</span>' : ''}
+              ${b.autopay ? '<span style="display:inline-flex;align-items:center;gap:2px;font-size:10px;font-weight:600;color:var(--fc-success);background:var(--fc-success-soft);border-radius:4px;padding:1px 5px">Auto Pay</span>' : ''}
             </div>
           </div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">
@@ -1707,6 +1898,10 @@ window.FCApp = (function () {
     state.txnOverrides  = {};
     state.creditHistory = [];
     state.nwHistory     = {};
+    // Must be wiped with the rest: rollover credit belonging to the previous
+    // account would otherwise be granted to whoever signs in next.
+    state.budgetHistory = {};
+    _budgetMonthsWritten.clear();
     state.searchQuery   = '';
     state.initialLoading = false;
     _paywallShownThisSession    = false;
@@ -1785,7 +1980,11 @@ window.FCApp = (function () {
     try { _renderActivity();   } catch (_) {}
     try { _renderInsights();   } catch (_) {}
     try { _renderWealth();     } catch (_) {}
-    try { _renderGoals();      } catch (_) {}
+    /* Was _renderGoals(), which rendered the old Goals panel INSIDE Money —
+       a panel with no tab button to reach it, so it has been invisible since
+       Goals became its own tab. Buying Pro therefore refreshed everything
+       except the Goals screen the user can actually see. */
+    try { _renderGoalsScreen(true); } catch (_) {}
     try { _renderSettings();   } catch (_) {}
     const settingsProRow = document.getElementById('settings-pro-row');
     if (settingsProRow) settingsProRow.style.display = 'none';
@@ -2362,6 +2561,13 @@ window.FCApp = (function () {
 
   const _RW_LOCK_ICON = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
 
+  /* Pre-connection cards ONLY (sample + skeleton). This row is persuasion
+     aimed at someone deciding whether to hand us their bank login, and on
+     those two cards it earns its ~40px. On the real runway it was shipping
+     on every launch of the daily home — the most expensive space in the app
+     spent reassuring someone who connected their bank months ago and is
+     here to find out whether they can buy lunch. The claim itself still
+     lives on the connect flow and in Settings, where it is checkable. */
   const _RW_TRUST_ROW = '<div class="rw-trust">' + _RW_LOCK_ICON
     + '<span id="home-trust-text">Read-only · Bank-grade encryption</span></div>';
 
@@ -2422,25 +2628,54 @@ window.FCApp = (function () {
     const zeroY = g.y(0);
     const W = g.W, H = g.H, PAD_B = g.PAD_B, minV = g.minV;
     const x = g.x, y = g.y;
-    const markers = pts.filter(p => p.bills.length).map(p =>
-      '<g class="rw-marker">'
-      + '<line x1="' + x(p.day).toFixed(1) + '" y1="' + y(p.balance).toFixed(1) + '" x2="' + x(p.day).toFixed(1) + '" y2="' + (H - PAD_B) + '" stroke="var(--fc-border-strong)" stroke-width="1" stroke-dasharray="2 3"/>'
-      + '<circle cx="' + x(p.day).toFixed(1) + '" cy="' + y(p.balance).toFixed(1) + '" r="3.4" fill="var(--fc-bg-elevated)" stroke="' + stroke + '" stroke-width="2"/>'
-      + '</g>').join('');
+    /* The viewBox is a fixed 300×104 stretched to the card's real width by
+       preserveAspectRatio="none" — about 1.13× on a 6.1" phone and more on a
+       Pro Max. Anything with a fixed aspect drawn INSIDE that space inherits
+       the stretch: <circle r="4.5"> renders as an ellipse and a 2.5 stroke
+       thickens unevenly along the line. It read as "almost right", which is
+       the exact register we are trying to leave.
+       So: paths stay in the stretched space (a stretched line is still the
+       right line) but with non-scaling-stroke so the ink stays 2.5 device px,
+       and every round thing moves to an HTML overlay positioned in percent —
+       the pattern .rw-scrub-dot already uses in this same card. */
+    const VE = ' vector-effect="non-scaling-stroke"';
+    const xPct = p => (x(p) / W * 100).toFixed(2);
+    const yPct = v => (y(v) / H * 100).toFixed(2);
 
-    const endX = x(r.horizon), endY = y(r.endBalance);
+    const markerLines = pts.filter(p => p.bills.length).map(p =>
+      '<line class="rw-marker" x1="' + x(p.day).toFixed(1) + '" y1="' + y(p.balance).toFixed(1) + '" x2="' + x(p.day).toFixed(1) + '" y2="' + (H - PAD_B) + '" stroke="var(--fc-border-strong)" stroke-width="1" stroke-dasharray="2 3"' + VE + '/>').join('');
+
+    /* Bill dots + the endpoint, as HTML so they stay circular. */
+    const dots = pts.filter(p => p.bills.length).map(p =>
+      '<span class="rw-dot" style="left:' + xPct(p.day) + '%;top:' + yPct(p.balance) + '%;--rw-dot-stroke:' + stroke + '"></span>').join('')
+      + '<span class="rw-dot rw-dot--end" style="left:' + xPct(r.horizon) + '%;top:' + yPct(r.endBalance) + '%;--rw-dot-stroke:' + stroke + '"></span>';
+
+    /* The zero crossing is the whole point of the card in the negative
+       state — the headline names the date and the chart used to mark it
+       nowhere. Label the zero line too: an unlabelled dashed red rule is a
+       decoration, and the one number it stands for is the number that
+       matters. */
+    const cross = (r.goesNegative && r.firstNegativeDay != null) ? pts[r.firstNegativeDay] : null;
 
     return '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" aria-hidden="true">'
       + '<defs><linearGradient id="rwGrad" x1="0" y1="0" x2="0" y2="1">'
         + '<stop offset="0%" stop-color="' + stroke + '" stop-opacity="0.22"/>'
         + '<stop offset="100%" stop-color="' + stroke + '" stop-opacity="0"/>'
       + '</linearGradient></defs>'
-      + (minV < 0 ? '<line x1="0" y1="' + zeroY.toFixed(1) + '" x2="' + W + '" y2="' + zeroY.toFixed(1) + '" stroke="var(--fc-danger)" stroke-width="1" stroke-dasharray="3 3" opacity="0.55"/>' : '')
+      + (minV < 0 ? '<line x1="0" y1="' + zeroY.toFixed(1) + '" x2="' + W + '" y2="' + zeroY.toFixed(1) + '" stroke="var(--fc-danger)" stroke-width="1" stroke-dasharray="3 3" opacity="0.55"' + VE + '/>' : '')
       + '<path d="' + area + '" fill="url(#rwGrad)"/>'
-      + '<path class="rw-line" d="' + line + '" fill="none" stroke="' + stroke + '" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>'
-      + markers
-      + '<circle class="rw-endpoint" cx="' + endX.toFixed(1) + '" cy="' + endY.toFixed(1) + '" r="4.5" fill="' + stroke + '"/>'
-      + '</svg>';
+      + '<path class="rw-line" d="' + line + '" fill="none" stroke="' + stroke + '" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"' + VE + '/>'
+      + markerLines
+      + '</svg>'
+      /* One overlay box, sized to the SVG's own 104px — NOT to .rw-chart,
+         which is taller because it also holds .rw-axis. Percent coordinates
+         here map 1:1 onto the viewBox only while this box matches the svg. */
+      + '<div class="rw-overlay" aria-hidden="true">'
+        + dots
+        + (minV < 0 ? '<span class="rw-zero-lbl" style="top:' + yPct(0) + '%">$0</span>' : '')
+        + (cross ? '<span class="rw-cross" style="left:' + xPct(cross.day) + '%">'
+            + '<span class="rw-cross-flag">' + esc(cross.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })) + '</span></span>' : '')
+      + '</div>';
   }
 
   function _renderRunwayCard() {
@@ -2460,7 +2695,21 @@ window.FCApp = (function () {
     const pts = r.points;
     if (!pts.length) return '';
 
-    const stroke = r.goesNegative ? 'var(--fc-danger)' : 'var(--fc-accent)';
+    /* The line stays the accent colour even when the balance goes negative.
+
+       Measured in a struggling profile, this card was rendering NINE
+       danger-red elements at once — headline, amount, line stroke, area
+       fill, zero rule, endpoint dot, "$0" label, crossing flag and its
+       background — every one of them restating a single fact. Repetition
+       carries no extra information; it only raises the volume. Someone
+       already worried about money opened this screen and got shouted at
+       nine times about something they came here to solve.
+
+       So the chart is data, not a verdict: one accent line showing the
+       shape, and exactly one red mark — the crossing — for the day that
+       needs attention. The zero rule keeps a muted red because it is the
+       threshold the crossing is measured against. */
+    const stroke = 'var(--fc-accent)';
     /* "PAYDAY" over a dollar figure reads as "your paycheck is $353.82".
        The number underneath is r.endBalance — what is LEFT when payday
        arrives, which is close to the opposite of a paycheck. In an app whose
@@ -2483,10 +2732,41 @@ window.FCApp = (function () {
       : cov === 1 ? 'Covered for 1 more day'
       : 'Covered for ' + cov + ' days';
 
+    /* Does moving ONE bill actually close the gap?
+       The biggest bill that falls on or before the crossing is the single
+       lever with the most leverage — if it is at least as large as the
+       deepest dip, shifting it past that date clears the whole shortfall.
+       Computed, never assumed: when no single bill is big enough we do not
+       claim one is, and the copy falls back to the general instruction. */
+    const _gap = Math.abs(r.lowest.balance);
+    const _movable = r.goesNegative
+      ? pts.slice(0, (r.firstNegativeDay ?? 0) + 1)
+          .flatMap(p => p.bills || [])
+          .sort((a, b) => (b.amount || 0) - (a.amount || 0))[0]
+      : null;
+    const _oneBillFixesIt = !!(_movable && (_movable.amount || 0) >= _gap);
+
     let headline, sub;
     if (r.goesNegative) {
-      headline = 'You run short on ' + dLabel(pts[r.firstNegativeDay].date);
-      sub = 'Move or delay a bill to stay above zero.';
+      /* Lead with the lever, not the deficit.
+         "You run short on Aug 18" made the largest text on the app's most
+         important screen a piece of bad news, in red, with the actual
+         instruction relegated to 12px of grey underneath. The person
+         already knows money is tight — that is why they opened the app.
+         What they do not know is which single thing to move.
+         The date and the amount are both still here; they have just stopped
+         being the shout. */
+      const _when = dLabel(pts[r.firstNegativeDay].date);
+      if (_oneBillFixesIt) {
+        // Two lines of large type reads as deliberate; three reads as
+        // overflow. "Move X to stay above zero" says the same thing and fits.
+        headline = 'Move ' + (_movable.name || 'one bill') + ' to stay above zero';
+        sub = FCData.formatCurrency(_movable.amount) + ', due before ' + _when
+            + '. Shifting it past ' + _when + ' covers the gap.';
+      } else {
+        headline = _when + ' is the day to watch';
+        sub = 'Moving or delaying a bill before then keeps you above zero.';
+      }
     } else if (r.isIrregular) {
       headline = covPhrase || 'You are covered';
       const wk = r.income.perWeek;
@@ -2523,21 +2803,46 @@ window.FCApp = (function () {
       ? _sp.payday.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
       : '';
 
+    /* When the runway dips below zero, "Safe to spend $0.00" is a clamp
+       reported as a fact. Math.max(0, \u2026) maps a $12 shortfall and a $900
+       shortfall onto the same three characters, and $0.00 next to a red
+       "you run short on Aug 19" reads as a rounding artifact rather than
+       the answer. The magnitude is already known \u2014 r.lowest.balance is the
+       deepest point of the dip \u2014 so say it: "Short by $148" is what decides
+       whether you move one bill or three.
+       Deliberately r.lowest, not the balance on firstNegativeDay: what you
+       have to cover is the worst moment in the window, not the first one. */
+    const _short = r.goesNegative ? Math.abs(r.lowest.balance) : 0;
+    const _endLbl  = r.goesNegative ? 'Short by' : 'Safe to spend';
+    const _endVal  = r.goesNegative ? _short : _safe;
+    /* The headline already names the day you cross zero, and so does the
+       flag on the chart. Saying it a third time here is noise — so this
+       slot only speaks when it has something the other two do not: the day
+       the hole is DEEPEST, when that is later than the day it opens. That
+       is the date the amount above actually refers to. */
+    const _endMeta = r.goesNegative
+      ? (r.lowest.day !== r.firstNegativeDay ? 'worst on ' + dLabel(pts[r.lowest.day].date) : '')
+      : (_until ? 'until ' + _until : '');
+
     return ''
       + '<section class="fc-ui-card rw-card" aria-label="Runway to payday">'
         + '<div class="rw-head">'
           + '<div class="rw-head__text"><p class="fc-section-label">Runway</p>'
-            + '<h2 class="rw-headline' + (r.goesNegative ? ' rw-headline--warn' : '') + '">' + esc(headline) + '</h2>'
+            /* No --warn on the headline any more. It now names the action
+               rather than the problem, and an action rendered in danger red
+               reads as another alarm instead of a way out. The amount beside
+               it keeps the colour — one red number, not a red paragraph. */
+            + '<h2 class="rw-headline">' + esc(headline) + '</h2>'
             + '<p class="rw-sub">' + esc(sub) + '</p></div>'
-          + '<div class="rw-end"><p class="rw-end-lbl">Safe to spend</p>'
+          + '<div class="rw-end"><p class="rw-end-lbl">' + esc(_endLbl) + '</p>'
             // data-countup lets the caller animate this without needing to
             // recompute the value \u2014 see the count-up pass in
             // _renderHomeDashboard(). Server-rendered text stays correct if
             // the animation is skipped (reduced motion, unchanged value).
-            + '<p class="rw-endpoint-value fc-amount"'
-            + ' id="rw-endpoint-value" data-countup="' + _safe + '">'
-            + FCData.formatCurrency(_safe) + '</p>'
-            + (_until ? '<p class="rw-end-meta">until ' + esc(_until) + '</p>' : '')
+            + '<p class="rw-endpoint-value fc-amount' + (r.goesNegative ? ' rw-endpoint-value--warn' : '') + '"'
+            + ' id="rw-endpoint-value" data-countup="' + _endVal + '">'
+            + FCData.formatCurrency(_endVal) + '</p>'
+            + (_endMeta ? '<p class="rw-end-meta">' + esc(_endMeta) + '</p>' : '')
           + '</div>'
         + '</div>'
         + '<div class="rw-chart">'
@@ -2549,8 +2854,25 @@ window.FCApp = (function () {
           + '<div class="rw-readout" id="rw-readout" aria-hidden="true"></div>'
           + '<div class="rw-axis"><span>Today</span><span>' + esc(dLabel(pts[pts.length - 1].date)) + '</span></div>'
         + '</div>'
-        + '<button class="rw-cta" type="button" onclick="FCApp.showAffordSheet&&FCApp.showAffordSheet()">Can I afford something?</button>'
-        + _RW_TRUST_ROW
+        /* The CTA has to answer the state it is sitting in. "Can I afford
+           something?" under a red "You run short on Aug 19" asks a question
+           the card has already answered, and answered no — while the actual
+           instruction ("Move or delay a bill to stay above zero") sits in
+           12px muted text with no affordance at all. In the short state the
+           button IS that instruction and goes where the bills are.
+
+           The button stays accent, not red: urgency is already carried by
+           the headline, the amount, the line and the flag on the chart, and
+           a fifth red element turns a warning into a siren. The accent is
+           the app's action colour — the calm thing to press. (It is also
+           the only one that clears 4.5:1 with white ink; --fc-danger does
+           not, at 15px/700.) */
+        + (r.goesNegative
+            ? '<button class="rw-cta" type="button" onclick="FCApp.switchTab(\'activity\');FCApp.switchActivitySegment(\'bills\')">Fix ' + esc(dLabel(pts[r.firstNegativeDay].date)) + '</button>'
+            : '<button class="rw-cta" type="button" onclick="FCApp.showAffordSheet&&FCApp.showAffordSheet()">Can I afford something?</button>')
+        /* _RW_TRUST_ROW deliberately absent: see the note on its definition.
+           It stays on the sample/skeleton cards, where it is doing real work
+           for someone deciding whether to connect a bank. */
       + '</section>';
   }
 
@@ -3323,9 +3645,7 @@ window.FCApp = (function () {
       .filter(_isSpendTxn)
       .reduce((sum, transaction) => sum + Number(transaction.amount || 0), 0);
     const cashFlow = monthIncome - monthSpend;
-    const budgetLimit = Number(budgets.total?.limit || 0) || Object.entries(budgets)
-      .filter(([key]) => key !== 'total')
-      .reduce((sum, [, budget]) => sum + Number(budget?.limit || 0), 0);
+    const budgetLimit = _totalBudgetLimit(budgets);
     const budgetPct = budgetLimit > 0 ? Math.round((monthSpend / budgetLimit) * 100) : 0;
     const budgetRemaining = budgetLimit - monthSpend;
     const budgetTone = budgetPct > 100 ? 'is-danger' : budgetPct >= 85 ? 'is-warning' : 'is-success';
@@ -3496,18 +3816,56 @@ window.FCApp = (function () {
       });
     }
     if (budgetLimit > 0) {
-      const _dl = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate() - now.getDate();
+      const _dim = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
+      const _dl  = _dim - now.getDate();
+
+      /* A flat 90% threshold has no idea what day it is. On Aug 14 with 45%
+         of the month gone, 83% spent got `type: 'good'`, a green check and
+         the words "looking good" — directly under a red "you run short on
+         Aug 19", and directly under a row already saying spending pace is
+         high. Three elements, same data, three different verdicts.
+         Judge against elapsed time instead: what matters is not how much of
+         the budget is gone but whether it is going faster than the month.
+         `ratio` is spend-pace over time-pace — 1.0 is exactly on track. */
+      const _monthPct = (now.getDate() / _dim) * 100;
+      const _ratio    = _monthPct > 0 ? budgetPct / _monthPct : 0;
+      const _over     = budgetRemaining < 0;
+      /* Two guards, and the second one matters more than it looks.
+
+         1.15 rather than 1.0, because a little ahead is just noise.
+
+         But no ratio threshold survives the start of a month: rent clears on
+         the 1st, so on the 5th you have spent 50% of the budget in 16% of the
+         days and the ratio is 3.1 — not because anything is wrong, but
+         because a monthly fixed cost cannot be spread linearly. Projecting
+         from it would announce "on pace for 310% of budget" every single
+         month, and an alert that cries wolf on schedule is worse than no
+         alert. So the pace verdict does not speak until a third of the month
+         has passed (~day 11); before that only genuinely being over the limit
+         can raise it, which needs no projection to be true. */
+      const _paceKnown = _monthPct >= 33;
+      const _ahead     = _over || (_paceKnown && _ratio >= 1.15);
+
+      /* Projected month-end spend at the current rate. "83% used" is a fact
+         about the past; "on pace for 184%" is the one that changes what you
+         do this afternoon. */
+      const _pace = Math.round(budgetPct * (_dim / Math.max(1, now.getDate())));
+
       carouselCards.push({
-        label:   budgetPct >= 90 ? 'Budget alert' : budgetPct >= 70 ? 'Budget check' : 'On track',
-        title:   budgetPct >= 90 ? `${budgetPct}% of budget used.` : `${budgetPct}% used — looking good.`,
-        body:    budgetRemaining >= 0
-          ? `${fmt(budgetRemaining)} left with ${_dl} day${_dl !== 1 ? 's' : ''} to go.`
-          : `Spending is ${fmt(Math.abs(budgetRemaining))} over plan.`,
+        label:   _over ? 'Over budget' : _ahead ? 'Budget check' : 'On track',
+        title:   _over  ? `${budgetPct}% of budget used.`
+               : _ahead ? `${budgetPct}% used with ${_dl} day${_dl !== 1 ? 's' : ''} left.`
+               :          `${budgetPct}% used — on pace.`,
+        body:    _over
+          ? `Spending is ${fmt(Math.abs(budgetRemaining))} over plan.`
+          : _ahead
+            ? `At this rate you finish the month around ${_pace}% of budget. ${fmt(budgetRemaining)} left.`
+            : `${fmt(budgetRemaining)} left with ${_dl} day${_dl !== 1 ? 's' : ''} to go.`,
         action:  'Review Budget',
         onclick: "FCApp.switchTab('plan')",
-        emoji:   budgetPct >= 90 ? _slideArt('bar-chart', 'warn') : _slideArt('check', 'good'),
-        rowArt:  budgetPct >= 90 ? _rowArt('bar-chart', 'warn') : _rowArt('check', 'good'),
-        type:    budgetPct >= 90 ? 'warn' : 'good',
+        emoji:   _ahead ? _slideArt('bar-chart', 'warn') : _slideArt('check', 'good'),
+        rowArt:  _ahead ? _rowArt('bar-chart', 'warn')   : _rowArt('check', 'good'),
+        type:    _ahead ? 'warn' : 'good',
       });
     }
     if (carouselCards.length === 0) {
@@ -3523,7 +3881,27 @@ window.FCApp = (function () {
       });
     }
 
-    const syncPill = isLinked ? '<span class="fc-status-pill">Synced</span>' : '';
+    /* "Synced" is a state, not information. It shipped on every render to
+       tell people the thing they already assume is true — and it sat in the
+       greeting row, the one piece of chrome at the top of the daily home.
+       A status indicator earns its place when the status is BAD; the green
+       case is the silent one. So: show it only when the last sync failed,
+       or when the data is old enough that a number on this screen might be
+       wrong (>24h). Otherwise the row is just the greeting. */
+    const _syncAt   = _getLastSyncAt();
+    const _syncAge  = _syncAt ? Date.now() - _syncAt : Infinity;
+    const _syncStale = _syncAge > 24 * 60 * 60 * 1000;
+    /* Demo mode has no bank and never syncs, so _getLastSyncAt() is 0 and
+       every demo session would wear a permanent "Not synced yet" warning —
+       about data that is fabricated on purpose. App Review sees this screen. */
+    const syncPill = (!isLinked || _isDemoMode) ? ''
+      : _lastSyncFailed
+        ? '<span class="fc-status-pill fc-status-pill--danger">Sync failed</span>'
+        : _syncStale
+          ? '<span class="fc-status-pill fc-status-pill--warn">' + (
+              _syncAt ? 'Updated ' + Math.floor(_syncAge / 86400000) + 'd ago' : 'Not synced yet'
+            ) + '</span>'
+          : '';
     const nextBillMarkup = nextBill ? `
       <div class="home-v8__mini-top">
         <span class="home-v8__mini-icon is-warning" aria-hidden="true">
@@ -3584,6 +3962,32 @@ window.FCApp = (function () {
     // Dashboard v9 — the runway replaces the Safe-to-Spend hero card.
     // It answers the same question with a picture instead of a number.
     const safeSpendMarkup = _renderRunwayCard();
+
+    /* Quick actions. Two changes from the fixed +/↗/✓ trio:
+
+       1. The glyphs were literal '+', '↗' and '✓' characters — the only
+          place on Today still drawing chrome as text while everything
+          around them uses _ic(). They rendered in the system font, at a
+          weight and baseline nothing else shares.
+       2. The first slot now follows the runway. On a day the card is
+          saying you run short on the 19th, "Set a goal" is not one of the
+          three things you might want to do — moving a bill is, and it was
+          reachable only through the sentence in the card above.
+
+       _rwSeries is safe to read here: _renderRunwayCard() ran on the line
+       above and either sets it or nulls it. */
+    const _short = Boolean(_rwSeries && _rwSeries.goesNegative);
+    const _quickActions = [
+      _short
+        ? { icon: 'calendar', label: 'Move a bill', onclick: "FCApp.switchTab('activity');FCApp.switchActivitySegment('bills')" }
+        : { icon: 'credit-card', label: 'Add a bill', onclick: 'FCApp.showBillSheet&&FCApp.showBillSheet()' },
+      { icon: 'flag', label: goals.length ? 'Goals' : 'Set a goal', onclick: "FCApp._openSubScreen('goals')" },
+      { icon: 'pie-chart', label: 'Review plan', onclick: "FCApp.switchTab('plan')" },
+    ];
+    const quickActionsMarkup = _quickActions.map(a =>
+      `<button class="home-v8__quick-action" type="button" onclick="${a.onclick}">`
+      + `<span class="home-v8__quick-action-icon" aria-hidden="true">${_ic(a.icon, 'currentColor', 17)}</span>`
+      + `${esc(a.label)}</button>`).join('');
 
     const upcomingListMarkup = upcomingBills.length ? upcomingBills.map(bill => `
       <div class="home-v8__list-row">
@@ -3891,11 +4295,7 @@ window.FCApp = (function () {
              cash-flow picture, and a better one. -->
         <section class="home-v8__section home-v8__actions-panel" aria-labelledby="home-actions-heading">
           <div class="home-v8__section-heading"><div><h2 id="home-actions-heading">Quick actions</h2></div></div>
-          <div class="home-v8__quick-actions">
-            <button class="home-v8__quick-action" type="button" onclick="FCApp.showBillSheet&&FCApp.showBillSheet()"><span aria-hidden="true">+</span>Add a bill</button>
-            <button class="home-v8__quick-action" type="button" onclick="FCApp._openSubScreen('goals')"><span aria-hidden="true">↗</span>Set a goal</button>
-            <button class="home-v8__quick-action" type="button" onclick="FCApp.switchTab('plan')"><span aria-hidden="true">✓</span>Review plan</button>
-          </div>
+          <div class="home-v8__quick-actions">${quickActionsMarkup}</div>
         </section>
 
         <!-- Money Week sits below the actions on purpose. It is a recap, not a
@@ -4091,9 +4491,15 @@ window.FCApp = (function () {
             ${state.accounts.length ? 'No transactions match this filter' : 'Connect a bank to see transactions'}
           </div>
           <div style="font-size:13px">
-            ${state.accounts.length ? 'Try a different filter or pull down to sync' : 'Tap the link button above'}
+            ${state.accounts.length ? 'Try a different filter or pull down to sync' : 'Connect one from Money → Net Worth.'}
           </div>
+          ${state.accounts.length ? '' : `<button class="fc-btn fc-btn--primary fc-btn--sm" style="margin-top:16px" type="button" onclick="FCApp.showBankSheet&&FCApp.showBankSheet()">Connect a bank</button>`}
         </div>`;
+      /* "Tap the link button above" pointed at a control that is not there:
+         this header holds search, filter, and an add-bill button that only
+         appears on the Bills segment. Nothing links a bank from here. Say
+         where it actually lives, and give the screen the button it was
+         already telling people to press. */
       return;
     }
 
@@ -4105,7 +4511,9 @@ window.FCApp = (function () {
 
     const chevronSvg = `<svg class="fc-list-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>`;
 
-    for (const [label, txns] of Object.entries(allGroups)) {
+    // allGroups is already an ordered array of [label, txns] pairs — do NOT
+    // wrap it in Object.entries(), which is what used to discard the order.
+    for (const [label, txns] of allGroups) {
       if (!_activityShowAll && renderedCount >= PAGE_TXN_LIMIT) {
         truncated = true;
         break;
@@ -4819,8 +5227,8 @@ window.FCApp = (function () {
     _renderWeekSummary(periodSpend, periodIncome, periodLabel);
 
     // ── Spending ring + budget progress ──────────────────────────
-    const budgetLimit  = state.budgets && state.budgets['total'] ? state.budgets['total'].limit : 3000;
-    const budgetPct    = Math.min(Math.round((periodSpend / budgetLimit) * 100), 100);
+    const budgetLimit  = _totalBudgetLimit();
+    const budgetPct    = budgetLimit > 0 ? Math.min(Math.round((periodSpend / budgetLimit) * 100), 100) : 0;
     const budgetColor  = budgetPct > 90 ? 'var(--fc-danger)'
                        : budgetPct > 70 ? 'var(--fc-warning)'
                        : null; // null = use gradient
@@ -4846,10 +5254,15 @@ window.FCApp = (function () {
     const remEl = document.getElementById('insights-budget-remaining');
     const remaining = Math.max(0, budgetLimit - periodSpend);
     if (remEl) {
-      remEl.textContent = periodSpend > budgetLimit
-        ? `${FCData.formatCurrency(periodSpend - budgetLimit)} over`
-        : `${FCData.formatCurrency(remaining)} left`;
-      remEl.style.color = periodSpend > budgetLimit ? 'var(--fc-danger)' : 'var(--fc-text-faint)';
+      /* budgetLimit is 0 when no budget exists, where it used to be a
+         hardcoded 3000. Without this branch every unbudgeted user would be
+         told they are "$X over" — over a ceiling they never set. */
+      remEl.textContent = budgetLimit <= 0
+        ? 'No budget set'
+        : periodSpend > budgetLimit
+          ? `${FCData.formatCurrency(periodSpend - budgetLimit)} over`
+          : `${FCData.formatCurrency(remaining)} left`;
+      remEl.style.color = budgetLimit > 0 && periodSpend > budgetLimit ? 'var(--fc-danger)' : 'var(--fc-text-faint)';
     }
 
     // ── Spending pace forecast ────────────────────────────────────
@@ -5421,14 +5834,13 @@ window.FCApp = (function () {
     });
   }
 
-  /* ─────────────────────────────────────────────────────────────
-     RENDER: GOALS
-     ───────────────────────────────────────────────────────────── */
-
-  function _renderGoals() {
-    _renderWealthGoals();
-    // Keep compat hidden container in sync for any legacy code paths
-  }
+  /* (removed) _renderGoals / _renderWealthGoals — Goals used to be a panel
+     inside Money. It became its own tab, but the panel, its render function
+     and its markup stayed behind. There has been no `wv-tab-goals` button to
+     activate #wv-panel-goals since, so `_wealthTab === 'goals'` was
+     unreachable and the ~70 lines it guarded rendered into a permanently
+     hidden div on every Pro refresh. The live Goals screen is
+     _renderGoalsScreen(), reached by switchTab('goals'). */
 
   /* ─────────────────────────────────────────────────────────────
      RENDER: WEALTH TAB (Savings | Goals | Debt)
@@ -5453,7 +5865,6 @@ window.FCApp = (function () {
       if (tab === 'overview')     _renderWealthOverview();
       else if (tab === 'savings') _renderWealthSavings();
       else if (tab === 'debt')    _renderWealthDebt();
-      else if (tab === 'goals')   _renderWealthGoals();
     });
   }
 
@@ -5496,7 +5907,7 @@ window.FCApp = (function () {
   }
 
   function switchWealthSegment(seg) {
-    switchWealthTab(seg === 'savings' ? 'savings' : seg === 'goals' ? 'goals' : seg === 'debt' ? 'debt' : 'overview');
+    switchWealthTab(seg === 'savings' ? 'savings' : seg === 'debt' ? 'debt' : 'overview');
   }
 
   function _renderWealthHero() {
@@ -5526,9 +5937,19 @@ window.FCApp = (function () {
         const prev = hist[hist.length - 2]?.nw ?? 0;
         const delta = nw - prev;
         const sign  = delta >= 0 ? '+' : '−';
-        const color = delta >= 0 ? 'rgba(52,199,89,0.15)' : 'rgba(255,69,58,0.12)';
+        // Tokens, not literal rgba: these were the dark-mode success/danger
+        // values baked in, so the badge kept its dark tint in light mode.
+        const color = delta >= 0 ? 'var(--fc-success-soft)' : 'var(--fc-danger-soft)';
         const textColor = delta >= 0 ? 'var(--fc-success)' : 'var(--fc-danger)';
-        dlEl.innerHTML = `<span>${sign}${FCData.formatCurrency(Math.abs(delta))}</span><span style="font-weight:500;color:var(--fc-text-faint);margin-left:4px">(${delta >= 0 ? '+' : ''}${liabilities > 0 ? Math.round((delta / Math.max(1, Math.abs(prev))) * 100) : 0}%) this month</span>`;
+        /* The percentage used to be gated on `liabilities > 0`, which has
+           nothing to do with it — a debt-free user with a rising net worth
+           was shown a flat "+0%". What the ratio actually needs is a
+           non-zero PREVIOUS value to divide by; without one there is no
+           percentage to state, so we show the dollar change alone. */
+        const pctText = Math.abs(prev) > 0
+          ? ` (${delta >= 0 ? '+' : '−'}${Math.abs(Math.round((delta / Math.abs(prev)) * 100))}%)`
+          : '';
+        dlEl.innerHTML = `<span>${sign}${FCData.formatCurrency(Math.abs(delta))}</span><span style="font-weight:500;color:var(--fc-text-faint);margin-left:4px">${pctText} this month</span>`;
         dlEl.style.cssText = `display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px;background:${color};color:${textColor};margin-top:8px`;
       } else {
         dlEl.style.display = 'none';
@@ -5585,7 +6006,10 @@ window.FCApp = (function () {
 
       // Color based on trend
       const isPositive = vals[vals.length - 1] >= vals[0];
-      const strokeColor = isPositive ? '#1ac4f0' : 'var(--fc-danger)';
+      /* Was the literal '#1ac4f0'. That is the DARK-mode accent; in light
+         mode --fc-accent is #147CFF, so this one line stayed cyan on a
+         screen that had gone blue everywhere else. */
+      const strokeColor = isPositive ? 'var(--fc-accent)' : 'var(--fc-danger)';
       line.setAttribute('stroke', strokeColor);
       if (dot) dot.setAttribute('fill', strokeColor);
     })();
@@ -5596,7 +6020,6 @@ window.FCApp = (function () {
     if (_wealthTab === 'overview')     _renderWealthOverview();
     else if (_wealthTab === 'savings') _renderWealthSavings();
     else if (_wealthTab === 'debt')    _renderWealthDebt();
-    else if (_wealthTab === 'goals')   _renderWealthGoals();
   }
 
   /* ─── Wealth: build sparkline SVG string ─── */
@@ -5642,15 +6065,24 @@ window.FCApp = (function () {
     }
     const lp=pts[pts.length-1];
     const gid='wvsg'+Math.random().toString(36).slice(2,6);
-    return `<svg viewBox="0 0 320 56" width="100%" height="56" preserveAspectRatio="none" aria-hidden="true">
-      <defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="${color}" stop-opacity="0.28"/>
-        <stop offset="100%" stop-color="${color}" stop-opacity="0"/>
-      </linearGradient></defs>
-      <path d="${d} L${lp[0].toFixed(1)},${H} L0,${H} Z" fill="url(#${gid})"/>
-      <path d="${d}" stroke="${color}" stroke-width="2" fill="none" stroke-linecap="round"/>
-      <circle cx="${lp[0].toFixed(1)}" cy="${lp[1].toFixed(1)}" r="3.5" fill="${color}"/>
-    </svg>`;
+    /* Same trap the runway card had, and the day-one branch above already
+       calls out: preserveAspectRatio="none" stretches this 320-wide viewBox
+       to the card's real width, so a <circle> renders as an ellipse and the
+       stroke thickens unevenly. The paths stay in the stretched space with
+       non-scaling-stroke; the end dot moves to an HTML overlay so it stays
+       round at every width — which is exactly what the day-one state below
+       already does with its own dot. */
+    return `<div style="position:relative">
+      <svg viewBox="0 0 320 56" width="100%" height="56" preserveAspectRatio="none" aria-hidden="true">
+        <defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="${color}" stop-opacity="0.28"/>
+          <stop offset="100%" stop-color="${color}" stop-opacity="0"/>
+        </linearGradient></defs>
+        <path d="${d} L${lp[0].toFixed(1)},${H} L0,${H} Z" fill="url(#${gid})"/>
+        <path d="${d}" stroke="${color}" stroke-width="2" fill="none" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+      </svg>
+      <span style="position:absolute;left:${(lp[0]/W*100).toFixed(2)}%;top:${(lp[1]/H*100).toFixed(2)}%;width:7px;height:7px;border-radius:999px;background:${color};transform:translate(-50%,-50%);pointer-events:none"></span>
+    </div>`;
   }
 
   /* ─── Wealth: guided path ─── */
@@ -5839,7 +6271,10 @@ window.FCApp = (function () {
     const savGroup=savAccts.filter(isSavAcct);
     const chkGroup=savAccts.filter(a=>!isSavAcct(a));
     const nameCounts={};
-    savAccts.forEach(a=>{ nameCounts[a.name||'']=(nameCounts[a.name||']']||0)+1; });
+    // Read and write the SAME key. The read side said `a.name||']'` — a
+    // stray bracket — so unnamed accounts always counted 1 and never got
+    // the ••mask disambiguator that this map exists to trigger.
+    savAccts.forEach(a=>{ const k=a.name||''; nameCounts[k]=(nameCounts[k]||0)+1; });
     const displayName=a=>{ const b=a.name||'Account'; return (nameCounts[b]>1&&a.mask)?`${b} ••${a.mask}`:b; };
     /* Manual accounts are editable, Plaid-synced ones are not: the backend
        owns those and firestore.rules refuses client writes to them, so an
@@ -5856,12 +6291,19 @@ window.FCApp = (function () {
       <div class="wv-acct-bal">${FCData.formatCurrency(a.balance_current||a.balance||0)}</div>
       ${a.manual?'<span class="wv-acct-chevron" aria-hidden="true">›</span>':''}
     </div>`;
-    const renderGroup=(list,label)=>list.length?`<div class="wv-lbl">${label}</div><div class="wv-card wv-acct-card">${list.map(acctRow).join('')}</div>`:'';
+    /* Emits a label and rows, NOT another card. This used to return its own
+       `.wv-card` while the caller already wrapped the result in one, so
+       Savings rendered a card inside a card — two borders, two radii, two
+       backgrounds, nested. */
+    const renderGroup=(list,label)=>list.length?`<div class="wv-acct-group-lbl">${esc(label)}</div>${list.map(acctRow).join('')}`:'';
     // Monthly save target
     const monthsToTarget=weeklyAmt>0?Math.ceil((efTarget-efCurrent)/(weeklyAmt*4.3)):null;
     el.innerHTML = `
       <div class="wv-card wv-sav-hero">
-        <div class="wv-sav-hero-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--wv-green)" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M20 12V22H4V12"/><path d="M22 7H2v5h20V7z"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg></div>
+        <!-- Was Feather's "gift" glyph — a wrapped present with a bow, on
+             the card whose subtitle is "Cash & Savings". Reads as a reward
+             or a promo, not as money in an account. -->
+        <div class="wv-sav-hero-icon">${_ic('bank','var(--wv-green)',24)}</div>
         <div>
           <div class="wv-sav-total">${FCData.formatCurrency(total)}</div>
           <div class="wv-sav-sub">${savAccts.length} account${savAccts.length!==1?'s':''} · Cash &amp; Savings</div>
@@ -5880,7 +6322,7 @@ window.FCApp = (function () {
         </div>
         <div>
           <div class="wv-ef-title">${efGoal?esc(efGoal.name):'Emergency Fund'}</div>
-          <div class="wv-ef-sub">${FCData.formatCurrency(efCurrent)} of ${FCData.formatCurrency(efTarget)} · ${efPct>=100?'Fully funded 🎉':'Keep it up'}</div>
+          <div class="wv-ef-sub">${FCData.formatCurrency(efCurrent)} of ${FCData.formatCurrency(efTarget)} · ${efPct>=100?'Fully funded':'Keep it up'}</div>
           ${efPct<100?`<div class="wv-ef-bar"><div class="wv-pbar"><div class="wv-pbar-fill" style="width:${efPct}%;background:${efColor}"></div></div></div>`:''}
         </div>
       </div>`:''}
@@ -5898,7 +6340,7 @@ window.FCApp = (function () {
         ${savGroup.length||chkGroup.length ? renderGroup(savGroup,'Savings')+renderGroup(chkGroup,'Checking') : savAccts.map(acctRow).join('')}
       </div>`:`
       <div class="wv-empty">
-        <div class="wv-empty-icon">🏦</div>
+        <div class="wv-empty-icon">${_ic('bank','var(--fc-accent)',26)}</div>
         <div class="wv-empty-title">No savings accounts</div>
         <div class="wv-empty-sub">Connect a bank to track your savings.</div>
         <button class="wv-empty-cta" onclick="FCApp.showBankSheet&&FCApp.showBankSheet()">Connect Bank</button>
@@ -5932,7 +6374,7 @@ window.FCApp = (function () {
       return t==='credit'||t==='loan'||['credit card','line of credit','mortgage','auto','student','home equity'].includes(s);
     });
     if (!debtAccts.length) {
-      el.innerHTML=`<div class="wv-empty"><div class="wv-empty-icon">💳</div><div class="wv-empty-title">No debts tracked</div><div class="wv-empty-sub">Connect a credit card or loan to see payoff progress.</div><button class="wv-empty-cta" onclick="FCApp.showBankSheet&&FCApp.showBankSheet()">Connect Account</button></div>`;
+      el.innerHTML=`<div class="wv-empty"><div class="wv-empty-icon">${_ic('credit-card','var(--fc-accent)',26)}</div><div class="wv-empty-title">No debts tracked</div><div class="wv-empty-sub">Connect a credit card or loan to see payoff progress.</div><button class="wv-empty-cta" onclick="FCApp.showBankSheet&&FCApp.showBankSheet()">Connect Account</button></div>`;
       return;
     }
     const totalDebt=debtAccts.reduce((s,a)=>s+Math.max(0,a.balance_current||a.balance||0),0);
@@ -5984,7 +6426,25 @@ window.FCApp = (function () {
         + `</div>`).join('')}
       </div>` : '';
     // Next payment from bills
-    const nextBill=state.bills?.filter(b=>!b.paid&&(b.category||'').toLowerCase().includes('debt')||['card','loan','mortgage'].some(k=>(b.name||'').toLowerCase().includes(k))).sort((a,b)=>(a.due_date||'').localeCompare(b.due_date||''))[0];
+    /* Two faults in one line, both hidden by operator precedence:
+
+         !b.paid && cat.includes('debt') || name.match(...)
+
+       `&&` binds tighter than `||`, so the name branch was never guarded
+       by the paid check at all — a card payment you had already made still
+       showed up as "Next payment". And the guard itself was `b.paid`,
+       which no bill carries; every other reader in this file uses
+       `b.status !== 'paid'`. So the check that was written was also the
+       check that never ran. Parenthesised, and reading the real field. */
+    const _isDebtBill = b => {
+      if (b.status === 'paid') return false;
+      const cat = (b.category || '').toLowerCase();
+      const nm  = (b.name || '').toLowerCase();
+      return cat.includes('debt') || ['card','loan','mortgage'].some(k => nm.includes(k));
+    };
+    const nextBill = (state.bills || [])
+      .filter(_isDebtBill)
+      .sort((a,b) => (a.due_date||'').localeCompare(b.due_date||''))[0];
     // Debt rows
     const debtRows=debtAccts.map(a=>{
       const bal=Math.max(0,a.balance_current||a.balance||0);
@@ -6015,10 +6475,47 @@ window.FCApp = (function () {
         </div>
       </div>`;
     }).join('');
-    // Extra payment impact (avalanche: focus on highest balance)
-    const topCard=cards.sort((a,b)=>(b.balance_current||b.balance||0)-(a.balance_current||a.balance||0))[0];
-    const extraAmt=50;
-    const monthsToPayoff=topCard ? Math.ceil((topCard.balance_current||topCard.balance||0)/extraAmt) : null;
+    /* ── Extra payment impact ────────────────────────────────────────
+       This card was three wrong things at once.
+
+       1. `cards.sort(...)` picked the biggest BALANCE while the comment
+          called it avalanche — avalanche is highest INTEREST. It also
+          sorted `cards` in place, quietly reordering an array read further
+          up. The panel already sorts `debtAccts` by the user's chosen
+          strategy, so the account to attack first is simply the first one.
+
+       2. `months = ceil(balance / 50)` treated the EXTRA $50 as the only
+          payment being made. For a $723 card that printed "roughly 15
+          months" when an extra $50 on top of a minimum clears it in a
+          fraction of that. It also ignored interest entirely, which for a
+          credit card is most of the point.
+
+       3. "freeing up $12.06 monthly" came from `balance / 12 * 0.2` — a
+          formula with no financial meaning at all, presented as a fact.
+          What actually frees up when a debt is cleared is its minimum
+          payment. That is a real number we already have.
+
+       Now: pay the minimum plus the extra, amortise properly when we know
+       the rate, and say plainly when we are ignoring interest because the
+       rate is unknown. If we know neither rate nor minimum we say nothing
+       rather than invent a number. */
+    const _payoffTarget = debtAccts[0] || null;   // already strategy-ordered
+    const extraAmt = 50;
+    const _poBal  = _payoffTarget ? Math.max(0, _acctBal(_payoffTarget)) : 0;
+    const _poMin  = _payoffTarget ? _minPayment(_payoffTarget) : 0;
+    const _poRate = _payoffTarget ? Number(_payoffTarget.interest_rate || _payoffTarget.apr || 0) : 0;
+    const _poPay  = _poMin + extraAmt;
+    /* Standard amortisation: n = -ln(1 - rB/P) / ln(1+r).
+       rB >= P means the payment never clears the monthly interest, so the
+       balance grows forever — return null rather than a NaN or a negative
+       month count dressed up as a plan. */
+    const _poMonths = (() => {
+      if (!_payoffTarget || _poBal <= 0 || _poPay <= 0) return null;
+      if (_poRate <= 0) return Math.ceil(_poBal / _poPay);       // no rate known
+      const r = _poRate / 100 / 12;
+      if (r * _poBal >= _poPay) return null;                      // never pays off
+      return Math.ceil(-Math.log(1 - (r * _poBal) / _poPay) / Math.log(1 + r));
+    })();
     const debtIsUrgent = utilPct > 70 || totalDebt > 20000;
     const debtCta      = debtIsUrgent ? 'Review debt strategy' : 'See Wealth Plan';
     const debtCtaColor = debtIsUrgent ? 'var(--wv-red)' : 'var(--wv-blue)';
@@ -6042,7 +6539,7 @@ window.FCApp = (function () {
     const _rated = debtAccts.filter(a => _dRate(a) > 0);
     const avgRate = _rated.length
       ? _rated.reduce((s,a) => s + _dRate(a), 0) / _rated.length : 0;
-    const totalMin = debtAccts.reduce((s,a) => s + Number(a.minimum_payment || 0), 0);
+    const totalMin = debtAccts.reduce((s,a) => s + _minPayment(a), 0);
     const metric = (label, value, tone) =>
       `<div class="fc-metric-card"><div class="fc-metric-label">${label}</div>`
       + `<div class="fc-metric-value" style="font-size:20px${tone ? ';color:' + tone : ''}">${value}</div></div>`;
@@ -6054,6 +6551,9 @@ window.FCApp = (function () {
         <button class="wv-debt-add" type="button"
                 onclick="FCApp.showManualAccountSheet({type:'loan'})">+ Add debt</button>
       </div>
+      <!-- The second "Your Debts" heading that used to sit directly above
+           the account list is gone: this row already names the section, and
+           the list is the only thing on the panel it could be labelling. -->
       <div class="wv-debt-metrics">
         ${metric('Avg Interest', avgRate > 0 ? avgRate.toFixed(1) + '%' : dash)}
         ${metric('Monthly Min.', totalMin > 0 ? FCData.formatCurrency(totalMin) : dash)}
@@ -6080,12 +6580,21 @@ window.FCApp = (function () {
         </div>
         <button class="wv-strategy-change" onclick="FCApp._openDebtStrategy&&FCApp._openDebtStrategy()">Change</button>
       </div>
-      <div class="wv-lbl">Your Debts</div>
       <div class="wv-card wv-debt-card">${debtRows}</div>
-      ${topCard&&monthsToPayoff?`
+      ${_payoffTarget && _poMonths ? `
       <div class="wv-impact">
-        <div class="wv-impact-title">Extra $${extraAmt}/month impact</div>
-        <div class="wv-impact-body">Paying an extra ${FCData.formatCurrency(extraAmt)}/month toward <strong>${esc(topCard.name||'your card')}</strong> could pay it off in roughly ${monthsToPayoff} months — freeing up ${FCData.formatCurrency((topCard.balance_current||topCard.balance||0)/12*0.2)} monthly.</div>
+        <div class="wv-impact-title">Extra ${FCData.formatCurrency(extraAmt)}/month impact</div>
+        <div class="wv-impact-body">Paying ${FCData.formatCurrency(_poPay)}/month toward <strong>${esc(_payoffTarget.name || 'this debt')}</strong>${
+          _poMin > 0 ? ` — the ${FCData.formatCurrency(_poMin)} minimum plus ${FCData.formatCurrency(extraAmt)}` : ''
+        } clears it in about ${_poMonths} month${_poMonths === 1 ? '' : 's'}${
+          _poRate > 0 ? ` at ${_poRate.toFixed(1)}% APR` : ''
+        }.${
+          _poMin > 0 ? ` That frees up ${FCData.formatCurrency(_poMin)} a month once it is gone.` : ''
+        }${
+          /* Say so rather than quietly present an interest-free projection
+             as if it were the real payoff date. */
+          _poRate > 0 ? '' : ' Interest is not included — add this debt\'s rate for an exact date.'
+        }</div>
       </div>`:''}
       <div style="height:8px"></div>`;
 
@@ -6098,78 +6607,6 @@ window.FCApp = (function () {
     });
   }
 
-  /* ─── Wealth: Goals panel ─── */
-  function _renderWealthGoals() {
-    const el=document.getElementById('wv-goals-content');
-    if (!el) return;
-    const goals=_goalsForDisplay();
-    // Also update compat hidden container so legacy code is happy
-    const compat=document.getElementById('goals-list');
-    const activeGoals=goals.filter(g=>(g.pct||0)<100);
-    const topGoal=activeGoals[0]||goals[0];
-    // Goal status helper
-    const goalStatus=g=>{
-      if ((g.pct||0)>=100) return {lbl:'Complete',cls:'wv-badge-done'};
-      if (g.target_date) {
-        const daysLeft=(FCData.parseDateLocal(g.target_date)-new Date())/86400000;
-        if (daysLeft<=0) return {lbl:'Overdue',cls:'wv-badge-behind'};
-        const expPct=Math.max(0,Math.min(100,100-(daysLeft/365)*100));
-        if ((g.pct||0)<expPct-10) return {lbl:'Behind',cls:'wv-badge-behind'};
-        return {lbl:'On Track',cls:'wv-badge-track'};
-      }
-      return (g.pct||0)>0?{lbl:'In Progress',cls:'wv-badge-track'}:{lbl:'Not Started',cls:'wv-badge-new'};
-    };
-    if (!goals.length) {
-      const emptyHTML=`
-        <div class="wv-empty">
-          <div class="wv-empty-icon">🎯</div>
-          <div class="wv-empty-title">No goals yet</div>
-          <div class="wv-empty-sub">Set a target — emergency fund, vacation, house down payment — and we'll track your progress.</div>
-          <button class="wv-empty-cta" onclick="FCApp.showAddGoalSheet&&FCApp.showAddGoalSheet()">+ Add Goal</button>
-        </div>
-        <div class="wv-lbl">Start with a template</div>
-        <div class="wv-templates">
-          <button class="wv-tpl-btn" onclick="FCApp.showAddGoalSheet&&FCApp.showAddGoalSheet()"><div class="wv-tpl-icon" style="background:var(--wv-green-soft)">🛡️</div><div class="wv-tpl-name">Emergency Fund</div></button>
-          <button class="wv-tpl-btn" onclick="FCApp.showAddGoalSheet&&FCApp.showAddGoalSheet()"><div class="wv-tpl-icon" style="background:var(--wv-blue-soft)">✈️</div><div class="wv-tpl-name">Vacation</div></button>
-          <button class="wv-tpl-btn" onclick="FCApp.showAddGoalSheet&&FCApp.showAddGoalSheet()"><div class="wv-tpl-icon" style="background:var(--wv-amber-soft)">🏠</div><div class="wv-tpl-name">Down Payment</div></button>
-        </div>
-        <div style="height:8px"></div>`;
-      el.innerHTML=emptyHTML;
-      if (compat) compat.innerHTML='';
-      return;
-    }
-    const goalCards=goals.map((goal,index)=>{
-      const pct=Math.min(100,Math.round(goal.pct||0));
-      const status=goalStatus(goal);
-      const targetDate=goal.target_date
-        ? FCData.parseDateLocal(goal.target_date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})
-        : 'No target date';
-      const icon=['🛡️','✈️','💳'][index%3];
-      const action=goal._preview
-        ? 'FCApp.showAddGoalSheet&&FCApp.showAddGoalSheet()'
-        : `FCApp.editGoal&&FCApp.editGoal('${esc(goal.id||'')}')`;
-      return `<div class="premium-goal-card" onclick="${action}" role="button">
-        <div class="premium-goal-icon">${icon}</div>
-        <div class="premium-goal-content">
-          <div class="premium-goal-top"><strong>${esc(goal.name||'Goal')}</strong><span>${pct}%</span></div>
-          <div class="premium-goal-amount">${FCData.formatCurrency(goal.current||0)} <span>of ${FCData.formatCurrency(goal.target||0)}</span></div>
-          <div class="premium-goal-track"><i style="width:${pct}%"></i></div>
-          <div class="premium-goal-meta"><span class="${status.cls}">${status.lbl}</span><span>Target: ${esc(targetDate)}</span></div>
-        </div>
-      </div>`;
-    }).join('');
-    const streak=Math.max(1,state.user?.streak||12);
-    const html=`
-      <div class="premium-goals-heading"><span>Your goals</span><button type="button" onclick="FCApp.showAddGoalSheet&&FCApp.showAddGoalSheet()">+ Add</button></div>
-      <div class="premium-goals-list">${goalCards}</div>
-      <div class="premium-streak-card">
-        <div><span>Contribution streak</span><strong>${streak} weeks in a row!</strong><small>Consistency builds wealth.</small></div>
-        <div class="premium-streak-mark">${streak}</div>
-      </div>
-      <div style="height:8px"></div>`;
-    el.innerHTML=html;
-    if (compat) compat.innerHTML=html;
-  }
 
   /** Clean up raw institution names like "Principal Financial Group - Participant Logon" */
   function _cleanInstitutionName(raw) {
@@ -6750,10 +7187,15 @@ window.FCApp = (function () {
     const proBadge = document.getElementById('settings-pro-badge');
     const isPro    = !!(user.is_pro || user.pro || (window.FCPurchases && FCPurchases.isPro()));
     if (proBadge) {
+      /* Tokens, not literals. rgba(26,196,240,…) is the DARK-mode accent and
+         rgba(255,159,10,…) the dark-mode warning, both baked in — so in
+         light mode this badge kept a cyan tint on a screen whose accent had
+         become #147CFF. --fc-accent-soft / --fc-warning-soft already carry
+         the right value per theme. */
       proBadge.textContent = isPro ? 'Pro ✓' : 'Free';
       proBadge.style.cssText = isPro
-        ? 'font-size:10px;padding:4px 10px;background:rgba(26,196,240,0.15);color:var(--fc-accent);border:0.5px solid rgba(26,196,240,0.25);border-radius:999px'
-        : 'font-size:10px;padding:4px 10px;background:rgba(255,159,10,0.12);color:var(--fc-warning-text);border:0.5px solid rgba(255,159,10,0.25);border-radius:999px';
+        ? 'font-size:10px;padding:4px 10px;background:var(--fc-accent-soft);color:var(--fc-accent);border:0.5px solid var(--fc-border-accent);border-radius:999px'
+        : 'font-size:10px;padding:4px 10px;background:var(--fc-warning-soft);color:var(--fc-warning-text);border:0.5px solid var(--fc-warning-soft);border-radius:999px';
     }
 
     // Pro row — show status + cancel option for Pro users
@@ -6762,8 +7204,8 @@ window.FCApp = (function () {
     if (proPill) {
       proPill.textContent = isPro ? 'Manage' : 'Upgrade →';
       proPill.style.cssText = isPro
-        ? 'font-size:10px;padding:3px 8px;background:rgba(26,196,240,0.12);color:var(--fc-accent);border-radius:999px'
-        : 'font-size:10px;padding:3px 8px;background:rgba(255,159,10,0.12);color:var(--fc-warning-text);border-radius:999px';
+        ? 'font-size:10px;padding:3px 8px;background:var(--fc-accent-soft);color:var(--fc-accent);border-radius:999px'
+        : 'font-size:10px;padding:3px 8px;background:var(--fc-warning-soft);color:var(--fc-warning-text);border-radius:999px';
     }
     if (proRow) {
       proRow.onclick = isPro ? () => _openCancelSheet() : () => showPaywall();
@@ -6811,9 +7253,19 @@ window.FCApp = (function () {
   }
 
   function _openSubScreen(screenId) {
-    haptic('light');
     const el = document.getElementById('view-' + screenId);
-    if (!el) return;
+    /* Look the target up BEFORE firing the haptic, and say something when it
+       is missing. The old order buzzed first and then returned silently, so a
+       route whose screen had been deleted still felt like a working button —
+       which is exactly how _openSubScreen('bills') survived the removal of
+       #view-bills. A dead route should feel dead and leave a trace.
+       check-dom-ids.js cannot catch these: the id is built at runtime from
+       the argument, so check-sub-screens.js pairs the literals instead. */
+    if (!el) {
+      fcLog('[FCApp] _openSubScreen: no #view-' + screenId + ' — dead route');
+      return;
+    }
+    haptic('light');
     // Hide all fc-view screens
     document.querySelectorAll('.fc-view').forEach(v => v.classList.remove('active'));
     // Hide nav (sub-screens are full-screen without tabs)
@@ -6890,20 +7342,61 @@ window.FCApp = (function () {
     const mTxns      = txns.filter(t => t.date && FCData.parseDateLocal(t.date) >= mStart);
     const totalIncome = mTxns.filter(_isIncomeTxn).reduce((s,t) => s+(t.amount||0), 0);
     const totalSpend  = mTxns.filter(_isSpendTxn).reduce((s,t) => s+(t.amount||0), 0);
-    const budgetLimit = Object.values(budgets).reduce((s,b) => s+(b.limit||0), 0);
+    /* Base ceiling plus this month's carried-in credit. Budget Progress has
+       to measure against the same number the category rows do, or the two
+       halves of one screen disagree about how much room you have. */
+    const budgetBase  = _totalBudgetLimit(budgets);
+    const rollIn      = _rolloverTotal();
+    const budgetLimit = budgetBase + rollIn;
     const budgetPct   = budgetLimit > 0 ? Math.min(100, Math.round(totalSpend/budgetLimit*100)) : 0;
     const budgetColor = budgetPct >= 90 ? 'var(--fc-danger)' : budgetPct >= 70 ? 'var(--fc-warning)' : 'var(--fc-accent)';
     const daysInMonth = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
     const daysLeft    = daysInMonth - now.getDate();
     const debtAccts   = accounts.filter(a => a.type==='credit' || a.subtype==='credit card' || a.type==='loan');
     const totalBills  = monthBills.reduce((s,b) => s+(b.amount||0), 0);
-    const debtPmt     = debtAccts.reduce((s,a) => s+(a.min_payment||0), 0);
+    const debtPmt     = debtAccts.reduce((s,a) => s+_minPayment(a), 0);
     const goalMonthly = (state.goals||[]).reduce((s,g) => s+(g.monthly_target||0), 0);
-    const ringIncome  = totalIncome || 1;
-    const billsPct    = Math.min(99, Math.round(totalBills/ringIncome*100));
-    const debtPct     = Math.min(30, Math.round(debtPmt/ringIncome*100));
-    const savePct     = Math.min(30, Math.round(goalMonthly/ringIncome*100));
-    const spendPct    = Math.max(0, 100 - billsPct - debtPct - savePct);
+
+    /* ── Monthly Plan ring ─────────────────────────────────────────
+       This ring used to be built so that it could not be wrong on its
+       face — and was therefore wrong about the money:
+
+         spendPct = 100 - billsPct - debtPct - savePct
+
+       Spending was a RESIDUAL, not a measurement. Whatever the other three
+       did not claim, Spending absorbed, so the arcs always filled the
+       circle exactly. On a month with $3.3k income, $1,289 of bills and
+       $1,002 of actual spending, the Spending arc rendered at 61% of the
+       circle while the legend printed $1,002.82 beside it — which is 30%.
+       The missing ~$1,007 was the money left over, and the chart quietly
+       reassigned it to spending. That is the worst possible direction for
+       this error: the one number a person opens this card to find is
+       "what is still unspent", and the picture said zero.
+
+       The caps did their own damage — min(99) on bills, min(30) on debt
+       and savings — so a month where bills genuinely ate 40% of income and
+       savings took 35% drew neither at its true size.
+
+       Now every slice is measured, and the leftover is a slice of its own
+       with a name. If commitments exceed income the denominator grows to
+       match, so the ring stays a ring and the shortfall is stated in words
+       underneath rather than by silently rescaling. */
+    const ringIncome = totalIncome;
+    const ringParts = [
+      { label: 'Bills',    value: totalBills,  color: 'var(--fc-accent)'  },
+      { label: 'Debt',     value: debtPmt,     color: 'var(--fc-danger)'  },
+      { label: 'Savings',  value: goalMonthly, color: 'var(--fc-success)' },
+      { label: 'Spending', value: totalSpend,  color: 'var(--fc-warning)' },
+    ];
+    const ringAssigned = ringParts.reduce((s,p) => s + p.value, 0);
+    const ringLeft     = Math.max(0, ringIncome - ringAssigned);
+    const ringOver     = Math.max(0, ringAssigned - ringIncome);
+    // Denominator is whichever side is bigger, so the arcs can never sum
+    // past a full circle and no slice has to be faked to make them fit.
+    const ringDenom    = Math.max(ringIncome, ringAssigned) || 1;
+    const ringSlices   = ringParts
+      .filter(p => p.value > 0)
+      .concat(ringLeft > 0 ? [{ label: 'Left over', value: ringLeft, color: 'var(--fc-text-faint)', isLeft: true }] : []);
 
     // SVG ring
     const R = 44, CX = 56, CY = 56, circ = 2 * Math.PI * R;
@@ -6914,13 +7407,22 @@ window.FCApp = (function () {
         +'stroke-dasharray="'+len.toFixed(1)+' '+circ.toFixed(1)+'" '
         +'stroke-dashoffset="'+((-(offset - circ/4)).toFixed(1))+'" />';
     };
+    let _ringOff = 0;
     const ringHTML = '<svg width="112" height="112" viewBox="0 0 112 112" style="transform:rotate(-90deg) scaleY(-1)">'
       +'<circle cx="'+CX+'" cy="'+CY+'" r="'+R+'" fill="none" stroke="var(--fc-bg-elevated-2)" stroke-width="16"/>'
-      +seg(billsPct, 0, 'var(--fc-accent)')
-      +seg(debtPct,  billsPct, 'var(--fc-danger)')
-      +seg(savePct,  billsPct+debtPct, 'var(--fc-success)')
-      +seg(spendPct, billsPct+debtPct+savePct, 'var(--fc-warning)')
+      +ringSlices.map(p => {
+          const pct = (p.value / ringDenom) * 100;
+          const out = seg(pct, _ringOff, p.color);
+          _ringOff += pct;
+          return out;
+        }).join('')
       +'</svg>';
+    const ringLegendHTML = ringSlices.map(p =>
+      '<div style="display:flex;align-items:center;gap:7px">'
+        +'<div style="width:8px;height:8px;border-radius:2px;background:'+p.color+';flex-shrink:0'+(p.isLeft?';opacity:0.55':'')+'"></div>'
+        +'<div style="flex:1;font-size:13px;color:var(--fc-text)'+(p.isLeft?';font-weight:600':'')+'">'+esc(p.label)+'</div>'
+        +'<div style="font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--fc-text)">'+FCData.formatCurrency(p.value)+'</div>'
+      +'</div>').join('');
 
     // Category budgets
     const catSpend = {};
@@ -6929,12 +7431,18 @@ window.FCApp = (function () {
       catSpend[cat] = (catSpend[cat]||0) + (t.amount||0);
     });
     const budgetCats = Object.keys(budgets).filter(k => k !== 'total' && budgets[k]?.limit > 0);
+    /* `limit` here is the EFFECTIVE limit — the standing budget plus any
+       credit carried in from last month's underspend. Measuring this month
+       against the base limit while telling the user they earned extra room
+       would make the rollover decorative. */
     const catBudgetRows = budgetCats.slice(0,5).map(cat => {
-      const limit = budgets[cat]?.limit || 0;
+      const base  = budgets[cat]?.limit || 0;
+      const roll  = _rolloverFor(cat);
+      const limit = base + roll;
       const spent = catSpend[cat] || 0;
       const pct   = limit > 0 ? Math.min(150, Math.round(spent/limit*100)) : 0;
       const color = pct > 100 ? 'var(--fc-danger)' : pct > 80 ? 'var(--fc-warning)' : 'var(--fc-accent)';
-      return { cat, limit, spent, pct, color, displayPct: Math.min(100,pct) };
+      return { cat, base, roll, limit, spent, pct, color, displayPct: Math.min(100,pct) };
     });
     const topOver  = catBudgetRows.filter(r => r.pct > 100).sort((a,b) => (b.spent-b.limit)-(a.spent-a.limit))[0];
     const topUnder = catBudgetRows.filter(r => r.pct < 80 && r.limit > 0).sort((a,b) => a.pct-b.pct)[0];
@@ -6955,9 +7463,20 @@ window.FCApp = (function () {
       .sort((a,b) => new Date(a.due_date) - new Date(b.due_date));
     const payday = _predictNextPayday();
     const proj = _buildSafeSpendProjection();
-    const lastIncomeTxn = txns.filter(_isIncomeTxn)
-      .sort((a,b) => String(b.date||'').localeCompare(String(a.date||'')))[0];
-    const expectedPay = lastIncomeTxn ? (lastIncomeTxn.amount || 0) : 0;
+    /* The MEDIAN of this payer's real paydays, not the most recent credit.
+       `lastIncomeTxn.amount` was whatever income landed last — a $67.80
+       refund, a $12 interest payment, a Venmo from a friend — and the whole
+       card is divided by it. In demo that produced "Expected $67.80" and,
+       against a $1,523.50 plan, a red "Short $1,455.70" that was pure
+       artifact. predictNextPayday already computes the median for exactly
+       this purpose (see the note on its return).
+
+       When there is no detected payday we do NOT guess. A fabricated
+       paycheck is worse than an absent one on the screen that tells you
+       whether your bills are covered — so `expectedPay` stays 0 and the
+       card renders its unknown state instead of a false shortfall. */
+    const expectedPay = payday && payday.amount > 0 ? payday.amount : 0;
+    const payIsEstimated = expectedPay > 0;
     // Math.max(1, …): days is 0 on payday itself, and a 0-day bill window
     // would show an empty paycheck plan on the very day it matters most.
     const payWindow = payday ? Math.max(1, payday.days) : 14;
@@ -6984,15 +7503,30 @@ window.FCApp = (function () {
       '<div class="fc-card" style="margin-bottom:14px;padding:18px 16px">'
         +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">'
           +'<div style="font-size:17px;font-weight:700;color:var(--fc-text)">'+paydayTitle+'</div>'
-          +'<div style="text-align:right"><div style="font-size:11px;color:var(--fc-text-faint)">Expected</div><div style="font-size:17px;font-weight:750;color:var(--fc-text);font-variant-numeric:tabular-nums">'+(expectedPay>0?FCData.formatCurrency(expectedPay):'—')+'</div></div>'
+          // A labelled em-dash is not information. With no paycheck detected
+          // the sentence below already says so, in words.
+          +(payIsEstimated
+            ? '<div style="text-align:right"><div style="font-size:11px;color:var(--fc-text-faint)">Expected</div><div style="font-size:17px;font-weight:750;color:var(--fc-text);font-variant-numeric:tabular-nums">'+FCData.formatCurrency(expectedPay)+'</div></div>'
+            : '')
         +'</div>'
-        +'<div style="height:8px;background:var(--fc-bg-elevated-2);border-radius:999px;overflow:hidden;margin-bottom:8px">'
-          +'<div style="height:100%;width:'+(expectedPay>0?Math.min(100,Math.round(assigned/expectedPay*100)):0)+'%;background:'+(payRemaining>=0?'var(--fc-success)':'var(--fc-danger)')+';border-radius:999px"></div>'
-        +'</div>'
-        +'<div style="display:flex;justify-content:space-between;margin-bottom:14px">'
-          +'<div><div style="font-size:11px;color:var(--fc-text-faint)">Assigned</div><div style="font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--fc-text)">'+FCData.formatCurrency(assigned)+'</div></div>'
-          +'<div style="text-align:right"><div style="font-size:11px;color:var(--fc-text-faint)">'+(payRemaining>=0?'Remaining':'Short')+'</div><div style="font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;color:'+(payRemaining>=0?'var(--fc-success)':'var(--fc-danger)')+'">'+FCData.formatCurrency(Math.abs(payRemaining))+'</div></div>'
-        +'</div>'
+        /* Both the bar and the Remaining/Short pair divide by expectedPay,
+           so with no detected paycheck they have nothing to say. They used
+           to say it anyway — a full red bar and "Short $1,455.70", which is
+           just `0 - assigned` wearing the costume of a finding. When the
+           paycheck is unknown the card shows what it does know (the bills
+           it has lined up) and names the gap instead of inventing one. */
+        +(payIsEstimated
+          ? '<div style="height:8px;background:var(--fc-bg-elevated-2);border-radius:999px;overflow:hidden;margin-bottom:8px">'
+              +'<div style="height:100%;width:'+Math.min(100,Math.round(assigned/expectedPay*100))+'%;background:'+(payRemaining>=0?'var(--fc-success)':'var(--fc-danger)')+';border-radius:999px"></div>'
+            +'</div>'
+            +'<div style="display:flex;justify-content:space-between;margin-bottom:14px">'
+              +'<div><div style="font-size:11px;color:var(--fc-text-faint)">Assigned</div><div style="font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--fc-text)">'+FCData.formatCurrency(assigned)+'</div></div>'
+              +'<div style="text-align:right"><div style="font-size:11px;color:var(--fc-text-faint)">'+(payRemaining>=0?'Remaining':'Short')+'</div><div style="font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;color:'+(payRemaining>=0?'var(--fc-success)':'var(--fc-danger)')+'">'+FCData.formatCurrency(Math.abs(payRemaining))+'</div></div>'
+            +'</div>'
+          : '<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--fc-border)">'
+              +'<div><div style="font-size:11px;color:var(--fc-text-faint)">Lined up</div><div style="font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--fc-text)">'+FCData.formatCurrency(assigned)+'</div></div>'
+              +'<div style="flex:1;text-align:right;font-size:11.5px;color:var(--fc-text-muted);line-height:1.4;padding-left:14px">No regular paycheck detected yet — we need three deposits from one payer.</div>'
+            +'</div>')
         +payBills.map(b => {
           const d = FCData.daysUntil(b.due_date);
           return planRow(_billIcon(b,'var(--fc-text-muted)',16), esc(b.name||'Bill'), b.amount||0,
@@ -7002,7 +7536,7 @@ window.FCApp = (function () {
         +(spendPlan>0 ? planRow(_ic('credit-card','var(--fc-text-muted)',16), 'Everyday spending', spendPlan, 'Planned', 'var(--fc-text-faint)') : '')
         +'<button class="fc-btn fc-btn--ghost fc-btn--sm" style="width:100%;margin-top:14px" onclick="FCApp._openBudgetWizard()">Edit Paycheck Plan</button>'
       +'</div>'
-      +(payRemaining > 25
+      +(payIsEstimated && payRemaining > 25
         ? '<div class="fc-card" style="margin-bottom:14px;padding:14px 16px;background:var(--fc-success-soft);border-color:var(--fc-success-border);display:flex;align-items:center;gap:12px">'
             +'<span style="flex-shrink:0">'+_ic('trending-up','var(--fc-success)',18)+'</span>'
             +'<div style="flex:1;font-size:13px;color:var(--fc-text);line-height:1.45">'+FCData.formatCurrency(payRemaining)+' unassigned. Put it toward a goal or your smallest debt before it disappears.</div>'
@@ -7078,12 +7612,18 @@ window.FCApp = (function () {
             +'</div>'
           +'</div>'
           +'<div style="flex:1;display:flex;flex-direction:column;gap:7px">'
-            +'<div style="display:flex;align-items:center;gap:7px"><div style="width:8px;height:8px;border-radius:2px;background:var(--fc-accent);flex-shrink:0"></div><div style="flex:1;font-size:13px;color:var(--fc-text)">Bills</div><div style="font-size:13px;font-weight:600;font-variant-numeric:tabular-nums">'+FCData.formatCurrency(totalBills)+'</div></div>'
-            +(debtPmt>0?'<div style="display:flex;align-items:center;gap:7px"><div style="width:8px;height:8px;border-radius:2px;background:var(--fc-danger);flex-shrink:0"></div><div style="flex:1;font-size:13px;color:var(--fc-text)">Debt</div><div style="font-size:13px;font-weight:600;font-variant-numeric:tabular-nums">'+FCData.formatCurrency(debtPmt)+'</div></div>':'')
-            +(goalMonthly>0?'<div style="display:flex;align-items:center;gap:7px"><div style="width:8px;height:8px;border-radius:2px;background:var(--fc-success);flex-shrink:0"></div><div style="flex:1;font-size:13px;color:var(--fc-text)">Savings</div><div style="font-size:13px;font-weight:600;font-variant-numeric:tabular-nums">'+FCData.formatCurrency(goalMonthly)+'</div></div>':'')
-            +'<div style="display:flex;align-items:center;gap:7px"><div style="width:8px;height:8px;border-radius:2px;background:var(--fc-warning);flex-shrink:0"></div><div style="flex:1;font-size:13px;color:var(--fc-text)">Spending</div><div style="font-size:13px;font-weight:600;font-variant-numeric:tabular-nums">'+FCData.formatCurrency(totalSpend)+'</div></div>'
+            +ringLegendHTML
           +'</div>'
         +'</div>'
+        /* Said in words, because a ring cannot show a negative. When
+           commitments exceed income the arcs are scaled by the larger
+           side, so the picture stays honest but stops being the whole
+           story — this line is the rest of it. */
+        +(ringOver > 0
+          ? '<div style="margin-top:12px;padding-top:11px;border-top:1px solid var(--fc-border);font-size:12.5px;font-weight:600;color:var(--fc-danger)">'
+              +'Your plan is '+FCData.formatCurrency(ringOver)+' more than you brought in this month.'
+            +'</div>'
+          : '')
       +'</div>')
 
       // ── Budget Progress ──
@@ -7092,6 +7632,16 @@ window.FCApp = (function () {
           +'<div style="font-size:17px;font-weight:700;color:var(--fc-text)">Budget Progress</div>'
           +'<div style="font-size:13px;color:var(--fc-text-faint)">'+daysLeft+'d left</div>'
         +'</div>'
+        /* The reward, stated plainly and only when it was earned. This is
+           the one place the app can say "last month went well" with a
+           number behind it. */
+        +(rollIn > 0
+          ? '<div style="display:flex;align-items:center;gap:7px;margin:-4px 0 12px">'
+              + _ic('trending-up','var(--fc-success)',14)
+              + '<span style="font-size:12.5px;color:var(--fc-success);font-weight:600">'
+              + FCData.formatCurrency(rollIn) + ' rolled over from last month</span>'
+            +'</div>'
+          : '')
         +(budgetLimit > 0
           ? (function () {
               // Pace marker — where spending *should* be by today at an even burn
@@ -7131,9 +7681,16 @@ window.FCApp = (function () {
             +catBudgetRows.map(r =>
               '<div style="margin-bottom:13px">'
                 +'<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px">'
-                  +'<div style="font-size:14px;font-weight:500;color:var(--fc-text)">'+r.cat+'</div>'
+                  +'<div style="font-size:14px;font-weight:500;color:var(--fc-text)">'+esc(r.cat)+'</div>'
                   +'<div style="font-size:12px;color:'+(r.pct>100?'var(--fc-danger)':r.pct>80?'var(--fc-warning)':'var(--fc-text-muted)')+'">'+FCData.formatCurrency(r.spent)+' of '+FCData.formatCurrency(r.limit)+'</div>'
                 +'</div>'
+                /* Say where the extra room came from. An limit that silently
+                   grew is the kind of number change that makes people stop
+                   trusting every other number on the screen. */
+                +(r.roll > 0
+                  ? '<div style="font-size:11px;color:var(--fc-success);margin-bottom:5px">+'
+                    + FCData.formatCurrency(r.roll) + ' rolled over from last month</div>'
+                  : '')
                 +'<div style="height:6px;background:var(--fc-bg-elevated-2);border-radius:999px;overflow:hidden">'
                   +'<div style="height:100%;width:'+r.displayPct+'%;background:'+r.color+';border-radius:999px;transition:width 0.5s ease"></div>'
                 +'</div>'
@@ -7144,16 +7701,29 @@ window.FCApp = (function () {
         : '')
 
       // ── Suggested Fix ──
-      +(topOver && topUnder
-        ? '<div class="fc-card" style="margin-bottom:14px;padding:16px;background:rgba(245,158,11,0.08);border-color:rgba(245,158,11,0.2)">'
+      +(topOver && topUnder && !_budgetSuggestionDismissed()
+        /* Three fixes here.
+           · The 💡 was the last emoji chrome on Plan; every other glyph on
+             this screen comes from _ic().
+           · The soft background was hardcoded rgba(245,158,11,…) rather
+             than the token, so it never responded to the theme.
+           · "Adjust Budget" was `background:var(--fc-warning); color:#fff`.
+             --fc-warning is #F59E0B in light mode — 2.15:1 against white,
+             and the design system says in a comment on the token itself
+             that it must never carry text. It is a normal primary button
+             now, which is also what every other CTA on Plan already is. */
+        ? '<div class="fc-card" style="margin-bottom:14px;padding:16px;background:var(--fc-warning-soft);border-color:var(--fc-warning-soft)">'
             +'<div style="display:flex;gap:12px;align-items:flex-start">'
-              +'<div style="font-size:22px;flex-shrink:0">💡</div>'
+              +'<div style="flex-shrink:0;margin-top:1px">'+_ic('lightbulb','var(--fc-warning-text)',20)+'</div>'
               +'<div style="flex:1">'
                 +'<div style="font-size:15px;font-weight:600;color:var(--fc-text);margin-bottom:4px">Budget Suggestion</div>'
-                +'<div style="font-size:13px;color:var(--fc-text-muted);line-height:1.5;margin-bottom:12px">'+topOver.cat+' is '+FCData.formatCurrency(topOver.spent-topOver.limit)+' over budget. You have room in '+topUnder.cat+'.</div>'
+                +'<div style="font-size:13px;color:var(--fc-text-muted);line-height:1.5;margin-bottom:12px">'+esc(topOver.cat)+' is '+FCData.formatCurrency(topOver.spent-topOver.limit)+' over budget. You have room in '+esc(topUnder.cat)+'.</div>'
                 +'<div style="display:flex;gap:8px">'
-                  +'<button onclick="FCApp._openBudgetWizard()" style="background:var(--fc-warning);color:#fff;border:none;border-radius:10px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer">Adjust Budget</button>'
-                  +'<button style="background:transparent;border:1px solid var(--fc-border);border-radius:10px;padding:8px 14px;font-size:13px;color:var(--fc-text-muted);cursor:pointer">Not Now</button>'
+                  +'<button class="fc-btn fc-btn--primary fc-btn--sm" type="button" onclick="FCApp._openBudgetWizard()">Adjust Budget</button>'
+                  // Was a button with no onclick at all — it looked like a
+                  // choice and did nothing. Dismissal is remembered for the
+                  // rest of the month, the same way the budget alerts are.
+                  +'<button class="fc-btn fc-btn--ghost fc-btn--sm" type="button" onclick="FCApp._dismissBudgetSuggestion()">Not Now</button>'
                 +'</div>'
               +'</div>'
             +'</div>'
@@ -7167,12 +7737,20 @@ window.FCApp = (function () {
       +'<div class="fc-card" style="margin-bottom:14px;padding:18px 16px">'
         +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">'
           +'<div style="font-size:17px;font-weight:700;color:var(--fc-text)">Upcoming Bills</div>'
-          +'<button onclick="FCApp._openSubScreen(\'bills\')" style="background:none;border:none;color:var(--fc-accent);font-size:13px;font-weight:600;cursor:pointer">Manage →</button>'
+          /* Was _openSubScreen('bills'). #view-bills was deleted when the
+             duplicate Bills screen was removed, but these two routes into it
+             were not — and _openSubScreen fires its haptic BEFORE looking the
+             element up, then returns silently when it is missing. So the
+             button buzzed and did nothing, which is the most convincing way
+             possible for a dead control to look alive.
+             Activity > Bills is the surviving bills screen and is what every
+             other entry point in the app already uses. */
+          +'<button onclick="FCApp.switchTab(\'activity\');FCApp.switchActivitySegment(\'bills\')" style="background:none;border:none;color:var(--fc-accent);font-size:13px;font-weight:600;cursor:pointer">Manage →</button>'
         +'</div>'
         +(allUnpaidBills.length > 0
           ? allUnpaidBills.map(b => {
               const st = _billStatus(b);
-              return '<div class="fc-bill-row" onclick="FCApp._openSubScreen(\'bills\')">'
+              return '<div class="fc-bill-row" onclick="FCApp.switchTab(\'activity\');FCApp.switchActivitySegment(\'bills\')">'
                 +'<div class="fc-bill-icon">'+billEmoji(b)+'</div>'
                 +'<div class="fc-bill-info">'
                   +'<div class="fc-bill-name">'+esc(b.name)+'</div>'
@@ -7259,10 +7837,16 @@ window.FCApp = (function () {
       +'</header>'
 
       +'<div class="fc-card" style="padding:16px;margin-bottom:20px;cursor:pointer;display:flex;align-items:center;gap:14px" onclick="FCApp._openSubScreen(\'settings\')">'
-        +'<div style="width:48px;height:48px;border-radius:50%;background:var(--fc-accent-soft);border:2px solid var(--fc-accent);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:var(--fc-accent);flex-shrink:0">'+initial+'</div>'
+        +'<div style="width:48px;height:48px;border-radius:50%;background:var(--fc-accent-soft);border:2px solid var(--fc-accent);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:var(--fc-accent);flex-shrink:0">'+esc(initial)+'</div>'
+        /* esc() on both. These are the user's own profile name and email —
+           user.name comes from Firestore and is written by
+           saveProfileChanges() after nothing but a .trim() and a non-empty
+           check, so a name containing markup was reaching innerHTML intact.
+           Settings renders the same two values through .textContent, which
+           is why only this screen was exposed. */
         +'<div style="flex:1;min-width:0">'
-          +'<div style="font-size:17px;font-weight:600;color:var(--fc-text)">'+displayName+'</div>'
-          +'<div style="font-size:13px;color:var(--fc-text-muted);margin-top:1px">'+displayEmail+'</div>'
+          +'<div style="font-size:17px;font-weight:600;color:var(--fc-text)">'+esc(displayName)+'</div>'
+          +'<div style="font-size:13px;color:var(--fc-text-muted);margin-top:1px">'+esc(displayEmail)+'</div>'
         +'</div>'
         +(isPro?'<span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;background:var(--fc-accent-soft);color:var(--fc-accent)">PRO</span>':'')
         +'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>'
@@ -7286,9 +7870,14 @@ window.FCApp = (function () {
         +acctRow('bank','Connected Accounts','Manage linked banks',"FCApp.showBankSheet&&FCApp.showBankSheet()")
         +acctRow('star','Subscription',isPro?'FlowCheck Pro · Active':'Upgrade for full access',isPro?"FCApp._openSubScreen('settings')":"FCApp.showPaywall&&FCApp.showPaywall()")
         +acctRow('bell','Notifications','Alerts & reminders',"FCApp._openSubScreen('notifications')")
-        +'<div onclick="window.open&&window.open(\'mailto:support@flowcheck.app\')" style="display:flex;align-items:center;gap:14px;padding:14px 0;cursor:pointer;-webkit-tap-highlight-color:transparent">'
+        /* Says what it does. The label was "Help Center", which promises a
+           searchable knowledge base; the tap opens a blank email to support.
+           window.open() with a mailto: is also the shakier way to do it in a
+           WKWebView — location.href hands the URL to the OS, which is what
+           actually launches Mail. */
+        +'<div onclick="window.location.href=\'mailto:support@flowcheck.app\'" style="display:flex;align-items:center;gap:14px;padding:14px 0;cursor:pointer;-webkit-tap-highlight-color:transparent">'
           +'<div style="width:36px;height:36px;border-radius:10px;background:var(--fc-bg-elevated-2);display:flex;align-items:center;justify-content:center;flex-shrink:0">'+_ic('help-circle','var(--fc-text-muted)',18)+'</div>'
-          +'<div style="flex:1"><div style="font-size:15px;font-weight:500;color:var(--fc-text)">Help Center</div></div>'
+          +'<div style="flex:1"><div style="font-size:15px;font-weight:500;color:var(--fc-text)">Contact Support</div><div style="font-size:12px;color:var(--fc-text-faint);margin-top:1px">Email us at support@flowcheck.app</div></div>'
           +'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>'
         +'</div>'
       +'</div>';
@@ -7698,9 +8287,25 @@ window.FCApp = (function () {
     // Shared inputs
     let safe = 0;
     try { safe = Math.max(0, Number(_buildSafeSpendProjection().safe || 0)); } catch (_e) {}
+    /* Order by the strategy the user actually chose in Money > Debt.
+       This list was hardcoded to smallest-balance-first and the copy below
+       hardcoded the word "snowball" to match — so someone who had gone to
+       Money > Debt and deliberately switched to Avalanche was told by the
+       Coach, about the very same accounts, to do the opposite. Two screens,
+       one set of debts, contradictory advice, and the one that ignored the
+       user was the one calling itself a coach. */
+    const _coachStrategy = _debtStrategy();
     const debts = accts.filter(_isDebtAcct)
-      .map(a => ({ name: a.name || 'Debt', bal: Math.max(0, a.balance_current || a.balance || 0), min: a.min_payment || 0 }))
-      .filter(d => d.bal > 0).sort((a, b) => a.bal - b.bal);
+      .map(a => ({
+        name: a.name || 'Debt',
+        bal:  Math.max(0, a.balance_current || a.balance || 0),
+        min:  _minPayment(a),
+        rate: Number(a.interest_rate || a.apr || 0),
+      }))
+      .filter(d => d.bal > 0)
+      .sort((a, b) => _coachStrategy === 'snowball'
+        ? a.bal - b.bal                             // smallest balance first
+        : (b.rate - a.rate) || (b.bal - a.bal));    // highest rate first
     const extra = Math.max(0, Math.round(safe * 0.25 / 5) * 5);
 
     const answers = {};
@@ -7713,9 +8318,19 @@ window.FCApp = (function () {
         title: 'Debt Coach',
         question: debts.length > 1 ? 'Should I pay ' + esc(target.name) + ' or ' + esc(second.name) + ' first?' : 'How do I pay off ' + esc(target.name) + ' faster?',
         happening: debts.length > 1
-          ? 'You have ' + fmt(debts.reduce((s,d)=>s+d.bal,0)) + ' across ' + debts.length + ' balances. ' + esc(target.name) + ' is the smallest at ' + fmt(target.bal) + '.'
+          ? 'You have ' + fmt(debts.reduce((s,d)=>s+d.bal,0)) + ' across ' + debts.length + ' balances. '
+            + esc(target.name) + ' is '
+            + (_coachStrategy === 'snowball'
+                ? 'the smallest at ' + fmt(target.bal) + '.'
+                : (target.rate > 0
+                    ? 'the highest rate at ' + target.rate.toFixed(1) + '%.'
+                    : 'the largest at ' + fmt(target.bal) + '.'))
           : esc(target.name) + ' has a balance of ' + fmt(target.bal) + '.',
-        why: 'Paying off the smallest balance first gives you a quick win, frees its minimum payment, and builds momentum — the snowball method.',
+        // Follows the chosen strategy — and names it, so the word here and
+        // the strategy card in Money > Debt always agree.
+        why: _coachStrategy === 'snowball'
+          ? 'Paying off the smallest balance first gives you a quick win, frees its minimum payment, and builds momentum — the snowball method.'
+          : 'Paying the highest rate first costs you the least in total interest, even though the first balance takes longer to clear — the avalanche method.',
         todo: extra > 0
           ? 'Put ' + fmt(extra) + ' extra toward ' + esc(target.name) + ' this month. Keep paying minimums on everything else.'
           : 'Keep paying minimums this month — your safe-to-spend is tight, so protect your bills first.',
@@ -8102,12 +8717,21 @@ window.FCApp = (function () {
     const msDay = 86400000;
     const startThis = new Date(now.getTime() - now.getDay() * msDay); startThis.setHours(0,0,0,0);
     const startLast = new Date(startThis.getTime() - 7 * msDay);
+    /* "this time last week" has to mean the same elapsed slice of the week,
+       and it did not. `thisWeek` accumulated the days so far (on a Friday,
+       5.4 of them) while `lastWeek` took the FULL seven — so the comparison
+       was structurally biased toward "you spent less", every day except
+       Saturday, purely from the window being shorter.
+       Cut last week at the same offset into the week that we have reached
+       this week, and the sentence means what it says. */
+    const elapsedMs = now.getTime() - startThis.getTime();
+    const endLast   = startLast.getTime() + elapsedMs;
     let thisWeek = 0, lastWeek = 0;
     for (const t of (state.transactions || [])) {
       if (!_isSpendTxn(t)) continue;
       let d; try { d = FCData.parseDateLocal(t.date).getTime(); } catch (_e) { continue; }
       if (d >= startThis.getTime()) thisWeek += t.amount || 0;
-      else if (d >= startLast.getTime()) lastWeek += t.amount || 0;
+      else if (d >= startLast.getTime() && d < endLast) lastWeek += t.amount || 0;
     }
     const subs = _detectSubscriptions(state.transactions || []) || [];
     const subsTotal = subs.reduce((s, x) => s + (x.amount || 0), 0);
@@ -8162,7 +8786,7 @@ window.FCApp = (function () {
       +'<div id="coach-ask-answer" style="display:none"></div>'
 
       +'<div class="fc-card" style="margin-bottom:14px;padding:14px 16px;background:var(--fc-accent-soft);border-color:var(--fc-border-accent);display:flex;align-items:center;gap:13px;cursor:pointer;-webkit-tap-highlight-color:transparent" onclick="FCApp.showAffordSheet&&FCApp.showAffordSheet()">'
-        +'<div style="width:40px;height:40px;border-radius:12px;background:var(--fc-accent);display:flex;align-items:center;justify-content:center;flex-shrink:0">'+_ic('search','#fff',19)+'</div>'
+        +'<div style="width:40px;height:40px;border-radius:12px;background:var(--fc-accent);display:flex;align-items:center;justify-content:center;flex-shrink:0">'+_ic('search','var(--fc-accent-ink)',19)+'</div>'
         +'<div style="flex:1">'
           +'<div style="font-size:15px;font-weight:600;color:var(--fc-text)">Can I afford this?</div>'
           +'<div style="font-size:12px;color:var(--fc-text-muted);margin-top:1px">Check any purchase against your real numbers</div>'
@@ -8862,17 +9486,51 @@ window.FCApp = (function () {
   function _renderGoalsScreen(asTab) {
     const el = document.getElementById('goals-screen-content');
     if (!el) return;
+    const now = new Date();
     const goals = state.goals || [];
     const goalIcon = (g) => _goalIcon(g, 'var(--fc-success)', 18);
     const targetFmt = (g) => g.target_date
       ? new Date(g.target_date).toLocaleDateString('en-US',{month:'short',year:'numeric'}) : null;
 
-    // Next Best Goal engine — emergency fund first, always
+    /* ── Next Best Goal ──────────────────────────────────────────────
+       The old `_monthSpend` did not measure a month. It was
+
+         transactions.filter(_isSpendTxn).slice(0, 200)
+
+       — the first 200 spend transactions in the array, with no date filter
+       at all — and `_efTarget` was derived from it. So the emergency-fund
+       target scaled with how much HISTORY you had rather than with how much
+       you spend, and a user with a year of data was told to save several
+       times what they needed. It also ignored the target the user had
+       actually set on their own emergency-fund goal, judging them against a
+       number they never chose and could not see.
+
+       Now: one real calendar month of spending, the user's own target when
+       they have set one, and a $1,000 starter floor otherwise. */
     const _efGoal = goals.find(g => /emergency|rainy|reserve/i.test(g.name || ''));
-    const _monthSpend = (state.transactions || []).filter(_isSpendTxn).slice(0, 200)
-      .reduce((s, t) => s + (t.amount || 0), 0);
-    const _efTarget = Math.max(1000, Math.round(_monthSpend / 100) * 100 || 1000);
-    const _needsEF = !_efGoal || (_efGoal.current || 0) < _efTarget;
+    const _mStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const _monthSpend = (state.transactions || []).filter(t => {
+      if (!_isSpendTxn(t)) return false;
+      try { return FCData.parseDateLocal(t.date) >= _mStart; } catch (_e) { return false; }
+    }).reduce((s, t) => s + (t.amount || 0), 0);
+    /* One month of expenses is the goal a starter fund builds toward, so it
+       is what "months covered" below is measured in. Falls back to the
+       $1,000 starter when there is not enough history to say. */
+    const _efMonthly = _monthSpend > 0 ? _monthSpend : 0;
+    const _efTarget  = (_efGoal && _efGoal.target > 0)
+      ? _efGoal.target
+      : Math.max(1000, Math.round(_efMonthly / 100) * 100 || 1000);
+    const _efCurrent = _efGoal ? (_efGoal.current || 0) : 0;
+    const _needsEF   = !_efGoal || _efCurrent < _efTarget;
+    /* Stated, not asserted. The old copy said "less than 1 month of
+       expenses saved" on every render of this card, whether or not that was
+       true — the condition it sat behind compared savings to _efTarget, not
+       to a month of expenses. */
+    const _efMonths = _efMonthly > 0 ? _efCurrent / _efMonthly : null;
+    const _efCoverage = _efMonths === null ? ''
+      : _efMonths < 0.5  ? 'That is under two weeks of your spending.'
+      : _efMonths < 1    ? 'That covers about ' + Math.round(_efMonths * 4) + ' weeks of your spending.'
+      : 'That covers about ' + (_efMonths < 2 ? '1 month' : Math.floor(_efMonths) + ' months') + ' of your spending.';
     const nextBestHTML = _needsEF
       ? '<div class="fc-card" style="margin-bottom:14px;padding:16px;background:var(--fc-accent-soft);border-color:var(--fc-border-accent)">'
           +'<div style="display:flex;align-items:center;gap:14px">'
@@ -8880,30 +9538,50 @@ window.FCApp = (function () {
               +'<div class="fc-eyebrow" style="color:var(--fc-accent);margin-bottom:4px">Your Next Best Goal</div>'
               +'<div style="font-size:17px;font-weight:700;color:var(--fc-text);margin-bottom:2px">Emergency Fund</div>'
               +'<div style="font-size:13px;color:var(--fc-text-muted);line-height:1.45">'
-                +(_efGoal
-                  ? 'You have less than 1 month of expenses saved. Keep building this first.'
-                  : 'You have no safety cushion yet. Build this before anything else.')
+                +(!_efGoal
+                  ? 'You have no safety cushion yet. Build this before anything else.'
+                  : FCData.formatCurrency(_efCurrent) + ' of ' + FCData.formatCurrency(_efTarget) + ' saved.'
+                    + (_efCoverage ? ' ' + _efCoverage : '') + ' Keep building this first.')
               +'</div>'
             +'</div>'
-            +'<div style="width:52px;height:52px;border-radius:50%;background:var(--fc-success);display:flex;align-items:center;justify-content:center;flex-shrink:0">'+_ic('shield','#fff',24)+'</div>'
+            +'<div style="width:52px;height:52px;border-radius:50%;background:var(--fc-success);display:flex;align-items:center;justify-content:center;flex-shrink:0">'+_ic('shield','var(--fc-success-ink,#fff)',24)+'</div>'
           +'</div>'
           +(!_efGoal ? '<button class="fc-btn fc-btn--primary fc-btn--sm" style="width:100%;margin-top:12px" onclick="FCApp.showAddGoalSheet&&FCApp.showAddGoalSheet()">Start Emergency Fund</button>' : '')
         +'</div>'
       : '';
 
-    // Recommended contribution per paycheck (assumes ~biweekly pay)
+    /* Recommended contribution per paycheck.
+       The 14 here used to be hardcoded with the comment "assumes ~biweekly
+       pay" — but predictNextPayday() already detects the real cadence
+       (weekly / biweekly / semimonthly / monthly), so a monthly-paid user
+       was told to contribute half of what they should, twice as often as
+       they get paid. */
+    const _payday = _predictNextPayday();
+    const _cadenceDays = { weekly: 7, biweekly: 14, semimonthly: 15, monthly: 30 };
+    const _payEveryDays = (_payday && _cadenceDays[_payday.cadence]) || 14;
     const _perPaycheck = (g) => {
       const remaining = Math.max(0, (g.target || 0) - (g.current || 0));
       if (remaining <= 0) return null;
-      let paychecks = 12;
+      let paychecks = Math.max(1, Math.round(365 / 2 / _payEveryDays)); // ~6 months
       if (g.target_date) {
         try {
-          const daysLeft = (FCData.parseDateLocal(g.target_date) - new Date()) / 86400000;
-          if (daysLeft > 0) paychecks = Math.max(1, Math.round(daysLeft / 14));
+          const daysLeft = (FCData.parseDateLocal(g.target_date) - now) / 86400000;
+          if (daysLeft > 0) paychecks = Math.max(1, Math.round(daysLeft / _payEveryDays));
         } catch (_e) {}
       }
       return Math.max(5, Math.ceil(remaining / paychecks / 5) * 5);
     };
+
+    /* Each row's recommendation is sound on its own; the SET was never
+       checked. Three goals asking $145 + $90 + $320 came to $555 a paycheck
+       with nothing anywhere on the screen adding them up — and on a profile
+       with no detected paycheck at all, the app was still confidently
+       prescribing $555 of it. The total is now stated once, and compared
+       against the paycheck when we know it. */
+    const _recTotal = goals.reduce((s, g) => s + (_perPaycheck(g) || 0), 0);
+    const _payAmount = _payday && _payday.amount > 0 ? _payday.amount : 0;
+    const _recShare  = _payAmount > 0 ? _recTotal / _payAmount : null;
+    const _recTooMuch = _recShare !== null && _recShare > 0.3;
 
     el.innerHTML =
       '<header class="fc-page-head fc-page-head--center">'
@@ -8917,14 +9595,37 @@ window.FCApp = (function () {
 
       +nextBestHTML
 
-      +(goals.length > 0 && !_needsEF
-        ? '<div class="fc-card" style="margin-bottom:14px;padding:14px 16px;background:var(--fc-success-soft);border-color:var(--fc-success-border)">'
+      /* Was "Savings Momentum — Your goals are on track. Keep going." shown
+         on `goals.length > 0 && !_needsEF`, neither of which has anything to
+         do with being on track. It was a reassurance the screen was not
+         entitled to give.
+         This says the one thing the per-row recommendations never did: what
+         they cost together, and whether that is a realistic share of a
+         paycheck. 30% is the line — above it the plan is aspirational, and
+         saying so is more useful than three green numbers that quietly
+         assume the whole cheque. */
+      +(_recTotal > 0
+        ? '<div class="fc-card" style="margin-bottom:14px;padding:14px 16px;background:'
+            +(_recTooMuch ? 'var(--fc-warning-soft)' : 'var(--fc-success-soft)')
+            +';border-color:'+(_recTooMuch ? 'var(--fc-warning-soft)' : 'var(--fc-success-border)')+'">'
             +'<div style="display:flex;align-items:center;gap:12px">'
-              +'<div style="width:40px;height:40px;border-radius:12px;background:var(--fc-success);display:flex;align-items:center;justify-content:center;flex-shrink:0">'+_ic('flame','#fff',20)+'</div>'
-              +'<div>'
-                +'<div class="fc-eyebrow" style="color:var(--fc-success);margin-bottom:2px">Savings Momentum</div>'
-                +'<div style="font-size:15px;font-weight:600;color:var(--fc-text)">Your goals are on track.</div>'
-                +'<div style="font-size:13px;color:var(--fc-text-muted);margin-top:1px">Keep going — small contributions add up.</div>'
+              +'<div style="width:40px;height:40px;border-radius:12px;background:'
+                +(_recTooMuch ? 'var(--fc-warning-soft)' : 'var(--fc-success)')
+                +';display:flex;align-items:center;justify-content:center;flex-shrink:0">'
+                +_ic(_recTooMuch ? 'alert' : 'flag', _recTooMuch ? 'var(--fc-warning-text)' : 'var(--fc-success-ink,#fff)', 20)
+              +'</div>'
+              +'<div style="flex:1;min-width:0">'
+                +'<div class="fc-eyebrow" style="color:'+(_recTooMuch?'var(--fc-warning-text)':'var(--fc-success)')+';margin-bottom:2px">All goals together</div>'
+                +'<div style="font-size:15px;font-weight:600;color:var(--fc-text)">'
+                  +FCData.formatCurrency(_recTotal)+' per paycheck across '+goals.length+' goal'+(goals.length===1?'':'s')+'.'
+                +'</div>'
+                +'<div style="font-size:13px;color:var(--fc-text-muted);margin-top:1px;line-height:1.4">'
+                  +(_recShare === null
+                    ? 'Once we detect your paycheck we can tell you whether that fits.'
+                    : _recTooMuch
+                      ? 'That is '+Math.round(_recShare*100)+'% of your paycheck. Push a target date out to lower it.'
+                      : 'About '+Math.round(_recShare*100)+'% of your paycheck — a realistic pace.')
+                +'</div>'
               +'</div>'
             +'</div>'
           +'</div>'
@@ -10001,7 +10702,8 @@ window.FCApp = (function () {
     if (_isPro()) { obNext(); return; }   // already Pro — skip to bank slide
     _selectedPlan = 'monthly';
     _paywallFromOnboarding = true;        // closePaywall/skipPaywall return to the bank slide
-    showPaywall();
+    // No X here: this is the end of signup and there is no free tier behind it.
+    showPaywall({ dismissible: false });
   }
 
   /**
@@ -10478,7 +11180,17 @@ window.FCApp = (function () {
 
     FCData.listenToBudgets(budgets => {
       state.budgets = budgets;
+      _snapshotBudgetMonths();
       if (state.tab === 'insights') _renderInsights();
+      if (state.tab === 'plan') _renderPlan();
+    });
+
+    FCData.listenToBudgetHistory(history => {
+      state.budgetHistory = history;
+      // Rollover changes the ceiling every budget figure is measured
+      // against, so the screens showing those figures have to re-read it.
+      if (state.tab === 'plan') _renderPlan();
+      _scheduleHomeRender();
     });
 
     // Notification center listener
@@ -11575,7 +12287,23 @@ window.FCApp = (function () {
     return true;
   }
 
-  async function showPaywall() {
+  /**
+   * @param {{dismissible?: boolean}} [opts]
+   *   dismissible defaults to TRUE and should stay that way for every
+   *   exploratory entry point — the Settings row, the pro-gate cards, the
+   *   contextual prompts. Those are all reachable from a working screen, and
+   *   a modal you can open from a settings row but not close is a trap, not a
+   *   sales pitch.
+   *   Onboarding passes false. There is no free tier, so at the end of signup
+   *   there is genuinely nothing behind the paywall to go back to, and an X
+   *   there implied an option that does not exist — the same problem the
+   *   "Maybe later" button had.
+   */
+  async function showPaywall(opts) {
+    const dismissible = !(opts && opts.dismissible === false);
+    const closeBtn = document.querySelector('.fc-pw-close');
+    if (closeBtn) closeBtn.style.display = dismissible ? '' : 'none';
+
     // Mark as seen immediately — both in-session flag and persistent cooldown.
     // All callers (user-initiated and automatic) go through here so the state
     // is always consistent. _shouldShowPaywall() guards automatic triggers before
@@ -11658,7 +12386,11 @@ window.FCApp = (function () {
         const detailEl = document.getElementById('pw-price-annual');
         if (amountEl) amountEl.textContent = price;
         if (detailEl) {
-          const monthlyEq = rawAnnual ? `$${(rawAnnual / 12).toFixed(2)}/mo &nbsp;<span class="fc-pw-plan-strike">vs $${(rawAnnual > 0 && monthly ? (monthly.product.price * 12).toFixed(2) : '59.88')}</span>` : '7-day free trial';
+          const monthlyEq = rawAnnual
+            ? `${_pkgMoney(annual, rawAnnual / 12)}/mo` + (monthly?.product?.price
+                ? ` &nbsp;<span class="fc-pw-plan-strike">vs ${_pkgMoney(monthly, monthly.product.price * 12)}</span>`
+                : '')
+            : '7-day free trial';
           detailEl.innerHTML = monthlyEq;
         }
         // Update "Save X%" dynamically from live prices
@@ -11685,6 +12417,51 @@ window.FCApp = (function () {
     }
   }
 
+  /* Format a derived amount in the SAME currency the store quoted.
+     The monthly-equivalent and the struck-through comparison are computed
+     by us, not returned by RevenueCat, and they used to be built with a
+     hardcoded "$". A euro user therefore saw a correctly localised
+     "€34,99" sitting next to "$2.92/mo vs $59.88" — three prices, two
+     currencies, one of them simply wrong. Money the user is quoted has to
+     be in the currency they will actually be charged.
+
+     Intl with the product's currencyCode when RevenueCat gives us one;
+     otherwise reuse whatever symbol its own priceString carries, so we can
+     never invent a currency we were not told about. */
+  function _pkgMoney(pkg, amount) {
+    const code = pkg?.product?.currencyCode;
+    if (code) {
+      try {
+        return new Intl.NumberFormat(undefined, { style: 'currency', currency: code })
+          .format(amount);
+      } catch (_) { /* unknown code — fall through to the symbol path */ }
+    }
+    const raw = String(pkg?.product?.priceString || '');
+    const sym = raw.replace(/[\d.,\s\u00a0]/g, '') || '$';
+    return /^[A-Za-z]/.test(sym) ? sym + ' ' + amount.toFixed(2) : sym + amount.toFixed(2);
+  }
+
+  /* Rewrites the onboarding trial disclosure with this storefront's real
+     prices. Called when the trial slide is shown. Best-effort by design: if
+     offerings have not loaded we leave the documented USD defaults in place
+     rather than blanking a legal notice, and the paywall the user reaches
+     next always shows the authoritative localised price from the store. */
+  async function localiseTrialNote() {
+    const el = document.getElementById('ob-legal-prices');
+    if (!el) return;
+    try {
+      if (!FCPurchases.isConfigured()) await FCPurchases.configure();
+      const offerings = await FCPurchases.getOfferings();
+      const annual  = offerings?.annual  || offerings?.availablePackages?.find(p => p.packageType === 'ANNUAL');
+      const monthly = offerings?.monthly || offerings?.availablePackages?.find(p => p.packageType === 'MONTHLY');
+      const a = annual?.product?.priceString;
+      const m = monthly?.product?.priceString;
+      if (!a) return;                       // nothing trustworthy to say
+      el.textContent = '7-day free trial, then ' + a + '/year'
+        + (m ? ' (or ' + m + '/month).' : '.');
+    } catch (_) { /* keep the defaults */ }
+  }
+
   function selectPlan(plan) {
     _selectedPlan = plan;
     haptic('light');
@@ -11703,10 +12480,19 @@ window.FCApp = (function () {
     const annualPrice  = annualPkg?.product?.priceString  ?? '$34.99';
     const monthlyPrice = monthlyPkg?.product?.priceString ?? '$4.99';
 
+    /* The trust strip's middle claim is plan-specific: only the annual
+       product has the intro offer. It was static markup, so choosing
+       Monthly kept "No charge for 7 days" on screen next to a button that
+       charges immediately. */
+    const trustCharge = document.getElementById('pw-trust-charge');
+
     if (plan === 'annual') {
+      if (trustCharge) trustCharge.textContent = 'No charge for 7 days';
       if (btn)   btn.textContent   = 'Start 7-Day Free Trial';
       if (terms) terms.textContent = `Payment charged to your Apple ID at purchase confirmation. Subscription auto-renews at ${annualPrice}/year unless canceled at least 24 hours before the end of the current period. Manage or cancel anytime in App Store Account Settings. Any unused trial is forfeited upon purchase.`;
     } else {
+      // True for monthly: charged today, but nothing is locked in.
+      if (trustCharge) trustCharge.textContent = 'No commitment';
       if (btn)   btn.textContent   = 'Start Monthly Plan';
       if (terms) terms.textContent = `Payment charged to your Apple ID at purchase confirmation. Subscription auto-renews at ${monthlyPrice}/month unless canceled at least 24 hours before the end of the current period. Manage or cancel anytime in App Store Account Settings.`;
     }
@@ -13552,7 +14338,7 @@ window.FCApp = (function () {
     // Utilities
     animateNumber,
     // Getter for static HTML onclick handlers — avoids global namespace pollution
-    getTotalBudgetLimit: () => (state.budgets && state.budgets['total'] ? state.budgets['total'].limit : 3000),
+    getTotalBudgetLimit: () => _totalBudgetLimit(),
     // Dashboard UI
     toggleInsights,
     // Today's Focus card
@@ -13588,6 +14374,8 @@ window.FCApp = (function () {
     _markAllNotifRead,
     _markNotifRead,
     _openBudgetWizard,
+    localiseTrialNote,
+    _dismissBudgetSuggestion,
   };
 })();
 

@@ -360,7 +360,14 @@
 
     if (!best) return null;
     const days = Math.round((_startOfDay(best.date.getTime()).getTime() - todayMs) / 86400000);
-    return { date: best.date, days, cadence: best.cadence };
+    /* `amount` is the median of this payer's actual paydays, and it used to
+       be computed here and then dropped on the way out. Plan's paycheck
+       screen needed exactly this number and, having no way to get it,
+       reached for the most recent income transaction instead — which on a
+       month containing a $67.80 refund reported a $67.80 paycheck and told
+       the user they were $1,455.70 short. The median is already the right
+       answer and already robust to that: return it. */
+    return { date: best.date, days, cadence: best.cadence, amount: best.amount };
   }
 
   /* ═══════════════════════════════════════════════════════════════

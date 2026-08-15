@@ -57,9 +57,9 @@
 <meta name="theme-color" content="#060e18">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="stylesheet" href="css/flowcheck-design-system.css?v=20260813b">
-<link rel="stylesheet" href="css/fc-screens.css?v=20260813b">
-<link rel="stylesheet" href="css/fc-premium-screens.css?v=20260813b">
+<link rel="stylesheet" href="css/flowcheck-design-system.css?v=20260814p">
+<link rel="stylesheet" href="css/fc-screens.css?v=20260814p">
+<link rel="stylesheet" href="css/fc-premium-screens.css?v=20260814p">
 
 <!-- Sentry — error & crash monitoring (vanilla JS, no npm required) -->
 <script
@@ -3059,10 +3059,18 @@ body:not(.keyboard-open) .fc-sheet {
   background: rgba(26,196,240,0.12); border-color: var(--fc-accent); color: var(--fc-accent);
   box-shadow: 0 0 0 1px rgba(26,196,240,0.16), 0 8px 28px rgba(26,196,240,0.14);
 }
+/* Stroke icons, not emoji. The six options used 💰💳📊📈✂️🏔️, which render
+   as Apple's full-colour artwork — a gold credit card, a snowy mountain —
+   against an app whose entire icon vocabulary is 1.8px monochrome strokes
+   from _ic(). It was the one moment in the flow that looked like clip art,
+   on the screen where someone is deciding whether this product is serious. */
 .fc-ob-grid-icon {
-  font-size: 34px; line-height: 1;
-  transition: transform 0.32s var(--ob-spring);
+  display: flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px;
+  color: var(--fc-accent);
+  transition: transform 0.32s var(--ob-spring), color 0.32s ease;
 }
+.fc-ob-grid-icon svg { width: 100%; height: 100%; }
 .fc-ob-grid-option.selected .fc-ob-grid-icon { transform: scale(1.25); }
 .fc-ob-goal-continue {
   width: 100%; margin-top: 16px; height: 56px; border-radius: 18px;
@@ -3256,13 +3264,30 @@ body:not(.keyboard-open) .fc-sheet {
               <div style="font-size:15px;font-weight:800;color:#30d158;letter-spacing:-0.02em">256-bit</div>
               <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,0.34);text-transform:uppercase;letter-spacing:0.07em;margin-top:3px">Encryption</div>
             </div>
+            <!-- Was "SOC 2 / Certified". Removed: that asserts FlowCheck holds
+                 its own SOC 2 attestation. Plaid's certification is Plaid's, and
+                 presenting it as ours is a false compliance claim in a finance
+                 app — the kind App Review flags and that carries legal weight.
+                 "Read-only" is the stronger claim anyway: it is what the Plaid
+                 scope actually is, it is what the rest of the app already
+                 promises, and a user can verify it by watching nothing ever
+                 move. -->
             <div style="flex:1;background:rgba(26,196,240,0.08);border:1px solid rgba(26,196,240,0.18);border-radius:15px;padding:12px 8px;text-align:center">
-              <div style="font-size:15px;font-weight:800;color:var(--fc-accent);letter-spacing:-0.02em">SOC 2</div>
-              <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,0.34);text-transform:uppercase;letter-spacing:0.07em;margin-top:3px">Certified</div>
+              <div style="font-size:15px;font-weight:800;color:var(--fc-accent);letter-spacing:-0.02em">Read-only</div>
+              <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,0.34);text-transform:uppercase;letter-spacing:0.07em;margin-top:3px">Access</div>
             </div>
+            <!-- Was "$0 / Liability". Removed: in banking that names a
+                 specific consumer-protection guarantee (Visa Zero Liability and
+                 friends). FlowCheck is read-only and never moves money, so
+                 there is nothing to be liable FOR — the badge implied a
+                 guarantee we do not offer and cannot honour.
+                 "Delete anytime" replaces it with something verifiable inside
+                 the product: deleteAccount() in fc-app.js, reachable from
+                 Settings, and deliberately left ungated in firestore.rules so
+                 people can always revoke access and remove their data. -->
             <div style="flex:1;background:rgba(48,209,88,0.08);border:1px solid rgba(48,209,88,0.18);border-radius:15px;padding:12px 8px;text-align:center">
-              <div style="font-size:15px;font-weight:800;color:#30d158;letter-spacing:-0.02em">$0</div>
-              <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,0.34);text-transform:uppercase;letter-spacing:0.07em;margin-top:3px">Liability</div>
+              <div style="font-size:15px;font-weight:800;color:#30d158;letter-spacing:-0.02em">Delete</div>
+              <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,0.34);text-transform:uppercase;letter-spacing:0.07em;margin-top:3px">Anytime</div>
             </div>
           </div>
         </div>
@@ -3278,7 +3303,7 @@ body:not(.keyboard-open) .fc-sheet {
       <!-- Plaid trust badge -->
       <div style="width:100%;max-width:305px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:11px 14px;display:flex;align-items:center;gap:10px;margin-top:14px">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.45)" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-        <span style="font-size:12px;color:rgba(255,255,255,0.44);line-height:1.45">Powered by <strong style="color:rgba(255,255,255,0.72);font-weight:600">Plaid</strong> — trusted by 12,000+ financial apps</span>
+        <span style="font-size:12px;color:rgba(255,255,255,0.44);line-height:1.45">Powered by <strong style="color:rgba(255,255,255,0.72);font-weight:600">Plaid</strong> — the same connection 12,000+ banks and credit unions support</span>
       </div>
     </div>
 
@@ -3299,22 +3324,22 @@ body:not(.keyboard-open) .fc-sheet {
 
       <div class="fc-ob-grid">
         <button class="fc-ob-grid-option" onclick="obSelectGoal(this,'save_more')" type="button">
-          <span class="fc-ob-grid-icon">💰</span>Save more
+          <span class="fc-ob-grid-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>Save more
         </button>
         <button class="fc-ob-grid-option" onclick="obSelectGoal(this,'pay_debt')" type="button">
-          <span class="fc-ob-grid-icon">💳</span>Pay off debt
+          <span class="fc-ob-grid-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></span>Pay off debt
         </button>
         <button class="fc-ob-grid-option" onclick="obSelectGoal(this,'track_spending')" type="button">
-          <span class="fc-ob-grid-icon">📊</span>Track spending
+          <span class="fc-ob-grid-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span>Track spending
         </button>
         <button class="fc-ob-grid-option" onclick="obSelectGoal(this,'build_wealth')" type="button">
-          <span class="fc-ob-grid-icon">📈</span>Build wealth
+          <span class="fc-ob-grid-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></span>Build wealth
         </button>
         <button class="fc-ob-grid-option" onclick="obSelectGoal(this,'stop_waste')" type="button">
-          <span class="fc-ob-grid-icon">✂️</span>Stop wasting
+          <span class="fc-ob-grid-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg></span>Stop wasting
         </button>
         <button class="fc-ob-grid-option" onclick="obSelectGoal(this,'freedom')" type="button">
-          <span class="fc-ob-grid-icon">🏔️</span>Financial freedom
+          <span class="fc-ob-grid-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V5a2 2 0 0 1 2-2h9l-1 4h6l-2 5 2 5H6"/><line x1="4" y1="21" x2="4" y2="14"/></svg></span>Financial freedom
         </button>
       </div>
       <button class="fc-ob-goal-continue" id="ob-goal-continue" onclick="obNext()" type="button">Continue</button>
@@ -3383,50 +3408,53 @@ body:not(.keyboard-open) .fc-sheet {
          Safe-to-Spend, so instead of promising the value we produce it:
          two inputs, their real numbers, the real runway drawn by the same
          FCCore the app runs. Nothing is stored and no bank is needed. -->
+    <!-- ── Slide 3: the whole product, in one move ──────────────────
+         This was a three-field form: type your checking balance, pick a
+         payday chip, type a bill. Wrong shape for the moment. It put
+         homework in the middle of a cinematic flow, the reward box sat
+         empty ("Enter an amount to see it", "—") until all three were
+         filled, and it asked a stranger to type their bank balance one
+         slide after we promised their money was safe — then paid it off
+         with a number they could do in their head.
+
+         The INTENT was right and is kept: produce the value rather than
+         promise it. It just does not need their data to do that. This
+         shows the app making the exact move it makes every day — find the
+         one bill worth shifting — with zero input, so nobody can fall out
+         of the flow by declining to type. It is also the last thing seen
+         before the paywall, which should be the product's best trick and
+         not a form. -->
     <div class="fc-ob-slide" id="ob-slide-3" style="justify-content:center;padding-top:0">
 
       <h1 class="fc-ob-title" style="margin-bottom:8px">
-        Let's do<br><span class="fc-ob-title-grad">the math.</span>
+        This is the<br><span class="fc-ob-title-grad">whole idea.</span>
       </h1>
-      <p class="fc-ob-desc fc-ob-desc-sm" style="margin-bottom:18px">
-        Three quick answers and you'll see the number FlowCheck exists to give you. No bank needed yet.
+      <p class="fc-ob-desc fc-ob-desc-sm" style="margin-bottom:20px">
+        Every day FlowCheck checks whether your money reaches your next paycheck — and if it doesn't, finds the one thing to move.
       </p>
 
-      <div class="ob-rw">
-        <label class="ob-rw-label" for="ob-rw-cash">Roughly how much is in checking?</label>
-        <div class="ob-rw-money">
-          <span class="ob-rw-cur">$</span>
-          <input class="ob-rw-input" id="ob-rw-cash" type="text" inputmode="decimal"
-                 placeholder="340" autocomplete="off" aria-label="Amount in checking" enterkeyhint="next">
-        </div>
-
-        <p class="ob-rw-label" style="margin-top:16px">When do you next get paid?</p>
-        <div class="ob-rw-chips" id="ob-rw-when" role="group" aria-label="Next payday">
-          <button type="button" class="ob-rw-chip" data-days="3">In a few days</button>
-          <button type="button" class="ob-rw-chip is-on" data-days="7">Next week</button>
-          <button type="button" class="ob-rw-chip" data-days="14">In 2 weeks</button>
-          <button type="button" class="ob-rw-chip" data-days="30">End of month</button>
-        </div>
-
-        <label class="ob-rw-label" for="ob-rw-bill" style="margin-top:16px">Anything big due before then?</label>
-        <div class="ob-rw-money">
-          <span class="ob-rw-cur">$</span>
-          <input class="ob-rw-input" id="ob-rw-bill" type="text" inputmode="decimal"
-                 placeholder="Rent, car payment…" autocomplete="off" aria-label="Largest bill due before payday" enterkeyhint="done">
-        </div>
-
-        <div class="ob-rw-result" id="ob-rw-result" aria-live="polite">
-          <div class="ob-rw-head">
-            <div>
-              <p class="ob-rw-eyebrow">Your runway</p>
-              <p class="ob-rw-verdict" id="ob-rw-verdict">Enter an amount to see it</p>
-            </div>
-            <p class="ob-rw-end" id="ob-rw-end">—</p>
+      <div class="ob-demo" aria-label="Example: FlowCheck spotting a shortfall and the bill to move">
+        <div class="ob-demo-head">
+          <div style="min-width:0">
+            <p class="ob-rw-eyebrow">Example</p>
+            <p class="ob-demo-verdict" id="ob-demo-verdict">You'd run short on the 18th</p>
           </div>
-          <svg class="ob-rw-chart" id="ob-rw-chart" viewBox="0 0 300 68" preserveAspectRatio="none" aria-hidden="true"></svg>
+          <div style="text-align:right;flex-shrink:0">
+            <p class="ob-rw-eyebrow" id="ob-demo-lbl">Short by</p>
+            <p class="ob-demo-amt" id="ob-demo-amt">$110</p>
+          </div>
         </div>
 
-        <p class="ob-rw-fine">Rough estimate from what you typed. Connecting your bank makes it exact — and keeps it that way.</p>
+        <svg class="ob-demo-chart" id="ob-demo-chart" viewBox="0 0 300 74" preserveAspectRatio="none" aria-hidden="true"></svg>
+
+        <div class="ob-demo-axis"><span>Today</span><span>Payday</span></div>
+
+        <div class="ob-demo-fix" id="ob-demo-fix" aria-live="polite">
+          <span class="ob-demo-fix-ic" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          </span>
+          <span><strong>Move rent to the 21st.</strong> That is the whole fix — and it is the kind of thing you would only catch by doing this maths yourself, every day.</span>
+        </div>
       </div>
 
     </div>
@@ -3524,7 +3552,7 @@ body:not(.keyboard-open) .fc-sheet {
           <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
         </svg>
         <div style="font-size:12px;color:rgba(255,255,255,0.55);line-height:1.45;text-align:left">
-          Powered by <strong style="color:rgba(255,255,255,0.8)">Plaid</strong> — bank-grade 256-bit encryption, trusted by 12,000+ financial apps.
+          Powered by <strong style="color:rgba(255,255,255,0.8)">Plaid</strong> — bank-grade 256-bit encryption, supporting 12,000+ banks and credit unions.
         </div>
       </div>
     </div>
@@ -3574,13 +3602,16 @@ body:not(.keyboard-open) .fc-sheet {
                    box-shadow:0 8px 30px rgba(26,196,240,0.35),0 2px 8px rgba(0,0,0,0.25)">
       Start 7-Day Free Trial
     </button>
-    <!-- Maybe later (slide 4 — declines the trial, moves on to bank connect) -->
-    <button id="ob-later-btn" type="button" onclick="obNext()"
-            style="display:none;background:none;border:none;color:rgba(255,255,255,0.42);
-                   font-size:13px;font-weight:500;padding:14px 8px;cursor:pointer;
-                   -webkit-tap-highlight-color:transparent;min-height:44px;font-family:inherit">
-      Maybe later
-    </button>
+    <!-- (removed) "Maybe later" — FlowCheck is subscription-only. The 7-day
+         trial is the ONLY unpaid access, so offering to defer it promised a
+         "later" that does not exist: the button walked people to the bank
+         slide and then into the same paywall two taps further on.
+         Nobody is trapped by its removal. Dismissing the paywall still calls
+         obGoToBankSlide(), which lands them on the bank step, and slide 5's
+         "Skip for now" is a genuinely different decision — you can be a
+         paying subscriber who has not connected a bank yet.
+         App Review is unaffected: it uses the demo button, shown only when
+         isDemoEmail() matches, not this one. -->
     <!-- Skip for now (slide 5 only — lets users explore before connecting) -->
     <button id="ob-skip-btn" type="button" onclick="FCApp.skipOnboarding()"
             style="display:none;background:none;border:none;color:rgba(255,255,255,0.42);
@@ -3591,7 +3622,12 @@ body:not(.keyboard-open) .fc-sheet {
     <!-- Legal note (slide 4) -->
     <p id="ob-legal-note" style="display:none;font-size:10px;color:rgba(255,255,255,0.20);text-align:center;
                                   margin-top:10px;line-height:1.65;padding:0 6px">
-      7-day free trial, then $34.99/year (or $4.99/month). Payment charged to your Apple ID at confirmation. Subscription auto-renews unless canceled at least 24 hours before the end of the current period. Manage or cancel anytime in App Store Account Settings. Any unused trial is forfeited upon purchase.
+      <!-- Prices are placeholders until RevenueCat reports the real ones for
+           this storefront; FCApp.localiseTrialNote() rewrites the span below
+           on slide entry. Hardcoded USD in a legal disclosure is a wrong
+           price for every non-US user, and this is the disclosure they are
+           agreeing to by tapping Continue. -->
+      <span id="ob-legal-prices">7-day free trial, then $34.99/year (or $4.99/month).</span> Payment charged to your Apple ID at confirmation. Subscription auto-renews unless canceled at least 24 hours before the end of the current period. Manage or cancel anytime in App Store Account Settings. Any unused trial is forfeited upon purchase.
       <a href="#" onclick="FCApp.openUrl('/legal/terms.html');return false" style="color:rgba(255,255,255,0.36)">Terms</a>
       &amp;
       <a href="#" onclick="FCApp.openUrl('/legal/privacy.html');return false" style="color:rgba(255,255,255,0.36)">Privacy</a>.
@@ -3807,6 +3843,9 @@ body:not(.keyboard-open) .fc-sheet {
       window.FCAnalytics.track('onboarding_slide_viewed', { slide: next, goal: _selectedGoal || null });
     }
     if (next === 2) _runAiAnimation();
+    // Replay on every entry — going back and returning should show the demo
+    // again, not a chart that already finished while nobody was looking.
+    if (next === 3 && typeof window.obPlayDemo === 'function') window.obPlayDemo();
   }
 
   function _updateCTA(i) {
@@ -3816,13 +3855,11 @@ body:not(.keyboard-open) .fc-sheet {
     var legalNote = document.getElementById('ob-legal-note');
     var demoBtn   = document.getElementById('btn-demo-mode');
     var skipBtn   = document.getElementById('ob-skip-btn');
-    var laterBtn  = document.getElementById('ob-later-btn');
 
     [nextBtn, plaidBtn, trialBtn].forEach(function(b){ if(b) b.style.display='none'; });
     if (legalNote) legalNote.style.display = 'none';
     if (demoBtn)   demoBtn.style.display   = 'none';
     if (skipBtn)   skipBtn.style.display   = 'none';
-    if (laterBtn)  laterBtn.style.display  = 'none';
 
     // Demo account button is only ever visible to App Review testers
     var _currentEmail = (window.FCAuth && FCAuth.currentUser && FCAuth.currentUser()) ? FCAuth.currentUser().email : '';
@@ -3846,10 +3883,13 @@ body:not(.keyboard-open) .fc-sheet {
     } else if (i === 3) {
       if (nextBtn) { nextBtn.style.display = ''; nextBtn.textContent = 'Continue'; }
     } else if (i === 4) {
-      // Trial pitch — the CTA opens the paywall, "Maybe later" moves on
+      // Trial pitch — starting the trial is the only way forward here, since
+      // it is the only unpaid access the product has. Dismissing the paywall
+      // still advances via obGoToBankSlide(), so this is not a dead end.
       if (trialBtn)  trialBtn.style.display  = '';
-      if (laterBtn)  laterBtn.style.display  = '';
       if (legalNote) legalNote.style.display = '';
+      // Swap the placeholder USD figures for this storefront's real prices.
+      if (window.FCApp && FCApp.localiseTrialNote) FCApp.localiseTrialNote();
       if (demoBtn)   demoBtn.style.display   = _isReviewer ? '' : 'none';
     } else if (i === 5) {
       // Bank connect — the CTA opens Plaid Link, "Skip for now" exits to app
@@ -3902,97 +3942,109 @@ body:not(.keyboard-open) .fc-sheet {
     if (nextBtn) { nextBtn.style.display = ''; nextBtn.textContent = 'Continue'; }
   }
 
-  /* ── Slide 3: live first-runway preview ──────────────────────────
-     Uses FCCore — the same module the real app runs — so what someone
-     sees here is the same maths they will see after connecting a bank,
-     just on inputs they typed. A preview computed a different way would
-     be a demo, and demos that disagree with the product are a lie. */
-  (function () {
-    var cashEl, billEl, chipsEl, chartEl, verdictEl, endEl, days = 7;
+  /* ── Slide 3: the example, drawn ────────────────────────────────
+     No inputs. A fixed scenario — $340 in checking, $450 rent on the
+     18th, payday the 20th — drawn by hand rather than through FCCore,
+     because FCCore needs a transaction history to infer a daily burn and
+     this is an illustration with none. The numbers are internally
+     consistent and labelled "Example" so nothing here can be mistaken for
+     the user's own money.
 
-    function draw() {
-      /* This inline block is parsed long before fc-core.js/fc-data.js load.
-         init() defers to DOMContentLoaded so they exist by then, but guard
-         anyway rather than throw inside onboarding. */
-      if (!cashEl || typeof FCCore === 'undefined' || typeof FCData === 'undefined') return;
-      var cash = parseFloat(String(cashEl.value).replace(/[^0-9.]/g, ''));
-      if (!isFinite(cash) || cash <= 0) {
-        verdictEl.textContent = 'Enter an amount to see it';
-        endEl.textContent = '\u2014';
-        chartEl.innerHTML = '';
+     Two beats: the line draws and settles on the problem, then the fix
+     lands and the verdict flips to the move. That second beat IS the
+     product — the app's whole job is finding the one bill worth shifting,
+     and this is the only place in onboarding it gets demonstrated rather
+     than described. */
+  (function () {
+    var DEMO = { start: 340, bill: 450, billDay: 4, payday: 6, burn: 26 };
+
+    function series(withFix) {
+      var pts = [], bal = DEMO.start;
+      for (var d = 0; d <= DEMO.payday; d++) {
+        if (d > 0) bal -= DEMO.burn;
+        // The fix is "move rent past payday", so on the fixed run the bill
+        // simply never lands inside the window.
+        if (!withFix && d === DEMO.billDay) bal -= DEMO.bill;
+        pts.push(bal);
+      }
+      return pts;
+    }
+
+    function draw(withFix, animate) {
+      var svg = document.getElementById('ob-demo-chart');
+      if (!svg) return;
+      var pts = series(withFix), W = 300, H = 74, PAD = 10;
+      var all = series(false).concat(series(true));
+      var hi = Math.max.apply(null, all.concat([0]));
+      var lo = Math.min.apply(null, all.concat([0]));
+      var span = Math.max(1, hi - lo);
+      var x = function (i) { return (i / (pts.length - 1)) * W; };
+      var y = function (v) { return PAD + (1 - (v - lo) / span) * (H - PAD * 2); };
+      var line = pts.map(function (v, i) { return (i ? 'L' : 'M') + x(i).toFixed(1) + ',' + y(v).toFixed(1); }).join(' ');
+      var zeroY = y(0);
+
+      svg.innerHTML =
+        '<line x1="0" y1="' + zeroY.toFixed(1) + '" x2="' + W + '" y2="' + zeroY.toFixed(1) + '" '
+          + 'stroke="var(--fc-danger)" stroke-width="1" stroke-dasharray="3 3" opacity="0.5" vector-effect="non-scaling-stroke"/>'
+        + '<path d="' + line + ' L' + W + ',' + H + ' L0,' + H + ' Z" fill="var(--fc-accent)" opacity="0.10"/>'
+        + '<path id="ob-demo-line" d="' + line + '" fill="none" stroke="var(--fc-accent)" stroke-width="2.5" '
+          + 'stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>';
+
+      var path = svg.querySelector('#ob-demo-line');
+      if (animate && path && path.getTotalLength) {
+        var len = path.getTotalLength();
+        path.style.strokeDasharray  = len;
+        path.style.strokeDashoffset = len;
+        // Force layout so the transition actually runs from the offset state.
+        void path.getBoundingClientRect();
+        path.style.transition = 'stroke-dashoffset 0.9s cubic-bezier(0.22,1,0.36,1)';
+        path.style.strokeDashoffset = '0';
+      }
+    }
+
+    var timers = [];
+    function reset() {
+      timers.forEach(clearTimeout); timers = [];
+      var v = document.getElementById('ob-demo-verdict');
+      var a = document.getElementById('ob-demo-amt');
+      var l = document.getElementById('ob-demo-lbl');
+      var f = document.getElementById('ob-demo-fix');
+      if (v) { v.textContent = 'You\u2019d run short on the 18th'; v.classList.remove('is-fixed'); }
+      if (a) { a.textContent = '$110'; a.classList.add('is-warn'); }
+      if (l) l.textContent = 'Short by';
+      if (f) f.classList.remove('is-in');
+      draw(false, true);
+    }
+
+    function playFix() {
+      var v = document.getElementById('ob-demo-verdict');
+      var a = document.getElementById('ob-demo-amt');
+      var l = document.getElementById('ob-demo-lbl');
+      var f = document.getElementById('ob-demo-fix');
+      draw(true, true);
+      if (v) { v.textContent = 'Move rent and you stay above zero'; v.classList.add('is-fixed'); }
+      if (l) l.textContent = 'Lands at';
+      if (a) { a.textContent = '$184'; a.classList.remove('is-warn'); }
+      if (f) f.classList.add('is-in');
+    }
+
+    // Replayed every time the slide is entered, so going back and forward
+    // shows the demo again rather than a dead chart.
+    window.obPlayDemo = function () {
+      var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (reduce) {
+        timers.forEach(clearTimeout); timers = [];
+        draw(true, false);
+        playFix();
         return;
       }
-
-      /* Two synthetic paychecks establish the cadence FCCore looks for, so
-         it produces a real horizon instead of the no-payday fallback. */
-      var iso = function (n) { var d = new Date(); d.setDate(d.getDate() + n); return FCCore.isoDay(d); };
-      var txns = [
-        { amount: 1, isCredit: true, date: iso(-days), category: 'Income', name: 'Pay' },
-        { amount: 1, isCredit: true, date: iso(-days * 2), category: 'Income', name: 'Pay' }
-      ];
-      var billAmt = parseFloat(String(billEl && billEl.value).replace(/[^0-9.]/g, ''));
-      var bills = (isFinite(billAmt) && billAmt > 0)
-        ? [{ name: 'Bill', amount: billAmt, due_date: iso(Math.max(1, Math.round(days / 2))), status: 'upcoming' }]
-        : [];
-
-      var r = FCCore.buildRunwaySeries({
-        accounts: [{ type: 'depository', subtype: 'checking', balance_current: cash }],
-        transactions: txns,
-        bills: bills
-      });
-
-      var end = r.endBalance;
-      endEl.textContent = (end < 0 ? '\u2212' : '') + FCData.formatCurrency(Math.abs(end));
-      endEl.classList.toggle('is-warn', end < 0);
-      /* With no transaction history dailyBurn is 0, so the line is flat and
-         the endpoint equals what they typed. Calling that "what you land on"
-         would overstate it — we have not subtracted a single coffee. Say what
-         the number actually is until we have their spending. */
-      verdictEl.textContent = end < 0
-        ? 'You run short before payday'
-        : (r.billCount ? 'What\u2019s left after that bill'
-                       : 'Before your everyday spending');
-
-      var pts = r.points, W = 300, H = 68, PAD = 8;
-      var hi = Math.max(r.startBalance, 0), lo = Math.min(r.lowest.balance, 0);
-      var span = Math.max(1, hi - lo);
-      var x = function (d) { return (d / Math.max(1, r.horizon)) * W; };
-      var y = function (v) { return PAD + (1 - (v - lo) / span) * (H - PAD * 2); };
-      var line = pts.map(function (pt, i) {
-        return (i ? 'L' : 'M') + x(pt.day).toFixed(1) + ',' + y(pt.balance).toFixed(1);
-      }).join(' ');
-      var stroke = end < 0 ? 'var(--fc-danger)' : 'var(--fc-accent)';
-      chartEl.innerHTML =
-        '<path d="' + line + ' L' + W + ',' + H + ' L0,' + H + ' Z" fill="' + stroke + '" opacity="0.12"/>' +
-        '<path d="' + line + '" fill="none" stroke="' + stroke + '" stroke-width="2.5" ' +
-        'stroke-linecap="round" stroke-linejoin="round"/>' +
-        '<circle cx="' + x(r.horizon).toFixed(1) + '" cy="' + y(end).toFixed(1) + '" r="4" fill="' + stroke + '"/>';
-    }
-
-    function init() {
-      cashEl = document.getElementById('ob-rw-cash');
-      billEl = document.getElementById('ob-rw-bill');
-      chipsEl = document.getElementById('ob-rw-when');
-      chartEl = document.getElementById('ob-rw-chart');
-      verdictEl = document.getElementById('ob-rw-verdict');
-      endEl = document.getElementById('ob-rw-end');
-      if (!cashEl || !chipsEl) return;
-
-      cashEl.addEventListener('input', draw);
-      if (billEl) billEl.addEventListener('input', draw);
-      chipsEl.addEventListener('click', function (e) {
-        var b = e.target.closest('.ob-rw-chip');
-        if (!b) return;
-        chipsEl.querySelectorAll('.ob-rw-chip').forEach(function (c) { c.classList.remove('is-on'); });
-        b.classList.add('is-on');
-        days = parseInt(b.getAttribute('data-days'), 10) || 7;
-        draw();
-      });
-      draw();
-    }
-
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
-    else init();
+      reset();
+      /* 2200ms, not 1500: the line takes 900ms to draw, so a shorter hold
+         left roughly half a second to read the problem before the fix
+         replaced it. The whole point of the two beats is that the first
+         one lands. */
+      timers.push(setTimeout(playFix, 2200));
+    };
   })();
 
   /* ── Public: obNext ── */
@@ -4198,9 +4250,15 @@ body:not(.keyboard-open) .fc-sheet {
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
         Secure payment
       </div>
+      <!-- State-aware: only the ANNUAL product carries the 7-day trial. This
+           item used to be static, so selecting Monthly left "No charge for
+           7 days" sitting directly above the buy button while the disclosure
+           under it correctly said you are charged $4.99 today. A false
+           pricing claim at the moment of purchase is the worst place in the
+           product to have one. Updated by selectPlan(). -->
       <div class="fc-pw-trust-item">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        No charge for 7 days
+        <span id="pw-trust-charge">No charge for 7 days</span>
       </div>
       <div class="fc-pw-trust-item">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
@@ -6329,7 +6387,10 @@ body:not(.keyboard-open) .fc-sheet {
     .wv-strategy-lbl { font-size:14px; font-weight:700; color:var(--wv-t1); }
     .wv-strategy-sub { font-size:12px; color:var(--wv-t2); line-height:1.4; margin-top:2px; }
     .wv-strategy-change { padding:6px 12px; border-radius:10px; border:1px solid var(--wv-border); background:none; font-size:12px; font-weight:600; color:var(--wv-blue); cursor:pointer; font-family:inherit; flex-shrink:0; -webkit-tap-highlight-color:transparent; }
-    .wv-debt-card { margin:0 16px; }
+    /* Top margin now lives here: the "Your Debts" label above this list was
+       a duplicate of the .wv-debt-actions heading at the top of the panel
+       and has been removed, taking its 18px of top padding with it. */
+    .wv-debt-card { margin:12px 16px 0; }
     .wv-debt-row { display:flex; align-items:center; gap:13px; padding:13px 16px; border-bottom:1px solid var(--wv-divider); cursor:pointer; -webkit-tap-highlight-color:transparent; transition:opacity .12s; }
     .wv-debt-row:last-child { border-bottom:none; }
     .wv-debt-row:active { opacity:.72; }
@@ -6438,10 +6499,10 @@ body:not(.keyboard-open) .fc-sheet {
     <div id="wv-debt-content"></div>
   </div>
 
-  <!-- ── GOALS PANEL ────────────────────────────────────── -->
-  <div class="wv-panel" id="wv-panel-goals">
-    <div id="wv-goals-content"></div>
-  </div>
+  <!-- (removed) GOALS PANEL — no wv-tab-goals button has existed since Goals
+       became its own tab, so this panel could never be activated. Its render
+       function went with it; see the note in fc-app.js. -->
+
 
   <!-- HIDDEN COMPAT: legacy IDs kept so existing writers don't error -->
   <div style="display:none" aria-hidden="true">
@@ -6569,7 +6630,12 @@ body:not(.keyboard-open) .fc-sheet {
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
         </div>
         <div class="fc-settings-row" onclick="FCApp.openUrl(FC_CONFIG && FC_CONFIG.app.supportUrl)">
-          <div class="fc-settings-icon" style="background:rgba(255,255,255,0.06)">
+          <!-- Was rgba(255,255,255,0.06): white at 6%, which is a soft grey on
+               the dark card and effectively invisible on the light one. It was
+               the only row here without a coloured tint, so it was also the
+               only one that vanished. --fc-bg-elevated-2 is the neutral icon
+               background used for the same job in More's account rows. -->
+          <div class="fc-settings-icon" style="background:var(--fc-bg-elevated-2)">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-muted)" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
           </div>
           <div class="fc-settings-label">Help center</div>
@@ -6595,6 +6661,26 @@ body:not(.keyboard-open) .fc-sheet {
         </div>
       </article>
 
+      <!-- Delete account. This row EXISTED but lived inside the hidden compat
+           block below — present in the DOM, invisible to every user. That is an
+           App Store rejection on its own: guideline 5.1.1(v) requires any app
+           offering account creation to offer in-app account deletion, and ours
+           was unreachable. It is also what the "Delete anytime" badge in
+           onboarding promises, so the claim was not true until now.
+           Placed last and understated on purpose — findable when wanted,
+           never a mis-tap next to Sign out. -->
+      <article class="fc-card" style="padding:4px 16px;margin-bottom:10px">
+        <div class="fc-settings-row" style="border-bottom:none;cursor:pointer"
+             onclick="FCApp.showDeleteSheet && FCApp.showDeleteSheet()"
+             role="button" tabindex="0" aria-label="Delete my account and data">
+          <div class="fc-settings-icon" style="background:rgba(255,69,58,0.12)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-danger)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+          </div>
+          <div class="fc-settings-label" style="color:var(--fc-danger)">Delete my account &amp; data</div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-danger)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true" style="opacity:0.6"><path d="M9 6l6 6-6 6"/></svg>
+        </div>
+      </article>
+
       <!-- Hidden compat elements (JS still reads/writes these) -->
       <div style="display:none" aria-hidden="true">
         <div class="fc-settings-row" onclick="FCApp.sendTestEmail()" id="dev-test-email-row" style="cursor:pointer">
@@ -6603,9 +6689,6 @@ body:not(.keyboard-open) .fc-sheet {
         </div>
         <div class="fc-settings-row" onclick="FCApp.showReferralSheet()">
           <span id="settings-referral-badge"></span>
-        </div>
-        <div class="fc-settings-row" onclick="FCApp.showDeleteSheet && FCApp.showDeleteSheet()">
-          <div class="fc-settings-label" style="color:var(--fc-danger)">Delete My Account &amp; Data</div>
         </div>
         <div id="settings-version">2.0.0</div>
       </div>
@@ -7225,7 +7308,7 @@ body:not(.keyboard-open) .fc-sheet {
 <script src="js/fc-data.js"></script>
 <script src="js/fc-push.js"></script>
 <script src="js/fc-iap.js"></script>
-<script src="js/fc-app.js?v=20260813b"></script>
+<script src="js/fc-app.js?v=20260814p"></script>
 
 <script>
 'use strict';

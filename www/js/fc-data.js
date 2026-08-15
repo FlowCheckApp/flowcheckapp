@@ -444,24 +444,63 @@ window.FCData = (function () {
     return unsub;
   }
 
+  /**
+   * Group transactions into day buckets, newest day first.
+   *
+   * Two bugs lived in the previous version, both from keying an object by a
+   * human-readable label and returning it directly:
+   *
+   *  1. NO SORT. Group order was object key-insertion order, which is the
+   *     order the transactions array happened to arrive in. Firestore returns
+   *     recent documents first but makes no promise beyond that, and in
+   *     practice the tail came back jumbled — a real list rendered
+   *     July 12, July 9, July 14, July 11, July 5, July 7. A statement that
+   *     is not in date order is not a statement.
+   *
+   *  2. YEAR COLLISION. The label was month + day with no year, so
+   *     12 March 2026 and 12 March 2025 produced the same key and were
+   *     merged into one bucket — with the day's "Net" summing across years.
+   *     Silent, and worse the longer someone uses the app.
+   *
+   * Bucketing on the epoch day and sorting explicitly fixes both. The label
+   * gains a year only when the date is outside the current year, so the
+   * common case reads exactly as before.
+   *
+   * @returns {Array<[string, Array]>} [label, txns] pairs, newest day first.
+   *   Array of pairs rather than an object so the order is carried by the
+   *   data structure and cannot be lost by a caller doing Object.entries().
+   */
   function groupTransactionsByDate(transactions) {
-    const groups = {};
     const today     = new Date(); today.setHours(0,0,0,0);
     const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+    const thisYear  = today.getFullYear();
 
+    const buckets = new Map();   // dayMs -> { d, txns }
     for (const txn of transactions) {
       // Use parseDateLocal to avoid UTC→local day-shift bug
       const d = parseDateLocal(txn.date);
+      if (isNaN(d.getTime())) continue;
       d.setHours(0,0,0,0);
-      let label;
-      if (+d === +today)          label = 'Today';
-      else if (+d === +yesterday) label = 'Yesterday';
-      else label = d.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
-
-      if (!groups[label]) groups[label] = [];
-      groups[label].push(txn);
+      const key = +d;
+      if (!buckets.has(key)) buckets.set(key, { d, txns: [] });
+      buckets.get(key).txns.push(txn);
     }
-    return groups;
+
+    return [...buckets.values()]
+      .sort((a, b) => +b.d - +a.d)                 // newest day first
+      .map(({ d, txns }) => {
+        let label;
+        if (+d === +today)          label = 'Today';
+        else if (+d === +yesterday) label = 'Yesterday';
+        else label = d.toLocaleDateString('en-US',
+          d.getFullYear() === thisYear
+            ? { month: 'long', day: 'numeric' }
+            : { month: 'long', day: 'numeric', year: 'numeric' });
+        // Within a day, newest first too — the array arrives in no
+        // particular intra-day order either.
+        txns.sort((x, y) => String(y.date || '').localeCompare(String(x.date || '')));
+        return [label, txns];
+      });
   }
 
   /**
@@ -1278,6 +1317,69 @@ window.FCData = (function () {
   }
 
   /* ─────────────────────────────────────────────────────────────
+     FIRESTORE — BUDGET HISTORY
+     users/{uid}/budget_history/{YYYY-MM} — one doc per CLOSED month.
+
+     /budgets/{category} holds a standing limit with no month on it, so the
+     app had no record of any month except the one you were standing in.
+     This is that record, and it is what rollover is computed from.
+
+     Written once and never updated (the rules enforce it): rollover derived
+     from a past you can edit is not worth having.
+     ───────────────────────────────────────────────────────────── */
+
+  /**
+   * Persist a finished month. Rejected by the rules if the month already
+   * exists, which is the intended concurrency guard — first writer wins and
+   * a second device cannot revise it.
+   * @param {string} month  'YYYY-MM'
+   * @param {Object} categories  { [category]: { limit:number, spent:number } }
+   */
+  async function saveBudgetMonth(month, categories, totalLimit, totalSpent) {
+    const user = FCAuth.currentUser();
+    const db   = FCAuth.db();
+    if (!user || !db || !month) return;
+    const round = n => Math.round((Number(n) || 0) * 100) / 100;
+    const clean = {};
+    Object.entries(categories || {}).forEach(([k, v]) => {
+      clean[k] = { limit: round(v.limit), spent: round(v.spent) };
+    });
+    await db.collection('users').doc(user.uid)
+      .collection('budget_history').doc(month)
+      .create({
+        month,
+        categories:  clean,
+        total_limit: round(totalLimit),
+        total_spent: round(totalSpent),
+        created_at:  firebase.firestore.FieldValue.serverTimestamp(),
+      });
+  }
+
+  /**
+   * Listen to closed-month budget history.
+   * Callback receives { 'YYYY-MM': {categories, total_limit, total_spent} },
+   * trimmed to the last 13 months — enough for a year-over-year read without
+   * holding the user's whole history in memory.
+   */
+  function listenToBudgetHistory(callback) {
+    const user = FCAuth.currentUser();
+    const db   = FCAuth.db();
+    if (!user || !db) return;
+    const unsub = db.collection('users').doc(user.uid)
+      .collection('budget_history')
+      .onSnapshot(snap => {
+        const all = {};
+        snap.docs.forEach(d => { all[d.id] = d.data(); });
+        const keep = Object.keys(all).sort().slice(-13);
+        const out = {};
+        keep.forEach(k => { out[k] = all[k]; });
+        callback(out);
+      }, err => _listenerErr('BudgetHistory', err));
+    _listeners.push(unsub);
+    return unsub;
+  }
+
+  /* ─────────────────────────────────────────────────────────────
      FIRESTORE — NOTIFICATIONS
      ───────────────────────────────────────────────────────────── */
 
@@ -1378,6 +1480,7 @@ window.FCData = (function () {
     saveCreditSnapshot,
     listenToCreditHistory,
     saveNetWorthSnapshot,
+    saveBudgetMonth,
     recordForecast,
     getForecasts,
     settleForecast,
@@ -1386,6 +1489,7 @@ window.FCData = (function () {
     sealVaultStatement,
     getVaultStatements,
     listenToNetWorthHistory,
+    listenToBudgetHistory,
     listenToNotifications,
     markNotificationRead,
     markAllNotificationsRead,

@@ -328,6 +328,21 @@
   white-space: nowrap;
 }
 
+/* The pill only renders now when something is wrong (see the syncPill note
+   in _renderHomeDashboard), so it needs the two states that can actually
+   appear. --fc-warning-text / --fc-danger, never the raw --fc-warning:
+   #F59E0B is 2.15:1 in light mode and must never carry text. */
+.fc-status-pill--warn {
+  border-color: rgba(255, 159, 10, 0.28);
+  background: var(--fc-warning-soft);
+  color: var(--fc-warning-text);
+}
+.fc-status-pill--danger {
+  border-color: var(--fc-danger-border);
+  background: var(--fc-danger-soft);
+  color: var(--fc-danger);
+}
+
 .fc-status-pill::before {
   width: 6px;
   height: 6px;
@@ -2260,17 +2275,80 @@ body.fc-theme .fc-nav {
    re-rendered chart simply appears, already drawn. */
 .rw-line   { stroke-dasharray: 1000; stroke-dashoffset: 0; }
 .rw-marker { opacity: 1; }
-.rw-endpoint { opacity: 1; }
+.rw-dot    { opacity: 1; }
 
 .home-v8--enter .rw-line {
   stroke-dashoffset: 1000;
   animation: rwDraw 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.1s forwards;
 }
 @keyframes rwDraw { to { stroke-dashoffset: 0; } }
-.home-v8--enter .rw-marker  { opacity: 0; animation: rwFade 0.4s ease 0.55s forwards; }
-.home-v8--enter .rw-endpoint{ opacity: 0; animation: rwPop 0.45s cubic-bezier(0.34,1.56,0.64,1) 0.95s forwards; }
+.home-v8--enter .rw-marker { opacity: 0; animation: rwFade 0.4s ease 0.55s forwards; }
+.home-v8--enter .rw-dot    { opacity: 0; animation: rwFade 0.4s ease 0.55s forwards; }
+.home-v8--enter .rw-dot--end { animation: rwPop 0.45s cubic-bezier(0.34,1.56,0.64,1) 0.95s forwards; }
+.home-v8--enter .rw-zero-lbl,
+.home-v8--enter .rw-cross { opacity: 0; animation: rwFade 0.4s ease 0.8s forwards; }
 @keyframes rwFade { to { opacity: 1; } }
-@keyframes rwPop  { from { opacity: 0; r: 1; } to { opacity: 1; r: 4.5; } }
+/* Was `from { r: 1 } to { r: 4.5 }` — the endpoint used to be an SVG
+   <circle> and that animated its r attribute. It is an HTML span now (see
+   .rw-overlay below), so the same pop has to come from transform. The
+   translate half must be repeated in every keyframe or the dot jumps to
+   the corner for the duration of the animation. */
+@keyframes rwPop {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.2); }
+  to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+/* ── Chart overlay ────────────────────────────────────────────────
+   Sized to the SVG's 104px, NOT to .rw-chart (which is taller — it also
+   holds .rw-axis). Percent coordinates written by _rwChartSVG map onto the
+   viewBox only while this box and the svg agree. Everything circular or
+   text-bearing lives here rather than inside the SVG, because the SVG is
+   stretched horizontally by preserveAspectRatio="none" and would squash it. */
+.rw-overlay {
+  position: absolute; top: 0; left: 0; right: 0; height: 104px;
+  pointer-events: none;
+}
+.rw-dot {
+  position: absolute; width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--fc-bg-elevated);
+  border: 2px solid var(--rw-dot-stroke, var(--fc-accent));
+  transform: translate(-50%, -50%);
+}
+.rw-dot--end {
+  width: 9px; height: 9px;
+  background: var(--rw-dot-stroke, var(--fc-accent));
+  border: none;
+}
+/* An unlabelled dashed red rule is decoration. This is the one number the
+   line is measured against, so it says so. */
+/* Sits just ABOVE the rule rather than centred on it: centred, it needed an
+   opaque background to punch through the dashed line, and a solid swatch
+   over the card's gradient reads as a patch. Above the line there is always
+   clear space — the balance is by definition still positive to the left of
+   the crossing, so the data line is higher up. */
+.rw-zero-lbl {
+  position: absolute; left: 0;
+  transform: translateY(-100%);
+  padding: 0 0 2px 2px;
+  font-size: 9px; font-weight: 700; letter-spacing: 0.04em;
+  color: var(--fc-danger); opacity: 0.75;
+}
+/* The date in the headline, marked where it actually happens. */
+.rw-cross { position: absolute; top: 0; bottom: 0; width: 0; }
+.rw-cross::before {
+  content: ''; position: absolute; top: 6px; bottom: 20px; left: 0;
+  border-left: 1px dashed var(--fc-danger); opacity: 0.5;
+}
+.rw-cross-flag {
+  position: absolute; top: 0; left: 0;
+  transform: translateX(-50%);
+  padding: 1px 4px; border-radius: var(--fc-r-pill);
+  background: var(--fc-danger-soft);
+  border: 1px solid var(--fc-danger-border);
+  color: var(--fc-danger);
+  font-size: 9px; font-weight: 700; white-space: nowrap;
+}
 
 .rw-cta {
   display: block; width: 100%; margin-top: 14px;
@@ -2292,8 +2370,14 @@ body.fc-theme .fc-nav {
 
 @media (prefers-reduced-motion: reduce) {
   .rw-line, .home-v8--enter .rw-line { animation: none; stroke-dashoffset: 0; }
-  .rw-marker, .rw-endpoint,
-  .home-v8--enter .rw-marker, .home-v8--enter .rw-endpoint { animation: none; opacity: 1; }
+  .rw-marker, .rw-dot, .rw-zero-lbl, .rw-cross,
+  .home-v8--enter .rw-marker, .home-v8--enter .rw-dot,
+  .home-v8--enter .rw-zero-lbl, .home-v8--enter .rw-cross {
+    animation: none; opacity: 1;
+  }
+  /* .rw-dot--end carries its translate in the transform, so clearing the
+     animation must not clear the centring with it. */
+  .home-v8--enter .rw-dot--end { transform: translate(-50%, -50%) scale(1); }
 }
 
 /* ── Runway scrub (DASHBOARD_SPEC.md §4, wow #2) ──────────────── */
@@ -2503,6 +2587,64 @@ body.fc-theme .fc-nav {
 .ob-rw-end.is-warn { color: var(--fc-danger); }
 .ob-rw-chart { display: block; width: 100%; height: 68px; }
 
+/* ── Onboarding: the example demo (slide 3) ──────────────────────
+   Replaces the three-input form. Same visual family as the runway card in
+   the app, deliberately: what someone sees here is what they get after
+   connecting a bank, so the demo should not look like a different product.
+   text-align:left for the reason the .ob-rw comment above gives — the
+   slide wrapper is centred and rags anything placed inside it. */
+.ob-demo {
+  width: 100%; max-width: 340px; text-align: left;
+  padding: 16px;
+  background: var(--fc-card-bg);
+  border: 1px solid var(--fc-border-accent);
+  border-radius: var(--fc-r-xl);
+}
+.ob-demo-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 12px; margin-bottom: 10px;
+}
+.ob-demo-verdict {
+  margin-top: 2px; font-size: 14px; font-weight: 700;
+  color: var(--fc-text); line-height: 1.25;
+  transition: color 0.3s ease;
+}
+.ob-demo-verdict.is-fixed { color: var(--fc-success); }
+.ob-demo-amt {
+  margin-top: 2px;
+  font-size: 22px; font-weight: 800; letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums; color: var(--fc-text);
+  transition: color 0.3s ease;
+}
+.ob-demo-amt.is-warn { color: var(--fc-danger); }
+.ob-demo-chart { display: block; width: 100%; height: 74px; }
+.ob-demo-axis {
+  display: flex; justify-content: space-between;
+  margin-top: 2px;
+  font-size: 10px; font-weight: 600; color: var(--fc-text-faint);
+}
+/* The payoff line. Hidden until the fix lands so the two beats read as
+   cause and effect rather than a wall of text that was always there. */
+.ob-demo-fix {
+  display: flex; align-items: flex-start; gap: 9px;
+  margin-top: 12px; padding-top: 12px;
+  border-top: 1px solid var(--fc-border);
+  font-size: 12px; line-height: 1.45; color: var(--fc-text-muted);
+  opacity: 0; transform: translateY(4px);
+  transition: opacity 0.4s ease, transform 0.4s var(--fc-ease-out, ease);
+}
+.ob-demo-fix.is-in { opacity: 1; transform: none; }
+.ob-demo-fix strong { color: var(--fc-text); font-weight: 700; }
+.ob-demo-fix-ic {
+  flex-shrink: 0; width: 16px; height: 16px; margin-top: 1px;
+  color: var(--fc-accent);
+}
+.ob-demo-fix-ic svg { width: 100%; height: 100%; }
+@media (prefers-reduced-motion: reduce) {
+  .ob-demo-fix { transition: none; }
+  .ob-demo-verdict, .ob-demo-amt { transition: none; }
+}
+
 .ob-rw-fine {
   margin-top: 12px;
   font-size: 11px; line-height: 1.45;
@@ -2687,11 +2829,41 @@ body.fc-theme .fc-nav {
 
 /* ── Debt panel: add-debt action + stranded metrics ────────────────────
    Both came from the standalone debt sub-screen that this panel replaced. */
+/* 16px sides, like every other block on this panel (.wv-debt-hero,
+   .wv-debt-move, .wv-strategy, .wv-impact all use `margin: … 16px`).
+   These two were the only ones with no horizontal margin at all, so the
+   "Your debts" label and the "+ Add debt" button sat flush against the
+   screen edges and the metric cards were visibly clipped on both sides. */
+/* Mark-a-bill-as-paid. Theme tokens rather than white-alpha, so the ring and
+   the tick are visible on the light card as well as the dark one. */
+.fc-bill-check {
+  flex-shrink: 0;
+  width: 36px; height: 36px;
+  margin-left: 10px;
+  display: flex; align-items: center; justify-content: center;
+  /* currentColor for the ring as well as the tick. --fc-border-strong
+     composites to only 1.36:1 on the white bill card, which is a boundary
+     you cannot see; --fc-text-faint measures 4.9:1 and clears the 3:1 that
+     a control's visible boundary is held to. */
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--fc-text-faint);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+.fc-bill-check:active {
+  border-color: var(--fc-success);
+  background: var(--fc-success-soft);
+  color: var(--fc-success);
+}
+
 .wv-debt-actions {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin: 0 0 10px;
+  margin: 16px 16px 10px;
 }
 .wv-debt-actions__label {
   font-size: 9px;
@@ -2715,9 +2887,22 @@ body.fc-theme .fc-nav {
   transition: background var(--fc-dur-fast, 0.18s) ease, transform 0.12s ease;
 }
 .wv-debt-add:active { background: var(--fc-accent-soft); transform: scale(0.97); }
+/* Sub-heading INSIDE the accounts card (Savings / Checking). Distinct from
+   .wv-lbl, which is a between-cards section label and carries its own outer
+   padding — using that one here is what produced the nested-card look. */
+.wv-acct-group-lbl {
+  padding: 12px 16px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--wv-t3);
+}
+.wv-acct-group-lbl:first-child { padding-top: 4px; }
+
 .wv-debt-metrics {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
-  margin-bottom: 12px;
+  margin: 0 16px 12px;
 }
