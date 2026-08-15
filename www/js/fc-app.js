@@ -3122,6 +3122,39 @@ window.FCApp = (function () {
   let _homeRenderAt = 0;
   let _homeRenderTimer = null;
   let _homeRenderDeferred = false;
+  /* The sync pill's markup, shared by the home template and the surgical
+     updater below. Kept in one place so the two can never disagree — the
+     original bug was the header saying "Not synced yet" while the island
+     said "Syncing…", which is the app contradicting itself about the one
+     thing the user was waiting on. */
+  function _syncPillHTML() {
+    if (!state.user || _isDemoMode) return '';
+    const linked = !!(state.user.plaid_linked || state.user.plaid_institution
+                      || (state.accounts || []).length);
+    if (!linked) return '';
+    if (_lastSyncFailed)
+      return '<span class="fc-status-pill fc-status-pill--danger">Sync failed</span>';
+    if (state.syncing || state.initialLoading)
+      return '<span class="fc-status-pill fc-status-pill--busy">Syncing…</span>';
+    const at  = _getLastSyncAt();
+    const age = at ? Date.now() - at : Infinity;
+    if (age > 24 * 60 * 60 * 1000) {
+      return '<span class="fc-status-pill fc-status-pill--warn">'
+        + (at ? 'Updated ' + Math.floor(age / 86400000) + 'd ago' : 'Not synced yet')
+        + '</span>';
+    }
+    return '';
+  }
+
+  /* Update the pill WITHOUT a render. _scheduleHomeRender deliberately holds
+     every render for the duration of a sync — that hold is the resume-flicker
+     fix — so the one element that must change while a sync runs has to be
+     written directly. */
+  function _updateSyncPill() {
+    const host = document.getElementById('home-sync-pill');
+    if (host) host.innerHTML = _syncPillHTML();
+  }
+
   function _scheduleHomeRender() {
     if (state.tab !== 'home') return;
 
@@ -3894,14 +3927,10 @@ window.FCApp = (function () {
     /* Demo mode has no bank and never syncs, so _getLastSyncAt() is 0 and
        every demo session would wear a permanent "Not synced yet" warning —
        about data that is fabricated on purpose. App Review sees this screen. */
-    const syncPill = (!isLinked || _isDemoMode) ? ''
-      : _lastSyncFailed
-        ? '<span class="fc-status-pill fc-status-pill--danger">Sync failed</span>'
-        : _syncStale
-          ? '<span class="fc-status-pill fc-status-pill--warn">' + (
-              _syncAt ? 'Updated ' + Math.floor(_syncAge / 86400000) + 'd ago' : 'Not synced yet'
-            ) + '</span>'
-          : '';
+    // Wrapped in a stable host so _updateSyncPill() can rewrite it mid-sync
+    // without a render. See _syncPillHTML for the state precedence.
+    const syncPill = '<span id="home-sync-pill">' + _syncPillHTML() + '</span>';
+
     const nextBillMarkup = nextBill ? `
       <div class="home-v8__mini-top">
         <span class="home-v8__mini-icon is-warning" aria-hidden="true">
@@ -10155,6 +10184,7 @@ window.FCApp = (function () {
         state.syncing = false;
         // This clears syncing outside the finally block, so release any render
         // held by the stuck sync — the checks below can still early-return.
+        _updateSyncPill();
         _flushDeferredHomeRender();
         const stuck = document.getElementById('header-sync-btn');
         if (stuck) stuck.classList.remove('is-busy');
@@ -10195,6 +10225,9 @@ window.FCApp = (function () {
 
     state.syncing = true;
     state._syncStartedAt = Date.now();
+    // Surgical, not a render: _scheduleHomeRender holds renders for the
+    // whole sync, so this is the only way the badge can say "Syncing…".
+    _updateSyncPill();
     let _syncSucceeded = false;
 
     // Spin + disable the header sync button so the user sees the tap registered
@@ -10256,6 +10289,7 @@ window.FCApp = (function () {
       state.syncing = false;
       // Must come after state.syncing is cleared, or the flush re-defers itself.
       // Runs on the throw path too, so a held render is never stranded.
+      _updateSyncPill();
       _flushDeferredHomeRender();
       if (_syncBtn) _syncBtn.classList.remove('is-busy');
       // After a successful sync the island already says "All caught up" — no reset needed.

@@ -332,6 +332,14 @@
    in _renderHomeDashboard), so it needs the two states that can actually
    appear. --fc-warning-text / --fc-danger, never the raw --fc-warning:
    #F59E0B is 2.15:1 in light mode and must never carry text. */
+/* Work in progress, not a problem. Accent rather than amber: a sync that is
+   running is the app doing its job, and the first thing a user saw after
+   connecting a bank should not be a warning colour. */
+.fc-status-pill--busy {
+  border-color: var(--fc-border-accent);
+  background: var(--fc-accent-soft);
+  color: var(--fc-accent);
+}
 .fc-status-pill--warn {
   border-color: rgba(255, 159, 10, 0.28);
   background: var(--fc-warning-soft);
