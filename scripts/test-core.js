@@ -686,6 +686,56 @@ t('weightedApr: nothing to average is 0, not NaN', () => {
   eq(C.weightedApr([{ balance: 500, rate: null }]), 0);
 });
 
+/* ═══════════════════════════════════════════════════════════════
+   debtProgress — the dashboard's "paid down" tile
+   The one number in the app whose whole job is to be encouraging, which
+   is exactly why it must never be encouraging about nothing.
+   ═══════════════════════════════════════════════════════════════ */
+const H = (...pairs) => Object.fromEntries(pairs);
+
+t('debtProgress: one snapshot is not a trend', () => {
+  const p = C.debtProgress({ '2026-08-15': 5000 }, 5000);
+  eq(p.ok, false); eq(p.paidDown, 0);
+});
+t('debtProgress: no history at all refuses rather than claiming zero', () => {
+  eq(C.debtProgress({}, 5000).ok, false);
+  eq(C.debtProgress(null, 5000).ok, false);
+});
+t('debtProgress: paid down is measured from the EARLIEST snapshot', () => {
+  const p = C.debtProgress(H(['2026-06-01', 8000], ['2026-07-01', 7000], ['2026-08-01', 6500]), 6000);
+  eq(p.ok, true); eq(p.paidDown, 2000); eq(p.from, '2026-06-01');
+});
+t('debtProgress: positive means debt went DOWN', () => {
+  // Sign errors here would congratulate someone for borrowing more.
+  const better = C.debtProgress(H(['2026-06-01', 8000], ['2026-08-01', 7000]), 7000);
+  const worse  = C.debtProgress(H(['2026-06-01', 8000], ['2026-08-01', 9000]), 9000);
+  if (better.paidDown <= 0) throw new Error('paying down should be positive');
+  if (worse.paidDown  >= 0) throw new Error('borrowing more should be negative');
+  eq(worse.paidDown, -1000);
+});
+t('debtProgress: the month figure uses a ~30-day-old point, not the earliest', () => {
+  const p = C.debtProgress(
+    H(['2026-05-01', 9000], ['2026-07-16', 6200], ['2026-08-15', 6000]), 6000);
+  eq(p.paidDown, 3000);   // since May
+  eq(p.month, 200);       // since mid-July, the newest point ≥30 days back
+});
+t('debtProgress: under 30 days of history still reports a real month figure', () => {
+  const p = C.debtProgress(H(['2026-08-01', 5000], ['2026-08-15', 4800]), 4800);
+  eq(p.ok, true); eq(p.month, 200); eq(p.days, 14);
+});
+t('debtProgress: a bad month coexists with all-time progress', () => {
+  // The case the tile has to render honestly: up this month, down overall.
+  const p = C.debtProgress(
+    H(['2026-01-01', 12000], ['2026-07-10', 7000], ['2026-08-15', 7120]), 7120);
+  eq(p.paidDown, 4880);
+  eq(p.month, -120);
+});
+t('debtProgress: junk keys and non-numeric values are ignored, not counted', () => {
+  const p = C.debtProgress(
+    { 'updated_at': 1, 'not-a-date': 500, '2026-06-01': 8000, '2026-08-01': null }, 7000);
+  eq(p.ok, true); eq(p.from, '2026-06-01'); eq(p.paidDown, 1000);
+});
+
 console.log(`fc-core: ${passed} passed, ${failed} failed`);
 if (failed) {
   console.error('');

@@ -752,6 +752,66 @@
      @param {Array} debts  [{ balance, rate (APR %) }]
      @returns {number} weighted APR, or 0 when nothing has a rate
   */
+  /* ── Debt progress ────────────────────────────────────────────────
+     What a person has actually paid off, measured from real recorded
+     balances rather than from anything they had to tell us.
+
+     Two numbers, because they answer different questions and one of them
+     lies on its own:
+
+       paidDown  — total reduction since the earliest snapshot we hold. This
+                   is the encouraging one, and the one that keeps growing.
+       month     — change over the last ~30 days. This is the honest one. It
+                   can be negative, and it will be in any month with heavy
+                   card spending, because a credit-card balance is not a
+                   measure of borrowing — it is a measure of buying.
+
+     Nothing here guesses. With fewer than two distinct days on file it
+     returns ok:false and the UI says it started tracking today, rather than
+     printing a $0 that reads as "you have made no progress".
+
+     @param {Object<string,number>} history  {YYYY-MM-DD: total debt}
+     @param {number} current  today's total debt
+     @returns {{
+       ok: boolean, paidDown: number, month: number|null,
+       from: string|null, days: number
+     }}  paidDown/month are POSITIVE when debt went down.
+  */
+  function debtProgress(history, current) {
+    const EMPTY = { ok: false, paidDown: 0, month: null, from: null, days: 0 };
+    const days = Object.keys(history || {})
+      .filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d) && Number.isFinite(Number(history[d])))
+      .sort();
+    if (!days.length || !Number.isFinite(Number(current))) return EMPTY;
+
+    const now = Number(current);
+    const first = days[0];
+    /* One day of history is one data point, and one point is not a trend.
+       Comparing today against a snapshot taken today is always exactly zero. */
+    const latest = days[days.length - 1];
+    if (days.length < 2 && Number(history[latest]) === now) return EMPTY;
+
+    const span = Math.round(
+      (Date.parse(latest + 'T00:00:00') - Date.parse(first + 'T00:00:00')) / 86400000);
+
+    /* The ~30-day comparison point: the newest snapshot at least 30 days old.
+       Falling back to the earliest means a three-week-old account still gets
+       a real "this month" figure instead of nothing. */
+    const cutoff = Date.parse(latest + 'T00:00:00') - 30 * 86400000;
+    let monthRef = first;
+    for (const d of days) {
+      if (Date.parse(d + 'T00:00:00') <= cutoff) monthRef = d; else break;
+    }
+
+    return {
+      ok: true,
+      paidDown: Math.round((Number(history[first]) - now) * 100) / 100,
+      month:    Math.round((Number(history[monthRef]) - now) * 100) / 100,
+      from:     first,
+      days:     Math.max(0, span),
+    };
+  }
+
   function weightedApr(debts) {
     let num = 0, den = 0;
     for (const d of (debts || [])) {
@@ -849,5 +909,6 @@
     incomeProfile, scoreForecast, median,
     debtFreePlan,
     weightedApr,
+    debtProgress,
   };
 }));

@@ -1276,20 +1276,31 @@ window.FCData = (function () {
     } catch (_) { return []; }
   }
 
-  async function saveNetWorthSnapshot(date, value) {
+  async function saveNetWorthSnapshot(date, value, debt) {
     const user = FCAuth.currentUser();
     const db   = FCAuth.db();
     if (!user || !db || value == null) return;
     const ref = db.collection('users').doc(user.uid)
       .collection('nw_history').doc('snapshots');
+    const round = v => Math.round(v * 100) / 100;
+    /* Debt rides along in the SAME write. Net worth is assets minus debt, so
+       the stored scalar cannot be decomposed — which is why "how much have I
+       paid off" was unanswerable for every user until this field existed.
+       It is a second map in a document already being written daily, so it
+       costs nothing beyond the field itself. */
+    const hasDebt = debt != null && Number.isFinite(Number(debt));
     const updates = { updated_at: firebase.firestore.FieldValue.serverTimestamp() };
-    updates[`data.${date}`] = Math.round(value * 100) / 100;
+    updates[`data.${date}`] = round(value);
+    if (hasDebt) updates[`debt.${date}`] = round(Number(debt));
     try {
       await ref.update(updates);
     } catch (_) {
       // Document doesn't exist yet — create it
-      await ref.set({ data: { [date]: Math.round(value * 100) / 100 },
-                      updated_at: firebase.firestore.FieldValue.serverTimestamp() });
+      await ref.set({
+        data: { [date]: round(value) },
+        ...(hasDebt ? { debt: { [date]: round(Number(debt)) } } : {}),
+        updated_at: firebase.firestore.FieldValue.serverTimestamp(),
+      });
     }
   }
 
@@ -1304,13 +1315,22 @@ window.FCData = (function () {
     const ref = db.collection('users').doc(user.uid)
       .collection('nw_history').doc('snapshots');
     const unsub = ref.onSnapshot(snap => {
-      const raw  = snap.exists ? (snap.data().data || {}) : {};
+      const doc  = snap.exists ? snap.data() : {};
+      const raw  = doc.data || {};
       // Trim to last 60 days so the client never holds stale data
       const keys = Object.keys(raw).sort();
       const keep = keys.slice(-60);
       const history = {};
       keep.forEach(k => { history[k] = raw[k]; });
-      callback(history);
+      /* Debt keeps a much longer window than net worth on purpose: the chart
+         only draws 60 days, but "paid down since June" has to reach back to
+         whenever the user actually started. A year of daily numbers is a few
+         kilobytes. The UI always prints the date it measured from, so a trim
+         can shorten the claim but can never make it untrue. */
+      const rawDebt = doc.debt || {};
+      const debt = {};
+      Object.keys(rawDebt).sort().slice(-400).forEach(k => { debt[k] = rawDebt[k]; });
+      callback(history, debt);
     }, err => _listenerErr('NWHistory', err));
     _listeners.push(unsub);
     return unsub;

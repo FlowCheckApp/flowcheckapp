@@ -2671,7 +2671,9 @@ body.fc-theme .fc-nav {
    on the screen. It now sizes to its content. */
 .home-v8__move-primary {
   position: relative;
-  padding: 17px;
+  /* 16, not a stray 17: the debt card below stacks directly under this one
+     and their left edges have to agree on a number that is in the scale. */
+  padding: 16px;
   box-sizing: border-box;
 }
 /* Two lines is enough to state the finding. The full explanation lives on

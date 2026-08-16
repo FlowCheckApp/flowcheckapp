@@ -27,6 +27,7 @@ window.FCApp = (function () {
     txnOverrides:    {},         // { [txnId]: {name?, category?} }
     creditHistory:   [],         // [{month:'YYYY-MM', score:number}, …] oldest-first
     nwHistory:       {},         // {'YYYY-MM-DD': number} — Firestore-backed net worth sparkline
+    debtHistory:     {},         // {'YYYY-MM-DD': number} — total debt, same doc; powers "paid down"
     accountDetails:  {},         // {accountId: {interest_rate, minimum_payment}} — user-supplied overlay
     budgetHistory:   {},         // {'YYYY-MM': {categories,total_limit,total_spent}} — closed months, drives rollover
   };
@@ -648,9 +649,9 @@ window.FCApp = (function () {
   // into a self-feeding render/write storm: ~10s of visible churn on resume.
   // Same serverTimestamp re-entrancy the streak counter guards against with
   // _streakCheckedThisSession — see _attachDataListeners.
-  let _nwLastWritten = { uid: null, date: null, value: null };
+  let _nwLastWritten = { uid: null, date: null, value: null, debt: null };
 
-  function _snapshotNetWorth(netWorth) {
+  function _snapshotNetWorth(netWorth, debt) {
     // Capture uid before any async gap to avoid races with sign-out
     const uid = state.user?.uid;
     if (!uid || !state.user?.plaid_linked) return;
@@ -671,19 +672,27 @@ window.FCApp = (function () {
     // the already-stored case; _nwLastWritten closes the race where several
     // renders fire before the listener round-trip lands. Keyed by uid so a
     // different account can never inherit the previous user's guard.
-    const known    = state.nwHistory?.[today];
+    /* The dedup has to consider BOTH numbers. Net worth can sit unchanged
+       while debt moves — pay a card from the same bank's checking account and
+       assets and liabilities fall by the identical amount — so a guard keyed
+       on net worth alone would skip the write and lose the day's debt. */
+    const roundedDebt = (debt == null || !Number.isFinite(Number(debt)))
+      ? null : Math.round(Number(debt) * 100) / 100;
+    const known      = state.nwHistory?.[today];
+    const knownDebt  = state.debtHistory?.[today];
     const inFlight = _nwLastWritten.uid === uid
                   && _nwLastWritten.date === today
-                  && _nwLastWritten.value === rounded;
+                  && _nwLastWritten.value === rounded
+                  && _nwLastWritten.debt === roundedDebt;
 
-    if (!inFlight && known !== rounded) {
-      _nwLastWritten = { uid, date: today, value: rounded };
+    if (!inFlight && (known !== rounded || (roundedDebt !== null && knownDebt !== roundedDebt))) {
+      _nwLastWritten = { uid, date: today, value: rounded, debt: roundedDebt };
       // Firestore write — best-effort, never blocks the UI
-      FCData.saveNetWorthSnapshot(today, rounded).catch(() => {
+      FCData.saveNetWorthSnapshot(today, rounded, roundedDebt).catch(() => {
         // Clear the guard so a later update retries, rather than pinning a
         // value that never actually landed.
         if (_nwLastWritten.uid === uid && _nwLastWritten.date === today) {
-          _nwLastWritten = { uid: null, date: null, value: null };
+          _nwLastWritten = { uid: null, date: null, value: null, debt: null };
         }
       });
     }
@@ -1917,6 +1926,12 @@ window.FCApp = (function () {
     state.txnOverrides  = {};
     state.creditHistory = [];
     state.nwHistory     = {};
+    // Same reasoning as budgetHistory below — a debt-payoff figure belonging
+    // to the previous account must never greet whoever signs in next.
+    state.debtHistory   = {};
+    // The user-supplied APR / minimum overlay. Same rule: it is per-account
+    // data belonging to one person's banks.
+    state.accountDetails = {};
     // Must be wiped with the rest: rollover credit belonging to the previous
     // account would otherwise be granted to whoever signs in next.
     state.budgetHistory = {};
@@ -3087,6 +3102,117 @@ window.FCApp = (function () {
   }
 
   /* ── Next Bill compact card (right col on Home) ─────────────── */
+  /* ── Debt paid down ───────────────────────────────────────────────
+     The one debt number on Today, and deliberately the encouraging one.
+     Every other debt figure in the app answers "how much do you owe";
+     this one answers "how much have you got rid of", which is the only
+     one that grows when you do the right thing.
+
+     Rules it follows:
+       · Measured, never estimated. It compares recorded balances. With
+         fewer than two days on file it says so instead of printing a $0
+         that reads as "you have made no progress".
+       · It names the date it measured from, so the claim is exactly as
+         strong as the data behind it.
+       · A bad month is shown, in the same quiet type as a good one. Debt
+         rising is information; it is not an alarm, and it does not erase
+         the all-time figure sitting under it.
+       · Nothing at all for someone with no debt. A zeroed-out debt card is
+         a worry offered to a person who does not have that worry. */
+  function _renderDebtProgressCard() {
+    const debtNow = FCCore.netWorth(state.accounts || []).liabilities;
+    if (!(debtNow > 0)) return '';
+
+    const p = FCCore.debtProgress(state.debtHistory || {}, debtNow);
+    const money = v => FCData.formatCurrency(Math.abs(v));
+
+    if (!p.ok) {
+      return `
+        <section class="fc-ui-card home-v8__debt" aria-label="Debt progress">
+          <p class="fc-section-label">Debt</p>
+          <div class="home-v8__debt-value is-quiet">Tracking from today</div>
+          <p class="home-v8__debt-meta">Check back in a few weeks — we will show what you have paid off.</p>
+        </section>`;
+    }
+
+    const fromLabel = FCData.parseDateLocal(p.from)
+      .toLocaleDateString('en-US', { month: 'long' });
+
+    /* "…and that pulled your debt-free date N months closer."
+
+       A counterfactual, so it is held to the same bar as the date itself:
+       run the payoff simulation twice, once at today's balances and once at
+       what they were when tracking started, and report the difference.
+
+       The one assumption is HOW the paid-down amount was spread across the
+       debts — the daily snapshot records a total, not a per-account history.
+       Proportional to current balances, because that is roughly what
+       minimum payments do. It is a model, and it only ever appears when
+       debtFreePlan agrees to produce both dates; that function refuses
+       outright if any debt is missing a minimum, so an incomplete picture
+       silently prints no claim rather than a soft one. */
+    let closer = '';
+    const debtAccts = (state.accounts || []).filter(a => FCCore.accountClass(a) === 'debt');
+    if (p.paidDown > 0 && debtAccts.length) {
+      const debts = debtAccts.map(a => ({
+        name: a.name || 'Debt',
+        balance: Math.max(0, _acctBal(a)),
+        rate: _debtRate(a),
+        minimum: _minPayment(a),
+      }));
+      const total = debts.reduce((s, d) => s + d.balance, 0);
+      if (total > 0) {
+        const before = debts.map(d => ({
+          ...d, balance: d.balance + p.paidDown * (d.balance / total),
+        }));
+        const now  = FCCore.debtFreePlan(debts,  0, _debtStrategy());
+        const then = FCCore.debtFreePlan(before, 0, _debtStrategy());
+        if (now.ok && then.ok && then.months > now.months) {
+          const m = then.months - now.months;
+          closer = ` · debt-free date ${m} month${m === 1 ? '' : 's'} closer`;
+        }
+      }
+    }
+
+    /* A month where debt ROSE leads the card, even when the all-time figure
+       is still healthy. Letting the good number bury the bad one is the
+       version of this card that stops being trustworthy the first time
+       someone checks it against their bank. It is stated quietly — plain
+       text, no red, no alarm icon — and the progress line stays underneath
+       it, because both things are true at once. */
+    if (p.month !== null && p.month < 0) {
+      const under = p.paidDown > 0
+        ? `${money(p.paidDown)} paid down since ${fromLabel}`
+        : `${money(debtNow)} total · tracked since ${fromLabel}`;
+      return `
+        <section class="fc-ui-card home-v8__debt" aria-label="Debt progress">
+          <p class="fc-section-label">Debt</p>
+          <div class="home-v8__debt-value is-quiet">Up ${money(p.month)} this month</div>
+          <p class="home-v8__debt-meta">${esc(under)}</p>
+        </section>`;
+    }
+
+    if (p.paidDown > 0) {
+      return `
+        <section class="fc-ui-card home-v8__debt" aria-label="Debt paid down">
+          <p class="fc-section-label">Debt paid down</p>
+          <div class="home-v8__debt-value is-good">${money(p.paidDown)}</div>
+          <p class="home-v8__debt-meta">since ${esc(fromLabel)}${esc(closer)}</p>
+        </section>`;
+    }
+
+    /* Level, or down this month but not yet ahead of where they started. */
+    const monthLine = p.month
+      ? `${money(p.month)} paid down this month`
+      : 'No change this month';
+    return `
+      <section class="fc-ui-card home-v8__debt" aria-label="Debt progress">
+        <p class="fc-section-label">Debt</p>
+        <div class="home-v8__debt-value is-quiet">${esc(monthLine)}</div>
+        <p class="home-v8__debt-meta">${money(debtNow)} total · tracked since ${esc(fromLabel)}</p>
+      </section>`;
+  }
+
   function _renderHomeNextBill() {
     const section  = document.getElementById('home-next-risk-section');
     const labelEl  = document.getElementById('home-next-risk-label');
@@ -4399,6 +4525,13 @@ window.FCApp = (function () {
           </ul>` : ''}
         </section>
 
+
+        <!-- Progress, not a warning. It sits under the "next move" card
+             because it is a reward for having acted, not a decision to make;
+             and above Quick actions because a person who just paid something
+             off is exactly who is willing to do the next thing. It renders
+             nothing at all for someone with no debt. -->
+        ${_renderDebtProgressCard()}
 
         <!-- Dashboard v9 (DASHBOARD_SPEC.md §3): bills, monthly stats, the
              Cash Flow Outlook chart and Goals were all removed from Today.
@@ -11156,7 +11289,22 @@ window.FCApp = (function () {
          for the two missing numbers rather than pretend every debt has them. */
       { account_id: 'demo-auto', name: 'Demo Auto Loan', official_name: 'Demo Auto Loan',     type: 'loan',       subtype: 'auto',        balance_current: 14250.00, balance_available: null, mask: '7788', institution_name: 'Demo Bank' },
     ];
+    /* Demo debt history. Real listeners short-circuit in demo mode, so
+       without this the "paid down" card would show its day-one state and
+       App Review would never see the feature. The shape matches what the
+       daily snapshot actually writes: {YYYY-MM-DD: total debt}. */
     const _demoNow = new Date();
+    state.debtHistory = (() => {
+      const h = {}, total = 723.55 + 14250;
+      // Six monthly points, ~$210/mo of real progress, ending at today's total.
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(_demoNow);
+        d.setMonth(d.getMonth() - i);
+        h[`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`]
+          = Math.round((total + i * 210) * 100) / 100;
+      }
+      return h;
+    })();
     // Rolling date helpers — cross month boundaries correctly, so demo bills
     // are never accidentally overdue at month-end and history spans 2 months.
     const _demoFmt = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -11564,7 +11712,11 @@ window.FCApp = (function () {
          left Money, Plan, Goals and Coach frozen until you switched away. */
       _scheduleTabRender();
       // Snapshot net worth on every account update (daily dedup inside)
-      _snapshotNetWorth(FCData.calcNetWorth(accounts));
+      // netWorth() already computes liabilities for the net figure — it was
+      // simply being discarded. Same classifier, so the tile can never
+      // disagree with the Debt page about what counts as debt.
+      const _nw = FCCore.netWorth(accounts);
+      _snapshotNetWorth(_nw.net, _nw.liabilities);
     });
 
     FCData.listenToTransactions(500, transactions => {
@@ -11639,8 +11791,9 @@ window.FCApp = (function () {
     });
 
     // Net worth history (daily snapshots — Firestore-backed for cross-device persistence)
-    FCData.listenToNetWorthHistory(history => {
+    FCData.listenToNetWorthHistory((history, debt) => {
       state.nwHistory = history;
+      state.debtHistory = debt || {};
       // Net Worth is a Money panel too — this listener only knew about
       // Insights, so the Money chart lagged a day behind its own history.
       _scheduleTabRender();

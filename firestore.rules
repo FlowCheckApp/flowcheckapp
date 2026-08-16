@@ -351,12 +351,18 @@ service cloud.firestore {
       // Net worth history — read/write by owner (client saves daily snapshots).
       // Single document 'snapshots' with a `data` map of {YYYY-MM-DD: number}.
       // Written by saveNetWorthSnapshot() in fc-data.js.
+      // `debt` is a parallel map of {YYYY-MM-DD: total debt}, written in the
+      // same daily update. Net worth is assets MINUS debt, so the `data`
+      // scalar cannot be decomposed — without this field "how much have I
+      // paid off" is unanswerable. Omitting it here would reject the write
+      // silently, which is how vault_flags and budget_history each spent
+      // weeks doing nothing in production.
       match /nw_history/{docId} {
         allow read:   if isOwner(uid);
         allow create: if isOwner(uid)
-                      && request.resource.data.keys().hasOnly(['data', 'updated_at']);
+                      && request.resource.data.keys().hasOnly(['data', 'debt', 'updated_at']);
         allow update: if isOwner(uid)
-                      && request.resource.data.keys().hasOnly(['data', 'updated_at']);
+                      && request.resource.data.keys().hasOnly(['data', 'debt', 'updated_at']);
         allow delete: if false;
       }
 

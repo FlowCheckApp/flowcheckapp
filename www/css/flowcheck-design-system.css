@@ -3200,6 +3200,35 @@ a[role="tab"]:focus-visible,
 /* Coverage caption under a metric. A partial sum is still useful — "$25/mo"
    is what we actually know — but it must not be allowed to read as the total.
    Deliberately quiet: this is a footnote, not a warning. */
+/* Debt progress on Today. One number, generously sized, in the accent when
+   it is progress and in plain text when it is not — the difference between
+   the two states is the colour of the figure and nothing else, so a bad
+   month reads as information rather than as a different, worse card. */
+/* .fc-ui-card is padding-free by design — every card supplies its own inner
+   padding (see .home-v8__move-primary). Without this the label sits in the
+   24px corner radius and reads as clipped. 16px is the scale value, and the
+   move card above was moved off its stray 17px to match, so the two left
+   edges line up on a number that is actually in the system. */
+.home-v8__debt {
+  padding: 16px;
+}
+.home-v8__debt-value {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--fc-text);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.5px;
+  line-height: 1.1;
+  margin-top: 2px;
+}
+.home-v8__debt-value.is-good { color: var(--fc-success); }
+.home-v8__debt-value.is-quiet { font-size: 20px; }
+.home-v8__debt-meta {
+  font-size: 12px;
+  color: var(--fc-text-muted);
+  margin-top: 6px;
+  line-height: 1.4;
+}
 .fc-metric-note {
   font-size: 10px;
   font-weight: 500;
