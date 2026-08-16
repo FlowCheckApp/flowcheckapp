@@ -57,9 +57,9 @@
 <meta name="theme-color" content="#060e18">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="stylesheet" href="css/flowcheck-design-system.css?v=20260815f">
-<link rel="stylesheet" href="css/fc-screens.css?v=20260815f">
-<link rel="stylesheet" href="css/fc-premium-screens.css?v=20260815f">
+<link rel="stylesheet" href="css/flowcheck-design-system.css?v=20260815g">
+<link rel="stylesheet" href="css/fc-screens.css?v=20260815g">
+<link rel="stylesheet" href="css/fc-premium-screens.css?v=20260815g">
 
 <!-- Sentry — error & crash monitoring (vanilla JS, no npm required) -->
 <script
@@ -6401,6 +6401,22 @@ body:not(.keyboard-open) .fc-sheet {
        than two more lines of prose — the row already carries a name, an
        institution and a balance, and this has to sit under all of it without
        turning the list into paragraphs. */
+    /* Compare-an-offer result. Green when the offer genuinely costs less,
+       amber when it does not — including the common case where the monthly
+       payment falls but the total rises. */
+    .offer-result { margin-top:16px; padding:14px 16px; border-radius:16px; border:1px solid var(--wv-border); background:var(--wv-pill); }
+    .offer-result.is-good { border-color:rgba(52,199,89,0.28); }
+    .offer-result.is-warn { border-color:rgba(255,159,10,0.28); }
+    .offer-headline { font-size:16px; font-weight:700; color:var(--wv-t1); line-height:1.3; }
+    .offer-result.is-good .offer-headline { color:var(--wv-green); }
+    .offer-sub { font-size:12px; font-weight:600; color:var(--wv-t2); margin-top:2px; }
+    .offer-warn { font-size:12px; line-height:1.5; color:var(--wv-t2); margin-top:10px; }
+    .offer-rows { margin:12px 0 0; display:flex; flex-direction:column; gap:8px; }
+    .offer-rows > div { display:flex; align-items:baseline; justify-content:space-between; gap:12px; }
+    .offer-rows dt { font-size:12px; color:var(--wv-t3); }
+    .offer-rows dd { margin:0; font-size:13px; font-weight:600; color:var(--wv-t1); text-align:right; font-variant-numeric:tabular-nums; }
+    .offer-rows dd span { display:block; font-size:10px; font-weight:500; color:var(--wv-t3); }
+    .offer-note { font-size:11px; line-height:1.5; color:var(--wv-t3); margin-top:12px; }
     .wv-debt-facts { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
     .wv-debt-fact { font-size:10px; font-weight:600; color:var(--wv-t2); background:var(--wv-pill); border:1px solid var(--wv-pill-b); border-radius:6px; padding:2px 6px; font-variant-numeric:tabular-nums; white-space:nowrap; }
     /* The gap, stated as an invitation rather than an error. A missing APR is
@@ -6408,6 +6424,9 @@ body:not(.keyboard-open) .fc-sheet {
        red warning on four of five rows would make the page feel broken. It is
        a fact chip in the accent colour, so it queues up with the real facts
        instead of forming a second, louder line. */
+    /* An action, so it is a real button — but sized as a chip so the row
+       stays a row. Accent text on the pill ground, matching the gap chip. */
+    .wv-debt-fact--action { color:var(--wv-blue); cursor:pointer; font-family:inherit; -webkit-tap-highlight-color:transparent; }
     .wv-debt-fact--gap { color:var(--wv-blue); background:var(--wv-blue-soft); border-color:transparent; }
     .wv-debt-fact--gap::before { content:"+ "; font-weight:700; }
     .wv-debt-bal { font-size:15px; font-weight:600; color:var(--wv-t1); font-variant-numeric:tabular-nums; flex-shrink:0; }
@@ -7141,6 +7160,58 @@ body:not(.keyboard-open) .fc-sheet {
   </div>
 </div>
 
+<!-- ═══════════════════ SHEET: COMPARE AN OFFER ════════════════ -->
+<!-- Deliberately NOT an ad surface. FlowCheck earns nothing from this and
+     says so on the result. Every lender's own calculator is built to make
+     its offer look good; this one reports total interest first, because
+     that is the number that says whether an offer is actually better. -->
+<div id="fc-offer-sheet" class="fc-sheet-overlay" onclick="if(event.target===this)FCApp.closeOfferSheet()" style="display:none" role="dialog" aria-modal="true" aria-label="Compare a refinance offer">
+  <div class="fc-sheet fc-sheet--form" onclick="event.stopPropagation()">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+      <div class="fc-h3">Compare an offer</div>
+      <button class="fc-iconbtn" onclick="FCApp.closeOfferSheet()" type="button" aria-label="Close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div id="offer-acct-name" style="font-size:14px;font-weight:600;color:var(--fc-text)"></div>
+    <div id="offer-today" style="font-size:12px;line-height:1.5;color:var(--fc-text-faint);margin-bottom:16px"></div>
+
+    <div class="fc-seg" role="tablist" aria-label="Offer type" style="margin-bottom:16px">
+      <button class="fc-seg-btn active" type="button" role="tab" aria-selected="true" data-offer-kind="loan" onclick="FCApp._offerKind('loan')">Refinance loan</button>
+      <button class="fc-seg-btn" type="button" role="tab" aria-selected="false" data-offer-kind="transfer" onclick="FCApp._offerKind('transfer')">Balance transfer</button>
+    </div>
+
+    <div class="fc-input-group" style="margin:0">
+      <label class="fc-input-label" for="offer-rate">Rate you were offered (APR %)</label>
+      <input id="offer-rate" type="number" class="fc-input" inputmode="decimal" placeholder="e.g. 5.2" min="0" max="100" step="0.01">
+    </div>
+    <div class="fc-input-group" id="offer-term-row" style="margin:14px 0 0">
+      <label class="fc-input-label" for="offer-term" id="offer-term-label">Length of the new loan (months)</label>
+      <input id="offer-term" type="number" class="fc-input" inputmode="numeric" placeholder="e.g. 60" min="1" max="480" step="1">
+    </div>
+    <div class="fc-input-group" id="offer-promo-row" style="margin:14px 0 0;display:none">
+      <label class="fc-input-label" for="offer-revert">Rate after the promo ends (APR %)</label>
+      <input id="offer-revert" type="number" class="fc-input" inputmode="decimal" placeholder="e.g. 24.99" min="0" max="100" step="0.01">
+    </div>
+    <div class="fc-input-group" id="offer-payment-row" style="margin:14px 0 0;display:none">
+      <label class="fc-input-label" for="offer-payment">What you will pay each month ($)</label>
+      <input id="offer-payment" type="number" class="fc-input" inputmode="decimal" placeholder="e.g. 200" min="0" step="1">
+    </div>
+    <div class="fc-input-group" style="margin:14px 0 0">
+      <label class="fc-input-label" for="offer-fee">Fee, if any ($)</label>
+      <input id="offer-fee" type="number" class="fc-input" inputmode="decimal" placeholder="e.g. 150" min="0" step="1">
+    </div>
+
+    <button class="fc-btn fc-btn--primary" type="button" onclick="FCApp.calcOffer()" style="width:100%;margin-top:20px">
+      Compare
+    </button>
+    <div id="offer-result" aria-live="polite"></div>
+    <button class="fc-btn" onclick="FCApp.closeOfferSheet()" type="button" style="width:100%;margin-top:10px">
+      Close
+    </button>
+  </div>
+</div>
+
 <!-- ═════════════════ SHEET: DEBT RATE & MINIMUM ═══════════════ -->
 <!-- Plaid's Liabilities product covers credit cards, student loans and
      mortgages. It does NOT cover auto loans, and it returns nothing for a
@@ -7359,7 +7430,7 @@ body:not(.keyboard-open) .fc-sheet {
 <script src="js/fc-data.js"></script>
 <script src="js/fc-push.js"></script>
 <script src="js/fc-iap.js"></script>
-<script src="js/fc-app.js?v=20260815f"></script>
+<script src="js/fc-app.js?v=20260815g"></script>
 
 <script>
 'use strict';

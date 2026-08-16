@@ -777,6 +777,136 @@
        from: string|null, days: number
      }}  paidDown/month are POSITIVE when debt went down.
   */
+  /* ── Compare a refinance / balance-transfer offer ─────────────────
+     Someone has been quoted a rate somewhere and wants to know whether it
+     is actually better. That question has a real answer, and it is not the
+     one the quote usually leads with — "lower monthly payment" is trivially
+     achievable by stretching the term, and it very often costs MORE in
+     total. This returns both numbers so the cheaper-looking option cannot
+     hide behind the smaller one.
+
+     Amortisation, not an approximation: interest accrues monthly on the
+     declining balance, exactly as debtFreePlan simulates it.
+
+     Two shapes of offer, and conflating them is how a comparison lies:
+
+       · A REFI LOAN (auto, personal, student) has a fixed term, and the
+         payment falls out of it. Pass `months`.
+       · A BALANCE TRANSFER has no term. You keep paying whatever you pay,
+         and the promo is a deadline rather than a schedule. Pass `payment`
+         — normally their current payment, which asks the useful question:
+         same money out the door, how much sooner is this gone?
+
+     `introRate` for `introMonths` then reverting to `rate` models the promo.
+     A 0% offer that does not clear before the window closes is not free,
+     and separating payment from term is what lets that show.
+
+     @param {object} o
+     @param {number} o.balance     amount being refinanced
+     @param {number} o.rate        the NEW APR (%) after any intro period
+     @param {number} o.months      the NEW term in months (loan mode)
+     @param {number} o.payment     fixed monthly payment (transfer mode);
+                                   when given it wins, and `months` becomes
+                                   an outcome rather than an input
+     @param {number} o.introRate   optional promotional APR (%)
+     @param {number} o.introMonths optional length of that promo
+     @param {number} o.fee         transfer/origination fee, dollars
+     @param {number} o.currentRate today's APR (%)
+     @param {number} o.currentPayment  what they pay per month today
+     @returns {{
+       ok: boolean, reason: string|null,
+       payment: number, totalInterest: number, months: number,
+       currentTotalInterest: number, currentMonths: number,
+       interestSaved: number, monthlyChange: number, monthsSaved: number
+     }}  saved/… are POSITIVE when the offer is better.
+  */
+  function compareOffer(o) {
+    const EMPTY = {
+      ok: false, reason: null, payment: 0, totalInterest: 0, months: 0,
+      currentTotalInterest: 0, currentMonths: 0,
+      interestSaved: 0, monthlyChange: 0, monthsSaved: 0,
+    };
+    const bal   = Math.max(0, Number(o?.balance) || 0);
+    const term  = Math.round(Number(o?.months) || 0);
+    const rate  = Math.max(0, Number(o?.rate) || 0);
+    const fee   = Math.max(0, Number(o?.fee) || 0);
+    const curRt = Math.max(0, Number(o?.currentRate) || 0);
+    const curPm = Math.max(0, Number(o?.currentPayment) || 0);
+    const fixedPm = Math.max(0, Number(o?.payment) || 0);
+    if (bal <= 0 || (term <= 0 && fixedPm <= 0)) {
+      return { ...EMPTY, reason: 'need_balance_and_term' };
+    }
+    if (curPm <= 0)            return { ...EMPTY, reason: 'need_current_payment' };
+
+    const iRate  = (o?.introRate   === null || o?.introRate === undefined || o?.introRate === '')
+      ? null : Math.max(0, Number(o.introRate) || 0);
+    const iMonths = Math.max(0, Math.round(Number(o?.introMonths) || 0));
+
+    /* The new loan. The fee is financed — that is how these are almost
+       always sold, and rolling it in is what makes a "no cost" offer cost
+       something. */
+    const principal = bal + fee;
+    /* Transfer mode fixes the payment; loan mode derives it from the term.
+       In loan mode the schedule is built at the rate that actually applies
+       for most of it — using a 0% teaser to set a payment that then has to
+       carry a 22% balance is the arithmetic that makes bad offers look fine. */
+    const payment = fixedPm > 0 ? fixedPm : _amortPayment(principal, rate, term);
+    if (!isFinite(payment) || payment <= 0) return { ...EMPTY, reason: 'no_payment' };
+
+    const HARD_CAP = 600;
+    const limit = fixedPm > 0 ? HARD_CAP : term;
+    let b = principal, newInterest = 0, m = 0;
+    for (; m < limit && b > 0.005; m++) {
+      const r = (iRate !== null && m < iMonths) ? iRate : rate;
+      const i = b * (r / 100 / 12);
+      newInterest += i;
+      const next = b + i - payment;
+      // Only a rate period can outrun the payment; say so instead of looping.
+      if (next >= b && m >= iMonths) return { ...EMPTY, reason: 'never_pays_off' };
+      b = Math.max(0, next);
+    }
+    /* A promo that expires with a balance still on it reverts to the real
+       rate. Keep paying the same amount and count the months honestly rather
+       than pretending the term held. */
+    for (; m < HARD_CAP && b > 0.005; m++) {
+      const i = b * (rate / 100 / 12);
+      newInterest += i;
+      const next = b + i - payment;
+      if (next >= b) return { ...EMPTY, reason: 'never_pays_off' };
+      b = Math.max(0, next);
+    }
+
+    // What today's debt costs if nothing changes and they keep paying curPm.
+    let cb = bal, curInterest = 0, cm = 0;
+    for (; cm < 600 && cb > 0.005; cm++) {
+      const i = cb * (curRt / 100 / 12);
+      curInterest += i;
+      const next = cb + i - curPm;
+      if (next >= cb) { curInterest = Infinity; cm = Infinity; break; }
+      cb = Math.max(0, next);
+    }
+
+    const round = v => (isFinite(v) ? Math.round(v * 100) / 100 : v);
+    return {
+      ok: true, reason: null,
+      payment:              round(payment),
+      totalInterest:        round(newInterest + fee),
+      months:               m,
+      currentTotalInterest: round(curInterest),
+      currentMonths:        cm,
+      interestSaved:        round(curInterest - (newInterest + fee)),
+      monthlyChange:        round(curPm - payment),
+      monthsSaved:          isFinite(cm) ? cm - m : Infinity,
+    };
+  }
+
+  /** Standard amortising payment. 0% is plain division, not a divide-by-zero. */
+  function _amortPayment(principal, annualRate, months) {
+    const r = (Number(annualRate) || 0) / 100 / 12;
+    if (r <= 0) return principal / months;
+    return (principal * r) / (1 - Math.pow(1 + r, -months));
+  }
+
   function debtProgress(history, current) {
     const EMPTY = { ok: false, paidDown: 0, month: null, from: null, days: 0 };
     const days = Object.keys(history || {})
@@ -910,5 +1040,6 @@
     debtFreePlan,
     weightedApr,
     debtProgress,
+    compareOffer,
   };
 }));

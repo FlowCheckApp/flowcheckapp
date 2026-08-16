@@ -6616,6 +6616,200 @@ window.FCApp = (function () {
      the name, type and balance belong to the backend, and offering to edit
      them would be offering something the rules refuse. Two numbers, saved to
      the /account_details overlay, merged on read behind any real Plaid value. */
+  /* ── Compare an offer ─────────────────────────────────────────────
+     Somebody has been quoted a rate — by a bank, a dealership, a card
+     mailer — and wants to know whether taking it actually helps. The app
+     already holds the balance, the APR and the payment, so it can answer
+     that properly instead of leaving them to a website calculator that
+     wants the answer to be yes.
+
+     It deliberately reports BOTH numbers. Every offer leads with the
+     monthly payment, and a lower payment over a longer term is the most
+     common way to pay more for the privilege of paying less each month.
+     Interest is the number that says whether the offer is good; the
+     payment only says whether it is affordable. Both are shown, and when
+     they disagree the card says so in plain words. */
+  let _offerAccountId = null;
+
+  function showOfferSheet(accountId) {
+    const acct = (state.accounts || []).find(a => _acctKey(a) === accountId);
+    if (!acct) return;
+    _offerAccountId = accountId;
+    const sheet = document.getElementById('fc-offer-sheet');
+    if (!sheet) return;
+
+    const nameEl = document.getElementById('offer-acct-name');
+    if (nameEl) {
+      nameEl.textContent = `${acct.name || 'This debt'} · ${FCData.formatCurrency(Math.max(0, _acctBal(acct)))}`;
+    }
+    // Today's terms, so the comparison has something real to sit against.
+    const todayEl = document.getElementById('offer-today');
+    const rate = _debtRate(acct), min = _minPayment(acct);
+    if (todayEl) {
+      todayEl.textContent = (rate > 0 && min > 0)
+        ? `Right now: ${rate.toFixed(rate % 1 ? 2 : 0)}% APR, paying ${FCData.formatCurrency(min)}/mo`
+        : 'Add this debt\u2019s rate and minimum first — without them there is nothing to compare against.';
+    }
+    // Prefill the payment with what they already pay: the most useful
+    // comparison is the same money out the door at a better rate.
+    const pm = document.getElementById('offer-payment');
+    if (pm && min > 0) pm.value = String(min);
+    ['offer-rate', 'offer-term', 'offer-fee'].forEach(id => {
+      const el = document.getElementById(id); if (el) el.value = '';
+    });
+    const out = document.getElementById('offer-result');
+    if (out) out.innerHTML = '';
+    _offerKind('loan');
+    sheet.style.display = 'flex';
+    haptic('light');
+  }
+
+  function closeOfferSheet() {
+    const sheet = document.getElementById('fc-offer-sheet');
+    if (!sheet) return;
+    sheet.classList.add('fc-sheet--closing');
+    setTimeout(() => { sheet.style.display = 'none'; sheet.classList.remove('fc-sheet--closing'); }, 280);
+    _offerAccountId = null;
+  }
+
+  /* Loan vs balance transfer are different questions, so the form asks
+     different things. A loan has a term; a transfer has a promo window and
+     whatever you choose to pay. */
+  let _offerMode = 'loan';
+  function _offerKind(kind) {
+    _offerMode = kind === 'transfer' ? 'transfer' : 'loan';
+    document.querySelectorAll('#fc-offer-sheet [data-offer-kind]').forEach(b => {
+      const on = b.dataset.offerKind === _offerMode;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    /* The months field exists in BOTH modes but means different things: the
+       loan's term, or the length of the promo. Hiding it in transfer mode
+       (the first cut) left introMonths at 0, so a 0% offer was modelled as
+       reverting immediately — the calculator quietly answered a question
+       nobody asked. */
+    const promoRow = document.getElementById('offer-promo-row');
+    const payRow   = document.getElementById('offer-payment-row');
+    const termLbl  = document.getElementById('offer-term-label');
+    const termInp  = document.getElementById('offer-term');
+    if (promoRow) promoRow.style.display = _offerMode === 'loan' ? 'none' : '';
+    if (payRow)   payRow.style.display   = _offerMode === 'loan' ? 'none' : '';
+    if (termLbl)  termLbl.textContent = _offerMode === 'loan'
+      ? 'Length of the new loan (months)'
+      : 'How long the promo rate lasts (months)';
+    if (termInp)  termInp.placeholder = _offerMode === 'loan' ? 'e.g. 60' : 'e.g. 18';
+    const out = document.getElementById('offer-result');
+    if (out) out.innerHTML = '';
+  }
+
+  function calcOffer() {
+    const out = document.getElementById('offer-result');
+    const acct = (state.accounts || []).find(a => _acctKey(a) === _offerAccountId);
+    if (!out || !acct) return;
+
+    const num = id => {
+      const v = parseFloat((document.getElementById(id) || {}).value);
+      return isFinite(v) && v >= 0 ? v : null;
+    };
+    const balance = Math.max(0, _acctBal(acct));
+    const curRate = _debtRate(acct);
+    const curPay  = _minPayment(acct);
+    const rate    = num('offer-rate');
+    const fee     = num('offer-fee') || 0;
+
+    if (curPay <= 0 || curRate <= 0) {
+      out.innerHTML = `<p class="offer-note">Add this debt\u2019s current rate and minimum payment first — `
+        + `without them there is nothing to compare against.</p>`;
+      return;
+    }
+    if (rate === null) {
+      out.innerHTML = `<p class="offer-note">Enter the rate you were offered.</p>`;
+      return;
+    }
+
+    const args = { balance, rate, fee, currentRate: curRate, currentPayment: curPay };
+    if (_offerMode === 'loan') {
+      const months = num('offer-term');
+      if (!months) { out.innerHTML = `<p class="offer-note">Enter the length of the new loan in months.</p>`; return; }
+      args.months = Math.round(months);
+    } else {
+      const pay = num('offer-payment');
+      if (!pay) { out.innerHTML = `<p class="offer-note">Enter what you plan to pay each month.</p>`; return; }
+      const promo = num('offer-term');
+      if (!promo) {
+        out.innerHTML = `<p class="offer-note">Enter how many months the promo rate lasts — `
+          + `that is what decides whether this is actually free.</p>`;
+        return;
+      }
+      args.payment = pay;
+      args.introRate = rate;
+      args.introMonths = Math.round(promo);
+      // After the promo the balance reverts to the card's ongoing rate. If
+      // they have not told us one, assume it reverts to what they pay today
+      // — that is the conservative read, never the flattering one.
+      args.rate = num('offer-revert') ?? curRate;
+    }
+
+    const r = FCCore.compareOffer(args);
+    if (!r.ok) {
+      const why = r.reason === 'never_pays_off'
+        ? 'At that payment the balance never clears — the interest outruns it.'
+        : 'That is not enough to compare yet.';
+      out.innerHTML = `<p class="offer-note">${esc(why)}</p>`;
+      return;
+    }
+
+    const money = v => FCData.formatCurrency(Math.abs(v));
+    const cheaper = r.interestSaved > 0;
+    const lowerPm = r.monthlyChange > 0;
+    const mo = n => `${n} month${n === 1 ? '' : 's'}`;
+
+    /* The headline is always the interest, because that is the one that
+       says whether the offer is good. */
+    const headline = cheaper
+      ? `Saves ${money(r.interestSaved)} in interest`
+      : r.interestSaved === 0 ? 'Costs the same overall'
+      : `Costs ${money(r.interestSaved)} more in interest`;
+
+    /* Both traps, named out loud. They are mirror images: an offer can be
+       cheaper per month but dearer overall, or cheaper overall but keep you
+       in debt longer. Either way the number the offer leads with is not the
+       whole answer. */
+    const slower = isFinite(r.monthsSaved) && r.monthsSaved < 0;
+    const warn = (!cheaper && lowerPm)
+      ? `<p class="offer-warn">Your payment drops ${money(r.monthlyChange)} a month, but you pay `
+        + `${money(r.interestSaved)} more in total. A smaller payment over a longer `
+        + `term is not the same as a cheaper debt.</p>`
+      : (cheaper && slower)
+      ? `<p class="offer-warn">Cheaper overall, but it keeps you in debt `
+        + `${mo(Math.abs(r.monthsSaved))} longer. Worth it if the lower payment helps you `
+        + `elsewhere — not if being done sooner is the point.</p>`
+      : '';
+
+    const rows = [
+      ['New payment', `${money(r.payment)}/mo`,
+        lowerPm ? `${money(r.monthlyChange)} less` : r.monthlyChange === 0 ? 'no change' : `${money(r.monthlyChange)} more`],
+      ['Interest, this offer', money(r.totalInterest), `over ${mo(r.months)}`],
+      ['Interest, staying put', isFinite(r.currentTotalInterest) ? money(r.currentTotalInterest) : 'never clears',
+        isFinite(r.currentMonths) ? `over ${mo(r.currentMonths)}` : 'at your current payment'],
+    ];
+
+    out.innerHTML = `
+      <div class="offer-result ${cheaper ? 'is-good' : 'is-warn'}">
+        <div class="offer-headline">${esc(headline)}</div>
+        ${isFinite(r.monthsSaved) && r.monthsSaved > 0
+          ? `<div class="offer-sub">Gone ${esc(mo(r.monthsSaved))} sooner</div>` : ''}
+        ${warn}
+        <dl class="offer-rows">
+          ${rows.map(([k, v, note]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}`
+            + `<span>${esc(note)}</span></dd></div>`).join('')}
+        </dl>
+        <p class="offer-note">FlowCheck is not a lender and earns nothing from this.
+          Check the offer\u2019s fees and terms before you accept it.</p>
+      </div>`;
+    haptic('light');
+  }
+
   let _editingDetailsId = null;
 
   function showDebtDetailsSheet(accountId) {
@@ -6819,6 +7013,15 @@ window.FCApp = (function () {
           : _r <= 0            ? 'Add rate'
           :                      'Add minimum'
         }</span>`);
+      } else if (bal > 0) {
+        /* Only offered once both numbers exist, because without them there
+           is nothing to compare an offer AGAINST and the sheet would just
+           turn the user away. A separate button rather than another tap
+           target inside the row: the row already opens the rate editor, and
+           two actions on one row is how a tap becomes a guess. */
+        meta.push(`<button class="wv-debt-fact wv-debt-fact--action" type="button"`
+          + ` onclick="event.stopPropagation();FCApp.showOfferSheet('${esc(_acctKey(a))}')"`
+          + ` aria-label="Compare a refinance offer for ${esc(a.name || 'this debt')}">Compare an offer</button>`);
       }
 
       return `<div class="wv-debt-row wv-debt-row--editable"
@@ -14799,6 +15002,10 @@ window.FCApp = (function () {
     closeDisconnectSheet,
     showDeleteSheet,
     showDebtDetailsSheet,
+    showOfferSheet,
+    closeOfferSheet,
+    calcOffer,
+    _offerKind,
     closeDebtDetailsSheet,
     saveDebtDetails,
     closeDeleteSheet,

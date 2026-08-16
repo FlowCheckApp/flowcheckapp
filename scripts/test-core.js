@@ -736,6 +736,109 @@ t('debtProgress: junk keys and non-numeric values are ignored, not counted', () 
   eq(p.ok, true); eq(p.from, '2026-06-01'); eq(p.paidDown, 1000);
 });
 
+/* ═══════════════════════════════════════════════════════════════
+   compareOffer — "is this refinance actually better?"
+   The question the quote does not answer honestly on its own.
+   ═══════════════════════════════════════════════════════════════ */
+t('compareOffer: a genuinely better rate saves interest and lowers the payment', () => {
+  const r = C.compareOffer({ balance: 31000, rate: 5.2, months: 60,
+                             currentRate: 6.9, currentPayment: 620 });
+  eq(r.ok, true);
+  if (r.interestSaved <= 0) throw new Error('a lower rate must save interest');
+  if (r.monthlyChange <= 0) throw new Error('same term at a lower rate must lower the payment');
+});
+
+t('compareOffer: a longer term can LOWER the payment and still cost more', () => {
+  // The trap the whole function exists to expose.
+  const r = C.compareOffer({ balance: 20000, rate: 7, months: 84,
+                             currentRate: 6, currentPayment: 480 });
+  if (r.monthlyChange <= 0) throw new Error('stretching the term should lower the payment');
+  if (r.interestSaved >= 0) throw new Error('a worse rate over a longer term must cost MORE overall');
+});
+
+t('compareOffer: 0% for 18 months clears a card that fits inside the window', () => {
+  const r = C.compareOffer({ balance: 3600, rate: 22.99, payment: 200,
+                             introRate: 0, introMonths: 18,
+                             currentRate: 22.99, currentPayment: 200 });
+  eq(r.ok, true); eq(r.months, 18);
+  near(r.totalInterest, 0, 0.01, 'a promo that clears in the window costs');
+});
+
+t('compareOffer: a 0% promo that does NOT clear is not free', () => {
+  // $6,000 at $200/mo cannot clear in 12 months; the rest reverts to 22.99%.
+  const r = C.compareOffer({ balance: 6000, rate: 22.99, payment: 200,
+                             introRate: 0, introMonths: 12,
+                             currentRate: 22.99, currentPayment: 200 });
+  eq(r.ok, true);
+  if (r.totalInterest <= 0) throw new Error('a balance surviving the promo must accrue interest');
+  if (r.months <= 12) throw new Error('it cannot still finish inside the promo window');
+});
+
+t('compareOffer: the transfer fee is counted, not waved away', () => {
+  const free = C.compareOffer({ balance: 5000, rate: 0, payment: 300, introRate: 0, introMonths: 18,
+                                currentRate: 20, currentPayment: 300 });
+  const paid = C.compareOffer({ balance: 5000, rate: 0, payment: 300, introRate: 0, introMonths: 18,
+                                fee: 150, currentRate: 20, currentPayment: 300 });
+  near(paid.totalInterest - free.totalInterest, 150, 0.01, 'the fee should add');
+  if (paid.interestSaved >= free.interestSaved) throw new Error('a fee must reduce the saving');
+});
+
+t('compareOffer: a fixed payment beats the term — transfer mode, not loan mode', () => {
+  /* The bug this locks out: deriving the payment from the term meant a
+     $6,000 transfer with a 12-month promo silently assumed $500/mo and
+     "cleared" for free. A card has no required payment; the promo is a
+     deadline, not a schedule. */
+  const r = C.compareOffer({ balance: 6000, rate: 22.99, months: 12, payment: 200,
+                             introRate: 0, introMonths: 12,
+                             currentRate: 22.99, currentPayment: 200 });
+  near(r.payment, 200, 0.01, 'the payment passed in should be the payment used —');
+  if (r.months <= 12) throw new Error('$200/mo cannot clear $6,000 inside 12 months');
+});
+
+t('compareOffer: loan mode prices the term at the real rate, not the teaser', () => {
+  /* Pricing the payment off a 0% teaser leaves a balance the real rate then
+     has to carry, and the loan silently runs PAST its stated term — the
+     arithmetic that makes a bad offer look survivable. Priced at the real
+     rate, a teaser is a bonus instead: it finishes at or before term. */
+  const r = C.compareOffer({ balance: 12000, rate: 12, months: 48,
+                             introRate: 0, introMonths: 6,
+                             currentRate: 18, currentPayment: 400 });
+  eq(r.ok, true);
+  if (r.months > 48) {
+    throw new Error(`a loan must not outrun its own term — got ${r.months} of 48`);
+  }
+  if (r.months >= 48) {
+    throw new Error('six months at 0% should finish it early, not exactly on time');
+  }
+});
+
+t('compareOffer: refuses without a current payment rather than inventing one', () => {
+  const r = C.compareOffer({ balance: 5000, rate: 5, months: 36, currentRate: 20 });
+  eq(r.ok, false); eq(r.reason, 'need_current_payment');
+});
+t('compareOffer: refuses without a balance or a term', () => {
+  eq(C.compareOffer({ rate: 5, months: 36, currentRate: 20, currentPayment: 200 }).reason,
+     'need_balance_and_term');
+  eq(C.compareOffer({ balance: 5000, rate: 5, currentRate: 20, currentPayment: 200 }).reason,
+     'need_balance_and_term');
+});
+
+t('compareOffer: a current payment that never clears is reported as infinite, not as a win', () => {
+  // $40/mo against 22% on $5,000 never pays off — the comparison must not
+  // quietly treat "never" as a finite number it can beat by a little.
+  const r = C.compareOffer({ balance: 5000, rate: 8, months: 60,
+                             currentRate: 22, currentPayment: 40 });
+  eq(r.ok, true);
+  eq(r.currentMonths, Infinity);
+  eq(r.interestSaved, Infinity);
+});
+
+t('compareOffer: 0% over a term is plain division, never a divide-by-zero', () => {
+  const r = C.compareOffer({ balance: 1200, rate: 0, months: 12,
+                             currentRate: 18, currentPayment: 150 });
+  near(r.payment, 100, 0.01, 'payment on a 0% 12-month plan should be');
+});
+
 console.log(`fc-core: ${passed} passed, ${failed} failed`);
 if (failed) {
   console.error('');
