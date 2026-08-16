@@ -2948,9 +2948,14 @@ body.fc-theme .fc-nav {
 }
 .wv-acct-group-lbl:first-child { padding-top: 4px; }
 
+/* Top margin, not bottom. Every other card on this panel spaces itself from
+   the one above (.wv-df, .wv-debt-hero, .wv-debt-card and .wv-impact all use
+   `… 16px 0`), so a bottom margin here left these two tiles jammed against
+   the debt-free card and double-gapped from the donut below. The gap matches
+   the 12px the other cards use, not the 10px it had between the tiles. */
 .wv-debt-metrics {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin: 0 16px 12px;
+  gap: 12px;
+  margin: 12px 16px 0;
 }

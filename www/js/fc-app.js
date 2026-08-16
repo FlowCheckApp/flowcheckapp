@@ -656,6 +656,18 @@ window.FCApp = (function () {
     const uid = state.user?.uid;
     if (!uid || !state.user?.plaid_linked) return;
 
+    /* An empty account set is "we do not know yet", not "your net worth is
+       zero". The listener fires with [] in three ordinary situations — the
+       moment before the first sync lands, the gap between disconnecting a
+       bank and reconnecting it, and the instant after deleting every
+       account — and `plaid_linked` is still true through all of them.
+
+       Recording that as a real $0 puts a permanent fake point in the
+       history. On a series sitting around −$59,000 it renders as a spike
+       from the floor to the ceiling of the chart, flattening every genuine
+       movement against the bottom edge. That is the bad chart. */
+    if (!(state.accounts || []).length) return;
+
     const today   = new Date().toISOString().split('T')[0];
     // Round to what Firestore actually stores, so the comparison below is exact
     const rounded = Math.round(netWorth * 100) / 100;
@@ -6301,7 +6313,20 @@ window.FCApp = (function () {
     }
     const W=320, H=56, pad=6;
     const min=Math.min(...vals), max=Math.max(...vals), range=max-min||1;
-    const toY = v => pad + (H-2*pad)*(1-(v-min)/range);
+    /* The chart autoscales to its own min and max, which means a $60,000
+       swing and a $60 swing draw the identical shape. Without the numbers
+       beside it the line says only "it moved" — and after a period where
+       nothing much happened, normal noise gets stretched to full height and
+       reads as a crisis. The range labels are what make it legible. */
+    const _compact = v => {
+      const n = Math.abs(v);
+      const sign = v < 0 ? '\u2212' : '';
+      if (n >= 1000) return `${sign}$${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k`;
+      return `${sign}$${Math.round(n)}`;
+    };
+    const toY = v => (max - min) < 0.005
+      ? H / 2
+      : pad + (H-2*pad)*(1-(v-min)/range);
     const toX = (i,n) => (i/(n-1))*W;
     const pts = vals.map((v,i) => [toX(i,vals.length), toY(v)]);
     let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
@@ -6318,7 +6343,19 @@ window.FCApp = (function () {
        non-scaling-stroke; the end dot moves to an HTML overlay so it stays
        round at every width — which is exactly what the day-one state below
        already does with its own dot. */
+    /* Flat is a real answer, and the autoscale cannot express it: with
+       max === min the range falls back to 1, every point maps to toY(min)
+       = 50 of 56, and a month where nothing moved draws as a line pinned to
+       the floor of the chart — which reads as a collapse. Centre it, and
+       say "no change" rather than printing the same figure at both ends. */
+    const _flat = (max - min) < 0.005;
     return `<div style="position:relative">
+      <div style="display:flex;justify-content:space-between;font-size:9px;font-weight:600;
+                  letter-spacing:0.04em;color:var(--wv-t3);margin-bottom:2px;
+                  font-variant-numeric:tabular-nums">
+        <span>${esc(_compact(max))}</span>
+        <span>${esc(_flat ? 'no change' : _compact(min))}</span>
+      </div>
       <svg viewBox="0 0 320 56" width="100%" height="56" preserveAspectRatio="none" aria-hidden="true">
         <defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stop-color="${color}" stop-opacity="0.28"/>
@@ -7933,6 +7970,20 @@ window.FCApp = (function () {
       fcLog('[FCApp] _openSubScreen: no #view-' + screenId + ' — dead route');
       return;
     }
+    /* Some of these ids are first-class tabs now, and Goals is the one that
+       shows. It has a slot in the nav bar, but every shortcut into it — the
+       Today quick action, the Today card, the More hub tile — still called
+       _openSubScreen. That path HIDES the nav bar and renders the
+       back-button variant, so tapping "Goals" landed you on a page with no
+       tabs and a different transition, while the Goals tab itself sat
+       highlighted underneath. Same view element either way; only the chrome
+       differed, which is what made it look like a broken transition rather
+       than a wrong route.
+
+       Redirecting here rather than at each call site, for the same reason
+       switchTab() owns _TAB_REDIRECTS: there are three call sites today and
+       the next one to be added would have had the bug too. */
+    if (_NAV_TABS.has(screenId)) { switchTab(screenId); return; }
     haptic('light');
     // Hide all fc-view screens
     document.querySelectorAll('.fc-view').forEach(v => v.classList.remove('active'));
@@ -10863,6 +10914,15 @@ window.FCApp = (function () {
       // Runs on the throw path too, so a held render is never stranded.
       _updateSyncPill();
       _flushDeferredTabRender();
+      /* One reading after the dust settles. Accounts commit per bank, so the
+         listener fires several times mid-sync with a partial set; each of
+         those overwrites the same day key, but the LAST one is only complete
+         if it happened to arrive after the final commit. This guarantees the
+         day ends on the whole picture. */
+      if (_syncSucceeded && (state.accounts || []).length) {
+        const _post = FCCore.netWorth(state.accounts);
+        _snapshotNetWorth(_post.net, _post.liabilities);
+      }
       if (_syncBtn) _syncBtn.classList.remove('is-busy');
       // After a successful sync the island already says "All caught up" — no reset needed.
       // After a user-triggered failure, give the user a moment to read "Sync failed"
@@ -11497,6 +11557,21 @@ window.FCApp = (function () {
        App Review would never see the feature. The shape matches what the
        daily snapshot actually writes: {YYYY-MM-DD: total debt}. */
     const _demoNow = new Date();
+    /* Net worth history, for the same reason as the debt history below: the
+       real listener short-circuits in demo, so without this the Money tab
+       shows the "tracking starts today" placeholder instead of the chart. */
+    state.nwHistory = (() => {
+      const h = {}, end = 3241.87 + 12800 - (723.55 + 14250);
+      for (let i = 60; i >= 0; i--) {
+        const d = new Date(_demoNow); d.setDate(d.getDate() - i);
+        // A gently improving line with a little week-to-week texture.
+        const drift = (60 - i) * 26;
+        const wobble = Math.sin(i / 4) * 140;
+        h[`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`]
+          = Math.round((end - drift + wobble) * 100) / 100;
+      }
+      return h;
+    })();
     state.debtHistory = (() => {
       const h = {}, total = 723.55 + 14250;
       // Six monthly points, ~$210/mo of real progress, ending at today's total.

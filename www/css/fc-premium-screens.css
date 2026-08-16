@@ -1671,14 +1671,24 @@ body.fc-theme {
   padding: 8px 12px 0 !important;
 }
 
-/* Compact density owns margin and padding here — NOT radius. These heroes all
-   carry .wv-card, so the radius token applies; a local 15px !important made
-   Money's heroes the odd corner out against the app-wide 24px. */
+/* Compact density owns PADDING here — not radius, and not the gutter.
+
+   These heroes all carry .wv-card, so the radius token applies; a local 15px
+   !important once made Money's heroes the odd corner out against the app-wide
+   24px.
+
+   The side margin used to be 12px, and that was the same mistake one level
+   out: this compaction pass reached the hero and list cards but none of the
+   other ten cards on the tab, so Money rendered with TWO left edges — six
+   cards at 12px and ten at 16px, visibly stepping in and out down the page.
+   The gutter belongs to the page, not to a density pass; only the internal
+   padding is this rule's business. 16px matches the section headers that set
+   each panel's visual left edge. */
 .wv-position,
 .wv-sav-hero,
 .wv-debt-hero,
 .wv-goal-hero {
-  margin: 9px 12px 0 !important;
+  margin: 12px 16px 0 !important;
   padding: 14px !important;
 }
 
@@ -1695,12 +1705,13 @@ body.fc-theme {
   padding-top: 9px !important;
 }
 
+/* Same gutter as everything else on the tab — see the note above. */
 .wv-linked-card,
 .wv-goal-list,
 .wv-acct-card,
 .wv-debt-card {
-  margin-left: 12px !important;
-  margin-right: 12px !important;
+  margin-left: 16px !important;
+  margin-right: 16px !important;
 }
 
 /* Type here is deliberately identical to .wv-lbl (index.html) — this is a
