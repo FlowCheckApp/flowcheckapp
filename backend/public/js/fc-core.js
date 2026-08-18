@@ -49,10 +49,30 @@
     'transfer', 'loan', 'loan payments', 'loan payment',
     'credit card payment', 'transfer in', 'transfer out',
   ]);
+  /* 'loan' is here because LOAN_PAYMENTS normalises to 'Loan', which matched
+     neither 'loan payment' nor 'loan payments' — so a CREDIT categorised
+     LOAN_PAYMENTS (a disbursement, or a refunded payment) counted as income.
+     Borrowed money is not a paycheck, and predictNextPayday would have
+     treated it as one. Pre-existing; found while consolidating the two
+     classifiers, fixed here because it is the same guard and the same bug. */
   const INCOME_HARD_EXCLUDE = new Set([
-    'credit card', 'credit card payment', 'loan payment', 'loan payments',
-    'transfer out', 'payment',
+    'credit card', 'credit card payment', 'loan', 'loan payment',
+    'loan payments', 'transfer out', 'payment',
   ]);
+  /* THE category map. There used to be a second, richer one in fc-data
+     (25 entries vs 14) plus a different normalisation, and the two disagreed
+     on 18 of 33 realistic inputs.
+
+     For the spend/skip decision they happened to agree, because XFER_SKIP
+     lists both the mapped and unmapped spellings. Income was not so lucky:
+     a Plaid `CREDIT_CARD` credit — a refund or statement credit — normalised
+     here to the untouched 'CREDIT_CARD', which matched neither
+     INCOME_HARD_EXCLUDE nor the `includes('credit card')` guard, because of
+     the underscore. So it counted as INCOME. predictNextPayday filters on
+     exactly this, and it feeds the payday date, the expected amount and the
+     safe-to-spend projection: a card refund was being read as a paycheck.
+
+     Fixed by making this the superset and the only implementation. */
   const PLAID_MAP = {
     FOOD_AND_DRINK: 'Food and Drink', GENERAL_MERCHANDISE: 'Shopping',
     GENERAL_SERVICES: 'Services', TRAVEL: 'Travel',
@@ -61,10 +81,23 @@
     LOAN_PAYMENTS: 'Loan', RENT_AND_UTILITIES: 'Utilities',
     HOME_IMPROVEMENT: 'Home Improvement', INCOME: 'Income',
     TRANSFER_IN: 'Transfer', TRANSFER_OUT: 'Transfer',
+    BANK_FEES: 'Bank Fees', GOVERNMENT_AND_NON_PROFIT: 'Government',
+    EDUCATION: 'Education', AUTOMOTIVE: 'Auto and Transport',
+    GROCERIES: 'Grocery', RESTAURANTS: 'Restaurants',
+    COFFEE_SHOPS: 'Coffee Shop', GAS_STATIONS: 'Gas Stations',
+    CREDIT_CARD: 'Credit Card', INVESTMENTS: 'Investments',
+    OTHER: 'Other',
   };
+  /* Plaid ships the same category in two spellings depending on which product
+     and vintage it came from — 'TRANSFER_OUT' and 'Transfer Out'. Fold spaces
+     to underscores BEFORE the lookup so both land on one label, and title-case
+     anything unmapped so an unknown category is still presentable. */
   function normalizeCategory(cat) {
     if (!cat) return 'Other';
-    return PLAID_MAP[String(cat).toUpperCase()] || String(cat);
+    const upper = String(cat).toUpperCase().replace(/ /g, '_');
+    return PLAID_MAP[upper] || String(cat)
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, c => c.toUpperCase());
   }
   function firstCategory(t) {
     return (Array.isArray(t.category) ? t.category[0] : t.category) || '';

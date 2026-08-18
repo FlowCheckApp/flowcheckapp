@@ -878,6 +878,63 @@ t('isoDay: month boundary in the evening does not roll early', () => {
   eq(JSON.parse(out).month, '2026-08');
 });
 
+/* ═══════════════════════════════════════════════════════════════
+   Category normalisation — one map, one normaliser.
+   There were two, disagreeing on 18 of 33 realistic inputs, and one of
+   those disagreements read a card refund as a paycheck.
+   ═══════════════════════════════════════════════════════════════ */
+t('normalizeCategory: both Plaid spellings land on one label', () => {
+  // Plaid ships the same category underscored or spaced depending on vintage.
+  eq(C.normalizeCategory('TRANSFER_OUT'), 'Transfer');
+  eq(C.normalizeCategory('Transfer Out'), 'Transfer');
+  eq(C.normalizeCategory('LOAN_PAYMENTS'), 'Loan');
+  eq(C.normalizeCategory('Loan Payments'), 'Loan');
+});
+t('normalizeCategory: unmapped categories are still presentable', () => {
+  // Already-uppercase input stays uppercase — \b\w has nothing to raise.
+  // This matches the behaviour fc-data shipped, which is the point.
+  eq(C.normalizeCategory('SOMETHING_UNMAPPED'), 'SOMETHING UNMAPPED');
+  eq(C.normalizeCategory('something_unmapped'), 'Something Unmapped');
+  eq(C.normalizeCategory(''), 'Other');
+  eq(C.normalizeCategory(null), 'Other');
+});
+t('isIncomeTxn: a CREDIT_CARD credit is NOT a paycheck', () => {
+  /* The live bug. A card refund or statement credit arrives as a CREDIT with
+     category CREDIT_CARD. The underscore meant it matched neither the
+     exclude-set nor includes('credit card'), so it counted as income — and
+     predictNextPayday filters on exactly this, feeding the payday date, the
+     expected amount and safe-to-spend. */
+  eq(C.isIncomeTxn({ isCredit: true, date: '2026-08-15', category: ['CREDIT_CARD'] }), false);
+  eq(C.isIncomeTxn({ isCredit: true, date: '2026-08-15', category: ['Credit Card'] }), false);
+  eq(C.isIncomeTxn({ isCredit: true, date: '2026-08-15', category: ['LOAN_PAYMENTS'] }), false);
+  // …but a real paycheck still is one.
+  eq(C.isIncomeTxn({ isCredit: true, date: '2026-08-15', category: ['INCOME'] }), true);
+  // …and so is a direct deposit Plaid files under Transfer In.
+  eq(C.isIncomeTxn({ isCredit: true, date: '2026-08-15', category: ['TRANSFER_IN'] }), true);
+});
+t('predictNextPayday: a card refund does not become a paycheck', () => {
+  const paydays = [
+    { isCredit: true, date: '2026-06-15', amount: 2000, category: ['INCOME'] },
+    { isCredit: true, date: '2026-06-30', amount: 2000, category: ['INCOME'] },
+    { isCredit: true, date: '2026-07-15', amount: 2000, category: ['INCOME'] },
+    { isCredit: true, date: '2026-07-31', amount: 2000, category: ['INCOME'] },
+  ];
+  const withRefund = paydays.concat(
+    { isCredit: true, date: '2026-07-07', amount: 450, category: ['CREDIT_CARD'] });
+  const a = C.predictNextPayday(paydays,    Date.parse('2026-08-01T12:00:00'));
+  const b = C.predictNextPayday(withRefund, Date.parse('2026-08-01T12:00:00'));
+  eq(b.amount, a.amount, 'a card refund must not change the expected paycheck —');
+  eq(b.days,   a.days,   'nor the predicted date —');
+});
+t('isSpendTxn: transfers and debt payments are still excluded', () => {
+  const d = '2026-08-15';
+  eq(C.isSpendTxn({ isCredit: false, date: d, category: ['TRANSFER_OUT'] }), false);
+  eq(C.isSpendTxn({ isCredit: false, date: d, category: ['Transfer Out'] }), false);
+  eq(C.isSpendTxn({ isCredit: false, date: d, category: ['LOAN_PAYMENTS'] }), false);
+  eq(C.isSpendTxn({ isCredit: false, date: d, category: ['GROCERIES'] }), true);
+  eq(C.isSpendTxn({ isCredit: false, date: d, category: ['FOOD_AND_DRINK'] }), true);
+});
+
 console.log(`fc-core: ${passed} passed, ${failed} failed`);
 if (failed) {
   console.error('');

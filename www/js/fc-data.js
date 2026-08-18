@@ -508,40 +508,14 @@ window.FCData = (function () {
    * into a human-readable display string used by categoryColor/categoryEmoji.
    * Also passes through legacy category strings unchanged.
    */
+  /* Delegates to FCCore. There were two maps and two normalisations; they
+     disagreed on 18 of 33 realistic inputs, and one of those disagreements
+     was counting a credit-card refund as income. The name stays because 14
+     call sites use it — only the implementation moved. */
   function normalizePlaidCategory(cat) {
-    if (!cat) return 'Other';
-    const PLAID_MAP = {
-      FOOD_AND_DRINK:        'Food and Drink',
-      GENERAL_MERCHANDISE:   'Shopping',
-      GENERAL_SERVICES:      'Services',
-      TRAVEL:                'Travel',
-      TRANSPORTATION:        'Auto and Transport',
-      ENTERTAINMENT:         'Entertainment',
-      PERSONAL_CARE:         'Personal Care',
-      MEDICAL:               'Healthcare',
-      LOAN_PAYMENTS:         'Loan',
-      RENT_AND_UTILITIES:    'Utilities',
-      HOME_IMPROVEMENT:      'Home Improvement',
-      INCOME:                'Income',
-      TRANSFER_IN:           'Transfer',
-      TRANSFER_OUT:          'Transfer',
-      BANK_FEES:             'Bank Fees',
-      GOVERNMENT_AND_NON_PROFIT: 'Government',
-      EDUCATION:             'Education',
-      AUTOMOTIVE:            'Auto and Transport',
-      GROCERIES:             'Grocery',
-      RESTAURANTS:           'Restaurants',
-      COFFEE_SHOPS:          'Coffee Shop',
-      GAS_STATIONS:          'Gas Stations',
-      CREDIT_CARD:           'Credit Card',
-      INVESTMENTS:           'Investments',
-      OTHER:                 'Other',
-    };
-    const upper = cat.toUpperCase().replace(/ /g, '_');
-    return PLAID_MAP[upper] || cat
-      .replace(/_/g, ' ')
-      .replace(/\b\w/g, c => c.toUpperCase());
+    return FCCore.normalizeCategory(cat);
   }
+
 
   function categoryColor(category) {
     const normalized = normalizePlaidCategory(category);

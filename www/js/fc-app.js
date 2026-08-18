@@ -169,16 +169,12 @@ window.FCApp = (function () {
   // Excludes transfers, loan payments, and credit card payments so they don't
   // pollute spending totals, budgets, or insights.  Used by every widget that
   // needs "real" discretionary spend (pulse, insights, stat card, health score).
-  const _XFER_SKIP = new Set([
-    'transfer', 'loan', 'loan payments', 'loan payment',
-    'credit card payment', 'transfer in', 'transfer out',
-  ]);
-  function _isSpendTxn(t) {
-    if (t.isCredit || !t.date) return false;
-    const raw  = (Array.isArray(t.category) ? t.category[0] : t.category) || '';
-    const norm = FCData.normalizePlaidCategory(raw).toLowerCase();
-    return !_XFER_SKIP.has(norm) && !norm.includes('transfer');
-  }
+  /* Aliases, not implementations. These were full re-implementations of
+     FCCore.isSpendTxn / isIncomeTxn against a second category map — the
+     tested versions had 0 call sites while these had 29. The names stay so
+     the call sites do not churn; the logic now has exactly one home. */
+  const _isSpendTxn  = t => FCCore.isSpendTxn(t);
+
 
   // ── Shared income-transaction filter ─────────────────────────────
   // Strategy: count ALL credits as income, exclude only explicit non-income
@@ -189,21 +185,8 @@ window.FCApp = (function () {
   //   • Outbound transfers (credit to loan, CC payment, transfer out)
   //   • Loan and credit card payments (money leaving to pay a debt)
   // Everything else that is a credit (isCredit=true) is income.
-  const _INCOME_HARD_EXCLUDE = new Set([
-    'credit card', 'credit card payment', 'loan payment', 'loan payments',
-    'transfer out', 'payment',
-  ]);
-  function _isIncomeTxn(t) {
-    if (!t.isCredit || !t.date) return false;
-    const raw  = ((Array.isArray(t.category) ? t.category[0] : t.category) || '').trim();
-    const norm = FCData.normalizePlaidCategory(raw).toLowerCase();
-    // Exclude explicit payment/outbound categories only
-    if (_INCOME_HARD_EXCLUDE.has(raw.toLowerCase())) return false;
-    if (_INCOME_HARD_EXCLUDE.has(norm)) return false;
-    if (norm.includes('credit card') || norm.includes('loan payment')) return false;
-    // All other credits (transfers in, income, deposits, refunds, cashback) = income
-    return true;
-  }
+  const _isIncomeTxn = t => FCCore.isIncomeTxn(t);
+
 
   // Returns true when detected income is reliable enough to display ratios.
   // Below this threshold, the income figure is likely incomplete (no paycheck
