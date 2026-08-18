@@ -839,6 +839,45 @@ t('compareOffer: 0% over a term is plain division, never a divide-by-zero', () =
   near(r.payment, 100, 0.01, 'payment on a 0% 12-month plan should be');
 });
 
+/* ═══════════════════════════════════════════════════════════════
+   isoDay under a real US timezone.
+   Run in a child process with TZ pinned: CI runs in UTC, where the bug
+   this guards is invisible because local and UTC agree.
+   ═══════════════════════════════════════════════════════════════ */
+t('isoDay: an evening in US Central stays on the LOCAL day', () => {
+  const { execFileSync } = require('child_process');
+  const probe = `
+    const C = require('${require('path').join(__dirname, '..', 'www/js/fc-core.js').replace(/\\/g, '/')}');
+    const d = new Date(2026, 7, 15, 19, 30);        // 7:30pm local, Aug 15
+    const local = C.isoDay(d);
+    const utc   = d.toISOString().split('T')[0];
+    console.log(JSON.stringify({ local, utc }));
+  `;
+  const out = execFileSync(process.execPath, ['-e', probe],
+    { env: { ...process.env, TZ: 'America/Chicago' }, encoding: 'utf8' });
+  const { local, utc } = JSON.parse(out);
+  eq(local, '2026-08-15', 'isoDay must report the day the user is living in —');
+  // If this stops differing the test has lost its teeth; say so loudly.
+  if (utc === local) {
+    throw new Error('toISOString() agreed with local — the TZ pin did not take, '
+      + 'so this test is no longer proving anything');
+  }
+  eq(utc, '2026-08-16', 'and UTC should be a day ahead, which is the bug —');
+});
+
+t('isoDay: month boundary in the evening does not roll early', () => {
+  const { execFileSync } = require('child_process');
+  const probe = `
+    const C = require('${require('path').join(__dirname, '..', 'www/js/fc-core.js').replace(/\\/g, '/')}');
+    const d = new Date(2026, 7, 31, 20, 0);         // 8pm on the 31st
+    console.log(JSON.stringify({ month: C.isoDay(d).slice(0, 7) }));
+  `;
+  const out = execFileSync(process.execPath, ['-e', probe],
+    { env: { ...process.env, TZ: 'America/Chicago' }, encoding: 'utf8' });
+  // The credit-score key is isoDay(...).slice(0,7); UTC would say September.
+  eq(JSON.parse(out).month, '2026-08');
+});
+
 console.log(`fc-core: ${passed} passed, ${failed} failed`);
 if (failed) {
   console.error('');

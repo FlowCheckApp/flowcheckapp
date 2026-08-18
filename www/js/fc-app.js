@@ -668,7 +668,9 @@ window.FCApp = (function () {
        movement against the bottom edge. That is the bad chart. */
     if (!(state.accounts || []).length) return;
 
-    const today   = new Date().toISOString().split('T')[0];
+    // LOCAL day. A UTC key files the evening's snapshot under tomorrow, which
+    // both duplicates a day and skips one — see the notification note below.
+    const today   = FCCore.isoDay(new Date());
     // Round to what Firestore actually stores, so the comparison below is exact
     const rounded = Math.round(netWorth * 100) / 100;
 
@@ -1292,7 +1294,7 @@ window.FCApp = (function () {
     const dueDate = daysFromNow => {
       const date = new Date();
       date.setDate(date.getDate() + daysFromNow);
-      return date.toISOString().slice(0, 10);
+      return FCCore.isoDay(date);
     };
     return [
       { id:'demo-rent', name:'Rent', amount:1450, due_date:dueDate(3), category:'Housing', frequency:'monthly', icon:'⌂', status:'unpaid', autopay:true, _preview:true },
@@ -5359,7 +5361,7 @@ window.FCApp = (function () {
       let running = 0;
       let pointsData = entries.map(([date, value]) => ({ date, value: (running += value) }));
       if (pointsData.length < 2) {
-        const now = new Date().toISOString().slice(0, 10);
+        const now = FCCore.isoDay(new Date());
         pointsData = [{ date: now, value: 0 }, { date: now, value: periodSpend }];
       }
       const width = 320, height = 118, pad = 6;
@@ -6229,7 +6231,7 @@ window.FCApp = (function () {
       if (wWindowDays) {
         const wCutoff = new Date();
         wCutoff.setDate(wCutoff.getDate() - wWindowDays);
-        const wCutoffStr = wCutoff.toISOString().split('T')[0];
+        const wCutoffStr = FCCore.isoDay(wCutoff);
         wAllKeys = wAllKeys.filter(k => k >= wCutoffStr);
       }
       const keys    = wAllKeys;
@@ -6438,7 +6440,7 @@ window.FCApp = (function () {
     // Delta vs 30d
     const histKeys=Object.keys(hist).sort();
     const c30=new Date(); c30.setDate(c30.getDate()-30);
-    const prevKey=histKeys.filter(k=>k<=c30.toISOString().split('T')[0]).pop();
+    const prevKey=histKeys.filter(k=>k<=FCCore.isoDay(c30)).pop();
     const email=(FCAuth.currentUser?.()?.email||state.user?.email||'').toLowerCase();
     let delta = prevKey!=null ? nw-(hist[prevKey]||0) : null;
     if (delta===null && _DEMO_EMAILS.includes(email)) delta=nw*0.052;
@@ -6446,7 +6448,7 @@ window.FCApp = (function () {
     const DAYS={'1M':30,'3M':90,'1Y':365,'ALL':0};
     const wDays=DAYS[state.period||'1M']??30;
     let sKeys=histKeys;
-    if (wDays) { const wc=new Date(); wc.setDate(wc.getDate()-wDays); const ws=wc.toISOString().split('T')[0]; sKeys=sKeys.filter(k=>k>=ws); }
+    if (wDays) { const wc=new Date(); wc.setDate(wc.getDate()-wDays); const ws=FCCore.isoDay(wc); sKeys=sKeys.filter(k=>k>=ws); }
     let sparkValues=sKeys.map(k=>hist[k]);
     if (sparkValues.length<2 && _DEMO_EMAILS.includes(email)) {
       sparkValues=[0.86,0.88,0.875,0.90,0.915,0.91,0.935,0.95,0.97,0.965,0.99,1].map(scale=>nw*scale);
@@ -10693,7 +10695,8 @@ window.FCApp = (function () {
     const blob = new Blob([header + rows], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = `flowcheck-transactions-${new Date().toISOString().slice(0,10)}.csv`;
+    // Local: the date in the filename is the user's date, not UTC's.
+    a.href = url; a.download = `flowcheck-transactions-${FCCore.isoDay(new Date())}.csv`;
     a.click(); URL.revokeObjectURL(url);
     toast('CSV downloaded', 'success');
   }
@@ -12633,7 +12636,12 @@ window.FCApp = (function () {
     };
 
     // N3: Filter out bill_due notifications whose due date has already passed
-    const todayStr = new Date().toISOString().split('T')[0];
+    /* LOCAL day, not UTC. toISOString() returns the UTC date, so from about
+       7pm Central onward it hands back TOMORROW — and a bill due today then
+       satisfies `due_date < todayStr` and gets filtered out as "already
+       passed". Every evening, for every user west of UTC, the reminder for
+       the bill due that day silently vanished from the feed. */
+    const todayStr = FCCore.isoDay(new Date());
     const active = notifs.filter(n => {
       if (n.type === 'bill_due' && n.data?.due_date && n.data.due_date < todayStr) return false;
       return true;
@@ -12644,7 +12652,9 @@ window.FCApp = (function () {
     const seen = new Set();
     const deduped = active.filter(n => {
       const ts = n.created_at ? (n.created_at.toDate ? n.created_at.toDate() : new Date(n.created_at)) : new Date();
-      const dayKey = `${n.type || 'general'}_${ts.toISOString().split('T')[0]}`;
+      // Local day: with a UTC key an alert at 5pm and one at 8pm the same
+      // evening land in different buckets, so the dedup lets both through.
+      const dayKey = `${n.type || 'general'}_${FCCore.isoDay(ts)}`;
       if (seen.has(dayKey)) return false;
       seen.add(dayKey);
       return true;
@@ -13958,7 +13968,7 @@ window.FCApp = (function () {
       if (autopayEl) autopayEl.checked  = false;
       // Default due date to today + 30 days
       const nextMonth = new Date(); nextMonth.setDate(nextMonth.getDate() + 30);
-      if (dateEl)   dateEl.value = nextMonth.toISOString().split('T')[0];
+      if (dateEl)   dateEl.value = FCCore.isoDay(nextMonth);
       if (deleteBtn) deleteBtn.style.display = 'none';
     }
 
@@ -14219,7 +14229,9 @@ window.FCApp = (function () {
       await FCData.createBill({
         name,
         amount:    parseFloat(amount) || 0,
-        due_date:  nextDue.toISOString().split('T')[0],
+        // Written local: every reader parses due_date with parseDateLocal, so
+        // a UTC key here is an off-by-one the rest of the app cannot see.
+        due_date:  FCCore.isoDay(nextDue),
         category:  'Subscription',
         frequency: freq === 'wk' ? 'weekly' : 'monthly',
       });

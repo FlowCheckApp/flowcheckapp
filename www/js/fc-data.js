@@ -1082,7 +1082,10 @@ window.FCData = (function () {
     const user = FCAuth.currentUser();
     const db   = FCAuth.db();
     if (!user || !db || !score) return;
-    const monthKey = new Date().toISOString().slice(0, 7); // 'YYYY-MM'
+    /* Local month. On the last evening of a month a UTC key rolls over early,
+       filing the reading under the NEXT month and overwriting nothing —
+       so that month appears to have no score and the next has two. */
+    const monthKey = FCCore.isoDay(new Date()).slice(0, 7); // 'YYYY-MM'
     await db.collection('users').doc(user.uid)
       .collection('credit_history').doc(monthKey)
       .set({

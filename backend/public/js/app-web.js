@@ -454,8 +454,8 @@
      full of dollar figures must never be mistakable for someone's real
      money. No auth, no Firestore reads, no writes. */
   function demoFixtures() {
-    const iso = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
-    const ago = n => { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); };
+    const iso = n => { const d = new Date(); d.setDate(d.getDate() + n); return FCCore.isoDay(d); };
+    const ago = n => { const d = new Date(); d.setDate(d.getDate() - n); return FCCore.isoDay(d); };
     return {
       user: { name: 'Demo' },
       accounts: [
@@ -504,8 +504,8 @@
      deposits are small, frequent and uneven, so there is no payday to
      detect and the runway has to answer "how long am I covered?" instead. */
   function gigFixtures() {
-    const ago = n => { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); };
-    const iso = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
+    const ago = n => { const d = new Date(); d.setDate(d.getDate() - n); return FCCore.isoDay(d); };
+    const iso = n => { const d = new Date(); d.setDate(d.getDate() + n); return FCCore.isoDay(d); };
     const txns = [];
     for (let d = 1; d <= 60; d += 2) txns.push({ id: 'i' + d, name: 'Rideshare Payout', amount: 70 + (d % 5) * 15, isCredit: true, date: ago(d), category: 'Income' });
     for (let d = 1; d <= 30; d += 3) txns.push({ id: 's' + d, name: 'Groceries', amount: 38, isCredit: false, date: ago(d), category: 'Food and Drink' });
