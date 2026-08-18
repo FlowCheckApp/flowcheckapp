@@ -935,6 +935,60 @@ t('isSpendTxn: transfers and debt payments are still excluded', () => {
   eq(C.isSpendTxn({ isCredit: false, date: d, category: ['FOOD_AND_DRINK'] }), true);
 });
 
+/* ═══════════════════════════════════════════════════════════════
+   minPayment / debtRate — precedence between the bank and the user.
+   Backwards precedence here means a stale hand-typed rate silently
+   overriding a live one from the bank.
+   ═══════════════════════════════════════════════════════════════ */
+t('minPayment/debtRate: the bank wins when it knows', () => {
+  const acct = { id: 'a1', minimum_payment: 35, interest_rate: 22.99 };
+  const overlay = { a1: { minimum_payment: 999, interest_rate: 1 } };
+  eq(C.minPayment(acct, overlay), 35);
+  eq(C.debtRate(acct, overlay), 22.99);
+});
+t('minPayment/debtRate: the user fills a gap the bank left', () => {
+  const acct = { id: 'auto1' };                    // an auto loan: Plaid says nothing
+  const overlay = { auto1: { minimum_payment: 412, interest_rate: 6.9 } };
+  eq(C.minPayment(acct, overlay), 412);
+  eq(C.debtRate(acct, overlay), 6.9);
+});
+t('minPayment/debtRate: 0 is a real answer from the bank, not an absence', () => {
+  // A 0% promo card. Falling through to the overlay here would replace a
+  // true 0% with whatever the user typed months ago.
+  const acct = { id: 'c1', interest_rate: 0, minimum_payment: 0 };
+  const overlay = { c1: { interest_rate: 24.99, minimum_payment: 50 } };
+  eq(C.debtRate(acct, overlay), 0);
+  eq(C.minPayment(acct, overlay), 0);
+});
+t('minPayment/debtRate: unknown is 0, never a guess', () => {
+  eq(C.minPayment({ id: 'x' }, {}), 0);
+  eq(C.debtRate({ id: 'x' }, undefined), 0);
+  eq(C.debtRate(null, null), 0);
+});
+t('accountKey: Plaid sends id, demo and legacy manual send account_id', () => {
+  eq(C.accountKey({ id: 'plaid-1' }), 'plaid-1');
+  eq(C.accountKey({ account_id: 'demo-cc' }), 'demo-cc');
+  // Keying on the wrong one collapses every account onto '' — one shared overlay.
+  eq(C.accountKey({}), '');
+  eq(C.accountKey(null), '');
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   totalBudgetLimit — there were once three of these, disagreeing.
+   ═══════════════════════════════════════════════════════════════ */
+t('totalBudgetLimit: an explicit total wins over the category sum', () => {
+  eq(C.totalBudgetLimit({ total: { limit: 2000 }, food: { limit: 400 } }), 2000);
+});
+t('totalBudgetLimit: with no total, categories sum — and total is not double-counted', () => {
+  eq(C.totalBudgetLimit({ food: { limit: 400 }, gas: { limit: 150 } }), 550);
+  eq(C.totalBudgetLimit({ total: { limit: 0 }, food: { limit: 400 } }), 400);
+});
+t('totalBudgetLimit: nothing budgeted is 0, not NaN', () => {
+  eq(C.totalBudgetLimit({}), 0);
+  eq(C.totalBudgetLimit(null), 0);
+  eq(C.totalBudgetLimit({ food: {} }), 0);
+});
+
 console.log(`fc-core: ${passed} passed, ${failed} failed`);
 if (failed) {
   console.error('');

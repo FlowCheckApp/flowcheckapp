@@ -975,6 +975,54 @@
     };
   }
 
+  /* ── Debt facts: the bank's number first, the user's as a fallback ──
+     Plaid's Liabilities product covers credit cards, student loans and
+     mortgages — never auto loans, and nothing at all for a manually-added
+     debt. Those are frequently the LARGEST balances someone has, so the app
+     lets the user supply an APR and a minimum, kept in a separate overlay
+     because /accounts is backend-owned and refuses client writes.
+
+     Precedence is the whole point and it is easy to get backwards: whatever
+     the bank reports wins, and the user's figure only ever fills a gap. A
+     stale hand-entered rate must never override a live one.
+
+     `overlay` is the {accountId: {interest_rate, minimum_payment}} map;
+     `key` is how the caller identifies the account, because Plaid accounts
+     arrive as `id` while demo and legacy manual records carry `account_id`.
+
+     @returns {number} 0 when neither source knows — never a guess.
+  */
+  function _ownValue(v) {
+    return (v !== null && v !== undefined && v !== '') ? (Number(v) || 0) : null;
+  }
+  function accountKey(a) { return a?.id || a?.account_id || ''; }
+
+  function minPayment(a, overlay) {
+    const own = _ownValue(a?.minimum_payment ?? a?.min_payment ?? a?.minimum_payment_amount);
+    if (own !== null) return own;
+    return Number((overlay || {})[accountKey(a)]?.minimum_payment) || 0;
+  }
+
+  function debtRate(a, overlay) {
+    const own = _ownValue(a?.interest_rate ?? a?.apr);
+    if (own !== null) return own;
+    return Number((overlay || {})[accountKey(a)]?.interest_rate) || 0;
+  }
+
+  /* ── The month's budget ceiling ────────────────────────────────────
+     An explicit `total` wins; otherwise the per-category limits sum to it.
+     There were once three different versions of this in the UI and they
+     disagreed, which is how the Plan ring came to claim a whole month was
+     discretionary. */
+  function totalBudgetLimit(budgets) {
+    const b = budgets || {};
+    const total = Number(b.total?.limit || 0);
+    if (total > 0) return total;
+    return Object.entries(b)
+      .filter(([key]) => key !== 'total')
+      .reduce((sum, [, cat]) => sum + Number(cat?.limit || 0), 0);
+  }
+
   function weightedApr(debts) {
     let num = 0, den = 0;
     for (const d of (debts || [])) {
@@ -1072,6 +1120,7 @@
     incomeProfile, scoreForecast, median,
     debtFreePlan,
     weightedApr,
+    minPayment, debtRate, accountKey, totalBudgetLimit,
     debtProgress,
     compareOffer,
   };

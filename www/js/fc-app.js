@@ -810,23 +810,16 @@ window.FCApp = (function () {
      to `id` on the way out (server.js:1347), but demo mode and older manual
      records still carry the raw `account_id` — and an overlay keyed on
      `undefined` silently collapses every account onto one entry. */
-  function _acctKey(a) { return a?.id || a?.account_id || ''; }
+  const _acctKey = a => FCCore.accountKey(a);
 
-  function _minPayment(a) {
-    const own = a?.minimum_payment ?? a?.min_payment ?? a?.minimum_payment_amount;
-    if (own !== null && own !== undefined && own !== '') return Number(own) || 0;
-    // Fall back to what the user told us. Plaid wins when it knows; this only
-    // ever fills a gap Plaid cannot fill — auto loans have no Liabilities data.
-    const ov = state.accountDetails?.[_acctKey(a)]?.minimum_payment;
-    return Number(ov) || 0;
-  }
+  /* Delegates. The precedence rule and the id fallback live in fc-core
+     where they are tested; these only supply the overlay from state. */
+  function _minPayment(a) { return FCCore.minPayment(a, state.accountDetails); }
+
 
   /** APR, same precedence: the bank's number first, the user's as a fallback. */
-  function _debtRate(a) {
-    const own = a?.interest_rate ?? a?.apr;
-    if (own !== null && own !== undefined && own !== '') return Number(own) || 0;
-    return Number(state.accountDetails?.[_acctKey(a)]?.interest_rate) || 0;
-  }
+  function _debtRate(a)   { return FCCore.debtRate(a, state.accountDetails); }
+
 
   /* ── Rollover ─────────────────────────────────────────────────────
      Asymmetric, on purpose.
@@ -885,14 +878,8 @@ window.FCApp = (function () {
      `total` is the ceiling when it is set; otherwise the categories sum to
      one. Never both, never a magic number, and 0 honestly means "no budget
      set" so callers can render the empty state instead of a false ratio. */
-  function _totalBudgetLimit(budgets) {
-    const b = budgets || state.budgets || {};
-    const total = Number(b.total?.limit || 0);
-    if (total > 0) return total;
-    return Object.entries(b)
-      .filter(([key]) => key !== 'total')
-      .reduce((sum, [, cat]) => sum + Number(cat?.limit || 0), 0);
-  }
+  function _totalBudgetLimit(budgets) { return FCCore.totalBudgetLimit(budgets || state.budgets); }
+
 
   /* Plan's "Budget Suggestion" card. Scoped to the calendar month for the
      same reason the budget alerts are: next month is a different budget and
