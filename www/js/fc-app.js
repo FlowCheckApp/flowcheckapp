@@ -6048,12 +6048,12 @@ window.FCApp = (function () {
       const amtTxt  = isFut ? '—' : spend >= 1000 ? `$${(spend/1000).toFixed(1)}k` : `$${Math.round(spend)}`;
       const amtCol  = isFut ? 'rgba(255,255,255,0.18)' : 'white';
       return `<div style="flex-shrink:0;width:68px;scroll-snap-align:start;border-radius:14px;background:${cardBg};border:${border};padding:10px 6px 8px;text-align:center;cursor:${isFut?'default':'pointer'}" ${!isFut ? `onclick="FCApp._showMonthBudgetDetail(${i},${year})"` : ''}>
-        <div style="font-size:9px;font-weight:700;color:${isCur?'var(--fc-accent)':'var(--fc-text-faint)'};letter-spacing:0.5px;text-transform:uppercase;margin-bottom:5px">${name}</div>
+        <div style="font-size:10px;font-weight:700;color:${isCur?'var(--fc-accent)':'var(--fc-text-faint)'};letter-spacing:0.5px;text-transform:uppercase;margin-bottom:5px">${name}</div>
         <div style="font-size:13px;font-weight:800;color:${amtCol};margin-bottom:5px;letter-spacing:-0.02em">${amtTxt}</div>
         <div class="fcs-bar-track" style="height:3px;margin-bottom:3px">
           <div style="height:100%;width:${isFut?0:pct}%;background:${color};border-radius:999px"></div>
         </div>
-        <div style="font-size:9px;font-weight:600;color:${color}">${isFut?'':pct+'%'}</div>
+        <div style="font-size:10px;font-weight:600;color:${color}">${isFut?'':pct+'%'}</div>
       </div>`;
     }).join('');
 
@@ -6322,7 +6322,7 @@ window.FCApp = (function () {
        say "no change" rather than printing the same figure at both ends. */
     const _flat = (max - min) < 0.005;
     return `<div style="position:relative">
-      <div style="display:flex;justify-content:space-between;font-size:9px;font-weight:600;
+      <div style="display:flex;justify-content:space-between;font-size:10px;font-weight:600;
                   letter-spacing:0.04em;color:var(--wv-t3);margin-bottom:2px;
                   font-variant-numeric:tabular-nums">
         <span>${esc(_compact(max))}</span>
@@ -6488,7 +6488,7 @@ window.FCApp = (function () {
         </div>
         ${allocHTML}
       </div>
-      <div class="wv-linked-heading"><span>Linked accounts</span><button type="button" onclick="FCApp.showBankSheet&&FCApp.showBankSheet()">Manage</button></div>
+      <div class="wv-linked-heading"><span>Linked accounts</span><button class="fc-hit44" type="button" onclick="FCApp.showBankSheet&&FCApp.showBankSheet()"><span>Manage</span></button></div>
       ${accountRows ? `<div class="wv-card wv-linked-card">${accountRows}</div>` : `<div class="wv-card wv-linked-card"><div class="wv-empty"><div class="wv-empty-title">Connect your accounts</div><div class="wv-empty-sub">See cash, investments, and debt in one complete view.</div><button class="wv-empty-cta" onclick="FCApp.showBankSheet&&FCApp.showBankSheet()">Connect Bank</button></div></div>`}
       ${_buildWealthPathHTML(_buildWealthPath())}
       <div style="height:8px"></div>`;
@@ -7028,7 +7028,7 @@ window.FCApp = (function () {
            turn the user away. A separate button rather than another tap
            target inside the row: the row already opens the rate editor, and
            two actions on one row is how a tap becomes a guess. */
-        meta.push(`<button class="wv-debt-fact wv-debt-fact--action" type="button"`
+        meta.push(`<button class="wv-debt-fact wv-debt-fact--action fc-hit44" type="button"`
           + ` onclick="event.stopPropagation();FCApp.showOfferSheet('${esc(_acctKey(a))}')"`
           + ` aria-label="Compare a refinance offer for ${esc(a.name || 'this debt')}">Compare an offer</button>`);
       }
@@ -7228,7 +7228,7 @@ window.FCApp = (function () {
       <div class="wv-card wv-debt-hero">
         ${donutSVG}
         <div>
-          <div style="font-size:9px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--wv-t3);margin-bottom:4px">Total Debt</div>
+          <div style="font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--wv-t3);margin-bottom:4px">Total Debt</div>
           <div class="wv-debt-total${debtIsUrgent?' wv-debt-total--urgent':''}">${FCData.formatCurrency(totalDebt)}</div>
           ${ccLimit>0?`<div class="wv-debt-status" style="color:${utilColor};font-size:12px;margin-top:3px">${utilPct}% credit utilized${utilPct>30?' — consider paying down':''}</div>`:''}
           ${nextBill?`<div style="font-size:12px;color:var(--wv-t2);margin-top:4px">Next payment: <strong style="color:var(--wv-t1)">${FCData.formatCurrency(nextBill.amount||0)}</strong></div>`:''}
@@ -7551,7 +7551,7 @@ window.FCApp = (function () {
       const good  = invert ? d < 0 : d > 0;
       const color = good ? 'var(--fc-success)' : d === 0 ? 'var(--fc-text-faint)' : 'var(--fc-danger)';
       const arrow = d > 0 ? '↑' : d < 0 ? '↓' : '→';
-      return `<div style="margin-top:4px"><span style="font-size:10px;color:${color};font-weight:700">${arrow}${Math.abs(d)}%</span> <span style="font-size:9px;color:var(--fc-text-faint)">vs last mo</span></div>`;
+      return `<div style="margin-top:4px"><span style="font-size:10px;color:${color};font-weight:700">${arrow}${Math.abs(d)}%</span> <span style="font-size:10px;color:var(--fc-text-faint)">vs last mo</span></div>`;
     };
 
     el.innerHTML = `

@@ -549,7 +549,12 @@ body.fc-theme {
   border: 1px solid var(--fc-border-strong);
 }
 .fc-btn--outline:hover { background: var(--fc-card-bg-hover); color: var(--fc-text); }
-.fc-btn--sm { height: 38px; padding: 0 16px; font-size: 13px; }
+.fc-btn--sm { /* 44px, not 38. This is the "small" variant, but it is still a BUTTON —
+     an isolated, primary-or-secondary action, which is exactly the case
+     Apple's 44pt minimum exists for. The variant stays visually lighter
+     through its padding, radius and font size; the height is not the part
+     that was carrying "small". */
+  height: 44px; padding: 0 16px; font-size: 13px; }
 .fc-btn--block { width: 100%; }
 
 /* ============================================================
@@ -3197,6 +3202,39 @@ a[role="tab"]:focus-visible,
   letter-spacing: -0.5px;
   line-height: 1.1;
 }
+/* ── 44pt hit area without a 44pt box ─────────────────────────────
+   Apple's minimum touch target is 44×44. Several controls here are
+   deliberately smaller than that for density — a 20px chip in a row of
+   chips, a 14px inline "Manage" link beside a section heading — and growing
+   the VISUAL size to satisfy the guideline would wreck the layouts those
+   sizes exist to serve.
+
+   So grow the hit area instead. A centred pseudo-element extends the
+   tappable region to 44×44 while the painted control keeps its size. This
+   is the standard fix and it is invisible.
+
+   Note it does NOT apply to the segmented controls and time chips at 36px.
+   Those are intentional and already more generous than Apple's own
+   UISegmentedControl, which is 32pt tall. */
+.fc-hit44 { position: relative; }
+.fc-hit44::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  height: 100%;
+  min-width: 44px;
+  min-height: 44px;
+  /* Above the control's own background, below anything it contains. */
+  z-index: 0;
+}
+/* The label has to stay above the invisible pad or it stops being clickable
+   in some engines — and it must not create a new stacking context that traps
+   the pad underneath it. */
+.fc-hit44 > * { position: relative; z-index: 1; }
+
 /* Coverage caption under a metric. A partial sum is still useful — "$25/mo"
    is what we actually know — but it must not be allowed to read as the total.
    Deliberately quiet: this is a footnote, not a warning. */

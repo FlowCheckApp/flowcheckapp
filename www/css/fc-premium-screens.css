@@ -231,7 +231,7 @@ body.fc-theme {
   margin-top: 4px;
   overflow: hidden;
   color: var(--fc-text-faint);
-  font-size: 9px;
+  font-size: 10px;
   line-height: 1.25;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -613,7 +613,7 @@ body.fc-theme {
   gap: 6px;
   align-items: center;
   color: var(--fc-text-muted);
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .premium-legend-row i {
@@ -703,7 +703,7 @@ body.fc-theme {
 .premium-disclaimer {
   margin: 8px 0 16px;
   color: var(--fc-text-faint);
-  font-size: 9px;
+  font-size: 10px;
   text-align: center;
 }
 
@@ -806,7 +806,7 @@ body.fc-theme {
 .settings-section-hdr {
   padding-top: 17px !important;
   padding-bottom: 7px !important;
-  font-size: 9px !important;
+  font-size: 10px !important;
 }
 
 .fc-settings-row {
@@ -834,7 +834,7 @@ body.fc-theme {
 .fc-nav-item {
   min-height: 50px !important;
   color: var(--fc-text-faint) !important;
-  font-size: 9px !important;
+  font-size: 10px !important;
 }
 
 .fc-nav-item.active {
@@ -955,7 +955,7 @@ body.fc-theme {
 
 .premium-periods button {
   min-height: 26px;
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .premium-snapshot {
@@ -989,7 +989,7 @@ body.fc-theme {
 }
 
 .premium-card-kicker {
-  font-size: 9px;
+  font-size: 10px;
 }
 
 #home-bills-section,
@@ -1242,7 +1242,7 @@ body.fc-theme {
 .home-next-risk-label {
   margin-bottom: 1px;
   color: var(--fc-warning-text);
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: .07em;
   text-transform: uppercase;
@@ -1309,7 +1309,7 @@ body.fc-theme {
 #view-home .home-move-eyebrow {
   margin-bottom: 5px;
   color: var(--fc-accent);
-  font-size: 9px;
+  font-size: 10px;
 }
 
 #view-home .home-move-title {
@@ -1498,14 +1498,24 @@ body.fc-theme {
   gap: 7px !important;
 }
 
+/* 44px, not 38. This density pass had shrunk the search field and the filter
+   button below Apple's 44pt minimum touch target — and the base rule in
+   index.html already says 44×44, so the !important here was actively undoing
+   a correct value. A search field and a lone icon button are exactly the
+   controls that need the full target: both are single, isolated hits with no
+   forgiving neighbour to catch a near miss.
+
+   This is the third thing this stylesheet has broken today — it also gave
+   Money two different left gutters and squashed the type chips. Density is
+   worth having; overriding intentional minimums to get it is not. */
 .act-search-wrap .fc-search,
 .act-filter-btn {
-  height: 38px !important;
-  border-radius: 11px !important;
+  height: 44px !important;
+  border-radius: 13px !important;
 }
 
 .act-filter-btn {
-  width: 38px !important;
+  width: 44px !important;
 }
 
 .act-segment-wrap {
@@ -1527,14 +1537,19 @@ body.fc-theme {
 }
 
 .act-type-chip {
-  min-height: 29px !important;
-  padding: 5px 10px !important;
-  font-size: 10px !important;
+  /* 36px matches the app's other chip rows (.fc-chip and .wv-period-btn are
+     both 36) instead of undercutting them at 29. The remaining gap to Apple's
+     44pt is closed by .fc-hit44 on the element, which grows the hit area
+     without regrowing the chip. Font up from 10 to 11: a 10px filter label is
+     below what is comfortably readable, and the chip has room for it now. */
+  min-height: 36px !important;
+  padding: 7px 14px !important;
+  font-size: 11px !important;
 }
 
 .fc-date-label {
   padding: 11px 15px 5px !important;
-  font-size: 9px !important;
+  font-size: 10px !important;
 }
 
 #activity-list .fc-card,
@@ -1643,7 +1658,7 @@ body.fc-theme {
 }
 
 .premium-insight-card p {
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .premium-cashflow-bars {
@@ -1777,7 +1792,7 @@ body.fc-theme {
 .wv-linked-sub {
   margin-top: 1px;
   color: var(--wv-t3);
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .wv-linked-balance {
@@ -1886,7 +1901,7 @@ body.fc-theme {
 
 .premium-goal-amount span {
   color: var(--wv-t3);
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 500;
 }
 
@@ -1950,7 +1965,7 @@ body.fc-theme {
 .premium-streak-card small {
   margin-top: 2px;
   color: var(--wv-t2);
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .premium-streak-mark {
@@ -2166,7 +2181,7 @@ body.fc-theme {
   flex-direction: column;
   justify-content: space-between;
   color: var(--fc-text-muted);
-  font-size: 9px;
+  font-size: 10px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -2428,7 +2443,7 @@ body.fc-theme {
   justify-content: center;
   gap: 4px !important;
   padding-top: 0 !important;
-  font-size: 9px !important;
+  font-size: 10px !important;
 }
 
 .fc-nav-item svg {

@@ -177,7 +177,7 @@
 
 /* ── Budget / category status badge ── */
 .fcs-badge {
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   padding: 2px 6px;
   border-radius: var(--fc-r-pill);
@@ -292,7 +292,7 @@
 .fc-section-label {
   margin: 0;
   color: var(--fc-text-faint);
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.08em;
   line-height: 1.2;
@@ -363,7 +363,9 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 38px;
+  /* 44px: this is the secondary CTA on Today and in the move cards — a real
+     button, so it gets the real minimum. */
+  min-height: 44px;
   padding: 9px 14px;
   border: 1px solid transparent;
   border-radius: 11px;
@@ -635,7 +637,7 @@ body.fc-theme .fc-nav {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.home-v8__mini-meta { color: var(--fc-text-muted); font-size: 9px; line-height: 1.35; }
+.home-v8__mini-meta { color: var(--fc-text-muted); font-size: 10px; line-height: 1.35; }
 .home-v8__mini .fc-progress-line { margin: 9px 0 7px; }
 
 .home-v8__compact { min-height: 142px; padding: 13px; }
@@ -665,7 +667,7 @@ body.fc-theme .fc-nav {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.home-v8__row-meta { margin-top: 2px; color: var(--fc-text-muted); font-size: 9px; }
+.home-v8__row-meta { margin-top: 2px; color: var(--fc-text-muted); font-size: 10px; }
 .home-v8__row-value {
   color: var(--fc-text);
   font-size: 11px;
@@ -680,7 +682,7 @@ body.fc-theme .fc-nav {
 .home-v8__disclaimer {
   margin: 1px 0 0;
   color: var(--fc-text-faint);
-  font-size: 9px;
+  font-size: 10px;
   line-height: 1.35;
   text-align: center;
 }
@@ -924,7 +926,7 @@ body.fc-theme .fc-nav {
 .dash-stat-icon-circle--blue  { background: var(--fc-accent-soft);  color: var(--fc-accent);  }
 .dash-stat-icon-circle--red   { background: var(--fc-danger-soft);  color: var(--fc-danger);  }
 .dash-stat-label {
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.5px;
   text-transform: uppercase;
@@ -1171,7 +1173,7 @@ body.fc-theme .fc-nav {
   padding: 5px 6px 5px 0;
 }
 .dash-chart-ylabels span {
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 500;
   color: var(--fc-text-faint);
   text-align: right;
@@ -2141,7 +2143,7 @@ body.fc-theme .fc-nav {
 .rw-end { text-align: right; flex-shrink: 0; }
 .rw-end-lbl {
   margin: 0 0 1px;
-  font-size: 9px; font-weight: 700; letter-spacing: 0.1em;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
   text-transform: uppercase; color: var(--fc-text-faint);
 }
 /* Supporting metric, not the hero. Demoted from 24px/800 so it stops
@@ -2170,6 +2172,10 @@ body.fc-theme .fc-nav {
 }
 .coach-ask-field input {
   flex: 1; min-width: 0;
+  /* Fill the 46px field. The input's natural content height is 22.5px, so
+     without this the top and bottom ~12px of a field that LOOKS tappable did
+     nothing — you had to hit the middle third to focus it. */
+  height: 100%;
   background: transparent; border: 0; outline: none;
   font-family: inherit; font-size: 15px; color: var(--fc-text);
 }
@@ -2339,7 +2345,7 @@ body.fc-theme .fc-nav {
   position: absolute; left: 0;
   transform: translateY(-100%);
   padding: 0 0 2px 2px;
-  font-size: 9px; font-weight: 700; letter-spacing: 0.04em;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
   color: var(--fc-danger); opacity: 0.75;
 }
 /* The date in the headline, marked where it actually happens. */
@@ -2355,7 +2361,7 @@ body.fc-theme .fc-nav {
   background: var(--fc-danger-soft);
   border: 1px solid var(--fc-danger-border);
   color: var(--fc-danger);
-  font-size: 9px; font-weight: 700; white-space: nowrap;
+  font-size: 10px; font-weight: 700; white-space: nowrap;
 }
 
 .rw-cta {
@@ -2504,7 +2510,7 @@ body.fc-theme .fc-nav {
 }
 .fc-score-row { display: flex; gap: 28px; }
 .fc-score-k {
-  font-size: 9px; font-weight: 700; letter-spacing: 0.1em;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
   text-transform: uppercase; color: var(--fc-text-faint);
 }
 .fc-score-v {
@@ -2580,7 +2586,7 @@ body.fc-theme .fc-nav {
   gap: 12px; margin-bottom: 10px;
 }
 .ob-rw-eyebrow {
-  font-size: 9px; font-weight: 700; letter-spacing: 0.1em;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
   text-transform: uppercase; color: var(--fc-text-faint);
 }
 .ob-rw-verdict {
@@ -2854,7 +2860,7 @@ body.fc-theme .fc-nav {
   padding: 20px;
 }
 .wv-df-eyebrow {
-  font-size: 9px; font-weight: 700; letter-spacing: 0.1em;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
   text-transform: uppercase; color: var(--fc-text-faint);
   margin: 0 0 4px;
 }
@@ -2914,7 +2920,7 @@ body.fc-theme .fc-nav {
   margin: 16px 16px 10px;
 }
 .wv-debt-actions__label {
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
