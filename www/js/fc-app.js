@@ -13316,8 +13316,18 @@ window.FCApp = (function () {
       const a = annual?.product?.priceString;
       const m = monthly?.product?.priceString;
       if (!a) return;                       // nothing trustworthy to say
-      el.textContent = '7-day free trial, then ' + a + '/year'
-        + (m ? ' (or ' + m + '/month).' : '.');
+      /* Scope the trial to the plan that actually has it. "7-day free trial,
+         then X/year (or Y/month)" reads as though the trial applies whichever
+         plan you pick, and it does not — the intro offer is on the annual
+         product only. Someone who chose monthly on the strength of this line
+         would be charged on day one having been told they had a week.
+
+         The paywall itself already gets this right (selectPlan rewrites the
+         trust claim, the button and the disclosure per plan). This is the
+         same correction, one screen earlier, in the disclosure the user is
+         agreeing to by tapping Continue. */
+      el.textContent = '7-day free trial on the annual plan, then ' + a + '/year'
+        + (m ? '. Monthly is ' + m + '/month, billed today.' : '.');
     } catch (_) { /* keep the defaults */ }
   }
 
