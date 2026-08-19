@@ -5024,7 +5024,12 @@ window.FCApp = (function () {
     const accts    = state.accounts || [];
     const txns     = (state.transactions || []).filter(t => FCData.isCurrentMonth(t.date));
     // Bug fix: use actual user budget, not nonexistent state.monthlyBudget
-    const budget   = (state.budgets?.['total']?.limit) || 3000;
+    /* _totalBudgetLimit, not a raw `|| 3000`. The fallback chain directly
+       below — budget, else detected income, else a neutral 0.5 — was
+       unreachable: `|| 3000` guaranteed budget > 0 for every user, so an
+       unbudgeted account was scored against someone else's $3,000 instead of
+       against its own income. */
+    const budget   = _totalBudgetLimit();
 
     // ── 1. Spending Score (0-34) ──────────────────────────────
     const spent      = txns.filter(t => !t.isCredit && _isSpendTxn(t)).reduce((s, t) => s + (t.amount || 0), 0);
@@ -5217,7 +5222,11 @@ window.FCApp = (function () {
       return;
     }
 
-    const budget     = state.budgets?.['total']?.limit || 3000;
+    /* 0 means "no budget set" — see _totalBudgetLimit. With `|| 3000` the
+       `budget > 0` guard below never failed, so an unbudgeted user was told
+       "Over budget this period · $X over the limit" against a ceiling they
+       had never chosen. */
+    const budget     = _totalBudgetLimit();
     const unpaid     = (state.bills || []).filter(b => b.status !== 'paid');
     const unpaidTotal = unpaid.reduce((s, b) => s + (b.amount || 0), 0);
     const cash       = Math.max(0, state.accounts ? state.accounts.filter(_isCashAcct).reduce((s, a) => s + _acctBal(a), 0) : 0);
@@ -6183,7 +6192,11 @@ window.FCApp = (function () {
     const year       = now.getFullYear();
     const curMonth   = now.getMonth();
     const MONTHS     = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    const budgetLim  = (state.budgets && state.budgets['total']) ? state.budgets['total'].limit : 3000;
+    /* The whole 12-month grid and the annual rollup hang off this. At 3000
+       an unbudgeted user saw every month of the year graded against
+       $36,000 they never set, and a user who had set only per-category
+       limits saw 3000 instead of their own sum. */
+    const budgetLim  = _totalBudgetLimit();
 
     if (yearLabelEl) yearLabelEl.textContent = year;
 
@@ -6195,13 +6208,26 @@ window.FCApp = (function () {
     });
 
     const totalYearSpend = monthlySpend.reduce((s, v) => s + v, 0);
+    const hasBudget      = budgetLim > 0;
     const annualBudget   = budgetLim * 12;
-    const annualPct      = annualBudget > 0 ? Math.min(Math.round((totalYearSpend / annualBudget) * 100), 100) : 0;
-    const annualColor    = annualPct > 100 ? 'var(--fc-danger)' : annualPct > 80 ? 'var(--fc-warning)' : 'linear-gradient(90deg,var(--fc-accent),var(--fc-electric))';
+    /* Raw ratio drives the COLOUR, clamped drives the WIDTH. They were the
+       same value before, and since it was clamped to 100 the `> 100` branch
+       could never run — the annual bar was incapable of turning red no
+       matter how far over the year went. */
+    const annualRawPct   = annualBudget > 0 ? Math.round((totalYearSpend / annualBudget) * 100) : 0;
+    const annualPct      = Math.min(annualRawPct, 100);
+    const annualColor    = annualRawPct > 100 ? 'var(--fc-danger)' : annualRawPct > 80 ? 'var(--fc-warning)' : 'linear-gradient(90deg,var(--fc-accent),var(--fc-electric))';
 
     if (annualSpend)  annualSpend.textContent  = FCData.formatCurrency(totalYearSpend);
-    if (annualLimit)  annualLimit.textContent  = `of ${FCData.formatCurrency(annualBudget)}`;
-    if (annualFill)   { annualFill.style.width = annualPct + '%'; annualFill.style.background = annualColor; }
+    /* No budget is now an honest 0 rather than a fabricated 3000, so this
+       has to say so. "of $0.00" is a worse lie than the one it replaced. */
+    if (annualLimit)  annualLimit.textContent  = hasBudget
+      ? `of ${FCData.formatCurrency(annualBudget)}`
+      : 'No annual budget set';
+    if (annualFill)   {
+      annualFill.style.width = hasBudget ? annualPct + '%' : '0%';
+      annualFill.style.background = annualColor;
+    }
     if (annualMeta) {
       const monthsLeft  = 11 - curMonth;
       const projYearly  = curMonth >= 0 ? (totalYearSpend / (curMonth + 1)) * 12 : 0;
@@ -6215,10 +6241,12 @@ window.FCApp = (function () {
       const spend   = monthlySpend[i];
       const isCur   = i === curMonth;
       const isFut   = i > curMonth;
-      const pct     = budgetLim > 0 ? Math.min(Math.round((spend / budgetLim) * 100), 100) : 0;
+      /* Same split as the annual bar: raw for colour, clamped for width. */
+      const rawPct  = hasBudget ? Math.round((spend / budgetLim) * 100) : 0;
+      const pct     = Math.min(rawPct, 100);
       const color   = isFut ? 'rgba(255,255,255,0.12)'
-                    : pct > 100 ? 'var(--fc-danger)'
-                    : pct > 80  ? 'var(--fc-warning)'
+                    : rawPct > 100 ? 'var(--fc-danger)'
+                    : rawPct > 80  ? 'var(--fc-warning)'
                     : 'var(--fc-accent)';
       const cardBg  = isCur ? 'rgba(26,196,240,0.1)' : 'rgba(255,255,255,0.04)';
       const border  = isCur ? '1px solid rgba(26,196,240,0.3)' : '1px solid rgba(255,255,255,0.06)';
@@ -6228,9 +6256,9 @@ window.FCApp = (function () {
         <div style="font-size:10px;font-weight:700;color:${isCur?'var(--fc-accent)':'var(--fc-text-faint)'};letter-spacing:0.5px;text-transform:uppercase;margin-bottom:5px">${name}</div>
         <div style="font-size:13px;font-weight:800;color:${amtCol};margin-bottom:5px;letter-spacing:-0.02em">${amtTxt}</div>
         <div class="fcs-bar-track" style="height:3px;margin-bottom:3px">
-          <div style="height:100%;width:${isFut?0:pct}%;background:${color};border-radius:999px"></div>
+          <div style="height:100%;width:${(isFut||!hasBudget)?0:pct}%;background:${color};border-radius:999px"></div>
         </div>
-        <div style="font-size:10px;font-weight:600;color:${color}">${isFut?'':pct+'%'}</div>
+        <div style="font-size:10px;font-weight:600;color:${color}">${(isFut||!hasBudget)?'':pct+'%'}</div>
       </div>`;
     }).join('');
 
@@ -15372,7 +15400,7 @@ window.FCApp = (function () {
     openCategoryBudgetSheet,
     _showMonthBudgetDetail: function(monthIdx, year) {
       const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-      const budgetLim = (state.budgets && state.budgets['total']) ? state.budgets['total'].limit : 3000;
+      const budgetLim = _totalBudgetLimit();
       const txns = (state.transactions || []).filter(t => {
         if (!t.date || t.isCredit || !_isSpendTxn(t)) return false;
         const d = FCData.parseDateLocal(t.date);
