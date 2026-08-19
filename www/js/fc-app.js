@@ -3256,11 +3256,59 @@ window.FCApp = (function () {
      original bug was the header saying "Not synced yet" while the island
      said "Syncing…", which is the app contradicting itself about the one
      thing the user was waiting on. */
+  /* navigator.onLine is only trustworthy in the negative: false reliably
+     means no route to the network. True can still mean a captive portal.
+     Treat an undefined value as online so a browser without the property
+     never shows a permanent offline pill. */
+  function _isOffline() {
+    return typeof navigator !== 'undefined' && navigator.onLine === false;
+  }
+
+  /* One age formatter so the offline pill and the stale pill cannot disagree
+     about how old the same timestamp is. */
+  function _syncAgeLabel(ms) {
+    const mins = Math.floor(ms / 60000);
+    if (mins < 1)  return 'just now';
+    if (mins < 60) return mins + 'm ago';
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24)  return hrs + 'h ago';
+    return Math.floor(hrs / 24) + 'd ago';
+  }
+
   function _syncPillHTML() {
     if (!state.user || _isDemoMode) return '';
     const linked = !!(state.user.plaid_linked || state.user.plaid_institution
                       || (state.accounts || []).length);
     if (!linked) return '';
+    /* Offline outranks every other state, including a failed sync. When the
+       device has no connection the sync DID fail, so _lastSyncFailed is set
+       and "Sync failed" is literally true — but it points at the wrong
+       culprit. It reads as a problem with FlowCheck or with the bank, and
+       the actions it invites (retry, reconnect, contact support) are all
+       useless until the connection is back. "Offline" names the actual
+       cause and the actual fix.
+
+       The staleness is the part that matters for a finance app. A balance
+       with no age on it is the failure mode worth designing against: open
+       the app underground, read a three-day-old number, spend against money
+       that is not there. The pill carries the age so the number is never
+       presented as current when it is not.
+
+       navigator.onLine, not @capacitor/network, on purpose. onLine is
+       reliable in WKWebView for the dominant case (airplane mode, no signal,
+       wifi dropped) and costs no native dependency. It is wrong for the
+       captive-portal case — "connected" to hotel wifi that serves only a
+       login page reads as online — which the plugin would catch. That is a
+       real gap, and it is not worth a new native plugin and an SPM
+       resolution to close today. If it becomes a support issue,
+       @capacitor/network is the upgrade path and this is the only function
+       that changes. */
+    if (_isOffline()) {
+      const at  = _getLastSyncAt();
+      return '<span class="fc-status-pill fc-status-pill--warn">Offline'
+        + (at ? ' · updated ' + _syncAgeLabel(Date.now() - at) : '')
+        + '</span>';
+    }
     if (_lastSyncFailed)
       return '<span class="fc-status-pill fc-status-pill--danger">Sync failed</span>';
     if (state.syncing || state.initialLoading)
@@ -3282,6 +3330,16 @@ window.FCApp = (function () {
   function _updateSyncPill() {
     const host = document.getElementById('home-sync-pill');
     if (host) host.innerHTML = _syncPillHTML();
+  }
+
+  /* The pill is the only thing that reflects connectivity, so it has to
+     react to it. Both directions matter: dropping offline must show the
+     state, and coming back must clear it — a stale "Offline" on a connected
+     device is worse than no pill at all, because it tells the user their
+     current numbers are old when they are not. */
+  if (typeof window !== 'undefined') {
+    window.addEventListener('offline', _updateSyncPill);
+    window.addEventListener('online',  _updateSyncPill);
   }
 
   /* Reset at the start of every sync — see the first-paint exception below. */
