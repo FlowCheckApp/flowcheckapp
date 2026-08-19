@@ -8,8 +8,17 @@
  *   npx cap sync ios
  *
  * Product IDs (configure in App Store Connect + RevenueCat dashboard):
- *   flowcheck.pro.monthly  — $4.99/mo
- *   flowcheck.pro.annual   — $34.99/yr  (7-day free trial)
+ *   premium_monthly  — $4.99/mo
+ *   premium_yearly   — $34.99/yr  (7-day free trial)
+ *
+ * These are the REAL ids, confirmed in App Store Connect (both Approved,
+ * all territories). This block used to name flowcheck.pro.monthly and
+ * flowcheck.pro.annual, which exist nowhere — not in App Store Connect, not
+ * in RevenueCat, not in this file's own code. Nothing broke, because nothing
+ * looks products up by id: purchases go through getOfferings() and select on
+ * packageType, so RevenueCat's $rc_monthly / $rc_annual do the mapping. But
+ * a comment naming ids that do not exist is worse than no comment, because
+ * it is the first place anyone checks when a purchase fails.
  *
  * Entitlement ID: "premium"  ← must match RevenueCat dashboard exactly
  *
