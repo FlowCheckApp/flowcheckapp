@@ -100,7 +100,7 @@ window.FC_CONFIG = {
   /* ── App ────────────────────────────────────────────────────
      ─────────────────────────────────────────────────────────── */
   app: {
-    version:    '1.0.0',
+    version:    '2.0.0',
     name:       'FlowCheck',
     apiBase:    'https://getflowcheck.app',
     // Local pages bundled inside the app — works offline, no external dependency.
