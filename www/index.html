@@ -29,6 +29,11 @@
      'unsafe-eval' is required in script-src because Plaid Link SDK (cdn.plaid.com)
      uses eval() internally. It is intentionally NOT in default-src so it only
      applies to JavaScript, not other resource types. -->
+<!-- frame-src needs 'self': when the legal-page fetch hangs, the in-app
+     viewer falls back to loading the local file into its iframe directly.
+     Plaid Link is the only remote frame. NOTE: CSP has no comment syntax —
+     a /* */ inside content="" is parsed as a directive name and swallows
+     everything up to the next ';', silently dropping the real directive. -->
 <meta http-equiv="Content-Security-Policy"
   content="default-src 'self' 'unsafe-inline' blob: data:;
            script-src 'self' 'unsafe-inline' 'unsafe-eval'
@@ -52,7 +57,7 @@
            img-src 'self' data: https: blob:;
            font-src 'self' data: https:;
            style-src 'self' 'unsafe-inline' https:;
-           frame-src https://cdn.plaid.com;">
+           frame-src 'self' https://cdn.plaid.com;">
 <title>FlowCheck</title>
 <meta name="theme-color" content="#060e18">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -663,8 +668,14 @@ body.keyboard-open .fc-auth-screen { padding-top: calc(env(safe-area-inset-top, 
    not shift the centred logo, and 44pt because it is a real target. */
 .fc-auth-backbtn {
   position: absolute;
-  top: calc(env(safe-area-inset-top, 44px) + 8px);
-  left: 12px;
+  /* Offsets are FLAT, and measured from .fc-auth-body — which is the
+     positioned ancestor and already sits below .fc-auth-screen's
+     padding-top of calc(safe-area + 20px). Adding another safe-area here
+     double-counted the notch and drove the chevron ~146pt down on a
+     notched iPhone, straight through the "Create your account" title.
+     Same double-count .fc-auth-body's padding-bottom comment warns about. */
+  top: -4px;
+  left: -12px;
   /* 48, not 44. The measured box came back at 43 under the preview's
      fractional scaling, and a target that only meets the minimum when the
      maths rounds the right way does not meet it. */
@@ -2462,7 +2473,7 @@ body:not(.keyboard-open) .fc-sheet {
          other auth form. Anyone who tapped "Start Your Free Trial" to look
          was stuck here. -->
     <button type="button" class="fc-auth-backbtn"
-            onclick="FCApp.haptic('light');FCApp.setScreen('welcome')"
+            onclick="FCApp.haptic('light');FCApp.setScreen('hero')"
             aria-label="Back">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
            stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
