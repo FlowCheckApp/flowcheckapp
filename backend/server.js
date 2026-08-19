@@ -56,6 +56,7 @@ const path         = require('path');
    tested — this file listens on require, so nothing in it can be. */
 const { syncTransactionPages } = require('./lib/sync-pages');
 const { mapPlaidAccounts }     = require('./lib/map-accounts');
+const _mail                    = require('./lib/email-shell');
 const {
   Configuration, PlaidApi, PlaidEnvironments,
   Products, CountryCode,
@@ -4202,23 +4203,18 @@ async function _webhookSyncItem(itemId, retryCount = 0) {
           if (fcmToken) _sendFCM(uid, fcmToken, { title, body, type: 'large_txn', data: { amount: String(t.amount) }, channelId: 'flowcheck_alerts' }).catch(() => {});
           // Email for large transactions
           if (userData.email && userData.email_alerts_enabled !== false) {
-            _sendEmail(userData.email, `💳 Large purchase detected: ${_fmt(t.amount)}`, `
-              <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-              <div style="max-width:480px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.08)">
-                <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:28px;text-align:center">
-                  ${LOGO_IMG}
-                  <h2 style="color:#fff;font-size:20px;font-weight:700;margin:0">${_fmt(t.amount)} purchase</h2>
-                  <p style="color:rgba(255,255,255,0.6);font-size:13px;margin:6px 0 0">${safeMerch}</p>
-                </div>
-                <div style="padding:24px">
-                  <p style="font-size:14px;color:#374151;margin:0 0 20px">A charge of <strong>${_fmt(t.amount)}</strong> from <strong>${safeMerch}</strong> just appeared on your account. If you don't recognize this, check your card immediately.</p>
-                  <a href="${BACKEND_URL}/open" style="display:inline-block;background:#1ac4f0;color:#0a1520;font-weight:700;font-size:14px;padding:12px 24px;border-radius:8px;text-decoration:none">Review Transaction →</a>
-                </div>
-                <div style="padding:14px 24px;border-top:1px solid #f3f4f6">
-                  <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · <a href="${_unsubUrl(uid, 'alerts', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe from alerts</a></p>
-                </div>
-              </div></body></html>
-            `, uid).catch(e => console.error('[email large-txn]', e.message));
+            _sendEmail(userData.email, `Large purchase: ${_fmt(t.amount)}`, _mail.shell({
+              title:      'Large purchase',
+              preheader:  `${merchant} charged ${_fmt(t.amount)}.`,
+              heading:    `${_fmt(t.amount)} purchase`,
+              subheading: safeMerch,
+              tone:       'info',
+              logoImg:    LOGO_IMG,
+              bodyHtml: `
+                <p style="margin:0 0 24px">A charge of <strong>${_fmt(t.amount)}</strong> from <strong>${safeMerch}</strong> just appeared on your account. If you don't recognise it, check your card straight away.</p>
+                ${_mail.button('Review transaction', `${BACKEND_URL}/open`, 'info')}`,
+              footerHtml: `FlowCheck &middot; <a href="${_unsubUrl(uid, 'alerts', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe from alerts</a>`,
+            }), uid).catch(e => console.error('[email large-txn]', e.message));
           }
           break;
         }
@@ -4237,22 +4233,18 @@ async function _webhookSyncItem(itemId, retryCount = 0) {
           if (fcmToken) _sendFCM(uid, fcmToken, { title, body, type: 'low_balance', data: { balance: String(bal) }, channelId: 'flowcheck_alerts' }).catch(() => {});
           // Email alert for low balance
           if (userData.email && userData.email_alerts_enabled !== false) {
-            _sendEmail(userData.email, `⚠️ Low Balance: ${acct.name || 'Your account'}`, `
-              <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-              <div style="max-width:480px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.08)">
-                <div style="background:#fff3cd;border-left:4px solid #ffb020;padding:20px 24px">
-                  <h2 style="font-size:18px;font-weight:700;color:#92400e;margin:0 0 6px">⚠️ Low Balance Alert</h2>
-                  <p style="font-size:15px;color:#78350f;margin:0">${acctName} has only <strong>${_fmt(bal)}</strong> available.</p>
-                </div>
-                <div style="padding:24px">
-                  <p style="font-size:14px;color:#6b7280;margin:0 0 20px">You may want to transfer funds or hold off on purchases to avoid overdraft fees.</p>
-                  <a href="${BACKEND_URL}/open" style="display:inline-block;background:#1ac4f0;color:#0a1520;font-weight:700;font-size:14px;padding:12px 24px;border-radius:8px;text-decoration:none">View Accounts →</a>
-                </div>
-                <div style="padding:14px 24px;border-top:1px solid #f3f4f6">
-                  <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · <a href="${_unsubUrl(uid, 'alerts', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe from alerts</a></p>
-                </div>
-              </div></body></html>
-            `, uid).catch(e => console.error('[email low-balance]', e.message));
+            _sendEmail(userData.email, `Low balance: ${acct.name || 'your account'}`, _mail.shell({
+              title:     'Low balance',
+              preheader: `${acctName} has ${_fmt(bal)} available.`,
+              heading:   'Low balance',
+              subheading: `${acctName} has ${_fmt(bal)} available.`,
+              tone:      'warn',
+              logoImg:   LOGO_IMG,
+              bodyHtml: `
+                <p style="margin:0 0 24px">You may want to move money across or hold off on purchases to avoid an overdraft fee.</p>
+                ${_mail.button('View accounts', `${BACKEND_URL}/open`, 'warn')}`,
+              footerHtml: `FlowCheck &middot; <a href="${_unsubUrl(uid, 'alerts', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe from alerts</a>`,
+            }), uid).catch(e => console.error('[email low-balance]', e.message));
           }
           break;
         }
@@ -4283,21 +4275,18 @@ async function _webhookSyncItem(itemId, retryCount = 0) {
               await _saveNotification(uid, { title: dupTitle, body: dupBody, type: 'duplicate_charge', data: { merchant: mKey, amount: String(t.amount) } });
               if (fcmToken) _sendFCM(uid, fcmToken, { title: dupTitle, body: dupBody, type: 'duplicate_charge', channelId: 'flowcheck_alerts' }).catch(() => {});
               if (userData.email && userData.email_alerts_enabled !== false) {
-                _sendEmail(userData.email, `⚠️ Possible duplicate: ${_fmt(t.amount)} from ${t.merchant_name || t.name}`, `
-                <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-                <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
-                  <div style="background:#fff3cd;border-left:5px solid #f59e0b;padding:24px 28px">
-                    <h2 style="font-size:18px;font-weight:700;color:#92400e;margin:0 0 6px">⚠️ Possible duplicate charge</h2>
-                    <p style="font-size:15px;color:#78350f;margin:0"><strong>${safeMerch}</strong> charged <strong>${_fmt(t.amount)}</strong> twice in the last 7 days.</p>
-                  </div>
-                  <div style="padding:24px 28px">
-                    <p style="font-size:14px;color:#6b7280;margin:0 0 20px">This could be a legitimate charge or an accidental double-bill. Check your recent transactions to confirm.</p>
-                    <a href="${BACKEND_URL}/open" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">Review Transactions →</a>
-                  </div>
-                  <div style="padding:14px 28px;border-top:1px solid #f3f4f6;text-align:center">
-                    <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · <a href="${_unsubUrl(uid, 'alerts', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe from alerts</a></p>
-                  </div>
-                </div></body></html>`, uid).catch(e => console.error('[email dup-charge]', e.message));
+                _sendEmail(userData.email, `Possible duplicate: ${_fmt(t.amount)} from ${t.merchant_name || t.name}`, _mail.shell({
+                  title:      'Possible duplicate charge',
+                  preheader:  `${safeMerch} charged ${_fmt(t.amount)} twice in 7 days.`,
+                  heading:    'Possible duplicate charge',
+                  subheading: `${t.merchant_name || t.name} charged ${_fmt(t.amount)} twice in the last 7 days.`,
+                  tone:       'warn',
+                  logoImg:    LOGO_IMG,
+                  bodyHtml: `
+                    <p style="margin:0 0 24px">This could be a legitimate repeat charge or an accidental double-bill. Worth checking your recent transactions to confirm.</p>
+                    ${_mail.button('Review transactions', `${BACKEND_URL}/open`, 'warn')}`,
+                  footerHtml: `FlowCheck &middot; <a href="${_unsubUrl(uid, 'alerts', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe from alerts</a>`,
+                }), uid).catch(e => console.error('[email dup-charge]', e.message));
               }
               break; // one duplicate alert per sync
             }
@@ -5037,25 +5026,29 @@ app.post('/auth/otp/send', requireAuth, async (req, res) => {
     });
 
     const name = await _resolveDisplayName(req.uid);
-    const sent = await _sendEmail(email, `${code} is your FlowCheck verification code`, `
-      <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-      <div style="max-width:480px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
-        <div style="background:linear-gradient(135deg,#060e18,#0d2035);padding:36px 32px;text-align:center">
-          ${LOGO_IMG}
-          <h1 style="color:#ffffff;font-size:22px;font-weight:700;margin:0;letter-spacing:-0.02em">Verify your email</h1>
-        </div>
-        <div style="padding:32px;text-align:center">
-          <p style="font-size:15px;color:#374151;margin:0 0 28px">Hi ${_htmlEscape(name)}, enter this code in FlowCheck to verify your email.</p>
-          <div style="background:#f0fffe;border:2px solid #1ac4f0;border-radius:14px;padding:24px 32px;margin-bottom:28px;display:inline-block">
-            <span style="font-size:40px;font-weight:800;letter-spacing:0.18em;color:#060e18;font-variant-numeric:tabular-nums">${code}</span>
-          </div>
-          <p style="font-size:13px;color:#9ca3af;margin:0">Expires in 10 minutes. If you didn't request this, ignore this email.</p>
-        </div>
-        <div style="padding:16px 32px;border-top:1px solid #f3f4f6;text-align:center">
-          <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck &middot; Your money, clearly.</p>
-        </div>
-      </div></body></html>
-    `);
+    /* The code goes in the PREHEADER as well as the body. This is the one
+       email people read from the notification shade without opening, and
+       Apple Mail and Gmail both surface the preheader there — so the code is
+       readable without a tap. It was previously absent entirely, which meant
+       the preview line showed the logo alt text. */
+    const sent = await _sendEmail(email, `${code} is your FlowCheck verification code`, _mail.shell({
+      title:     'Verify your email',
+      preheader: `${code} — expires in 10 minutes.`,
+      heading:   'Verify your email',
+      tone:      'info',
+      logoImg:   LOGO_IMG,
+      bodyHtml: `
+        <p style="margin:0 0 24px;text-align:center">Hi ${_htmlEscape(name)}, enter this code in FlowCheck to verify your email.</p>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr><td align="center">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+            <tr><td style="background-color:#eefaff;border:2px solid #1ac4f0;border-radius:14px;padding:22px 30px">
+              <span style="font-size:38px;font-weight:800;letter-spacing:0.18em;color:#060e18;font-family:${_mail.FONT_MONO}">${code}</span>
+            </td></tr>
+          </table>
+        </td></tr></table>
+        <p style="font-size:13px;color:#9ca3af;margin:24px 0 0;text-align:center">Expires in 10 minutes. If you didn't request this, you can ignore this email.</p>`,
+      footerHtml: 'FlowCheck &middot; Your money, clearly.',
+    }));
 
     if (!sent) {
       console.error('[auth/otp/send] _sendEmail returned false — RESEND_API_KEY may not be configured');
