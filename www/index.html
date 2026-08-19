@@ -57,9 +57,9 @@
 <meta name="theme-color" content="#060e18">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="stylesheet" href="css/flowcheck-design-system.css?v=20260819c">
-<link rel="stylesheet" href="css/fc-screens.css?v=20260819c">
-<link rel="stylesheet" href="css/fc-premium-screens.css?v=20260819c">
+<link rel="stylesheet" href="css/flowcheck-design-system.css?v=20260819e">
+<link rel="stylesheet" href="css/fc-screens.css?v=20260819e">
+<link rel="stylesheet" href="css/fc-premium-screens.css?v=20260819e">
 
 <!-- Sentry — error & crash monitoring (vanilla JS, no npm required) -->
 <script
@@ -626,16 +626,58 @@ body.keyboard-open .fc-auth-orb {
   opacity: 0 !important;
   transition: opacity 0.25s ease;
 }
-body.keyboard-open .fc-auth-body > div:first-child {
-  /* Logo + brand row */
+/* Collapse the decorative header art by CLASS, not by position.
+
+   This used to target `.fc-auth-body > div:first-child` — written for the
+   logo + brand row on login and register, where the first child is exactly
+   that. On the verify-email screen the first child is the envelope icon, so
+   a rule meant for one screen's logo silently collapsed another screen's
+   illustration, and the page reflowed as the keyboard opened.
+
+   .fc-auth-art marks "decoration that may go when space is tight", which is
+   a decision each screen makes for itself rather than an accident of markup
+   order. */
+body.keyboard-open .fc-auth-art {
   max-height: 0;
+  opacity: 0;
   overflow: hidden;
   margin-bottom: 0 !important;
-  transition: max-height 0.25s ease, margin-bottom 0.25s ease;
+  transition: max-height 0.25s ease, opacity 0.18s ease, margin-bottom 0.25s ease;
 }
 body.keyboard-open .fc-auth-title  { font-size: 22px; margin-bottom: 4px; }
-body.keyboard-open .fc-auth-subtitle { display: none; }
+/* Hidden with visibility, not display, so the line keeps its box and the
+   fields below do not jump upward as it goes. display:none removed the
+   element from layout instantly while the art above it was still animating
+   its height — two different timings on the same reflow is what read as
+   the screen lurching. */
+body.keyboard-open .fc-auth-subtitle {
+  visibility: hidden;
+  max-height: 0;
+  margin: 0 !important;
+  overflow: hidden;
+  transition: max-height 0.25s ease;
+}
 body.keyboard-open .fc-auth-screen { padding-top: calc(env(safe-area-inset-top, 44px) + 8px); }
+
+/* Back control on auth screens. Positioned rather than in flow so it does
+   not shift the centred logo, and 44pt because it is a real target. */
+.fc-auth-backbtn {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 44px) + 8px);
+  left: 12px;
+  /* 48, not 44. The measured box came back at 43 under the preview's
+     fractional scaling, and a target that only meets the minimum when the
+     maths rounds the right way does not meet it. */
+  width: 48px; height: 48px;
+  min-width: 48px; min-height: 48px;
+  display: flex; align-items: center; justify-content: center;
+  background: none; border: none; padding: 0;
+  color: rgba(255,255,255,0.55);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  z-index: 2;
+}
+.fc-auth-backbtn:active { opacity: 0.55; }
 
 /* ── Forgot / link ── */
 .fc-forgot-btn {
@@ -2398,8 +2440,22 @@ body:not(.keyboard-open) .fc-sheet {
 
   <div class="fc-auth-body fc-stagger">
 
+    <!-- Back to the welcome screen. There was no way out of this screen at
+         all: iOS has no hardware back, the app has no swipe-back gesture on
+         auth screens, and "Sign in" at the bottom only moves sideways to the
+         other auth form. Anyone who tapped "Start Your Free Trial" to look
+         was stuck here. -->
+    <button type="button" class="fc-auth-backbtn"
+            onclick="FCApp.haptic('light');FCApp.setScreen('welcome')"
+            aria-label="Back">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+    </button>
+
     <!-- Logo -->
-    <div class="fc-auth-field-enter" style="display:flex;flex-direction:column;align-items:center;margin-bottom:14px">
+    <div class="fc-auth-field-enter fc-auth-art" style="display:flex;flex-direction:column;align-items:center;margin-bottom:14px">
       <div class="fc-auth-logo" style="margin-bottom:10px">
         <svg width="26" height="26" viewBox="0 0 24 24" fill="white" aria-hidden="true">
           <path d="M4 4h16v3H4zm0 6h11v3H4zm0 6h7v3H4z"/>
@@ -2499,7 +2555,7 @@ body:not(.keyboard-open) .fc-sheet {
   <div class="fc-auth-body fc-stagger" style="align-items:center;max-width:340px">
 
     <!-- Icon -->
-    <div class="fc-auth-field-enter" style="position:relative;width:88px;height:88px;flex-shrink:0;margin-bottom:20px">
+    <div class="fc-auth-field-enter fc-auth-art" style="position:relative;width:88px;height:88px;flex-shrink:0;margin-bottom:20px">
       <div style="position:absolute;inset:-10px;border-radius:50%;border:1px solid rgba(26,196,240,0.14);animation:fcRingPulse 3s ease-in-out infinite"></div>
       <div style="position:absolute;inset:0;border-radius:50%;border:1px solid rgba(26,196,240,0.22);animation:fcRingPulse 3s 0.5s ease-in-out infinite"></div>
       <div style="position:absolute;inset:10px;border-radius:50%;
@@ -2744,6 +2800,12 @@ body:not(.keyboard-open) .fc-sheet {
         </div>
       </div>
     </div>
+
+    <!-- Shown only when iOS has already settled this and re-asking is a
+         no-op — see FCApp.allowNotifPermission. -->
+    <p id="notif-perm-note" role="status"
+       style="display:none;font-size:13px;line-height:1.5;color:var(--fc-warning-text);
+              margin:0 0 14px;max-width:300px"></p>
 
     <!-- Primary CTA -->
     <button id="btn-notif-allow" onclick="FCApp.allowNotifPermission()" type="button"
@@ -7494,7 +7556,7 @@ body:not(.keyboard-open) .fc-sheet {
 <script src="js/fc-data.js"></script>
 <script src="js/fc-push.js"></script>
 <script src="js/fc-iap.js"></script>
-<script src="js/fc-app.js?v=20260819c"></script>
+<script src="js/fc-app.js?v=20260819e"></script>
 
 <script>
 'use strict';
@@ -7541,9 +7603,43 @@ async function handleNotifToggle(el) {
 }
 
 /* ── Notification permission onboarding screen ───────────── */
+/* iOS shows the notification permission dialog ONCE per install. After that
+   requestPermissions() returns the stored answer immediately and nothing
+   appears on screen — which is why this button could look like it did
+   nothing while the Face ID screen still showed Apple's overlay: something
+   else had already consumed the one prompt.
+
+   There are four request sites in this app (here, after a bank connect, in
+   Settings, and one more), so whichever runs first spends it.
+
+   So: ask the OS what it already knows before pretending to ask the user.
+   If the answer is settled, say so and offer the only thing that can
+   actually change it — the iOS Settings app. */
 FCApp.allowNotifPermission = async function() {
   const btn = document.getElementById('btn-notif-allow');
   if (btn) { btn.disabled = true; btn.textContent = 'Enabling…'; }
+
+  const pre = window.FCPush ? await FCPush.checkPermissions().catch(() => 'unavailable') : 'unavailable';
+  if (pre === 'denied') {
+    /* Already blocked at the OS level. Requesting again is a no-op, so send
+       them where the switch actually is rather than advancing as if it
+       worked. */
+    if (btn) { btn.disabled = false; btn.textContent = 'Open iOS Settings'; }
+    const note = document.getElementById('notif-perm-note');
+    if (note) {
+      note.textContent = 'Notifications are turned off for FlowCheck in iOS Settings. You can turn them on there any time.';
+      note.style.display = '';
+    }
+    btn.onclick = function () {
+      try {
+        if (window.Capacitor?.Plugins?.App?.openUrl) {
+          window.Capacitor.Plugins.App.openUrl({ url: 'app-settings:' });
+        } else { window.location.href = 'app-settings:'; }
+      } catch (_) {}
+    };
+    return;
+  }
+
   try {
     if (window.FCPush) {
       await FCPush.requestAndRegister().catch(() => {});

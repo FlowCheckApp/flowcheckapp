@@ -1093,6 +1093,15 @@ window.FCApp = (function () {
       }).catch(() => _doSetScreen('faceid-setup'));
       return;
     }
+    /* Any arrival at an auth screen clears a stale loading state. A user who
+       backed out of a native sheet, navigated away and came back would
+       otherwise find "Signing in…" still sitting there — a button that looks
+       busy but has nothing running behind it, and which they will tap again
+       expecting it to work. */
+    if (name === 'login' || name === 'register' || name === 'welcome') {
+      _resetAuthButtons(_GOOGLE_BTN_IDS, _GOOGLE_BTN_HTML);
+      _resetAuthButtons(_APPLE_BTN_IDS, _APPLE_BTN_HTML);
+    }
     _doSetScreen(name);
   }
 
@@ -11784,6 +11793,24 @@ window.FCApp = (function () {
      AUTH FLOWS
      ───────────────────────────────────────────────────────────── */
 
+  /* A watchdog that runs whether or not the sign-in promise ever settles.
+
+     Both social handlers used to schedule their reset AFTER
+     `await FCAuth.signInWithX()`. That works when the promise resolves or
+     rejects — and does nothing at all when it does neither, which is exactly
+     what happens if the native sheet is dismissed in certain ways: the await
+     never settles, the catch never runs, the timeout is never scheduled, and
+     the button reads "Signing in…" until the app is relaunched. Both buttons
+     could end up stuck at once by trying Google then Apple.
+
+     Scheduling BEFORE the await means the recovery does not depend on the
+     thing it is recovering from. */
+  function _authWatchdog(ids, html, startScreen, ms = 6000) {
+    return setTimeout(() => {
+      if (state.screen === startScreen) _resetAuthButtons(ids, html);
+    }, ms);
+  }
+
   const _GOOGLE_BTN_IDS  = ['btn-login-google','btn-register-google'];
   const _APPLE_BTN_IDS   = ['btn-login-apple','btn-register-apple'];
   const _GOOGLE_BTN_HTML = '<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg> Continue with Google';
@@ -11797,9 +11824,39 @@ window.FCApp = (function () {
   }
 
   /** True if a social sign-in failed because the user dismissed the native sheet. */
+  /* Did the user simply back out of a native sign-in sheet?
+     This used to match only the WORDS "cancel", "dismiss" and
+     "popup_closed". Apple does not use any of them: ASAuthorizationError
+     encodes cancellation as CODE 1001 and the message reads
+
+       "The operation couldn't be completed.
+        (com.apple.AuthenticationServices.AuthorizationError error 1001.)"
+
+     so tapping Cancel on the Apple sheet fell through to the error branch and
+     printed that string, in red, on the sign-up screen. Backing out of a
+     sign-in is not an error and must never look like one.
+
+     Codes are checked as well as text because every provider spells this
+     differently: Apple uses 1001, Google's Android flow uses 12501, and the
+     web SDK uses auth/popup-closed-by-user. */
+  const _CANCEL_CODES = new Set([
+    '1001',                          // Apple ASAuthorizationErrorCanceled
+    '12501',                         // Google Play Services SIGN_IN_CANCELLED
+    'auth/popup-closed-by-user',
+    'auth/cancelled-popup-request',
+    'auth/user-cancelled',
+  ]);
   function _isCancelledAuthError(err) {
-    const msg = ((err && err.message) || '').toLowerCase();
-    return msg.includes('cancel') || msg.includes('dismiss') || msg.includes('popup_closed');
+    if (!err) return false;
+    const code = String(err.code ?? '').toLowerCase();
+    if (_CANCEL_CODES.has(code)) return true;
+    const msg = String(err.message || '').toLowerCase();
+    if (msg.includes('cancel') || msg.includes('dismiss') || msg.includes('popup_closed')) return true;
+    /* Apple reports the code inside the message rather than on .code when it
+       comes back through the Capacitor bridge. */
+    if (/authorizationerror error 1001/.test(msg)) return true;
+    if (/error 12501/.test(msg)) return true;
+    return false;
   }
 
   async function handleGoogleSignIn() {
@@ -11810,20 +11867,18 @@ window.FCApp = (function () {
     _clearError('login-error');
     _clearError('register-error');
     const startScreen = state.screen;
+    /* Armed BEFORE the await — see _authWatchdog. */
+    const _wd = _authWatchdog(_GOOGLE_BTN_IDS, _GOOGLE_BTN_HTML, startScreen);
     try {
       window._fcNewUserFaceIdPending = true;
       await FCAuth.signInWithGoogle();
       if (typeof FCAnalytics !== 'undefined') FCAnalytics.track('login_success', { method: 'google' });
-      // Leave the button in its loading state — the auth observer is mid-flight
-      // (the Firestore round-trip in onAuthStateChanged) and about to navigate
-      // away. Resetting it here is what made sign-in look "stuck": the button
-      // flashed back to normal while the screen sat still for another second
-      // or two with no visible indication anything was happening. The safety
-      // net below recovers if routing never happens (e.g. offline Firestore read).
-      setTimeout(() => {
-        if (state.screen === startScreen) _resetAuthButtons(_GOOGLE_BTN_IDS, _GOOGLE_BTN_HTML);
-      }, 4000);
+      /* The button stays in its loading state on success: the auth observer
+         is mid-flight and about to navigate away, and flashing it back to
+         normal while the screen sits still reads as a failed tap. The
+         watchdog still recovers it if routing never happens. */
     } catch (err) {
+      clearTimeout(_wd);
       window._fcNewUserFaceIdPending = false;
       _resetAuthButtons(_GOOGLE_BTN_IDS, _GOOGLE_BTN_HTML);
       if (_isCancelledAuthError(err)) return; // user dismissed the native sheet — silent
@@ -11842,15 +11897,14 @@ window.FCApp = (function () {
     _clearError('login-error');
     _clearError('register-error');
     const startScreen = state.screen;
+    const _wd = _authWatchdog(_APPLE_BTN_IDS, _APPLE_BTN_HTML, startScreen);
     try {
       window._fcNewUserFaceIdPending = true;
       await FCAuth.signInWithApple();
       if (typeof FCAnalytics !== 'undefined') FCAnalytics.track('login_success', { method: 'apple' });
-      // See handleGoogleSignIn — same stuck-screen fix, same safety net.
-      setTimeout(() => {
-        if (state.screen === startScreen) _resetAuthButtons(_APPLE_BTN_IDS, _APPLE_BTN_HTML);
-      }, 4000);
+      // See handleGoogleSignIn — same reasoning.
     } catch (err) {
+      clearTimeout(_wd);
       window._fcNewUserFaceIdPending = false;
       _resetAuthButtons(_APPLE_BTN_IDS, _APPLE_BTN_HTML);
       if (_isCancelledAuthError(err)) return; // user dismissed the native sheet — silent
@@ -12165,7 +12219,25 @@ window.FCApp = (function () {
       'auth/user-disabled':          'This account has been disabled',
       'auth/operation-not-allowed':  'Email sign-in not enabled — check Firebase Console',
     };
-    return map[err.code] || err.message || 'Something went wrong';
+    if (map[err.code]) return map[err.code];
+
+    /* Never surface a raw platform error. A user who sees
+       "com.apple.AuthenticationServices.AuthorizationError error 1001"
+       learns nothing and assumes the app is broken. Anything from Apple or
+       Google that is not a known cancellation gets a plain sentence and a
+       route that still works. */
+    const raw = String(err && err.message || '');
+    if (/AuthenticationServices|ASAuthorization/i.test(raw)) {
+      return 'Apple Sign In didn\'t complete. You can try again, or use your email and password.';
+    }
+    if (/GIDSignIn|com\.google|Play Services/i.test(raw)) {
+      return 'Google Sign In didn\'t complete. You can try again, or use your email and password.';
+    }
+    /* A bare Cocoa/NSError string is noise to everyone who is not us. */
+    if (/^The operation couldn.t be completed/i.test(raw)) {
+      return 'That didn\'t complete. Please try again.';
+    }
+    return raw || 'Something went wrong';
   }
 
   function _confirmDialog(title, message, confirmText) {
@@ -13131,11 +13203,27 @@ window.FCApp = (function () {
             if (_DEMO_EMAILS.includes(user.email)) {
               setScreen('faceid-setup');
             } else {
-              window._fcVerifyEmailPending = true;
-              setScreen('verify-email');
-              const addrEl = document.getElementById('verify-email-addr');
-              if (addrEl) addrEl.textContent = user.email || '';
-              _sendOtpCode(); // send the code even on Firestore error
+              /* An account with NO email address cannot be verified, and
+                 routing it here is a dead end: the address line renders
+                 blank, /auth/otp/send returns 400 "No email address on this
+                 account", and there is no way forward from the screen.
+
+                 Apple is how this happens. It returns the email only on the
+                 FIRST authorization, and "Hide My Email" users may arrive
+                 with none at all — so a returning Apple user lands on a
+                 verification screen for an address that does not exist.
+
+                 There is nothing to verify, so skip it. Apple and Google
+                 have already verified the account on their side. */
+              if (!user.email) {
+                setScreen('faceid-setup');
+              } else {
+                window._fcVerifyEmailPending = true;
+                setScreen('verify-email');
+                const addrEl = document.getElementById('verify-email-addr');
+                if (addrEl) addrEl.textContent = user.email;
+                _sendOtpCode(); // send the code even on Firestore error
+              }
             }
           } else {
             // Unknown — send to onboarding rather than dashboard to be safe
@@ -13188,12 +13276,15 @@ window.FCApp = (function () {
             // see the trial offer on onboarding slide 3.
             try { localStorage.removeItem(`fc_pw_seen_${user.uid}`); } catch (_) {}
             _paywallShownThisSession = false;
-            if (!user.emailVerified && !_DEMO_EMAILS.includes(user.email)) {
+            /* `user.email` in the condition, not just emailVerified — an
+               account without one cannot be verified and the screen can only
+               fail. See the note at the other routing site. */
+            if (user.email && !user.emailVerified && !_DEMO_EMAILS.includes(user.email)) {
               // Email/password signup: show OTP verification screen
               window._fcVerifyEmailPending = true;
               setScreen('verify-email');
               const addrEl = document.getElementById('verify-email-addr');
-              if (addrEl) addrEl.textContent = user.email || '';
+              if (addrEl) addrEl.textContent = user.email;
               // Send OTP — show an error on the verify-email screen if it fails
               _sendOtpCode();
               // Schedule follow-up email (non-blocking, failure is fine)
