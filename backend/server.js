@@ -2907,39 +2907,27 @@ async function _sendWeeklySummaryForUser(uid, userData) {
     }).catch(() => {});
   }
 
-  _sendEmail(email, `Your FlowCheck weekly summary 📊`, `
-    <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-    <div style="max-width:520px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
-      <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:36px 32px;text-align:center">
-        ${LOGO_IMG}
-        <h1 style="color:#ffffff;font-size:22px;font-weight:700;margin:0 0 6px">Weekly Summary, ${_htmlEscape(name)}!</h1>
-        <p style="color:rgba(255,255,255,0.6);font-size:14px;margin:0">Here's how your money moved this week</p>
-      </div>
-      <div style="padding:28px 32px">
-        <div style="background:#f0f9ff;border-radius:12px;padding:20px;text-align:center;margin-bottom:24px">
-          <div style="font-size:13px;color:#6b7280;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.05em">Total Spent This Week</div>
-          <div style="font-size:32px;font-weight:800;color:#0a1520;letter-spacing:-0.03em">${_fmt(totalSpent)}</div>
-        </div>
-        ${safeToSpendHtml}
-        ${topCats ? `
-        <div style="margin-bottom:24px">
-          <div style="font-size:13px;font-weight:600;color:#374151;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:12px">Top Categories</div>
-          <table style="width:100%;border-collapse:collapse">${topCats}</table>
-        </div>` : ''}
-        ${insightLines ? `<div style="margin-bottom:24px"><div style="font-size:13px;font-weight:600;color:#374151;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px">Spending Insights</div>${insightLines}</div>` : ''}
-        <a href="${BACKEND_URL}/open" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#ffffff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
-          View Full Breakdown →
-        </a>
-      </div>
-      <div style="padding:16px 32px;border-top:1px solid #f3f4f6;text-align:center">
-        <p style="font-size:11px;color:#9ca3af;margin:0">
-          FlowCheck · Your money, clearly<br>
-          <a href="${_unsubUrl(uid, 'weekly')}" style="color:#9ca3af">Unsubscribe from weekly summaries</a>
-        </p>
-      </div>
-    </div>
-    </body></html>
-  `, uid).catch(e => console.error('[email weekly]', e.message));
+  _sendEmail(email, 'Your week in money', _mail.shell({
+    title:      'Your week in money',
+    preheader:  `${_fmt(totalSpent)} spent this week.`,
+    heading:    `Your week, ${_htmlEscape(name)}`,
+    subheading: 'Here is how your money moved.',
+    tone:       'info',
+    logoImg:    LOGO_IMG,
+    bodyHtml: `
+      ${_mail.panel([
+        { label: 'Spent this week', value: _fmt(totalSpent), strong: true, color: '#0b3d52' },
+      ], 'info')}
+      ${safeToSpendHtml}
+      ${topCats ? `
+        <p style="font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 10px">Top categories</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;margin:0 0 24px">${topCats}</table>` : ''}
+      ${insightLines ? `
+        <p style="font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 10px">Worth noticing</p>
+        <div style="margin:0 0 24px">${insightLines}</div>` : ''}
+      ${_mail.button('Open FlowCheck', `${BACKEND_URL}/open`, 'info')}`,
+    footerHtml: `FlowCheck &middot; <a href="${_unsubUrl(uid, 'weekly', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe from weekly summaries</a>`,
+  }), uid).catch(e => console.error('[email weekly]', e.message));
 }
 
 /**
@@ -3062,48 +3050,26 @@ async function _sendMonthlySummaryForUser(uid, userData, cutoffStr, monthLabel) 
     }).catch(() => {});
   }
 
-  await _sendEmail(email, `Your ${monthLabel} financial summary 📅`, `
-    <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-    <div style="max-width:520px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
-      <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:36px 32px;text-align:center">
-        ${LOGO_IMG}
-        <h1 style="color:#ffffff;font-size:22px;font-weight:700;margin:0 0 6px">${_htmlEscape(monthLabel)} Recap, ${name}!</h1>
-        <p style="color:rgba(255,255,255,0.6);font-size:14px;margin:0">Here's how your money moved last month</p>
-      </div>
-      <div style="padding:28px 32px">
-        <div style="display:flex;gap:12px;margin-bottom:24px">
-          <div style="flex:1;background:#f0fffe;border-radius:12px;padding:16px;text-align:center">
-            <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">Spent</div>
-            <div style="font-size:22px;font-weight:800;color:#0a1520">${_fmt(totalSpent)}</div>
-          </div>
-          <div style="flex:1;background:#f0fff4;border-radius:12px;padding:16px;text-align:center">
-            <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">Income</div>
-            <div style="font-size:22px;font-weight:800;color:#0a1520">${_fmt(totalIncome)}</div>
-          </div>
-        </div>
-        <div style="background:#f9fafb;border-radius:10px;padding:14px 16px;text-align:center;margin-bottom:24px">
-          <span style="font-size:15px;font-weight:700;color:${savedColor}">${savedLabel}</span>
-          <span style="font-size:13px;color:#9ca3af"> last month</span>
-        </div>
-        ${nwSection}
-        ${topCats ? `
-        <div style="margin-bottom:24px">
-          <div style="font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px">Top Spending Categories</div>
-          <table style="width:100%;border-collapse:collapse">${topCats}</table>
-        </div>` : ''}
-        <a href="${BACKEND_URL}/open" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#ffffff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
-          View Full Breakdown →
-        </a>
-      </div>
-      <div style="padding:16px 32px;border-top:1px solid #f3f4f6;text-align:center">
-        <p style="font-size:11px;color:#9ca3af;margin:0">
-          FlowCheck · Your money, clearly<br>
-          <a href="${_unsubUrl(uid, 'weekly')}" style="color:#9ca3af">Unsubscribe from monthly summaries</a>
-        </p>
-      </div>
-    </div>
-    </body></html>
-  `, uid);
+  await _sendEmail(email, `Your ${monthLabel} recap`, _mail.shell({
+    title:      `${monthLabel} recap`,
+    preheader:  `${_fmt(totalIncome)} in, ${_fmt(totalSpent)} out.`,
+    heading:    `${_htmlEscape(monthLabel)} recap`,
+    subheading: `Here is how your money moved, ${name}.`,
+    tone:       'info',
+    logoImg:    LOGO_IMG,
+    bodyHtml: `
+      ${_mail.panel([
+        { label: 'Came in',  value: _fmt(totalIncome) },
+        { label: 'Went out', value: _fmt(totalSpent) },
+        { label: 'Left over', value: savedLabel, strong: true, color: savedColor },
+      ], 'info')}
+      ${nwSection}
+      ${topCats ? `
+        <p style="font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 10px">Top spending categories</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;margin:0 0 24px">${topCats}</table>` : ''}
+      ${_mail.button('View full breakdown', `${BACKEND_URL}/open`, 'info')}`,
+    footerHtml: `FlowCheck &middot; Your money, clearly<br><a href="${_unsubUrl(uid, 'weekly', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe from monthly summaries</a>`,
+  }), uid);
 
   // ── Post-send: update snapshots + maybe send health score change email ──
   const fsUpdates = {};
