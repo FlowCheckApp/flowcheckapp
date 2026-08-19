@@ -3134,9 +3134,15 @@ body.fc-theme .fc-nav {
   font-size: 14px; color: var(--fc-text-muted); line-height: 1.5; margin: 0;
 }
 
-/* Sub-screen back button. The other sub-screens each inline this same
-   flex/colour/44px block; this is the class version, used by the category
-   budgets screen and available to the rest when they are next touched. */
+/* Sub-screen back button — THE back affordance for a pushed screen.
+
+   Every sub-screen used to inline this same flex/colour/44px block; seven
+   copies, one of which had drifted to a literal "←" at font-weight 500 while
+   the rest used the chevron SVG at 600. Same relationship, different button,
+   which is exactly the kind of drift nobody can name but everybody feels.
+
+   One class now. A pushed screen gets chevron + "Back", top-left, and
+   nothing else — see scripts/check-back-affordances.js. */
 .fc-sub-back {
   display: inline-flex; align-items: center; gap: 4px;
   background: none; border: none; cursor: pointer;
