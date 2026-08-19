@@ -3037,3 +3037,31 @@ body.fc-theme .fc-nav {
   gap: 12px;
   margin: 12px 16px 0;
 }
+
+
+/* ── Budget preset chips ──────────────────────────────────────────────
+   These were inline styles with rgba(26,196,240,...) written three times
+   and a selected state applied by mutating element.style.background, which
+   pinned a dark-mode colour onto a light-mode surface. Tokens theme
+   correctly in both, and aria-pressed carries the state to assistive tech
+   as well as to the eye. */
+.fc-budget-preset {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px 12px;
+  min-height: 44px;
+  border-radius: 10px;
+  background: var(--fc-accent-soft);
+  border: 1px solid var(--fc-accent-glow);
+  color: var(--fc-accent);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.18s ease, transform 0.12s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.fc-budget-preset:active { transform: scale(0.97); }
+.fc-budget-preset[aria-pressed="true"] {
+  background: var(--fc-accent);
+  border-color: var(--fc-accent);
+  color: var(--fc-accent-ink);
+}

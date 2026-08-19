@@ -14466,6 +14466,85 @@ window.FCApp = (function () {
      Opened from the Insights category breakdown rows.
      ───────────────────────────────────────────────────────────── */
 
+  /* ── What this person actually spends ──────────────────────────────
+     The sheet used to offer four fixed chips — $1,500/$2,000/$3,000/$5,000
+     for the total, and a hardcoded triple per category — which have no
+     relation to the account they are being shown in. Someone whose real
+     months run $2,300 gets no chip near it, so the choice is a guess, and a
+     budget guessed at is abandoned the first time it is wrong.
+
+     MEDIAN of COMPLETE months, not the mean, and not including this one:
+      · the current month is partial, so it always reads low and would drag
+        the suggestion under what the person actually spends;
+      · one holiday month or one insurance renewal moves a mean enough to
+        make the number useless — the payday predictor had exactly this bug
+        and it is why FCCore.median exists to be reused here.
+
+     Returns null below MIN_MONTHS. A "typical month" claimed off one and a
+     half months of history is not a finding, and the static chips are a
+     more honest fallback than a confident wrong number. */
+  const _BUDGET_MIN_MONTHS = 3;
+  function _typicalMonthlySpend(category) {
+    const txns = (state.transactions || []).filter(t =>
+      t && t.date && !t.isCredit && _isSpendTxn(t)
+      && (!category || category === 'total' || t.category === category));
+    if (!txns.length) return null;
+
+    const now = new Date();
+    const curKey = now.getFullYear() + '-' + now.getMonth();
+    const byMonth = new Map();
+    let earliest = Infinity;
+    for (const t of txns) {
+      const d = FCData.parseDateLocal(t.date);
+      if (!d || isNaN(d)) continue;
+      earliest = Math.min(earliest, d.getTime());
+      const key = d.getFullYear() + '-' + d.getMonth();
+      if (key === curKey) continue;                     // this month is partial
+      const m = byMonth.get(key) || { sum: 0, n: 0 };
+      m.sum += (t.amount || 0); m.n++;
+      byMonth.set(key, m);
+    }
+
+    /* Two more months have to come out, and both were letting nonsense
+       through. The FIRST month of history is partial in exactly the same way
+       the current one is — Plaid backfills from whenever the account was
+       linked, so it starts mid-month — and it drags the median down.
+       And a month holding three stray transactions is not a month anybody
+       lived; it is the tail of an import. Without a floor, sparse history
+       produced a confident "you typically spend $54.99" on an account
+       running thousands through it, which is worse than offering nothing. */
+    const firstKey = isFinite(earliest)
+      ? (d => d.getFullYear() + '-' + d.getMonth())(new Date(earliest))
+      : null;
+    const MIN_TXNS_PER_MONTH = 5;
+    const months = [...byMonth.entries()]
+      .filter(([key, m]) => key !== firstKey && m.n >= MIN_TXNS_PER_MONTH)
+      .map(([, m]) => m.sum);
+
+    if (months.length < _BUDGET_MIN_MONTHS) return null;
+    const med = FCCore.median(months);
+    return med > 0 ? med : null;
+  }
+
+  /* Round to a figure someone would actually choose. $2,347 is a
+     measurement; $2,350 is a budget. */
+  function _roundBudget(v) {
+    if (v >= 2000) return Math.round(v / 100) * 100;
+    if (v >= 500)  return Math.round(v / 50)  * 50;
+    return Math.round(v / 10) * 10;
+  }
+
+  /* Selected state lives in one place so the chips and the field cannot
+     disagree about which preset is active. */
+  function _pickBudgetPreset(btn, value) {
+    const input = document.getElementById('budget-limit-input');
+    if (input) input.value = String(value);
+    const row = btn && btn.parentElement;
+    if (row) row.querySelectorAll('button').forEach(b => b.removeAttribute('aria-pressed'));
+    if (btn) btn.setAttribute('aria-pressed', 'true');
+    haptic('light');
+  }
+
   function openCategoryBudgetSheet(category, currentLimit) {
     _editingBudgetCategory = category;
     const sheet     = document.getElementById('fc-budget-sheet');
@@ -14477,22 +14556,46 @@ window.FCApp = (function () {
 
     if (titleEl) titleEl.textContent = isTotal ? 'Monthly Budget' : `${category} Budget`;
     if (inputEl) inputEl.value = currentLimit > 0 ? String(Math.round(currentLimit)) : '';
-    if (hintEl)  hintEl.textContent = currentLimit > 0
-      ? `Current limit: ${FCData.formatCurrency(currentLimit)}/mo`
-      : 'No limit set — enter an amount to track this category';
+    const typical = _typicalMonthlySpend(category);
 
-    // Smart presets based on category
+    /* Say where the number came from. "You typically spend $2,350" is a
+       reason to pick a figure; a bare input is a quiz. */
+    if (hintEl)  hintEl.textContent = typical
+      ? (currentLimit > 0
+          ? `Current limit: ${FCData.formatCurrency(currentLimit)}/mo · you typically spend ${FCData.formatCurrency(typical)}`
+          : `You typically spend ${FCData.formatCurrency(typical)} a month here`)
+      : (currentLimit > 0
+          ? `Current limit: ${FCData.formatCurrency(currentLimit)}/mo`
+          : 'No limit set — enter an amount to track this category');
+
     if (presetsEl) {
-      const presets = isTotal ? [1500, 2000, 3000, 5000]
+      /* Chips bracket what they actually spend: a trim, their typical month
+         rounded, and some headroom. Every one of them is a decision the
+         person can reason about, which the fixed ladder never was.
+         Below three complete months _typicalMonthlySpend returns null and we
+         fall back to the old fixed chips rather than bracket a number we do
+         not trust. */
+      const base = typical ? _roundBudget(typical) : 0;
+      const presets = base > 0
+        ? [...new Set([
+            _roundBudget(base * 0.85),
+            base,
+            _roundBudget(base * 1.15),
+          ])].filter(v => v > 0)
+        : isTotal ? [1500, 2000, 3000, 5000]
         : category === 'Food and Drink' ? [200, 300, 500, 800]
         : category === 'Travel'         ? [100, 200, 400, 600]
         : category === 'Shopping'       ? [100, 200, 300, 500]
         : category === 'Healthcare'     ? [50, 100, 200, 400]
         : [50, 100, 200, 500];
+      /* Class, not inline style. The chips hardcoded rgba(26,196,240,...)
+         in three places and toggled the selected state by writing
+         element.style.background directly — which pins a dark-mode colour
+         into a light-mode surface and cannot be themed. The token does both
+         modes and the class survives a re-render. */
       presetsEl.innerHTML = presets.map(p =>
-        `<button type="button" style="font-size:12px;font-weight:600;padding:6px 12px;border-radius:10px;background:rgba(26,196,240,0.1);border:1px solid rgba(26,196,240,0.2);color:var(--fc-accent);cursor:pointer"
-                 onclick="document.getElementById('budget-limit-input').value='${p}';this.parentElement.querySelectorAll('button').forEach(b=>b.style.background='rgba(26,196,240,0.1)');this.style.background='rgba(26,196,240,0.25)'"
-         >$${p.toLocaleString()}</button>`
+        `<button type="button" class="fc-budget-preset"${p === Math.round(currentLimit) ? ' aria-pressed="true"' : ''}
+                 onclick="FCApp._pickBudgetPreset(this, ${p})">$${p.toLocaleString()}</button>`
       ).join('');
     }
 
@@ -15434,6 +15537,7 @@ window.FCApp = (function () {
     animateNumber,
     // Getter for static HTML onclick handlers — avoids global namespace pollution
     getTotalBudgetLimit: () => _totalBudgetLimit(),
+    _pickBudgetPreset,
     // Dashboard UI
     toggleInsights,
     // Today's Focus card
