@@ -5392,61 +5392,59 @@ window.FCApp = (function () {
   }
 
   // ─── Monthly Summary: 3-card row (Income / Spending / Cash Flow) ──────────
-  function _renderMonthlySummary(periodSpend, periodIncome) {
-    const now        = new Date();
-    const lmStart    = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const lmEnd      = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
-    const allTxns    = state.transactions || [];
+  /* ── This month vs last month ──────────────────────────────────────
+     The maths here is unchanged; where it goes is the fix.
 
-    const lmTxns    = allTxns.filter(t => { const d = FCData.parseDateLocal(t.date); return d >= lmStart && d <= lmEnd; });
-    const lmSpend   = lmTxns.filter(_isSpendTxn).reduce((s, t) => s + (t.amount || 0), 0);
-    const lmIncome  = lmTxns.filter(_isIncomeTxn).reduce((s, t) => s + Math.abs(t.amount || 0), 0);
+     _renderMonthlySummary used to write income, spend, cash flow and three
+     month-over-month deltas into six elements that live inside index.html's
+     "HIDDEN COMPAT" block — a <div style="display:none"> kept so legacy JS
+     has somewhere to write. And it was only ever called from
+     _renderInsights(), which itself is called from exactly one place:
+     _refreshAfterPro(). So the summary computed correct numbers, once, after
+     a Pro purchase, into elements nobody could see. It has never been on
+     screen.
 
-    const cashFlow   = periodIncome - periodSpend;
+     Returns data instead of writing DOM, so the caller decides where it
+     renders and check-dom-ids has nothing dangling to resolve. */
+  function _monthSummaryData() {
+    const now     = new Date();
+    const mStart  = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lmStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lmEnd   = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+    const all     = state.transactions || [];
+
+    const inRange = (t, a, b) => {
+      if (!t.date) return false;
+      const d = FCData.parseDateLocal(t.date);
+      return d && !isNaN(d) && d >= a && d <= b;
+    };
+    const thisM = all.filter(t => inRange(t, mStart, now));
+    const lastM = all.filter(t => inRange(t, lmStart, lmEnd));
+
+    const sum = (rows, pred, abs) => rows.filter(pred)
+      .reduce((s, t) => s + (abs ? Math.abs(t.amount || 0) : (t.amount || 0)), 0);
+
+    const income   = sum(thisM, _isIncomeTxn, true);
+    const spend    = sum(thisM, _isSpendTxn,  false);
+    const lmIncome = sum(lastM, _isIncomeTxn, true);
+    const lmSpend  = sum(lastM, _isSpendTxn,  false);
+
+    /* null, not 0, when last month has nothing to compare against. A first
+       month would otherwise read "↑100% vs last month" against zero, which
+       is a statement about missing data dressed as a trend. */
+    const delta = (curr, prev) =>
+      (!prev || prev === 0) ? null : Math.round(((curr - prev) / Math.abs(prev)) * 100);
+
+    const cashFlow   = income - spend;
     const lmCashFlow = lmIncome - lmSpend;
 
-    const _delta = (curr, prev) => {
-      if (!prev || prev === 0) return null;
-      return Math.round(((curr - prev) / Math.abs(prev)) * 100);
+    return {
+      income, spend, cashFlow,
+      incomeDelta: delta(income, lmIncome),
+      spendDelta:  delta(spend,  lmSpend),
+      cashDelta:   lmCashFlow !== 0 ? delta(cashFlow, lmCashFlow) : null,
+      hasLastMonth: lastM.length > 0,
     };
-    const _deltaHtml = (d, invert) => {
-      if (d === null) return '';
-      const good  = invert ? d < 0 : d > 0;
-      const color = good ? 'var(--fc-success)' : d === 0 ? 'var(--fc-text-faint)' : 'var(--fc-danger)';
-      const arrow = d > 0 ? '↑' : d < 0 ? '↓' : '→';
-      return `<span style="color:${color}">${arrow}${Math.abs(d)}% vs last mo</span>`;
-    };
-
-    const incomeVal   = document.getElementById('ins-ms-income-val');
-    const incomeDelta = document.getElementById('ins-ms-income-delta');
-    const spendVal    = document.getElementById('ins-ms-spend-val');
-    const spendDelta  = document.getElementById('ins-ms-spend-delta');
-    const cfVal       = document.getElementById('ins-ms-cf-val');
-    const cfDelta     = document.getElementById('ins-ms-cf-delta');
-
-    if (incomeVal)  incomeVal.textContent = FCData.formatCurrency(periodIncome);
-    if (incomeDelta) {
-      const d = _delta(periodIncome, lmIncome);
-      if (d !== null) { incomeDelta.innerHTML = _deltaHtml(d, false); incomeDelta.style.display = ''; }
-      else incomeDelta.style.display = 'none';
-    }
-
-    if (spendVal)  spendVal.textContent = FCData.formatCurrency(periodSpend);
-    if (spendDelta) {
-      const d = _delta(periodSpend, lmSpend);
-      if (d !== null) { spendDelta.innerHTML = _deltaHtml(d, true); spendDelta.style.display = ''; }
-      else spendDelta.style.display = 'none';
-    }
-
-    if (cfVal) {
-      cfVal.textContent  = (cashFlow >= 0 ? '+' : '') + FCData.formatCurrency(cashFlow);
-      cfVal.style.color  = cashFlow >= 0 ? 'var(--fc-success)' : 'var(--fc-danger)';
-    }
-    if (cfDelta) {
-      const d = lmCashFlow !== 0 ? _delta(cashFlow, lmCashFlow) : null;
-      if (d !== null) { cfDelta.innerHTML = _deltaHtml(d, false); cfDelta.style.display = ''; }
-      else cfDelta.style.display = 'none';
-    }
   }
 
   function _renderPlanCategories(periodSpendTxns, periodSpend) {
@@ -5698,7 +5696,6 @@ window.FCApp = (function () {
 
     // ── V3: New sections ─────────────────────────────────────────
     // Note: Today's Move lives on Home now — not duplicated here
-    try { _renderMonthlySummary(periodSpend, periodIncome); } catch(e) { fcLog('[Insights] monthly summary error:', e); }
 
     // ── Legacy week summary (writes to hidden compat elements) ───
     _renderWeekSummary(periodSpend, periodIncome, periodLabel);
@@ -8553,6 +8550,33 @@ window.FCApp = (function () {
       '<button class="fc-seg-btn'+(_planSeg===id?' active':'')+'" role="tab" aria-selected="'+(_planSeg===id)+'"'
       +' type="button" onclick="FCApp.switchPlanSeg(\''+id+'\')">'+label+'</button>';
 
+    /* Month at a glance. Three figures and how each compares with last
+       month — the summary that has existed in code since before Insights
+       was folded into Plan, and has never been rendered anywhere a user
+       could see it. */
+    const _ms = _monthSummaryData();
+    const lmName = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+      .toLocaleDateString('en-US', { month: 'long' });
+    /* Arrow and percentage only. "↑328% vs last month" wrapped onto a second
+       line in the middle column at 375pt, which pushed that cell taller than
+       its neighbours and broke the row the table layout exists to keep. The
+       comparison is stated once beneath the three figures instead of three
+       times inside them. */
+    const _msDelta = (d, lowerIsBetter) => {
+      if (d === null) return '<span class="fc-ms-delta fc-ms-delta--none">&mdash;</span>';
+      const good = lowerIsBetter ? d < 0 : d > 0;
+      const cls  = d === 0 ? 'none' : good ? 'good' : 'bad';
+      const arrow = d > 0 ? '\u2191' : d < 0 ? '\u2193' : '\u2192';
+      return '<span class="fc-ms-delta fc-ms-delta--' + cls + '">'
+        + arrow + Math.abs(d) + '%</span>';
+    };
+    const _msCell = (label, value, deltaHtml, valueCls) =>
+      '<td class="fc-ms-cell">'
+        + '<span class="fc-ms-label">' + label + '</span>'
+        + '<span class="fc-ms-value ' + (valueCls || '') + ' fc-amount">' + value + '</span>'
+        + deltaHtml
+      + '</td>';
+
     el.innerHTML =
       '<header class="fc-page-head">'
         +'<div class="fc-page-head__text">'
@@ -8560,6 +8584,22 @@ window.FCApp = (function () {
           +'<p class="fc-page-sub">'+now.toLocaleDateString('en-US',{month:'long',year:'numeric'})+'</p>'
         +'</div>'
       +'</header>'
+
+      +'<section class="fc-ui-card fc-ms-card">'
+        +'<table class="fc-ms-grid" role="presentation"><tr>'
+          + _msCell('Came in', FCData.formatCurrency(_ms.income), _msDelta(_ms.incomeDelta, false))
+          + _msCell('Went out', FCData.formatCurrency(_ms.spend),  _msDelta(_ms.spendDelta, true))
+          + _msCell('Left over',
+              (_ms.cashFlow >= 0 ? '+' : '') + FCData.formatCurrency(_ms.cashFlow),
+              _msDelta(_ms.cashDelta, false),
+              _ms.cashFlow >= 0 ? 'fc-ms-value--good' : 'fc-ms-value--bad')
+        +'</tr></table>'
+        +'<p class="fc-ms-note">'
+          + (_ms.hasLastMonth
+              ? 'Compared with ' + lmName
+              : 'First month of data \u2014 nothing to compare against yet')
+        +'</p>'
+      +'</section>'
 
       +'<div class="fc-seg" role="tablist" aria-label="Plan view">'
         +segBtn('paycheck','Paycheck')

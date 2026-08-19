@@ -3199,3 +3199,51 @@ body.fc-theme .fc-nav {
   margin: 20px 0 8px;
   font-variant-numeric: tabular-nums;
 }
+
+/* ── Month at a glance (Plan) ─────────────────────────────────────────
+   A table, not flex/grid, because the three cells must stay on one row at
+   every width — on a 375pt screen a wrapping "Left over" would read as a
+   fourth figure. Equal widths keep the numbers aligned as they change. */
+.fc-ms-card { padding: 16px; margin-bottom: 12px; }
+.fc-ms-grid { width: 100%; table-layout: fixed; border-collapse: collapse; }
+.fc-ms-cell {
+  text-align: left;
+  vertical-align: top;
+  padding: 0 8px 0 0;
+}
+.fc-ms-cell:last-child { padding-right: 0; }
+.fc-ms-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--fc-text-faint);
+  margin-bottom: 4px;
+}
+.fc-ms-value {
+  display: block;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--fc-text);
+  letter-spacing: -0.3px;
+  font-variant-numeric: tabular-nums;
+}
+.fc-ms-value--good { color: var(--fc-success); }
+.fc-ms-value--bad  { color: var(--fc-danger); }
+.fc-ms-delta {
+  display: block;
+  margin-top: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.fc-ms-delta--good { color: var(--fc-success); }
+.fc-ms-delta--bad  { color: var(--fc-danger); }
+.fc-ms-delta--none { color: var(--fc-text-faint); }
+.fc-ms-note {
+  margin: 12px 0 0;
+  font-size: 11px;
+  color: var(--fc-text-faint);
+  line-height: 1.4;
+}
