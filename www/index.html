@@ -57,9 +57,9 @@
 <meta name="theme-color" content="#060e18">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="stylesheet" href="css/flowcheck-design-system.css?v=20260815s">
-<link rel="stylesheet" href="css/fc-screens.css?v=20260815s">
-<link rel="stylesheet" href="css/fc-premium-screens.css?v=20260815s">
+<link rel="stylesheet" href="css/flowcheck-design-system.css?v=20260815u">
+<link rel="stylesheet" href="css/fc-screens.css?v=20260815u">
+<link rel="stylesheet" href="css/fc-premium-screens.css?v=20260815u">
 
 <!-- Sentry — error & crash monitoring (vanilla JS, no npm required) -->
 <script
@@ -6139,7 +6139,10 @@ body:not(.keyboard-open) .fc-sheet {
     <div class="plan-cat-section">
       <div class="plan-cat-header">
         <span style="font-size:15px;font-weight:700;color:var(--pl-primary)">Categories</span>
-        <button class="plan-cat-edit-btn" type="button" onclick="FCApp.openCategoryBudgetSheet('total', FCApp.getTotalBudgetLimit())">
+        <!-- "Edit Budgets", plural, sitting under a Categories header, used to
+             open the single overall-total sheet. It now opens the screen that
+             actually edits budgets per category. -->
+        <button class="plan-cat-edit-btn" type="button" onclick="FCApp._openSubScreen('budgets')">
           Edit Budgets
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
         </button>
@@ -6817,6 +6820,14 @@ body:not(.keyboard-open) .fc-sheet {
     </div>
   </div><!-- /view-calendar -->
 
+  <!-- ══ CATEGORY BUDGETS SCREEN ════════════════════════════════ -->
+  <div id="view-budgets" class="fc-view" role="tabpanel"
+       style="overflow-y:scroll;-webkit-overflow-scrolling:touch;padding-bottom:calc(env(safe-area-inset-bottom) + 110px);display:none">
+    <div id="budgets-screen-content" style="padding:0 16px">
+      <!-- Rendered by _renderCategoryBudgets() -->
+    </div>
+  </div><!-- /view-budgets -->
+
   <!-- ══ REPORTS SCREEN ═════════════════════════════════════════ -->
   <div id="view-reports" class="fc-view" role="tabpanel"
        style="overflow-y:scroll;-webkit-overflow-scrolling:touch;padding-bottom:calc(env(safe-area-inset-bottom) + 110px);display:none">
@@ -7441,7 +7452,7 @@ body:not(.keyboard-open) .fc-sheet {
 <script src="js/fc-data.js"></script>
 <script src="js/fc-push.js"></script>
 <script src="js/fc-iap.js"></script>
-<script src="js/fc-app.js?v=20260815s"></script>
+<script src="js/fc-app.js?v=20260815u"></script>
 
 <script>
 'use strict';

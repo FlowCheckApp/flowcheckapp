@@ -1438,6 +1438,15 @@ window.FCApp = (function () {
      state.tab cannot be used for this either — switchTab() sets it to the
      sub-screen's own id before delegating to _openSubScreen() — so the last
      real tab is tracked separately. Sub-screens never update it. */
+  /* The sub-screen ids, in ONE place. This list was written out three
+     times — switchTab's cleanup, the render dispatch and _closeSubScreen —
+     so adding a screen meant remembering all three, and missing the
+     cleanup ones leaves a sub-screen painted over the tab you switch to.
+     check-sub-screens.js pairs _openSubScreen literals against markup; it
+     cannot see a screen that was only half-registered. */
+  const _SUB_SCREENS = ['goals','investments','calendar','reports',
+                        'notifications','settings','vault','budgets'];
+
   const _NAV_TABS = new Set(['home', 'activity', 'plan', 'wealth', 'goals', 'coach', 'more']);
   let _lastNavTab = 'more';
 
@@ -1483,7 +1492,7 @@ window.FCApp = (function () {
     const outgoing = prev ? document.getElementById('view-' + prev) : null;
 
     // ── Clean up any open sub-screens so they don't bleed into tab views ──
-    ['goals','investments','calendar','reports','notifications','settings','vault'].forEach(id => {
+    _SUB_SCREENS.forEach(id => {
       const sub = document.getElementById('view-' + id);
       if (sub) { sub.classList.remove('active'); sub.style.display = 'none'; }
     });
@@ -8179,6 +8188,7 @@ window.FCApp = (function () {
       else if (screenId === 'investments') _renderInvestments();
       else if (screenId === 'calendar') _renderCalendar();
       else if (screenId === 'reports')  _renderReports();
+      else if (screenId === 'budgets')  _renderCategoryBudgets();
       else if (screenId === 'notifications') _renderNotificationsScreen();
       else if (screenId === 'vault')    _renderVaultScreen();
       else if (screenId === 'settings') { _renderSettings(); }
@@ -8189,7 +8199,7 @@ window.FCApp = (function () {
   function _closeSubScreen() {
     const nav = document.querySelector('.fc-nav');
     if (nav) nav.style.display = '';
-    ['goals','investments','calendar','reports','notifications','settings','vault'].forEach(id => {
+    _SUB_SCREENS.forEach(id => {
       const el = document.getElementById('view-' + id);
       if (el) { el.classList.remove('active'); el.style.display = 'none'; }
     });
@@ -8704,6 +8714,154 @@ window.FCApp = (function () {
    * openCategoryBudgetSheet() handles as the 'total' category, complete with
    * its own title and presets.
    */
+  /* ─────────────────────────────────────────────────────────────
+     CATEGORY BUDGETS
+     Per-category limits already existed in state.budgets and
+     FCCore.totalBudgetLimit already summed them — but the only way to set
+     one was to find a category you happened to have spent in this period,
+     inside Insights, and tap it. There was nowhere to see what you had set,
+     what it added up to, or which categories were missing a limit.
+     ───────────────────────────────────────────────────────────── */
+
+  /* Every category the person actually spends in, with the three numbers a
+     budgeting decision needs: what they typically spend, what they have
+     spent so far this month, and what they capped it at. */
+  function _categoryBudgetRows() {
+    const txns = (state.transactions || []).filter(t => t && t.date && !t.isCredit && _isSpendTxn(t));
+    const now = new Date();
+    const curY = now.getFullYear(), curM = now.getMonth();
+
+    const seen = new Map();
+    for (const t of txns) {
+      const cat = FCCore.normalizeCategory(
+        Array.isArray(t.category) ? t.category[0] : t.category);
+      if (!cat) continue;
+      const d = FCData.parseDateLocal(t.date);
+      if (!d || isNaN(d)) continue;
+      const row = seen.get(cat) || { cat, thisMonth: 0, everSpent: 0 };
+      row.everSpent += (t.amount || 0);
+      if (d.getFullYear() === curY && d.getMonth() === curM) row.thisMonth += (t.amount || 0);
+      seen.set(cat, row);
+    }
+
+    const budgets = state.budgets || {};
+    return [...seen.values()]
+      .map(r => ({
+        ...r,
+        limit:   Number(budgets[r.cat]?.limit) || 0,
+        typical: _typicalMonthlySpend(r.cat) || 0,
+      }))
+      /* Budgeted categories first so the ones being managed stay together,
+         then by what is actually spent — a category worth $12 a year is not
+         where anyone should be asked to start. */
+      .sort((a, b) => (b.limit > 0) - (a.limit > 0)
+                   || (b.typical || b.everSpent) - (a.typical || a.everSpent));
+  }
+
+  function _renderCategoryBudgets() {
+    const el = document.getElementById('budgets-screen-content');
+    if (!el) return;
+
+    const rows       = _categoryBudgetRows();
+    const budgets    = state.budgets || {};
+    const explicit   = Number(budgets.total?.limit) || 0;
+    const catSum     = rows.reduce((s, r) => s + r.limit, 0);
+    const budgetedN  = rows.filter(r => r.limit > 0).length;
+
+    /* Say which number is actually governing. FCCore.totalBudgetLimit uses
+       the explicit total when there is one and the category sum otherwise —
+       "never both" — and a screen full of category limits that are silently
+       NOT the ceiling is exactly the kind of quiet disagreement that made
+       that function necessary in the first place. */
+    const governs = explicit > 0
+      ? `Your overall budget of ${FCData.formatCurrency(explicit)} is what counts. `
+        + `The limits below track each category against it.`
+      : catSum > 0
+        ? `These add up to your monthly budget.`
+        : `Set a limit on the categories you want to keep an eye on.`;
+
+    const summary =
+      '<section class="fc-ui-card fc-cb-summary">'
+        + '<div class="fc-cb-summary-head">'
+          + '<span class="fc-eyebrow">' + (explicit > 0 ? 'Overall budget' : 'Category budgets') + '</span>'
+          + '<span class="fc-cb-summary-amt fc-amount">'
+            + FCData.formatCurrency(explicit > 0 ? explicit : catSum) + '</span>'
+        + '</div>'
+        + '<p class="fc-cb-summary-note">' + esc(governs) + '</p>'
+        + '<button class="fc-btn fc-btn--ghost fc-btn--sm fc-cb-total-btn" type="button"'
+          + ' onclick="FCApp.openCategoryBudgetSheet(\'total\', ' + explicit + ')">'
+          + (explicit > 0 ? 'Edit overall budget' : 'Set an overall budget instead') + '</button>'
+      + '</section>';
+
+    /* Back affordance FIRST. _openSubScreen hides the tab bar, so a
+       sub-screen that renders no way out strands the user — there is no
+       nav underneath to fall back to. Canonical chrome per CLAUDE.md
+       (.fc-page-head + .fc-page-title--sub) rather than the inline-styled
+       header each of the other sub-screens hand-rolls. */
+    const head =
+      '<div class="fc-page-head fc-cb-head">'
+        + '<button type="button" class="fc-sub-back" onclick="FCApp._closeSubScreen()">'
+          + '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"'
+          + ' stroke-width="2.5" stroke-linecap="round" aria-hidden="true">'
+          + '<polyline points="15 18 9 12 15 6"/></svg>Back'
+        + '</button>'
+        + '<div class="fc-page-head__text">'
+          + '<h1 class="fc-page-title fc-page-title--sub">Category Budgets</h1>'
+        + '</div>'
+      + '</div>';
+
+    if (!rows.length) {
+      el.innerHTML = head + summary
+        + '<div class="fc-cb-empty">'
+          + _ic('pie-chart', 'var(--fc-text-faint)', 28)
+          + '<h3>No spending to budget yet</h3>'
+          + '<p>Once transactions come in, every category you spend in shows up here ready for a limit.</p>'
+        + '</div>';
+      return;
+    }
+
+    const list = rows.map(r => {
+      const emoji = (typeof FCData.categoryEmoji === 'function') ? FCData.categoryEmoji(r.cat) : '📦';
+      const col   = FCData.categoryColor(r.cat);
+      const has   = r.limit > 0;
+      /* Raw for the verdict, clamped for the bar — the same split the
+         monthly grid needed, so an overspend can actually go red. */
+      const raw   = has ? Math.round((r.thisMonth / r.limit) * 100) : 0;
+      const pct   = Math.min(raw, 100);
+      const tone  = raw > 100 ? 'over' : raw > 80 ? 'warn' : 'ok';
+      const sub   = has
+        ? (raw > 100
+            ? FCData.formatCurrency(r.thisMonth - r.limit) + ' over ' + FCData.formatCurrency(r.limit)
+            : FCData.formatCurrency(r.limit - r.thisMonth) + ' left of ' + FCData.formatCurrency(r.limit))
+        : (r.typical > 0
+            ? 'Typically ' + FCData.formatCurrency(r.typical) + ' a month'
+            : FCData.formatCurrency(r.thisMonth) + ' this month');
+
+      return '<button type="button" class="fc-cb-row" '
+        + 'onclick="FCApp.openCategoryBudgetSheet(' + JSON.stringify(r.cat).replace(/"/g, '&quot;') + ', ' + r.limit + ')" '
+        + 'aria-label="' + esc(r.cat) + ' budget">'
+        + '<span class="fc-cb-emoji" aria-hidden="true">' + emoji + '</span>'
+        + '<span class="fc-cb-body">'
+          + '<span class="fc-cb-name">' + esc(r.cat) + '</span>'
+          + '<span class="fc-cb-sub fc-cb-sub--' + tone + '">' + esc(sub) + '</span>'
+          + (has
+              ? '<span class="fc-cb-track"><span class="fc-cb-fill fc-cb-fill--' + tone + '"'
+                + ' style="width:' + pct + '%;--fc-cb-col:' + col + '"></span></span>'
+              : '')
+        + '</span>'
+        + (has
+            ? '<span class="fc-cb-amt fc-amount">' + FCData.formatCurrency(r.limit) + '</span>'
+            : '<span class="fc-cb-set">Set</span>')
+      + '</button>';
+    }).join('');
+
+    el.innerHTML = head + summary
+      + '<p class="fc-eyebrow fc-cb-listlbl">'
+        + (budgetedN ? budgetedN + ' of ' + rows.length + ' categories budgeted' : 'Your spending categories')
+      + '</p>'
+      + '<section class="fc-ui-card fc-cb-list">' + list + '</section>';
+  }
+
   function _openBudgetWizard() {
     const budgets = state.budgets || {};
     const current = Number(budgets.total && budgets.total.limit) || 0;
@@ -8772,6 +8930,7 @@ window.FCApp = (function () {
         +toolTile('flag','Goals','var(--fc-success)','var(--fc-success-soft)',"FCApp._openSubScreen('goals')")
         +toolTile('trending-up','Investments','var(--fc-electric)','var(--fc-electric-soft)',"FCApp._openSubScreen('investments')")
         +toolTile('calendar','Calendar','var(--fc-warning)','var(--fc-warning-soft)',"FCApp._openSubScreen('calendar')")
+        +toolTile('pie-chart','Budgets','var(--fc-electric)','var(--fc-electric-soft)',"FCApp._openSubScreen('budgets')")
         +toolTile('bar-chart','Reports','var(--fc-accent)','var(--fc-accent-soft)',"FCApp._openSubScreen('reports')")
       +'</div>'
 

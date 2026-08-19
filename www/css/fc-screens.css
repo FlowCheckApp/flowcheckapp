@@ -3065,3 +3065,84 @@ body.fc-theme .fc-nav {
   border-color: var(--fc-accent);
   color: var(--fc-accent-ink);
 }
+
+/* ── Category budgets screen ──────────────────────────────────────────
+   Rows are <button> so they are focusable and announce as controls; the
+   whole row is the target, which is what makes 44pt trivial here rather
+   than something to retrofit. */
+.fc-cb-summary { padding: 16px; margin-bottom: 16px; }
+.fc-cb-summary-head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+}
+.fc-cb-summary-amt {
+  font-size: 24px; font-weight: 700; color: var(--fc-text);
+  font-variant-numeric: tabular-nums; letter-spacing: -0.5px;
+}
+.fc-cb-summary-note {
+  margin: 8px 0 0; font-size: 13px; line-height: 1.45; color: var(--fc-text-muted);
+}
+.fc-cb-total-btn { width: 100%; margin-top: 16px; }
+.fc-cb-listlbl { display: block; margin: 0 4px 8px; }
+.fc-cb-list { padding: 4px 16px; }
+
+.fc-cb-row {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  min-height: 44px; padding: 12px 0; background: none; border: none;
+  border-bottom: 1px solid var(--fc-border);
+  text-align: left; cursor: pointer; font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity 0.15s ease;
+}
+.fc-cb-row:last-child { border-bottom: none; }
+.fc-cb-row:active { opacity: 0.6; }
+
+.fc-cb-emoji { font-size: 20px; flex-shrink: 0; width: 32px; text-align: center; }
+.fc-cb-body  { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.fc-cb-name  { font-size: 15px; font-weight: 600; color: var(--fc-text); }
+.fc-cb-sub   { font-size: 12px; color: var(--fc-text-faint); }
+/* -text variants, not the raw tokens: the raw --fc-warning measures 2.15:1
+   as body text and check-contrast-tokens.js catches it. The fills below are
+   backgrounds, where the raw tokens are correct. */
+.fc-cb-sub--warn { color: var(--fc-warning-text); }
+.fc-cb-sub--over { color: var(--fc-danger-text); }
+
+.fc-cb-track {
+  height: 4px; border-radius: 999px; background: var(--fc-bg-elevated-2);
+  overflow: hidden; margin-top: 4px;
+}
+.fc-cb-fill {
+  display: block; height: 100%; border-radius: 999px;
+  background: var(--fc-cb-col, var(--fc-accent));
+}
+.fc-cb-fill--warn { background: var(--fc-warning); }
+.fc-cb-fill--over { background: var(--fc-danger); }
+
+.fc-cb-amt {
+  font-size: 15px; font-weight: 600; color: var(--fc-text);
+  font-variant-numeric: tabular-nums; flex-shrink: 0;
+}
+.fc-cb-set {
+  font-size: 12px; font-weight: 600; color: var(--fc-accent);
+  background: var(--fc-accent-soft); border: 1px solid var(--fc-accent-glow);
+  border-radius: 999px; padding: 6px 12px; flex-shrink: 0;
+}
+.fc-cb-empty { text-align: center; padding: 48px 24px; }
+.fc-cb-empty h3 {
+  font-size: 17px; font-weight: 600; color: var(--fc-text); margin: 16px 0 8px;
+}
+.fc-cb-empty p {
+  font-size: 14px; color: var(--fc-text-muted); line-height: 1.5; margin: 0;
+}
+
+/* Sub-screen back button. The other sub-screens each inline this same
+   flex/colour/44px block; this is the class version, used by the category
+   budgets screen and available to the rest when they are next touched. */
+.fc-sub-back {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: none; border: none; cursor: pointer;
+  color: var(--fc-accent); font-size: 15px; font-weight: 600;
+  font-family: inherit; padding: 12px 8px 12px 0; min-height: 44px;
+  -webkit-tap-highlight-color: transparent;
+}
+.fc-sub-back:active { opacity: 0.6; }
+.fc-cb-head { align-items: center; gap: 8px; padding-top: 8px; }
