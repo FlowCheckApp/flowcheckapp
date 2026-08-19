@@ -666,6 +666,13 @@ body.keyboard-open .fc-auth-screen { padding-top: calc(env(safe-area-inset-top, 
 
 /* Back control on auth screens. Positioned rather than in flow so it does
    not shift the centred logo, and 44pt because it is a real target. */
+/* Auth back control. Deliberately the same button as .fc-sub-back — chevron,
+   the word "Back", 15px/600, accent — because it is the same relationship:
+   one step back up a pushed stack. It was icon-only, which made auth the one
+   place in the app where that relationship looked different.
+
+   Absolutely positioned rather than in flow so it does not shift the centred
+   logo below it. */
 .fc-auth-backbtn {
   position: absolute;
   /* Offsets are FLAT, and measured from .fc-auth-body — which is the
@@ -675,15 +682,14 @@ body.keyboard-open .fc-auth-screen { padding-top: calc(env(safe-area-inset-top, 
      notched iPhone, straight through the "Create your account" title.
      Same double-count .fc-auth-body's padding-bottom comment warns about. */
   top: -4px;
-  left: -12px;
-  /* 48, not 44. The measured box came back at 43 under the preview's
-     fractional scaling, and a target that only meets the minimum when the
-     maths rounds the right way does not meet it. */
-  width: 48px; height: 48px;
-  min-width: 48px; min-height: 48px;
-  display: flex; align-items: center; justify-content: center;
-  background: none; border: none; padding: 0;
-  color: rgba(255,255,255,0.55);
+  left: -8px;
+  min-height: 48px;   /* 48 not 44: a measured 43 under fractional scaling
+                         is a target that only passes when maths rounds well */
+  display: inline-flex; align-items: center; gap: 4px;
+  background: none; border: none;
+  padding: 12px 8px 12px 8px;
+  color: var(--fc-accent);
+  font-size: 15px; font-weight: 600; font-family: inherit;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   z-index: 2;
@@ -1645,10 +1651,9 @@ body:not(.keyboard-open) .fc-sheet {
   animation: fcOverlayOut 0.28s ease both;
 }
 @keyframes fcOverlayOut { from { opacity: 1; } to { opacity: 0; } }
-.fc-sheet-handle {
-  width: 36px; height: 4px; border-radius: 2px;
-  background: rgba(255,255,255,0.2); margin: 0 auto 20px;
-}
+/* .fc-sheet-handle lives in flowcheck-design-system.css — ONE definition.
+   A second copy here used to override it (this <style> loads last), which is
+   why the grabber kept painting the element instead of its ::before bar. */
 .fc-sheet-title {
   font-size: 13px; font-weight: 600; letter-spacing: 0.05em;
   text-transform: uppercase; color: var(--fc-text-faint);
@@ -2359,7 +2364,7 @@ body:not(.keyboard-open) .fc-sheet {
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
            stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <polyline points="15 18 9 12 15 6"/>
-      </svg>
+      </svg>Back
     </button>
 
     <!-- Logo. fc-auth-art so it collapses when the keyboard opens — the rule
@@ -2493,7 +2498,7 @@ body:not(.keyboard-open) .fc-sheet {
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
            stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <polyline points="15 18 9 12 15 6"/>
-      </svg>
+      </svg>Back
     </button>
 
     <!-- Logo -->
@@ -6992,7 +6997,8 @@ body:not(.keyboard-open) .fc-sheet {
 <!-- ══════════════════════════════ REFERRAL SHEET ══════════ -->
 <div id="fc-referral-sheet" class="fc-sheet-overlay" onclick="if(event.target===this)FCApp.closeReferralSheet()" style="display:none" role="dialog" aria-modal="true" aria-label="Refer a Friend">
   <div class="fc-sheet" onclick="event.stopPropagation()" style="max-height:80vh;overflow-y:auto">
-    <div class="fc-sheet-handle"></div>
+    <button type="button" class="fc-sheet-handle" aria-label="Close"
+            onclick="FCApp.dismissSheetFrom(this)"></button>
     <div class="fc-sheet-title">Refer a Friend</div>
 
     <!-- Reward description -->
@@ -7097,7 +7103,8 @@ body:not(.keyboard-open) .fc-sheet {
 
 <div id="fc-bank-sheet" class="fc-sheet-overlay" onclick="FCApp.closeBankSheet()" style="display:none">
   <div class="fc-sheet" onclick="event.stopPropagation()">
-    <div class="fc-sheet-handle"></div>
+    <button type="button" class="fc-sheet-handle" aria-label="Close"
+            onclick="FCApp.dismissSheetFrom(this)"></button>
     <div class="fc-sheet-title">Connected Banks</div>
     <!-- Dynamic bank list — populated by showBankSheet() -->
     <div id="bank-list-container" style="margin-bottom:14px"></div>
@@ -7120,7 +7127,8 @@ body:not(.keyboard-open) .fc-sheet {
 <!-- ════════════════════ SHEET: DISCONNECT CONFIRM ══════════ -->
 <div id="fc-disconnect-sheet" class="fc-sheet-overlay" onclick="FCApp.closeDisconnectSheet()" style="display:none">
   <div class="fc-sheet" onclick="event.stopPropagation()">
-    <div class="fc-sheet-handle"></div>
+    <button type="button" class="fc-sheet-handle" aria-label="Close"
+            onclick="FCApp.dismissSheetFrom(this)"></button>
     <div class="fc-sheet-icon-wrap" style="background:rgba(255,69,58,0.12)">
       <svg width="26" height="26" viewBox="0 0 24 24" fill="none"
            stroke="var(--fc-danger)" stroke-width="2" stroke-linecap="round">
@@ -7149,7 +7157,8 @@ body:not(.keyboard-open) .fc-sheet {
 <!-- ════════════════════ SHEET: DELETE ACCOUNT ══════════════ -->
 <div id="fc-delete-sheet" class="fc-sheet-overlay" onclick="FCApp.closeDeleteSheet()" style="display:none">
   <div class="fc-sheet" onclick="event.stopPropagation()">
-    <div class="fc-sheet-handle"></div>
+    <button type="button" class="fc-sheet-handle" aria-label="Close"
+            onclick="FCApp.dismissSheetFrom(this)"></button>
     <div class="fc-sheet-icon-wrap" style="background:rgba(255,69,58,0.12)">
       <svg width="26" height="26" viewBox="0 0 24 24" fill="none"
            stroke="var(--fc-danger)" stroke-width="2" stroke-linecap="round">
@@ -7179,11 +7188,10 @@ body:not(.keyboard-open) .fc-sheet {
 <!-- ════════════════════ SHEET: ADD / EDIT GOAL ════════════════ -->
 <div id="fc-goal-sheet" class="fc-sheet-overlay" onclick="if(event.target===this)FCApp.closeGoalSheet()" style="display:none">
   <div class="fc-sheet fc-sheet--form" onclick="event.stopPropagation()">
+    <button type="button" class="fc-sheet-handle" aria-label="Close"
+            onclick="FCApp.dismissSheetFrom(this)"></button>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
       <div class="fc-h3" id="goal-sheet-title">Add Goal</div>
-      <button class="fc-iconbtn" onclick="FCApp.closeGoalSheet()" type="button" aria-label="Close">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
     </div>
     <div style="display:flex;flex-direction:column;gap:14px">
       <div class="fc-input-group" style="margin:0">
@@ -7222,11 +7230,10 @@ body:not(.keyboard-open) .fc-sheet {
 <!-- ════════════════════ SHEET: TRANSACTION DETAIL ═════════════════ -->
 <div id="fc-txn-sheet" class="fc-sheet-overlay" onclick="if(event.target===this)FCApp.closeTransactionSheet()" style="display:none" role="dialog" aria-modal="true" aria-label="Edit Transaction">
   <div class="fc-sheet fc-sheet--form" onclick="event.stopPropagation()" style="max-height:85dvh;overflow-y:auto">
+    <button type="button" class="fc-sheet-handle" aria-label="Close"
+            onclick="FCApp.dismissSheetFrom(this)"></button>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
       <div class="fc-h3">Transaction Detail</div>
-      <button class="fc-iconbtn" onclick="FCApp.closeTransactionSheet()" type="button" aria-label="Close">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
     </div>
     <!-- Original info -->
     <div id="txn-original-info" style="background:rgba(255,255,255,0.04);border-radius:12px;padding:12px 14px;margin-bottom:16px">
@@ -7264,11 +7271,10 @@ body:not(.keyboard-open) .fc-sheet {
 <!-- ════════════════════ SHEET: ADD CATEGORY ═════════════════════ -->
 <div id="fc-addcat-sheet" class="fc-sheet-overlay" onclick="if(event.target===this)FCApp._closeAddCategorySheet()" style="display:none" role="dialog" aria-modal="true" aria-label="Add a budget category">
   <div class="fc-sheet fc-sheet--form" onclick="event.stopPropagation()">
+    <button type="button" class="fc-sheet-handle" aria-label="Close"
+            onclick="FCApp.dismissSheetFrom(this)"></button>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <div class="fc-h3">Add a category</div>
-      <button class="fc-iconbtn" onclick="FCApp._closeAddCategorySheet()" type="button" aria-label="Close">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
     </div>
     <p class="fc-eyebrow">From your spending</p>
     <p class="fc-addcat-hint">These fill in automatically as transactions come in.</p>
@@ -7289,11 +7295,10 @@ body:not(.keyboard-open) .fc-sheet {
 <!-- ════════════════════ SHEET: CATEGORY BUDGET ══════════════════ -->
 <div id="fc-budget-sheet" class="fc-sheet-overlay" onclick="if(event.target===this)FCApp.closeCategoryBudgetSheet()" style="display:none" role="dialog" aria-modal="true" aria-label="Set Category Budget">
   <div class="fc-sheet fc-sheet--form" onclick="event.stopPropagation()">
+    <button type="button" class="fc-sheet-handle" aria-label="Close"
+            onclick="FCApp.dismissSheetFrom(this)"></button>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
       <div class="fc-h3" id="budget-sheet-title">Set Budget</div>
-      <button class="fc-iconbtn" onclick="FCApp.closeCategoryBudgetSheet()" type="button" aria-label="Close">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
     </div>
     <div id="budget-current-spend" style="font-size:13px;color:var(--fc-text-faint);margin-bottom:14px"></div>
     <!-- Rename. Hidden for the overall total, which has no category to name.
@@ -7335,11 +7340,10 @@ body:not(.keyboard-open) .fc-sheet {
      that is the number that says whether an offer is actually better. -->
 <div id="fc-offer-sheet" class="fc-sheet-overlay" onclick="if(event.target===this)FCApp.closeOfferSheet()" style="display:none" role="dialog" aria-modal="true" aria-label="Compare a refinance offer">
   <div class="fc-sheet fc-sheet--form" onclick="event.stopPropagation()">
+    <button type="button" class="fc-sheet-handle" aria-label="Close"
+            onclick="FCApp.dismissSheetFrom(this)"></button>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
       <div class="fc-h3">Compare an offer</div>
-      <button class="fc-iconbtn" onclick="FCApp.closeOfferSheet()" type="button" aria-label="Close">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
     </div>
     <div id="offer-acct-name" style="font-size:14px;font-weight:600;color:var(--fc-text)"></div>
     <div id="offer-today" style="font-size:12px;line-height:1.5;color:var(--fc-text-faint);margin-bottom:16px"></div>
@@ -7388,11 +7392,10 @@ body:not(.keyboard-open) .fc-sheet {
      date silently excludes them. -->
 <div id="fc-debt-details-sheet" class="fc-sheet-overlay" onclick="if(event.target===this)FCApp.closeDebtDetailsSheet()" style="display:none" role="dialog" aria-modal="true" aria-label="Interest rate and minimum payment">
   <div class="fc-sheet fc-sheet--form" onclick="event.stopPropagation()">
+    <button type="button" class="fc-sheet-handle" aria-label="Close"
+            onclick="FCApp.dismissSheetFrom(this)"></button>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
       <div class="fc-h3">Rate &amp; minimum</div>
-      <button class="fc-iconbtn" onclick="FCApp.closeDebtDetailsSheet()" type="button" aria-label="Close">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
     </div>
     <div id="debt-details-name" style="font-size:14px;font-weight:600;color:var(--fc-text);margin-bottom:4px"></div>
     <div id="debt-details-note" style="font-size:12px;line-height:1.5;color:var(--fc-text-faint);margin-bottom:16px"></div>
@@ -7421,11 +7424,10 @@ body:not(.keyboard-open) .fc-sheet {
 <!-- ════════════════════ SHEET: MANUAL ACCOUNT ═════════════════ -->
 <div id="fc-manual-account-sheet" class="fc-sheet-overlay" onclick="if(event.target===this)FCApp.closeManualAccountSheet()" style="display:none">
   <div class="fc-sheet fc-sheet--form" onclick="event.stopPropagation()">
+    <button type="button" class="fc-sheet-handle" aria-label="Close"
+            onclick="FCApp.dismissSheetFrom(this)"></button>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
       <div class="fc-h3" id="manual-acct-title">Add Account</div>
-      <button class="fc-iconbtn" onclick="FCApp.closeManualAccountSheet()" type="button" aria-label="Close">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
     </div>
     <div style="display:flex;flex-direction:column;gap:14px">
       <div class="fc-input-group" style="margin:0">
@@ -7483,11 +7485,10 @@ body:not(.keyboard-open) .fc-sheet {
 <!-- ════════════════════════════════ BILL SHEET (add / edit) ════ -->
 <div id="fc-bill-sheet" class="fc-sheet-overlay" onclick="if(event.target===this)FCApp.closeBillSheet()" style="display:none">
   <div class="fc-sheet fc-sheet--form" onclick="event.stopPropagation()">
+    <button type="button" class="fc-sheet-handle" aria-label="Close"
+            onclick="FCApp.dismissSheetFrom(this)"></button>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
       <div class="fc-h3" id="bill-sheet-title">Add Bill</div>
-      <button class="fc-iconbtn" onclick="FCApp.closeBillSheet()" type="button" aria-label="Close">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
     </div>
     <div style="display:flex;flex-direction:column;gap:14px">
       <input type="hidden" id="bill-edit-id">
@@ -8513,12 +8514,10 @@ attachToFCApp();
      ══════════════════════════════════════════════════════════════════ -->
 <div id="sub-detail-sheet" class="fc-sheet-overlay" onclick="if(event.target===this)FCApp.closeSubDetail()" style="display:none" role="dialog" aria-modal="true" aria-label="Subscription detail">
   <div class="fc-sheet" onclick="event.stopPropagation()" style="max-height:85vh;overflow-y:auto;-webkit-overflow-scrolling:touch">
-    <div class="fc-sheet-handle"></div>
+    <button type="button" class="fc-sheet-handle" aria-label="Close"
+            onclick="FCApp.dismissSheetFrom(this)"></button>
     <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 20px 0">
       <div class="fc-sheet-title" style="margin:0">Subscription</div>
-      <button onclick="FCApp.closeSubDetail()" class="fc-iconbtn" aria-label="Close" style="margin-right:-8px">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
     </div>
     <div id="sub-detail-body" style="padding:0 20px 20px"></div>
   </div>
@@ -8529,7 +8528,8 @@ attachToFCApp();
      ══════════════════════════════════════════════════════════════════ -->
 <div id="edit-profile-sheet" class="fc-sheet-overlay" onclick="if(event.target===this)FCApp.closeEditProfileSheet()" style="display:none" role="dialog" aria-modal="true" aria-label="Edit profile">
   <div class="fc-sheet" onclick="event.stopPropagation()">
-    <div class="fc-sheet-handle"></div>
+    <button type="button" class="fc-sheet-handle" aria-label="Close"
+            onclick="FCApp.dismissSheetFrom(this)"></button>
     <div class="fc-sheet-title">Edit Profile</div>
     <div style="padding:0 20px 8px">
       <div style="margin-bottom:14px">

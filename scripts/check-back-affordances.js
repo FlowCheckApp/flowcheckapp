@@ -62,6 +62,53 @@ for (const page of ['terms', 'privacy', 'support']) {
   }
 }
 
+/* 4. Every sheet has exactly ONE visible dismiss control: the grabber, which
+      is a real <button aria-label="Close"> so it is reachable by VoiceOver.
+      A second control (a header X) is the "three exits" problem in miniature. */
+const html = fs.readFileSync(path.join(root, 'www/index.html'), 'utf8');
+/* Extract each overlay by DIV DEPTH, not by "text until the next overlay".
+   The last sheet in the document has no next overlay, so a text-range regex
+   ran to EOF and swallowed the in-app page viewer's X — reporting a second
+   dismiss control on a sheet that has exactly one. */
+function overlayBodies(src) {
+  const out = [];
+  const open = /<div id="([a-zA-Z-]+)"[^>]*class="fc-sheet-overlay"/g;
+  let m;
+  while ((m = open.exec(src))) {
+    let i = m.index, depth = 0, j = i;
+    const tag = /<div\b|<\/div>/g;
+    tag.lastIndex = i;
+    let t;
+    while ((t = tag.exec(src))) {
+      depth += t[0] === '</div>' ? -1 : 1;
+      if (depth === 0) { j = t.index + 6; break; }
+    }
+    out.push({ id: m[1], body: src.slice(i, j) });
+  }
+  return out;
+}
+const overlays = overlayBodies(html);
+for (const { id, body } of overlays) {
+  if (!/class="fc-sheet-handle"/.test(body)) {
+    problems.push(`sheet #${id} has no grabber — it would have no visible way out.`);
+  } else if (!/<button[^>]*class="fc-sheet-handle"[^>]*aria-label="Close"/.test(body)) {
+    problems.push(`sheet #${id} grabber is not a labelled <button> — a bare div is not reachable by VoiceOver, and this is a WebView so the native sheet-dismiss gesture does not apply.`);
+  }
+  const extra = (body.match(/aria-label="Close"/g) || []).length - 1;
+  if (extra > 0) {
+    problems.push(`sheet #${id} has ${extra} dismiss control(s) besides the grabber — one way out per surface.`);
+  }
+}
+
+/* 5. The grabber must stay a single definition. A duplicate in index.html's
+      inline <style> silently won (it loads last) and kept the bar painted on
+      the element instead of its ::before, so the finger-sized target was
+      never actually 36px-wide-only by accident — it was 36x4. */
+const dupes = (html.match(/^\.fc-sheet-handle\s*\{/gm) || []).length;
+if (dupes) {
+  problems.push(`index.html redefines .fc-sheet-handle (${dupes}x); it belongs in flowcheck-design-system.css only, and a copy here overrides it.`);
+}
+
 if (problems.length) {
   console.error('✗ back-affordance check failed:\n');
   problems.forEach(p => console.error('  ' + p));
@@ -71,4 +118,4 @@ if (problems.length) {
 }
 
 const canonical = (app.match(/class="fc-sub-back"/g) || []).length;
-console.log(`✓ back affordances: ${canonical} sub-screen back button(s), all on one class; legal pages hide their own exits when framed`);
+console.log(`✓ back affordances: ${canonical} sub-screen back button(s) on one class; ${overlays.length} sheet(s), each with exactly one labelled grabber; legal pages hide their own exits when framed`);

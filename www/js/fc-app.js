@@ -11519,6 +11519,100 @@ window.FCApp = (function () {
   let _pulling     = false;
   let _pullRefreshEl = null;
 
+  /* Drag-to-dismiss for bottom sheets.
+
+     THE BUG THIS FIXES
+     ------------------
+     Four sheets already displayed a grabber bar. Nothing anywhere listened
+     for a drag on them — the only touch handlers in the app are
+     pull-to-refresh and the Android ripple — so the grabber was decoration
+     promising a gesture that did not exist. A handle you cannot drag is
+     worse than no handle: it is the one control on the surface, and it does
+     nothing.
+
+     Dismissal reuses each sheet's OWN close function by clicking its
+     overlay. Every sheet overlay already closes on a backdrop click (nine
+     check event.target===this, three close unconditionally and stop
+     propagation on the inner sheet), so overlay.click() is a universal exit
+     and there is no registry of twelve close functions to keep in sync. */
+  /* Dismiss whichever sheet a control lives in.
+
+     The grabber is a real <button aria-label="Close">, not a decorative bar.
+     It looks and drags like a grabber, and it is also focusable and
+     announced — which matters because this is a WebView: VoiceOver's native
+     sheet-dismiss gesture does not apply here, so a gesture-only sheet would
+     have no reachable exit at all. That is why the header X could be removed
+     without stranding anyone.
+
+     Routing through the overlay's own click keeps every sheet's existing
+     close function as the single source of truth. */
+  function dismissSheetFrom(el) {
+    const overlay = el && el.closest && el.closest('.fc-sheet-overlay');
+    if (overlay) { haptic('light'); overlay.click(); }
+  }
+
+  function _initSheetDrag() {
+    let sheet = null, overlay = null, startY = 0, dy = 0, dragging = false;
+
+    const reset = (spring) => {
+      if (!sheet) return;
+      const s = sheet, o = overlay;
+      sheet = null; overlay = null; dragging = false;
+      if (spring) {
+        s.style.transition = 'transform 0.26s cubic-bezier(0.32,0.72,0,1)';
+        s.style.transform  = 'translateY(0)';
+        setTimeout(() => { s.style.transition = ''; s.style.transform = ''; }, 280);
+      } else {
+        s.style.transition = ''; s.style.transform = '';
+      }
+      if (o) o.style.opacity = '';
+    };
+
+    document.addEventListener('touchstart', e => {
+      const s = e.target.closest && e.target.closest('.fc-sheet');
+      if (!s) return;
+      /* Only from the very top of the sheet's own scroll, or this fights
+         scrolling a long sheet. */
+      if (s.scrollTop > 0) return;
+      sheet   = s;
+      overlay = s.closest('.fc-sheet-overlay');
+      startY  = e.touches[0].clientY;
+      dy = 0; dragging = false;
+    }, { passive: true });
+
+    /* passive:false so an active drag can preventDefault and stop the sheet
+       rubber-banding underneath the gesture. */
+    document.addEventListener('touchmove', e => {
+      if (!sheet) return;
+      dy = e.touches[0].clientY - startY;
+      if (dy <= 0) return;                      // upward — leave scrolling alone
+      if (sheet.scrollTop > 0) { reset(false); return; }
+      dragging = true;
+      e.preventDefault();
+      /* Resistance past the dismiss point, so the sheet never feels like it
+         has come loose from the finger. */
+      const shown = dy > 220 ? 220 + (dy - 220) * 0.35 : dy;
+      sheet.style.transition = 'none';
+      sheet.style.transform  = 'translateY(' + shown + 'px)';
+      if (overlay) overlay.style.opacity = String(Math.max(0.2, 1 - dy / 420));
+    }, { passive: false });
+
+    document.addEventListener('touchend', () => {
+      if (!sheet || !dragging) { reset(false); return; }
+      const o = overlay, far = dy > 110;
+      if (far) {
+        /* Let the sheet's own close path run — it restores scroll locks and
+           clears per-sheet state that a bare display:none would strip. */
+        reset(false);
+        if (o) o.click();
+      } else {
+        reset(true);
+      }
+    }, { passive: true });
+
+    document.addEventListener('touchcancel', () => reset(true), { passive: true });
+  }
+
   function _initPullToRefresh() {
     _pullRefreshEl = document.getElementById('fc-pull-indicator');
 
@@ -13043,6 +13137,7 @@ window.FCApp = (function () {
 
     FCAuth.init();
     _initPullToRefresh();
+    _initSheetDrag();
 
     // Hide iOS-only auth options on Android; add platform class for CSS targeting
     const platform = window.Capacitor?.getPlatform?.() || 'web';
@@ -16285,6 +16380,7 @@ window.FCApp = (function () {
     // Open URL natively (used by cancel links in Subscription Hunter)
     openUrl: _openUrl,
     closeInAppPage,
+    dismissSheetFrom,
     _openCancelSheet,
     // Transaction detail + edit
     openTransactionDetail,

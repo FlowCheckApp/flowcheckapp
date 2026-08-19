@@ -1462,7 +1462,7 @@ body.fc-theme {
   background: linear-gradient(180deg, #f8f9fc 0%, #f0f3f7 100%);
   border-color: rgba(13,27,46,0.09);
 }
-[data-theme="light"] .fc-sheet-handle { background: rgba(13,27,46,0.18); }
+[data-theme="light"] .fc-sheet-handle::before { background: rgba(13,27,46,0.18); }
 [data-theme="light"] .fc-sheet-bank-name,
 [data-theme="light"] .fc-sheet-heading { color: #0a1520; }
 [data-theme="light"] .fc-sheet-body { color: rgba(13,27,46,0.50); }
@@ -2481,19 +2481,53 @@ body.fc-theme {
   border-top: 0.5px solid var(--fc-border-strong);
   overflow: hidden;
 }
+/* The grabber is a BUTTON, not a bar.
+
+   It used to be a decorative <div> on four sheets, and nothing in the app
+   listened for a drag on it — a handle promising a gesture that did not
+   exist. Now the gesture is real (_initSheetDrag) and the element is a
+   focusable control announced as "Close", which is what let the header X be
+   removed from thirteen sheets without stranding anyone: this is a WebView,
+   so VoiceOver's native sheet-dismiss gesture does not apply and a
+   gesture-only sheet would have had no reachable exit.
+
+   The bar is drawn with ::before so the button itself can carry a finger-
+   sized target without the visible bar growing. The negative top margin
+   cancels .fc-sheet's own 12px top padding, so the bar sits exactly where
+   the old div did. */
 .fc-sheet-handle {
+  display: block;
+  width: 100%;
+  background: none;
+  border: none;
+  /* Padding makes the target finger-sized; the negative top margin cancels
+     that padding against .fc-sheet's own 12px top padding, so the visible
+     bar sits exactly where it did before (12px above, 20px below) while the
+     hit area grows from 36x4 to full-width x 28. */
+  padding: 12px 0;
+  margin: -12px 0 8px;
+  cursor: pointer;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.fc-sheet-handle::before {
+  content: '';
+  display: block;
   width: 36px;
   height: 4px;
   background: rgba(255,255,255,0.18);
   border-radius: 2px;
-  margin: 10px auto 4px;
-  flex-shrink: 0;
+  margin: 0 auto;
 }
+.fc-sheet-handle:active::before { background: rgba(255,255,255,0.30); }
 [data-theme="light"] .fc-sheet {
   background: linear-gradient(180deg, #ffffff 0%, #f5f7fc 100%);
   border-top-color: rgba(10,21,32,0.10);
 }
-[data-theme="light"] .fc-sheet-handle {
+/* ::before, not the element — the grabber is now a transparent button and
+   the visible bar is its pseudo-element. Painting the element would fill the
+   whole finger-sized target with a light grey block. */
+[data-theme="light"] .fc-sheet-handle::before {
   background: rgba(10,21,32,0.15);
 }
 
