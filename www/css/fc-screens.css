@@ -3146,3 +3146,29 @@ body.fc-theme .fc-nav {
 }
 .fc-sub-back:active { opacity: 0.6; }
 .fc-cb-head { align-items: center; gap: 8px; padding-top: 8px; }
+
+/* ── Add-category sheet ───────────────────────────────────────────────
+   Known categories are a grid of taps; the custom field is separated and
+   labelled differently because the two behave differently — one starts
+   filling immediately, the other only once transactions are assigned. */
+.fc-addcat-hint {
+  margin: 2px 0 10px; font-size: 12px; line-height: 1.45;
+  color: var(--fc-text-faint);
+}
+.fc-addcat-list {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;
+  max-height: 240px; overflow-y: auto; -webkit-overflow-scrolling: touch;
+}
+.fc-addcat-opt {
+  display: flex; align-items: center; gap: 8px; min-height: 44px;
+  padding: 8px 12px; border-radius: 12px;
+  background: var(--fc-bg-elevated-2); border: 1px solid var(--fc-border);
+  color: var(--fc-text); font-size: 14px; font-weight: 500;
+  font-family: inherit; cursor: pointer; text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+.fc-addcat-opt:active { opacity: 0.6; }
+.fc-addcat-emoji { font-size: 16px; flex-shrink: 0; }
+.fc-addcat-name  { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fc-addcat-none  { font-size: 13px; color: var(--fc-text-faint); margin: 0; }
+.fc-cb-add { width: 100%; margin-top: 16px; }

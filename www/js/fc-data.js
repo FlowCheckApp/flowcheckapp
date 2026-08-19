@@ -974,6 +974,21 @@ window.FCData = (function () {
     return unsub;
   }
 
+  /**
+   * Remove a category budget entirely.
+   * For a built-in category this clears the limit; the category itself keeps
+   * existing because Plaid keeps filing spending into it. For a custom one
+   * this removes the category, which is why the caller has to deal with any
+   * transactions still assigned to it first.
+   */
+  async function deleteBudget(category) {
+    const user = FCAuth.currentUser();
+    const db   = FCAuth.db();
+    if (!user || !db) throw new Error('Not authenticated');
+    await db.collection('users').doc(user.uid)
+      .collection('budgets').doc(category).delete();
+  }
+
   /* ─────────────────────────────────────────────────────────────
      FIRESTORE — TRANSACTION OVERRIDES
      Users can rename any Plaid transaction and change its category.
@@ -1028,17 +1043,36 @@ window.FCData = (function () {
    * @param {string} category - e.g. 'Food and Drink', 'Shopping', or 'total'
    * @param {number} limit    - monthly spending limit in USD
    */
-  async function setBudget(category, limit) {
+  /**
+   * Set a category's monthly limit, and optionally its display name.
+   * @param {string} category - the STABLE key; spending is matched on it
+   * @param {number} limit
+   * @param {object} [meta]   - { name?, custom? }
+   *
+   * The doc id is the key and never changes on a rename — only `name` does.
+   * Renaming by moving the document would silently re-file every past
+   * comparison against a category that no longer exists, and firestore.rules
+   * caps name at 40 chars so this collection cannot become free storage.
+   */
+  async function setBudget(category, limit, meta) {
     const user = FCAuth.currentUser();
     const db   = FCAuth.db();
     if (!user || !db) throw new Error('Not authenticated');
+    const doc = {
+      limit:      parseFloat(limit) || 0,
+      category,
+      updated_at: firebase.firestore.FieldValue.serverTimestamp(),
+    };
+    /* Only send what changed. An undefined field in a merge write is a
+       rules violation waiting to happen, and `custom` must never be
+       flipped off an existing custom category by a plain limit edit. */
+    if (meta && typeof meta.name === 'string' && meta.name.trim()) {
+      doc.name = meta.name.trim().slice(0, 40);
+    }
+    if (meta && meta.custom === true) doc.custom = true;
     await db.collection('users').doc(user.uid)
       .collection('budgets').doc(category)
-      .set({
-        limit:      parseFloat(limit) || 0,
-        category,
-        updated_at: firebase.firestore.FieldValue.serverTimestamp(),
-      }, { merge: true });
+      .set(doc, { merge: true });
   }
 
   /* ─────────────────────────────────────────────────────────────
@@ -1521,6 +1555,7 @@ window.FCData = (function () {
     listenToTransactionOverrides,
     setTransactionOverride,
     setBudget,
+    deleteBudget,
     saveCreditSnapshot,
     listenToCreditHistory,
     saveNetWorthSnapshot,

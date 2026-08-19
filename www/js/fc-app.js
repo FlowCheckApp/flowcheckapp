@@ -8759,6 +8759,41 @@ window.FCApp = (function () {
      what it added up to, or which categories were missing a limit.
      ───────────────────────────────────────────────────────────── */
 
+  /* ── The starter set ───────────────────────────────────────────────
+     Budget categories used to exist only where spending had already landed:
+     if Plaid had not filed anything under Groceries this period, there was
+     no Groceries row to budget. That is backwards — the categories people
+     want to control are the ones they are trying to spend LESS in.
+
+     Every `key` here is an output of FCCore.normalizeCategory, so real
+     spending lands in it with no mapping layer. The `label` is what shows,
+     because Plaid's vocabulary is not how anyone talks: nobody budgets for
+     "Gas Stations" or "Rent and Utilities". The user can rename any of them
+     and the key never moves, so a rename cannot shift anyone's money from
+     one category to another. */
+  const _DEFAULT_BUDGET_CATEGORIES = [
+    { key: 'Grocery',            label: 'Groceries' },
+    { key: 'Restaurants',        label: 'Eating out' },
+    { key: 'Gas Stations',       label: 'Gas' },
+    { key: 'Utilities',          label: 'Home & bills' },
+    { key: 'Shopping',           label: 'Shopping' },
+    { key: 'Auto and Transport', label: 'Car & transport' },
+    { key: 'Healthcare',         label: 'Health' },
+    { key: 'Entertainment',      label: 'Fun' },
+    { key: 'Coffee Shop',        label: 'Coffee' },
+    { key: 'Personal Care',      label: 'Personal care' },
+  ];
+  const _DEFAULT_LABELS = Object.fromEntries(
+    _DEFAULT_BUDGET_CATEGORIES.map(c => [c.key, c.label]));
+
+  /* One resolver, so a renamed category reads the same everywhere. Order is
+     deliberate: what the user called it, else our friendlier default, else
+     whatever Plaid called it. */
+  function _categoryLabel(key) {
+    const saved = (state.budgets || {})[key];
+    return (saved && saved.name) || _DEFAULT_LABELS[key] || key;
+  }
+
   /* Every category the person actually spends in, with the three numbers a
      budgeting decision needs: what they typically spend, what they have
      spent so far this month, and what they capped it at. */
@@ -8781,17 +8816,38 @@ window.FCApp = (function () {
     }
 
     const budgets = state.budgets || {};
+
+    /* Union of three sources, so nothing a person can budget is missing:
+       what they have spent in, the starter set, and anything they created or
+       already set a limit on. A category with a limit must never vanish
+       because this month happened to be quiet in it. */
+    for (const d of _DEFAULT_BUDGET_CATEGORIES) {
+      if (!seen.has(d.key)) seen.set(d.key, { cat: d.key, thisMonth: 0, everSpent: 0 });
+    }
+    for (const key of Object.keys(budgets)) {
+      if (key === 'total') continue;
+      if (!seen.has(key)) seen.set(key, { cat: key, thisMonth: 0, everSpent: 0 });
+    }
+
     return [...seen.values()]
       .map(r => ({
         ...r,
+        label:   _categoryLabel(r.cat),
+        custom:  !!budgets[r.cat]?.custom,
         limit:   Number(budgets[r.cat]?.limit) || 0,
         typical: _typicalMonthlySpend(r.cat) || 0,
       }))
       /* Budgeted categories first so the ones being managed stay together,
          then by what is actually spent — a category worth $12 a year is not
          where anyone should be asked to start. */
+      /* Budgeted first, then anything with real activity, then the untouched
+         starter categories. Without the middle term a starter category the
+         person has never spent in outranks one they use every week, purely
+         because it ships in the default list. */
       .sort((a, b) => (b.limit > 0) - (a.limit > 0)
-                   || (b.typical || b.everSpent) - (a.typical || a.everSpent));
+                   || (b.everSpent > 0) - (a.everSpent > 0)
+                   || (b.typical || b.everSpent) - (a.typical || a.everSpent)
+                   || a.label.localeCompare(b.label));
   }
 
   function _renderCategoryBudgets() {
@@ -8852,6 +8908,8 @@ window.FCApp = (function () {
           + _ic('pie-chart', 'var(--fc-text-faint)', 28)
           + '<h3>No spending to budget yet</h3>'
           + '<p>Once transactions come in, every category you spend in shows up here ready for a limit.</p>'
+          + '<button type="button" class="fc-btn fc-btn--ghost fc-cb-add"'
+            + ' onclick="FCApp._openAddCategorySheet()">+ Add a category</button>'
         + '</div>';
       return;
     }
@@ -8871,14 +8929,20 @@ window.FCApp = (function () {
             : FCData.formatCurrency(r.limit - r.thisMonth) + ' left of ' + FCData.formatCurrency(r.limit))
         : (r.typical > 0
             ? 'Typically ' + FCData.formatCurrency(r.typical) + ' a month'
-            : FCData.formatCurrency(r.thisMonth) + ' this month');
+            /* A starter category nobody has spent in yet says so. "$0.00 this
+               month" reads as a measurement of a real month rather than as
+               the absence of one. */
+            : r.everSpent > 0
+              ? FCData.formatCurrency(r.thisMonth) + ' this month'
+              : r.custom ? 'Assign transactions to start tracking'
+                         : 'No spending here yet');
 
       return '<button type="button" class="fc-cb-row" '
         + 'onclick="FCApp.openCategoryBudgetSheet(' + JSON.stringify(r.cat).replace(/"/g, '&quot;') + ', ' + r.limit + ')" '
-        + 'aria-label="' + esc(r.cat) + ' budget">'
+        + 'aria-label="' + esc(r.label) + ' budget">'
         + '<span class="fc-cb-emoji" aria-hidden="true">' + emoji + '</span>'
         + '<span class="fc-cb-body">'
-          + '<span class="fc-cb-name">' + esc(r.cat) + '</span>'
+          + '<span class="fc-cb-name">' + esc(r.label) + '</span>'
           + '<span class="fc-cb-sub fc-cb-sub--' + tone + '">' + esc(sub) + '</span>'
           + (has
               ? '<span class="fc-cb-track"><span class="fc-cb-fill fc-cb-fill--' + tone + '"'
@@ -8895,7 +8959,155 @@ window.FCApp = (function () {
       + '<p class="fc-eyebrow fc-cb-listlbl">'
         + (budgetedN ? budgetedN + ' of ' + rows.length + ' categories budgeted' : 'Your spending categories')
       + '</p>'
-      + '<section class="fc-ui-card fc-cb-list">' + list + '</section>';
+      + '<section class="fc-ui-card fc-cb-list">' + list + '</section>'
+      + '<button type="button" class="fc-btn fc-btn--ghost fc-cb-add"'
+        + ' onclick="FCApp._openAddCategorySheet()">+ Add a category</button>';
+  }
+
+  /* ── Adding a category ─────────────────────────────────────────────
+     Two kinds, and the difference is honest rather than cosmetic:
+
+      · A category from FlowCheck's own vocabulary — one of the labels
+        FCCore.normalizeCategory produces. Spending files itself into these
+        the moment it arrives, so the budget works immediately.
+      · A custom one. Nothing Plaid sends will ever normalise to "Kids", so
+        it starts empty and only fills as transactions are assigned to it.
+        That assignment path is the transaction edit sheet, which now
+        actually moves the money — before this session's override fix it
+        would have changed the Activity row and nothing else, and a custom
+        category would have stayed on zero forever.
+
+     The sheet says which is which instead of presenting them as equivalent. */
+  function _openAddCategorySheet() {
+    const shown = new Set(_categoryBudgetRows().map(r => r.cat));
+    const available = CATEGORIES_LIST
+      .filter(c => !shown.has(c) && !_NON_SPEND_CATEGORIES.has(c))
+      .sort((a, b) => a.localeCompare(b));
+
+    const sheet = document.getElementById('fc-addcat-sheet');
+    const list  = document.getElementById('addcat-list');
+    if (list) {
+      list.innerHTML = available.length
+        ? available.map(c =>
+            '<button type="button" class="fc-addcat-opt" onclick="FCApp._addKnownCategory('
+            + JSON.stringify(c).replace(/"/g, '&quot;') + ')">'
+            + '<span class="fc-addcat-emoji" aria-hidden="true">'
+              + ((typeof FCData.categoryEmoji === 'function') ? FCData.categoryEmoji(c) : '📦')
+            + '</span>'
+            + '<span class="fc-addcat-name">' + esc(_categoryLabel(c)) + '</span>'
+          + '</button>').join('')
+        : '<p class="fc-addcat-none">Every category is already on your list.</p>';
+    }
+    const input = document.getElementById('addcat-custom-input');
+    if (input) input.value = '';
+    if (sheet) { sheet.style.display = 'flex'; haptic('light'); }
+  }
+
+  function _closeAddCategorySheet() {
+    const sheet = document.getElementById('fc-addcat-sheet');
+    if (sheet) sheet.style.display = 'none';
+  }
+
+  /* Transfers, income and card payments are not spending, so they are not
+     things to budget. They live in CATEGORIES_LIST because that list also
+     feeds the transaction re-categoriser, where they are legitimate. */
+  const _NON_SPEND_CATEGORIES = new Set([
+    'Transfer', 'Payment', 'Credit Card', 'Income', 'Payroll', 'Other',
+  ]);
+
+  async function _addKnownCategory(key) {
+    _closeAddCategorySheet();
+    openCategoryBudgetSheet(key, 0);
+  }
+
+  /* A custom category needs a key that can never collide with one of
+     FlowCheck's own, because the key is what spending matches on. The
+     prefix guarantees that: no normalizeCategory output starts with it. */
+  function _customCategoryKey(label) {
+    const slug = String(label).toLowerCase().replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '').slice(0, 24);
+    return slug ? 'custom-' + slug : '';
+  }
+
+  async function _createCustomCategory() {
+    const input = document.getElementById('addcat-custom-input');
+    const label = (input?.value || '').trim();
+    if (!label) { toast('Give the category a name', 'info'); return; }
+
+    const key = _customCategoryKey(label);
+    if (!key) { toast('Use letters or numbers in the name', 'info'); return; }
+    if ((state.budgets || {})[key]) { toast('You already have that category', 'info'); return; }
+
+    try {
+      /* Created with limit 0 and a name, so it exists to be budgeted and to
+         be assigned to. custom:true is what makes the row explain that it
+         starts empty rather than showing a bare $0. */
+      await FCData.setBudget(key, 0, { name: label.slice(0, 40), custom: true });
+      _closeAddCategorySheet();
+      haptic('medium');
+      openCategoryBudgetSheet(key, 0);
+    } catch (err) {
+      toast('Could not add category: ' + err.message, 'error');
+    }
+  }
+
+  /* ── Removing a category ───────────────────────────────────────────
+     Two different actions wearing one button, and conflating them would be
+     a lie in one direction or the other:
+
+      · A BUILT-IN category cannot be deleted. Plaid keeps filing spending
+        into Groceries whether or not there is a budget on it, so the only
+        thing that can go is the limit. The button says "Remove budget".
+      · A CUSTOM category is the user's own, so it goes entirely.
+
+     The custom case has a tail nobody would think to look for. A custom
+     category only ever holds money because transactions were assigned to it,
+     and those assignments live in transaction_overrides keyed by
+     transaction. Deleting the budget doc alone would leave every one of them
+     pointing at a category that no longer exists — the transactions would
+     show a raw "custom-kids" string and be counted under it, invisible in
+     every category list. So the assignments are cleared first, which returns
+     those transactions to whatever Plaid called them. */
+  async function _deleteCategoryBudget(key) {
+    const budgets = state.budgets || {};
+    const entry   = budgets[key];
+    if (!entry) return;
+
+    const isCustom = !!entry.custom;
+    const label    = _categoryLabel(key);
+
+    const assigned = Object.entries(state.txnOverrides || {})
+      .filter(([, ov]) => ov && ov.category === key)
+      .map(([id]) => id);
+
+    const body = isCustom
+      ? (assigned.length
+          ? `"${label}" and its budget will be removed. ${assigned.length} transaction`
+            + `${assigned.length === 1 ? '' : 's'} assigned to it will go back to `
+            + `${assigned.length === 1 ? 'its' : 'their'} original category.`
+          : `"${label}" and its budget will be removed.`)
+      : `The budget on ${label} will be removed. The category stays — your `
+        + `spending still lands in it.`;
+
+    const confirmed = await _confirmDialog(
+      isCustom ? 'Delete category' : 'Remove budget',
+      body,
+      isCustom ? 'Delete' : 'Remove budget');
+    if (!confirmed) return;
+
+    try {
+      /* Assignments first. If this half fails the budget doc is still there,
+         which is a recoverable state — the reverse would strand them. */
+      for (const txnId of assigned) {
+        await FCData.setTransactionOverride(txnId, { category: null });
+      }
+      await FCData.deleteBudget(key);
+      closeCategoryBudgetSheet();
+      toast(isCustom ? `${label} deleted` : `${label} budget removed`, 'success');
+      haptic('medium');
+    } catch (err) {
+      toast('Could not remove: ' + err.message, 'error');
+    }
   }
 
   function _openBudgetWizard() {
@@ -14754,8 +14966,33 @@ window.FCApp = (function () {
     const presetsEl = document.getElementById('budget-presets');
     const isTotal   = category === 'total';
 
-    if (titleEl) titleEl.textContent = isTotal ? 'Monthly Budget' : `${category} Budget`;
+    if (titleEl) titleEl.textContent = isTotal ? 'Monthly Budget' : `${_categoryLabel(category)} Budget`;
     if (inputEl) inputEl.value = currentLimit > 0 ? String(Math.round(currentLimit)) : '';
+    /* The overall total has no category to name, so the field is hidden
+       rather than shown empty and inert. */
+    const nameGroup = document.getElementById('budget-name-group');
+    const nameEl    = document.getElementById('budget-name-input');
+    if (nameGroup) nameGroup.style.display = isTotal ? 'none' : '';
+    if (nameEl && !isTotal) {
+      nameEl.value = _categoryLabel(category);
+      nameEl.placeholder = _DEFAULT_LABELS[category] || category;
+    }
+
+    /* The remove button only appears when removal means something: a limit
+       that exists, or a category the user made. Wired here rather than in
+       markup because the label and the consequence differ between the two —
+       a built-in loses its budget, a custom one ceases to exist. */
+    const delBtn  = document.getElementById('budget-delete-btn');
+    if (delBtn) {
+      const entry    = (state.budgets || {})[category];
+      const isCustom = !!entry?.custom;
+      const hasLimit = Number(entry?.limit) > 0;
+      const show     = !isTotal && (isCustom || hasLimit);
+      delBtn.style.display = show ? '' : 'none';
+      delBtn.textContent   = isCustom ? 'Delete category' : 'Remove budget';
+      delBtn.onclick       = show ? () => FCApp._deleteCategoryBudget(category) : null;
+    }
+
     const typical = _typicalMonthlySpend(category);
 
     /* Say where the number came from. "You typically spend $2,350" is a
@@ -14822,9 +15059,20 @@ window.FCApp = (function () {
     haptic('light');
 
     try {
-      await FCData.setBudget(_editingBudgetCategory, limit);
+      /* Send the name only when it differs from what is already shown —
+         otherwise every limit edit rewrites the label too, which would
+         freeze our default wording into the user's data the first time
+         they touch a budget and make a later default change invisible. */
+      const nameEl = document.getElementById('budget-name-input');
+      const typed  = (nameEl?.value || '').trim();
+      const meta   = (_editingBudgetCategory !== 'total'
+                      && typed && typed !== _categoryLabel(_editingBudgetCategory))
+        ? { name: typed } : undefined;
+      await FCData.setBudget(_editingBudgetCategory, limit, meta);
+      const shown = _editingBudgetCategory === 'total'
+        ? 'Monthly' : (meta?.name || _categoryLabel(_editingBudgetCategory));
       closeCategoryBudgetSheet();
-      toast(`${_editingBudgetCategory} budget updated`, 'success');
+      toast(`${shown} budget updated`, 'success');
       haptic('medium');
     } catch (err) {
       toast('Could not save budget: ' + err.message, 'error');
@@ -15738,6 +15986,11 @@ window.FCApp = (function () {
     // Getter for static HTML onclick handlers — avoids global namespace pollution
     getTotalBudgetLimit: () => _totalBudgetLimit(),
     _pickBudgetPreset,
+    _openAddCategorySheet,
+    _deleteCategoryBudget,
+    _closeAddCategorySheet,
+    _addKnownCategory,
+    _createCustomCategory,
     // Dashboard UI
     toggleInsights,
     // Today's Focus card

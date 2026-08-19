@@ -891,9 +891,17 @@ t('normalizeCategory: both Plaid spellings land on one label', () => {
   eq(C.normalizeCategory('Loan Payments'), 'Loan');
 });
 t('normalizeCategory: unmapped categories are still presentable', () => {
-  // Already-uppercase input stays uppercase — \b\w has nothing to raise.
-  // This matches the behaviour fc-data shipped, which is the point.
-  eq(C.normalizeCategory('SOMETHING_UNMAPPED'), 'SOMETHING UNMAPPED');
+  // This used to assert 'SOMETHING UNMAPPED' — uppercase in, uppercase out,
+  // because \b\w has no lowercase first letter to raise. That was pinned
+  // deliberately, but only to hold parity with what fc-data shipped while
+  // the two category maps were being merged into this one. It was never the
+  // wanted behaviour; the test's own name asks for "presentable".
+  //
+  // It matters now: the category budgets screen lists every category the
+  // user spends in as its own row, so an unmapped Plaid value is on screen
+  // in sentence-case company, shouting. normalizeCategory lowercases before
+  // title-casing.
+  eq(C.normalizeCategory('SOMETHING_UNMAPPED'), 'Something Unmapped');
   eq(C.normalizeCategory('something_unmapped'), 'Something Unmapped');
   eq(C.normalizeCategory(''), 'Other');
   eq(C.normalizeCategory(null), 'Other');

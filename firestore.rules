@@ -241,18 +241,28 @@ service cloud.firestore {
 
       // Budgets — users can manage their own budgets
       match /budgets/{budgetId} {
+        // 'name' and 'custom' added so a budget category can be renamed
+        // ("Gas Stations" -> "Gas") and so a user can create one of their own.
+        // The doc id stays the stable key that spending is matched on, so a
+        // rename never moves anyone's money between categories — it only
+        // changes the label. name is capped so a client cannot use this
+        // collection as arbitrary storage.
+        function budgetShapeOk(d) {
+          return d.keys().hasOnly([
+                   'category', 'limit', 'period', 'created_at', 'updated_at',
+                   'name', 'custom',
+                 ])
+                 && (!('name' in d) || (d.name is string && d.name.size() > 0 && d.name.size() <= 40))
+                 && (!('custom' in d) || d.custom is bool);
+        }
         allow read:   if isOwner(uid);
         allow create: if isOwner(uid)
-                      && request.resource.data.keys().hasOnly([
-                           'category', 'limit', 'period', 'created_at', 'updated_at',
-                         ])
+                      && budgetShapeOk(request.resource.data)
                       && request.resource.data.limit is number
                       && request.resource.data.limit >= 0
                       && request.resource.data.limit < 1000000000;
         allow update: if isOwner(uid)
-                      && request.resource.data.keys().hasOnly([
-                           'category', 'limit', 'period', 'created_at', 'updated_at',
-                         ])
+                      && budgetShapeOk(request.resource.data)
                       && (!('limit' in request.resource.data)
                           || (request.resource.data.limit is number
                               && request.resource.data.limit >= 0

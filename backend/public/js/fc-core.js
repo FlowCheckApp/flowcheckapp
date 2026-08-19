@@ -87,6 +87,16 @@
     COFFEE_SHOPS: 'Coffee Shop', GAS_STATIONS: 'Gas Stations',
     CREDIT_CARD: 'Credit Card', INVESTMENTS: 'Investments',
     OTHER: 'Other',
+    /* Legacy spellings. Plaid's older category taxonomy shipped these as
+       top-level names and plenty of accounts still carry them in backfilled
+       history, so they arrive alongside the current ones. Unmapped, they
+       title-case into their own categories and the app grows near-duplicate
+       pairs — "Shops" sitting next to "Shopping", "Service" next to
+       "Services" — which split one budget across two rows and make both
+       wrong. Folding them here means every consumer agrees, because this
+       map is the only normalisation in the codebase. */
+    SHOPS: 'Shopping', SERVICE: 'Services', RECREATION: 'Entertainment',
+    COMMUNITY: 'Government', TAX: 'Government', INTEREST: 'Bank Fees',
   };
   /* Plaid ships the same category in two spellings depending on which product
      and vintage it came from — 'TRANSFER_OUT' and 'Transfer Out'. Fold spaces
@@ -95,7 +105,13 @@
   function normalizeCategory(cat) {
     if (!cat) return 'Other';
     const upper = String(cat).toUpperCase().replace(/ /g, '_');
+    /* toLowerCase() first. Plaid sends unmapped categories in SCREAMING_CASE,
+       and \b\w only uppercases a first letter that is already lowercase — so
+       an unmapped value came through as "SOME NEW THING" and rendered as
+       shouting. Harmless while these only appeared in a tooltip; the budget
+       screen now lists every category as a row, where it reads as a bug. */
     return PLAID_MAP[upper] || String(cat)
+      .toLowerCase()
       .replace(/_/g, ' ')
       .replace(/\b\w/g, c => c.toUpperCase());
   }
