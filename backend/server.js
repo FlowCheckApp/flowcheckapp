@@ -1137,65 +1137,47 @@ app.post('/plaid/exchange-token', requireAuthStrict, _plaidUserLimiter, async (r
           // Notify referrer: you earned Pro
           if (referrerRecord?.email) {
             const rewardLabel  = lifetimePro ? 'Lifetime Pro 🏆' : '1 month of Pro free';
-            _sendEmail(referrerRecord.email, `${referredName} joined FlowCheck — you earned ${rewardLabel}! 🎉`, `
-              <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-              <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
-                <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:36px 32px;text-align:center">
-                  ${LOGO_IMG}
-                  <h1 style="color:#fff;font-size:22px;font-weight:700;margin:0 0 6px">Your referral just paid off, ${referrerName}!</h1>
-                  <p style="color:rgba(255,255,255,0.6);font-size:14px;margin:0">${referredName} connected their bank</p>
-                </div>
-                <div style="padding:28px 32px">
-                  <div style="background:#f0fffe;border-radius:12px;padding:20px;text-align:center;margin-bottom:20px">
-                    <div style="font-size:13px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">Your Reward</div>
-                    <div style="font-size:24px;font-weight:800;color:#0a1520">${rewardLabel}</div>
-                    ${lifetimePro ? '<div style="font-size:13px;color:#6b7280;margin-top:4px">3 referrals — you unlocked lifetime access</div>' : ''}
-                  </div>
-                  <p style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 20px">
-                    ${lifetimePro
-                      ? 'You\'ve referred 3 people to FlowCheck — that earns you lifetime Pro access. Thank you for spreading the word.'
-                      : 'Your Pro subscription has been extended by one month. Keep sharing and you can earn even more — 3 referrals unlocks lifetime access.'}
-                  </p>
-                  <a href="${BACKEND_URL}/open" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
-                    Open FlowCheck →
-                  </a>
-                </div>
-                <div style="padding:16px 32px;border-top:1px solid #f3f4f6;text-align:center">
-                  <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · <a href="${_unsubUrl(referrerUid, 'all', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe</a></p>
-                </div>
-              </div></body></html>
-            `, referrerUid).catch(() => {});
+            _sendEmail(referrerRecord.email, `${referredName} joined — you earned ${rewardLabel}`, _mail.shell({
+              title:      'Your referral paid off',
+              preheader:  `${referredName} connected their bank. You earned ${rewardLabel}.`,
+              heading:    `Your referral paid off, ${referrerName}`,
+              subheading: `${referredName} connected their bank.`,
+              tone:       'success',
+              logoImg:    LOGO_IMG,
+              bodyHtml: `
+                ${_mail.panel([
+                  { label: 'Your reward', value: rewardLabel, strong: true, color: '#0d3f2c' },
+                ], 'success')}
+                <p style="margin:0 0 24px">${lifetimePro
+                  ? 'That is three referrals, which earns you lifetime Pro access. Thank you for spreading the word.'
+                  : 'Your Pro subscription is extended by one month. Three referrals unlocks lifetime access.'}</p>
+                ${_mail.button('Open FlowCheck', `${BACKEND_URL}/open`, 'success')}`,
+              footerHtml: `FlowCheck &middot; <a href="${_unsubUrl(referrerUid, 'all', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe</a>`,
+            }), referrerUid).catch(() => {});
           }
 
           // Notify referred user: you also earned 1 month Pro
           if (referredRecord?.email) {
-            _sendEmail(referredRecord.email, `You got 1 month of FlowCheck Pro — welcome gift! 🎁`, `
-              <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-              <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
-                <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:36px 32px;text-align:center">
-                  ${LOGO_IMG}
-                  <h1 style="color:#fff;font-size:22px;font-weight:700;margin:0 0 6px">You've got 1 month Pro free, ${referredName}!</h1>
-                  <p style="color:rgba(255,255,255,0.6);font-size:14px;margin:0">A welcome gift for joining via referral</p>
-                </div>
-                <div style="padding:28px 32px">
-                  <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 20px">
-                    Because you joined FlowCheck through a referral, you've been given one free month of Pro — no credit card required. Here's what you have access to:
-                  </p>
-                  <div style="background:#f0fffe;border-left:3px solid #1ac4f0;border-radius:8px;padding:14px 18px;margin-bottom:24px">
-                    <p style="font-size:13px;color:#4b5563;margin:4px 0">✦ Unlimited bank accounts</p>
-                    <p style="font-size:13px;color:#4b5563;margin:4px 0">✦ Financial Health Score</p>
-                    <p style="font-size:13px;color:#4b5563;margin:4px 0">✦ AI spending insights</p>
-                    <p style="font-size:13px;color:#4b5563;margin:4px 0">✦ Bill tracking &amp; reminders</p>
-                  </div>
-                  <a href="${BACKEND_URL}/open" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
-                    Explore Pro Features →
-                  </a>
-                </div>
-                <div style="padding:16px 32px;border-top:1px solid #f3f4f6;text-align:center">
-                  <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · <a href="${_unsubUrl(req.uid, 'all', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe</a></p>
-                </div>
-              </div></body></html>
-            `, req.uid).catch(() => {});
+            _sendEmail(referredRecord.email, 'You have a free month of FlowCheck Pro', _mail.shell({
+              title:      'A free month of Pro',
+              preheader:  'One month of Pro, no card required.',
+              heading:    'One month of Pro, on us',
+              subheading: 'A welcome gift for joining through a referral.',
+              tone:       'success',
+              logoImg:    LOGO_IMG,
+              bodyHtml: `
+                <p style="margin:0 0 22px">Because you joined through a referral, you have one free month of Pro — no card required. Here is what that opens up:</p>
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#eefaf4;border-radius:12px;margin:0 0 24px">
+                  <tr><td style="padding:18px 20px">
+                    <p style="font-size:14px;color:#374151;margin:0 0 8px">Unlimited bank accounts</p>
+                    <p style="font-size:14px;color:#374151;margin:0 0 8px">Financial Health Score</p>
+                    <p style="font-size:14px;color:#374151;margin:0 0 8px">AI spending insights</p>
+                    <p style="font-size:14px;color:#374151;margin:0">Bill tracking and reminders</p>
+                  </td></tr>
+                </table>
+                ${_mail.button('Explore Pro', `${BACKEND_URL}/open`, 'success')}`,
+              footerHtml: `FlowCheck &middot; <a href="${_unsubUrl(req.uid, 'all', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe</a>`,
+            }), req.uid).catch(() => {});
           }
         } catch (emailErr) {
           console.warn('[referral/auto-activate] email/notification failed:', emailErr.message);
@@ -3088,42 +3070,27 @@ async function _sendMonthlySummaryForUser(uid, userData, cutoffStr, monthLabel) 
   if (prevScore !== null && Math.abs(newScore - prevScore) >= 5 && userData.email_alerts_enabled !== false) {
     const improved = newScore > prevScore;
     const diff     = Math.abs(newScore - prevScore);
-    _sendEmail(email, `${improved ? '📈' : '📉'} Your financial health score ${improved ? 'improved' : 'dropped'} by ${diff} points`, `
-      <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-      <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
-        <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:32px;text-align:center">
-          ${LOGO_IMG}
-          <div style="font-size:40px;margin-bottom:8px">${improved ? '📈' : '📉'}</div>
-          <h1 style="color:#fff;font-size:20px;font-weight:700;margin:0 0 4px">Financial Health Score Update</h1>
-          <p style="color:rgba(255,255,255,0.55);font-size:14px;margin:0">Your score for ${_htmlEscape(monthLabel)}</p>
-        </div>
-        <div style="padding:28px 32px">
-          <div style="background:#f9fafb;border-radius:12px;padding:20px;margin-bottom:20px;text-align:center">
-            <div style="display:flex;justify-content:center;align-items:center;gap:20px">
-              <div>
-                <div style="font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">Last month</div>
-                <div style="font-size:28px;font-weight:800;color:#6b7280">${prevScore}</div>
-              </div>
-              <div style="font-size:24px;color:${improved ? '#059669' : '#dc2626'}">→</div>
-              <div>
-                <div style="font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">This month</div>
-                <div style="font-size:36px;font-weight:900;color:${improved ? '#059669' : '#dc2626'}">${newScore}</div>
-              </div>
-            </div>
-            <div style="margin-top:12px;font-size:14px;font-weight:600;color:${improved ? '#059669' : '#dc2626'}">${improved ? '+' : '-'}${diff} points</div>
-          </div>
-          <p style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 20px">
-            ${improved
-              ? `Great work! Your score improved this month — driven by your savings rate and spending discipline.`
-              : `Your score dipped this month. Open FlowCheck to see your spending breakdown and find areas to trim.`}
-          </p>
-          <a href="${BACKEND_URL}/open" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">See My Full Report →</a>
-        </div>
-        <div style="padding:14px 32px;border-top:1px solid #f3f4f6;text-align:center">
-          <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · <a href="${_unsubUrl(uid, 'weekly')}" style="color:#9ca3af">Unsubscribe from monthly summaries</a></p>
-        </div>
-      </div></body></html>
-    `, uid).catch(e => console.error('[email health-score]', e.message));
+    _sendEmail(email, `Your health score ${improved ? 'went up' : 'went down'} ${diff} points`, _mail.shell({
+      title:      'Health score update',
+      preheader:  `${prevScore} to ${newScore} for ${monthLabel}.`,
+      heading:    'Health score update',
+      subheading: `Your score for ${_htmlEscape(monthLabel)}`,
+      tone:       improved ? 'success' : 'warn',
+      logoImg:    LOGO_IMG,
+      bodyHtml: `
+        ${_mail.panel([
+          { label: 'Last month', value: String(prevScore) },
+          { label: 'This month', value: String(newScore), strong: true,
+            color: improved ? '#0d3f2c' : '#b42318' },
+          { label: 'Change', value: `${improved ? '+' : '-'}${diff} points`,
+            color: improved ? '#0d3f2c' : '#b42318' },
+        ], improved ? 'success' : 'warn')}
+        <p style="margin:0 0 24px">${improved
+          ? 'Your score went up this month. The breakdown in the app shows which parts moved.'
+          : 'Your score dipped this month. The breakdown in the app shows which parts moved, and where there is room to trim.'}</p>
+        ${_mail.button('See the breakdown', `${BACKEND_URL}/open`, improved ? 'success' : 'warn')}`,
+      footerHtml: `FlowCheck &middot; <a href="${_unsubUrl(uid, 'all', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe</a>`,
+    }), uid).catch(e => console.error('[email health-score]', e.message));
   }
 }
 
