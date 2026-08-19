@@ -2676,6 +2676,93 @@ window.FCApp = (function () {
       '<span class="rw-dot" style="left:' + xPct(p.day) + '%;top:' + yPct(p.balance) + '%;--rw-dot-stroke:' + stroke + '"></span>').join('')
       + '<span class="rw-dot rw-dot--end" style="left:' + xPct(r.horizon) + '%;top:' + yPct(r.endBalance) + '%;--rw-dot-stroke:' + stroke + '"></span>';
 
+    /* ── Today's balance, anchored to the first plotted point ──────────
+       The chart's left end is r.startBalance — the cash you have right now.
+       It is deliberately NOT the "Safe to spend" figure in the header: that
+       one is _buildSafeSpendProjection().safe, which has upcoming bills and
+       typical spending already subtracted out. In demo data the difference
+       is $3,241.87 against $1,483.69. Printing the safe-to-spend number at
+       the line's left end would put a label on the y-axis at a height that
+       means something else, and misstate today's balance by $1,758.
+
+       The header answers "what can I spend?". This answers "where does the
+       line start?". Both belong on the card; they are not the same number
+       and must not be shown as one. */
+    const todayLbl = '<span class="rw-today" style="top:' + yPct(r.startBalance) + '%">'
+      + '<span class="rw-today-amt">' + esc(FCData.formatCurrency(r.startBalance)) + '</span>'
+      + '<span class="rw-today-cap">today</span></span>';
+
+    /* ── Bill drops, labelled with what caused them ────────────────────
+       A dot with a dashed drop-line says "something happened here". The
+       amount says what. That is the whole difference between a shape and an
+       explanation, and it is the one thing the card could not say before.
+
+       Clutter control, in order:
+        · only days that actually carry bills — never every point;
+        · at most MAX_LBL of them, largest first, so a fortnight with nine
+          small charges does not become a wall of text;
+        · a greedy left-to-right pass drops any label that would collide
+          with the one before it.
+
+       Collision is measured in PERCENT of chart width because that is the
+       coordinate system the overlay is positioned in, and the chart's pixel
+       width varies from ~311px on a 375pt iPhone SE to ~400px on a Pro Max.
+       Estimating the half-width from the character count keeps the gap
+       honest at both ends instead of tuning it for one device. */
+    const MAX_LBL = 4;
+    const billDays = pts
+      .filter(p => p.bills.length)
+      .map(p => ({ p, amt: p.bills.reduce((sum, b) => sum + Math.abs(b.amount || 0), 0) }))
+      .filter(e => e.amt > 0);
+
+    const chosen = billDays
+      .slice()
+      .sort((a, b) => b.amt - a.amt)
+      .slice(0, MAX_LBL)
+      .sort((a, b) => a.p.day - b.p.day);
+
+    let lastRight = -Infinity;
+    const lastRowRight = [-Infinity, -Infinity];
+    const eventLbls = chosen.map(e => {
+      /* Whole dollars. "\u2212$1,200.00" spends four characters on precision
+         nobody reads at a glance and makes the label wide enough to collide
+         with its neighbour on a 375pt screen. The exact figure is one scrub
+         away. */
+      const text = '\u2212$' + Math.round(e.amt).toLocaleString('en-US');
+      /* ~0.62em per character at 10px, over the chart's own width. */
+      const wPct = (text.length * 6.2) / 309 * 100;
+      const cx = parseFloat(xPct(e.p.day));
+
+      /* Sit the label BESIDE the drop, not centred over it. A bill day is
+         where the line falls hardest, so a centred label lands squarely on
+         the descending stroke — at \u2212$1,200 the line ran straight through
+         the text. Starting it just right of the drop puts it above the flat
+         segment that follows, which is empty space.
+         Near the right edge there is no room to extend rightwards, so the
+         label flips and ends just left of the drop instead. */
+      const GAP = 1.6;
+      let left = cx + GAP;
+      if (left + wPct > 100) left = cx - GAP - wPct;
+      left = Math.max(0, Math.min(100 - wPct, left));
+
+      /* Two rows before giving up. A fortnight can easily put two bills a
+         day apart, and at that spacing the labels overlap horizontally no
+         matter which side of the drop they sit on. Lifting the second one
+         onto a higher row keeps both readable and keeps each one directly
+         above its own marker.
+         A third row would start competing with the headline for the top of
+         the card, so anything still colliding after two is dropped rather
+         than stacked — the dot and its dashed rule still mark the event, and
+         the exact figure is one scrub away. Crowding the chart to name every
+         bill would cost more than it buys. */
+      const row = (left < lastRight + 1.5) ? 1 : 0;
+      if (row === 1 && left < lastRowRight[1] + 1.5) return '';
+      lastRowRight[row] = left + wPct;
+      if (row === 0) lastRight = left + wPct;
+      return '<span class="rw-evt' + (row ? ' rw-evt--stack' : '') + '" style="left:'
+        + left.toFixed(2) + '%;top:' + yPct(e.p.balance) + '%">' + esc(text) + '</span>';
+    }).join('');
+
     /* The zero crossing is the whole point of the card in the negative
        state — the headline names the date and the chart used to mark it
        nowhere. Label the zero line too: an unlabelled dashed red rule is a
@@ -2685,8 +2772,18 @@ window.FCApp = (function () {
 
     return '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" aria-hidden="true">'
       + '<defs><linearGradient id="rwGrad" x1="0" y1="0" x2="0" y2="1">'
-        + '<stop offset="0%" stop-color="' + stroke + '" stop-opacity="0.22"/>'
-        + '<stop offset="100%" stop-color="' + stroke + '" stop-opacity="0"/>'
+        /* Three stops, not two. The old 0.22 → 0 ramp spent most of its
+           range already invisible, so the fill read as a soft smudge under
+           the line rather than as the area it encloses. Holding a low but
+           non-zero value through the middle gives the region a floor you can
+           actually see, which is what makes it read as "money remaining"
+           instead of decoration.
+           It stops well short of a solid fill on purpose: the cyan stroke is
+           the chart, and the moment the fill competes with it for attention
+           this is worse, not better. */
+        + '<stop offset="0%" stop-color="' + stroke + '" stop-opacity="0.30"/>'
+        + '<stop offset="55%" stop-color="' + stroke + '" stop-opacity="0.10"/>'
+        + '<stop offset="100%" stop-color="' + stroke + '" stop-opacity="0.02"/>'
       + '</linearGradient></defs>'
       + (minV < 0 ? '<line x1="0" y1="' + zeroY.toFixed(1) + '" x2="' + W + '" y2="' + zeroY.toFixed(1) + '" stroke="var(--fc-danger)" stroke-width="1" stroke-dasharray="3 3" opacity="0.55"' + VE + '/>' : '')
       + '<path d="' + area + '" fill="url(#rwGrad)"/>'
@@ -2697,6 +2794,8 @@ window.FCApp = (function () {
          which is taller because it also holds .rw-axis. Percent coordinates
          here map 1:1 onto the viewBox only while this box matches the svg. */
       + '<div class="rw-overlay" aria-hidden="true">'
+        + todayLbl
+        + eventLbls
         + dots
         + (minV < 0 ? '<span class="rw-zero-lbl" style="top:' + yPct(0) + '%">$0</span>' : '')
         + (cross ? '<span class="rw-cross" style="left:' + xPct(cross.day) + '%">'

@@ -2274,6 +2274,67 @@ body.fc-theme .fc-nav {
 
 .rw-chart { position: relative; }
 .rw-chart svg { display: block; width: 100%; height: 104px; overflow: visible; }
+/* ── Chart annotations ────────────────────────────────────────────────
+   Both label types sit in .rw-overlay, which is positioned in percent over
+   the SVG's own 104px box. They are placed ABOVE their anchor point because
+   a runway line descends: the region above it is the empty half, so labels
+   land in whitespace instead of over the fill or the line.
+
+   Everything here stays quieter than the cyan line on purpose. The line is
+   the chart; these explain it. If a label ever competes with the stroke for
+   attention, that is the bug. */
+
+/* Today's balance — anchored to the line's left end. */
+.rw-today {
+  position: absolute;
+  left: 0;
+  transform: translateY(-100%);
+  padding-bottom: 8px;
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.rw-today-amt {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--fc-text);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.2px;
+}
+.rw-today-cap {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--fc-text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* Bill amounts — what caused each drop. */
+.rw-evt {
+  position: absolute;
+  /* Left-anchored, not centre-anchored — the renderer places these beside
+     the drop rather than over it, so the x it computes is the label's edge. */
+  transform: translateY(-100%);
+  padding-bottom: 8px;
+  font-size: 10px;
+  font-weight: 650;
+  color: var(--fc-text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+}
+/* Second row, for bills too close together to sit side by side. */
+.rw-evt--stack { padding-bottom: 24px; }
+
+/* While scrubbing, the readout IS the answer — the static labels underneath
+   it are the same information twice, and the pointer is usually sitting on
+   top of them. Fade them rather than removing them so nothing reflows. */
+.rw-chart.rw-scrubbing .rw-evt,
+.rw-chart.rw-scrubbing .rw-today { opacity: 0.25; }
+.rw-evt, .rw-today { transition: opacity 0.18s ease; }
+
 .rw-axis {
   display: flex; justify-content: space-between;
   margin-top: 2px;
