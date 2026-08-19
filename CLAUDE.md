@@ -71,6 +71,27 @@ new Set([...document.querySelectorAll(
   .map(el => getComputedStyle(el).borderRadius)).size === 1  // must be true
 ```
 
+### ★ Going back — ONE control per surface
+
+| Relationship | Control |
+|---|---|
+| Push (sub-screen over a tab, auth step, onboarding slide) | `.fc-sub-back` — chevron + the word "Back", top-left |
+| Modal (bottom sheet, full-screen overlay) | one grabber: `<button class="fc-sheet-handle" aria-label="Close">` |
+
+Backdrop tap and swipe-down are **gestures**, not visible controls, and don't
+count against the one-control rule. `_initSheetDrag()` implements the swipe;
+`FCApp.dismissSheetFrom(el)` dismisses via the sheet's own overlay click, so
+there is no registry of close functions to keep in sync.
+
+The grabber is a real `<button>`, not a bar — this is a WebView, so VoiceOver's
+native sheet-dismiss gesture does not apply and a gesture-only sheet would have
+no reachable exit. Don't demote it back to a `<div>`.
+
+Enforced by `scripts/check-back-affordances.js`. The app previously had five
+vocabularies for one relationship (chevron+label, a bare `←` at weight 500, a
+grey circle with an arrow, a header X, and three simultaneous exits on the legal
+pages), and none of it was visible in review because each reads as correct alone.
+
 ## Deploy flow
 ```bash
 # After editing www/ files:
