@@ -57,9 +57,9 @@
 <meta name="theme-color" content="#060e18">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="stylesheet" href="css/flowcheck-design-system.css?v=20260819f">
-<link rel="stylesheet" href="css/fc-screens.css?v=20260819f">
-<link rel="stylesheet" href="css/fc-premium-screens.css?v=20260819f">
+<link rel="stylesheet" href="css/flowcheck-design-system.css?v=20260819h">
+<link rel="stylesheet" href="css/fc-screens.css?v=20260819h">
+<link rel="stylesheet" href="css/fc-premium-screens.css?v=20260819h">
 
 <!-- Sentry — error & crash monitoring (vanilla JS, no npm required) -->
 <script
@@ -1603,6 +1603,22 @@ body.keyboard-open.fc-kb-numeric .fc-sheet {
 body:not(.keyboard-open) .fc-sheet {
   transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
 }
+/* The legal/help viewer used to appear by flipping display:none to flex —
+   an instant hard cut into a full-screen dark panel, which is the one
+   transition in the app that had none at all. Matches the sheet's curve so
+   it reads as the same system. */
+@keyframes fcInappIn {
+  from { opacity: 0; transform: translateY(10px) scale(0.995); }
+  to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+.fc-inapp-overlay {
+  animation: fcInappIn 0.26s cubic-bezier(0.32, 0.72, 0, 1) both;
+  will-change: opacity, transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .fc-inapp-overlay { animation-duration: 0.01ms; }
+}
+
 @keyframes fcSheetUp {
   from { transform: translateY(100%); opacity: 0.6; }
   to   { transform: translateY(0);    opacity: 1; }
@@ -7556,7 +7572,7 @@ body:not(.keyboard-open) .fc-sheet {
 <script src="js/fc-data.js"></script>
 <script src="js/fc-push.js"></script>
 <script src="js/fc-iap.js"></script>
-<script src="js/fc-app.js?v=20260819f"></script>
+<script src="js/fc-app.js?v=20260819h"></script>
 
 <script>
 'use strict';
@@ -8013,7 +8029,7 @@ window._btnLoad = _btnLoad;
 </script>
 
 <!-- ════════════ IN-APP PAGE VIEWER (legal, help) ══════════════ -->
-<div id="fc-inapp-page-overlay"
+<div id="fc-inapp-page-overlay" class="fc-inapp-overlay"
      style="display:none;position:fixed;inset:0;z-index:9000;flex-direction:column;background:#0a1520">
   <!-- Header bar with close button -->
   <div style="display:flex;align-items:center;padding:max(env(safe-area-inset-top),14px) 16px 10px;

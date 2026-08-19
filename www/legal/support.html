@@ -1,18 +1,30 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <!-- No webfont on purpose.
+
+       These pages used to pull Inter from Google Fonts with a render-blocking
+       <link> in the head. Nothing could paint until a round trip to Google
+       finished — DNS, TLS, the CSS, then the font files — on a page that is
+       20KB and already sitting on the device. That was the entire reason
+       Terms and Privacy felt slow to open while the rest of the app did not.
+
+       Two more reasons not to put it back. The app itself uses no webfont at
+       all, so these pages were also the only place the typeface changed. And
+       requesting a Google-hosted font sends the reader's IP address to Google
+       — on the privacy policy, which a German court has already ruled a GDPR
+       violation (Munich, 2022). -->
+
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Support & FAQ — FlowCheck</title>
   <meta name="description" content="FlowCheck Support — get help with connecting your bank, subscriptions, account issues, and more." />
   <link rel="icon" href="favicon.ico" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root { --navy: #0a1520; --navy-2: #0f1e2e; --navy-3: #152030; --cyan: #1ac4f0; --purple: #6b3fe0; --white: #ffffff; --gray-1: #e8edf2; --gray-2: #9aaabb; --gray-3: #4a6077; --green: #22c55e; }
     html { scroll-behavior: smooth; }
-    body { font-family: 'Inter', -apple-system, sans-serif; background: var(--navy); color: var(--white); line-height: 1.7; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, sans-serif; background: var(--navy); color: var(--white); line-height: 1.7; }
 
     nav { position: sticky; top: 0; z-index: 100; display: flex; align-items: center; justify-content: space-between; padding: env(safe-area-inset-top) 40px 0; min-height: 64px; background: rgba(10,21,32,0.9); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255,255,255,0.06); }
     .nav-logo { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 18px; color: var(--white); text-decoration: none; }
