@@ -8381,7 +8381,22 @@ window.FCApp = (function () {
       return d !== null && d >= 0 && d <= payWindow;
     });
     const payBillsTotal = payBills.reduce((s,b) => s+(b.amount||0), 0);
-    const savePlan  = Math.round(goalMonthly / 2);
+    /* Per-PAYCHECK share of a MONTHLY target, so the divisor has to be how
+       many paychecks land in a month. This was a hardcoded / 2, which is
+       only right for semi-monthly pay. _predictNextPayday() already returns
+       the cadence it detected — it is tested and it distinguishes weekly,
+       biweekly, semi-monthly and monthly — so there is no reason to guess.
+
+       At / 2 the row was wrong for most people: someone paid WEEKLY was
+       told to set aside 2.2x what one cheque should carry, and someone paid
+       MONTHLY was told half. Both then read a Remaining figure built on it.
+
+       Unknown cadence keeps the old divisor rather than inventing one — with
+       no detected paycheck the card is already in its "no paycheck yet"
+       branch and says so. */
+    const PER_MONTH = { weekly: 52 / 12, biweekly: 26 / 12, semimonthly: 2, monthly: 1 };
+    const payPerMonth = PER_MONTH[payday && payday.cadence] || 2;
+    const savePlan  = Math.round(goalMonthly / payPerMonth);
     const spendPlan = Math.round(proj.expectedEverydaySpend || 0);
     const assigned  = payBillsTotal + savePlan + spendPlan;
     const payRemaining = expectedPay - assigned;
