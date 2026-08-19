@@ -2280,6 +2280,17 @@ body.fc-theme .fc-nav {
   font-size: 10px; font-weight: 600; color: var(--fc-text-faint);
 }
 
+/* The window label sits between two dates, so it has to NOT look like a
+   third date — otherwise the axis reads "Today / Next 14 days / Sep 1" as
+   three points in time. Uppercase and letter-spaced marks it as a scope
+   label, the same signal .fc-eyebrow carries everywhere else in the app. */
+.rw-axis-span {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--fc-text-faint);
+  opacity: 0.72;
+}
+
 /* Wow #1: the line draws itself, markers land as it passes them.
    Scoped under .home-v8--enter — the dashboard's first-mount class — because
    _renderHomeDashboard() rebuilds this SVG on every render. Unscoped, every

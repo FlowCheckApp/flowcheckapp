@@ -2543,6 +2543,14 @@ window.FCApp = (function () {
 
   /* Shared chart geometry. _attachRunwayScrub mirrors this y-mapping —
      change one and you must change the other. */
+  /* "Next 14 days" reads as a scope; "14 days" reads as a second, competing
+     answer to the headline's question. The word matters here. */
+  function _rwWindowLabel(horizon) {
+    const d = Math.max(1, Math.round(horizon));
+    if (d % 7 === 0 && d >= 14) return 'Next ' + (d / 7) + ' weeks';
+    return d === 1 ? 'Next day' : 'Next ' + d + ' days';
+  }
+
   function _rwGeom(r) {
     const W = 300, H = 104, PAD_T = 10, PAD_B = 20;
 
@@ -2870,7 +2878,19 @@ window.FCApp = (function () {
             + '<div class="rw-scrub-dot"></div>'
           + '</div>'
           + '<div class="rw-readout" id="rw-readout" aria-hidden="true"></div>'
-          + '<div class="rw-axis"><span>Today</span><span>' + esc(dLabel(pts[pts.length - 1].date)) + '</span></div>'
+          /* The middle label names the chart's window, and it exists because
+             the card was contradicting itself. The headline reports
+             coveredDays — how long you last assuming you never earn another
+             dollar — which for a healthy account is often 50+ days. The chart
+             plots `horizon`, a 14-day detail view. Both are right and they
+             measure different things, but stacked with nothing between them
+             the reader sees "Covered for 58 days" above a line that stops on
+             Sep 1, does the subtraction, and concludes one of the two numbers
+             is broken. Naming the window is what makes them legible as two
+             different statements instead of one inconsistency. */
+          + '<div class="rw-axis"><span>Today</span>'
+            + '<span class="rw-axis-span">' + esc(_rwWindowLabel(r.horizon)) + '</span>'
+            + '<span>' + esc(dLabel(pts[pts.length - 1].date)) + '</span></div>'
         + '</div>'
         /* The CTA has to answer the state it is sitting in. "Can I afford
            something?" under a red "You run short on Aug 19" asks a question
