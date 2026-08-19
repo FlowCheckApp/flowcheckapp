@@ -15036,7 +15036,13 @@ window.FCApp = (function () {
     if (delBtn) {
       const entry    = (state.budgets || {})[category];
       const isCustom = !!entry?.custom;
-      const hasLimit = Number(entry?.limit) > 0;
+      /* currentLimit as well as the stored entry. The sheet is opened WITH
+         the limit as an argument — every call site passes it — and gating on
+         the stored doc alone meant the button stayed hidden for anyone whose
+         budget had not round-tripped into state.budgets yet. In practice
+         that was everyone: tap a category showing a $400 limit, and there
+         was no way to remove it. */
+      const hasLimit = Number(entry?.limit) > 0 || Number(currentLimit) > 0;
       const show     = !isTotal && (isCustom || hasLimit);
       delBtn.style.display = show ? '' : 'none';
       delBtn.textContent   = isCustom ? 'Delete category' : 'Remove budget';

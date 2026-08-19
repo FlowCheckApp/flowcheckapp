@@ -504,6 +504,16 @@ body.fc-theme {
    Buttons — premium depth with press physics
    ============================================================ */
 .fc-btn {
+  /* A neutral surface, because the base class declared no background at all
+     and fell through to the user agent's default button grey — rgb(107,107,107)
+     on a dark sheet. Seven buttons used .fc-btn bare, and every Cancel among
+     them rendered heavier than the primary action sitting above it: the
+     quietest control on the sheet was the loudest thing on screen.
+     Every modifier below sets its own background with the `background`
+     shorthand, so they override this cleanly. */
+  background: rgba(255,255,255,0.04);
+  color: var(--fc-text-muted);
+  border: 1px solid var(--fc-border);
   display: inline-flex;
   align-items: center;
   justify-content: center;
