@@ -3458,32 +3458,25 @@ if (cron) {
           const lastSeen = d.last_seen?.toDate ? d.last_seen.toDate() : (d.last_seen ? new Date(d.last_seen) : null);
           if (!lastSeen || lastSeen > cutoff14 || lastSeen < cutoff30) continue; // only 14–30 days inactive
           const name = _htmlEscape((d.name || 'Friend').split(' ')[0]);
-          await _sendEmail(d.email, `${d.name?.split(' ')[0] || 'Hey'} — your finances are waiting 👀`, `
-            <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-            <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
-              <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:36px 32px;text-align:center">
-                ${LOGO_IMG}
-                <h1 style="color:#fff;font-size:22px;font-weight:700;margin:0 0 6px">You haven't checked in lately, ${name}</h1>
-                <p style="color:rgba(255,255,255,0.6);font-size:14px;margin:0">Your money keeps moving even when you don't</p>
-              </div>
-              <div style="padding:28px 32px">
-                <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 20px">
-                  It's been a couple of weeks. New transactions have come in, your balances may have changed, and there might be bills coming up. A quick check-in keeps you on top of it all.
-                </p>
-                <div style="background:#f0fffe;border-left:3px solid #1ac4f0;border-radius:8px;padding:14px 18px;margin-bottom:24px">
-                  <p style="font-size:13px;color:#4b5563;margin:4px 0">→ See what you've spent since you were last here</p>
-                  <p style="font-size:13px;color:#4b5563;margin:4px 0">→ Check for any bills coming due</p>
-                  <p style="font-size:13px;color:#4b5563;margin:4px 0">→ Review your financial health score</p>
-                </div>
-                <a href="${BACKEND_URL}/open" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
-                  Check In Now →
-                </a>
-              </div>
-              <div style="padding:16px 32px;border-top:1px solid #f3f4f6;text-align:center">
-                <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · <a href="${_unsubUrl(userDoc.id, 'all', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe</a></p>
-              </div>
-            </div></body></html>
-          `, userDoc.id).catch(() => {});
+          await _sendEmail(d.email, `${d.name?.split(' ')[0] || 'Hey'} — a quick check-in`, _mail.shell({
+            title:      'A quick check-in',
+            preheader:  'New transactions have landed since you were last here.',
+            heading:    `You haven't checked in lately, ${name}`,
+            subheading: 'Your money keeps moving even when you do not.',
+            tone:       'info',
+            logoImg:    LOGO_IMG,
+            bodyHtml: `
+              <p style="margin:0 0 22px">It has been a couple of weeks. New transactions have come in, balances have moved, and there may be bills coming up. A minute here keeps you ahead of it.</p>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#eefaff;border-radius:12px;margin:0 0 24px">
+                <tr><td style="padding:18px 20px">
+                  <p style="font-size:14px;color:#374151;margin:0 0 8px">What you have spent since you were last here</p>
+                  <p style="font-size:14px;color:#374151;margin:0 0 8px">Which bills are coming up</p>
+                  <p style="font-size:14px;color:#374151;margin:0">Where your balances stand today</p>
+                </td></tr>
+              </table>
+              ${_mail.button('Open FlowCheck', `${BACKEND_URL}/open`, 'info')}`,
+            footerHtml: `FlowCheck &middot; <a href="${_unsubUrl(d.uid, 'all', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe</a>`,
+          }), d.uid);
           sent++;
         }
       } while (true);
@@ -5054,33 +5047,25 @@ setInterval(async () => {
     for (const doc of snap.docs) {
       const { email, uid } = doc.data();
       try {
-        await _sendEmail(email, "You're almost set up on FlowCheck 👋", `
-          <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-          <div style="max-width:520px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
-            <div style="background:linear-gradient(135deg,#060e18,#0d2035);padding:36px 32px;text-align:center">
-              ${LOGO_IMG}
-              <h1 style="color:#ffffff;font-size:22px;font-weight:700;margin:0;letter-spacing:-0.02em">Your account is waiting</h1>
-            </div>
-            <div style="padding:32px">
-              <p style="font-size:16px;color:#374151;line-height:1.6;margin:0 0 20px">
-                You created a FlowCheck account but haven't connected your bank yet. It only takes 60 seconds &mdash; and once you do, you'll instantly see:
-              </p>
-              <div style="background:#f0fffe;border-left:3px solid #1ac4f0;border-radius:8px;padding:16px 20px;margin-bottom:28px">
-                <p style="font-size:14px;color:#4b5563;margin:5px 0">&#x2713; Where your money is actually going</p>
-                <p style="font-size:14px;color:#4b5563;margin:5px 0">&#x2713; Subscriptions you may have forgotten</p>
-                <p style="font-size:14px;color:#4b5563;margin:5px 0">&#x2713; Your financial health score</p>
-                <p style="font-size:14px;color:#4b5563;margin:5px 0">&#x2713; AI-powered savings opportunities</p>
-              </div>
-              <a href="${BACKEND_URL}/open?ref=signup_followup_email" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#ffffff;font-weight:700;font-size:16px;padding:15px 28px;border-radius:10px;text-decoration:none;text-align:center">
-                Finish Setup &rarr;
-              </a>
-            </div>
-            <div style="padding:20px 32px;border-top:1px solid #f3f4f6;text-align:center">
-              <p style="font-size:12px;color:#9ca3af;margin:0">FlowCheck &middot; Your money, clearly.<br>
-                <a href="${_unsubUrl(uid, 'all', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe</a></p>
-            </div>
-          </div></body></html>
-        `, uid);
+        await _sendEmail(email, "You're almost set up on FlowCheck", _mail.shell({
+          title:      'Your account is waiting',
+          preheader:  'Connecting a bank takes about 60 seconds.',
+          heading:    'Your account is waiting',
+          subheading: 'One step left.',
+          tone:       'info',
+          logoImg:    LOGO_IMG,
+          bodyHtml: `
+            <p style="margin:0 0 22px">You created a FlowCheck account but haven't connected a bank yet. It takes about 60 seconds, and once it is done you will see:</p>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#eefaff;border-radius:12px;margin:0 0 24px">
+              <tr><td style="padding:18px 20px">
+                <p style="font-size:14px;color:#374151;margin:0 0 8px">Where your money is actually going</p>
+                <p style="font-size:14px;color:#374151;margin:0 0 8px">Subscriptions you may have forgotten</p>
+                <p style="font-size:14px;color:#374151;margin:0">Bills before they land, not after</p>
+              </td></tr>
+            </table>
+            ${_mail.button('Connect my bank', `${BACKEND_URL}/open`, 'info')}`,
+          footerHtml: `FlowCheck &middot; <a href="${_unsubUrl(uid, 'all', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe</a>`,
+        }), uid);
         await doc.ref.update({ sent: true, sent_at: now });
       } catch (e) {
         console.error('[signup-followup] Failed for', email, e.message);
