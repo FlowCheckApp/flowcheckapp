@@ -12451,8 +12451,16 @@ window.FCApp = (function () {
     if (uid) _markOnboardingLocalCache(uid);
     // Lift the native lock-screen suppression now that setup is done.
     if (FCAuth.setOnboardingActive) FCAuth.setOnboardingActive(false).catch(() => {});
-    // Clear mid-flow progress now that onboarding is done
-    try { localStorage.removeItem('fc_ob_progress'); } catch (_) {}
+    /* Clear mid-flow progress now that onboarding is done. Both keys: the
+       per-uid one this build writes, and the shared legacy key, which is
+       still on the devices of anyone who onboarded before it was namespaced.
+       The legacy key is what leaked a half-finished onboarding into the next
+       person who signed up on the same phone. */
+    try {
+      localStorage.removeItem('fc_ob_progress');
+      if (uid) localStorage.removeItem('fc_ob_progress_' + uid);
+      localStorage.removeItem('fc_ob_progress_anon');
+    } catch (_) {}
     try {
       const db  = FCAuth.db && FCAuth.db();
       if (uid && db) {

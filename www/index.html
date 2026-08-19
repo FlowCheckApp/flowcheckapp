@@ -3033,8 +3033,19 @@ body:not(.keyboard-open) .fc-sheet {
   opacity: 1; pointer-events: all;
   transform: translate3d(0, 0, 0) scale(1);
 }
-/* Children stagger */
-.fc-ob-slide.active > * { animation: obChildIn 0.48s var(--ob-smooth) both; }
+/* Children stagger.
+
+   :not(.fc-ob-goal-continue) because that button is meant to stay hidden
+   until a goal is picked, and a CSS animation beats a normal declaration in
+   the cascade — obChildIn's closing `opacity: 1` was overriding the button's
+   own `opacity: 0` base state and revealing it on every entry to the slide.
+
+   It did NOT override pointer-events, which the animation never touches. So
+   the most important decision screen in onboarding showed a full-strength,
+   fully-opaque "Continue" that silently swallowed taps: no movement, no
+   feedback, no reason given. The button now animates itself in via its own
+   opacity/transform transition when .visible is added. */
+.fc-ob-slide.active > *:not(.fc-ob-goal-continue) { animation: obChildIn 0.48s var(--ob-smooth) both; }
 .fc-ob-slide.active > *:nth-child(1) { animation-delay: 0.04s; }
 .fc-ob-slide.active > *:nth-child(2) { animation-delay: 0.09s; }
 .fc-ob-slide.active > *:nth-child(3) { animation-delay: 0.14s; }
@@ -3340,15 +3351,29 @@ body:not(.keyboard-open) .fc-sheet {
 
   <!-- Top bar: back button + progress rail -->
   <div style="position:absolute;top:calc(env(safe-area-inset-top,44px) + 10px);left:0;right:0;display:flex;align-items:center;padding:0 16px;gap:12px;z-index:4">
+    <!-- Same back control as every other pushed screen: chevron + "Back",
+         .fc-sub-back. It was a grey 44px circle holding an arrow-left glyph
+         and labelled "Go back" — a third vocabulary for the one relationship
+         the app has, and the same arrow that was just removed from the
+         sub-screens. Kept display:none inline because the controller toggles
+         it; _updateBackBtn sets display:inline-flex to match the class. -->
     <button id="ob-back-btn" onclick="obPrev()" type="button"
-            style="display:none;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,0.07);
-                   border:none;color:rgba(255,255,255,0.55);cursor:pointer;flex-shrink:0;
-                   align-items:center;justify-content:center;
-                   -webkit-tap-highlight-color:transparent;transition:background .15s"
-            aria-label="Go back">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+            class="fc-sub-back" style="display:none;flex-shrink:0"
+            aria-label="Back">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>Back
     </button>
-    <div class="fc-ob-progress-rail" style="position:relative;top:auto;left:auto;right:auto;flex:1;margin:0" aria-hidden="true">
+    <!-- Announced, not hidden. Both progress indicators (this rail and the
+         step dots) were aria-hidden, so a six-step flow told a screen-reader
+         user nothing about where they were or how much was left. The rail is
+         literally a progressbar, so it carries the semantics; the dots stay
+         hidden because they are the same value a second time. -->
+    <div class="fc-ob-progress-rail" style="position:relative;top:auto;left:auto;right:auto;flex:1;margin:0"
+         role="progressbar" aria-label="Setup progress"
+         aria-valuemin="1" aria-valuemax="6" aria-valuenow="1" aria-valuetext="Step 1 of 6"
+         id="ob-progress-rail">
       <div class="fc-ob-progress-fill" id="ob-progress-fill" style="width:0%"></div>
     </div>
   </div>
@@ -3894,12 +3919,38 @@ body:not(.keyboard-open) .fc-sheet {
   var _selectedGoal = null;
   var _aiDone = false;
 
-  /* ── Progress persistence (survives app crash mid-onboarding) ── */
+  /* ── Progress persistence (survives app crash mid-onboarding) ──
+
+     KEYED BY UID, and that is the whole point. This used to be one shared
+     'fc_ob_progress' key, cleared only when onboarding COMPLETED — never on
+     sign-out. So if someone abandoned onboarding partway and a different
+     person signed up on the same device, the newcomer resumed exactly where
+     the previous person stopped: measured, a brand-new user landed on slide
+     4 of 6 at 80% progress, having never seen the security slide, the goal
+     question, the personalisation or the example. _selectedGoal was restored
+     too, so the previous person's answer rode along into the new user's
+     analytics.
+
+     A per-uid key also makes the legitimate case work properly: the same
+     person signing back in resumes their own place. */
+  function _obKey() {
+    var uid = '';
+    try {
+      var u = window.FCAuth && FCAuth.currentUser && FCAuth.currentUser();
+      uid = u && u.uid ? u.uid : '';
+    } catch (_) {}
+    return uid ? 'fc_ob_progress_' + uid : 'fc_ob_progress_anon';
+  }
   function _saveObProgress() {
-    try { localStorage.setItem('fc_ob_progress', JSON.stringify({ slide: _currentSlide, goal: _selectedGoal })); } catch(_) {}
+    try { localStorage.setItem(_obKey(), JSON.stringify({ slide: _currentSlide, goal: _selectedGoal })); } catch(_) {}
   }
   function _loadObProgress() {
-    try { return JSON.parse(localStorage.getItem('fc_ob_progress') || 'null'); } catch(_) { return null; }
+    try {
+      /* The old shared key, if it is still on this device, belongs to whoever
+         used the app last. Drop it rather than read it. */
+      localStorage.removeItem('fc_ob_progress');
+      return JSON.parse(localStorage.getItem(_obKey()) || 'null');
+    } catch(_) { return null; }
   }
 
   /* ── Orb themes per slide ── */
@@ -3925,6 +3976,13 @@ body:not(.keyboard-open) .fc-sheet {
   function _updateProgress(i) {
     var fill = document.getElementById('ob-progress-fill');
     if (fill) fill.style.width = (i / (_totalSlides - 1) * 100) + '%';
+    /* aria-valuetext, not just valuenow: "Step 2 of 6" is what a person
+       needs to hear, where a bare percentage is not. */
+    var rail = document.getElementById('ob-progress-rail');
+    if (rail) {
+      rail.setAttribute('aria-valuenow', String(i + 1));
+      rail.setAttribute('aria-valuetext', 'Step ' + (i + 1) + ' of ' + _totalSlides);
+    }
     for (var s = 0; s < _totalSlides; s++) {
       var dot = document.getElementById('ob-step-' + s);
       if (dot) dot.classList.toggle('active', s === i);
@@ -4185,7 +4243,7 @@ body:not(.keyboard-open) .fc-sheet {
   function _updateBackBtn(i) {
     var btn = document.getElementById('ob-back-btn');
     if (!btn) return;
-    btn.style.display = i > 0 ? 'flex' : 'none';
+    btn.style.display = i > 0 ? 'inline-flex' : 'none';
   }
 
   /* ── Public: obSelectGoal ── */
