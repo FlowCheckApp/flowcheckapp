@@ -25,6 +25,7 @@ window.FCApp = (function () {
     period:          '1M',       // active home-screen period: 1D | 1W | 1M | 3M | 1Y | All
     notifications:   [],
     txnOverrides:    {},         // { [txnId]: {name?, category?} }
+    transactionsRaw: [],         // as Plaid sent them, before user overrides
     creditHistory:   [],         // [{month:'YYYY-MM', score:number}, …] oldest-first
     nwHistory:       {},         // {'YYYY-MM-DD': number} — Firestore-backed net worth sparkline
     debtHistory:     {},         // {'YYYY-MM-DD': number} — total debt, same doc; powers "paid down"
@@ -878,6 +879,37 @@ window.FCApp = (function () {
      `total` is the ceiling when it is set; otherwise the categories sum to
      one. Never both, never a magic number, and 0 honestly means "no budget
      set" so callers can render the empty state instead of a false ratio. */
+  /* ── User category/name edits, applied ONCE ────────────────────────
+     The transaction edit sheet has let people rename a transaction and
+     change its category for a long time, and FCData persists both to
+     users/{uid}/transaction_overrides. The override was then applied in
+     exactly one place: the Activity list's own render.
+
+     49 places in this file read state.transactions. One of them knew about
+     overrides. So re-filing a $180 charge from "Shopping" to "Groceries"
+     moved it in the list you were looking at and nowhere else — not the
+     category budgets, not the Insights breakdown, not the spending score,
+     not safe-to-spend. The edit appeared to work and silently didn't.
+
+     Applying it here, where the data enters state, makes every one of those
+     49 readers correct at once and is the reason a category the user assigns
+     can now actually receive spending. */
+  function _applyTxnOverrides(txns, overrides) {
+    const ov = overrides || {};
+    if (!txns || !txns.length) return txns || [];
+    if (!Object.keys(ov).length) return txns;
+    return txns.map(t => {
+      const o = ov[t.id] || ov[t.transaction_id];
+      if (!o) return t;
+      return {
+        ...t,
+        name:     o.name || t.name,
+        category: o.category ? [o.category] : t.category,
+        _edited:  true,
+      };
+    });
+  }
+
   function _totalBudgetLimit(budgets) { return FCCore.totalBudgetLimit(budgets || state.budgets); }
 
 
@@ -1912,6 +1944,10 @@ window.FCApp = (function () {
     state.user          = null;
     state.accounts      = [];
     state.transactions  = [];
+    /* Both halves. transactionsRaw holds the previous account's Plaid rows,
+       and leaving it would let the next sign-in re-derive a merged list from
+       the last user's data the moment an overrides snapshot arrives. */
+    state.transactionsRaw = [];
     state.bills         = [];
     state.goals         = [];
     state.budgets       = {};
@@ -12352,7 +12388,8 @@ window.FCApp = (function () {
     FCData.listenToTransactions(500, transactions => {
       if (_isDemoMode) return;
       state.initialLoading = false;
-      state.transactions = transactions;
+      state.transactionsRaw = transactions;
+      state.transactions = _applyTxnOverrides(transactions, state.txnOverrides);
       _scheduleTabRender();
       // Check budget thresholds whenever transactions update
       _checkBudgetAlert();
@@ -12412,6 +12449,10 @@ window.FCApp = (function () {
     // Transaction overrides (user edits to names/categories)
     FCData.listenToTransactionOverrides(overrides => {
       state.txnOverrides = overrides;
+      /* Re-derive: the two listeners arrive in either order and whichever
+         lands second has to rebuild the merged list, or the app renders raw
+         Plaid categories until the next transaction snapshot. */
+      state.transactions = _applyTxnOverrides(state.transactionsRaw, overrides);
       _scheduleTabRender();
     });
 
