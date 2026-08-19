@@ -14057,18 +14057,23 @@ window.FCApp = (function () {
       const a = annual?.product?.priceString;
       const m = monthly?.product?.priceString;
       if (!a) return;                       // nothing trustworthy to say
-      /* Scope the trial to the plan that actually has it. "7-day free trial,
-         then X/year (or Y/month)" reads as though the trial applies whichever
-         plan you pick, and it does not — the intro offer is on the annual
-         product only. Someone who chose monthly on the strength of this line
-         would be charged on day one having been told they had a week.
+      /* BOTH products carry a 1-week introductory offer — confirmed in App
+         Store Connect, where premium_monthly and premium_yearly each show
+         Free / 1 week / all territories, both Approved.
 
-         The paywall itself already gets this right (selectPlan rewrites the
-         trust claim, the button and the disclosure per plan). This is the
-         same correction, one screen earlier, in the disclosure the user is
-         agreeing to by tapping Continue. */
-      el.textContent = '7-day free trial on the annual plan, then ' + a + '/year'
-        + (m ? '. Monthly is ' + m + '/month, billed today.' : '.');
+         This line has now been wrong in both directions. It first read
+         "7-day free trial, then X/year (or Y/month)", which was ambiguous
+         about which plan the trial belonged to. It was then narrowed to the
+         annual plan on the strength of a comment in fc-iap.js — a comment
+         that also named two product ids which do not exist. That version
+         told monthly subscribers they would be "billed today" when in fact
+         they get the same free week, which costs signups from exactly the
+         people least willing to commit.
+
+         Say it plainly and let it cover both. The only source of truth for a
+         billing claim is the dashboard, not a comment. */
+      el.textContent = '7-day free trial on either plan, then ' + a + '/year'
+        + (m ? ' or ' + m + '/month.' : '.');
     } catch (_) { /* keep the defaults */ }
   }
 
@@ -14096,16 +14101,16 @@ window.FCApp = (function () {
        charges immediately. */
     const trustCharge = document.getElementById('pw-trust-charge');
 
-    if (plan === 'annual') {
-      if (trustCharge) trustCharge.textContent = 'No charge for 7 days';
-      if (btn)   btn.textContent   = 'Start 7-Day Free Trial';
-      if (terms) terms.textContent = `Payment charged to your Apple ID at purchase confirmation. Subscription auto-renews at ${annualPrice}/year unless canceled at least 24 hours before the end of the current period. Manage or cancel anytime in App Store Account Settings. Any unused trial is forfeited upon purchase.`;
-    } else {
-      // True for monthly: charged today, but nothing is locked in.
-      if (trustCharge) trustCharge.textContent = 'No commitment';
-      if (btn)   btn.textContent   = 'Start Monthly Plan';
-      if (terms) terms.textContent = `Payment charged to your Apple ID at purchase confirmation. Subscription auto-renews at ${monthlyPrice}/month unless canceled at least 24 hours before the end of the current period. Manage or cancel anytime in App Store Account Settings.`;
-    }
+    /* Both plans carry the same 1-week intro offer. The monthly branch used
+       to say "No commitment" / "Start Monthly Plan" and a disclosure with no
+       trial in it at all, because the code believed only the annual product
+       had one. That understated the offer to the audience least willing to
+       commit up front — the people the trial exists for. */
+    const period = plan === 'annual' ? 'year' : 'month';
+    const price  = plan === 'annual' ? annualPrice : monthlyPrice;
+    if (trustCharge) trustCharge.textContent = 'No charge for 7 days';
+    if (btn)   btn.textContent   = 'Start 7-Day Free Trial';
+    if (terms) terms.textContent = `Free for 7 days, then ${price}/${period}. Payment charged to your Apple ID when the trial ends. Subscription auto-renews unless canceled at least 24 hours before the end of the current period. Manage or cancel anytime in App Store Account Settings. Any unused trial is forfeited upon purchase.`;
   }
 
   async function paywallPurchase() {
