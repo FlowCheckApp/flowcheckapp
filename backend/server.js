@@ -2005,6 +2005,9 @@ function _maskEmail(addr) {
    unset the footer degrades to the opt-out line only and the send is logged
    loudly, so the gap is visible instead of silent. */
 const MAILING_ADDRESS = process.env.MAILING_ADDRESS || '';
+/* Hand it to the email shell, which owns every footer and is therefore the
+   only place it can render without being forgotten. */
+_mail.setPostalAddress(MAILING_ADDRESS);
 if (!MAILING_ADDRESS) {
   console.warn('[Boot] MAILING_ADDRESS is not set — commercial email is NOT CAN-SPAM compliant. '
              + 'Set it in Railway to your real business postal address.');
@@ -2055,14 +2058,22 @@ async function _sendEmail(to, subject, html, uid = null) {
     'List-Unsubscribe':      `<${_unsubUrl(uid, 'all', BACKEND_URL)}>`,
     'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
   } : {};
-  // User-addressed mail carries the compliance footer; templates that already
-  // ship their own unsubscribe line are left alone so it is not duplicated.
+  /* Every email now builds through lib/email-shell.js, which renders the
+     unsubscribe link, the disclaimer and the postal address in its own
+     footer. This fallback stays for any future send that bypasses the shell
+     — a raw HTML string with no unsubscribe in it still gets a compliant
+     footer rather than shipping without one.
+
+     The previous version of this check is why the address vanished: it
+     appended the footer only when the html did NOT already say
+     "unsubscribe", and once every email carried its own unsubscribe link
+     that was never true, so MAILING_ADDRESS stopped rendering anywhere. It
+     also only warned when the value was UNSET, so setting it correctly made
+     the problem silent. */
   let body = html;
-  if (uid) {
-    if (!/unsubscribe/i.test(html)) body = html + _complianceFooter(uid);
-    else if (!MAILING_ADDRESS) {
-      console.warn(`[email] "${subject}" has no postal address (MAILING_ADDRESS unset)`);
-    }
+  if (uid && !/unsubscribe/i.test(html)) body = html + _complianceFooter(uid);
+  if (uid && !MAILING_ADDRESS) {
+    console.warn(`[email] "${subject}" has no postal address (MAILING_ADDRESS unset)`);
   }
   try {
     const resp = await fetch('https://api.resend.com/emails', {

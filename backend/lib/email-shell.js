@@ -57,6 +57,20 @@ const FONT     = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,A
    instead — SF Mono on Apple, Consolas on Outlook, then generics. */
 const FONT_MONO = "ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace";
 
+/* The sender's physical postal address, set once at boot.
+
+   CAN-SPAM requires it in every commercial email, and it used to be appended
+   by a _complianceFooter() in server.js that ran only when the email did NOT
+   already contain the word "unsubscribe". Once every email moved onto this
+   shell — each with its own unsubscribe link in its footer — that condition
+   was true for all of them, so the footer stopped attaching and the address
+   silently stopped rendering anywhere at all.
+
+   It belongs here because this file now owns every footer. One value, set at
+   startup, and no email can be built without it being considered. */
+let POSTAL_ADDRESS = '';
+function setPostalAddress(addr) { POSTAL_ADDRESS = String(addr || '').trim(); }
+
 function esc(s) {
   return String(s == null ? '' : s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -136,6 +150,7 @@ function shell(o) {
   <tr><td style="background-color:${CARD_BG};border-radius:0 0 14px 14px;padding:0 36px 28px">
     <div style="border-top:1px solid #eef0f3;padding-top:18px;color:${FAINT};font-size:12px;line-height:1.6">
       ${footerHtml}
+      ${POSTAL_ADDRESS ? `<div style="margin-top:10px">${esc(POSTAL_ADDRESS)}</div>` : ''}
     </div>
   </td></tr>
 
@@ -173,4 +188,4 @@ function panel(rows, tone = 'info') {
   </table>`;
 }
 
-module.exports = { shell, button, panel, TONE, esc, WIDTH, FONT, FONT_MONO };
+module.exports = { shell, button, panel, setPostalAddress, TONE, esc, WIDTH, FONT, FONT_MONO };

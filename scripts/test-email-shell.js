@@ -138,6 +138,40 @@ t('esc handles the characters that break email', () => {
   eq(esc(undefined), '');
 });
 
+t('postal address renders in the footer once set', () => {
+  const { setPostalAddress } = require('../backend/lib/email-shell');
+  setPostalAddress('');
+  ok(!/PO Box/.test(shell(base)), 'absent before it is set');
+  setPostalAddress('Example LLC, PO Box 0000, Anytown, ST 00000');
+  const html = shell(base);
+  ok(html.includes('PO Box 0000'), 'present after it is set');
+  ok(html.indexOf('PO Box 0000') > html.indexOf(base.footerHtml), 'sits inside the footer');
+});
+
+t('postal address is escaped', () => {
+  const { setPostalAddress } = require('../backend/lib/email-shell');
+  setPostalAddress('A & B <Ltd>, PO Box 1');
+  const html = shell(base);
+  ok(html.includes('A &amp; B &lt;Ltd&gt;'), 'entities escaped');
+  setPostalAddress('');
+});
+
+/* The bug this pins: CAN-SPAM needs the address on COMMERCIAL mail, and it
+   used to be appended by a footer in server.js that only ran when the email
+   did not already contain "unsubscribe". Once every email carried its own
+   unsubscribe link, that condition was never true and the address stopped
+   rendering entirely — silently, because the warning only fired when the
+   value was UNSET. Rendering it here means an email cannot be built without
+   it. */
+t('an email with its own unsubscribe link still gets the address', () => {
+  const { setPostalAddress } = require('../backend/lib/email-shell');
+  setPostalAddress('Example LLC, PO Box 0000');
+  const html = shell({ ...base, footerHtml: 'FlowCheck &middot; <a href="#">Unsubscribe</a>' });
+  ok(/Unsubscribe/.test(html), 'unsubscribe still there');
+  ok(/PO Box 0000/.test(html), 'address there too');
+  setPostalAddress('');
+});
+
 console.log(`email-shell: ${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);
 console.log('✓ one shell, and no email can ship without a preheader.');
