@@ -2363,7 +2363,7 @@ app.post('/notifications/budget-alert', requireAuth, async (req, res) => {
 
   const pct      = Math.min(Math.round((spent / budgetLimit) * 100), 999);
   const safeCat  = _htmlEscape(String(category).slice(0, 40));
-  const title    = `Budget Alert: ${safeCat}`;
+  const title    = `${safeCat} budget at ${pct}%`;
   const body     = `You've used ${pct}% of your ${safeCat} budget ($${spent.toFixed(2)} of $${budgetLimit.toFixed(2)})`;
 
   try {
@@ -2679,7 +2679,7 @@ async function _sendBillRemindersForUser(uid, userData) {
     const daysUntil  = 1;
     const dayLabel   = 'tomorrow';
     const safeBill   = _htmlEscape(bill.name);
-    const title      = `💳 ${safeBill} due ${dayLabel}`;
+    const title      = `${safeBill} due ${dayLabel}`;
     const body       = `${_fmt(bill.amount || 0)} will be charged ${dayLabel}. Tap to review.`;
 
     // FCM push
@@ -2698,7 +2698,7 @@ async function _sendBillRemindersForUser(uid, userData) {
     // Overdue bills: if bill is 1–7 days past due, send a "still unpaid" nudge
     const overdueDays = Math.round((new Date() - new Date(effectiveDue)) / 86400000);
     if (overdueDays > 0 && overdueDays <= 7) {
-      const overdueTitle = `⚠️ ${safeBill} is ${overdueDays} day${overdueDays > 1 ? 's' : ''} overdue`;
+      const overdueTitle = `${safeBill} is ${overdueDays} day${overdueDays > 1 ? 's' : ''} overdue`;
       const overdueBody  = `${_fmt(bill.amount || 0)} was due ${overdueDays} day${overdueDays > 1 ? 's' : ''} ago. Mark it paid or update the due date.`;
       if (fcmToken) {
         await _sendFCM(uid, fcmToken, { title: overdueTitle, body: overdueBody, type: 'bill_overdue', data: { bill_id: doc.id }, channelId: 'flowcheck_bills' });
@@ -3781,7 +3781,7 @@ async function _detectAndEmailSubscriptions(uid, userRef, userData, fcmToken) {
 
     if (!prior) {
       // New subscription detected
-      const title = `🔄 New subscription detected: ${data.name}`;
+      const title = `New subscription: ${data.name}`;
       const body  = `${data.name} — ${_fmt(medAmt)}/${freq}`;
       await _saveNotification(uid, { title, body, type: 'subscription_renewal', data: { merchant: data.name, amount: String(medAmt), freq } });
       if (fcmToken) _sendFCM(uid, fcmToken, { title, body, type: 'subscription_renewal', channelId: 'flowcheck_default' }).catch(() => {});
@@ -3809,7 +3809,7 @@ async function _detectAndEmailSubscriptions(uid, userRef, userData, fcmToken) {
       const delta     = medAmt - prior.amount;
       const sign      = delta > 0 ? '+' : '';
       const changeDir = delta > 0 ? 'increased' : 'decreased';
-      const title = `💡 Price change: ${data.name}`;
+      const title = `${data.name} price changed`;
       const body  = `${data.name} ${changeDir} from ${_fmt(prior.amount)} → ${_fmt(medAmt)}/${freq}`;
       await _saveNotification(uid, { title, body, type: 'subscription_price_change', data: { merchant: data.name, old_amount: String(prior.amount), new_amount: String(medAmt) } });
       if (fcmToken) _sendFCM(uid, fcmToken, { title, body, type: 'subscription_price_change', channelId: 'flowcheck_alerts' }).catch(() => {});
@@ -4129,7 +4129,7 @@ async function _webhookSyncItem(itemId, retryCount = 0) {
           if (crossed.length > 0) {
             const milestone = crossed[crossed.length - 1];
             await userRef.update({ last_nw_milestone: milestone });
-            const mTitle = `🏆 Net worth milestone: ${_fmt(milestone)}`;
+            const mTitle = `Net worth milestone: ${_fmt(milestone)}`;
             const mBody  = `You just crossed ${_fmt(milestone)} in net worth. Keep it up!`;
             await _saveNotification(uid, { title: mTitle, body: mBody, type: 'savings_milestone', data: { milestone: String(milestone) } });
             if (fcmToken) _sendFCM(uid, fcmToken, { title: mTitle, body: mBody, type: 'savings_milestone', channelId: 'flowcheck_default' }).catch(() => {});
@@ -4168,7 +4168,7 @@ async function _webhookSyncItem(itemId, retryCount = 0) {
           if (LARGE_SKIP_RE.test(t.name || '')) continue;
           const merchant  = t.merchant_name || t.name || 'A merchant';
           const safeMerch = _htmlEscape(merchant);
-          const title = `💳 Large Purchase: ${_fmt(t.amount)}`;
+          const title = `Large purchase: ${_fmt(t.amount)}`;
           const body  = `${merchant} charged ${_fmt(t.amount)} to your account.`;
           await _saveNotification(uid, { title, body, type: 'large_txn', data: { amount: String(t.amount), merchant } });
           if (fcmToken) _sendFCM(uid, fcmToken, { title, body, type: 'large_txn', data: { amount: String(t.amount) }, channelId: 'flowcheck_alerts' }).catch(() => {});
@@ -4198,7 +4198,7 @@ async function _webhookSyncItem(itemId, retryCount = 0) {
           if (acct.type !== 'depository') continue;
           if (bal > LOW_BALANCE_THRESHOLD) continue;
           const acctName = _htmlEscape(acct.name || 'Your account');
-          const title    = '⚠️ Low Balance Alert';
+          const title    = 'Low balance';
           const body     = `${acct.name || 'Your account'} has only ${_fmt(bal)} remaining.`;
           await _saveNotification(uid, { title, body, type: 'low_balance', data: { account_id: acct.id, balance: String(bal) } });
           if (fcmToken) _sendFCM(uid, fcmToken, { title, body, type: 'low_balance', data: { balance: String(bal) }, channelId: 'flowcheck_alerts' }).catch(() => {});
@@ -4241,7 +4241,7 @@ async function _webhookSyncItem(itemId, retryCount = 0) {
             });
             if (dupes.length > 0) {
               const safeMerch = _htmlEscape(t.merchant_name || t.name || 'A merchant');
-              const dupTitle = `⚠️ Possible duplicate charge`;
+              const dupTitle = 'Possible duplicate charge';
               const dupBody  = `${t.merchant_name || t.name} charged ${_fmt(t.amount)} twice in the last 7 days.`;
               await _saveNotification(uid, { title: dupTitle, body: dupBody, type: 'duplicate_charge', data: { merchant: mKey, amount: String(t.amount) } });
               if (fcmToken) _sendFCM(uid, fcmToken, { title: dupTitle, body: dupBody, type: 'duplicate_charge', channelId: 'flowcheck_alerts' }).catch(() => {});
@@ -4320,7 +4320,7 @@ async function _webhookSyncItem(itemId, retryCount = 0) {
             if (monthlySpent > budgetLimit) {
               const overBy   = monthlySpent - budgetLimit;
               const catLabel = cat.charAt(0) + cat.slice(1).toLowerCase().replace(/_/g, ' ');
-              const title    = `⚠️ Budget Exceeded: ${catLabel}`;
+              const title    = `Over budget: ${catLabel}`;
               const body     = `You've spent ${_fmt(monthlySpent)} of your ${_fmt(budgetLimit)} ${catLabel} budget — ${_fmt(overBy)} over.`;
               _sendFCM(uid, fcmToken, {
                 title, body,
