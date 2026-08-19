@@ -3172,3 +3172,20 @@ body.fc-theme .fc-nav {
 .fc-addcat-name  { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fc-addcat-none  { font-size: 13px; color: var(--fc-text-faint); margin: 0; }
 .fc-cb-add { width: 100%; margin-top: 16px; }
+
+/* Inline text-style action. Used where a full button would be too heavy but
+   the control still has to be focusable, announced, and able to show a busy
+   state — a styled <span> with an onclick is none of those. */
+.fc-link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: 600;
+  color: var(--fc-accent);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.fc-link-btn:active { opacity: 0.6; }
+.fc-link-btn[aria-busy="true"] { opacity: 0.55; cursor: default; }

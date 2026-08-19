@@ -2685,7 +2685,7 @@ window.FCApp = (function () {
           + '<div class="rw-axis"><span>Today</span><span>Payday</span></div>'
           + '<div class="rw-sample-veil"><span class="rw-sample-tag">Sample data</span></div>'
         + '</div>'
-        + '<button class="rw-cta" type="button" onclick="FCApp.startPlaidLink&&FCApp.startPlaidLink()">Connect your bank</button>'
+        + '<button class="rw-cta" type="button" onclick="FCApp.startPlaidLink&&FCApp.startPlaidLink(this)">Connect your bank</button>'
         + _RW_TRUST_ROW
       + '</section>';
   }
@@ -4018,7 +4018,10 @@ window.FCApp = (function () {
         safeEl.textContent = '—';
         safeEl.classList.add('dash-hero-amount--empty');
       }
-      if (metaEl) metaEl.innerHTML = '<span style="color:var(--fc-accent);font-weight:600;cursor:pointer" onclick="FCApp.startPlaidLink()">+ Connect a bank</span>';
+      /* A <button>, not a styled <span> with an onclick. The span could not
+         be reached by keyboard, announced as nothing to VoiceOver, and had
+         no busy state to show while the link token was being fetched. */
+      if (metaEl) metaEl.innerHTML = '<button type="button" class="fc-link-btn" onclick="FCApp.startPlaidLink(this)">+ Connect a bank</button>';
       if (barEl)    barEl.style.width   = '0%';
       if (spentLbl) spentLbl.textContent = '$0';
       if (billsLbl) billsLbl.textContent = '$0';
@@ -4679,7 +4682,7 @@ window.FCApp = (function () {
               ${promise('search', 'Subscriptions quietly charging you')}
             </ul>
             <button class="fc-action-button fc-action-button--primary home-v8__firstrun-cta" type="button"
-                    onclick="FCApp.startPlaidLink()">Connect your bank</button>
+                    onclick="FCApp.startPlaidLink(this)">Connect your bank</button>
             ${_RW_TRUST_ROW}
           </section>
 
@@ -11090,7 +11093,7 @@ window.FCApp = (function () {
             +'<div style="width:56px;height:56px;border-radius:16px;background:var(--fc-electric-soft);display:flex;align-items:center;justify-content:center;margin:0 auto 14px">'+_ic('trending-up','var(--fc-electric)',26)+'</div>'
             +'<div style="font-size:17px;font-weight:600;color:var(--fc-text);margin-bottom:6px">Track your portfolio</div>'
             +'<div style="font-size:13px;color:var(--fc-text-muted);line-height:1.5;margin-bottom:20px">Connect a brokerage account and your investments, 401(k), and IRA will show up here automatically.</div>'
-            +'<button class="fc-btn fc-btn--primary fc-btn--sm" onclick="FCApp.startPlaidLink&&FCApp.startPlaidLink()">Connect Brokerage</button>'
+            +'<button class="fc-btn fc-btn--primary fc-btn--sm" onclick="FCApp.startPlaidLink&&FCApp.startPlaidLink(this)">Connect Brokerage</button>'
           +'</div>'
           +'<div class="fc-card" style="padding:14px 16px;background:var(--fc-accent-soft);border-color:var(--fc-border-accent)">'
             +'<div style="display:flex;gap:10px;align-items:flex-start"><span style="flex-shrink:0;margin-top:1px">'+_ic('lightbulb','var(--fc-accent)',16)+'</span><div style="font-size:13px;color:var(--fc-text-muted);line-height:1.5">Build your emergency fund and pay off high-interest debt before investing aggressively.</div></div>'
@@ -11596,7 +11599,38 @@ window.FCApp = (function () {
      PLAID LINK FLOW
      ───────────────────────────────────────────────────────────── */
 
-  async function startPlaidLink() {
+  /* ── The connect button's busy state ───────────────────────────────
+     There are six entry points into Plaid Link and they carry five
+     different labels — "Connect your bank", "Connect Brokerage",
+     "+ Connect a bank" and so on. The old code did two things wrong with
+     that: it only ever found #btn-plaid-link, so tapping any of the other
+     five gave NO feedback at all while a link token was fetched over the
+     network — a dead-feeling tap on the one action the whole product
+     depends on. And its finally block restored the label by assigning the
+     literal string 'Connect Bank Account', so cancelling out of Plaid from
+     the investments screen left a button reading "Connect Bank Account"
+     where "Connect Brokerage" had been.
+
+     Whichever element was tapped now goes busy, and its own label comes
+     back — remembered, not guessed. */
+  function _setConnectBusy(el, busy) {
+    if (!el) return;
+    if (busy) {
+      if (el.dataset.fcLabel === undefined) el.dataset.fcLabel = el.textContent;
+      el.disabled = true;
+      el.setAttribute('aria-busy', 'true');
+      el.textContent = 'Connecting…';
+    } else {
+      el.disabled = false;
+      el.removeAttribute('aria-busy');
+      if (el.dataset.fcLabel !== undefined) {
+        el.textContent = el.dataset.fcLabel;
+        delete el.dataset.fcLabel;
+      }
+    }
+  }
+
+  async function startPlaidLink(srcEl) {
     haptic('light');
     // Free plan: gate at 1 bank. Use live RC status + actual item count so the
     // check can't be bypassed by a stale cache (bug #9).
@@ -11613,8 +11647,11 @@ window.FCApp = (function () {
       if (state.user?.plaid_linked && !_isPro()) { showPaywall(); return; }
     }
     if (typeof FCAnalytics !== 'undefined') FCAnalytics.track('plaid_link_started');
-    const btn = document.getElementById('btn-plaid-link');
-    if (btn) { btn.disabled = true; btn.textContent = 'Connecting…'; }
+    /* The element that was actually tapped, falling back to the original
+       id for any call site that predates this. */
+    const btn = (srcEl && srcEl.nodeType === 1) ? srcEl
+              : document.getElementById('btn-plaid-link');
+    _setConnectBusy(btn, true);
 
     // Suspend idle/lock timer while Plaid Link is open — SMS verification
     // can take several minutes and we don't want the lock screen covering Plaid's UI.
@@ -11631,13 +11668,22 @@ window.FCApp = (function () {
       _renderHome();
       setTimeout(() => _doSync(false), 600);
       // Poll for accounts/transactions to appear (backend writes async after sync)
+      /* Repaint when BALANCES arrive, not when balances AND transactions
+         both have. exchange-token now writes the accounts from the
+         accountsGet response it already holds, so they land within about a
+         second — while transactions are still paginating in behind them.
+         Waiting for both meant the numbers sat in Firestore, already
+         correct, while the screen kept showing nothing: the exact delay the
+         backend change was made to remove.
+         Transactions get their own repaint when they arrive, so nothing is
+         lost by painting twice. */
       let pollCount = 0;
+      let paintedAccounts = false;
       const pollInterval = setInterval(() => {
-        if ((state.accounts || []).length > 0 && (state.transactions || []).length > 0) {
-          clearInterval(pollInterval);
-          _renderHome();
-          return;
-        }
+        const haveAccounts = (state.accounts || []).length > 0;
+        const haveTxns     = (state.transactions || []).length > 0;
+        if (haveAccounts && !paintedAccounts) { paintedAccounts = true; _renderHome(); }
+        if (haveAccounts && haveTxns) { clearInterval(pollInterval); _renderHome(); return; }
         if (++pollCount >= 10) clearInterval(pollInterval); // stop after 10s
       }, 1000);
       // Request push permissions now — user just connected their bank, so
@@ -11675,7 +11721,7 @@ window.FCApp = (function () {
         if (window.Sentry) Sentry.captureException(err, { tags: { flow: 'plaid_link' } });
       }
     } finally {
-      if (btn) { btn.disabled = false; btn.textContent = 'Connect Bank Account'; }
+      _setConnectBusy(btn, false);
       // Re-arm idle timer now that Plaid Link is closed
       _resetIdleTimer();
     }
