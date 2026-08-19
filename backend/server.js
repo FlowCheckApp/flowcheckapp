@@ -3369,32 +3369,25 @@ async function _runOnboardingDrip(uid, d, drip, ageDays) {
 
   // ── Email 1: +24h, no bank connected ──────────────────────
   if (!drip.day1 && ageDays >= 1 && ageDays < 7 && !linked) {
-    await _sendEmail(email, "Still getting started on FlowCheck? 🏦", `
-      <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-      <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
-        <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:36px 32px;text-align:center">
-          ${LOGO_IMG}
-          <h1 style="color:#fff;font-size:22px;font-weight:700;margin:0 0 6px">Connect your bank, ${name}</h1>
-          <p style="color:rgba(255,255,255,0.6);font-size:14px;margin:0">It takes about 60 seconds</p>
-        </div>
-        <div style="padding:28px 32px">
-          <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 20px">
-            You signed up but haven't connected a bank yet. Without it, FlowCheck can't show you where your money is going — which is the whole point.
-          </p>
-          <div style="background:#f0fffe;border-left:3px solid #1ac4f0;border-radius:8px;padding:14px 18px;margin-bottom:24px">
-            <p style="font-size:13px;color:#4b5563;margin:4px 0">✓ 256-bit encryption via Plaid (same as your bank's app)</p>
-            <p style="font-size:13px;color:#4b5563;margin:4px 0">✓ Read-only — FlowCheck can never move your money</p>
-            <p style="font-size:13px;color:#4b5563;margin:4px 0">✓ Disconnect any time in Settings</p>
-          </div>
-          <a href="${BACKEND_URL}/open" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
-            Connect My Bank →
-          </a>
-        </div>
-        <div style="padding:16px 32px;border-top:1px solid #f3f4f6;text-align:center">
-          <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · <a href="${_unsubUrl(uid, 'all', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe</a></p>
-        </div>
-      </div></body></html>
-    `, uid);
+    await _sendEmail(email, 'Connect your bank to finish setting up FlowCheck', _mail.shell({
+      title:      'Connect your bank',
+      preheader:  'It takes about 60 seconds, and it is read-only.',
+      heading:    `Connect your bank, ${name}`,
+      subheading: 'It takes about 60 seconds.',
+      tone:       'info',
+      logoImg:    LOGO_IMG,
+      bodyHtml: `
+        <p style="margin:0 0 22px">You signed up but haven't connected a bank yet. Without one, FlowCheck can't show you where your money is going — which is the whole point.</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#eefaff;border-radius:12px;margin:0 0 24px">
+          <tr><td style="padding:18px 20px">
+            <p style="font-size:14px;color:#374151;margin:0 0 8px">256-bit encryption via Plaid — the same connection your bank's own app uses</p>
+            <p style="font-size:14px;color:#374151;margin:0 0 8px">Read-only. FlowCheck can never move your money</p>
+            <p style="font-size:14px;color:#374151;margin:0">Disconnect any time in Settings</p>
+          </td></tr>
+        </table>
+        ${_mail.button('Connect my bank', `${BACKEND_URL}/open`, 'info')}`,
+      footerHtml: `FlowCheck &middot; <a href="${_unsubUrl(uid, 'all', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe</a>`,
+    }), uid);
     updates['onboarding_drip.day1'] = true;
   }
 
@@ -3402,33 +3395,26 @@ async function _runOnboardingDrip(uid, d, drip, ageDays) {
   if (!drip.day3 && ageDays >= 3 && ageDays < 14 && linked) {
     const budgetSnap = await db.collection('users').doc(uid).collection('budgets').limit(1).get();
     if (budgetSnap.empty) {
-      await _sendEmail(email, `Set your first budget — it takes 30 seconds ⚡`, `
-        <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-        <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
-          <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:36px 32px;text-align:center">
-            ${LOGO_IMG}
-            <h1 style="color:#fff;font-size:22px;font-weight:700;margin:0 0 6px">Your bank is connected, ${name}</h1>
-            <p style="color:rgba(255,255,255,0.6);font-size:14px;margin:0">One more step to get the most out of FlowCheck</p>
-          </div>
-          <div style="padding:28px 32px">
-            <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 20px">
-              You've connected your bank — great start. The next step is setting a budget. People who set a budget in FlowCheck spend an average of 14% less within the first month.
-            </p>
-            <div style="background:#f0fffe;border-left:3px solid #1ac4f0;border-radius:8px;padding:14px 18px;margin-bottom:24px">
-              <p style="font-size:13px;font-weight:600;color:#0a1520;margin:0 0 8px">How to set your first budget:</p>
-              <p style="font-size:13px;color:#4b5563;margin:4px 0">1. Open FlowCheck → tap Insights tab</p>
-              <p style="font-size:13px;color:#4b5563;margin:4px 0">2. Tap "Set Budget" next to any category</p>
-              <p style="font-size:13px;color:#4b5563;margin:4px 0">3. Enter your monthly limit — done</p>
-            </div>
-            <a href="${BACKEND_URL}/open" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
-              Set My First Budget →
-            </a>
-          </div>
-          <div style="padding:16px 32px;border-top:1px solid #f3f4f6;text-align:center">
-            <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · <a href="${_unsubUrl(uid, 'all', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe</a></p>
-          </div>
-        </div></body></html>
-      `, uid);
+      await _sendEmail(email, 'Set your first budget', _mail.shell({
+        title:      'Set your first budget',
+        preheader:  'One more step to get the most out of FlowCheck.',
+        heading:    `Your bank is connected, ${name}`,
+        subheading: 'One more step to get the most out of FlowCheck.',
+        tone:       'success',
+        logoImg:    LOGO_IMG,
+        bodyHtml: `
+          <p style="margin:0 0 22px">Your bank is connected — good start. The next step is setting a budget, so FlowCheck can tell you when a category is running ahead of the month instead of only showing you what already happened.</p>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#eefaf4;border-radius:12px;margin:0 0 24px">
+            <tr><td style="padding:18px 20px">
+              <p style="font-size:12px;font-weight:700;color:#0d3f2c;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 12px">Three steps</p>
+              <p style="font-size:14px;color:#374151;margin:0 0 8px">1. Open FlowCheck and go to the Plan tab</p>
+              <p style="font-size:14px;color:#374151;margin:0 0 8px">2. Under Categories, tap Edit Budgets</p>
+              <p style="font-size:14px;color:#374151;margin:0">3. Set a limit on the categories you want to watch</p>
+            </td></tr>
+          </table>
+          ${_mail.button('Set my first budget', `${BACKEND_URL}/open`, 'success')}`,
+        footerHtml: `FlowCheck &middot; <a href="${_unsubUrl(uid, 'all', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe</a>`,
+      }), uid);
       updates['onboarding_drip.day3'] = true;
     }
   }
