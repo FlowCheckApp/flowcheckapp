@@ -2220,6 +2220,24 @@ body.fc-theme {
   transition: background var(--fc-dur-instant) var(--fc-ease-out);
   border-radius: 4px;
   -webkit-tap-highlight-color: transparent;
+  /* These rows are <button> now — every clickable one was a <div> with an
+     onclick, so none could be reached by keyboard and VoiceOver announced
+     them as nothing at all. That included "Sign out". Curiously "Delete my
+     account & data" already carried role="button" and tabindex="0", so the
+     right pattern existed and had been applied to exactly one row.
+     A real button needs its UA chrome removed: background, border, the
+     centred text and the browser's font. Width matters too — a button
+     shrink-wraps its content, which would have collapsed every row away
+     from the card edge. */
+  width: 100%;
+  background: none;
+  border-left: none;
+  border-right: none;
+  border-top: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 .fc-settings-row:last-child { border-bottom: none; }
 .fc-settings-row:active {

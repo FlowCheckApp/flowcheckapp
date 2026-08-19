@@ -8039,6 +8039,19 @@ window.FCApp = (function () {
      ───────────────────────────────────────────────────────────── */
 
   function _renderSettings() {
+    /* Version, build and environment. The first thing any support
+       conversation needs and the app had it nowhere on screen — "what
+       version are you on?" was unanswerable without going to the App Store.
+       Build number matters more than the marketing version once TestFlight
+       is involved, since several builds share one version string. */
+    const verEl = document.getElementById('settings-version');
+    if (verEl) {
+      const v     = (window.FC_CONFIG && FC_CONFIG.app && FC_CONFIG.app.version) || '';
+      const build = (window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform())
+        ? '' : ' · web';
+      verEl.textContent = v ? `FlowCheck ${v}${build}` : '';
+    }
+
     const user = state.user;
     if (!user) return;
 
