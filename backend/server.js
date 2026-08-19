@@ -1955,6 +1955,16 @@ if (_resendApiKey) {
 }
 
 const EMAIL_FROM = process.env.EMAIL_FROM || 'FlowCheck <noreply@getflowcheck.app>';
+
+/* Where a reply actually lands.
+   Everything ships from noreply@, which is correct for the envelope — but no
+   Reply-To was ever set, so a user who hit reply on a low-balance alert or a
+   duplicate-charge warning was writing into a mailbox nobody owns. Those are
+   exactly the emails people answer, because they arrive at the moment
+   something looks wrong with their money, and the reply is the support
+   request. It was silently discarded every time.
+   Overridable so a future support desk address does not need a code change. */
+const REPLY_TO = process.env.REPLY_TO || 'support@getflowcheck.app';
 // Logo block — always shows "FlowCheck" wordmark as text fallback when images are blocked.
 // Wrapped in a table for maximum email-client compatibility (Outlook, Apple Mail, Gmail).
 const LOGO_IMG = `<table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto 28px;border-collapse:collapse">
@@ -2079,7 +2089,7 @@ async function _sendEmail(to, subject, html, uid = null) {
         'Authorization': `Bearer ${_resendApiKey}`,
         'Content-Type':  'application/json',
       },
-      body:   JSON.stringify({ from: EMAIL_FROM, to, subject, html: body, headers }),
+      body:   JSON.stringify({ from: EMAIL_FROM, to, subject, html: body, headers, reply_to: REPLY_TO }),
       signal: AbortSignal.timeout(10_000),
     });
     if (!resp.ok) {
