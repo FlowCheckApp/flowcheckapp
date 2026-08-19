@@ -8044,7 +8044,7 @@ window.FCApp = (function () {
        version are you on?" was unanswerable without going to the App Store.
        Build number matters more than the marketing version once TestFlight
        is involved, since several builds share one version string. */
-    const verEl = document.getElementById('settings-version');
+    const verEl = document.getElementById('settings-version-footer');
     if (verEl) {
       const v     = (window.FC_CONFIG && FC_CONFIG.app && FC_CONFIG.app.version) || '';
       const build = (window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform())
@@ -8060,7 +8060,7 @@ window.FCApp = (function () {
     if (devRow) devRow.style.display = FC_CONFIG.app.env === 'development' ? 'flex' : 'none';
 
     const versionEl = document.getElementById('settings-version');
-    if (versionEl) versionEl.textContent = FC_CONFIG.app.version || '2.0.0';
+    if (versionEl) versionEl.textContent = FC_CONFIG.app.version || '';
 
     const nameEl  = document.getElementById('settings-name');
     const emailEl = document.getElementById('settings-email');
@@ -15887,7 +15887,7 @@ window.FCApp = (function () {
       createdAt:        firebase.firestore.FieldValue.serverTimestamp(),
       status:           'new',
       userId:           user ? user.uid : null,
-      appVersion:       FC_CONFIG?.app?.version || '2.0.0',
+      appVersion:       FC_CONFIG?.app?.version || 'unknown',
       platform:         (typeof Capacitor !== 'undefined' && Capacitor.getPlatform) ? Capacitor.getPlatform() : 'web',
     };
 
@@ -15909,7 +15909,7 @@ window.FCApp = (function () {
 
   function _buildFeedbackDiagnostics() {
     return {
-      appVersion:    FC_CONFIG?.app?.version || '2.0.0',
+      appVersion:    FC_CONFIG?.app?.version || 'unknown',
       platform:      (typeof Capacitor !== 'undefined' && Capacitor.getPlatform) ? Capacitor.getPlatform() : 'web',
       currentScreen: state.screen || 'app',
       currentTab:    state.tab || 'home',

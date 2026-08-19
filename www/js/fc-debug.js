@@ -231,7 +231,12 @@ window.FCDebug = (function () {
     const observer = new MutationObserver(() => {
       const rows = document.querySelectorAll('.fc-settings-value');
       rows.forEach(el => {
-        if (el.textContent === '2.0.0' && !el.id) {
+        /* Compare against the CONFIGURED version, not a literal. This used
+           to test for the string '2.0.0', so the first version bump would
+           have silently detached the 5-tap debug panel — the row would still
+           render and simply stop responding, with nothing to explain why. */
+        const _ver = (window.FC_CONFIG && FC_CONFIG.app && FC_CONFIG.app.version) || '';
+        if (_ver && el.textContent === _ver && !el.id) {
           el.id = 'settings-version-tap';
           el.title = 'Tap 5× for debug panel';
           el.style.cursor = 'default';
