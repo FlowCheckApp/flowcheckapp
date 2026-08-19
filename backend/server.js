@@ -3378,32 +3378,22 @@ async function _runOnboardingDrip(uid, d, drip, ageDays) {
         ? topCat[0].charAt(0) + topCat[0].slice(1).toLowerCase().replace(/_/g, ' ')
         : null;
 
-      await _sendEmail(email, `Here's what FlowCheck found in your first week 👀`, `
-        <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-        <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
-          <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:36px 32px;text-align:center">
-            ${LOGO_IMG}
-            <h1 style="color:#fff;font-size:22px;font-weight:700;margin:0 0 6px">Your first week on FlowCheck</h1>
-            <p style="color:rgba(255,255,255,0.6);font-size:14px;margin:0">Here's what we found, ${name}</p>
-          </div>
-          <div style="padding:28px 32px">
-            <div style="background:#f0fffe;border-radius:12px;padding:20px;text-align:center;margin-bottom:20px">
-              <div style="font-size:13px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">Spent This Week</div>
-              <div style="font-size:32px;font-weight:800;color:#0a1520">${_fmt(totalSpent)}</div>
-              ${topCatLabel ? `<div style="font-size:13px;color:#6b7280;margin-top:4px">Mostly on <strong style="color:#0a1520">${_htmlEscape(topCatLabel)}</strong></div>` : ''}
-            </div>
-            <p style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 20px">
-              That's your money in motion. Open FlowCheck to see the full breakdown — every transaction categorized, your Financial Health Score, and where you could be saving.
-            </p>
-            <a href="${BACKEND_URL}/open" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
-              See My Full Breakdown →
-            </a>
-          </div>
-          <div style="padding:16px 32px;border-top:1px solid #f3f4f6;text-align:center">
-            <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · <a href="${_unsubUrl(uid, 'all', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe</a></p>
-          </div>
-        </div></body></html>
-      `, uid);
+      await _sendEmail(email, 'Your first week on FlowCheck', _mail.shell({
+        title:      'Your first week',
+        preheader:  `${_fmt(totalSpent)} spent this week.`,
+        heading:    'Your first week on FlowCheck',
+        subheading: `Here is what we found, ${name}.`,
+        tone:       'info',
+        logoImg:    LOGO_IMG,
+        bodyHtml: `
+          ${_mail.panel([
+            { label: 'Spent this week', value: _fmt(totalSpent), strong: true, color: '#0b3d52' },
+            ...(topCatLabel ? [{ label: 'Mostly on', value: topCatLabel }] : []),
+          ], 'info')}
+          <p style="margin:0 0 24px">That is your money in motion. The app has the full breakdown — every transaction categorised, your Financial Health Score, and where there is room to save.</p>
+          ${_mail.button('See the breakdown', `${BACKEND_URL}/open`, 'info')}`,
+        footerHtml: `FlowCheck &middot; <a href="${_unsubUrl(uid, 'all', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe</a>`,
+      }), uid);
       updates['onboarding_drip.day7'] = true;
     }
   }
@@ -3412,32 +3402,25 @@ async function _runOnboardingDrip(uid, d, drip, ageDays) {
   if (!drip.day14 && ageDays >= 14 && ageDays < 30 && linked) {
     const billsSnap = await db.collection('users').doc(uid).collection('bills').limit(1).get();
     if (billsSnap.empty) {
-      await _sendEmail(email, `Are you tracking your recurring bills? 📋`, `
-        <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-        <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
-          <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:36px 32px;text-align:center">
-            ${LOGO_IMG}
-            <h1 style="color:#fff;font-size:22px;font-weight:700;margin:0 0 6px">Never miss a bill, ${name}</h1>
-            <p style="color:rgba(255,255,255,0.6);font-size:14px;margin:0">One late payment can cost you in fees and credit score</p>
-          </div>
-          <div style="padding:28px 32px">
-            <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 20px">
-              You haven't added any bills to FlowCheck yet. Add your recurring payments — rent, Netflix, phone, utilities — and we'll remind you 2 days before each one is due.
-            </p>
-            <div style="background:#f0fffe;border-left:3px solid #1ac4f0;border-radius:8px;padding:14px 18px;margin-bottom:24px">
-              <p style="font-size:13px;color:#4b5563;margin:4px 0">✓ Push notification 2 days before due</p>
-              <p style="font-size:13px;color:#4b5563;margin:4px 0">✓ Email reminder if you miss the push</p>
-              <p style="font-size:13px;color:#4b5563;margin:4px 0">✓ Overdue alerts so nothing slips through</p>
-            </div>
-            <a href="${BACKEND_URL}/open" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
-              Add My First Bill →
-            </a>
-          </div>
-          <div style="padding:16px 32px;border-top:1px solid #f3f4f6;text-align:center">
-            <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · <a href="${_unsubUrl(uid, 'all', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe</a></p>
-          </div>
-        </div></body></html>
-      `, uid);
+      await _sendEmail(email, 'Never miss a bill', _mail.shell({
+        title:      'Never miss a bill',
+        preheader:  'Add your recurring payments and we will remind you before each one.',
+        heading:    `Never miss a bill, ${name}`,
+        subheading: 'One late payment costs more than the fee.',
+        tone:       'info',
+        logoImg:    LOGO_IMG,
+        bodyHtml: `
+          <p style="margin:0 0 22px">You haven't added any bills yet. Add your recurring payments — rent, phone, utilities, subscriptions — and FlowCheck reminds you before each one lands.</p>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#eefaff;border-radius:12px;margin:0 0 24px">
+            <tr><td style="padding:18px 20px">
+              <p style="font-size:14px;color:#374151;margin:0 0 8px">A push notification one to two days before it is due</p>
+              <p style="font-size:14px;color:#374151;margin:0 0 8px">An email reminder if you miss the push</p>
+              <p style="font-size:14px;color:#374151;margin:0">Overdue alerts so nothing slips past</p>
+            </td></tr>
+          </table>
+          ${_mail.button('Add my first bill', `${BACKEND_URL}/open`, 'info')}`,
+        footerHtml: `FlowCheck &middot; <a href="${_unsubUrl(uid, 'all', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe</a>`,
+      }), uid);
       updates['onboarding_drip.day14'] = true;
     }
   }
