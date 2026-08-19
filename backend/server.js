@@ -61,6 +61,9 @@ const {
   Products, CountryCode,
 } = require('plaid');
 
+/* When this process started. Together with the commit it answers "is the running code the code I pushed, and when did it restart?" */
+const _BOOT_TIME = new Date().toISOString();
+
 /* ── Validate required env vars on boot ──────────────────────── */
 const REQUIRED = [
   'PLAID_CLIENT_ID', 'PLAID_SECRET', 'PLAID_ENV',
@@ -423,7 +426,20 @@ app.get('/', (req, res) => {
       !ua.includes('Twitterbot') && !ua.includes('LinkedInBot') &&
       !ua.includes('Slackbot') && !ua.includes('WhatsApp') &&
       !ua.includes('Discordbot') && !ua.includes('TelegramBot')) {
-    return res.json({ name: 'FlowCheck API', status: 'ok', version: '1.0.0' });
+    /* Report the DEPLOYED COMMIT, not a hardcoded string. This said
+       version: '1.0.0' — a literal that had never changed, did not match the
+       app's version, and answered nothing. The question anyone actually has
+       when they hit this endpoint is "did my deploy land?", and there was no
+       way to tell: the API looked identical before and after a push.
+       Railway injects these at build time; they are absent locally, which is
+       itself the honest answer there. */
+    return res.json({
+      name:    'FlowCheck API',
+      status:  'ok',
+      commit:  (process.env.RAILWAY_GIT_COMMIT_SHA || 'local').slice(0, 7),
+      branch:  process.env.RAILWAY_GIT_BRANCH || 'local',
+      startedAt: _BOOT_TIME,
+    });
   }
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
