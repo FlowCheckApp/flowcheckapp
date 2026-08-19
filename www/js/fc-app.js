@@ -1009,138 +1009,89 @@ window.FCApp = (function () {
 
   /* In-app full-screen page viewer — legal pages, help centre.
 
-     Fetches the HTML and hands it to the iframe via srcdoc rather than
-     pointing src at the file, so the outer nav can be stripped (its links
-     would navigate the iframe away from the app) and mobile overrides
-     injected.
+     Loads the page straight into the iframe. It used to fetch the HTML and
+     hand it over as srcdoc so the page's nav could be stripped, and that is
+     what hung Terms and Privacy on "Loading…" forever: through WKWebView's
+     scheme handler the request never settled, and a promise that never
+     settles never reaches its catch, so the error path was unreachable by
+     construction. There is nothing to hang here — the frame either loads or
+     fires an error, and both are bounded.
 
-     THE BUG THIS IS SHAPED AROUND
-     -----------------------------
-     Terms and Privacy sat on "Loading…" forever on device. The placeholder
-     below is itself srcdoc, and it rendered — so framing was never the
-     problem. The problem was that `await fetch(url)` had no timeout: through
-     WKWebView's custom scheme handler a request can hang indefinitely rather
-     than fail, and a promise that never settles never reaches the catch. The
-     error path was written and simply could not be reached.
+     The nav is gone because the PAGES now hide it when framed (see the
+     .fc-embed block in www/legal/*.html), which is where that decision
+     belongs: the app previously offered three ways out of one page — its own
+     X, the page's sticky "‹ FlowCheck" bar, and the site nav's "Back to
+     Home" — and the sticky bar called history.back(), which inside an iframe
+     moves the frame and never leaves the app. */
+  const _INAPP_TITLES = {
+    '/legal/terms.html':   'Terms of Service',
+    '/legal/privacy.html': 'Privacy Policy',
+    '/legal/support.html': 'Help Center',
+  };
 
-     So every wait here is bounded, and every failure has somewhere to land:
-     fetch → direct src → a link to the page on the web. App Review has to be
-     able to open the privacy policy, and "Loading…" forever is the one
-     outcome that leaves them nothing to do. */
   let _inappToken = 0;
 
-  async function _showInAppPage(url) {
+  function _showInAppPage(url, title) {
     const overlay = document.getElementById('fc-inapp-page-overlay');
     const iframe  = document.getElementById('fc-inapp-page-iframe');
     if (!overlay || !iframe) return;
 
-    /* Every async continuation below checks this. Without it, a slow fetch
-       from a page the user already closed lands in whichever page they
-       opened next. */
+    /* A load or timer from a page the user already closed must not paint
+       into whatever they opened next. */
     const token = ++_inappToken;
     const live  = () => token === _inappToken;
 
-    iframe.removeAttribute('src');
-    iframe.srcdoc = `<html><body style="background:#0a1520;color:rgba(255,255,255,0.4);font-family:-apple-system,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-size:15px">Loading…</body></html>`;
+    const titleEl = document.getElementById('fc-inapp-page-title');
+    if (titleEl) {
+      /* Naming the page beats a second "FlowCheck" under the app's own — the
+         user knows which app they are in; they want to know which document. */
+      titleEl.textContent = title || _INAPP_TITLES[url.split('?')[0]] || 'FlowCheck';
+    }
+
     overlay.style.display = 'flex';
     document.body.style.overflow = 'hidden';
     haptic('light');
 
-    /* Last resort: the page still exists on the web, so say where. */
+    /* The page still exists on the web, so say where rather than leaving a
+       dark rectangle. App Review has to be able to read the privacy policy. */
     const showFallback = () => {
       if (!live()) return;
-      iframe.removeAttribute('srcdoc');
+      iframe.removeAttribute('src');
       iframe.srcdoc = `<html><body style="background:#0a1520;color:rgba(255,255,255,0.75);font-family:-apple-system,sans-serif;padding:32px;font-size:15px;line-height:1.6;margin:0">
         <p style="margin:0 0 10px">This page couldn't be loaded.</p>
         <p style="color:rgba(255,255,255,0.45);font-size:14px;margin:0">Read it at <a href="https://getflowcheck.app${url}" style="color:#1ac4f0">getflowcheck.app${url}</a></p>
         </body></html>`;
     };
 
-    /* Direct load. No fetch involved, so it survives whatever the scheme
-       handler is doing to XHR. The nav is not stripped, which is worse than
-       the srcdoc path and much better than nothing. */
-    const showDirect = () => {
+    let settled = false;
+    iframe.addEventListener('load', () => {
+      settled = true;
       if (!live()) return;
-      let settled = false;
-      iframe.addEventListener('load', () => {
-        settled = true;
-        if (!live()) return;
-        /* A load event only says the frame navigated, not that it navigated
-           to the page. A 404 body fires load just as happily, so check that
-           something real arrived before calling it done. */
-        try {
-          const d = iframe.contentDocument;
-          if (d && d.body && d.body.textContent.trim().length < 40) showFallback();
-        } catch (_) { /* cross-origin means a real document loaded */ }
-      }, { once: true });
-      iframe.removeAttribute('srcdoc');
-      iframe.src = url;
-      setTimeout(() => { if (!settled) showFallback(); }, 4000);
-    };
-
-    let html;
-    try {
-      /* AbortController, not Promise.race — race leaves the request running
-         and the WKWebView connection open behind it. */
-      const ctl = new AbortController();
-      /* 3s, not 30. These files ship inside the app — a healthy read is
-         single-digit milliseconds, so anything past a few seconds is the
-         hang, not slowness, and every extra second is spent staring at
-         "Loading…". */
-      const timer = setTimeout(() => ctl.abort(), 3000);
-      try {
-        const res = await fetch(url, { signal: ctl.signal, cache: 'no-store' });
-        /* A clean HTTP error means the page really is not there, so retrying
-           the same URL as a direct load only renders the 404 body. Only a
-           transport failure — the hang this is all here for — is worth the
-           second attempt. */
-        if (!res.ok) { showFallback(); return; }
-        html = await res.text();
-      } finally { clearTimeout(timer); }
-    } catch (_) {
-      showDirect();
-      return;
-    }
-
-    if (!live()) return;
-
-    // Strip outer nav — its links would navigate the iframe away from the app.
-    let cleaned = html.replace(/<nav[\s\S]*?<\/nav>/gi, '');
-    const injectCSS = `<style>
-        .sidebar { position: static !important; top: auto !important; }
-        .support-layout { grid-template-columns: 1fr !important; gap: 32px !important; padding: 32px 20px 80px !important; }
-        .page-hero { padding: 40px 20px 32px !important; }
-        .faq-section-title { position: static !important; }
-        details { overflow: visible !important; }
-      </style>`;
-    cleaned = cleaned.includes('</head>')
-      ? cleaned.replace('</head>', injectCSS + '</head>')
-      : injectCSS + cleaned;
-    iframe.srcdoc = cleaned;
-
-    /* Assignment throws nothing if the frame refuses the document, so
-       confirm something is actually on screen rather than assuming. */
-    setTimeout(() => {
-      if (!live()) return;
-      let empty = true;
+      /* A load event says the frame navigated, not that it navigated to the
+         page — a 404 body fires load just as happily. */
       try {
         const d = iframe.contentDocument;
-        empty = !d || !d.body || d.body.textContent.trim().length < 40;
-      } catch (_) { empty = false; }   // cross-origin means it loaded
-      if (empty) showDirect();
-    }, 1200);
+        if (d && d.body && d.body.textContent.trim().length < 40) showFallback();
+      } catch (_) { /* cross-origin means a real document arrived */ }
+    }, { once: true });
+    iframe.addEventListener('error', showFallback, { once: true });
+
+    iframe.removeAttribute('srcdoc');
+    iframe.src = url;
+
+    /* These files ship inside the app, so a healthy load is milliseconds.
+       Anything past a few seconds is a fault, not slowness. */
+    setTimeout(() => { if (!settled && live()) showFallback(); }, 4000);
   }
 
   function closeInAppPage() {
     const overlay = document.getElementById('fc-inapp-page-overlay');
     const iframe  = document.getElementById('fc-inapp-page-iframe');
-    /* Invalidate in-flight work: a fetch or a retry timer from this page must
-       not paint into the next one the user opens. */
-    _inappToken++;
+    _inappToken++;   // invalidate any in-flight load or retry timer
     if (overlay) overlay.style.display = 'none';
     if (iframe) {
-      /* srcdoc wins over src, so clearing src alone leaves the old document
-         loaded and it flashes on the next open. */
+      /* srcdoc wins over src, so clearing src alone would leave the previous
+         document loaded and flash it on the next open. */
       iframe.removeAttribute('srcdoc');
       iframe.removeAttribute('src');
     }
@@ -1181,28 +1132,27 @@ window.FCApp = (function () {
       return;
     }
 
-    /* Auto-skip the notification screen when iOS has already answered.
+    /* The notification step ADAPTS to what iOS already knows; it does not
+       disappear.
 
-       The system dialog appears ONCE per install. This app requests the
-       permission from four places, so whichever runs first spends it — after
-       that requestPermissions() returns the stored answer with nothing on
-       screen, and the button looked broken: tap it, no Apple overlay, straight
-       to the next page. The Face ID screen still showed its overlay, which is
-       what made the difference obvious.
+       The system dialog appears once per install and this app requests the
+       permission from four places, so whichever runs first spends it. After
+       that the button looked broken: tap it, no Apple overlay, straight to
+       the next page — while the Face ID screen still showed its overlay,
+       which is what made the difference obvious.
 
-       Granted already means there is nothing to ask, so the screen is skipped
-       entirely. Denied still shows it — allowNotifPermission turns the button
-       into a route to iOS Settings, which is the only place that answer can
-       change. Anything else (prompt, or no plugin on web) shows it normally. */
+       Skipping the screen outright fixed the dishonesty and introduced a
+       worse problem: a step that silently vanishes. The user cannot tell a
+       screen that was skipped on purpose from one that failed to appear, the
+       flow is a different length for different people, and nobody who
+       already granted the permission ever learns what the alerts are for.
+
+       So it always shows, and primeNotifScreen() rewrites the controls to
+       match reality: granted becomes a confirmation, denied points at iOS
+       Settings — the only place that answer can change — and unasked asks. */
     if (name === 'notif-permission') {
-      const _showNotif = () => _doSetScreen('notif-permission');
-      if (!window.FCPush || !FCPush.checkPermissions) { _showNotif(); return; }
-      FCPush.checkPermissions()
-        .then(status => {
-          if (status === 'granted') { _doSetScreen('onboarding'); return; }
-          _showNotif();
-        })
-        .catch(_showNotif);
+      _doSetScreen('notif-permission');
+      if (FCApp.primeNotifScreen) FCApp.primeNotifScreen();
       return;
     }
 

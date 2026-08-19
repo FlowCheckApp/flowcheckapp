@@ -2350,8 +2350,23 @@ body:not(.keyboard-open) .fc-sheet {
 
   <div class="fc-auth-body fc-stagger">
 
-    <!-- Logo -->
-    <div class="fc-auth-field-enter" style="display:flex;flex-direction:column;align-items:center;margin-bottom:22px">
+    <!-- Back to the welcome screen. Login had no way out either: its only
+         other routes are "Create account" and "Forgot password", both of
+         which move sideways. -->
+    <button type="button" class="fc-auth-backbtn"
+            onclick="FCApp.haptic('light');FCApp.setScreen('hero')"
+            aria-label="Back">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+    </button>
+
+    <!-- Logo. fc-auth-art so it collapses when the keyboard opens — the rule
+         this replaced was positional (.fc-auth-body > div:first-child) and
+         did cover login, so leaving the class off here quietly dropped the
+         collapse on the one auth screen people use most. -->
+    <div class="fc-auth-field-enter fc-auth-art" style="display:flex;flex-direction:column;align-items:center;margin-bottom:22px">
       <div class="fc-auth-logo" style="margin-bottom:11px">
         <svg width="26" height="26" viewBox="0 0 24 24" fill="white" aria-hidden="true">
           <path d="M4 4h16v3H4zm0 6h11v3H4zm0 6h7v3H4z"/>
@@ -2841,7 +2856,7 @@ body:not(.keyboard-open) .fc-sheet {
       Allow Notifications
     </button>
 
-    <button onclick="FCApp.skipNotifPermission()" type="button"
+    <button id="btn-notif-skip" onclick="FCApp.skipNotifPermission()" type="button"
             class="fc-auth-skip" style="width:100%;margin-top:4px;font-size:14px">
       Not now
     </button>
@@ -7686,6 +7701,58 @@ FCApp.allowNotifPermission = async function() {
   FCApp.setScreen('onboarding');
 };
 
+/* Rewrite the notification screen's controls to match what iOS already
+   knows. Called on every entry to the screen, so it must fully RESET first —
+   the screen is reachable more than once per session and a button left
+   reading "Open iOS Settings" from a previous visit is worse than no
+   adaptation at all. */
+FCApp.primeNotifScreen = async function () {
+  const btn  = document.getElementById('btn-notif-allow');
+  const skip = document.getElementById('btn-notif-skip');
+  const note = document.getElementById('notif-perm-note');
+  if (!btn) return;
+
+  btn.disabled    = false;
+  btn.textContent = 'Allow Notifications';
+  btn.onclick     = function () { FCApp.allowNotifPermission(); };
+  if (skip) skip.style.display = '';
+  if (note) { note.style.display = 'none'; note.textContent = ''; note.style.color = ''; }
+
+  const status = window.FCPush
+    ? await FCPush.checkPermissions().catch(() => 'unavailable')
+    : 'unavailable';
+
+  if (status === 'granted') {
+    /* Nothing to ask and nothing to decline — so this is a confirmation, and
+       "Not now" would be a control that does nothing. */
+    btn.textContent = 'Continue';
+    btn.onclick = function () { FCApp.haptic('light'); FCApp.setScreen('onboarding'); };
+    if (skip) skip.style.display = 'none';
+    if (note) {
+      note.textContent = 'Notifications are already on — you are all set.';
+      note.style.color = 'var(--fc-success)';
+      note.style.display = '';
+    }
+  } else if (status === 'denied') {
+    /* Requesting again is a no-op at the OS level, so point at the only
+       place the answer can actually change. "Not now" stays: they must be
+       able to move on without leaving the app. */
+    btn.textContent = 'Open iOS Settings';
+    btn.onclick = function () {
+      try {
+        if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App
+            && window.Capacitor.Plugins.App.openUrl) {
+          window.Capacitor.Plugins.App.openUrl({ url: 'app-settings:' });
+        } else { window.location.href = 'app-settings:'; }
+      } catch (_) {}
+    };
+    if (note) {
+      note.textContent = 'Notifications are turned off for FlowCheck in iOS Settings. You can turn them on there any time.';
+      note.style.display = '';
+    }
+  }
+};
+
 FCApp.skipNotifPermission = function() {
   try {
     const db   = FCAuth.db && FCAuth.db();
@@ -8053,7 +8120,8 @@ window._btnLoad = _btnLoad;
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
            stroke-linecap="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
     </button>
-    <span style="color:var(--fc-text);font-size:15px;font-weight:600">FlowCheck</span>
+    <span id="fc-inapp-page-title" style="color:var(--fc-text);font-size:15px;font-weight:600;
+          overflow:hidden;text-overflow:ellipsis;white-space:nowrap">FlowCheck</span>
   </div>
   <!-- Content iframe -->
   <iframe id="fc-inapp-page-iframe" src="" frameborder="0"
