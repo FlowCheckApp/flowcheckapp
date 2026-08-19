@@ -4299,19 +4299,32 @@ window.FCApp = (function () {
          about the past; "on pace for 184%" is the one that changes what you
          do this afternoon. */
       const _pace = Math.round(budgetPct * (_dim / Math.max(1, now.getDate())));
+      const _worstCat = _topOverspentCategory();
 
       carouselCards.push({
         label:   _over ? 'Over budget' : _ahead ? 'Budget check' : 'On track',
         title:   _over  ? `${budgetPct}% of budget used.`
                : _ahead ? `${budgetPct}% used with ${_dl} day${_dl !== 1 ? 's' : ''} left.`
                :          `${budgetPct}% used — on pace.`,
-        body:    _over
+        /* Name the category when one is actually over its own limit.
+           "Spending is $412 over plan" is a fact about a total nobody can
+           act on directly; "$180 of it is Groceries" is the sentence that
+           changes what happens at the shop. Only appended when a category
+           budget exists AND is genuinely over — otherwise this says nothing
+           and the message stays as it was. */
+        body:    (_over
           ? `Spending is ${fmt(Math.abs(budgetRemaining))} over plan.`
           : _ahead
             ? `At this rate you finish the month around ${_pace}% of budget. ${fmt(budgetRemaining)} left.`
-            : `${fmt(budgetRemaining)} left with ${_dl} day${_dl !== 1 ? 's' : ''} to go.`,
-        action:  'Review Budget',
-        onclick: "FCApp.switchTab('plan')",
+            : `${fmt(budgetRemaining)} left with ${_dl} day${_dl !== 1 ? 's' : ''} to go.`)
+          + (_worstCat ? ` ${fmt(_worstCat.over)} of it is ${_worstCat.label}.` : ''),
+        action:  _worstCat ? 'Review Categories' : 'Review Budget',
+        /* Straight to the categories when there is a named culprit — the
+           Plan tab is one more hop from the thing the sentence just
+           pointed at. */
+        onclick: _worstCat
+          ? "FCApp._openSubScreen('budgets')"
+          : "FCApp.switchTab('plan')",
         emoji:   _ahead ? _slideArt('bar-chart', 'warn') : _slideArt('check', 'good'),
         rowArt:  _ahead ? _rowArt('bar-chart', 'warn')   : _rowArt('check', 'good'),
         type:    _ahead ? 'warn' : 'good',
@@ -8848,6 +8861,43 @@ window.FCApp = (function () {
                    || (b.everSpent > 0) - (a.everSpent > 0)
                    || (b.typical || b.everSpent) - (a.typical || a.everSpent)
                    || a.label.localeCompare(b.label));
+  }
+
+  /* The one category most responsible for the month going wrong.
+     Deliberately NOT _categoryBudgetRows(): that computes a median across
+     every complete month per category, and this runs on every Home render.
+     This walks the current month once and only looks at categories that
+     actually carry a limit.
+     Returns the biggest overage in DOLLARS, not the biggest percentage —
+     being $8 over a $20 coffee budget is 40% and does not matter; being $180
+     over on groceries is 12% and does. */
+  function _topOverspentCategory() {
+    const budgets = state.budgets || {};
+    const limited = Object.keys(budgets)
+      .filter(k => k !== 'total' && Number(budgets[k]?.limit) > 0);
+    if (!limited.length) return null;
+
+    const now = new Date();
+    const y = now.getFullYear(), m = now.getMonth();
+    const spend = {};
+    for (const t of (state.transactions || [])) {
+      if (!t || !t.date || t.isCredit || !_isSpendTxn(t)) continue;
+      const d = FCData.parseDateLocal(t.date);
+      if (!d || isNaN(d) || d.getFullYear() !== y || d.getMonth() !== m) continue;
+      const cat = FCCore.normalizeCategory(
+        Array.isArray(t.category) ? t.category[0] : t.category);
+      spend[cat] = (spend[cat] || 0) + (t.amount || 0);
+    }
+
+    let worst = null;
+    for (const key of limited) {
+      const limit = Number(budgets[key].limit);
+      const over  = (spend[key] || 0) - limit;
+      if (over > 0 && (!worst || over > worst.over)) {
+        worst = { key, label: _categoryLabel(key), over, limit, spent: spend[key] || 0 };
+      }
+    }
+    return worst;
   }
 
   function _renderCategoryBudgets() {
