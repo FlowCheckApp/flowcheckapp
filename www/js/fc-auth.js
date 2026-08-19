@@ -397,6 +397,12 @@ window.FCAuth = (function () {
           streak:       0,
         });
       }
+      /* Security alert. Every sign-in method has to fire this, not just
+         password and Face ID — an alert that stays silent for two of four
+         routes is worse than none, because the absence of one reads as
+         "nobody signed in". Backend dedupes to once per day and honours the
+         alert opt-out, so calling it on every path costs nothing. */
+      authedFetch(`${window.FC_CONFIG?.app?.apiBase}/auth/login-event`, { method: 'POST' }).catch(() => {});
       haptic('medium');
       return userCred.user;
     } else {
@@ -413,6 +419,12 @@ window.FCAuth = (function () {
       provider.addScope('email');
       provider.addScope('name');
       const userCred = await _auth.signInWithPopup(provider);
+      /* Security alert. Every sign-in method has to fire this, not just
+         password and Face ID — an alert that stays silent for two of four
+         routes is worse than none, because the absence of one reads as
+         "nobody signed in". Backend dedupes to once per day and honours the
+         alert opt-out, so calling it on every path costs nothing. */
+      authedFetch(`${window.FC_CONFIG?.app?.apiBase}/auth/login-event`, { method: 'POST' }).catch(() => {});
       haptic('medium');
       return userCred.user;
     }
@@ -448,6 +460,12 @@ window.FCAuth = (function () {
           streak:       0,
         });
       }
+      /* Security alert. Every sign-in method has to fire this, not just
+         password and Face ID — an alert that stays silent for two of four
+         routes is worse than none, because the absence of one reads as
+         "nobody signed in". Backend dedupes to once per day and honours the
+         alert opt-out, so calling it on every path costs nothing. */
+      authedFetch(`${window.FC_CONFIG?.app?.apiBase}/auth/login-event`, { method: 'POST' }).catch(() => {});
       haptic('medium');
       return userCred.user;
     } else {
@@ -459,6 +477,12 @@ window.FCAuth = (function () {
       provider.addScope('email');
       provider.addScope('profile');
       const userCred = await _auth.signInWithPopup(provider);
+      /* Security alert. Every sign-in method has to fire this, not just
+         password and Face ID — an alert that stays silent for two of four
+         routes is worse than none, because the absence of one reads as
+         "nobody signed in". Backend dedupes to once per day and honours the
+         alert opt-out, so calling it on every path costs nothing. */
+      authedFetch(`${window.FC_CONFIG?.app?.apiBase}/auth/login-event`, { method: 'POST' }).catch(() => {});
       haptic('medium');
       return userCred.user;
     }
