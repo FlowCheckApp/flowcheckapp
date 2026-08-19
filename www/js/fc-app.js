@@ -1085,6 +1085,31 @@ window.FCApp = (function () {
       return;
     }
 
+    /* Auto-skip the notification screen when iOS has already answered.
+
+       The system dialog appears ONCE per install. This app requests the
+       permission from four places, so whichever runs first spends it — after
+       that requestPermissions() returns the stored answer with nothing on
+       screen, and the button looked broken: tap it, no Apple overlay, straight
+       to the next page. The Face ID screen still showed its overlay, which is
+       what made the difference obvious.
+
+       Granted already means there is nothing to ask, so the screen is skipped
+       entirely. Denied still shows it — allowNotifPermission turns the button
+       into a route to iOS Settings, which is the only place that answer can
+       change. Anything else (prompt, or no plugin on web) shows it normally. */
+    if (name === 'notif-permission') {
+      const _showNotif = () => _doSetScreen('notif-permission');
+      if (!window.FCPush || !FCPush.checkPermissions) { _showNotif(); return; }
+      FCPush.checkPermissions()
+        .then(status => {
+          if (status === 'granted') { _doSetScreen('onboarding'); return; }
+          _showNotif();
+        })
+        .catch(_showNotif);
+      return;
+    }
+
     // Auto-skip the Face ID setup screen on devices without biometric hardware
     if (name === 'faceid-setup') {
       FCAuth.checkBiometricAvailable().then(available => {
