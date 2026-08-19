@@ -146,4 +146,31 @@ function shell(o) {
 </html>`;
 }
 
-module.exports = { shell, button, TONE, esc, WIDTH, FONT, FONT_MONO };
+/**
+ * A label/value row inside a tinted panel.
+ *
+ * This exists because several emails laid this out with
+ * `display:flex; justify-content:space-between` on a div. Outlook's Word
+ * renderer does not implement flexbox at all, so the value dropped onto its
+ * own line under the label — on the subscription emails that meant the
+ * amount, the one number the email is about, landed in the wrong place for
+ * every Outlook reader. A two-cell table does it everywhere.
+ *
+ * @param {Array<{label:string,value:string,strong?:boolean,color?:string,strike?:boolean}>} rows
+ */
+function panel(rows, tone = 'info') {
+  const t = TONE[tone] || TONE.info;
+  const cells = (rows || []).map((r, i) => `
+    <tr>
+      <td style="padding:${i ? '8px' : '0'} 0 0;font-size:13px;color:${MUTED};font-family:${FONT}">${esc(r.label)}</td>
+      <td align="right" style="padding:${i ? '8px' : '0'} 0 0;font-size:${r.strong ? '19px' : '15px'};font-weight:${r.strong ? '800' : '600'};color:${r.color || BODY_INK};font-family:${FONT}${r.strike ? ';text-decoration:line-through' : ''}">${esc(r.value)}</td>
+    </tr>`).join('');
+  return `
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${t.wash};border-radius:12px;margin:0 0 22px">
+    <tr><td style="padding:18px 20px">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${cells}</table>
+    </td></tr>
+  </table>`;
+}
+
+module.exports = { shell, button, panel, TONE, esc, WIDTH, FONT, FONT_MONO };

@@ -2943,35 +2943,26 @@ async function _sendBankConnectedEmail(uid, institutionName) {
     if (!email || !_resendApiKey) return;
     const name = await _resolveDisplayName(uid);
     const safe = _htmlEscape(institutionName || 'your bank');
-    await _sendEmail(email, `${institutionName || 'Your bank'} is connected to FlowCheck ✅`, `
-      <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-      <div style="max-width:520px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
-        <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:36px 32px;text-align:center">
-          ${LOGO_IMG}
-          <h1 style="color:#ffffff;font-size:22px;font-weight:700;margin:0 0 6px">${safe} connected!</h1>
-          <p style="color:rgba(255,255,255,0.6);font-size:14px;margin:0">Your account is syncing now</p>
-        </div>
-        <div style="padding:28px 32px">
-          <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 20px">
-            Hey ${name} — <strong>${safe}</strong> is now linked to FlowCheck. Your transactions will sync automatically so you always have a clear picture of your money.
-          </p>
-          <div style="background:#f0fffe;border-left:3px solid #1ac4f0;border-radius:8px;padding:14px 18px;margin-bottom:24px">
-            <p style="font-size:13px;font-weight:600;color:#0a1520;margin:0 0 8px">What's next:</p>
-            <p style="font-size:13px;color:#4b5563;margin:4px 0">→ Set a budget to track spending by category</p>
-            <p style="font-size:13px;color:#4b5563;margin:4px 0">→ Add recurring bills so you never miss a payment</p>
-            <p style="font-size:13px;color:#4b5563;margin:4px 0">→ Check your Financial Health Score</p>
-          </div>
-          <a href="${BACKEND_URL}/open" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#ffffff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
-            View My Dashboard →
-          </a>
-        </div>
-        <div style="padding:16px 32px;border-top:1px solid #f3f4f6;text-align:center">
-          <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · Your money, clearly.<br>
-            <a href="${_unsubUrl(uid, 'all', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe</a></p>
-        </div>
-      </div>
-      </body></html>
-    `, uid);
+    await _sendEmail(email, `${institutionName || 'Your bank'} is connected`, _mail.shell({
+      title:      'Bank connected',
+      preheader:  `${safe} is linked. Your transactions are syncing now.`,
+      heading:    `${safe} is connected`,
+      subheading: 'Your account is syncing now.',
+      tone:       'success',
+      logoImg:    LOGO_IMG,
+      bodyHtml: `
+        <p style="margin:0 0 22px">Hey ${name} — <strong>${safe}</strong> is linked to FlowCheck. Your transactions sync automatically from here, so the picture stays current without you doing anything.</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#eefaf4;border-radius:12px;margin:0 0 24px">
+          <tr><td style="padding:18px 20px">
+            <p style="font-size:12px;font-weight:700;color:#0d3f2c;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 12px">What's next</p>
+            <p style="font-size:14px;color:#374151;margin:0 0 8px">Set a budget to track spending by category</p>
+            <p style="font-size:14px;color:#374151;margin:0 0 8px">Add recurring bills so nothing catches you out</p>
+            <p style="font-size:14px;color:#374151;margin:0">Check your Financial Health Score</p>
+          </td></tr>
+        </table>
+        ${_mail.button('View my dashboard', `${BACKEND_URL}/open`, 'success')}`,
+      footerHtml: `FlowCheck &middot; Your money, clearly.<br><a href="${_unsubUrl(uid, 'all', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe</a>`,
+    }), uid);
   } catch (err) {
     console.error('[email/bank-connected]', err.message);
   }
@@ -3795,30 +3786,22 @@ async function _detectAndEmailSubscriptions(uid, userRef, userData, fcmToken) {
       await _saveNotification(uid, { title, body, type: 'subscription_renewal', data: { merchant: data.name, amount: String(medAmt), freq } });
       if (fcmToken) _sendFCM(uid, fcmToken, { title, body, type: 'subscription_renewal', channelId: 'flowcheck_default' }).catch(() => {});
       if (userData.email && userData.email_alerts_enabled !== false) {
-        _sendEmail(userData.email, `🔄 New subscription: ${data.name} — ${_fmt(medAmt)}/${freq}`, `
-          <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-          <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
-            <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:32px;text-align:center">
-              ${LOGO_IMG}
-              <div style="font-size:32px;margin-bottom:8px">🔄</div>
-              <h1 style="color:#fff;font-size:20px;font-weight:700;margin:0 0 4px">Subscription Spotted</h1>
-              <p style="color:rgba(255,255,255,0.55);font-size:14px;margin:0">FlowCheck found a recurring charge on your account</p>
-            </div>
-            <div style="padding:28px 32px">
-              <div style="background:#f0fffe;border-radius:12px;padding:18px 20px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center">
-                <div>
-                  <div style="font-size:16px;font-weight:700;color:#0a1520">${displayName}</div>
-                  <div style="font-size:13px;color:#6b7280;margin-top:2px">${freq.charAt(0).toUpperCase() + freq.slice(1)} charge</div>
-                </div>
-                <div style="font-size:22px;font-weight:800;color:#1ac4f0">${_fmt(medAmt)}</div>
-              </div>
-              <p style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 20px">We detected this as a recurring ${freq} charge. Open FlowCheck to add it as a tracked bill or mark it as expected.</p>
-              <a href="${BACKEND_URL}/open" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">View in FlowCheck →</a>
-            </div>
-            <div style="padding:14px 32px;border-top:1px solid #f3f4f6;text-align:center">
-              <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · <a href="${_unsubUrl(uid, 'alerts', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe from alerts</a></p>
-            </div>
-          </div></body></html>`, uid).catch(e => console.error('[email sub-new]', e.message));
+        _sendEmail(userData.email, `New subscription found: ${data.name}`, _mail.shell({
+          title:      'Subscription spotted',
+          preheader:  `${displayName} — ${_fmt(medAmt)} ${freq}.`,
+          heading:    'Subscription spotted',
+          subheading: 'FlowCheck found a recurring charge on your account.',
+          tone:       'info',
+          logoImg:    LOGO_IMG,
+          bodyHtml: `
+            ${_mail.panel([
+              { label: `${freq.charAt(0).toUpperCase() + freq.slice(1)} charge`, value: displayName },
+              { label: 'Amount', value: _fmt(medAmt), strong: true, color: '#0b3d52' },
+            ], 'info')}
+            <p style="margin:0 0 24px">Open FlowCheck to track it as a bill, or mark it as expected so it stops being flagged.</p>
+            ${_mail.button('View in FlowCheck', `${BACKEND_URL}/open`, 'info')}`,
+          footerHtml: `FlowCheck &middot; <a href="${_unsubUrl(uid, 'alerts', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe from alerts</a>`,
+        }), uid).catch(e => console.error('[email sub-new]', e.message));
       }
       updates[key] = { amount: medAmt, freq, first_detected: new Date().toISOString().slice(0, 10) };
     } else if (Math.abs(medAmt - prior.amount) / prior.amount > 0.05) {
@@ -3831,35 +3814,23 @@ async function _detectAndEmailSubscriptions(uid, userRef, userData, fcmToken) {
       await _saveNotification(uid, { title, body, type: 'subscription_price_change', data: { merchant: data.name, old_amount: String(prior.amount), new_amount: String(medAmt) } });
       if (fcmToken) _sendFCM(uid, fcmToken, { title, body, type: 'subscription_price_change', channelId: 'flowcheck_alerts' }).catch(() => {});
       if (userData.email && userData.email_alerts_enabled !== false) {
-        _sendEmail(userData.email, `💡 ${data.name} price ${delta > 0 ? 'increased' : 'decreased'}: ${_fmt(prior.amount)} → ${_fmt(medAmt)}`, `
-          <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-          <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
-            <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:32px;text-align:center">
-              ${LOGO_IMG}
-              <div style="font-size:32px;margin-bottom:8px">${delta > 0 ? '📈' : '📉'}</div>
-              <h1 style="color:#fff;font-size:20px;font-weight:700;margin:0 0 4px">Subscription Price Change</h1>
-              <p style="color:rgba(255,255,255,0.55);font-size:14px;margin:0">${displayName} ${changeDir} its price</p>
-            </div>
-            <div style="padding:28px 32px">
-              <div style="background:#f9fafb;border-radius:12px;padding:18px 20px;margin-bottom:20px">
-                <div style="display:flex;justify-content:space-between;margin-bottom:8px">
-                  <span style="font-size:13px;color:#6b7280">Previous</span>
-                  <span style="font-size:15px;font-weight:600;color:#374151;text-decoration:line-through">${_fmt(prior.amount)}/${freq}</span>
-                </div>
-                <div style="display:flex;justify-content:space-between">
-                  <span style="font-size:13px;color:#6b7280">New price</span>
-                  <span style="font-size:18px;font-weight:800;color:${delta > 0 ? '#dc2626' : '#059669'}">${_fmt(medAmt)}/${freq} (${sign}${_fmt(Math.abs(delta))})</span>
-                </div>
-              </div>
-              <p style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 20px">
-                ${delta > 0 ? 'Your subscription cost went up. If this doesn\'t look right, check your account with the provider.' : 'Your subscription cost went down — no action needed.'}
-              </p>
-              <a href="${BACKEND_URL}/open" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">View in FlowCheck →</a>
-            </div>
-            <div style="padding:14px 32px;border-top:1px solid #f3f4f6;text-align:center">
-              <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · <a href="${_unsubUrl(uid, 'alerts', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe from alerts</a></p>
-            </div>
-          </div></body></html>`, uid).catch(e => console.error('[email sub-price]', e.message));
+        _sendEmail(userData.email, `${data.name} price ${delta > 0 ? 'went up' : 'went down'}: ${_fmt(prior.amount)} to ${_fmt(medAmt)}`, _mail.shell({
+          title:      'Subscription price change',
+          preheader:  `${displayName}: ${_fmt(prior.amount)} to ${_fmt(medAmt)} ${freq}.`,
+          heading:    'Price change',
+          subheading: `${displayName} ${changeDir} its price.`,
+          tone:       delta > 0 ? 'warn' : 'success',
+          logoImg:    LOGO_IMG,
+          bodyHtml: `
+            ${_mail.panel([
+              { label: 'Previous', value: `${_fmt(prior.amount)}/${freq}`, strike: true },
+              { label: 'New price', value: `${_fmt(medAmt)}/${freq} (${sign}${_fmt(Math.abs(delta))})`,
+                strong: true, color: delta > 0 ? '#b42318' : '#0d3f2c' },
+            ], delta > 0 ? 'warn' : 'success')}
+            <p style="margin:0 0 24px">If this is not one you still want, now is a good moment to cancel it.</p>
+            ${_mail.button('Review subscriptions', `${BACKEND_URL}/open`, delta > 0 ? 'warn' : 'success')}`,
+          footerHtml: `FlowCheck &middot; <a href="${_unsubUrl(uid, 'alerts', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe from alerts</a>`,
+        }), uid).catch(e => console.error('[email sub-price]', e.message));
       }
       updates[key] = { ...prior, amount: medAmt };
     }
