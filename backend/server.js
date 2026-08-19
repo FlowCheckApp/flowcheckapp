@@ -55,6 +55,7 @@ const path         = require('path');
 /* Write-then-advance cursor walk for /plaid/sync. Extracted so it can be
    tested — this file listens on require, so nothing in it can be. */
 const { syncTransactionPages } = require('./lib/sync-pages');
+const { mapPlaidAccounts }     = require('./lib/map-accounts');
 const {
   Configuration, PlaidApi, PlaidEnvironments,
   Products, CountryCode,
@@ -991,6 +992,37 @@ app.post('/plaid/exchange-token', requireAuthStrict, _plaidUserLimiter, async (r
         .filter(Boolean)
         .sort();                       // stable regardless of Plaid ordering
       accountMask = masks[0] || '';
+
+      /* ── Write the balances we are already holding ────────────────────
+         This call happens either way — it is how the referral mask is
+         read — and until now its balances were discarded. Accounts were
+         written only by /plaid/sync, so after linking a bank the user
+         watched an empty account list while a liabilities lookup and a
+         paginated transaction sync ran, for numbers that had been in
+         memory here seconds earlier.
+
+         Liabilities are deliberately NOT fetched here. They are a second
+         round trip per bank and APR/minimum are not what someone stares at
+         the screen waiting for; the first sync fills them in. The mapper
+         omits those two fields rather than writing null, and every write
+         is a merge, so this can never erase an APR the sync path
+         established.
+
+         Failure is non-fatal on purpose. A link that succeeded must not be
+         reported as failed because a convenience write did not land — the
+         item is stored, and /plaid/sync writes accounts regardless. */
+      const fastAccounts = mapPlaidAccounts(acctData?.accounts, {
+        itemId:      data.item_id,
+        institution: institution || '',
+      });
+      if (fastAccounts.length) {
+        const acctBatch = db.batch();
+        const acctRef   = db.collection('users').doc(req.uid).collection('accounts');
+        fastAccounts.forEach(a => {
+          acctBatch.set(acctRef.doc(a.id), { ...a, updated_at: TS() }, { merge: true });
+        });
+        await acctBatch.commit();
+      }
     } catch (maskErr) {
       // Non-fatal: referral dedupe fails open when the mask is missing.
       console.warn('[exchange-token] account mask lookup failed:', maskErr.message);
@@ -1355,25 +1387,16 @@ app.get('/plaid/sync', requireAuth, requireEntitlement, perUserLimiter(30), asyn
         const liab = _hasDebtAccounts(acctData.accounts)
           ? await _fetchLiabilities(access_token)
           : {};
-        const accounts = acctData.accounts.map(a => ({
-          id:                a.account_id,
-          name:              a.name,
-          official_name:     a.official_name  || null,
-          type:              a.type,
-          subtype:           a.subtype        || null,
-          balance_current:   a.balances.current   ?? 0,
-          balance_limit:     a.balances.limit      ?? null,
-          balance_available: a.balances.available  ?? null,
-          currency:          a.balances.iso_currency_code || 'USD',
-          mask:              a.mask           || null,
-          item_id:           itemData.item_id || itemDoc.id,
-          institution_name:  itemData.institution || '',
-          /* null, never 0, when unknown. A 0% APR and an unknown APR are
-             different claims, and downstream that is the difference between
-             a payoff date and an honest refusal to guess one. */
-          interest_rate:     (liab[a.account_id] || {}).interest_rate   ?? null,
-          minimum_payment:   (liab[a.account_id] || {}).minimum_payment ?? null,
-        }));
+        /* Shared with exchange-token via lib/map-accounts.js. Passing liab
+           (even {}) makes the mapper write interest_rate/minimum_payment,
+           null when unknown — a 0% APR and an unknown APR are different
+           claims, and downstream that is the difference between a payoff
+           date and an honest refusal to guess one. */
+        const accounts = mapPlaidAccounts(acctData.accounts, {
+          itemId:      itemData.item_id || itemDoc.id,
+          institution: itemData.institution || '',
+          liab,
+        });
 
         const batch = db.batch();
         accounts.forEach(a => {
