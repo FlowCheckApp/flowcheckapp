@@ -1788,66 +1788,28 @@ app.delete('/user/account', requireAuthStrict, async (req, res) => {
       const email = userRecord.email;
       const name  = userRecord.displayName ? userRecord.displayName.split(' ')[0] : 'there';
       if (email && _resendApiKey) {
-        await _sendEmail(email, 'Your FlowCheck account has been deleted', `
-<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Account Deleted — FlowCheck</title></head>
-<body style="margin:0;padding:0;background-color:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
-<div style="display:none;max-height:0;overflow:hidden;font-size:1px;color:#f3f4f6">Your FlowCheck account and all associated data have been permanently deleted.</div>
-<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f3f4f6;padding:32px 16px">
-<tr><td align="center">
-<table width="100%" cellpadding="0" cellspacing="0" style="max-width:540px;width:100%">
-
-  <!-- Header -->
-  <tr><td style="background:linear-gradient(160deg,#060e18 0%,#0d2240 100%);border-radius:16px 16px 0 0;padding:40px 40px 36px;text-align:center">
-    ${LOGO_IMG}
-    <h1 style="color:#ffffff;font-size:26px;font-weight:800;margin:0 0 8px;letter-spacing:-0.03em;line-height:1.2">Account deleted.</h1>
-    <p style="color:rgba(255,255,255,0.50);font-size:15px;margin:0">We're sorry to see you go, ${_htmlEscape(name)}.</p>
-  </td></tr>
-
-  <!-- Body -->
-  <tr><td style="background:#ffffff;padding:36px 40px">
-    <p style="font-size:15px;color:#374151;line-height:1.7;margin:0 0 24px">
-      Your FlowCheck account has been <strong>permanently deleted</strong>. All of your data has been removed from our servers in accordance with our privacy policy.
-    </p>
-
-    <!-- What was deleted -->
-    <table width="100%" cellpadding="0" cellspacing="0" style="background:#fafafa;border:1px solid #e5e7eb;border-radius:12px;margin-bottom:28px">
-      <tr><td style="padding:20px 24px">
-        <p style="font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 12px">What was deleted</p>
-        <table width="100%" cellpadding="0" cellspacing="0">
-          <tr><td style="padding:4px 0;font-size:14px;color:#374151"><span style="color:#34c759;margin-right:8px;font-weight:700">✓</span>Your account and login credentials</td></tr>
-          <tr><td style="padding:4px 0;font-size:14px;color:#374151"><span style="color:#34c759;margin-right:8px;font-weight:700">✓</span>All connected bank accounts (Plaid links revoked)</td></tr>
-          <tr><td style="padding:4px 0;font-size:14px;color:#374151"><span style="color:#34c759;margin-right:8px;font-weight:700">✓</span>Transaction history and spending data</td></tr>
-          <tr><td style="padding:4px 0;font-size:14px;color:#374151"><span style="color:#34c759;margin-right:8px;font-weight:700">✓</span>Bills, goals, and budget settings</td></tr>
-          <tr><td style="padding:4px 0;font-size:14px;color:#374151"><span style="color:#34c759;margin-right:8px;font-weight:700">✓</span>All personal preferences and notifications</td></tr>
-        </table>
-      </td></tr>
-    </table>
-
-    <p style="font-size:14px;color:#6b7280;line-height:1.7;margin:0 0 28px">
-      If you deleted by mistake or want to give FlowCheck another try, you're always welcome back. Simply download the app and create a new account.
-    </p>
-
-    <p style="font-size:13px;color:#9ca3af;line-height:1.6;margin:0 0 4px">
-      Questions about your data or this deletion? Contact us at
-      <a href="mailto:support@getflowcheck.app" style="color:#1ac4f0;text-decoration:none">support@getflowcheck.app</a>
-    </p>
-  </td></tr>
-
-  <!-- Footer -->
-  <tr><td style="background:#f9fafb;border-top:1px solid #e5e7eb;border-radius:0 0 16px 16px;padding:20px 40px;text-align:center">
-    <p style="font-size:12px;color:#9ca3af;margin:0;line-height:1.5">
-      FlowCheck · <a href="https://getflowcheck.app" style="color:#9ca3af;text-decoration:none">getflowcheck.app</a><br>
-      This is a transactional email related to your account deletion request. No further emails will be sent to this address.
-    </p>
-  </td></tr>
-
-</table>
-</td></tr>
-</table>
-</body></html>
-        `);
+        await _sendEmail(email, 'Your FlowCheck account has been deleted', _mail.shell({
+          title:      'Account deleted',
+          preheader:  'Your account and all associated data have been permanently deleted.',
+          heading:    'Account deleted',
+          subheading: `We're sorry to see you go, ${_htmlEscape(name)}.`,
+          tone:       'info',
+          logoImg:    LOGO_IMG,
+          bodyHtml: `
+            <p style="margin:0 0 22px">Your FlowCheck account has been <strong>permanently deleted</strong>. All of your data has been removed from our servers in accordance with our privacy policy.</p>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#eefaff;border-radius:12px;margin:0 0 24px">
+              <tr><td style="padding:18px 20px">
+                <p style="font-size:12px;font-weight:700;color:#0b3d52;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 12px">What was deleted</p>
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="padding:4px 0;font-size:14px;color:#374151"><span style="color:#22a06b;margin-right:8px;font-weight:700">&#10003;</span>Your account and login credentials</td></tr><tr><td style="padding:4px 0;font-size:14px;color:#374151"><span style="color:#22a06b;margin-right:8px;font-weight:700">&#10003;</span>All connected bank accounts (Plaid links revoked)</td></tr><tr><td style="padding:4px 0;font-size:14px;color:#374151"><span style="color:#22a06b;margin-right:8px;font-weight:700">&#10003;</span>Transaction history and spending data</td></tr><tr><td style="padding:4px 0;font-size:14px;color:#374151"><span style="color:#22a06b;margin-right:8px;font-weight:700">&#10003;</span>Bills, goals, and budget settings</td></tr><tr><td style="padding:4px 0;font-size:14px;color:#374151"><span style="color:#22a06b;margin-right:8px;font-weight:700">&#10003;</span>All personal preferences and notifications</td></tr></table>
+              </td></tr>
+            </table>
+            <p style="font-size:14px;color:#6b7280;margin:0 0 8px">If you deleted by mistake, you're always welcome back — download the app and create a new account.</p>
+            <p style="font-size:14px;color:#6b7280;margin:0">Questions about your data or this deletion? Contact us at <a href="mailto:support@getflowcheck.app" style="color:#1ac4f0">support@getflowcheck.app</a></p>`,
+          /* No unsubscribe link: the account is gone, there is nothing left to
+             unsubscribe from, and a link that resolves to a deleted uid would
+             fail. This is the last email this address will ever receive. */
+          footerHtml: 'FlowCheck &middot; getflowcheck.app<br>This is a transactional email about your account deletion. No further emails will be sent to this address.',
+        }));
       }
     } catch (emailErr) {
       console.warn('[delete-account] goodbye email failed (non-fatal):', emailErr.message);
@@ -2131,8 +2093,8 @@ app.post('/email/welcome', requireAuth, async (req, res) => {
           </td></tr>
         </table>
         ${_mail.button('Open FlowCheck', `${BACKEND_URL}/open`, 'info')}`,
-      footerHtml: `FlowCheck &middot; Your money, clearly.<br><a href="${_unsubUrl(uid, 'all', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe</a>`,
-    }), uid);
+      footerHtml: `FlowCheck &middot; Your money, clearly.<br><a href="${_unsubUrl(req.uid, 'all', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe</a>`,
+    }), req.uid);
     return res.json({ ok: true });
   } catch (err) {
     console.error('[email/welcome]', err.message);
@@ -2186,62 +2148,24 @@ app.post('/email/pro-upgrade', requireAuth, async (req, res) => {
     const plan = req.body?.plan === 'annual' ? 'annual' : 'monthly';
     const planLabel = plan === 'annual' ? 'Annual plan · billed yearly' : 'Monthly plan · cancel anytime';
 
-    await _sendEmail(email, 'You\'re now FlowCheck Pro 🚀', `
-<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Welcome to FlowCheck Pro</title></head>
-<body style="margin:0;padding:0;background-color:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
-<div style="display:none;max-height:0;overflow:hidden;font-size:1px;color:#f3f4f6">Your Pro subscription is active — here's everything you've unlocked.</div>
-<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f3f4f6;padding:32px 16px">
-<tr><td align="center">
-<table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%">
-
-  <!-- Header -->
-  <tr><td style="background:linear-gradient(160deg,#060e18 0%,#0d2240 100%);border-radius:16px 16px 0 0;padding:40px 40px 36px;text-align:center">
-    ${LOGO_IMG}
-    <h1 style="color:#ffffff;font-size:28px;font-weight:800;margin:0 0 8px;letter-spacing:-0.03em;line-height:1.2">You're Pro, ${name}.</h1>
-    <p style="color:rgba(255,255,255,0.55);font-size:15px;margin:0">${planLabel}</p>
-  </td></tr>
-
-  <!-- Body -->
-  <tr><td style="background:#ffffff;padding:36px 40px">
-    <p style="font-size:16px;color:#374151;line-height:1.7;margin:0 0 28px">
-      Your subscription is active. Everything is unlocked — no limits, no restrictions.
-    </p>
-
-    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0fffe;border-radius:12px;margin-bottom:32px">
-      <tr><td style="padding:20px 24px">
-        <p style="font-size:12px;font-weight:700;color:#1ac4f0;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 14px">What's included</p>
-        <table width="100%" cellpadding="0" cellspacing="0">
-          <tr><td style="padding:5px 0;font-size:14px;color:#374151"><span style="color:#1ac4f0;margin-right:10px;font-weight:700">✦</span>Unlimited bank accounts</td></tr>
-          <tr><td style="padding:5px 0;font-size:14px;color:#374151"><span style="color:#1ac4f0;margin-right:10px;font-weight:700">✦</span>Financial Health Score</td></tr>
-          <tr><td style="padding:5px 0;font-size:14px;color:#374151"><span style="color:#1ac4f0;margin-right:10px;font-weight:700">✦</span>AI-powered spending insights</td></tr>
-          <tr><td style="padding:5px 0;font-size:14px;color:#374151"><span style="color:#1ac4f0;margin-right:10px;font-weight:700">✦</span>Bill tracking &amp; reminders</td></tr>
-          <tr><td style="padding:5px 0;font-size:14px;color:#374151"><span style="color:#1ac4f0;margin-right:10px;font-weight:700">✦</span>Net worth tracking &amp; milestones</td></tr>
-          <tr><td style="padding:5px 0;font-size:14px;color:#374151"><span style="color:#1ac4f0;margin-right:10px;font-weight:700">✦</span>Weekly financial summaries</td></tr>
+    await _sendEmail(email, 'You are now FlowCheck Pro', _mail.shell({
+      title:      'You are Pro',
+      preheader:  'Every Pro feature is unlocked on your account.',
+      heading:    `You're Pro, ${name}.`,
+      subheading: planLabel,
+      tone:       'success',
+      logoImg:    LOGO_IMG,
+      bodyHtml: `
+        <p style="margin:0 0 24px">Thank you for subscribing. Every Pro feature is unlocked on your account from right now.</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#eefaf4;border-radius:12px;margin:0 0 26px">
+          <tr><td style="padding:18px 20px">
+            <p style="font-size:12px;font-weight:700;color:#0d3f2c;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 12px">What's included</p>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="padding:5px 0;font-size:14px;color:#374151"><span style="color:#22a06b;margin-right:8px;font-weight:700">&#10003;</span>Unlimited bank accounts</td></tr><tr><td style="padding:5px 0;font-size:14px;color:#374151"><span style="color:#22a06b;margin-right:8px;font-weight:700">&#10003;</span>Financial Health Score</td></tr><tr><td style="padding:5px 0;font-size:14px;color:#374151"><span style="color:#22a06b;margin-right:8px;font-weight:700">&#10003;</span>AI-powered spending insights</td></tr><tr><td style="padding:5px 0;font-size:14px;color:#374151"><span style="color:#22a06b;margin-right:8px;font-weight:700">&#10003;</span>Bill tracking &amp; reminders</td></tr><tr><td style="padding:5px 0;font-size:14px;color:#374151"><span style="color:#22a06b;margin-right:8px;font-weight:700">&#10003;</span>Net worth tracking &amp; milestones</td></tr><tr><td style="padding:5px 0;font-size:14px;color:#374151"><span style="color:#22a06b;margin-right:8px;font-weight:700">&#10003;</span>Weekly financial summaries</td></tr></table>
+          </td></tr>
         </table>
-      </td></tr>
-    </table>
-
-    <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
-      <a href="${BACKEND_URL}/open?ref=pro_upgrade_email" style="display:inline-block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#ffffff;font-weight:700;font-size:16px;padding:16px 40px;border-radius:12px;text-decoration:none;letter-spacing:-0.01em">Open FlowCheck →</a>
-    </td></tr></table>
-  </td></tr>
-
-  <!-- Footer -->
-  <tr><td style="background:#ffffff;border-radius:0 0 16px 16px;border-top:1px solid #f3f4f6;padding:20px 40px;text-align:center">
-    <p style="font-size:12px;color:#9ca3af;margin:0;line-height:1.8">
-      FlowCheck · Your money, clearly.<br>
-      Manage your subscription in <a href="itms-apps://apps.apple.com/account/subscriptions" style="color:#9ca3af;text-decoration:none">App Store Settings</a>.<br>
-      <a href="https://getflowcheck.app/privacy" style="color:#9ca3af;text-decoration:none">Privacy Policy</a>
-    </p>
-  </td></tr>
-
-</table>
-</td></tr>
-</table>
-</body></html>
-    `, req.uid);
+        ${_mail.button('Open FlowCheck', `${BACKEND_URL}/open`, 'success')}`,
+      footerHtml: `FlowCheck &middot; Your money, clearly.<br><a href="${_unsubUrl(req.uid, 'all', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe</a>`,
+    }), req.uid);
     return res.json({ ok: true });
   } catch (err) {
     console.error('[email/pro-upgrade]', err.message);
@@ -2662,43 +2586,22 @@ async function _sendBillRemindersForUser(uid, userData) {
       }
       if (email && _resendApiKey && alertsOn) {
         const overdueAmtStr = _fmt(bill.amount || 0);
-        _sendEmail(email, overdueTitle, `
-<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Payment Overdue</title></head>
-<body style="margin:0;padding:0;background:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
-<div style="display:none;max-height:0;overflow:hidden;font-size:1px;color:#f3f4f6">${safeBill} (${overdueAmtStr}) is ${overdueDays} day${overdueDays > 1 ? 's' : ''} overdue — action needed.</div>
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:32px 16px">
-<tr><td align="center">
-<table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%">
-  <tr><td style="background:linear-gradient(160deg,#1a0505 0%,#2d0a0a 100%);border-radius:16px 16px 0 0;padding:36px 40px 32px;text-align:center;border-bottom:3px solid #dc2626">
-    ${LOGO_IMG}
-    <h1 style="color:#fff;font-size:22px;font-weight:800;margin:0 0 6px;letter-spacing:-0.02em">Payment Overdue</h1>
-    <p style="color:rgba(255,255,255,0.55);font-size:15px;margin:0">${safeBill} · ${overdueAmtStr}</p>
-  </td></tr>
-  <tr><td style="background:#fff;padding:0">
-    <div style="background:#fef2f2;border-left:4px solid #dc2626;padding:16px 36px">
-      <p style="font-size:15px;color:#991b1b;font-weight:700;margin:0">
-        ⚠️ ${overdueAmtStr} was due ${overdueDays} day${overdueDays > 1 ? 's' : ''} ago
-      </p>
-    </div>
-  </td></tr>
-  <tr><td style="background:#fff;padding:28px 36px">
-    <p style="font-size:15px;color:#374151;line-height:1.7;margin:0 0 24px">
-      Your <strong>${safeBill}</strong> payment hasn't been marked as paid. If it has cleared your account, mark it paid in FlowCheck to keep your records accurate.
-    </p>
-    <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
-      <a href="${BACKEND_URL}/open?ref=bill_overdue" style="display:inline-block;background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff;font-weight:700;font-size:15px;padding:15px 36px;border-radius:12px;text-decoration:none;letter-spacing:-0.01em">Mark as Paid in FlowCheck →</a>
-    </td></tr></table>
-  </td></tr>
-  <tr><td style="background:#fff;border-radius:0 0 16px 16px;border-top:1px solid #f3f4f6;padding:18px 36px;text-align:center">
-    <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · Your money, clearly. · <a href="${_unsubUrl(uid, 'alerts', BACKEND_URL)}" style="color:#9ca3af;text-decoration:none">Unsubscribe from bill alerts</a></p>
-  </td></tr>
-</table>
-</td></tr></table>
-</body></html>
-        `, uid).catch(e => console.error('[email bill-overdue]', e.message));
+        _sendEmail(email, overdueTitle, _mail.shell({
+        title:      'Payment overdue',
+        preheader:  `${overdueAmtStr} was due ${overdueDays} day${overdueDays > 1 ? 's' : ''} ago.`,
+        heading:    'Payment overdue',
+        subheading: `${safeBill} · ${overdueAmtStr}`,
+        tone:       'danger',
+        logoImg:    LOGO_IMG,
+        bodyHtml: `
+          ${_mail.panel([
+            { label: 'Overdue by', value: `${overdueDays} day${overdueDays > 1 ? 's' : ''}` },
+            { label: 'Amount', value: overdueAmtStr, strong: true, color: '#7a1d20' },
+          ], 'danger')}
+          <p style="margin:0 0 24px">Your <strong>${safeBill}</strong> payment hasn't been marked as paid. If it has already cleared, mark it paid in FlowCheck so your records stay accurate.</p>
+          ${_mail.button('Mark as paid', `${BACKEND_URL}/open?ref=bill_overdue`, 'danger')}`,
+        footerHtml: `FlowCheck &middot; Your money, clearly. &middot; <a href="${_unsubUrl(uid, 'alerts', BACKEND_URL)}" style="color:#9ca3af;text-decoration:none">Unsubscribe from bill alerts</a>`,
+      }), uid).catch(e => console.error('[email bill-overdue]', e.message));
       }
       continue; // don't double-send an upcoming reminder for overdue bills
     }
@@ -2714,38 +2617,19 @@ async function _sendBillRemindersForUser(uid, userData) {
         : `<div style="background:#eff6ff;border-left:4px solid #3b82f6;padding:14px 20px;border-radius:0 8px 8px 0;margin-bottom:24px">
              <p style="font-size:14px;color:#1e40af;font-weight:600;margin:0">📅 Due in 2 days — ${dueFriendly}</p>
            </div>`;
-      _sendEmail(email, title, `
-<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${safeBill} due ${dayLabel}</title></head>
-<body style="margin:0;padding:0;background:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
-<div style="display:none;max-height:0;overflow:hidden;font-size:1px;color:#f3f4f6">${amountStr} payment reminder for ${safeBill} — tap to review.</div>
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:32px 16px">
-<tr><td align="center">
-<table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%">
-  <tr><td style="background:linear-gradient(160deg,#060e18 0%,#0d2240 100%);border-radius:16px 16px 0 0;padding:36px 40px 32px;text-align:center">
-    ${LOGO_IMG}
-    <h1 style="color:#fff;font-size:24px;font-weight:800;margin:0 0 6px;letter-spacing:-0.025em">${safeBill}</h1>
-    <p style="color:rgba(255,255,255,0.55);font-size:32px;font-weight:800;margin:4px 0 0;letter-spacing:-0.04em">${amountStr}</p>
-  </td></tr>
-  <tr><td style="background:#fff;padding:32px 36px">
-    ${urgency}
-    <p style="font-size:15px;color:#374151;line-height:1.7;margin:0 0 28px">
-      Your <strong>${safeBill}</strong> payment of <strong>${amountStr}</strong> is coming up ${dayLabel}.
-      Open FlowCheck to confirm your balance or mark it paid once it clears.
-    </p>
-    <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
-      <a href="${BACKEND_URL}/open?ref=bill_reminder" style="display:inline-block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:15px 36px;border-radius:12px;text-decoration:none;letter-spacing:-0.01em">Review in FlowCheck →</a>
-    </td></tr></table>
-  </td></tr>
-  <tr><td style="background:#fff;border-radius:0 0 16px 16px;border-top:1px solid #f3f4f6;padding:18px 36px;text-align:center">
-    <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · Your money, clearly. · <a href="${_unsubUrl(uid, 'alerts', BACKEND_URL)}" style="color:#9ca3af;text-decoration:none">Unsubscribe from bill alerts</a></p>
-  </td></tr>
-</table>
-</td></tr></table>
-</body></html>
-      `, uid).catch(e => console.error('[email bill-reminder]', e.message));
+      _sendEmail(email, title, _mail.shell({
+        title:      `${safeBill} due ${dayLabel}`,
+        preheader:  `${amountStr} due ${dayLabel}.`,
+        heading:    safeBill,
+        subheading: `${amountStr} due ${dayLabel}`,
+        tone:       'warn',
+        logoImg:    LOGO_IMG,
+        bodyHtml: `
+          ${urgency}
+          <p style="margin:0 0 24px">Your <strong>${safeBill}</strong> payment of <strong>${amountStr}</strong> is coming up ${dayLabel}. Open FlowCheck to check your balance, or mark it paid once it clears.</p>
+          ${_mail.button('Review in FlowCheck', `${BACKEND_URL}/open?ref=bill_reminder`, 'warn')}`,
+        footerHtml: `FlowCheck &middot; Your money, clearly. &middot; <a href="${_unsubUrl(uid, 'alerts', BACKEND_URL)}" style="color:#9ca3af;text-decoration:none">Unsubscribe from bill alerts</a>`,
+      }), uid).catch(e => console.error('[email bill-reminder]', e.message));
     }
   }
 }
@@ -5109,43 +4993,24 @@ app.post('/webhooks/revenuecat', async (req, res) => {
             .then(email => {
               if (!email) return;
               const plan = (product_id || '').includes('annual') ? 'annual' : 'monthly';
-              return _sendEmail(email, 'You\'re now FlowCheck Pro 🚀', `
-<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background-color:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
-<div style="display:none;max-height:0;overflow:hidden;font-size:1px;color:#f3f4f6">Your Pro subscription is active — everything is unlocked.</div>
-<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f3f4f6;padding:32px 16px"><tr><td align="center">
-<table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%">
-  <tr><td style="background:linear-gradient(160deg,#060e18 0%,#0d2240 100%);border-radius:16px 16px 0 0;padding:40px 40px 36px;text-align:center">
-    ${LOGO_IMG}
-    <h1 style="color:#fff;font-size:28px;font-weight:800;margin:0 0 8px;letter-spacing:-0.03em">You're Pro, ${name}.</h1>
-    <p style="color:rgba(255,255,255,0.55);font-size:15px;margin:0">${plan === 'annual' ? 'Annual plan · billed yearly' : 'Monthly plan · cancel anytime'}</p>
-  </td></tr>
-  <tr><td style="background:#fff;padding:36px 40px">
-    <p style="font-size:16px;color:#374151;line-height:1.7;margin:0 0 28px">Your subscription is active. Everything is unlocked.</p>
-    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0fffe;border-radius:12px;margin-bottom:32px"><tr><td style="padding:20px 24px">
-      <p style="font-size:12px;font-weight:700;color:#1ac4f0;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 14px">What's included</p>
-      <table width="100%" cellpadding="0" cellspacing="0">
-        <tr><td style="padding:5px 0;font-size:14px;color:#374151"><span style="color:#1ac4f0;margin-right:10px;font-weight:700">✦</span>Unlimited bank accounts</td></tr>
-        <tr><td style="padding:5px 0;font-size:14px;color:#374151"><span style="color:#1ac4f0;margin-right:10px;font-weight:700">✦</span>Financial Health Score</td></tr>
-        <tr><td style="padding:5px 0;font-size:14px;color:#374151"><span style="color:#1ac4f0;margin-right:10px;font-weight:700">✦</span>AI-powered spending insights</td></tr>
-        <tr><td style="padding:5px 0;font-size:14px;color:#374151"><span style="color:#1ac4f0;margin-right:10px;font-weight:700">✦</span>Bill tracking &amp; reminders</td></tr>
-        <tr><td style="padding:5px 0;font-size:14px;color:#374151"><span style="color:#1ac4f0;margin-right:10px;font-weight:700">✦</span>Net worth &amp; milestones</td></tr>
-      </table>
-    </td></tr></table>
-    <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
-      <a href="${BACKEND_URL}/open?ref=rc_webhook_pro" style="display:inline-block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:16px;padding:16px 40px;border-radius:12px;text-decoration:none">Open FlowCheck →</a>
-    </td></tr></table>
-  </td></tr>
-  <tr><td style="background:#fff;border-radius:0 0 16px 16px;border-top:1px solid #f3f4f6;padding:20px 40px;text-align:center">
-    <p style="font-size:12px;color:#9ca3af;margin:0;line-height:1.8">FlowCheck · Your money, clearly.<br>
-      Manage subscription in <a href="itms-apps://apps.apple.com/account/subscriptions" style="color:#9ca3af;text-decoration:none">App Store Settings</a>.
-    </p>
-  </td></tr>
-</table></td></tr></table>
-</body></html>
-              `, firebaseUid);
+              return _sendEmail(email, 'You are now FlowCheck Pro', _mail.shell({
+      title:      'You are Pro',
+      preheader:  'Every Pro feature is unlocked on your account.',
+      heading:    `You're Pro, ${name}.`,
+      subheading: planLabel,
+      tone:       'success',
+      logoImg:    LOGO_IMG,
+      bodyHtml: `
+        <p style="margin:0 0 24px">Thank you for subscribing. Every Pro feature is unlocked on your account from right now.</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#eefaf4;border-radius:12px;margin:0 0 26px">
+          <tr><td style="padding:18px 20px">
+            <p style="font-size:12px;font-weight:700;color:#0d3f2c;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 12px">What's included</p>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="padding:5px 0;font-size:14px;color:#374151"><span style="color:#22a06b;margin-right:8px;font-weight:700">&#10003;</span>Unlimited bank accounts</td></tr><tr><td style="padding:5px 0;font-size:14px;color:#374151"><span style="color:#22a06b;margin-right:8px;font-weight:700">&#10003;</span>Financial Health Score</td></tr><tr><td style="padding:5px 0;font-size:14px;color:#374151"><span style="color:#22a06b;margin-right:8px;font-weight:700">&#10003;</span>AI-powered spending insights</td></tr><tr><td style="padding:5px 0;font-size:14px;color:#374151"><span style="color:#22a06b;margin-right:8px;font-weight:700">&#10003;</span>Bill tracking &amp; reminders</td></tr><tr><td style="padding:5px 0;font-size:14px;color:#374151"><span style="color:#22a06b;margin-right:8px;font-weight:700">&#10003;</span>Net worth tracking &amp; milestones</td></tr><tr><td style="padding:5px 0;font-size:14px;color:#374151"><span style="color:#22a06b;margin-right:8px;font-weight:700">&#10003;</span>Weekly financial summaries</td></tr></table>
+          </td></tr>
+        </table>
+        ${_mail.button('Open FlowCheck', `${BACKEND_URL}/open`, 'success')}`,
+      footerHtml: `FlowCheck &middot; Your money, clearly.<br><a href="${_unsubUrl(firebaseUid, 'all', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe</a>`,
+    }));
             })
             .catch(() => {});
         }).catch(() => {});
