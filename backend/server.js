@@ -2104,69 +2104,24 @@ app.post('/email/welcome', requireAuth, async (req, res) => {
 
     const name = await _resolveDisplayName(req.uid);
 
-    await _sendEmail(email, `Welcome to FlowCheck, ${name} 👋`, `
-<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Welcome to FlowCheck</title></head>
-<body style="margin:0;padding:0;background-color:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
-<div style="display:none;max-height:0;overflow:hidden;font-size:1px;color:#f3f4f6">Your FlowCheck account is ready — connect your bank and see your money clearly.</div>
-<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f3f4f6;padding:32px 16px">
-<tr><td align="center">
-<table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%">
-
-  <!-- Header -->
-  <tr><td style="background:linear-gradient(160deg,#060e18 0%,#0d2240 100%);border-radius:16px 16px 0 0;padding:40px 40px 36px;text-align:center">
-    ${LOGO_IMG}
-    <h1 style="color:#ffffff;font-size:28px;font-weight:800;margin:0 0 8px;letter-spacing:-0.03em;line-height:1.2">Welcome, ${name}.</h1>
-    <p style="color:rgba(255,255,255,0.55);font-size:15px;margin:0;font-weight:400">Your money, clearly.</p>
-  </td></tr>
-
-  <!-- Body -->
-  <tr><td style="background:#ffffff;padding:36px 40px">
-    <p style="font-size:16px;color:#374151;line-height:1.7;margin:0 0 28px">
-      You're all set. FlowCheck connects to your bank and gives you a live view of your spending, bills, and financial health — all in one place.
-    </p>
-
-    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0fffe;border-radius:12px;margin-bottom:32px">
-      <tr><td style="padding:20px 24px">
-        <p style="font-size:12px;font-weight:700;color:#1ac4f0;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 14px">Get started in 3 steps</p>
-        <table width="100%" cellpadding="0" cellspacing="0">
-          <tr><td style="padding:6px 0;font-size:14px;color:#374151">
-            <span style="display:inline-block;width:22px;height:22px;background:#1ac4f0;border-radius:50%;text-align:center;line-height:22px;font-size:11px;font-weight:800;color:#060e18;margin-right:10px;vertical-align:middle">1</span>
-            Connect your bank account with Plaid
-          </td></tr>
-          <tr><td style="padding:6px 0;font-size:14px;color:#374151">
-            <span style="display:inline-block;width:22px;height:22px;background:rgba(26,196,240,0.2);border-radius:50%;text-align:center;line-height:22px;font-size:11px;font-weight:800;color:#1ac4f0;margin-right:10px;vertical-align:middle">2</span>
-            Set a monthly budget and track spending
-          </td></tr>
-          <tr><td style="padding:6px 0;font-size:14px;color:#374151">
-            <span style="display:inline-block;width:22px;height:22px;background:rgba(26,196,240,0.2);border-radius:50%;text-align:center;line-height:22px;font-size:11px;font-weight:800;color:#1ac4f0;margin-right:10px;vertical-align:middle">3</span>
-            Check your Financial Health Score
+    await _sendEmail(email, `Welcome to FlowCheck, ${name}`, _mail.shell({
+      title:      'Welcome to FlowCheck',
+      preheader:  'Connect a bank and see your money clearly.',
+      heading:    `Welcome, ${name}`,
+      subheading: 'Your money, clearly.',
+      tone:       'info',
+      logoImg:    LOGO_IMG,
+      bodyHtml: `
+        <p style="margin:0 0 24px">You're all set. FlowCheck connects to your bank and gives you a live view of your spending, bills and financial health, in one place.</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#eefaff;border-radius:12px;margin:0 0 26px">
+          <tr><td style="padding:20px 24px">
+            <p style="font-size:12px;font-weight:700;color:#0b3d52;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 12px">Get started in 3 steps</p>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="padding:6px 0;font-size:14px;color:#374151"><span style="display:inline-block;width:22px;height:22px;background:#1ac4f0;border-radius:50%;text-align:center;line-height:22px;font-size:11px;font-weight:800;color:#060e18;margin-right:10px;vertical-align:middle">1</span>Connect your bank account with Plaid</td></tr><tr><td style="padding:6px 0;font-size:14px;color:#374151"><span style="display:inline-block;width:22px;height:22px;background:#1ac4f0;border-radius:50%;text-align:center;line-height:22px;font-size:11px;font-weight:800;color:#060e18;margin-right:10px;vertical-align:middle">2</span>Set a monthly budget</td></tr><tr><td style="padding:6px 0;font-size:14px;color:#374151"><span style="display:inline-block;width:22px;height:22px;background:#1ac4f0;border-radius:50%;text-align:center;line-height:22px;font-size:11px;font-weight:800;color:#060e18;margin-right:10px;vertical-align:middle">3</span>Add your recurring bills</td></tr></table>
           </td></tr>
         </table>
-      </td></tr>
-    </table>
-
-    <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
-      <a href="${BACKEND_URL}/open?ref=welcome_email" style="display:inline-block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#ffffff;font-weight:700;font-size:16px;padding:16px 40px;border-radius:12px;text-decoration:none;letter-spacing:-0.01em">Open FlowCheck →</a>
-    </td></tr></table>
-  </td></tr>
-
-  <!-- Footer -->
-  <tr><td style="background:#ffffff;border-radius:0 0 16px 16px;border-top:1px solid #f3f4f6;padding:20px 40px;text-align:center">
-    <p style="font-size:12px;color:#9ca3af;margin:0;line-height:1.8">
-      FlowCheck · Your money, clearly.<br>
-      <a href="https://getflowcheck.app/privacy" style="color:#9ca3af;text-decoration:none">Privacy Policy</a>
-      &nbsp;·&nbsp;
-      <a href="${_unsubUrl(req.uid, 'all', BACKEND_URL)}" style="color:#9ca3af;text-decoration:none">Unsubscribe</a>
-    </p>
-  </td></tr>
-
-</table>
-</td></tr>
-</table>
-</body></html>
-    `, req.uid);
+        ${_mail.button('Open FlowCheck', `${BACKEND_URL}/open`, 'info')}`,
+      footerHtml: `FlowCheck &middot; Your money, clearly.<br><a href="${_unsubUrl(uid, 'all', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe</a>`,
+    }), uid);
     return res.json({ ok: true });
   } catch (err) {
     console.error('[email/welcome]', err.message);
@@ -2186,20 +2141,17 @@ app.post('/email/test', requireAuth, async (req, res) => {
     const email = userRecord.email;
     if (!email) return res.json({ ok: true, skipped: 'no_email' });
 
-    const sent = await _sendEmail(email, 'FlowCheck email test ✅', `
-      <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-      <div style="max-width:480px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.08)">
-        <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:28px;text-align:center">
-          <div style="font-size:40px;margin-bottom:8px">✅</div>
-          <h2 style="color:#fff;font-size:20px;font-weight:700;margin:0">Email is working!</h2>
-        </div>
-        <div style="padding:24px">
-          <p style="font-size:15px;color:#374151;margin:0 0 16px">Your FlowCheck email system is configured correctly. Transactional emails like bill reminders, budget alerts, and weekly summaries will be delivered to: <strong>${_htmlEscape(email)}</strong></p>
-          <p style="font-size:13px;color:#9ca3af;margin:0">Sent at ${new Date().toUTCString()}</p>
-        </div>
-      </div>
-      </body></html>
-    `);
+    const sent = await _sendEmail(email, 'FlowCheck email test', _mail.shell({
+      title:      'Email test',
+      preheader:  'If you can read this, delivery is working.',
+      heading:    'Email delivery works',
+      subheading: 'This is a test message.',
+      tone:       'success',
+      logoImg:    LOGO_IMG,
+      bodyHtml: `
+        <p style="margin:0 0 8px">If this arrived, sending is configured correctly: DNS, DKIM, and the Resend key are all doing their jobs.</p>`,
+      footerHtml: 'FlowCheck &middot; Test message, no action needed.',
+    }));
     return res.json({ ok: true, sent, to: email });
   } catch (err) {
     console.error('[email/test]', err.message);
@@ -3561,43 +3513,27 @@ async function _sendYearInReviewForUser(uid, userData, year, yearStart, yearEnd)
   const saved = totalIncome - totalSpent;
   const savedColor = saved >= 0 ? '#059669' : '#dc2626';
 
-  await _sendEmail(email, `Your ${year} Year in Review 🎉`, `
-    <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-    <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
-      <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:40px 32px;text-align:center">
-        ${LOGO_IMG}
-        <h1 style="color:#fff;font-size:26px;font-weight:700;margin:0 0 6px">${year} Year in Review</h1>
-        <p style="color:rgba(255,255,255,0.6);font-size:14px;margin:0">Here's what your financial year looked like, ${name}</p>
-      </div>
-      <div style="padding:28px 32px">
-        <div style="display:flex;gap:12px;margin-bottom:20px">
-          <div style="flex:1;background:#f0fffe;border-radius:12px;padding:16px;text-align:center">
-            <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">Total Spent</div>
-            <div style="font-size:20px;font-weight:800;color:#0a1520">${_fmt(totalSpent)}</div>
-          </div>
-          <div style="flex:1;background:#f0fff4;border-radius:12px;padding:16px;text-align:center">
-            <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">Total Income</div>
-            <div style="font-size:20px;font-weight:800;color:#0a1520">${_fmt(totalIncome)}</div>
-          </div>
-        </div>
-        <div style="background:#f9fafb;border-radius:10px;padding:14px 16px;text-align:center;margin-bottom:20px">
-          <span style="font-size:15px;font-weight:700;color:${savedColor}">${saved >= 0 ? 'Saved' : 'Overspent'} ${_fmt(Math.abs(saved))}</span>
-          <span style="font-size:13px;color:#9ca3af"> across ${txnCount.toLocaleString()} transactions</span>
-        </div>
-        ${topCats ? `
-        <div style="margin-bottom:24px">
-          <div style="font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px">Where Your Money Went</div>
-          <table style="width:100%;border-collapse:collapse">${topCats}</table>
-        </div>` : ''}
-        <a href="${BACKEND_URL}/open" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">
-          Start ${year + 1} Strong →
-        </a>
-      </div>
-      <div style="padding:16px 32px;border-top:1px solid #f3f4f6;text-align:center">
-        <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · <a href="${_unsubUrl(uid, 'weekly', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe</a></p>
-      </div>
-    </div></body></html>
-  `, uid);
+  await _sendEmail(email, `Your ${year} year in review`, _mail.shell({
+    title:      `${year} year in review`,
+    preheader:  `${_fmt(totalIncome)} in, ${_fmt(totalSpent)} out, across ${txnCount.toLocaleString()} transactions.`,
+    heading:    `${year} year in review`,
+    subheading: `Here is what your year looked like, ${name}.`,
+    tone:       'info',
+    logoImg:    LOGO_IMG,
+    bodyHtml: `
+      ${_mail.panel([
+        { label: 'Came in',  value: _fmt(totalIncome) },
+        { label: 'Went out', value: _fmt(totalSpent) },
+        { label: saved >= 0 ? 'Saved' : 'Overspent',
+          value: _fmt(Math.abs(saved)), strong: true, color: savedColor },
+        { label: 'Transactions', value: txnCount.toLocaleString() },
+      ], 'info')}
+      ${topCats ? `
+        <p style="font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 10px">Where your money went</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;margin:0 0 24px">${topCats}</table>` : ''}
+      ${_mail.button(`Start ${year + 1} strong`, `${BACKEND_URL}/open`, 'info')}`,
+    footerHtml: `FlowCheck &middot; <a href="${_unsubUrl(uid, 'weekly', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe</a>`,
+  }), uid);
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -3996,25 +3932,21 @@ async function _webhookSyncItem(itemId, retryCount = 0) {
               .filter(a => a.type === 'depository')
               .reduce((s, a) => s + (a.balance_available ?? a.balance_current ?? 0), 0);
             _sendEmail(userData.email,
-              isEarlyPay ? `💸 Early pay: ${_fmt(credit)} just landed` : `🎉 Payday: ${_fmt(credit)} just hit your account`,
-              `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-              <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
-                <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:36px 32px;text-align:center">
-                  ${LOGO_IMG}
-                  <div style="font-size:40px;font-weight:900;color:#1ac4f0;letter-spacing:-0.03em;margin-bottom:6px">${_fmt(credit)}</div>
-                  <p style="color:rgba(255,255,255,0.65);font-size:15px;margin:0">${isEarlyPay ? '⚡ Early pay landed' : '🎉 Payday has arrived'}</p>
-                </div>
-                <div style="padding:28px 32px">
-                  <div style="background:#f0fffe;border-radius:12px;padding:16px 20px;margin-bottom:20px">
-                    <div style="font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">Total account balance</div>
-                    <div style="font-size:26px;font-weight:800;color:#0a1520">${_fmt(totalBal)}</div>
-                  </div>
-                  <a href="${BACKEND_URL}/open" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">View My Accounts →</a>
-                </div>
-                <div style="padding:14px 32px;border-top:1px solid #f3f4f6;text-align:center">
-                  <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · <a href="${_unsubUrl(uid, 'alerts', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe from alerts</a></p>
-                </div>
-              </div></body></html>`, uid).catch(e => console.error('[email payday]', e.message));
+              isEarlyPay ? `Early pay: ${_fmt(credit)} landed` : `Payday: ${_fmt(credit)} landed`,
+              _mail.shell({
+                title:      isEarlyPay ? 'Early pay landed' : 'Payday',
+                preheader:  `${_fmt(credit)} in. Balance now ${_fmt(totalBal)}.`,
+                heading:    _fmt(credit),
+                subheading: isEarlyPay ? 'Early pay landed' : 'Payday has arrived',
+                tone:       'success',
+                logoImg:    LOGO_IMG,
+                bodyHtml: `
+                  ${_mail.panel([
+                    { label: 'Total account balance', value: _fmt(totalBal), strong: true, color: '#0d3f2c' },
+                  ], 'success')}
+                  ${_mail.button('View my accounts', `${BACKEND_URL}/open`, 'success')}`,
+                footerHtml: `FlowCheck &middot; <a href="${_unsubUrl(uid, 'alerts', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe from alerts</a>`,
+              }), uid).catch(e => console.error('[email payday]', e.message));
           }
 
           break; // one payday alert per sync batch is enough
@@ -4039,27 +3971,21 @@ async function _webhookSyncItem(itemId, retryCount = 0) {
             await _saveNotification(uid, { title: mTitle, body: mBody, type: 'savings_milestone', data: { milestone: String(milestone) } });
             if (fcmToken) _sendFCM(uid, fcmToken, { title: mTitle, body: mBody, type: 'savings_milestone', channelId: 'flowcheck_default' }).catch(() => {});
             if (userData.email && userData.email_alerts_enabled !== false) {
-              _sendEmail(userData.email, mTitle, `
-              <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-              <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
-                <div style="background:linear-gradient(135deg,#0a1520,#112230);padding:36px 32px;text-align:center">
-                  ${LOGO_IMG}
-                  <div style="font-size:48px;margin-bottom:8px">🏆</div>
-                  <div style="font-size:36px;font-weight:900;color:#1ac4f0;letter-spacing:-0.03em">${_fmt(milestone)}</div>
-                  <p style="color:rgba(255,255,255,0.65);font-size:15px;margin:8px 0 0">Net worth milestone reached</p>
-                </div>
-                <div style="padding:28px 32px">
-                  <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 20px">You just crossed <strong>${_fmt(milestone)}</strong> in net worth. That's a real milestone — keep building.</p>
-                  <div style="background:#f0fffe;border-radius:12px;padding:16px 20px;margin-bottom:20px">
-                    <div style="font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">Current net worth</div>
-                    <div style="font-size:26px;font-weight:800;color:#059669">${_fmt(netWorth)}</div>
-                  </div>
-                  <a href="${BACKEND_URL}/open" style="display:block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;text-align:center">View Net Worth →</a>
-                </div>
-                <div style="padding:14px 32px;border-top:1px solid #f3f4f6;text-align:center">
-                  <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · <a href="${_unsubUrl(uid, 'alerts', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe</a></p>
-                </div>
-              </div></body></html>`, uid).catch(e => console.error('[email milestone]', e.message));
+              _sendEmail(userData.email, mTitle, _mail.shell({
+                title:      'Net worth milestone',
+                preheader:  `You crossed ${_fmt(milestone)} in net worth.`,
+                heading:    _fmt(milestone),
+                subheading: 'Net worth milestone reached',
+                tone:       'success',
+                logoImg:    LOGO_IMG,
+                bodyHtml: `
+                  <p style="margin:0 0 22px">You just crossed <strong>${_fmt(milestone)}</strong> in net worth. That is a real milestone — keep building.</p>
+                  ${_mail.panel([
+                    { label: 'Current net worth', value: _fmt(netWorth), strong: true, color: '#0d3f2c' },
+                  ], 'success')}
+                  ${_mail.button('View my accounts', `${BACKEND_URL}/open`, 'success')}`,
+                footerHtml: `FlowCheck &middot; <a href="${_unsubUrl(uid, 'alerts', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe from alerts</a>`,
+              }), uid).catch(e => console.error('[email milestone]', e.message));
             }
           }
         }
@@ -4834,45 +4760,25 @@ app.post('/auth/login-event', requireAuth, async (req, res) => {
     const now     = new Date();
     const timeStr = now.toLocaleString('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }) + ' UTC';
 
-    _sendEmail(data.email, `🔒 New sign-in to your FlowCheck account`, `
-<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>New sign-in to FlowCheck</title></head>
-<body style="margin:0;padding:0;background:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
-<div style="display:none;max-height:0;overflow:hidden;font-size:1px;color:#f3f4f6">A new sign-in was detected on your FlowCheck account — ${timeStr}.</div>
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:32px 16px">
-<tr><td align="center">
-<table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%">
-  <tr><td style="background:linear-gradient(160deg,#060e18 0%,#0d2240 100%);border-radius:16px 16px 0 0;padding:36px 40px 32px;text-align:center">
-    ${LOGO_IMG}
-    <h1 style="color:#fff;font-size:22px;font-weight:800;margin:0 0 6px;letter-spacing:-0.02em">🔒 New sign-in detected</h1>
-    <p style="color:rgba(255,255,255,0.55);font-size:14px;margin:0">Hi ${name}, we noticed a new sign-in to your account</p>
-  </td></tr>
-  <tr><td style="background:#fff;padding:28px 36px">
-    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border-radius:12px;margin-bottom:24px">
-      <tr>
-        <td style="padding:14px 20px;font-size:13px;color:#6b7280;width:60px">Time</td>
-        <td style="padding:14px 20px;font-size:13px;font-weight:600;color:#374151;text-align:right">${timeStr}</td>
-      </tr>
-      <tr style="border-top:1px solid #f3f4f6">
-        <td style="padding:14px 20px;font-size:13px;color:#6b7280">Account</td>
-        <td style="padding:14px 20px;font-size:13px;font-weight:600;color:#374151;text-align:right">${_htmlEscape(data.email)}</td>
-      </tr>
-    </table>
-    <p style="font-size:15px;color:#374151;line-height:1.7;margin:0 0 24px">
-      If this was you, no action is needed. If you didn't sign in, change your password immediately to protect your account.
-    </p>
-    <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
-      <a href="${BACKEND_URL}/open?ref=login_alert" style="display:inline-block;background:linear-gradient(135deg,#1ac4f0,#2563eb);color:#fff;font-weight:700;font-size:15px;padding:15px 36px;border-radius:12px;text-decoration:none;letter-spacing:-0.01em">Open FlowCheck →</a>
-    </td></tr></table>
-  </td></tr>
-  <tr><td style="background:#fff;border-radius:0 0 16px 16px;border-top:1px solid #f3f4f6;padding:18px 36px;text-align:center">
-    <p style="font-size:11px;color:#9ca3af;margin:0">FlowCheck · Your money, clearly. · <a href="${_unsubUrl(req.uid, 'alerts', BACKEND_URL)}" style="color:#9ca3af;text-decoration:none">Unsubscribe from security alerts</a></p>
-  </td></tr>
-</table>
-</td></tr></table>
-</body></html>
-    `, req.uid).catch(e => console.error('[email login-alert]', e.message));
+    _sendEmail(data.email, 'New sign-in to your FlowCheck account', _mail.shell({
+      title:      'New sign-in',
+      preheader:  `A new sign-in at ${timeStr}.`,
+      heading:    'New sign-in detected',
+      subheading: `Hi ${name}, we noticed a new sign-in to your account.`,
+      /* warn, not danger. Most of these are the user's own new phone, and a
+         red security banner for a routine login teaches people to ignore the
+         colour that should mean something. */
+      tone:       'warn',
+      logoImg:    LOGO_IMG,
+      bodyHtml: `
+        ${_mail.panel([
+          { label: 'Time',    value: timeStr },
+          { label: 'Account', value: data.email },
+        ], 'warn')}
+        <p style="margin:0 0 24px">If this was you, there is nothing to do. If it was not, change your password straight away.</p>
+        ${_mail.button('Open FlowCheck', `${BACKEND_URL}/open?ref=login_alert`, 'warn')}`,
+      footerHtml: `FlowCheck &middot; Your money, clearly. &middot; <a href="${_unsubUrl(req.uid, 'alerts', BACKEND_URL)}" style="color:#9ca3af;text-decoration:none">Unsubscribe from security alerts</a>`,
+    }), req.uid).catch(e => console.error('[email login-alert]', e.message));
   } catch (err) {
     console.error('[auth/login-event]', err.message);
   }
