@@ -66,10 +66,21 @@
 <link rel="stylesheet" href="css/fc-screens.css?v=20260819h">
 <link rel="stylesheet" href="css/fc-premium-screens.css?v=20260819h">
 
-<!-- Sentry — error & crash monitoring (vanilla JS, no npm required) -->
+<!-- Sentry — error & crash monitoring (vanilla JS, no npm required).
+
+     DEFERRED. Unlike the app scripts at the bottom of <body>, this one sits in
+     <head> and is fetched from a third-party CDN, so it genuinely blocked the
+     document: if browser.sentry-cdn was slow or unreachable, the user waited
+     on it before anything rendered. Crash reporting is not worth first paint.
+
+     Init must hang off onload — a deferred script has not executed when the
+     inline block below is parsed, so the `if (window.Sentry)` guard would
+     silently skip and monitoring would quietly stop working. -->
 <script
+  defer
   src="https://browser.sentry-cdn.com/8.55.0/bundle.min.js"
   crossorigin="anonymous"
+  onload="window.__fcInitSentry && window.__fcInitSentry()"
 ></script>
 <script>
   // Detect environment before FC_CONFIG loads (which comes later).
@@ -79,7 +90,9 @@
     ? 'production'
     : 'production'; // default production; change to 'development' manually when debugging
 
-  if (window.Sentry) {
+  window.__fcInitSentry = function () {
+    if (!window.Sentry || window.__fcSentryReady) return;
+    window.__fcSentryReady = true;
     Sentry.init({
       dsn: 'https://07094d98e074d8342836afae89064009@o4511482277789696.ingest.us.sentry.io/4511485601972224',
       enabled: true,
@@ -110,7 +123,9 @@
         return event;
       },
     });
-  }
+  };
+  /* If the CDN never answers, onload never fires and Sentry stays off. That is
+     the right trade: no crash reporting beats no app. */
 </script>
 
 <script>
@@ -123,6 +138,14 @@
     capture_pageview: false,             // SPA — we handle this manually
     capture_pageleave: false,
     disable_session_recording: true,     // off until you review privacy implications
+
+    /* These stop PostHog DOWNLOADING modules it will never run. The options
+       above disable the features, but the loader still fetched surveys.js and
+       web-vitals.js on every cold start — measured on localhost, on a desktop,
+       PostHog's array.js alone took 1159ms. */
+    disable_surveys: true,               // stops surveys.js
+    capture_performance: false,          // stops web-vitals.js
+
     loaded: function(ph) {
       if (window.FC_CONFIG && window.FC_CONFIG.app && window.FC_CONFIG.app.env !== 'production') {
         ph.debug();
