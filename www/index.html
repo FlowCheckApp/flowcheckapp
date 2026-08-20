@@ -97,8 +97,15 @@
       dsn: 'https://07094d98e074d8342836afae89064009@o4511482277789696.ingest.us.sentry.io/4511485601972224',
       enabled: true,
       environment: _FC_ENV,
-      // Tag each release so you can filter errors by app version
-      release: 'flowcheck@2.0.0',
+      /* Read from FC_CONFIG, do not hardcode. A stale release tag does not
+         fail loudly — it silently files every crash under the wrong version,
+         which is worse than no tag at all when you are trying to work out
+         whether a build fixed something.
+
+         Safe to read here: this runs from the deferred script's onload, and
+         non-deferred scripts at the bottom of <body> (fc-config.js among
+         them) have already executed by then. */
+      release: 'flowcheck@' + ((window.FC_CONFIG && FC_CONFIG.app && FC_CONFIG.app.version) || 'unknown'),
       sendDefaultPii: false,       // don't auto-collect IP address or other PII
       // Sample 100% of errors (it's a finance app — we want to know about everything)
       sampleRate: 1.0,
