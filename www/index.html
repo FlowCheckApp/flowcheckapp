@@ -4025,7 +4025,7 @@ body:not(.keyboard-open) .fc-sheet {
     var nextEl = document.getElementById('ob-slide-' + next);
     if (!nextEl) return;
     // Haptic on every slide transition
-    try { if (window.Capacitor && Capacitor.Plugins.Haptics) Capacitor.Plugins.Haptics.impact({ style: 'light' }); } catch(_) {}
+    try { if (window.FCApp && FCApp.haptic) FCApp.haptic('light'); } catch(_) {}  /* via the gate, so the Settings toggle applies */
     if (curr) curr.classList.add(direction === 'forward' ? 'exit' : 'exit-back');
     nextEl.classList.add('active');
     setTimeout(function() {
@@ -4287,7 +4287,7 @@ body:not(.keyboard-open) .fc-sheet {
     if (continueBtn) continueBtn.classList.add('visible');
     _saveObProgress();
     // Haptic
-    try { if (window.Capacitor && Capacitor.Plugins.Haptics) Capacitor.Plugins.Haptics.impact({ style: 'light' }); } catch(_) {}
+    try { if (window.FCApp && FCApp.haptic) FCApp.haptic('light'); } catch(_) {}  /* via the gate, so the Settings toggle applies */
     // Save goal — onboarding_goal, NOT goals (that field is the user's real
     // savings-goals data; overwriting it with a survey answer corrupts it)
     try {

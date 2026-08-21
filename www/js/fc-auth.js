@@ -60,9 +60,17 @@ window.FCAuth = (function () {
   const Preferences    = () => Cap() && (Cap().Preferences || Cap().Storage);
   const SecureStorage  = () => Cap() && Cap().SecureStoragePlugin;
 
-  /* ── Haptic helper ───────────────────────────────────────── */
+  /* ── Haptic helper ─────────────────────────────────────────
+     Delegates to FCApp.haptic when it exists, because that is where the
+     user's "Haptic feedback" preference is enforced. This file used to fire
+     its own Capacitor call, so nine call sites here kept buzzing after the
+     user had switched haptics off — the setting looked broken.
+
+     The fallback stays for the case where fc-auth runs before fc-app has
+     published FCApp (early boot, and the web build). */
   function haptic(style) {
     try {
+      if (window.FCApp && typeof FCApp.haptic === 'function') { FCApp.haptic(style); return; }
       if (Haptics()) Haptics().impact({ style: style || 'light' });
       else if (navigator.vibrate) navigator.vibrate(8);
     } catch (_) {}
