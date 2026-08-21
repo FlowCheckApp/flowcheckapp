@@ -4712,19 +4712,6 @@ body:not(.keyboard-open) .fc-sheet {
           <path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
         </svg>
       </button>
-      <!-- Hide balances — shoulder-surfing protection. The feature was fully
-           built (CSS + FCApp.togglePrivacyMode) but this button was never
-           added, so it was unreachable. -->
-      <button class="fc-iconbtn" id="fc-privacy-toggle" type="button"
-              aria-label="Hide balances" aria-pressed="false"
-              onclick="FCApp.togglePrivacyMode()">
-        <svg id="fc-privacy-eye-open" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-        </svg>
-        <svg id="fc-privacy-eye-closed" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:none">
-          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>
-        </svg>
-      </button>
       <button class="fc-iconbtn" id="notif-bell-btn" aria-label="Notifications" onclick="FCApp.toggleNotificationCenter()">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/>
@@ -8707,65 +8694,6 @@ input::placeholder { color: var(--fc-text-faint); }
 </style>
 
 <!-- Privacy blur is now native (UIVisualEffectView in AppDelegate.swift) -->
-
-<!-- ══════════════════════════════════════════════════════════════════
-     PRIVACY MODE CSS
-     body.fc-privacy → blurs all .fc-amount spans (balance masking).
-     The toggle eye button in the home header controls this class.
-     ══════════════════════════════════════════════════════════════════ -->
-<style>
-/* Balance masking — applied when user taps the eye icon.
-   Blur scales with the text so a 44px hero number is hidden as
-   thoroughly as a 13px row value (a fixed blur leaves big numbers
-   readable in outline). `em` units do exactly that. */
-body.fc-privacy .fc-amount,
-/* Fast path: known money classes are masked by CSS the instant the class
-   lands on <body>, so nothing flashes in the frame before the JS sweep
-   runs. The sweep then self-heals anything not listed here. */
-body.fc-privacy .home-v8__safe-value,
-body.fc-privacy .home-v8__list-value,
-body.fc-privacy .home-v8__mini-value,
-body.fc-privacy .dash-stat-amount,
-body.fc-privacy .dash-row-amount,
-body.fc-privacy .dash-acct-bal,
-body.fc-privacy .dash-outlook-amount,
-body.fc-privacy .dash-card-meta-amount,
-body.fc-privacy .act-inout-amt,
-body.fc-privacy .act-summary-amount,
-body.fc-privacy .wealth-hero-amount,
-body.fc-privacy .wv-position-amount,
-body.fc-privacy .wv-sav-total,
-body.fc-privacy .wv-acct-bal,
-body.fc-privacy .wv-debt-total,
-body.fc-privacy .wv-debt-bal {
-  filter: blur(0.42em);
-  opacity: 0.85;
-  user-select: none;
-  -webkit-user-select: none;
-  transition: filter 0.22s var(--fc-ease-out), opacity 0.22s var(--fc-ease-out);
-  pointer-events: none;
-}
-@media (prefers-reduced-motion: reduce) {
-  body.fc-privacy .fc-amount { transition: none; }
-}
-/* Smooth reveal when turning privacy mode off */
-body:not(.fc-privacy) .fc-amount {
-  transition: filter 0.2s ease;
-}
-
-/* Eye icon — active state when privacy mode is on */
-body.fc-privacy #fc-privacy-toggle {
-  background: rgba(26, 196, 240, 0.12);
-}
-body.fc-privacy #fc-privacy-eye-open  { display: none !important; }
-body.fc-privacy #fc-privacy-eye-closed { display: block !important; }
-
-/* Privacy toggle hover/active feedback */
-#fc-privacy-toggle:active {
-  background: rgba(255,255,255,0.12) !important;
-  transform: scale(0.9);
-}
-</style>
 
 </body>
 </html>

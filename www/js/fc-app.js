@@ -1260,9 +1260,6 @@ window.FCApp = (function () {
 
     // Switch body attribute — incoming screen becomes visible
     state.screen = name;
-    // Re-apply a saved "hide balances" preference the moment the app screen
-    // mounts, so figures never flash visible before the user can react.
-    if (name === 'app') requestAnimationFrame(() => _restorePrivacyMode());
     document.body.dataset.screen = name;
 
     // Animate incoming screen
@@ -2025,20 +2022,15 @@ window.FCApp = (function () {
      keyed by UID so they cannot cross-contaminate between users, and they
      provide cross-session onboarding + paywall cooldown for the same user.
      ALSO PRESERVE:
-       fc_privacy_mode  — a DEVICE-level safety preference ("hide my balances
-         when people can see my screen"). It describes the user's physical
-         surroundings, not their account, and reveals nothing about any user.
-         Clearing it silently re-exposed every balance after a relaunch, so
-         keeping it is both correct and the fail-closed choice.
        fc_first_sts_    — uid-keyed analytics de-dupe flag; wiping it would
          re-fire the once-per-user "first Safe to Spend" event. */
-  const _WIPE_PRESERVE = ['fc_ob_done_', 'fc_pw_seen_', 'fc_first_sts_', 'fc_privacy_mode'];
+  const _WIPE_PRESERVE = ['fc_ob_done_', 'fc_pw_seen_', 'fc_first_sts_'];
 
   /** Clear per-user fc_ localStorage keys, honouring _WIPE_PRESERVE.
    *  Every sign-out path must go through this. The resume handler used to
    *  inline its own `startsWith('fc_')` sweep with no preserve list, so a
-   *  token revoked while backgrounded wiped fc_privacy_mode and re-exposed
-   *  every balance on next launch — the exact failure the list documents. */
+   *  token revoked while backgrounded wiped device-level preferences that
+   *  survive a sign-out — the exact failure the list documents. */
   function _wipeLocalUserKeys() {
     try {
       Object.keys(localStorage)
@@ -2104,13 +2096,6 @@ window.FCApp = (function () {
     state.initialLoading = false;
     _paywallShownThisSession    = false;
     _streakCheckedThisSession   = false;
-    if (_privacyModeOn) {
-      _privacyModeOn = false;
-      document.body.classList.remove('fc-privacy');
-      // Also tear down the DOM observer — otherwise it keeps running against
-      // the next user's session.
-      if (typeof _stopPrivacyObserver === 'function') _stopPrivacyObserver();
-    }
     // Wipe per-user localStorage caches (net-worth history, budget alert
     // flags, debt start, milestone flags, RC pro cache, etc.) so they can't
     // leak into the next user's session.
@@ -3574,15 +3559,17 @@ window.FCApp = (function () {
     if (!(debtNow > 0)) return '';
 
     const p = FCCore.debtProgress(state.debtHistory || {}, debtNow);
-    const money = v => FCData.formatCurrency(Math.abs(v));
+    /* Home is whole dollars end to end — this card is a scanned stat, not a
+       ledger, so it follows the same rule as the hero above it. */
+    const money = v => FCData.formatSummary(Math.abs(v));
 
     if (!p.ok) {
-      return `
-        <section class="fc-ui-card home-v8__debt" aria-label="Debt progress">
-          <p class="fc-section-label">Debt</p>
-          <div class="home-v8__debt-value is-quiet">Tracking from today</div>
-          <p class="home-v8__debt-meta">Check back in a few weeks — we will show what you have paid off.</p>
-        </section>`;
+      return _debtCard({
+        quiet: true,
+        kicker: 'Debt',
+        value: 'Tracking from today',
+        meta: 'Check back in a few weeks — we will show what you have paid off.',
+      });
     }
 
     const fromLabel = FCData.parseDateLocal(p.from)
@@ -3634,33 +3621,63 @@ window.FCApp = (function () {
       const under = p.paidDown > 0
         ? `${money(p.paidDown)} paid down since ${fromLabel}`
         : `${money(debtNow)} total · tracked since ${fromLabel}`;
-      return `
-        <section class="fc-ui-card home-v8__debt" aria-label="Debt progress">
-          <p class="fc-section-label">Debt</p>
-          <div class="home-v8__debt-value is-quiet">Up ${money(p.month)} this month</div>
-          <p class="home-v8__debt-meta">${esc(under)}</p>
-        </section>`;
+      return _debtCard({
+        quiet: true,
+        kicker: 'Debt',
+        value: `Up ${money(p.month)} this month`,
+        meta: under,
+      });
     }
 
     if (p.paidDown > 0) {
-      return `
-        <section class="fc-ui-card home-v8__debt" aria-label="Debt paid down">
-          <p class="fc-section-label">Debt paid down</p>
-          <div class="home-v8__debt-value is-good">${money(p.paidDown)}</div>
-          <p class="home-v8__debt-meta">since ${esc(fromLabel)}${esc(closer)}</p>
-        </section>`;
+      return _debtCard({
+        kicker: 'Debt paid down',
+        value: money(p.paidDown),
+        countup: p.paidDown,
+        meta: `since ${fromLabel}${closer}`,
+      });
     }
 
     /* Level, or down this month but not yet ahead of where they started. */
     const monthLine = p.month
       ? `${money(p.month)} paid down this month`
       : 'No change this month';
+    return _debtCard({
+      quiet: true,
+      kicker: 'Debt',
+      value: monthLine,
+      meta: `${money(debtNow)} total · tracked since ${fromLabel}`,
+    });
+  }
+
+  /* One card shape for all four debt states, so the good news and the bad
+     news are the same object and only the colour differs. Deliberately built
+     to the same anatomy as the paycheck card directly above it — 60px icon
+     circle, stacked copy, chevron — because they are peers on Home and read
+     as a pair.
+
+     `quiet` states are neutral: a month where debt rose is information, not
+     an alarm, and painting it red would make the card something people avoid
+     looking at. Only real progress gets the green.
+
+     The value counts up for the same reason every other hero number on Home
+     does. It needs BOTH data-countup and an id — the driver queries
+     `[data-countup][id]`, so a missing id silently animates nothing, which is
+     how Home's numbers stopped animating once already. */
+  function _debtCard({ kicker, value, meta, countup, quiet }) {
+    const tone = quiet ? '' : ' is-good';
     return `
-      <section class="fc-ui-card home-v8__debt" aria-label="Debt progress">
-        <p class="fc-section-label">Debt</p>
-        <div class="home-v8__debt-value is-quiet">${esc(monthLine)}</div>
-        <p class="home-v8__debt-meta">${money(debtNow)} total · tracked since ${esc(fromLabel)}</p>
-      </section>`;
+      <button type="button" class="fc-ui-card st-debt-card${tone}"
+              aria-label="${esc(kicker)} — open debt detail"
+              onclick="FCApp.haptic('light');FCApp.switchTab('wealth');FCApp.switchWealthTab('debt')">
+        <span class="st-debt-card__icon" aria-hidden="true">${_ic('trending-down', 'currentColor', 26)}</span>
+        <span class="st-debt-card__copy">
+          <span class="st-debt-card__kicker">${esc(kicker)}</span>
+          <span class="st-debt-card__value"${countup ? ` id="st-debt-value" data-countup="${countup}" data-countup-decimals="0"` : ''}>${esc(value)}</span>
+          <span class="st-debt-card__meta">${esc(meta)}</span>
+        </span>
+        <span class="st-debt-card__chevron" aria-hidden="true">›</span>
+      </button>`;
   }
 
   function _renderHomeNextBill() {
@@ -5004,6 +5021,7 @@ window.FCApp = (function () {
 
         ${safeSpendMarkup}
         ${_renderSafePaycheckCard()}
+        ${_renderDebtProgressCard()}
 
         <p class="home-v8__disclaimer">FlowCheck is not a bank. Not financial advice.</p>
       </div>`;
@@ -6627,8 +6645,8 @@ window.FCApp = (function () {
      their choice, not ours.
 
      Stored in localStorage rather than Firestore: it is a UI preference, not
-     financial data, exactly like fc_privacy_mode. The stored value is only
-     ever the string 'avalanche' or 'snowball' — it reveals no balance.
+     financial data. The stored value is only ever the string 'avalanche' or
+     'snowball' — it reveals no balance.
 
      Keyed fc_payoff_strategy, not fc_debt_strategy, so it does not trip
      check-privacy-invariants' storage rule. That rule greps for debt/balance
@@ -14342,9 +14360,6 @@ window.FCApp = (function () {
   const _IDLE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
   let _idleTimer = null;
 
-  // ── Privacy mode (balance masking) ──────────────────────────
-  let _privacyModeOn = false;
-
   /** Called by idle timer — delegates to native AppDelegate via Capacitor plugin. */
   async function _triggerNativeLock() {
     if (!FCAuth.currentUser()) return;
@@ -15803,121 +15818,6 @@ window.FCApp = (function () {
     _resetIdleTimer();
   }
 
-  /**
-   * Toggle balance masking (privacy mode).
-   * When on, all elements with class `fc-amount` are visually blurred
-   * via the CSS rule `body.fc-privacy .fc-amount { filter: blur(7px) }`.
-   * The eye icon in the home header controls this.
-   */
-  /* ── Privacy mode (hide balances) ─────────────────────────────
-     Safety feature: lets the user blank every money figure on screen
-     when someone can see their phone.
-
-     Masking is class-driven (`.fc-amount`), but relying on every
-     render site remembering that class is fragile — and a privacy
-     feature that silently misses a number is worse than none at all.
-     So while privacy mode is ON we also (a) sweep the DOM tagging any
-     leaf node that looks like currency, and (b) keep a MutationObserver
-     running so freshly-rendered numbers are masked too. The observer
-     only exists while the user has opted in, so there's no idle cost. */
-  // Whole-node currency ("$1,223.48", "−$723.55", "$3.2k")
-  const _MONEY_RE = /^[−\-+]?\s*\$\s?[\d,]+(\.\d{1,2})?\s*$|^[−\-+]?\s*\$[\d.,]+\s?[KkMm]\s*$/;
-  // Currency appearing INSIDE a sentence ("$462.50 — that's 3× your average",
-  // "$1,522.78 left"). These leak if you only mask whole nodes.
-  const _MONEY_INLINE_RE = /[−\-+]?\$\s?\d[\d,]*(?:\.\d{1,2})?\s?[KkMm]?/g;
-  let _privacyObserver = null;
-  let _privacySweepQueued = false;
-
-  function _sweepMoneyNodes() {
-    const root = document.getElementById('screen-app') || document.body;
-    if (!root) return;
-    root.querySelectorAll('*').forEach(el => {
-      if (el.children.length) return;                       // leaf nodes only
-      if (el.classList.contains('fc-amount')) return;       // already masked
-      if (el.dataset.fcMasked === '1') return;              // inline-masked already
-      const t = el.textContent;
-      if (!t || t.length > 400) return;
-      const trimmed = t.trim();
-      if (!trimmed.includes('$')) return;                   // cheap reject
-
-      if (_MONEY_RE.test(trimmed)) {                        // the whole node is money
-        el.classList.add('fc-amount');
-        return;
-      }
-      // Money embedded in a sentence — wrap just the figures so the
-      // surrounding words stay readable.
-      _MONEY_INLINE_RE.lastIndex = 0;
-      if (!_MONEY_INLINE_RE.test(trimmed)) return;
-      _MONEY_INLINE_RE.lastIndex = 0;
-      el.dataset.fcMasked = '1';
-      el.innerHTML = esc(t).replace(
-        _MONEY_INLINE_RE,
-        m => '<span class="fc-amount">' + m + '</span>'
-      );
-    });
-  }
-
-  function _startPrivacyObserver() {
-    if (_privacyObserver || typeof MutationObserver === 'undefined') return;
-    const root = document.getElementById('screen-app') || document.body;
-    if (!root) return;
-    _privacyObserver = new MutationObserver(() => {
-      if (_privacySweepQueued) return;
-      _privacySweepQueued = true;
-      requestAnimationFrame(() => {
-        _privacySweepQueued = false;
-        if (_privacyModeOn) _sweepMoneyNodes();
-      });
-    });
-    _privacyObserver.observe(root, { childList: true, subtree: true });
-  }
-
-  function _stopPrivacyObserver() {
-    if (!_privacyObserver) return;
-    _privacyObserver.disconnect();
-    _privacyObserver = null;
-  }
-
-  function togglePrivacyMode() {
-    _privacyModeOn = !_privacyModeOn;
-    document.body.classList.toggle('fc-privacy', _privacyModeOn);
-
-    if (_privacyModeOn) { _sweepMoneyNodes(); _startPrivacyObserver(); }
-    else                { _stopPrivacyObserver(); }
-
-    // Remember the choice — a UI preference, never financial data
-    try { localStorage.setItem('fc_privacy_mode', _privacyModeOn ? '1' : '0'); } catch (_) {}
-
-    // Update eye icon aria-label + visual state
-    const btn = document.getElementById('fc-privacy-toggle');
-    if (btn) {
-      btn.setAttribute('aria-label', _privacyModeOn ? 'Show balances' : 'Hide balances');
-      btn.setAttribute('aria-pressed', _privacyModeOn ? 'true' : 'false');
-    }
-
-    haptic('light');
-    if (typeof FCAnalytics !== 'undefined') {
-      FCAnalytics.track('privacy_mode_toggled', { on: _privacyModeOn });
-    }
-  }
-
-  /** Re-apply a saved privacy preference on launch, before first paint of
-   *  the app screen, so balances never flash visible. */
-  function _restorePrivacyMode() {
-    try {
-      if (localStorage.getItem('fc_privacy_mode') !== '1') return;
-      _privacyModeOn = true;
-      document.body.classList.add('fc-privacy');
-      _sweepMoneyNodes();
-      _startPrivacyObserver();
-      const btn = document.getElementById('fc-privacy-toggle');
-      if (btn) {
-        btn.setAttribute('aria-label', 'Show balances');
-        btn.setAttribute('aria-pressed', 'true');
-      }
-    } catch (_) {}
-  }
-
   /* ─────────────────────────────────────────────────────────────
      PERIOD SELECTOR
      ───────────────────────────────────────────────────────────── */
@@ -16640,7 +16540,6 @@ window.FCApp = (function () {
     toggleBiometric,
     toggleNotifications,
     // Privacy mode (balance masking)
-    togglePrivacyMode,
     // Period selector
     switchPeriod,
     // Plan tab — category filter

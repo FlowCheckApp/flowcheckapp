@@ -58,8 +58,6 @@ const FILES = [
  *     greeting and notification-badge helpers)
  *   - the registration referral + password-strength ids, which belong to
  *     markup that is built conditionally
- *   - screen-app, read by the privacy sweep against a container that the
- *     current shell does not use
  */
 const KNOWN_ORPHANS = new Set([
   // legacy Home surfaces still referenced from live renderers
@@ -82,8 +80,6 @@ const KNOWN_ORPHANS = new Set([
   'credit-connect-btn', 'credit-refresh-btn',
   // registration extras built conditionally
   'reg-pw-strength-label', 'reg-referral-wrap', 'reg-referral-chevron', 'reg-referral-code',
-  // privacy sweep container
-  'screen-app',
 ]);
 
 /* ── collect every id that exists anywhere ─────────────────────── */

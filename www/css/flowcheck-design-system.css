@@ -1164,8 +1164,6 @@ body.fc-theme {
 [data-theme="light"] .dash-safe-dot { background: var(--fc-accent) !important; box-shadow: 0 0 6px rgba(13,173,212,0.7) !important; }
 [data-theme="light"] .dash-safe-text { color: var(--fc-accent) !important; }
 /* Privacy toggle in light */
-[data-theme="light"] #fc-privacy-toggle { background: rgba(13,27,46,0.06) !important; }
-[data-theme="light"] #fc-privacy-toggle svg { stroke: rgba(13,27,46,0.50) !important; }
 
 /* ── Quick stats ─────────────────────────────────────────── */
 [data-theme="light"] .dash-stat {
@@ -3322,26 +3320,97 @@ a[role="tab"]:focus-visible,
    24px corner radius and reads as clipped. 16px is the scale value, and the
    move card above was moved off its stray 17px to match, so the two left
    edges line up on a number that is actually in the system. */
-.home-v8__debt {
+/* Debt progress card — Home.
+   Built to the same anatomy as .st-paycheck-card directly above it (60px
+   icon circle, stacked copy, chevron) because the two are peers on Home and
+   should read as a pair. The neutral form is the default: a month where debt
+   ROSE is information, not an alarm. Only real progress takes .is-good. */
+.st-debt-card {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 16px;
   padding: 16px;
+  color: var(--fc-text);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
 }
-.home-v8__debt-value {
+
+.st-debt-card__icon {
+  display: grid;
+  width: 60px;
+  height: 60px;
+  flex: 0 0 60px;
+  place-items: center;
+  border: 1px solid var(--fc-border);
+  border-radius: 50%;
+  background: var(--fc-card-bg);
+  color: var(--fc-text-muted);
+}
+
+.st-debt-card__copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.st-debt-card__kicker {
+  color: var(--fc-text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.st-debt-card__value {
+  color: var(--fc-text);
   font-size: 26px;
   font-weight: 700;
-  color: var(--fc-text);
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.5px;
+  letter-spacing: -0.03em;
   line-height: 1.1;
-  margin-top: 2px;
 }
-.home-v8__debt-value.is-good { color: var(--fc-success); }
-.home-v8__debt-value.is-quiet { font-size: 20px; }
-.home-v8__debt-meta {
-  font-size: 12px;
+
+.st-debt-card__meta {
+  overflow: hidden;
   color: var(--fc-text-muted);
-  margin-top: 6px;
+  font-size: 12px;
   line-height: 1.4;
+  text-overflow: ellipsis;
 }
+
+.st-debt-card__chevron {
+  color: var(--fc-text-faint);
+  font-size: 22px;
+  line-height: 1;
+}
+
+/* Progress: the one debt figure in the app that grows when you do the right
+   thing, so it is the one that gets colour. */
+.st-debt-card.is-good {
+  border-color: var(--fc-success-border);
+  background:
+    radial-gradient(circle at 18% 50%, var(--fc-success-soft), transparent 32%),
+    linear-gradient(145deg, var(--fc-card-bg), var(--fc-bg-elevated));
+}
+.st-debt-card.is-good .st-debt-card__icon {
+  border-color: var(--fc-success-border);
+  background: var(--fc-success-soft);
+  color: var(--fc-success);
+  box-shadow: 0 0 24px var(--fc-success-soft);
+}
+.st-debt-card.is-good .st-debt-card__kicker,
+.st-debt-card.is-good .st-debt-card__value { color: var(--fc-success); }
+
+/* A neutral state still says "no change this month" in sentence case, which
+   at 26px reads as shouting. Step it down like the old .is-quiet did. */
+.st-debt-card:not(.is-good) .st-debt-card__value { font-size: 20px; }
+
+.st-debt-card:active { transform: scale(0.985); }
 .fc-metric-note {
   font-size: 10px;
   font-weight: 500;

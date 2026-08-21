@@ -90,11 +90,6 @@ body.fc-theme {
   box-shadow: none;
 }
 
-#fc-privacy-toggle {
-  background: var(--fc-card-bg) !important;
-  border: 1px solid var(--fc-border) !important;
-}
-
 .premium-balance-card {
   position: relative;
   margin: 5px 16px 12px;
@@ -901,21 +896,6 @@ body.fc-theme {
 }
 
 .premium-home-action,
-#fc-privacy-toggle {
-  position: relative;
-  display: grid !important;
-  width: 34px !important;
-  height: 34px !important;
-  flex-shrink: 0;
-  place-items: center;
-  padding: 0;
-  border: 1px solid var(--fc-premium-border) !important;
-  border-radius: 50% !important;
-  background: var(--fc-card-bg) !important;
-  color: var(--fc-text-muted);
-  box-shadow: none !important;
-}
-
 .dash-avatar {
   display: none !important;
 }
@@ -2078,14 +2058,7 @@ body.fc-theme {
 }
 
 #view-home .premium-home-action,
-#view-home #fc-privacy-toggle {
-  width: 38px !important;
-  height: 38px !important;
-  border-color: var(--fc-premium-border) !important;
-  background: transparent !important;
-}
-
-.home-safe-command {
+#view-home .home-safe-command {
   min-height: 196px;
   margin: 0 16px;
   padding: 18px 16px 13px;
