@@ -51,6 +51,28 @@ for (const rel of FILES) {
   }
 }
 
+/* The native lock screen fires its own UIImpactFeedbackGenerator. It is not
+   reachable from JS, so it must read the same preference out of
+   NSUserDefaults — Capacitor's Preferences plugin writes it under the
+   CapacitorStorage prefix. Three calls there ignored the setting, and because
+   that screen only appears on resume and Face ID, the buzz came back
+   intermittently long after the user had switched haptics off. */
+const swift = path.join(root, 'ios/App/App/NativeLockScreenViewController.swift');
+if (fs.existsSync(swift)) {
+  const src = fs.readFileSync(swift, 'utf8');
+  const raw = (src.match(/UIImpactFeedbackGenerator\(style: \.[a-z]+\)\.impactOccurred\(\)/g) || []).length;
+  /* The helper itself calls UIImpactFeedbackGenerator(style: style) with a
+     VARIABLE, so it does not match this pattern. Any literal style — .light,
+     .medium, .heavy — is a call that skipped impact(_:) and therefore the
+     preference. Zero is the only acceptable count. */
+  if (raw > 0) {
+    problems.push(`ios/App/App/NativeLockScreenViewController.swift: ${raw} ungated UIImpactFeedbackGenerator call(s) — route them through impact(_:)`);
+  }
+  if (!src.includes('CapacitorStorage.fc_haptics_enabled')) {
+    problems.push('NativeLockScreenViewController.swift no longer reads the haptics preference');
+  }
+}
+
 if (problems.length) {
   console.error('✗ haptics bypass the user preference:\n');
   problems.forEach(p => console.error('  ' + p));
@@ -59,4 +81,4 @@ if (problems.length) {
   console.error('  keeps buzzing after the user has switched haptics off.');
   process.exit(1);
 }
-console.log('✓ haptics: every trigger routes through the gated FCApp.haptic()');
+console.log('✓ haptics: every trigger — JS and native — honours the user preference');

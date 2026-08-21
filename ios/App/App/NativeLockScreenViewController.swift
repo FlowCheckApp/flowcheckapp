@@ -321,8 +321,30 @@ final class NativeLockScreenViewController: UIViewController {
         }
     }
 
+
+    /// Honours the app's "Haptic feedback" setting.
+    ///
+    /// The JS side gates every haptic behind FCApp.haptic(), which reads this
+    /// preference. This screen is native, so it never went through that gate —
+    /// three UIImpactFeedbackGenerator calls fired regardless of the setting,
+    /// and because the lock screen only appears on resume and Face ID, they
+    /// came back "here and there" after the user had switched haptics off.
+    ///
+    /// Capacitor's Preferences plugin writes to NSUserDefaults under the
+    /// CapacitorStorage prefix, so the same value is readable from here.
+    /// Absent means never set, which is on — the app's default.
+    private func hapticsEnabled() -> Bool {
+        let raw = UserDefaults.standard.string(forKey: "CapacitorStorage.fc_haptics_enabled")
+        return raw != "false"
+    }
+
+    private func impact(_ style: UIImpactFeedbackGenerator.FeedbackStyle) {
+        guard hapticsEnabled() else { return }
+        UIImpactFeedbackGenerator(style: style).impactOccurred()
+    }
+
     private func handleSuccess() {
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        impact(.medium)
 
         // Button turns green
         UIView.animate(withDuration: 0.2) {
@@ -354,7 +376,7 @@ final class NativeLockScreenViewController: UIViewController {
     }
 
     private func handleFailure(error: LAError?) {
-        UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+        impact(.heavy)
 
         let cancelled = error?.code == .userCancel  ||
                         error?.code == .appCancel   ||
@@ -414,7 +436,7 @@ final class NativeLockScreenViewController: UIViewController {
     }
 
     @objc private func passwordTapped() {
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        impact(.light)
         dismiss(animated: true) { [weak self] in
             self?.onSignOut?()
         }
