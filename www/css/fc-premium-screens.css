@@ -97,7 +97,7 @@ body.fc-theme {
   padding: 17px 17px 10px;
   overflow: hidden;
   border: 1px solid var(--fc-premium-border);
-  border-radius: 20px;
+  border-radius: var(--fc-r-lg);
   background: var(--fc-premium-card);
   box-shadow: var(--fc-premium-shadow);
   cursor: pointer;
@@ -168,7 +168,7 @@ body.fc-theme {
   min-height: 29px;
   padding: 4px 2px;
   border: 0;
-  border-radius: 9px;
+  border-radius: 10px;
   background: transparent;
   color: var(--fc-text-faint);
   font: inherit;
@@ -196,7 +196,7 @@ body.fc-theme {
   padding: 12px 10px 10px;
   overflow: hidden;
   border: 1px solid var(--fc-premium-border);
-  border-radius: 17px;
+  border-radius: var(--fc-r-md);
   background: var(--fc-premium-card);
   box-shadow: var(--fc-premium-shadow);
   cursor: pointer;
@@ -416,7 +416,7 @@ body.fc-theme {
   right: 30px;
   padding: 22px 19px;
   border: 1px solid var(--fc-border-accent);
-  border-radius: 20px;
+  border-radius: var(--fc-r-lg);
   background: var(--fc-premium-card);
   box-shadow: var(--fc-shadow-lg);
   text-align: center;
@@ -454,7 +454,7 @@ body.fc-theme {
   width: 100%;
   min-height: var(--fc-touch);
   border: 0;
-  border-radius: 13px;
+  border-radius: 14px;
   background: linear-gradient(135deg, var(--fc-accent), var(--fc-electric));
   color: var(--fc-accent-ink);
   font: inherit;
@@ -494,7 +494,7 @@ body.fc-theme {
   margin-bottom: 10px;
   padding: 3px;
   border: 1px solid var(--fc-premium-border);
-  border-radius: 12px;
+  border-radius: var(--fc-r-sm);
   background: var(--fc-card-bg);
 }
 
@@ -641,7 +641,7 @@ body.fc-theme {
   width: 36px;
   height: 36px;
   place-items: center;
-  border-radius: 12px;
+  border-radius: var(--fc-r-sm);
   background: var(--fc-accent-soft);
   color: var(--fc-accent);
   font-size: 18px;
@@ -731,7 +731,7 @@ body.fc-theme {
   margin-top: 13px;
   padding: 3px;
   border: 1px solid var(--fc-premium-border);
-  border-radius: 13px;
+  border-radius: 14px;
   background: var(--fc-card-bg);
 }
 
@@ -936,7 +936,7 @@ body.fc-theme {
 .premium-balance-card {
   margin: 3px 12px 9px;
   padding: 14px 14px 8px;
-  border-radius: 16px;
+  border-radius: var(--fc-r-md);
   box-shadow: var(--fc-shadow-sm);
 }
 
@@ -1042,7 +1042,7 @@ body.fc-theme {
   height: 31px;
   flex-shrink: 0;
   place-items: center;
-  border-radius: 9px;
+  border-radius: 10px;
   background: var(--fc-accent-soft);
   color: var(--fc-accent);
   font-size: 15px;
@@ -1199,7 +1199,7 @@ body.fc-theme {
   align-items: center;
   gap: 10px;
   border: 1px solid var(--fc-premium-border);
-  border-radius: 16px;
+  border-radius: var(--fc-r-md);
   background: var(--fc-card-bg);
   color: var(--fc-text);
   text-align: left;
@@ -1334,7 +1334,7 @@ body.fc-theme {
   flex-direction: column;
   align-items: center;
   border: 1px solid var(--fc-border-accent);
-  border-radius: 13px;
+  border-radius: 14px;
   background: var(--fc-card-bg);
 }
 
@@ -1361,7 +1361,7 @@ body.fc-theme {
 
 #view-home .home-move-do {
   min-height: 40px;
-  border-radius: 11px;
+  border-radius: var(--fc-r-sm);
   color: var(--fc-bg);
   font-size: 12px;
 }
@@ -1511,7 +1511,7 @@ body.fc-theme {
 .act-search-wrap .fc-search,
 .act-filter-btn {
   height: 44px !important;
-  border-radius: 13px !important;
+  border-radius: 14px !important;
 }
 
 .act-filter-btn {
@@ -1567,7 +1567,7 @@ body.fc-theme {
 .fc-list-icon {
   width: 36px !important;
   height: 36px !important;
-  border-radius: 11px !important;
+  border-radius: var(--fc-r-sm) !important;
 }
 
 .fc-list-title {
@@ -1653,7 +1653,7 @@ body.fc-theme {
 .premium-insight-icon {
   width: 30px;
   height: 30px;
-  border-radius: 9px;
+  border-radius: 10px;
   font-size: 14px;
 }
 
@@ -1676,7 +1676,7 @@ body.fc-theme {
 
 .wv-tabs {
   margin-top: 8px !important;
-  border-radius: 11px !important;
+  border-radius: var(--fc-r-sm) !important;
 }
 
 /* .wv-tab type/padding is owned by CANONICAL SCREEN CHROME so Money's
@@ -1775,7 +1775,7 @@ body.fc-theme {
   height: 32px;
   flex-shrink: 0;
   place-items: center;
-  border-radius: 9px;
+  border-radius: 10px;
   background: var(--wv-blue-soft);
   font-size: 15px;
 }
@@ -1821,7 +1821,7 @@ body.fc-theme {
 
 .wv-tpl-btn {
   padding: 11px 5px !important;
-  border-radius: 13px !important;
+  border-radius: 14px !important;
 }
 
 .premium-goals-heading {
@@ -1868,7 +1868,7 @@ body.fc-theme {
   height: 35px;
   flex-shrink: 0;
   place-items: center;
-  border-radius: 11px;
+  border-radius: var(--fc-r-sm);
   background: var(--wv-blue-soft);
   font-size: 17px;
 }
@@ -1909,7 +1909,7 @@ body.fc-theme {
   height: 4px;
   margin-top: 6px;
   overflow: hidden;
-  border-radius: 999px;
+  border-radius: var(--fc-r-pill);
   background: var(--wv-pill);
 }
 
@@ -2016,7 +2016,7 @@ body.fc-theme {
 .fc-settings-icon {
   width: 29px !important;
   height: 29px !important;
-  border-radius: 9px !important;
+  border-radius: 10px !important;
 }
 
 .fc-settings-label {
@@ -2087,7 +2087,7 @@ body.fc-theme {
   min-height: 196px;
   margin: 0 16px;
   padding: 18px 16px 13px;
-  border-radius: 20px;
+  border-radius: var(--fc-r-lg);
 }
 
 .home-safe-topline {
@@ -2323,7 +2323,7 @@ body.fc-theme {
 
 #view-home .home-move-do {
   min-height: var(--fc-touch);
-  border-radius: 12px;
+  border-radius: var(--fc-r-sm);
   background: linear-gradient(90deg, var(--fc-accent), var(--fc-electric)) !important;
   color: var(--fc-bg) !important;
   font-size: 14px;
@@ -2512,7 +2512,7 @@ body.fc-theme {
   inset: -3px 0 20px;
   z-index: -1;
   border: 1px solid var(--fc-border);
-  border-radius: 12px;
+  border-radius: var(--fc-r-sm);
   background: linear-gradient(180deg, var(--fc-bg-elevated-2), transparent);
   opacity: 0.58;
   pointer-events: none;
@@ -2592,7 +2592,7 @@ body.fc-theme {
   margin-top: 8px;
   overflow: hidden;
   border: 1px solid var(--fc-border);
-  border-radius: 13px;
+  border-radius: 14px;
   background:
     linear-gradient(180deg, var(--fc-bg-elevated-2), transparent),
     radial-gradient(ellipse 62% 105% at 88% 24%, var(--fc-electric-soft), transparent 76%);
@@ -2744,7 +2744,7 @@ body.fc-theme {
   height: 68px;
   overflow: hidden;
   border: 1px solid var(--fc-border);
-  border-radius: 12px;
+  border-radius: var(--fc-r-sm);
   background: linear-gradient(180deg, var(--fc-bg-elevated-2), transparent);
 }
 

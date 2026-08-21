@@ -446,7 +446,7 @@ body.fc-theme {
 .fc-auth-apple-btn {
   width: 100%;
   height: 54px;
-  border-radius: 16px;
+  border-radius: var(--fc-r-md);
   background: #fff;
   border: none;
   display: flex; align-items: center; justify-content: center; gap: 9px;
@@ -570,7 +570,7 @@ body.fc-theme {
   display: flex; gap: 4px; margin-top: 9px; height: 4px;
 }
 .fc-pw-bar-seg {
-  flex: 1; border-radius: 999px;
+  flex: 1; border-radius: var(--fc-r-pill);
   background: rgba(255,255,255,0.10);
   transition: background 0.3s cubic-bezier(0.34,1.2,0.64,1), transform 0.25s cubic-bezier(0.34,1.56,0.64,1);
 }
@@ -585,7 +585,7 @@ body.fc-theme {
   color: white;
   border: none;
   height: 54px;
-  border-radius: 16px;
+  border-radius: var(--fc-r-md);
   font-size: 16px;
   font-weight: 700;
   letter-spacing: -0.01em;
@@ -754,7 +754,7 @@ body.keyboard-open .fc-auth-screen { padding-top: calc(env(safe-area-inset-top, 
   width: 100%;
   background: rgba(255,69,58,0.10);
   border: 1px solid rgba(255,69,58,0.22);
-  border-radius: 12px;
+  border-radius: var(--fc-r-sm);
   color: var(--fc-danger);
   font-size: 13px;
   font-weight: 500;
@@ -770,7 +770,7 @@ body.keyboard-open .fc-auth-screen { padding-top: calc(env(safe-area-inset-top, 
   height: 54px;
   background: rgba(255,255,255,0.04);
   border: 1px solid rgba(255,255,255,0.09);
-  border-radius: 16px;
+  border-radius: var(--fc-r-md);
   color: rgba(255,255,255,0.65);
   font-size: 15px;
   font-weight: 600;
@@ -815,7 +815,7 @@ body.keyboard-open .fc-auth-screen { padding-top: calc(env(safe-area-inset-top, 
 
 /* ── Google Sign In button ── */
 .fc-auth-google-btn {
-  width: 100%; height: 54px; border-radius: 16px;
+  width: 100%; height: 54px; border-radius: var(--fc-r-md);
   background: rgba(255,255,255,0.08);
   border: 1.5px solid rgba(255,255,255,0.14);
   display: flex; align-items: center; justify-content: center; gap: 10px;
@@ -920,7 +920,7 @@ body.keyboard-open .fc-auth-screen { padding-top: calc(env(safe-area-inset-top, 
 .fc-hero-proof {
   display: flex; align-items: center; gap: 8px;
   background: rgba(255,176,32,0.08); border: 1px solid rgba(255,176,32,0.16);
-  border-radius: 999px; padding: 6px 16px;
+  border-radius: var(--fc-r-pill); padding: 6px 16px;
   animation: fcFadeUp 0.6s 0.3s var(--fc-ease-out) both;
 }
 .fc-hero-proof-stars { color: #ffb020; font-size: 13px; letter-spacing: 1px; }
@@ -1065,7 +1065,7 @@ body.keyboard-open .fc-auth-screen { padding-top: calc(env(safe-area-inset-top, 
 /* Status chip — under the header title, safe-area-protected via .fc-header's own padding */
 .fc-island-pill {
   background: rgba(48,209,88,0.10); border: 1px solid rgba(48,209,88,0.20);
-  padding: 3px 9px; border-radius: 999px;
+  padding: 3px 9px; border-radius: var(--fc-r-pill);
   display: inline-flex; align-items: center; gap: 6px;
   max-width: fit-content;
   transition: background 0.2s;
@@ -1112,7 +1112,7 @@ body.keyboard-open .fc-auth-screen { padding-top: calc(env(safe-area-inset-top, 
 .fc-iconbtn-badge {
   position: absolute; top: 4px; right: 4px;
   min-width: 16px; height: 16px; padding: 0 4px;
-  background: var(--fc-danger); border-radius: 999px;
+  background: var(--fc-danger); border-radius: var(--fc-r-pill);
   border: 2px solid var(--fc-bg);
   display: flex; align-items: center; justify-content: center;
   font-size: 10px; font-weight: 800; color: #fff; line-height: 1;
@@ -1137,7 +1137,7 @@ body.keyboard-open .fc-auth-screen { padding-top: calc(env(safe-area-inset-top, 
   position: relative; padding: 22px 22px 16px;
   background: linear-gradient(145deg, rgba(26,196,240,0.10) 0%, rgba(37,99,235,0.08) 55%, rgba(26,196,240,0.04) 100%);
   border: 1px solid rgba(26,196,240,0.22);
-  border-radius: 24px; overflow: hidden;
+  border-radius: var(--fc-r-xl); overflow: hidden;
 }
 .fc-hero-orb {
   position: absolute; top: -40px; right: -40px;
@@ -1163,13 +1163,13 @@ body.keyboard-open .fc-auth-screen { padding-top: calc(env(safe-area-inset-top, 
   display: flex; gap: 3px; margin-top: 14px;
   padding: 3px; background: rgba(0,0,0,0.3);
   border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 999px;
+  border-radius: var(--fc-r-pill);
 }
 .fc-scrubber button {
   flex: 1; padding: 7px 0;
   background: transparent; border: none;
   color: rgba(255,255,255,0.45); font-size: 11px; font-weight: 600;
-  border-radius: 999px; cursor: pointer; font-family: inherit;
+  border-radius: var(--fc-r-pill); cursor: pointer; font-family: inherit;
   transition: background 0.18s, color 0.18s, box-shadow 0.18s;
   letter-spacing: 0.01em;
 }
@@ -1185,7 +1185,7 @@ body.keyboard-open .fc-auth-screen { padding-top: calc(env(safe-area-inset-top, 
   padding: 6px 13px;
   background: rgba(255,255,255,0.05);
   border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 999px;
+  border-radius: var(--fc-r-pill);
   color: var(--fc-text-muted);
   font-size: 12px;
   font-weight: 500;
@@ -1209,7 +1209,7 @@ body.keyboard-open .fc-auth-screen { padding-top: calc(env(safe-area-inset-top, 
 }
 .fc-ai-row { display: flex; align-items: flex-start; gap: 12px; }
 .fc-ai-icon {
-  width: 36px; height: 36px; border-radius: 12px;
+  width: 36px; height: 36px; border-radius: var(--fc-r-sm);
   background: linear-gradient(135deg, var(--fc-electric), var(--fc-accent));
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
@@ -1219,7 +1219,7 @@ body.keyboard-open .fc-auth-screen { padding-top: calc(env(safe-area-inset-top, 
 .fc-ai-cta {
   margin-top: 12px; padding: 8px 14px;
   background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 999px; color: white; font-size: 12px; font-weight: 500;
+  border-radius: var(--fc-r-pill); color: white; font-size: 12px; font-weight: 500;
   cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
   font-family: inherit; transition: background 0.15s;
 }
@@ -1230,7 +1230,7 @@ body.keyboard-open .fc-auth-screen { padding-top: calc(env(safe-area-inset-top, 
 /* Streak/inline chip variant — smaller, with dot indicator */
 .fc-chip-inline {
   padding: 5px 10px; background: rgba(255,255,255,0.06);
-  border-radius: 999px; font-size: 11px; color: rgba(255,255,255,0.7);
+  border-radius: var(--fc-r-pill); font-size: 11px; color: rgba(255,255,255,0.7);
   display: inline-flex; align-items: center; gap: 4px;
 }
 .fc-chip-dot { width: 5px; height: 5px; border-radius: 50%; }
@@ -1253,8 +1253,8 @@ body.keyboard-open .fc-auth-screen { padding-top: calc(env(safe-area-inset-top, 
 .fc-category-label { flex: 1; color: var(--fc-text); font-size: 14px; font-weight: 500; }
 .fc-category-amount { color: var(--fc-text); font-size: 14px; font-weight: 600; white-space: nowrap; }
 .fc-category-pct { color: var(--fc-text-faint); font-size: 12px; margin-left: 4px; }
-.fc-category-bar { height: 5px; background: rgba(255,255,255,0.07); border-radius: 999px; margin: 2px 0 8px; }
-.fc-category-bar-fill { height: 100%; border-radius: 999px; }
+.fc-category-bar { height: 5px; background: rgba(255,255,255,0.07); border-radius: var(--fc-r-pill); margin: 2px 0 8px; }
+.fc-category-bar-fill { height: 100%; border-radius: var(--fc-r-pill); }
 
 /* Goal cards */
 .fc-goal-card {
@@ -1298,7 +1298,7 @@ label.fc-toggle input[type="checkbox"] {
   display: block;
   width: 44px;
   height: 26px;
-  border-radius: 999px;
+  border-radius: var(--fc-r-pill);
   background: rgba(255,255,255,0.12);
   position: relative;
   transition: background 0.2s;
@@ -1372,7 +1372,7 @@ label.fc-toggle input[type="checkbox"]:checked ~ .fc-toggle-track::after {
   backdrop-filter: blur(16px);
   border: 1px solid rgba(255,255,255,0.1);
   box-shadow: 0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.08);
-  border-radius: 999px;
+  border-radius: var(--fc-r-pill);
   padding: 10px 20px;
   font-size: 13px; font-weight: 500;
   color: white;
@@ -1704,7 +1704,7 @@ body:not(.keyboard-open) .fc-sheet {
 }
 .fc-sheet-cancel:active { opacity: 0.6; }
 .fc-sheet-icon-wrap {
-  width: 56px; height: 56px; border-radius: 999px;
+  width: 56px; height: 56px; border-radius: var(--fc-r-pill);
   display: flex; align-items: center; justify-content: center;
   margin: 0 auto 16px;
 }
@@ -1822,7 +1822,7 @@ body:not(.keyboard-open) .fc-sheet {
 
 /* Face ID button */
 .fc-lock-btn {
-  width: 88px; height: 88px; border-radius: 999px;
+  width: 88px; height: 88px; border-radius: var(--fc-r-pill);
   background: rgba(26,196,240,0.08);
   border: 1.5px solid rgba(26,196,240,0.35);
   display: flex; align-items: center; justify-content: center;
@@ -1974,7 +1974,7 @@ body:not(.keyboard-open) .fc-sheet {
 }
 .fc-tour-next {
   background: linear-gradient(135deg,var(--fc-accent),var(--fc-electric));
-  color: #fff; border: none; border-radius: 12px;
+  color: #fff; border: none; border-radius: var(--fc-r-sm);
   font-size: 15px; font-weight: 700; padding: 13px 26px;
   cursor: pointer; font-family: inherit;
   box-shadow: 0 6px 20px rgba(37,99,235,0.4);
@@ -1986,7 +1986,7 @@ body:not(.keyboard-open) .fc-sheet {
 .fc-pw-social {
   display: inline-flex; align-items: center; gap: 7px;
   background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 999px; padding: 6px 14px; margin-bottom: 18px;
+  border-radius: var(--fc-r-pill); padding: 6px 14px; margin-bottom: 18px;
 }
 .fc-pw-stars { font-size: 11px; letter-spacing: 1.5px; color: #ffb020; line-height: 1; }
 .fc-pw-social-text { font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.6); letter-spacing: -0.1px; }
@@ -1997,7 +1997,7 @@ body:not(.keyboard-open) .fc-sheet {
   background: linear-gradient(135deg, rgba(37,99,235,0.3), rgba(26,196,240,0.18));
   border: 1px solid rgba(37,99,235,0.5);
   color: #fff; font-size: 11px; font-weight: 700; letter-spacing: 0.07em;
-  text-transform: uppercase; padding: 5px 13px; border-radius: 999px; margin-bottom: 14px;
+  text-transform: uppercase; padding: 5px 13px; border-radius: var(--fc-r-pill); margin-bottom: 14px;
 }
 
 /* Hero icon — container only; inner HTML controls visuals */
@@ -2021,7 +2021,7 @@ body:not(.keyboard-open) .fc-sheet {
 /* Feature list — 3 rows, staggered entrance */
 .fc-pw-features {
   list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-direction: column; gap: 0;
-  width: 100%; border-radius: 16px; overflow: hidden;
+  width: 100%; border-radius: var(--fc-r-md); overflow: hidden;
   background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07);
 }
 .fc-pw-feature {
@@ -2052,7 +2052,7 @@ body:not(.keyboard-open) .fc-sheet {
 .fc-pw-plan {
   display: flex; align-items: center; gap: 12px;
   background: rgba(255,255,255,0.05); border: 1.5px solid rgba(255,255,255,0.1);
-  border-radius: 16px; padding: 10px 14px;
+  border-radius: var(--fc-r-md); padding: 10px 14px;
   cursor: pointer; transition: border-color 0.2s, background 0.2s, transform 0.12s;
   -webkit-tap-highlight-color: transparent; position: relative;
 }
@@ -2089,7 +2089,7 @@ body:not(.keyboard-open) .fc-sheet {
 .fc-pw-plan-badge {
   background: linear-gradient(135deg, var(--fc-accent) 0%, var(--fc-electric) 100%);
   color: #fff; font-size: 10px; font-weight: 700; letter-spacing: 0.05em;
-  padding: 4px 10px; border-radius: 999px; text-transform: uppercase; white-space: nowrap; flex-shrink: 0;
+  padding: 4px 10px; border-radius: var(--fc-r-pill); text-transform: uppercase; white-space: nowrap; flex-shrink: 0;
 }
 .fc-pw-annual-big { display: flex; align-items: baseline; gap: 4px; margin-bottom: 2px; }
 .fc-pw-annual-amount {
@@ -2101,7 +2101,7 @@ body:not(.keyboard-open) .fc-sheet {
 /* CTA — gradient + shine sweep animation */
 .fc-pw-cta {
   display: flex; align-items: center; justify-content: center; gap: 6px;
-  height: 54px; border-radius: 16px; border: none;
+  height: 54px; border-radius: var(--fc-r-md); border: none;
   background: linear-gradient(135deg, var(--fc-accent) 0%, var(--fc-electric) 100%);
   color: #fff; font-size: 17px; font-weight: 800; font-family: inherit;
   letter-spacing: -0.3px; cursor: pointer;
@@ -2198,7 +2198,7 @@ body:not(.keyboard-open) .fc-sheet {
   padding:14px;margin-bottom:10px;border:1px solid rgba(255,255,255,0.06);
 }
 .fc-acct-icon {
-  width:40px;height:40px;border-radius:12px;flex-shrink:0;
+  width:40px;height:40px;border-radius:var(--fc-r-sm);flex-shrink:0;
   background:rgba(255,255,255,0.07);display:flex;
   align-items:center;justify-content:center;font-size:20px;
 }
@@ -2248,7 +2248,7 @@ body:not(.keyboard-open) .fc-sheet {
   font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;
 }
 .fc-pw-success-cta {
-  width:100%;padding:17px;border-radius:16px;border:none;cursor:pointer;
+  width:100%;padding:17px;border-radius:var(--fc-r-md);border:none;cursor:pointer;
   background:linear-gradient(135deg,var(--fc-success),#2ecc71);
   color:white;font-size:17px;font-weight:700;letter-spacing:-0.01em;
   box-shadow:0 8px 24px rgba(52,199,89,0.35);
@@ -2259,7 +2259,7 @@ body:not(.keyboard-open) .fc-sheet {
    premium sections. Tap → opens paywall.
    ════════════════════════════════════════════════════════════ */
 .fc-pro-gate {
-  position:relative;border-radius:20px;overflow:hidden;cursor:pointer;
+  position:relative;border-radius:var(--fc-r-lg);overflow:hidden;cursor:pointer;
   background:linear-gradient(160deg,rgba(10,21,32,0.95),rgba(6,14,24,0.98));
   border:1px solid rgba(26,196,240,0.18);margin-bottom:16px;
   -webkit-tap-highlight-color:transparent;
@@ -2271,7 +2271,7 @@ body:not(.keyboard-open) .fc-sheet {
   pointer-events:none;padding:18px;display:flex;flex-direction:column;gap:9px;
 }
 .fc-pro-gate-bar {
-  height:9px;border-radius:999px;background:rgba(26,196,240,0.6);
+  height:9px;border-radius:var(--fc-r-pill);background:rgba(26,196,240,0.6);
 }
 .fc-pro-gate-overlay {
   position:relative;display:flex;flex-direction:column;align-items:center;
@@ -2280,7 +2280,7 @@ body:not(.keyboard-open) .fc-sheet {
 .fc-pro-gate-badge {
   display:inline-flex;align-items:center;gap:5px;margin-bottom:6px;
   background:rgba(26,196,240,0.10);border:1px solid rgba(26,196,240,0.22);
-  border-radius:999px;padding:3px 10px;
+  border-radius:var(--fc-r-pill);padding:3px 10px;
   font-size:10px;font-weight:700;color:var(--fc-accent);
   text-transform:uppercase;letter-spacing:0.06em;
 }
@@ -2292,7 +2292,7 @@ body:not(.keyboard-open) .fc-sheet {
   font-size:12px;color:var(--fc-text-faint);line-height:1.45;max-width:240px;margin-top:2px;
 }
 .fc-pro-gate-btn {
-  margin-top:12px;padding:11px 28px;border-radius:999px;border:none;
+  margin-top:12px;padding:11px 28px;border-radius:var(--fc-r-pill);border:none;
   background:linear-gradient(135deg,var(--fc-accent),var(--fc-electric));
   color:#fff;font-size:14px;font-weight:700;cursor:pointer;
   letter-spacing:-0.01em;box-shadow:0 4px 18px rgba(26,196,240,0.32);
@@ -2420,7 +2420,7 @@ body:not(.keyboard-open) .fc-sheet {
     <!-- Face ID — shown only when enrolled -->
     <div id="biometric-login-wrap" class="fc-auth-field-enter" style="display:none;width:100%;margin-bottom:10px">
       <button onclick="FCApp.handleBiometricLogin()" type="button"
-              style="width:100%;height:56px;border-radius:16px;
+              style="width:100%;height:56px;border-radius:var(--fc-r-md);
                      background:linear-gradient(135deg,rgba(26,196,240,0.13),rgba(37,99,235,0.10));
                      border:1.5px solid rgba(26,196,240,0.32);
                      display:flex;align-items:center;justify-content:center;gap:13px;
@@ -2596,9 +2596,9 @@ body:not(.keyboard-open) .fc-sheet {
         </button>
       </div>
       <div id="pw-strength" style="display:none;align-items:center;gap:4px;margin-top:8px;padding:0 2px">
-        <div style="height:3px;flex:1;border-radius:999px;background:rgba(255,255,255,0.1);transition:background 0.25s"></div>
-        <div style="height:3px;flex:1;border-radius:999px;background:rgba(255,255,255,0.1);transition:background 0.25s"></div>
-        <div style="height:3px;flex:1;border-radius:999px;background:rgba(255,255,255,0.1);transition:background 0.25s"></div>
+        <div style="height:3px;flex:1;border-radius:var(--fc-r-pill);background:rgba(255,255,255,0.1);transition:background 0.25s"></div>
+        <div style="height:3px;flex:1;border-radius:var(--fc-r-pill);background:rgba(255,255,255,0.1);transition:background 0.25s"></div>
+        <div style="height:3px;flex:1;border-radius:var(--fc-r-pill);background:rgba(255,255,255,0.1);transition:background 0.25s"></div>
         <span id="pw-strength-label" style="font-size:11px;color:rgba(240,246,255,0.45);margin-left:6px;min-width:80px"></span>
       </div>
     </div>
@@ -2680,7 +2680,7 @@ body:not(.keyboard-open) .fc-sheet {
 
     <div id="verify-email-err"
          style="display:none;width:100%;padding:11px 14px;background:rgba(255,69,58,0.10);
-                border:1px solid rgba(255,69,58,0.22);border-radius:12px;
+                border:1px solid rgba(255,69,58,0.22);border-radius:var(--fc-r-sm);
                 font-size:13px;color:var(--fc-danger);margin-bottom:14px;text-align:center;line-height:1.4"></div>
 
     <!-- Verify CTA -->
@@ -2772,15 +2772,15 @@ body:not(.keyboard-open) .fc-sheet {
 
     <!-- Trust badges — accented, not gray -->
     <div style="display:flex;flex-wrap:wrap;gap:7px;justify-content:center;margin-bottom:32px">
-      <div class="fc-faceid-badge-green" style="display:flex;align-items:center;gap:5px;background:rgba(48,209,88,0.08);border:1px solid rgba(48,209,88,0.22);border-radius:999px;padding:6px 13px">
+      <div class="fc-faceid-badge-green" style="display:flex;align-items:center;gap:5px;background:rgba(48,209,88,0.08);border:1px solid rgba(48,209,88,0.22);border-radius:var(--fc-r-pill);padding:6px 13px">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#30d158" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
         <span style="font-size:11px;font-weight:600;color:rgba(48,209,88,0.88)">On-Device Only</span>
       </div>
-      <div class="fc-faceid-badge-cyan" style="display:flex;align-items:center;gap:5px;background:rgba(26,196,240,0.08);border:1px solid rgba(26,196,240,0.20);border-radius:999px;padding:6px 13px">
+      <div class="fc-faceid-badge-cyan" style="display:flex;align-items:center;gap:5px;background:rgba(26,196,240,0.08);border:1px solid rgba(26,196,240,0.20);border-radius:var(--fc-r-pill);padding:6px 13px">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#1ac4f0" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
         <span style="font-size:11px;font-weight:600;color:rgba(26,196,240,0.88)">Secure Enclave</span>
       </div>
-      <div class="fc-faceid-badge-green" style="display:flex;align-items:center;gap:5px;background:rgba(48,209,88,0.08);border:1px solid rgba(48,209,88,0.22);border-radius:999px;padding:6px 13px">
+      <div class="fc-faceid-badge-green" style="display:flex;align-items:center;gap:5px;background:rgba(48,209,88,0.08);border:1px solid rgba(48,209,88,0.22);border-radius:var(--fc-r-pill);padding:6px 13px">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#30d158" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
         <span style="font-size:11px;font-weight:600;color:rgba(48,209,88,0.88)">Zero-Knowledge</span>
       </div>
@@ -2887,7 +2887,7 @@ body:not(.keyboard-open) .fc-sheet {
     <!-- Primary CTA -->
     <button id="btn-notif-allow" onclick="FCApp.allowNotifPermission()" type="button"
             class="fc-btn fc-btn--primary fc-btn--block"
-            style="font-size:17px;height:56px;border-radius:17px;margin-bottom:0">
+            style="font-size:17px;height:56px;border-radius:var(--fc-r-md);margin-bottom:0">
       Allow Notifications
     </button>
 
@@ -3020,11 +3020,11 @@ body:not(.keyboard-open) .fc-sheet {
 
 /* ── Progress bar (top) ── */
 .fc-ob-progress-rail {
-  height: 3px; border-radius: 999px;
+  height: 3px; border-radius: var(--fc-r-pill);
   background: rgba(255,255,255,0.08); overflow: hidden;
 }
 .fc-ob-progress-fill {
-  height: 100%; border-radius: 999px;
+  height: 100%; border-radius: var(--fc-r-pill);
   background: linear-gradient(90deg, var(--fc-accent), var(--fc-electric));
   transition: width 0.5s var(--ob-smooth);
   box-shadow: 0 0 8px rgba(26,196,240,0.5);
@@ -3036,7 +3036,7 @@ body:not(.keyboard-open) .fc-sheet {
   padding: 10px 0 16px; flex-shrink: 0; position: relative; z-index: 2;
 }
 .fc-ob-step {
-  height: 7px; border-radius: 999px; background: rgba(255,255,255,0.13);
+  height: 7px; border-radius: var(--fc-r-pill); background: rgba(255,255,255,0.13);
   transition: width 0.4s var(--ob-spring), background 0.35s ease, box-shadow 0.35s ease;
   width: 7px;
 }
@@ -3125,7 +3125,7 @@ body:not(.keyboard-open) .fc-sheet {
   padding: 18px 20px 14px;
   background: linear-gradient(150deg, rgba(26,196,240,0.13) 0%, rgba(37,99,235,0.08) 60%, rgba(26,196,240,0.04) 100%);
   border: 1px solid rgba(26,196,240,0.22);
-  border-radius: 24px; text-align: left;
+  border-radius: var(--fc-r-xl); text-align: left;
   box-shadow: 0 0 0 1px rgba(26,196,240,0.08), 0 28px 72px rgba(26,196,240,0.18), 0 8px 24px rgba(0,0,0,0.45);
   animation: obDashFloat 4s ease-in-out infinite;
 }
@@ -3144,7 +3144,7 @@ body:not(.keyboard-open) .fc-sheet {
 .fc-ob-nw-badge {
   display: inline-flex; align-items: center; gap: 5px;
   background: rgba(52,199,89,0.14); border: 1px solid rgba(52,199,89,0.22);
-  border-radius: 999px; padding: 3px 9px;
+  border-radius: var(--fc-r-pill); padding: 3px 9px;
   font-size: 11px; font-weight: 700; color: var(--fc-success); margin-top: 7px; margin-bottom: 14px;
 }
 .fc-ob-bar-row {
@@ -3257,7 +3257,7 @@ body:not(.keyboard-open) .fc-sheet {
 /* ── Permissions (slide 3) ── */
 .fc-ob-toggle-list {
   width: 100%; max-width: 340px;
-  border-radius: 20px; overflow: hidden;
+  border-radius: var(--fc-r-lg); overflow: hidden;
   border: 1px solid rgba(255,255,255,0.08);
   background: rgba(255,255,255,0.04);
   margin-bottom: 14px;
@@ -3269,7 +3269,7 @@ body:not(.keyboard-open) .fc-sheet {
 }
 .fc-ob-toggle-row:last-child { border-bottom: none; }
 .fc-ob-toggle-icon {
-  width: 38px; height: 38px; border-radius: 11px;
+  width: 38px; height: 38px; border-radius: var(--fc-r-sm);
   display: flex; align-items: center; justify-content: center;
   font-size: 18px; flex-shrink: 0;
 }
@@ -3278,7 +3278,7 @@ body:not(.keyboard-open) .fc-sheet {
 .fc-ob-trust-strip {
   display: flex; align-items: center; gap: 8px; flex-shrink: 0;
   background: rgba(52,199,89,0.07); border: 1px solid rgba(52,199,89,0.16);
-  border-radius: 999px; padding: 5px 16px; margin-bottom: 12px;
+  border-radius: var(--fc-r-pill); padding: 5px 16px; margin-bottom: 12px;
 }
 .fc-ob-trust-strip-text { font-size: 11px; font-weight: 600; color: rgba(52,199,89,0.85); }
 
@@ -3301,7 +3301,7 @@ body:not(.keyboard-open) .fc-sheet {
 }
 .fc-ob-plan-badge {
   position: absolute; top: -9px; left: 50%; transform: translateX(-50%);
-  background: linear-gradient(90deg, var(--fc-accent), var(--fc-electric)); border-radius: 999px;
+  background: linear-gradient(90deg, var(--fc-accent), var(--fc-electric)); border-radius: var(--fc-r-pill);
   padding: 2px 10px; font-size: 10px; font-weight: 800; color: #fff;
   letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap;
 }
@@ -3353,7 +3353,7 @@ body:not(.keyboard-open) .fc-sheet {
   border:1px solid rgba(26,196,240,0.14); border-radius:18px;
 }
 .fc-auth-hero-ring {
-  width:44px; height:44px; border-radius:12px; flex-shrink:0;
+  width:44px; height:44px; border-radius:var(--fc-r-sm); flex-shrink:0;
   background:linear-gradient(135deg,rgba(26,196,240,0.22),rgba(37,99,235,0.16));
   border:1px solid rgba(26,196,240,0.26);
   display:flex; align-items:center; justify-content:center;
@@ -3366,7 +3366,7 @@ body:not(.keyboard-open) .fc-sheet {
 .fc-ob-review-pill {
   display:inline-flex; align-items:center; gap:7px; flex-shrink:0;
   background:rgba(255,176,32,0.09); border:1px solid rgba(255,176,32,0.18);
-  border-radius:999px; padding:5px 14px; margin-bottom:14px;
+  border-radius:var(--fc-r-pill); padding:5px 14px; margin-bottom:14px;
 }
 .fc-ob-review-stars { color:#ffb020; font-size:12px; line-height:1; letter-spacing:1px; }
 .fc-ob-review-text { font-size:11px; font-weight:600; color:rgba(255,255,255,0.60); }
@@ -3424,7 +3424,7 @@ body:not(.keyboard-open) .fc-sheet {
             </svg>
           </div>
           <div style="display:flex;gap:8px;width:100%">
-            <div style="flex:1;background:rgba(48,209,88,0.08);border:1px solid rgba(48,209,88,0.18);border-radius:15px;padding:12px 8px;text-align:center">
+            <div style="flex:1;background:rgba(48,209,88,0.08);border:1px solid rgba(48,209,88,0.18);border-radius:var(--fc-r-md);padding:12px 8px;text-align:center">
               <div style="font-size:15px;font-weight:800;color:#30d158;letter-spacing:-0.02em">256-bit</div>
               <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.34);text-transform:uppercase;letter-spacing:0.07em;margin-top:3px">Encryption</div>
             </div>
@@ -3436,7 +3436,7 @@ body:not(.keyboard-open) .fc-sheet {
                  scope actually is, it is what the rest of the app already
                  promises, and a user can verify it by watching nothing ever
                  move. -->
-            <div style="flex:1;background:rgba(26,196,240,0.08);border:1px solid rgba(26,196,240,0.18);border-radius:15px;padding:12px 8px;text-align:center">
+            <div style="flex:1;background:rgba(26,196,240,0.08);border:1px solid rgba(26,196,240,0.18);border-radius:var(--fc-r-md);padding:12px 8px;text-align:center">
               <div style="font-size:15px;font-weight:800;color:var(--fc-accent);letter-spacing:-0.02em">Read-only</div>
               <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.34);text-transform:uppercase;letter-spacing:0.07em;margin-top:3px">Access</div>
             </div>
@@ -3449,7 +3449,7 @@ body:not(.keyboard-open) .fc-sheet {
                  the product: deleteAccount() in fc-app.js, reachable from
                  Settings, and deliberately left ungated in firestore.rules so
                  people can always revoke access and remove their data. -->
-            <div style="flex:1;background:rgba(48,209,88,0.08);border:1px solid rgba(48,209,88,0.18);border-radius:15px;padding:12px 8px;text-align:center">
+            <div style="flex:1;background:rgba(48,209,88,0.08);border:1px solid rgba(48,209,88,0.18);border-radius:var(--fc-r-md);padding:12px 8px;text-align:center">
               <div style="font-size:15px;font-weight:800;color:#30d158;letter-spacing:-0.02em">Delete</div>
               <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.34);text-transform:uppercase;letter-spacing:0.07em;margin-top:3px">Anytime</div>
             </div>
@@ -3533,7 +3533,7 @@ body:not(.keyboard-open) .fc-sheet {
       <p class="fc-ob-desc fc-ob-desc-sm" style="margin-bottom:28px" id="ob-focus-sub">Based on the goal you picked.</p>
 
       <!-- Animated setup steps -->
-      <div id="ob-ai-steps" style="width:100%;max-width:305px;display:flex;flex-direction:column;gap:0;border-radius:20px;overflow:hidden;border:1px solid rgba(255,255,255,0.07);background:rgba(255,255,255,0.03)">
+      <div id="ob-ai-steps" style="width:100%;max-width:305px;display:flex;flex-direction:column;gap:0;border-radius:var(--fc-r-lg);overflow:hidden;border:1px solid rgba(255,255,255,0.07);background:rgba(255,255,255,0.03)">
         <div class="ob-ai-step" id="ob-ai-step-0">
           <div class="ob-ai-step-icon" id="ob-ai-step-icon-0">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/></svg>
@@ -3851,7 +3851,7 @@ body:not(.keyboard-open) .fc-sheet {
 .ob-insight-card {
   display: flex; align-items: center; gap: 12px;
   background: rgba(255,255,255,0.055); border: 1px solid rgba(255,255,255,0.09);
-  border-radius: 16px; padding: 12px 14px;
+  border-radius: var(--fc-r-md); padding: 12px 14px;
   opacity: 0; transform: translateX(24px) scale(0.96);
   text-align: left;   /* list rows: the slide is centered, these should not be */
 }
@@ -4357,7 +4357,7 @@ body:not(.keyboard-open) .fc-sheet {
 
     <!-- Logo -->
     <div style="display:flex;flex-direction:column;align-items:center;gap:6px;margin-bottom:2px">
-      <div style="width:52px;height:52px;border-radius:16px;
+      <div style="width:52px;height:52px;border-radius:var(--fc-r-md);
                   background:linear-gradient(145deg,#1ee8ff,var(--fc-electric));
                   display:flex;align-items:center;justify-content:center;
                   box-shadow:0 0 0 1px rgba(26,196,240,0.28),0 0 0 3px rgba(26,196,240,0.07),0 10px 32px rgba(26,196,240,0.35),0 3px 10px rgba(0,0,0,0.5)">
@@ -4602,24 +4602,24 @@ body:not(.keyboard-open) .fc-sheet {
         <input id="fb-diagnostics" type="checkbox" checked style="opacity:0;width:0;height:0;position:absolute">
         <span id="fb-diag-toggle"
               onclick="FCApp._fbToggleDiag()"
-              style="position:absolute;inset:0;border-radius:13px;background:var(--fc-accent);cursor:pointer;transition:background .2s">
+              style="position:absolute;inset:0;border-radius:14px;background:var(--fc-accent);cursor:pointer;transition:background .2s">
           <span style="position:absolute;left:3px;top:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:transform .2s;display:block" id="fb-diag-knob"></span>
         </span>
       </label>
     </div>
 
     <!-- Error message -->
-    <div id="fb-error" style="display:none;background:rgba(255,69,58,0.1);border:0.5px solid rgba(255,69,58,0.25);border-radius:12px;padding:12px 14px;font-size:14px;color:var(--fc-danger);margin-bottom:16px;line-height:1.5"></div>
+    <div id="fb-error" style="display:none;background:rgba(255,69,58,0.1);border:0.5px solid rgba(255,69,58,0.25);border-radius:var(--fc-r-sm);padding:12px 14px;font-size:14px;color:var(--fc-danger);margin-bottom:16px;line-height:1.5"></div>
 
     <!-- Submit button -->
     <button id="fb-submit" type="button" onclick="FCApp.submitFeedback()"
-            style="width:100%;padding:16px;border-radius:16px;border:none;background:var(--fc-accent,#1ac4f0);color:#060e18;font-size:16px;font-weight:700;cursor:pointer;transition:opacity .15s;letter-spacing:-0.01em">
+            style="width:100%;padding:16px;border-radius:var(--fc-r-md);border:none;background:var(--fc-accent,#1ac4f0);color:#060e18;font-size:16px;font-weight:700;cursor:pointer;transition:opacity .15s;letter-spacing:-0.01em">
       Send Feedback
     </button>
 
     <!-- Success state -->
     <div id="fb-success" style="display:none;flex-direction:column;align-items:center;padding:32px 16px;text-align:center">
-      <div style="width:60px;height:60px;background:rgba(48,209,88,0.12);border-radius:20px;display:flex;align-items:center;justify-content:center;margin-bottom:16px">
+      <div style="width:60px;height:60px;background:rgba(48,209,88,0.12);border-radius:var(--fc-r-lg);display:flex;align-items:center;justify-content:center;margin-bottom:16px">
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--fc-success)" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
       </div>
       <div class="fb-success-msg" style="font-size:18px;font-weight:700;color:var(--fc-text);margin-bottom:8px">Thanks — your feedback was sent.</div>
@@ -4765,7 +4765,7 @@ body:not(.keyboard-open) .fc-sheet {
       margin-top:9px;
       background:rgba(26,196,240,0.10);
       border:0.5px solid rgba(26,196,240,0.25);
-      border-radius:999px;
+      border-radius:var(--fc-r-pill);
       padding:5px 12px 5px 8px;
       width:fit-content;
     }
@@ -4846,7 +4846,7 @@ body:not(.keyboard-open) .fc-sheet {
     .dash-nw-tag::after{content:'';flex:1;height:0.5px;background:rgba(255,255,255,0.07);display:block}
     .dash-nw-row{display:flex;flex-direction:column;align-items:flex-start;gap:6px;margin-bottom:4px;position:relative;z-index:1}
     .dash-nw-amount{font-size:clamp(38px,12vw,52px);font-weight:700;color:#fff;letter-spacing:-0.025em;line-height:1;font-variant-numeric:tabular-nums;animation:dashNWIn .55s cubic-bezier(.22,1,.36,1) both}
-    .dash-nw-pill{display:inline-flex;align-items:center;gap:3px;background:rgba(52,199,89,0.12);border:0.5px solid rgba(52,199,89,0.28);border-radius:20px;padding:5px 10px;font-size:11px;font-weight:600;color:var(--fc-success);flex-shrink:0}
+    .dash-nw-pill{display:inline-flex;align-items:center;gap:3px;background:rgba(52,199,89,0.12);border:0.5px solid rgba(52,199,89,0.28);border-radius:var(--fc-r-lg);padding:5px 10px;font-size:11px;font-weight:600;color:var(--fc-success);flex-shrink:0}
     .dash-nw-pill.neg{background:rgba(255,69,58,0.12);border-color:rgba(255,69,58,0.28);color:var(--fc-danger)}
     .dash-nw-footer{display:flex;border-top:0.5px solid rgba(255,255,255,0.08);padding-top:15px;margin-top:6px;position:relative;z-index:1}
     .dash-nw-foot{flex:1;display:flex;flex-direction:column;gap:5px;text-align:center}
@@ -4859,7 +4859,7 @@ body:not(.keyboard-open) .fc-sheet {
     .dash-glance-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 16px}
     .dash-glance-tile{
       background:linear-gradient(160deg,rgba(15,28,48,0.98) 0%,rgba(8,17,28,0.98) 100%);
-      border-radius:20px;border:0.5px solid rgba(255,255,255,0.08);
+      border-radius:var(--fc-r-lg);border:0.5px solid rgba(255,255,255,0.08);
       padding:14px 12px;cursor:pointer;-webkit-tap-highlight-color:transparent;
       transition:opacity .15s,transform .15s;
       display:flex;align-items:center;gap:10px;
@@ -4886,7 +4886,7 @@ body:not(.keyboard-open) .fc-sheet {
     /* ── Period scrubber ────────────────────────────────────────── */
     .dash-scrubber{
       background:rgba(255,255,255,0.04);border:0.5px solid rgba(255,255,255,0.09);
-      border-radius:13px;padding:3px;display:flex;gap:0;margin-bottom:16px;
+      border-radius:14px;padding:3px;display:flex;gap:0;margin-bottom:16px;
       position:relative;z-index:1;box-shadow:inset 0 1px 0 rgba(0,0,0,0.14);
     }
     .dash-scrub-btn{
@@ -4946,7 +4946,7 @@ body:not(.keyboard-open) .fc-sheet {
     .dash-acct-card{
       flex-shrink:0;scroll-snap-align:start;width:232px;height:152px;
       background:linear-gradient(155deg,rgba(14,30,50,0.98),rgba(7,16,28,0.99));
-      border:0.5px solid rgba(255,255,255,0.12);border-radius:24px;
+      border:0.5px solid rgba(255,255,255,0.12);border-radius:var(--fc-r-xl);
       padding:18px 19px;cursor:pointer;
       transition:transform .20s cubic-bezier(0.34,1.56,0.64,1),box-shadow .20s;
       position:relative;overflow:hidden;-webkit-tap-highlight-color:transparent;
@@ -4961,7 +4961,7 @@ body:not(.keyboard-open) .fc-sheet {
     .dash-acct-mask{font-size:10px;color:rgba(255,255,255,0.22);letter-spacing:0.12em;font-weight:600;margin-top:16px;margin-bottom:4px}
     .dash-acct-bal{font-size:27px;font-weight:800;color:#fff;letter-spacing:-0.04em;line-height:1;font-variant-numeric:tabular-nums}
     .dash-acct-cents{font-size:16px;font-weight:600;color:rgba(255,255,255,0.48)}
-    .dash-acct-icon{position:absolute;top:17px;right:18px;width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.07);border:0.5px solid rgba(255,255,255,0.12);color:var(--pill-accent,var(--fc-accent));font-size:15px}
+    .dash-acct-icon{position:absolute;top:17px;right:18px;width:30px;height:30px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.07);border:0.5px solid rgba(255,255,255,0.12);color:var(--pill-accent,var(--fc-accent));font-size:15px}
 
     /* Carousel dots */
     .dash-dots{display:flex;justify-content:center;align-items:center;gap:5px;margin-top:8px;padding-bottom:2px;min-height:14px}
@@ -4979,7 +4979,7 @@ body:not(.keyboard-open) .fc-sheet {
     .dash-txn{display:flex;align-items:center;gap:13px;padding:14px 17px;border-bottom:0.5px solid rgba(255,255,255,0.048);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .12s}
     .dash-txn:last-child{border-bottom:none}
     .dash-txn:active{background:rgba(255,255,255,0.045)}
-    .dash-txn-icon{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,0.22)}
+    .dash-txn-icon{width:40px;height:40px;border-radius:var(--fc-r-sm);display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,0.22)}
 
     /* ── Bills card ─────────────────────────────────────────────── */
     .dash-bills-card{
@@ -4991,7 +4991,7 @@ body:not(.keyboard-open) .fc-sheet {
 
     /* ── Single Upcoming Bill card ──────────────────────────────── */
     .dash-bill-card{
-      margin:0 16px;border-radius:20px;padding:14px 14px 14px 16px;
+      margin:0 16px;border-radius:var(--fc-r-lg);padding:14px 14px 14px 16px;
       display:flex;align-items:center;gap:12px;
       cursor:pointer;-webkit-tap-highlight-color:transparent;
       background:linear-gradient(160deg,rgba(15,28,48,0.98) 0%,rgba(8,17,28,0.98) 100%);
@@ -5000,7 +5000,7 @@ body:not(.keyboard-open) .fc-sheet {
       transition:opacity .15s,transform .15s;
     }
     .dash-bill-card:active{opacity:.88;transform:scale(0.99)}
-    .dash-bill-icon{width:42px;height:42px;border-radius:13px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 3px 10px rgba(0,0,0,0.25)}
+    .dash-bill-icon{width:42px;height:42px;border-radius:14px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 3px 10px rgba(0,0,0,0.25)}
     .dash-bill-body{flex:1;min-width:0}
     .dash-bill-name{font-size:14px;font-weight:700;color:var(--fc-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .dash-bill-due{font-size:12px;margin-top:2px;font-weight:600}
@@ -5038,14 +5038,14 @@ body:not(.keyboard-open) .fc-sheet {
     .dash-bar-fill{height:100%;border-radius:3px;transition:width .6s cubic-bezier(0.34,1.56,0.64,1)}
 
     /* ── Card recommendations — Apply Now (never alarming) ──────── */
-    .dash-apply-btn{display:flex;align-items:center;justify-content:center;gap:6px;background:rgba(255,255,255,0.10);border:1.5px solid rgba(255,255,255,0.18);color:#fff;text-decoration:none;border-radius:12px;padding:12px 16px;font-size:14px;font-weight:700;font-family:inherit;width:100%;box-sizing:border-box;-webkit-tap-highlight-color:transparent;transition:background .15s}
+    .dash-apply-btn{display:flex;align-items:center;justify-content:center;gap:6px;background:rgba(255,255,255,0.10);border:1.5px solid rgba(255,255,255,0.18);color:#fff;text-decoration:none;border-radius:var(--fc-r-sm);padding:12px 16px;font-size:14px;font-weight:700;font-family:inherit;width:100%;box-sizing:border-box;-webkit-tap-highlight-color:transparent;transition:background .15s}
     .dash-apply-btn:active{background:rgba(255,255,255,0.18)}
 
     /* ── Transaction list rows (rendered by JS) ────────────────── */
     .fc-home-txn{display:flex;align-items:center;gap:13px;padding:13px 17px;border-bottom:.5px solid rgba(255,255,255,0.045);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .12s}
     .fc-home-txn:last-child{border-bottom:none}
     .fc-home-txn:active{background:rgba(255,255,255,0.05)}
-    .fc-home-txn-icon{width:42px;height:42px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,0.25)}
+    .fc-home-txn-icon{width:42px;height:42px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,0.25)}
     .fc-txn-name{font-size:13.5px;font-weight:500;color:var(--fc-text,#fff);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .fc-txn-meta{font-size:11px;color:var(--fc-text-faint);margin-top:1px}
     .fc-txn-amt{font-size:14px;font-weight:700;color:rgba(255,255,255,0.85);font-variant-numeric:tabular-nums}
@@ -5071,7 +5071,7 @@ body:not(.keyboard-open) .fc-sheet {
     }
     .dash-focus-header{display:flex;align-items:center;gap:9px;margin-bottom:11px}
     .dash-focus-icon{
-      width:28px;height:28px;border-radius:9px;flex-shrink:0;
+      width:28px;height:28px;border-radius:10px;flex-shrink:0;
       display:flex;align-items:center;justify-content:center;
       background:rgba(255,255,255,0.08);font-size:14px;line-height:1;
     }
@@ -5083,7 +5083,7 @@ body:not(.keyboard-open) .fc-sheet {
       margin-left:auto;font-size:10px;font-weight:600;
       color:rgba(255,255,255,0.25);
       background:rgba(255,255,255,0.06);
-      border-radius:999px;padding:2px 8px;
+      border-radius:var(--fc-r-pill);padding:2px 8px;
     }
     .dash-focus-body{
       font-size:14.5px;font-weight:600;color:rgba(255,255,255,0.92);
@@ -5094,7 +5094,7 @@ body:not(.keyboard-open) .fc-sheet {
       font-size:12px;font-weight:700;
       display:inline-flex;align-items:center;gap:5px;
       padding:5px 10px 5px 8px;
-      border-radius:999px;
+      border-radius:var(--fc-r-pill);
       background:rgba(255,255,255,0.07);
       border:0.5px solid rgba(255,255,255,0.10);
     }
@@ -5118,7 +5118,7 @@ body:not(.keyboard-open) .fc-sheet {
       margin:0 16px 18px;
       background:linear-gradient(160deg,rgba(13,26,46,0.98) 0%,rgba(7,15,26,0.99) 100%);
       border:0.5px solid rgba(255,255,255,0.09);
-      border-radius:20px;
+      border-radius:var(--fc-r-lg);
       padding:16px 18px 14px;
       box-shadow:0 4px 20px rgba(0,0,0,0.38),inset 0 1px 0 rgba(255,255,255,0.055),inset 0 -1px 0 rgba(0,0,0,0.16);
       transition:border-color .3s,box-shadow .3s;
@@ -5231,7 +5231,7 @@ body:not(.keyboard-open) .fc-sheet {
     .act-summary-card{
       margin:12px 16px 0;padding:18px 20px 16px;
       background:rgba(255,255,255,0.05);border:0.5px solid rgba(255,255,255,0.09);
-      border-radius:24px;box-shadow:0 4px 16px rgba(0,0,0,0.18);
+      border-radius:var(--fc-r-xl);box-shadow:0 4px 16px rgba(0,0,0,0.18);
     }
     .act-summary-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:2px}
     .act-summary-label{font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:rgba(255,255,255,0.40)}
@@ -5276,12 +5276,12 @@ body:not(.keyboard-open) .fc-sheet {
     .act-review-card{
       margin:10px 16px 0;padding:14px 16px;
       background:rgba(245,158,11,0.07);border:0.5px solid rgba(245,158,11,0.20);
-      border-radius:20px;display:flex;align-items:flex-start;gap:12px;
+      border-radius:var(--fc-r-lg);display:flex;align-items:flex-start;gap:12px;
       cursor:pointer;-webkit-tap-highlight-color:transparent;
     }
     .act-review-card:active{opacity:0.80}
     .act-review-icon-tile{
-      width:38px;height:38px;border-radius:11px;flex-shrink:0;
+      width:38px;height:38px;border-radius:var(--fc-r-sm);flex-shrink:0;
       background:rgba(245,158,11,0.14);display:flex;align-items:center;justify-content:center;
     }
     .act-review-badge{font-size:10px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:var(--fc-warning-text);margin-bottom:1px}
@@ -5301,7 +5301,7 @@ body:not(.keyboard-open) .fc-sheet {
     .act-type-chips::-webkit-scrollbar{display:none}
     .act-type-chip{
       display:inline-flex;align-items:center;gap:5px;
-      padding:7px 14px;border-radius:999px;min-height:36px;
+      padding:7px 14px;border-radius:var(--fc-r-pill);min-height:36px;
       background:rgba(255,255,255,0.055);border:0.5px solid rgba(255,255,255,0.09);
       color:rgba(255,255,255,0.56);font-size:12px;font-weight:600;
       white-space:nowrap;flex-shrink:0;cursor:pointer;-webkit-tap-highlight-color:transparent;
@@ -5368,7 +5368,7 @@ body:not(.keyboard-open) .fc-sheet {
     .ins-health-card{
       margin:12px 16px;
       background:linear-gradient(145deg,rgba(13,28,52,0.96),rgba(7,16,28,0.99));
-      border-radius:24px;border:0.5px solid rgba(26,196,240,0.22);
+      border-radius:var(--fc-r-xl);border:0.5px solid rgba(26,196,240,0.22);
       padding:22px 22px 20px;
       box-shadow:0 16px 48px rgba(0,0,0,0.55),0 0 60px rgba(26,196,240,0.06) inset,
                  inset 0 1px 0 rgba(255,255,255,0.07),inset 0 -1px 0 rgba(0,0,0,0.20);
@@ -5381,8 +5381,8 @@ body:not(.keyboard-open) .fc-sheet {
     .ins-health-metrics{display:flex;flex-direction:column;gap:11px;flex:1}
     .ins-health-metric{display:flex;align-items:center;gap:9px}
     .ins-health-metric-lbl{font-size:11px;color:rgba(255,255,255,0.45);width:66px;flex-shrink:0;font-weight:500}
-    .ins-health-bar-wrap{flex:1;height:5px;background:rgba(255,255,255,0.07);border-radius:999px;overflow:hidden}
-    .ins-health-bar{height:100%;border-radius:999px;transition:width 1.2s cubic-bezier(0.22,1,0.36,1)}
+    .ins-health-bar-wrap{flex:1;height:5px;background:rgba(255,255,255,0.07);border-radius:var(--fc-r-pill);overflow:hidden}
+    .ins-health-bar{height:100%;border-radius:var(--fc-r-pill);transition:width 1.2s cubic-bezier(0.22,1,0.36,1)}
     .ins-health-val{font-size:12px;font-weight:800;color:white;width:28px;text-align:right;flex-shrink:0}
 
     /* All fc-cards inside insights */
@@ -5401,7 +5401,7 @@ body:not(.keyboard-open) .fc-sheet {
     .fc-category-label{flex:1;font-size:14px;font-weight:500;color:#fff}
     .fc-category-amount{font-size:14px;font-weight:700;letter-spacing:-0.02em}
     .fc-category-pct{font-size:11px;color:rgba(255,255,255,0.35);margin-left:5px}
-    .fc-category-bar{height:5px;background:rgba(255,255,255,0.07);border-radius:999px;margin:2px 0 8px}
+    .fc-category-bar{height:5px;background:rgba(255,255,255,0.07);border-radius:var(--fc-r-pill);margin:2px 0 8px}
 
     /* ══════════════════════════════════════════════════════════════
        WEALTH TAB
@@ -5412,7 +5412,7 @@ body:not(.keyboard-open) .fc-sheet {
     .wealth-hero{
       margin:4px 16px 18px;
       background:linear-gradient(145deg,rgba(13,28,52,0.97),rgba(7,16,28,0.99));
-      border-radius:24px;border:0.5px solid rgba(26,196,240,0.22);
+      border-radius:var(--fc-r-xl);border:0.5px solid rgba(26,196,240,0.22);
       padding:24px 22px 20px;
       box-shadow:0 0 60px rgba(26,196,240,0.07) inset,0 16px 48px rgba(0,0,0,0.55),
                  inset 0 1px 0 rgba(255,255,255,0.08),inset 0 -1px 0 rgba(0,0,0,0.20);
@@ -5434,7 +5434,7 @@ body:not(.keyboard-open) .fc-sheet {
     }
     .wealth-hero-tag{font-size:10px;font-weight:500;letter-spacing:0.05em;text-transform:uppercase;color:rgba(255,255,255,0.32);margin-bottom:8px;position:relative;z-index:1}
     .wealth-hero-amount{font-size:44px;font-weight:700;letter-spacing:-0.026em;color:#fff;line-height:1;font-variant-numeric:tabular-nums;position:relative;z-index:1}
-    .wealth-hero-delta{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:5px 12px;border-radius:999px;margin-top:10px;position:relative;z-index:1}
+    .wealth-hero-delta{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:5px 12px;border-radius:var(--fc-r-pill);margin-top:10px;position:relative;z-index:1}
     .wealth-hero-stats{display:grid;grid-template-columns:1fr 0.5px 1fr;gap:0;margin-top:20px;padding-top:18px;border-top:0.5px solid rgba(255,255,255,0.08);position:relative;z-index:1}
     .wealth-hero-divider{background:rgba(255,255,255,0.09)}
     .wealth-hero-stat{text-align:center;padding:0 10px}
@@ -5443,7 +5443,7 @@ body:not(.keyboard-open) .fc-sheet {
 
     /* Segment control */
     .fc-wealth-segs{display:flex;background:rgba(255,255,255,0.05);border:0.5px solid rgba(255,255,255,0.09);border-radius:14px;padding:3px;box-shadow:inset 0 1px 0 rgba(0,0,0,0.15)}
-    .fc-wealth-seg{flex:1;padding:9px 0;border:none;background:transparent;color:rgba(255,255,255,0.45);font-size:13px;font-weight:600;border-radius:11px;cursor:pointer;transition:all .18s cubic-bezier(.34,1.56,.64,1);-webkit-tap-highlight-color:transparent;font-family:inherit}
+    .fc-wealth-seg{flex:1;padding:9px 0;border:none;background:transparent;color:rgba(255,255,255,0.45);font-size:13px;font-weight:600;border-radius:var(--fc-r-sm);cursor:pointer;transition:all .18s cubic-bezier(.34,1.56,.64,1);-webkit-tap-highlight-color:transparent;font-family:inherit}
     .fc-wealth-seg:active{opacity:.7}
     .fc-wealth-seg--active{background:linear-gradient(145deg,rgba(26,196,240,0.20),rgba(37,99,235,0.14));color:var(--fc-accent);border:0.5px solid rgba(26,196,240,0.22);box-shadow:0 2px 8px rgba(26,196,240,0.12),inset 0 1px 0 rgba(255,255,255,0.06)}
 
@@ -5462,7 +5462,7 @@ body:not(.keyboard-open) .fc-sheet {
     .fc-acct-bal{font-size:17px;font-weight:800;color:white;letter-spacing:-0.03em;font-variant-numeric:tabular-nums;white-space:nowrap}
 
     /* Goal cards */
-    .fc-goal-card{margin:0 16px 10px;padding:18px;background:linear-gradient(145deg,#0d1b2e,#091422);border-radius:20px;border:0.5px solid rgba(255,255,255,0.07);box-shadow:0 6px 24px rgba(0,0,0,0.32),inset 0 1px 0 rgba(255,255,255,0.04)}
+    .fc-goal-card{margin:0 16px 10px;padding:18px;background:linear-gradient(145deg,#0d1b2e,#091422);border-radius:var(--fc-r-lg);border:0.5px solid rgba(255,255,255,0.07);box-shadow:0 6px 24px rgba(0,0,0,0.32),inset 0 1px 0 rgba(255,255,255,0.04)}
 
     /* Wealth empty state */
     .wealth-empty{
@@ -5470,7 +5470,7 @@ body:not(.keyboard-open) .fc-sheet {
       gap:10px;text-align:center;
     }
     .wealth-empty-icon{
-      width:52px;height:52px;border-radius:16px;margin-bottom:4px;
+      width:52px;height:52px;border-radius:var(--fc-r-md);margin-bottom:4px;
       background:linear-gradient(145deg,rgba(26,196,240,0.10),rgba(37,99,235,0.06));
       border:0.5px solid rgba(26,196,240,0.15);
       display:flex;align-items:center;justify-content:center;
@@ -5493,7 +5493,7 @@ body:not(.keyboard-open) .fc-sheet {
     .settings-profile-card{
       margin:4px 16px 12px;padding:22px 20px;
       background:linear-gradient(145deg,rgba(13,28,52,0.97),rgba(7,16,28,0.99));
-      border-radius:24px;border:0.5px solid rgba(26,196,240,0.20);
+      border-radius:var(--fc-r-xl);border:0.5px solid rgba(26,196,240,0.20);
       box-shadow:0 16px 48px rgba(0,0,0,0.50),0 0 50px rgba(26,196,240,0.06) inset,
                  inset 0 1px 0 rgba(255,255,255,0.08),inset 0 -1px 0 rgba(0,0,0,0.18);
       display:flex;align-items:center;gap:16px;
@@ -5526,7 +5526,7 @@ body:not(.keyboard-open) .fc-sheet {
     }
     .fc-settings-row:last-child{border-bottom:none}
     .fc-settings-row:active{background:rgba(255,255,255,0.045)}
-    .fc-settings-icon{width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 2px 6px rgba(0,0,0,0.18)}
+    .fc-settings-icon{width:36px;height:36px;border-radius:var(--fc-r-sm);display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 2px 6px rgba(0,0,0,0.18)}
     .fc-settings-label{flex:1;color:rgba(255,255,255,0.92);font-size:15px;font-weight:500;letter-spacing:-0.01em}
     .fc-settings-value{color:rgba(255,255,255,0.38);font-size:13px;font-weight:400}
 
@@ -5536,7 +5536,7 @@ body:not(.keyboard-open) .fc-sheet {
 
     /* ── Today's Money Move card ────────────────────────────────── */
     .home-move-card{
-      border-radius:20px;
+      border-radius:var(--fc-r-lg);
       padding:18px 18px 14px;
       position:relative;overflow:hidden;
       background:linear-gradient(135deg,rgba(20,124,255,0.18) 0%,rgba(6,14,26,0.98) 70%);
@@ -5604,7 +5604,7 @@ body:not(.keyboard-open) .fc-sheet {
     .home-sts-status-pill{
       display:inline-flex;align-items:center;gap:4px;
       font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
-      padding:3px 8px;border-radius:999px;margin-top:4px;
+      padding:3px 8px;border-radius:var(--fc-r-pill);margin-top:4px;
     }
     .sts-pill-green{background:rgba(48,209,88,0.12);color:var(--fc-success)}
     .sts-pill-yellow{background:rgba(255,159,10,0.12);color:var(--fc-warning-text)}
@@ -5681,7 +5681,7 @@ body:not(.keyboard-open) .fc-sheet {
     .home-forecast-status{
       display:inline-flex;align-items:center;gap:5px;
       font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
-      padding:3px 8px;border-radius:999px;
+      padding:3px 8px;border-radius:var(--fc-r-pill);
     }
     .home-forecast-status.good{background:rgba(22,163,74,0.15);color:var(--fc-success)}
     .home-forecast-status.warn{background:rgba(245,158,11,0.15);color:var(--fc-warning-text)}
@@ -5691,7 +5691,7 @@ body:not(.keyboard-open) .fc-sheet {
     .home-yesterday-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
     .home-yesterday-tile{
       background:linear-gradient(160deg,rgba(15,28,48,0.98) 0%,rgba(8,17,28,0.98) 100%);
-      border-radius:16px;border:0.5px solid rgba(255,255,255,0.07);
+      border-radius:var(--fc-r-md);border:0.5px solid rgba(255,255,255,0.07);
       padding:14px 12px 12px;display:flex;flex-direction:column;gap:0;
       box-shadow:0 1px 8px rgba(0,0,0,0.28);
       min-height:82px;
@@ -5733,7 +5733,7 @@ body:not(.keyboard-open) .fc-sheet {
     .home-subs-title{font-size:14px;font-weight:700;color:var(--fc-text);letter-spacing:-0.01em}
     .home-subs-sub{font-size:12px;color:var(--fc-text-muted);margin-top:2px;line-height:1.3}
     .home-subs-btn{
-      flex-shrink:0;padding:7px 14px;border-radius:9px;border:none;
+      flex-shrink:0;padding:7px 14px;border-radius:10px;border:none;
       background:rgba(245,158,11,0.15);color:var(--fc-warning-text);
       font-size:13px;font-weight:700;cursor:pointer;
       -webkit-tap-highlight-color:transparent;transition:opacity .12s;
@@ -5853,7 +5853,7 @@ body:not(.keyboard-open) .fc-sheet {
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
         </button>
         <button id="activity-add-bill-btn" class="fc-iconbtn" onclick="FCApp.showBillSheet()" type="button"
-                aria-label="Add bill" style="display:none;width:36px;height:36px;background:rgba(26,196,240,0.12);color:var(--fc-accent);border-radius:11px;font-size:20px;line-height:1;border:0.5px solid rgba(26,196,240,0.22)">+</button>
+                aria-label="Add bill" style="display:none;width:36px;height:36px;background:rgba(26,196,240,0.12);color:var(--fc-accent);border-radius:var(--fc-r-sm);font-size:20px;line-height:1;border:0.5px solid rgba(26,196,240,0.22)">+</button>
       </div>
     </div>
 
@@ -6074,14 +6074,14 @@ body:not(.keyboard-open) .fc-sheet {
 
     /* ── This Month's Move ── */
     .plan-move-card { background:var(--pl-soft-amber); border-color:var(--pl-soft-amber-bd) !important; }
-    .plan-move-icon { width:34px; height:34px; border-radius:11px; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-bottom:8px; }
+    .plan-move-icon { width:34px; height:34px; border-radius:var(--fc-r-sm); display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-bottom:8px; }
     .plan-move-eyebrow { font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--pl-eyebrow); margin-bottom:6px; display:flex; align-items:center; gap:4px; }
     .plan-move-title { font-size:13px; font-weight:700; color:var(--pl-primary); line-height:1.3; margin-bottom:4px; }
     .plan-move-sub { font-size:11px; color:var(--pl-secondary); line-height:1.4; margin-bottom:10px; flex:1; }
     .plan-move-btns { display:flex; flex-direction:column; gap:5px; }
-    .plan-move-btn-primary { padding:9px 12px; border-radius:11px; border:none; font-size:12px; font-weight:700; cursor:pointer; font-family:inherit; background:var(--fc-warning); color:#071426; -webkit-tap-highlight-color:transparent; transition:opacity .12s; }
+    .plan-move-btn-primary { padding:9px 12px; border-radius:var(--fc-r-sm); border:none; font-size:12px; font-weight:700; cursor:pointer; font-family:inherit; background:var(--fc-warning); color:#071426; -webkit-tap-highlight-color:transparent; transition:opacity .12s; }
     .plan-move-btn-primary:active { opacity:.8; }
-    .plan-move-btn-secondary { padding:6px 12px; border-radius:11px; border:1px solid var(--pl-card-border); background:none; font-size:11px; font-weight:600; cursor:pointer; font-family:inherit; color:var(--pl-secondary); -webkit-tap-highlight-color:transparent; }
+    .plan-move-btn-secondary { padding:6px 12px; border-radius:var(--fc-r-sm); border:1px solid var(--pl-card-border); background:none; font-size:11px; font-weight:600; cursor:pointer; font-family:inherit; color:var(--pl-secondary); -webkit-tap-highlight-color:transparent; }
 
     /* ── Forecast card ── */
     .plan-forecast-card { margin:0 16px 12px; padding:18px 18px 14px; }
@@ -6091,7 +6091,7 @@ body:not(.keyboard-open) .fc-sheet {
     .plan-forecast-row:last-of-type { border-bottom:none; }
     .plan-forecast-lbl { font-size:13px; color:var(--pl-secondary); }
     .plan-forecast-val { font-size:15px; font-weight:700; color:var(--pl-primary); font-variant-numeric:tabular-nums; }
-    .plan-forecast-msg { margin-top:12px; padding:10px 13px; border-radius:12px; font-size:12px; line-height:1.45; display:flex; align-items:flex-start; gap:7px; }
+    .plan-forecast-msg { margin-top:12px; padding:10px 13px; border-radius:var(--fc-r-sm); font-size:12px; line-height:1.45; display:flex; align-items:flex-start; gap:7px; }
     .plan-forecast-msg--warn { background:var(--pl-soft-red); border:1px solid var(--pl-soft-red-bd); color:var(--fc-danger); }
     .plan-forecast-msg--ok   { background:var(--pl-soft-green); border:1px solid var(--pl-soft-green-bd); color:var(--fc-success); }
 
@@ -6103,9 +6103,9 @@ body:not(.keyboard-open) .fc-sheet {
     .plan-fix-name { flex:1; font-size:13px; color:var(--pl-secondary); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .plan-fix-amt { font-size:14px; font-weight:700; color:var(--fc-danger); font-variant-numeric:tabular-nums; flex-shrink:0; }
     .plan-fix-btn-row { display:flex; gap:8px; margin-top:14px; }
-    .plan-fix-btn-primary   { flex:1; padding:11px; border-radius:13px; border:none; font-size:13px; font-weight:700; cursor:pointer; font-family:inherit; background:var(--fc-accent); color: var(--fc-accent-ink); -webkit-tap-highlight-color:transparent; transition:opacity .12s; }
+    .plan-fix-btn-primary   { flex:1; padding:11px; border-radius:14px; border:none; font-size:13px; font-weight:700; cursor:pointer; font-family:inherit; background:var(--fc-accent); color: var(--fc-accent-ink); -webkit-tap-highlight-color:transparent; transition:opacity .12s; }
     .plan-fix-btn-primary:active { opacity:.85; }
-    .plan-fix-btn-secondary { flex:1; padding:11px; border-radius:13px; border:1.5px solid var(--pl-card-border); background:none; font-size:13px; font-weight:700; cursor:pointer; font-family:inherit; color:var(--fc-accent); -webkit-tap-highlight-color:transparent; }
+    .plan-fix-btn-secondary { flex:1; padding:11px; border-radius:14px; border:1.5px solid var(--pl-card-border); background:none; font-size:13px; font-weight:700; cursor:pointer; font-family:inherit; color:var(--fc-accent); -webkit-tap-highlight-color:transparent; }
 
     /* ── Category section ── */
     .plan-cat-section { margin:0 16px 12px; }
@@ -6113,7 +6113,7 @@ body:not(.keyboard-open) .fc-sheet {
     .plan-cat-edit-btn { font-size:11px; font-weight:600; color:var(--fc-accent); background:none; border:none; cursor:pointer; font-family:inherit; display:flex; align-items:center; gap:3px; padding:0; }
     .plan-cat-tabs { display:flex; gap:6px; overflow-x:auto; padding-bottom:2px; margin-bottom:11px; scrollbar-width:none; }
     .plan-cat-tabs::-webkit-scrollbar { display:none; }
-    .plan-cat-tab { padding:6px 14px; border-radius:20px; border:1px solid var(--pl-tab-inactive-bd); background:var(--pl-tab-inactive-bg); font-size:12px; font-weight:600; cursor:pointer; font-family:inherit; color:var(--pl-secondary); white-space:nowrap; -webkit-tap-highlight-color:transparent; transition:all .15s; flex-shrink:0; }
+    .plan-cat-tab { padding:6px 14px; border-radius:var(--fc-r-lg); border:1px solid var(--pl-tab-inactive-bd); background:var(--pl-tab-inactive-bg); font-size:12px; font-weight:600; cursor:pointer; font-family:inherit; color:var(--pl-secondary); white-space:nowrap; -webkit-tap-highlight-color:transparent; transition:all .15s; flex-shrink:0; }
     .plan-cat-tab.active { background:var(--fc-accent); color: var(--fc-accent-ink); border-color:var(--fc-accent); }
     .plan-cat-card { background:var(--pl-card-bg); border:1px solid var(--pl-card-border); border-radius:18px; box-shadow:var(--pl-card-shadow); overflow:hidden; }
 
@@ -6122,7 +6122,7 @@ body:not(.keyboard-open) .fc-sheet {
     .plan-cat-row:last-child { border-bottom:none; }
     .plan-cat-row:active { opacity:.75; }
     .plan-cat-row-top { display:flex; align-items:center; gap:10px; }
-    .plan-cat-icon { width:36px; height:36px; border-radius:11px; display:flex; align-items:center; justify-content:center; font-size:17px; flex-shrink:0; }
+    .plan-cat-icon { width:36px; height:36px; border-radius:var(--fc-r-sm); display:flex; align-items:center; justify-content:center; font-size:17px; flex-shrink:0; }
     .plan-cat-info { flex:1; min-width:0; }
     .plan-cat-name { font-size:14px; font-weight:600; color:var(--pl-primary); }
     .plan-cat-meta { font-size:10px; color:var(--pl-secondary); margin-top:1px; }
@@ -6130,15 +6130,15 @@ body:not(.keyboard-open) .fc-sheet {
     .plan-cat-spent { font-size:15px; font-weight:700; color:var(--pl-primary); font-variant-numeric:tabular-nums; line-height:1; }
     .plan-cat-budget-lbl { font-size:11px; color:var(--pl-secondary); margin-top:2px; }
     .plan-cat-progress { margin:8px 0 2px; }
-    .plan-cat-bar-track { height:4px; border-radius:999px; background:var(--pl-bar-track); overflow:hidden; position:relative; }
-    .plan-cat-bar-fill { height:100%; border-radius:999px; position:absolute; top:0; left:0; transition:width .6s cubic-bezier(0.25,0.1,0.25,1); }
+    .plan-cat-bar-track { height:4px; border-radius:var(--fc-r-pill); background:var(--pl-bar-track); overflow:hidden; position:relative; }
+    .plan-cat-bar-fill { height:100%; border-radius:var(--fc-r-pill); position:absolute; top:0; left:0; transition:width .6s cubic-bezier(0.25,0.1,0.25,1); }
     .plan-cat-bar-foot { display:flex; align-items:center; justify-content:space-between; margin-top:5px; }
     .plan-cat-left-lbl { font-size:10px; color:var(--pl-secondary); }
     .plan-cat-tip { font-size:10px; color:var(--fc-warning-text); margin-top:4px; display:flex; align-items:center; gap:4px; line-height:1.4; }
     [data-theme="light"] .plan-cat-tip { color:#B45309; }
 
     /* Status badges */
-    .plan-badge { padding:3px 9px; border-radius:999px; font-size:10px; font-weight:700; flex-shrink:0; white-space:nowrap; }
+    .plan-badge { padding:3px 9px; border-radius:var(--fc-r-pill); font-size:10px; font-weight:700; flex-shrink:0; white-space:nowrap; }
     .plan-badge-on-track  { background:rgba(22,163,74,0.12);   color:var(--fc-success); }
     .plan-badge-watch     { background:rgba(245,158,11,0.12);  color:var(--fc-warning-text); }
     .plan-badge-over      { background:rgba(239,68,68,0.12);   color:var(--fc-danger); }
@@ -6186,7 +6186,7 @@ body:not(.keyboard-open) .fc-sheet {
     .plan-empty { padding:28px 16px; text-align:center; }
     .plan-empty-title { font-size:14px; font-weight:600; color:var(--pl-primary); margin-bottom:5px; }
     .plan-empty-sub   { font-size:12px; color:var(--pl-secondary); line-height:1.5; }
-    .plan-empty-cta   { margin-top:12px; padding:9px 20px; border-radius:12px; border:none; background:var(--fc-accent); color: var(--fc-accent-ink); font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; -webkit-tap-highlight-color:transparent; }
+    .plan-empty-cta   { margin-top:12px; padding:9px 20px; border-radius:var(--fc-r-sm); border:none; background:var(--fc-accent); color: var(--fc-accent-ink); font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; -webkit-tap-highlight-color:transparent; }
 
   </style>
 
@@ -6505,7 +6505,7 @@ body:not(.keyboard-open) .fc-sheet {
     .wv-position { margin:14px 16px 0; padding:20px; }
     .wv-position-eyebrow { font-size:10px; font-weight:700; letter-spacing:.09em; text-transform:uppercase; color:var(--wv-t3); margin-bottom:6px; }
     .wv-position-amount { font-size:36px; font-weight:600; letter-spacing:-0.03em; line-height:1; font-variant-numeric:tabular-nums; color:var(--wv-t1); }
-    .wv-position-delta { display:inline-flex; align-items:center; gap:4px; font-size:12px; font-weight:600; padding:4px 10px; border-radius:999px; margin-top:8px; }
+    .wv-position-delta { display:inline-flex; align-items:center; gap:4px; font-size:12px; font-weight:600; padding:4px 10px; border-radius:var(--fc-r-pill); margin-top:8px; }
     .wv-position-spark { margin:14px -4px 0; overflow:hidden; }
     .wv-position-stats { display:flex; margin-top:14px; padding-top:12px; border-top:1px solid var(--wv-divider); }
     .wv-position-stat { flex:1; text-align:center; }
@@ -6556,7 +6556,7 @@ body:not(.keyboard-open) .fc-sheet {
     .wv-prog-val { font-size:13px; font-weight:700; font-variant-numeric:tabular-nums; }
     /* SAVINGS */
     .wv-sav-hero { margin:16px 16px 0; padding:20px; display:flex; align-items:center; gap:16px; }
-    .wv-sav-hero-icon { width:52px; height:52px; border-radius:16px; background:var(--wv-green-soft); border:1px solid rgba(22,163,74,0.2); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .wv-sav-hero-icon { width:52px; height:52px; border-radius:var(--fc-r-md); background:var(--wv-green-soft); border:1px solid rgba(22,163,74,0.2); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
     .wv-sav-total { font-size:26px; font-weight:600; letter-spacing:-0.02em; color:var(--wv-t1); font-variant-numeric:tabular-nums; line-height:1; }
     .wv-sav-sub { font-size:12px; color:var(--wv-t2); margin-top:3px; }
     .wv-ef { margin:12px 16px 0; padding:18px; display:flex; align-items:center; gap:16px; }
@@ -6571,7 +6571,7 @@ body:not(.keyboard-open) .fc-sheet {
     .wv-acct-card { margin:0 16px; }
     .wv-acct-row { display:flex; align-items:center; gap:13px; padding:13px 16px; border-bottom:1px solid var(--wv-divider); }
     .wv-acct-row:last-child { border-bottom:none; }
-    .wv-acct-icon { width:36px; height:36px; border-radius:11px; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:18px; }
+    .wv-acct-icon { width:36px; height:36px; border-radius:var(--fc-r-sm); display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:18px; }
     .wv-acct-name { font-size:14px; font-weight:600; color:var(--wv-t1); }
     .wv-acct-sub { font-size:11px; color:var(--wv-t3); margin-top:1px; }
     .wv-acct-bal { font-size:15px; font-weight:700; color:var(--wv-t1); font-variant-numeric:tabular-nums; flex-shrink:0; }
@@ -6613,7 +6613,7 @@ body:not(.keyboard-open) .fc-sheet {
     .wv-debt-row { display:flex; align-items:center; gap:13px; padding:13px 16px; border-bottom:1px solid var(--wv-divider); cursor:pointer; -webkit-tap-highlight-color:transparent; transition:opacity .12s; }
     .wv-debt-row:last-child { border-bottom:none; }
     .wv-debt-row:active { opacity:.72; }
-    .wv-debt-icon { width:36px; height:36px; border-radius:11px; background:var(--wv-red-soft); display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:18px; }
+    .wv-debt-icon { width:36px; height:36px; border-radius:var(--fc-r-sm); background:var(--wv-red-soft); display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:18px; }
     .wv-debt-name { font-size:14px; font-weight:600; color:var(--wv-t1); }
     .wv-debt-sub { font-size:11px; color:var(--wv-t3); margin-top:1px; }
     /* APR and minimum, on the row itself. Two small facts side by side rather
@@ -6623,7 +6623,7 @@ body:not(.keyboard-open) .fc-sheet {
     /* Compare-an-offer result. Green when the offer genuinely costs less,
        amber when it does not — including the common case where the monthly
        payment falls but the total rises. */
-    .offer-result { margin-top:16px; padding:14px 16px; border-radius:16px; border:1px solid var(--wv-border); background:var(--wv-pill); }
+    .offer-result { margin-top:16px; padding:14px 16px; border-radius:var(--fc-r-md); border:1px solid var(--wv-border); background:var(--wv-pill); }
     .offer-result.is-good { border-color:rgba(52,199,89,0.28); }
     .offer-result.is-warn { border-color:rgba(255,159,10,0.28); }
     .offer-headline { font-size:16px; font-weight:700; color:var(--wv-t1); line-height:1.3; }
@@ -6675,20 +6675,20 @@ body:not(.keyboard-open) .fc-sheet {
     .wv-goal-row { display:flex; align-items:center; gap:13px; padding:13px 16px; border-bottom:1px solid var(--wv-divider); cursor:pointer; -webkit-tap-highlight-color:transparent; transition:opacity .12s; }
     .wv-goal-row:last-child { border-bottom:none; }
     .wv-goal-row:active { opacity:.72; }
-    .wv-goal-row-icon { width:36px; height:36px; border-radius:11px; background:var(--wv-goal-soft); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
-    .wv-goal-badge { font-size:10px; font-weight:700; padding:3px 8px; border-radius:999px; flex-shrink:0; }
+    .wv-goal-row-icon { width:36px; height:36px; border-radius:var(--fc-r-sm); background:var(--wv-goal-soft); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .wv-goal-badge { font-size:10px; font-weight:700; padding:3px 8px; border-radius:var(--fc-r-pill); flex-shrink:0; }
     .wv-badge-behind { background:var(--wv-amber-soft); color:var(--wv-amber); }
     .wv-badge-track { background:var(--wv-green-soft); color:var(--wv-green); }
     .wv-badge-done { background:var(--wv-green-soft); color:var(--wv-green); }
     .wv-badge-new { background:var(--wv-pill); color:var(--wv-t3); }
     .wv-templates { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:0 16px; }
-    .wv-tpl-btn { display:flex; flex-direction:column; align-items:center; gap:5px; padding:14px 8px; background:var(--wv-card); border:1px solid var(--wv-border); border-radius:16px; cursor:pointer; font-family:inherit; -webkit-tap-highlight-color:transparent; transition:opacity .12s; box-shadow:var(--wv-shadow); }
+    .wv-tpl-btn { display:flex; flex-direction:column; align-items:center; gap:5px; padding:14px 8px; background:var(--wv-card); border:1px solid var(--wv-border); border-radius:var(--fc-r-md); cursor:pointer; font-family:inherit; -webkit-tap-highlight-color:transparent; transition:opacity .12s; box-shadow:var(--wv-shadow); }
     .wv-tpl-btn:active { opacity:.72; }
-    .wv-tpl-icon { width:36px; height:36px; border-radius:11px; display:flex; align-items:center; justify-content:center; font-size:20px; }
+    .wv-tpl-icon { width:36px; height:36px; border-radius:var(--fc-r-sm); display:flex; align-items:center; justify-content:center; font-size:20px; }
     .wv-tpl-name { font-size:11px; font-weight:600; color:var(--wv-t1); text-align:center; }
     /* Shared: progress bar */
-    .wv-pbar { height:5px; border-radius:999px; background:var(--wv-pill); overflow:hidden; }
-    .wv-pbar-fill { height:100%; border-radius:999px; transition:width .8s cubic-bezier(0.25,0.1,0.25,1); }
+    .wv-pbar { height:5px; border-radius:var(--fc-r-pill); background:var(--wv-pill); overflow:hidden; }
+    .wv-pbar-fill { height:100%; border-radius:var(--fc-r-pill); transition:width .8s cubic-bezier(0.25,0.1,0.25,1); }
     /* Shared: empty state */
     .wv-empty { padding:44px 24px; text-align:center; }
     .wv-empty-icon { width:56px; height:56px; border-radius:18px; background:var(--wv-pill); border:1px solid var(--wv-pill-b); display:flex; align-items:center; justify-content:center; margin:0 auto 14px; font-size:24px; }
@@ -6876,11 +6876,11 @@ body:not(.keyboard-open) .fc-sheet {
         <div id="appearance-picker"
              style="display:flex;background:rgba(255,255,255,0.05);border:0.5px solid rgba(255,255,255,0.09);border-radius:14px;padding:3px;gap:2px">
           <button data-theme-val="dark"  onclick="FCApp.setAppearance('dark')"
-                  style="flex:1;padding:9px 0;border:none;border-radius:11px;font-size:13px;font-weight:600;cursor:pointer;transition:background 0.2s,color 0.2s;background:transparent;color:var(--fc-text-faint);font-family:inherit">🌙 Dark</button>
+                  style="flex:1;padding:9px 0;border:none;border-radius:var(--fc-r-sm);font-size:13px;font-weight:600;cursor:pointer;transition:background 0.2s,color 0.2s;background:transparent;color:var(--fc-text-faint);font-family:inherit">🌙 Dark</button>
           <button data-theme-val="system" onclick="FCApp.setAppearance('system')"
-                  style="flex:1;padding:9px 0;border:none;border-radius:11px;font-size:13px;font-weight:600;cursor:pointer;transition:background 0.2s,color 0.2s;background:transparent;color:var(--fc-text-faint);font-family:inherit">Auto</button>
+                  style="flex:1;padding:9px 0;border:none;border-radius:var(--fc-r-sm);font-size:13px;font-weight:600;cursor:pointer;transition:background 0.2s,color 0.2s;background:transparent;color:var(--fc-text-faint);font-family:inherit">Auto</button>
           <button data-theme-val="light" onclick="FCApp.setAppearance('light')"
-                  style="flex:1;padding:9px 0;border:none;border-radius:11px;font-size:13px;font-weight:600;cursor:pointer;transition:background 0.2s,color 0.2s;background:transparent;color:var(--fc-text-faint);font-family:inherit">☀️ Light</button>
+                  style="flex:1;padding:9px 0;border:none;border-radius:var(--fc-r-sm);font-size:13px;font-weight:600;cursor:pointer;transition:background 0.2s,color 0.2s;background:transparent;color:var(--fc-text-faint);font-family:inherit">☀️ Light</button>
         </div>
       </div>
 
@@ -7137,7 +7137,7 @@ body:not(.keyboard-open) .fc-sheet {
 
     <!-- Code display + copy -->
     <div style="margin:0 20px 16px">
-      <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:18px 20px;display:flex;align-items:center;justify-content:space-between">
+      <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:var(--fc-r-md);padding:18px 20px;display:flex;align-items:center;justify-content:space-between">
         <div>
           <div style="color:var(--fc-text-faint);font-size:10px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;margin-bottom:6px">Your referral code</div>
           <div id="referral-code-display" style="color:var(--fc-text);font-size:22px;font-weight:700;letter-spacing:2px;font-variant-numeric:tabular-nums">
@@ -7161,7 +7161,7 @@ body:not(.keyboard-open) .fc-sheet {
     </div>
 
     <!-- Referred-by note (shown if user was referred) -->
-    <div id="referral-referred-by" style="display:none;margin:0 20px 16px;background:rgba(52,199,89,0.08);border:1px solid rgba(52,199,89,0.2);border-radius:12px;padding:10px 14px;display:none">
+    <div id="referral-referred-by" style="display:none;margin:0 20px 16px;background:rgba(52,199,89,0.08);border:1px solid rgba(52,199,89,0.2);border-radius:var(--fc-r-sm);padding:10px 14px;display:none">
       <div style="color:var(--fc-success);font-size:12px;font-weight:600;margin-bottom:2px">✓ You were referred by a friend</div>
       <div id="referral-referred-by-text" style="color:var(--fc-text-muted);font-size:12px">Your reward activates when you connect your first bank account.</div>
     </div>
@@ -7345,7 +7345,7 @@ body:not(.keyboard-open) .fc-sheet {
       <div class="fc-h3">Transaction Detail</div>
     </div>
     <!-- Original info -->
-    <div id="txn-original-info" style="background:rgba(255,255,255,0.04);border-radius:12px;padding:12px 14px;margin-bottom:16px">
+    <div id="txn-original-info" style="background:rgba(255,255,255,0.04);border-radius:var(--fc-r-sm);padding:12px 14px;margin-bottom:16px">
       <div style="font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--fc-text-faint);margin-bottom:6px">Original</div>
       <div style="display:flex;align-items:center;justify-content:space-between">
         <div>
@@ -8660,18 +8660,18 @@ attachToFCApp();
       <div style="margin-bottom:14px">
         <label for="edit-profile-name" style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.4);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px">Display Name</label>
         <input id="edit-profile-name" type="text" autocomplete="name" autocapitalize="words" placeholder="Your name"
-               style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:13px 16px;font-size:15px;color:#fff;font-family:inherit;outline:none;-webkit-appearance:none" autocorrect="off" spellcheck="false" enterkeyhint="next">
+               style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:var(--fc-r-sm);padding:13px 16px;font-size:15px;color:#fff;font-family:inherit;outline:none;-webkit-appearance:none" autocorrect="off" spellcheck="false" enterkeyhint="next">
       </div>
       <div style="margin-bottom:14px">
         <label for="edit-profile-email" style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.4);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px">Email Address</label>
         <input id="edit-profile-email" type="email" inputmode="email" autocomplete="email" placeholder="you@example.com"
-               style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:13px 16px;font-size:15px;color:#fff;font-family:inherit;outline:none;-webkit-appearance:none" autocapitalize="none" enterkeyhint="next">
+               style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:var(--fc-r-sm);padding:13px 16px;font-size:15px;color:#fff;font-family:inherit;outline:none;-webkit-appearance:none" autocapitalize="none" enterkeyhint="next">
         <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:5px;padding-left:4px">Changing email requires recent sign-in for security.</div>
       </div>
       <div style="margin-bottom:20px">
         <label for="edit-profile-phone" style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.4);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px">Phone (optional)</label>
         <input id="edit-profile-phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+1 (555) 000-0000"
-               style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:13px 16px;font-size:15px;color:#fff;font-family:inherit;outline:none;-webkit-appearance:none" enterkeyhint="done">
+               style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:var(--fc-r-sm);padding:13px 16px;font-size:15px;color:#fff;font-family:inherit;outline:none;-webkit-appearance:none" enterkeyhint="done">
       </div>
       <div id="edit-profile-error" style="font-size:13px;color:var(--fc-danger);margin-bottom:12px;min-height:18px"></div>
       <button id="edit-profile-save-btn" onclick="FCApp.saveProfileChanges()"

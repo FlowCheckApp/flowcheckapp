@@ -1460,7 +1460,7 @@ window.FCApp = (function () {
     if (!displayBills.length) {
       container.innerHTML = `
         <div style="width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 24px;color:var(--fc-text-faint);text-align:center">
-          <div style="width:52px;height:52px;border-radius:16px;background:var(--fc-accent-soft);display:flex;align-items:center;justify-content:center;margin-bottom:12px">${_ic('file-text','var(--fc-accent)',24)}</div>
+          <div style="width:52px;height:52px;border-radius:var(--fc-r-md);background:var(--fc-accent-soft);display:flex;align-items:center;justify-content:center;margin-bottom:12px">${_ic('file-text','var(--fc-accent)',24)}</div>
           <div style="font-size:15px;font-weight:500;color:var(--fc-text-muted);margin-bottom:8px">No bills yet</div>
           <div style="font-size:13px;margin-bottom:20px">Track your recurring bills and due dates</div>
           <button class="fc-btn fc-btn--outline" onclick="FCApp.showBillSheet()" type="button" style="height:42px;font-size:14px">
@@ -3957,7 +3957,7 @@ window.FCApp = (function () {
       if (!nextBillDue) {
         billsEl.innerHTML = state.user?.plaid_linked
           ? `<div style="display:flex;align-items:center;gap:12px;padding:4px 2px">
-               <div style="width:38px;height:38px;border-radius:11px;background:rgba(48,209,88,0.12);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0">✅</div>
+               <div style="width:38px;height:38px;border-radius:var(--fc-r-sm);background:rgba(48,209,88,0.12);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0">✅</div>
                <div style="flex:1;min-width:0">
                  <div style="font-size:13px;font-weight:600;color:var(--fc-text);line-height:1.3">Bills are covered</div>
                  <div style="font-size:12px;color:var(--fc-text-muted);margin-top:2px">No upcoming bills this week</div>
@@ -3965,7 +3965,7 @@ window.FCApp = (function () {
                <button onclick="event.stopPropagation();FCApp.switchTab('activity');FCApp.switchActivitySegment('bills')" type="button" style="font-size:12px;font-weight:600;color:var(--fc-accent);background:none;border:none;cursor:pointer;padding:0;flex-shrink:0;-webkit-tap-highlight-color:transparent">View bills</button>
              </div>`
           : `<div style="display:flex;align-items:center;gap:12px;padding:4px 2px">
-               <div style="width:38px;height:38px;border-radius:11px;background:rgba(26,196,240,0.10);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0">🏦</div>
+               <div style="width:38px;height:38px;border-radius:var(--fc-r-sm);background:rgba(26,196,240,0.10);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0">🏦</div>
                <div style="flex:1;min-width:0">
                  <div style="font-size:13px;font-weight:600;color:var(--fc-text);line-height:1.3">Connect a bank</div>
                  <div style="font-size:12px;color:var(--fc-text-muted);margin-top:2px">See your upcoming bills here</div>
@@ -4282,7 +4282,7 @@ window.FCApp = (function () {
           const borderColor = delta >= 0 ? 'rgba(48,209,88,0.28)' : 'rgba(255,69,58,0.25)';
           const textColor   = delta >= 0 ? 'var(--fc-success)' : 'var(--fc-danger)';
           deltaEl.textContent = `${sign}${FCData.formatCurrency(Math.abs(delta))} vs last week`;
-          deltaEl.style.cssText = `display:inline-flex;align-items:center;gap:4px;background:${color};border:0.5px solid ${borderColor};border-radius:999px;padding:4px 10px;font-size:11px;font-weight:700;color:${textColor};margin-bottom:8px`;
+          deltaEl.style.cssText = `display:inline-flex;align-items:center;gap:4px;background:${color};border:0.5px solid ${borderColor};border-radius:var(--fc-r-pill);padding:4px 10px;font-size:11px;font-weight:700;color:${textColor};margin-bottom:8px`;
         } else {
           deltaEl.style.display = 'none';
         }
@@ -6193,7 +6193,7 @@ window.FCApp = (function () {
           </div>
           <div class="fc-category-bar" style="position:relative;margin:4px 0 10px">
             <div class="fc-category-bar-fill" style="width:${p}%;background:${col};opacity:0.25"></div>
-            ${budLim > 0 ? `<div style="position:absolute;top:0;left:0;height:100%;width:${Math.min(budPct,100)}%;background:${budColor};border-radius:999px;transition:width 0.5s ease"></div>` : ''}
+            ${budLim > 0 ? `<div style="position:absolute;top:0;left:0;height:100%;width:${Math.min(budPct,100)}%;background:${budColor};border-radius:var(--fc-r-pill);transition:width 0.5s ease"></div>` : ''}
           </div>`;
       }).join('');
     }
@@ -6561,7 +6561,7 @@ window.FCApp = (function () {
         <div style="font-size:10px;font-weight:700;color:${isCur?'var(--fc-accent)':'var(--fc-text-faint)'};letter-spacing:0.5px;text-transform:uppercase;margin-bottom:5px">${name}</div>
         <div style="font-size:13px;font-weight:800;color:${amtCol};margin-bottom:5px;letter-spacing:-0.02em">${amtTxt}</div>
         <div class="fcs-bar-track" style="height:3px;margin-bottom:3px">
-          <div style="height:100%;width:${(isFut||!hasBudget)?0:pct}%;background:${color};border-radius:999px"></div>
+          <div style="height:100%;width:${(isFut||!hasBudget)?0:pct}%;background:${color};border-radius:var(--fc-r-pill)"></div>
         </div>
         <div style="font-size:10px;font-weight:600;color:${color}">${(isFut||!hasBudget)?'':pct+'%'}</div>
       </div>`;
@@ -6690,7 +6690,7 @@ window.FCApp = (function () {
           ? ` (${delta >= 0 ? '+' : '−'}${Math.abs(Math.round((delta / Math.abs(prev)) * 100))}%)`
           : '';
         dlEl.innerHTML = `<span>${sign}${FCData.formatCurrency(Math.abs(delta))}</span><span style="font-weight:500;color:var(--fc-text-faint);margin-left:4px">${pctText} this month</span>`;
-        dlEl.style.cssText = `display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px;background:${color};color:${textColor};margin-top:8px`;
+        dlEl.style.cssText = `display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;padding:4px 10px;border-radius:var(--fc-r-pill);background:${color};color:${textColor};margin-top:8px`;
       } else {
         dlEl.style.display = 'none';
       }
@@ -6788,7 +6788,7 @@ window.FCApp = (function () {
       return `<div style="height:56px;display:flex;flex-direction:column;justify-content:flex-end;gap:9px">
         <div style="display:flex;align-items:center;padding-bottom:12px">
           <div style="flex:1;height:0;border-top:1.5px dashed var(--fc-border)"></div>
-          <div style="width:9px;height:9px;border-radius:999px;background:var(--fc-accent);flex-shrink:0;margin-left:-1px;box-shadow:0 0 0 4px rgba(26,196,240,0.14)"></div>
+          <div style="width:9px;height:9px;border-radius:var(--fc-r-pill);background:var(--fc-accent);flex-shrink:0;margin-left:-1px;box-shadow:0 0 0 4px rgba(26,196,240,0.14)"></div>
         </div>
         <div style="font-size:11px;font-weight:500;color:var(--fc-text-faint);letter-spacing:0.1px;text-align:center">Tracking your net worth from today</div>
       </div>`;
@@ -8436,8 +8436,8 @@ window.FCApp = (function () {
          the right value per theme. */
       proBadge.textContent = isPro ? 'Pro ✓' : 'Free';
       proBadge.style.cssText = isPro
-        ? 'font-size:10px;padding:4px 10px;background:var(--fc-accent-soft);color:var(--fc-accent);border:0.5px solid var(--fc-border-accent);border-radius:999px'
-        : 'font-size:10px;padding:4px 10px;background:var(--fc-warning-soft);color:var(--fc-warning-text);border:0.5px solid var(--fc-warning-soft);border-radius:999px';
+        ? 'font-size:10px;padding:4px 10px;background:var(--fc-accent-soft);color:var(--fc-accent);border:0.5px solid var(--fc-border-accent);border-radius:var(--fc-r-pill)'
+        : 'font-size:10px;padding:4px 10px;background:var(--fc-warning-soft);color:var(--fc-warning-text);border:0.5px solid var(--fc-warning-soft);border-radius:var(--fc-r-pill)';
     }
 
     // Pro row — show status + cancel option for Pro users
@@ -8446,8 +8446,8 @@ window.FCApp = (function () {
     if (proPill) {
       proPill.textContent = isPro ? 'Manage' : 'Upgrade →';
       proPill.style.cssText = isPro
-        ? 'font-size:10px;padding:3px 8px;background:var(--fc-accent-soft);color:var(--fc-accent);border-radius:999px'
-        : 'font-size:10px;padding:3px 8px;background:var(--fc-warning-soft);color:var(--fc-warning-text);border-radius:999px';
+        ? 'font-size:10px;padding:3px 8px;background:var(--fc-accent-soft);color:var(--fc-accent);border-radius:var(--fc-r-pill)'
+        : 'font-size:10px;padding:3px 8px;background:var(--fc-warning-soft);color:var(--fc-warning-text);border-radius:var(--fc-r-pill)';
     }
     if (proRow) {
       proRow.onclick = isPro ? () => _openCancelSheet() : () => showPaywall();
@@ -8766,7 +8766,7 @@ window.FCApp = (function () {
       : 'Next Paycheck';
     const planRow = (icon, name, amount, badge, badgeColor) =>
       '<div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--fc-border)">'
-        +'<div style="width:32px;height:32px;border-radius:9px;background:var(--fc-bg-elevated-2);display:flex;align-items:center;justify-content:center;flex-shrink:0">'+icon+'</div>'
+        +'<div style="width:32px;height:32px;border-radius:10px;background:var(--fc-bg-elevated-2);display:flex;align-items:center;justify-content:center;flex-shrink:0">'+icon+'</div>'
         +'<div style="flex:1;font-size:14px;font-weight:500;color:var(--fc-text)">'+name+'</div>'
         +'<div style="font-size:14px;font-weight:600;color:var(--fc-text);font-variant-numeric:tabular-nums">'+FCData.formatCurrency(amount)+'</div>'
         +(badge ? '<div style="font-size:11px;font-weight:600;color:'+badgeColor+';min-width:52px;text-align:right">'+badge+'</div>' : '')
@@ -8788,8 +8788,8 @@ window.FCApp = (function () {
            paycheck is unknown the card shows what it does know (the bills
            it has lined up) and names the gap instead of inventing one. */
         +(payIsEstimated
-          ? '<div style="height:8px;background:var(--fc-bg-elevated-2);border-radius:999px;overflow:hidden;margin-bottom:8px">'
-              +'<div style="height:100%;width:'+Math.min(100,Math.round(assigned/expectedPay*100))+'%;background:'+(payRemaining>=0?'var(--fc-success)':'var(--fc-danger)')+';border-radius:999px"></div>'
+          ? '<div style="height:8px;background:var(--fc-bg-elevated-2);border-radius:var(--fc-r-pill);overflow:hidden;margin-bottom:8px">'
+              +'<div style="height:100%;width:'+Math.min(100,Math.round(assigned/expectedPay*100))+'%;background:'+(payRemaining>=0?'var(--fc-success)':'var(--fc-danger)')+';border-radius:var(--fc-r-pill)"></div>'
             +'</div>'
             +'<div style="display:flex;justify-content:space-between;margin-bottom:14px">'
               +'<div><div style="font-size:11px;color:var(--fc-text-faint)">Assigned</div><div style="font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--fc-text)">'+FCData.formatCurrency(assigned)+'</div></div>'
@@ -8812,7 +8812,7 @@ window.FCApp = (function () {
         ? '<div class="fc-card" style="margin-bottom:14px;padding:14px 16px;background:var(--fc-success-soft);border-color:var(--fc-success-border);display:flex;align-items:center;gap:12px">'
             +'<span style="flex-shrink:0">'+_ic('trending-up','var(--fc-success)',18)+'</span>'
             +'<div style="flex:1;font-size:13px;color:var(--fc-text);line-height:1.45">'+FCData.formatCurrency(payRemaining)+' unassigned. Put it toward a goal or your smallest debt before it disappears.</div>'
-            +'<button onclick="FCApp.openCoachAnswer(\'debt\')" style="background:var(--fc-success);color:var(--fc-success-ink);border:none;border-radius:9px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0;font-family:inherit">Assign</button>'
+            +'<button onclick="FCApp.openCoachAnswer(\'debt\')" style="background:var(--fc-success);color:var(--fc-success-ink);border:none;border-radius:10px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0;font-family:inherit">Assign</button>'
           +'</div>'
         : '');
 
@@ -8830,7 +8830,7 @@ window.FCApp = (function () {
           +'<div style="font-size:12px;color:var(--fc-text-faint);margin-top:12px;line-height:1.5">Not using one of these? Cancel it in the provider\'s app — then watch this number drop.</div>'
         +'</div>'
       : '<div class="fc-card" style="padding:36px 24px;text-align:center;margin-bottom:14px">'
-          +'<div style="width:52px;height:52px;border-radius:16px;background:var(--fc-accent-soft);display:flex;align-items:center;justify-content:center;margin:0 auto 12px">'+_ic('play-screen','var(--fc-accent)',24)+'</div>'
+          +'<div style="width:52px;height:52px;border-radius:var(--fc-r-md);background:var(--fc-accent-soft);display:flex;align-items:center;justify-content:center;margin:0 auto 12px">'+_ic('play-screen','var(--fc-accent)',24)+'</div>'
           +'<div style="font-size:16px;font-weight:600;color:var(--fc-text);margin-bottom:6px">No subscriptions detected yet</div>'
           +'<div style="font-size:13px;color:var(--fc-text-muted);line-height:1.5">Recurring charges show up here automatically after a month or two of history.</div>'
         +'</div>';
@@ -9006,8 +9006,8 @@ window.FCApp = (function () {
                   ? '<div style="font-size:11px;color:var(--fc-success);margin-bottom:5px">+'
                     + FCData.formatCurrency(r.roll) + ' rolled over from last month</div>'
                   : '')
-                +'<div style="height:6px;background:var(--fc-bg-elevated-2);border-radius:999px;overflow:hidden">'
-                  +'<div style="height:100%;width:'+r.displayPct+'%;background:'+r.color+';border-radius:999px;transition:width 0.5s ease"></div>'
+                +'<div style="height:6px;background:var(--fc-bg-elevated-2);border-radius:var(--fc-r-pill);overflow:hidden">'
+                  +'<div style="height:100%;width:'+r.displayPct+'%;background:'+r.color+';border-radius:var(--fc-r-pill);transition:width 0.5s ease"></div>'
                 +'</div>'
                 +'<div style="font-size:11px;color:'+(r.pct>100?'var(--fc-danger)':r.pct>80?'var(--fc-warning)':'var(--fc-text-faint)')+';margin-top:2px;text-align:right">'+r.pct+'%</div>'
               +'</div>'
@@ -9527,9 +9527,9 @@ window.FCApp = (function () {
 
     const toolTile = (icon, label, color, softBg, action) =>
       '<button onclick="'+action+'" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;'
-      +'background:var(--fc-bg-elevated);border:1px solid var(--fc-border);border-radius:16px;padding:16px 8px;cursor:pointer;'
+      +'background:var(--fc-bg-elevated);border:1px solid var(--fc-border);border-radius:var(--fc-r-md);padding:16px 8px;cursor:pointer;'
       +'box-shadow:var(--fc-shadow-sm);aspect-ratio:1;-webkit-tap-highlight-color:transparent;width:100%">'
-        +'<div style="width:44px;height:44px;border-radius:12px;background:'+softBg+';display:flex;align-items:center;justify-content:center">'+_ic(icon, color, 20)+'</div>'
+        +'<div style="width:44px;height:44px;border-radius:var(--fc-r-sm);background:'+softBg+';display:flex;align-items:center;justify-content:center">'+_ic(icon, color, 20)+'</div>'
         +'<div style="font-size:12px;font-weight:600;color:var(--fc-text);text-align:center;line-height:1.2">'+label+'</div>'
       +'</button>';
 
@@ -9560,7 +9560,7 @@ window.FCApp = (function () {
           +'<div style="font-size:17px;font-weight:600;color:var(--fc-text)">'+esc(displayName)+'</div>'
           +'<div style="font-size:13px;color:var(--fc-text-muted);margin-top:1px">'+esc(displayEmail)+'</div>'
         +'</div>'
-        +(isPro?'<span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;background:var(--fc-accent-soft);color:var(--fc-accent)">PRO</span>':'')
+        +(isPro?'<span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:var(--fc-r-pill);background:var(--fc-accent-soft);color:var(--fc-accent)">PRO</span>':'')
         +'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>'
       +'</div>'
 
@@ -9636,7 +9636,7 @@ window.FCApp = (function () {
     }
     return '<div class="fc-card" style="padding:16px;margin-bottom:20px;cursor:pointer;display:flex;'
       + 'align-items:center;gap:14px" onclick="FCApp._openSubScreen(\'vault\')" role="button" tabindex="0">'
-      + '<div style="width:44px;height:44px;border-radius:12px;background:var(--fc-success-soft);display:flex;'
+      + '<div style="width:44px;height:44px;border-radius:var(--fc-r-sm);background:var(--fc-success-soft);display:flex;'
         + 'align-items:center;justify-content:center;flex-shrink:0">' + _ic('shield', 'var(--fc-success)', 20) + '</div>'
       + '<div style="flex:1;min-width:0">'
         + '<div style="font-size:15px;font-weight:600;color:var(--fc-text)">The Vault</div>'
@@ -9842,7 +9842,7 @@ window.FCApp = (function () {
       ? Math.max(2, Math.min(100, (s.proven / s.subscriptionCost) * 100)) : 0;
     const meter = s.proven > 0
       ? '<div style="margin-top:16px">'
-        + '<div style="display:flex;height:10px;border-radius:999px;overflow:hidden;background:var(--fc-bg-elevated-2)">'
+        + '<div style="display:flex;height:10px;border-radius:var(--fc-r-pill);overflow:hidden;background:var(--fc-bg-elevated-2)">'
           + '<div style="width:' + coverPct.toFixed(1) + '%;background:'
             + (s.paidForItself ? 'var(--fc-success)' : 'var(--fc-accent)') + '"></div>'
         + '</div>'
@@ -9902,7 +9902,7 @@ window.FCApp = (function () {
         + attributed.map(_vaultEventRow).join('')
       : '<div class="fc-eyebrow">Every claim we have made</div>'
         + '<section class="fc-ui-card" style="padding:22px 18px;margin-bottom:8px;text-align:center">'
-          + '<div style="width:44px;height:44px;border-radius:12px;background:var(--fc-bg-elevated-2);display:flex;'
+          + '<div style="width:44px;height:44px;border-radius:var(--fc-r-sm);background:var(--fc-bg-elevated-2);display:flex;'
             + 'align-items:center;justify-content:center;margin:0 auto 12px">'
             + _ic('search', 'var(--fc-text-faint)', 20) + '</div>'
           + '<p style="font-size:14px;font-weight:600;color:var(--fc-text);margin:0 0 6px">Nothing proven yet</p>'
@@ -10457,7 +10457,7 @@ window.FCApp = (function () {
 
     const coachRow = (key, icon, color, soft, title, sub) => answers[key]
       ? '<div class="fc-card" style="margin-bottom:10px;padding:14px 16px;display:flex;align-items:center;gap:13px;cursor:pointer;-webkit-tap-highlight-color:transparent" onclick="FCApp.openCoachAnswer(\''+key+'\')">'
-          +'<div style="width:40px;height:40px;border-radius:12px;background:'+soft+';display:flex;align-items:center;justify-content:center;flex-shrink:0">'+_ic(icon, color, 19)+'</div>'
+          +'<div style="width:40px;height:40px;border-radius:var(--fc-r-sm);background:'+soft+';display:flex;align-items:center;justify-content:center;flex-shrink:0">'+_ic(icon, color, 19)+'</div>'
           +'<div style="flex:1;min-width:0">'
             +'<div style="font-size:15px;font-weight:600;color:var(--fc-text)">'+title+'</div>'
             +'<div style="font-size:12px;color:var(--fc-text-muted);margin-top:1px">'+sub+'</div>'
@@ -10498,7 +10498,7 @@ window.FCApp = (function () {
       +'<div id="coach-ask-answer" style="display:none"></div>'
 
       +'<div class="fc-card" style="margin-bottom:14px;padding:14px 16px;background:var(--fc-accent-soft);border-color:var(--fc-border-accent);display:flex;align-items:center;gap:13px;cursor:pointer;-webkit-tap-highlight-color:transparent" onclick="FCApp.showAffordSheet&&FCApp.showAffordSheet()">'
-        +'<div style="width:40px;height:40px;border-radius:12px;background:var(--fc-accent);display:flex;align-items:center;justify-content:center;flex-shrink:0">'+_ic('search','var(--fc-accent-ink)',19)+'</div>'
+        +'<div style="width:40px;height:40px;border-radius:var(--fc-r-sm);background:var(--fc-accent);display:flex;align-items:center;justify-content:center;flex-shrink:0">'+_ic('search','var(--fc-accent-ink)',19)+'</div>'
         +'<div style="flex:1">'
           +'<div style="font-size:15px;font-weight:600;color:var(--fc-text)">Can I afford this?</div>'
           +'<div style="font-size:12px;color:var(--fc-text-muted);margin-top:1px">Check any purchase against your real numbers</div>'
@@ -10565,12 +10565,12 @@ window.FCApp = (function () {
         +'<div class="fc-sheet-handle"></div>'
         +'<div class="fc-sheet-title">'+esc(a.title)+'</div>'
         +'<div style="padding:0 20px 20px">'
-          +'<div style="background:var(--fc-electric-soft);border-radius:12px;padding:10px 14px;font-size:14px;font-weight:600;color:var(--fc-text);margin-bottom:16px">'+a.question+'</div>'
+          +'<div style="background:var(--fc-electric-soft);border-radius:var(--fc-r-sm);padding:10px 14px;font-size:14px;font-weight:600;color:var(--fc-text);margin-bottom:16px">'+a.question+'</div>'
           +section(1, 'What\'s happening', a.happening)
           +section(2, 'Why it matters', a.why)
           +section(3, 'What to do next', a.todo)
           +(a.highlight
-            ? '<div style="background:var(--fc-warning-soft);border-radius:12px;padding:12px 14px;margin:4px 0 14px;display:flex;align-items:center;justify-content:space-between">'
+            ? '<div style="background:var(--fc-warning-soft);border-radius:var(--fc-r-sm);padding:12px 14px;margin:4px 0 14px;display:flex;align-items:center;justify-content:space-between">'
                 +'<div><div style="font-size:12px;color:var(--fc-text-muted)">'+esc(a.highlight.label)+'</div><div style="font-size:12px;color:var(--fc-text-muted)">'+a.highlight.sub+'</div></div>'
                 +'<div style="font-size:20px;font-weight:800;color:var(--fc-text);font-variant-numeric:tabular-nums">'+a.highlight.value+'</div>'
               +'</div>'
@@ -10617,7 +10617,7 @@ window.FCApp = (function () {
         +'<div class="fc-sheet-title">Can I Afford This?</div>'
         +'<div style="padding:0 20px 20px">'
           +'<label for="afford-amount" style="font-size:12px;font-weight:600;color:var(--fc-text-muted);display:block;margin-bottom:6px">How much is it?</label>'
-          +'<div style="display:flex;align-items:center;gap:8px;background:var(--fc-bg-elevated-2);border-radius:12px;padding:2px 14px;margin-bottom:10px">'
+          +'<div style="display:flex;align-items:center;gap:8px;background:var(--fc-bg-elevated-2);border-radius:var(--fc-r-sm);padding:2px 14px;margin-bottom:10px">'
             +'<span style="font-size:20px;font-weight:700;color:var(--fc-text-muted)">$</span>'
             +'<input id="afford-amount" type="number" inputmode="decimal" enterkeyhint="go" placeholder="65" style="flex:1;background:none;border:none;outline:none;font-size:22px;font-weight:700;color:var(--fc-text);padding:12px 0;font-family:inherit;font-variant-numeric:tabular-nums" autocomplete="off">'
           +'</div>'
@@ -10713,7 +10713,7 @@ window.FCApp = (function () {
         : 0;
       const easyAfterPayday = paycheckEst > 0 && amount <= (p.safe + paycheckEst * 0.5);
       waitTip =
-        '<div style="display:flex;gap:10px;align-items:flex-start;background:var(--fc-accent-soft);border-radius:12px;padding:11px 13px;margin-top:12px">'
+        '<div style="display:flex;gap:10px;align-items:flex-start;background:var(--fc-accent-soft);border-radius:var(--fc-r-sm);padding:11px 13px;margin-top:12px">'
           +'<span style="flex-shrink:0;margin-top:1px">'+_ic('clock', 'var(--fc-accent)', 16)+'</span>'
           +'<div style="font-size:13px;color:var(--fc-text);line-height:1.45">'
             +(easyAfterPayday
@@ -11321,7 +11321,7 @@ window.FCApp = (function () {
             +(_recTooMuch ? 'var(--fc-warning-soft)' : 'var(--fc-success-soft)')
             +';border-color:'+(_recTooMuch ? 'var(--fc-warning-soft)' : 'var(--fc-success-border)')+'">'
             +'<div style="display:flex;align-items:center;gap:12px">'
-              +'<div style="width:40px;height:40px;border-radius:12px;background:'
+              +'<div style="width:40px;height:40px;border-radius:var(--fc-r-sm);background:'
                 +(_recTooMuch ? 'var(--fc-warning-soft)' : 'var(--fc-success)')
                 +';display:flex;align-items:center;justify-content:center;flex-shrink:0">'
                 +_ic(_recTooMuch ? 'alert' : 'flag', _recTooMuch ? 'var(--fc-warning-text)' : 'var(--fc-success-ink,#fff)', 20)
@@ -11373,7 +11373,7 @@ window.FCApp = (function () {
             }).join('')
           +'</div>'
         : '<div class="fc-card" style="padding:40px;text-align:center">'
-            +'<div style="width:52px;height:52px;border-radius:16px;background:var(--fc-success-soft);display:flex;align-items:center;justify-content:center;margin:0 auto 12px">'+_ic('flag','var(--fc-success)',24)+'</div>'
+            +'<div style="width:52px;height:52px;border-radius:var(--fc-r-md);background:var(--fc-success-soft);display:flex;align-items:center;justify-content:center;margin:0 auto 12px">'+_ic('flag','var(--fc-success)',24)+'</div>'
             +'<div style="font-size:16px;font-weight:600;color:var(--fc-text);margin-bottom:6px">No goals yet</div>'
             +'<div style="font-size:13px;color:var(--fc-text-muted);margin-bottom:16px">Start with an emergency fund.</div>'
             +'<button onclick="FCApp.showAddGoalSheet&&FCApp.showAddGoalSheet()" class="fc-btn fc-btn--primary fc-btn--sm">Add First Goal</button>'
@@ -11431,7 +11431,7 @@ window.FCApp = (function () {
             +'</div></div>'
           +'</div>'
         : '<div class="fc-card" style="padding:40px 24px;text-align:center;margin-bottom:14px">'
-            +'<div style="width:56px;height:56px;border-radius:16px;background:var(--fc-electric-soft);display:flex;align-items:center;justify-content:center;margin:0 auto 14px">'+_ic('trending-up','var(--fc-electric)',26)+'</div>'
+            +'<div style="width:56px;height:56px;border-radius:var(--fc-r-md);background:var(--fc-electric-soft);display:flex;align-items:center;justify-content:center;margin:0 auto 14px">'+_ic('trending-up','var(--fc-electric)',26)+'</div>'
             +'<div style="font-size:17px;font-weight:600;color:var(--fc-text);margin-bottom:6px">Track your portfolio</div>'
             +'<div style="font-size:13px;color:var(--fc-text-muted);line-height:1.5;margin-bottom:20px">Connect a brokerage account and your investments, 401(k), and IRA will show up here automatically.</div>'
             +'<button class="fc-btn fc-btn--primary fc-btn--sm" onclick="FCApp.startPlaidLink&&FCApp.startPlaidLink(this)">Connect Brokerage</button>'
@@ -13897,7 +13897,7 @@ window.FCApp = (function () {
                   border-bottom:0.5px solid var(--fc-border);
                   background:${n.read ? 'transparent' : 'rgba(26,196,240,0.035)'};
                   transition:background .12s">
-        <div style="width:40px;height:40px;border-radius:13px;
+        <div style="width:40px;height:40px;border-radius:14px;
                     background:${meta.bg};border:0.5px solid ${meta.border};
                     display:flex;align-items:center;justify-content:center;
                     font-size:18px;flex-shrink:0;box-shadow:0 3px 10px rgba(0,0,0,0.2)">
