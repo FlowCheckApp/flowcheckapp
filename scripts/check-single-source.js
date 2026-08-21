@@ -72,6 +72,45 @@ const exportBlock = lastReturn === -1 ? '' : coreSrc.slice(lastReturn);
   }
 });
 
+/* 4. Money formatting has two named functions, not a third inline one.
+
+   The app grew three conventions with no rule about which went where:
+   FCData.formatCurrency (always cents), FCData.formatSummary (whole
+   dollars), and eight separate inline Math.round(x).toLocaleString('en-US')
+   expressions. Home printed "$3,242 available" while Money printed
+   "$3,241.87" for the same account, and Goals rendered twelve figures of
+   which every single one ended in .00.
+
+   The rule now: formatCurrency for ledgers — transaction rows, account
+   balances, anything a user reconciles against their bank. formatSummary
+   for everything else. A new inline expression is a third convention
+   getting in, so this ratchets: the count may fall, never rise.
+
+   Lower CEILING when it falls. Do not raise it. */
+const INLINE_MONEY_CEILING = 8;
+const appSrc = fs.readFileSync(path.join(ROOT, 'www/js/fc-app.js'), 'utf8');
+const inlineMoney = [...appSrc.matchAll(/toLocaleString\('en-US'\)/g)].length;
+
+if (inlineMoney > INLINE_MONEY_CEILING) {
+  failures.push(
+    `${inlineMoney} inline money-formatting expressions in fc-app.js (ceiling ${INLINE_MONEY_CEILING}). ` +
+    `Use FCData.formatSummary for whole dollars or FCData.formatCurrency for cents — ` +
+    `a third convention is how Home and Money came to disagree about the same balance.`
+  );
+}
+
+/* 5. Both formatters still exist and are exported — the rule above is
+      meaningless if the functions it points at are gone. */
+const dataSrc = fs.readFileSync(path.join(ROOT, 'www/js/fc-data.js'), 'utf8');
+['formatCurrency', 'formatSummary'].forEach(fn => {
+  if (!new RegExp(`function ${fn}\\b`).test(dataSrc)) {
+    failures.push(`www/js/fc-data.js no longer defines ${fn}.`);
+  }
+  if (!new RegExp(`^\\s*${fn},\\s*$`, 'm').test(dataSrc)) {
+    failures.push(`www/js/fc-data.js no longer exports ${fn}.`);
+  }
+});
+
 if (failures.length) {
   console.error(`Single-source check FAILED — ${failures.length} problem(s):\n`);
   failures.forEach(f => console.error('  ✗ ' + f));
@@ -79,5 +118,9 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log(`single-source check: 1 category map, ${CONSUMERS.length} delegating consumers`);
-console.log('✓ spend/income classification has exactly one implementation.');
+console.log(`single-source check: 1 category map, ${CONSUMERS.length} delegating consumers, `
+  + `${inlineMoney}/${INLINE_MONEY_CEILING} inline money formats`);
+if (inlineMoney < INLINE_MONEY_CEILING) {
+  console.log(`↓ inline money formatting improved — lower INLINE_MONEY_CEILING to ${inlineMoney}.`);
+}
+console.log('✓ spend/income classification has exactly one implementation, and money has two formatters.');

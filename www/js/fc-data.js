@@ -1538,6 +1538,35 @@ window.FCData = (function () {
     return amount < 0 ? `−$${formatted}` : `$${formatted}`;
   }
 
+  /* Whole dollars, for SUMMARY surfaces — heroes, stat cards, goal targets,
+     anything the eye scans rather than reconciles.
+
+     The app had three money conventions and no rule about which went where.
+     Home printed "$3,242 available" while Money printed "$3,241.87" for the
+     same account; Goals rendered twelve figures and every single one of them
+     ended in .00, because goal targets and contributions are round numbers by
+     nature; Plan showed cents on a month-summary stat card. Whole dollars
+     were already being produced, but by eight separate inline
+     Math.round(x).toLocaleString('en-US') expressions rather than anything
+     named.
+
+     The rule this establishes:
+       formatCurrency  → ledgers. Transaction rows, account balances, and
+                         anything a user might reconcile against their bank.
+                         Cents always, because they are the point.
+       formatSummary   → everything else.
+
+     Not a rounding of the underlying value — only of its display. */
+  function formatSummary(amount, showSign = false) {
+    if (amount == null || isNaN(amount)) return '$0';
+    const rounded = Math.round(Math.abs(amount));
+    const formatted = rounded.toLocaleString('en-US');
+    if (showSign) return amount < 0 ? `−$${formatted}` : `+$${formatted}`;
+    /* Round to zero from below and the minus is a lie: −$0 is not a thing,
+       and "−$0" beside a green arrow reads as a rendering fault. */
+    return (amount < 0 && rounded !== 0) ? `−$${formatted}` : `$${formatted}`;
+  }
+
   /* ── Public API ───────────────────────────────────────────── */
   return {
     openPlaidLink,
@@ -1600,6 +1629,7 @@ window.FCData = (function () {
     isCurrentMonth,
     billDueLabelAndColor,
     formatCurrency,
+    formatSummary,
     warmBackend,
   };
 })();

@@ -8755,7 +8755,12 @@ window.FCApp = (function () {
       const d = FCData.daysUntil(b.due_date);
       return d !== null && d >= 0 && d <= payWindow;
     });
-    const payBillsTotal = payBills.reduce((s,b) => s+(b.amount||0), 0);
+    /* Rounded per bill, not rounded at the end. Every row on this card prints
+       to the dollar and Assigned is their sum, so summing the same rounded
+       figures the rows show is what keeps the column adding up. savePlan and
+       spendPlan are already Math.round-ed, so the whole chain is integer and
+       the card is self-consistent. */
+    const payBillsTotal = payBills.reduce((s,b) => s+Math.round(b.amount||0), 0);
     /* Per-PAYCHECK share of a MONTHLY target, so the divisor has to be how
        many paychecks land in a month. This was a hardcoded / 2, which is
        only right for semi-monthly pay. _predictNextPayday() already returns
@@ -8778,11 +8783,15 @@ window.FCApp = (function () {
     const paydayTitle = payday
       ? payday.date.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' Paycheck'
       : 'Next Paycheck';
-    const planRow = (icon, name, amount, badge, badgeColor) =>
+    /* Subscriptions keep their cents -- "$15.99/mo" is the shape people
+       recognise and "$16/mo" reads as wrong. The paycheck plan rows want
+       whole dollars. Same row, two surfaces, so the formatter is an argument
+       and the safe one is the default. */
+    const planRow = (icon, name, amount, badge, badgeColor, fmt) =>
       '<div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--fc-border)">'
         +'<div style="width:32px;height:32px;border-radius:10px;background:var(--fc-bg-elevated-2);display:flex;align-items:center;justify-content:center;flex-shrink:0">'+icon+'</div>'
         +'<div style="flex:1;font-size:14px;font-weight:500;color:var(--fc-text)">'+name+'</div>'
-        +'<div style="font-size:14px;font-weight:600;color:var(--fc-text);font-variant-numeric:tabular-nums">'+FCData.formatCurrency(amount)+'</div>'
+        +'<div style="font-size:14px;font-weight:600;color:var(--fc-text);font-variant-numeric:tabular-nums">'+(fmt||FCData.formatCurrency)(amount)+'</div>'
         +(badge ? '<div style="font-size:11px;font-weight:600;color:'+badgeColor+';min-width:52px;text-align:right">'+badge+'</div>' : '')
       +'</div>';
     const paycheckHTML =
@@ -8792,7 +8801,7 @@ window.FCApp = (function () {
           // A labelled em-dash is not information. With no paycheck detected
           // the sentence below already says so, in words.
           +(payIsEstimated
-            ? '<div style="text-align:right"><div style="font-size:11px;color:var(--fc-text-faint)">Expected</div><div style="font-size:17px;font-weight:800;color:var(--fc-text);font-variant-numeric:tabular-nums">'+FCData.formatCurrency(expectedPay)+'</div></div>'
+            ? '<div style="text-align:right"><div style="font-size:11px;color:var(--fc-text-faint)">Expected</div><div style="font-size:17px;font-weight:800;color:var(--fc-text);font-variant-numeric:tabular-nums">'+FCData.formatSummary(expectedPay)+'</div></div>'
             : '')
         +'</div>'
         /* Both the bar and the Remaining/Short pair divide by expectedPay,
@@ -8824,26 +8833,26 @@ window.FCApp = (function () {
               +'</div>';
             })()
             +'<div style="display:flex;justify-content:space-between;margin-bottom:14px">'
-              +'<div><div style="font-size:11px;color:var(--fc-text-faint)">Assigned</div><div style="font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--fc-text)">'+FCData.formatCurrency(assigned)+'</div></div>'
-              +'<div style="text-align:right"><div style="font-size:11px;color:var(--fc-text-faint)">'+(payRemaining>=0?'Remaining':'Short')+'</div><div style="font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;color:'+(payRemaining>=0?'var(--fc-success)':'var(--fc-danger)')+'">'+FCData.formatCurrency(Math.abs(payRemaining))+'</div></div>'
+              +'<div><div style="font-size:11px;color:var(--fc-text-faint)">Assigned</div><div style="font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--fc-text)">'+FCData.formatSummary(assigned)+'</div></div>'
+              +'<div style="text-align:right"><div style="font-size:11px;color:var(--fc-text-faint)">'+(payRemaining>=0?'Remaining':'Short')+'</div><div style="font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;color:'+(payRemaining>=0?'var(--fc-success)':'var(--fc-danger)')+'">'+FCData.formatSummary(Math.abs(payRemaining))+'</div></div>'
             +'</div>'
           : '<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--fc-border)">'
-              +'<div><div style="font-size:11px;color:var(--fc-text-faint)">Lined up</div><div style="font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--fc-text)">'+FCData.formatCurrency(assigned)+'</div></div>'
+              +'<div><div style="font-size:11px;color:var(--fc-text-faint)">Lined up</div><div style="font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--fc-text)">'+FCData.formatSummary(assigned)+'</div></div>'
               +'<div style="flex:1;text-align:right;font-size:11.5px;color:var(--fc-text-muted);line-height:1.4;padding-left:14px">No regular paycheck detected yet — we need three deposits from one payer.</div>'
             +'</div>')
         +payBills.map(b => {
           const d = FCData.daysUntil(b.due_date);
           return planRow(_billIcon(b,'var(--fc-text-muted)',16), esc(b.name||'Bill'), b.amount||0,
-            d===0?'Due today':'Due '+_fmtDue(b.due_date), d!==null&&d<=3?'var(--fc-warning)':'var(--fc-text-faint)');
+            d===0?'Due today':'Due '+_fmtDue(b.due_date), d!==null&&d<=3?'var(--fc-warning)':'var(--fc-text-faint)', FCData.formatSummary);
         }).join('')
-        +(savePlan>0 ? planRow(_ic('flag','var(--fc-success)',16), 'Goal savings', savePlan, 'Planned', 'var(--fc-text-faint)') : '')
-        +(spendPlan>0 ? planRow(_ic('credit-card','var(--fc-text-muted)',16), 'Everyday spending', spendPlan, 'Planned', 'var(--fc-text-faint)') : '')
+        +(savePlan>0 ? planRow(_ic('flag','var(--fc-success)',16), 'Goal savings', savePlan, 'Planned', 'var(--fc-text-faint)', FCData.formatSummary) : '')
+        +(spendPlan>0 ? planRow(_ic('credit-card','var(--fc-text-muted)',16), 'Everyday spending', spendPlan, 'Planned', 'var(--fc-text-faint)', FCData.formatSummary) : '')
         +'<button class="fc-btn fc-btn--ghost fc-btn--sm" style="width:100%;margin-top:14px" onclick="FCApp._openBudgetWizard()">Edit Paycheck Plan</button>'
       +'</div>'
       +(payIsEstimated && payRemaining > 25
         ? '<div class="fc-card" style="margin-bottom:14px;padding:14px 16px;background:var(--fc-success-soft);border-color:var(--fc-success-border);display:flex;align-items:center;gap:12px">'
             +'<span style="flex-shrink:0">'+_ic('trending-up','var(--fc-success)',18)+'</span>'
-            +'<div style="flex:1;font-size:13px;color:var(--fc-text);line-height:1.45">'+FCData.formatCurrency(payRemaining)+' unassigned. Put it toward a goal or your smallest debt before it disappears.</div>'
+            +'<div style="flex:1;font-size:13px;color:var(--fc-text);line-height:1.45">'+FCData.formatSummary(payRemaining)+' unassigned. Put it toward a goal or your smallest debt before it disappears.</div>'
             +'<button onclick="FCApp.openCoachAnswer(\'debt\')" style="background:var(--fc-success);color:var(--fc-success-ink);border:none;border-radius:10px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0;font-family:inherit">Assign</button>'
           +'</div>'
         : '');
@@ -8908,10 +8917,19 @@ window.FCApp = (function () {
 
       +'<section class="fc-ui-card fc-ms-card">'
         +'<table class="fc-ms-grid" role="presentation"><tr>'
-          + _msCell('Came in', FCData.formatCurrency(_ms.income), _msDelta(_ms.incomeDelta, false))
-          + _msCell('Went out', FCData.formatCurrency(_ms.spend),  _msDelta(_ms.spendDelta, true))
+          /* A month-summary stat card is scanned, not reconciled — three
+             figures side by side, each with a percentage under it. The cents
+             were four extra characters per cell that nobody reads and that
+             pushed the row toward wrapping. */
+          /* Left over IS came-in minus went-out, and all three are on screen
+             together. Rounded independently they can contradict each other:
+             $10.40 − $0.60 = $9.80 prints as 10 − 1 = 10. Deriving the third
+             cell from the two rounded figures beside it keeps the row
+             self-consistent whatever the inputs. */
+          + _msCell('Came in', FCData.formatSummary(_ms.income), _msDelta(_ms.incomeDelta, false))
+          + _msCell('Went out', FCData.formatSummary(_ms.spend),  _msDelta(_ms.spendDelta, true))
           + _msCell('Left over',
-              (_ms.cashFlow >= 0 ? '+' : '') + FCData.formatCurrency(_ms.cashFlow),
+              (_ms.cashFlow >= 0 ? '+' : '') + FCData.formatSummary(Math.round(_ms.income) - Math.round(_ms.spend)),
               _msDelta(_ms.cashDelta, false),
               _ms.cashFlow >= 0 ? 'fc-ms-value--good' : 'fc-ms-value--bad')
         +'</tr></table>'
@@ -11284,7 +11302,7 @@ window.FCApp = (function () {
               +'<div style="font-size:13px;color:var(--fc-text-muted);line-height:1.45">'
                 +(!_efGoal
                   ? 'You have no safety cushion yet. Build this before anything else.'
-                  : FCData.formatCurrency(_efCurrent) + ' of ' + FCData.formatCurrency(_efTarget) + ' saved.'
+                  : FCData.formatSummary(_efCurrent) + ' of ' + FCData.formatSummary(_efTarget) + ' saved.'
                     + (_efCoverage ? ' ' + _efCoverage : '') + ' Keep building this first.')
               +'</div>'
             +'</div>'
@@ -11323,6 +11341,13 @@ window.FCApp = (function () {
        prescribing $555 of it. The total is now stated once, and compared
        against the paycheck when we know it. */
     const _recTotal = goals.reduce((s, g) => s + (_perPaycheck(g) || 0), 0);
+    /* Each row prints its own recommendation to the dollar, and this total
+       sits above them. Round the total independently and the two can
+       disagree — $134.40 + $85.40 + $295.40 shows as 134 + 85 + 295 under a
+       heading of $515. Summing the ROUNDED parts makes the visible
+       arithmetic exact by construction. The unrounded _recTotal stays for
+       the share-of-paycheck ratio, where precision costs nothing. */
+    const _recTotalShown = goals.reduce((s, g) => s + Math.round(_perPaycheck(g) || 0), 0);
     const _payAmount = _payday && _payday.amount > 0 ? _payday.amount : 0;
     const _recShare  = _payAmount > 0 ? _recTotal / _payAmount : null;
     const _recTooMuch = _recShare !== null && _recShare > 0.3;
@@ -11361,7 +11386,7 @@ window.FCApp = (function () {
               +'<div style="flex:1;min-width:0">'
                 +'<div class="fc-eyebrow" style="color:'+(_recTooMuch?'var(--fc-warning-text)':'var(--fc-success)')+';margin-bottom:2px">All goals together</div>'
                 +'<div style="font-size:15px;font-weight:600;color:var(--fc-text)">'
-                  +FCData.formatCurrency(_recTotal)+' per paycheck across '+goals.length+' goal'+(goals.length===1?'':'s')+'.'
+                  +FCData.formatSummary(_recTotalShown)+' per paycheck across '+goals.length+' goal'+(goals.length===1?'':'s')+'.'
                 +'</div>'
                 +'<div style="font-size:13px;color:var(--fc-text-muted);margin-top:1px;line-height:1.4">'
                   +(_recShare === null
@@ -11388,7 +11413,7 @@ window.FCApp = (function () {
                     +'<div>'
                       +'<div class="fc-goal-name">'+esc(g.name||'Goal')+'</div>'
                       +(rec
-                        ? '<div style="font-size:12px;color:var(--fc-text-faint)">Recommended: <span style="color:var(--fc-success);font-weight:600">'+FCData.formatCurrency(rec)+'/paycheck</span>'+(tgt?' · '+tgt:'')+'</div>'
+                        ? '<div style="font-size:12px;color:var(--fc-text-faint)">Recommended: <span style="color:var(--fc-success);font-weight:600">'+FCData.formatSummary(rec)+'/paycheck</span>'+(tgt?' · '+tgt:'')+'</div>'
                         : (tgt?'<div style="font-size:12px;color:var(--fc-text-faint)">Target: '+tgt+'</div>':''))
                     +'</div>'
                   +'</div>'
@@ -11398,8 +11423,8 @@ window.FCApp = (function () {
                   +'<div class="fc-progress-fill" style="width:'+pct+'%"></div>'
                 +'</div>'
                 +'<div class="fc-goal-amounts">'
-                  +'<span>'+FCData.formatCurrency(g.current||0)+' saved</span>'
-                  +'<span>of '+FCData.formatCurrency(g.target||0)+'</span>'
+                  +'<span>'+FCData.formatSummary(g.current||0)+' saved</span>'
+                  +'<span>of '+FCData.formatSummary(g.target||0)+'</span>'
                 +'</div>'
               +'</div>';
             }).join('')
@@ -11441,7 +11466,7 @@ window.FCApp = (function () {
       +(invAccts.length > 0
         ? '<div class="fc-metric-card" style="margin-bottom:14px;text-align:center;padding:24px">'
             +'<div class="fc-metric-label">Total Invested</div>'
-            +'<div class="fc-metric-value" style="font-size:32px">'+FCData.formatCurrency(total)+'</div>'
+            +'<div class="fc-metric-value" style="font-size:32px">'+FCData.formatSummary(total)+'</div>'
             +'<div class="fc-metric-sub">'+invAccts.length+' account'+(invAccts.length!==1?'s':'')+'</div>'
           +'</div>'
           +'<div class="fc-card" style="padding:4px 16px;margin-bottom:14px">'
