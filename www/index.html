@@ -7749,9 +7749,13 @@ let _notifToggleBusy = false;
    always done — but whether a phone should buzz on every tap is a
    preference, not a fact about the user. */
 function handleHapticsToggle(el) {
-  const on = el.getAttribute('aria-checked') !== 'true';
+  /* Read state from the class, and write BOTH — this matches
+     handleBiometricToggle exactly. The switch is styled by .fc-toggle.on;
+     an earlier version toggled 'is-on', which no rule matches, so the
+     preference saved while the switch never moved. */
+  const on = !el.classList.contains('on');
+  el.classList.toggle('on', on);
   el.setAttribute('aria-checked', on ? 'true' : 'false');
-  el.classList.toggle('is-on', on);
   FCApp.setHapticsEnabled(on);
   /* Confirm only when switching ON — buzzing to confirm you turned buzzing
      off would be absurd. */

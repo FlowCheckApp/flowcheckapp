@@ -8342,7 +8342,7 @@ window.FCApp = (function () {
       if (!hapToggle) return;
       const on = hapticsEnabled();
       hapToggle.setAttribute('aria-checked', on ? 'true' : 'false');
-      hapToggle.classList.toggle('is-on', on);
+      hapToggle.classList.toggle('on', on);   /* .fc-toggle.on is what the CSS styles */
     });
 
     const versionEl = document.getElementById('settings-version');
