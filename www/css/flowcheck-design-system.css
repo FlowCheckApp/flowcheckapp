@@ -3511,7 +3511,7 @@ a[role="tab"]:focus-visible,
 .fc-page-title {
   margin: 0;
   font-size: 28px;
-  font-weight: 750;
+  font-weight: 800;
   line-height: 1.15;
   letter-spacing: -0.02em;
   color: var(--fc-text);
@@ -3604,7 +3604,7 @@ a[role="tab"]:focus-visible,
 .fc-view-title,
 .premium-page-header h1 {
   font-size: 28px !important;
-  font-weight: 750 !important;
+  font-weight: 800 !important;
   line-height: 1.15 !important;
   letter-spacing: -0.02em !important;
   color: var(--fc-text) !important;

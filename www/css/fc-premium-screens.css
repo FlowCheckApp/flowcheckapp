@@ -2113,7 +2113,7 @@ body.fc-theme {
 .home-safe-amount {
   margin-top: 6px;
   font-size: clamp(44px, 12.8vw, 56px);
-  font-weight: 650;
+  font-weight: 700;
 }
 
 .home-safe-horizon {
@@ -2723,7 +2723,7 @@ body.fc-theme {
   justify-content: space-between;
   color: var(--wv-t3);
   font-variant-numeric: tabular-nums;
-  font-weight: 650;
+  font-weight: 700;
 }
 
 .wv-chart-range {

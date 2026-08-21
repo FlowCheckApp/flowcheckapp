@@ -8778,7 +8778,7 @@ window.FCApp = (function () {
           // A labelled em-dash is not information. With no paycheck detected
           // the sentence below already says so, in words.
           +(payIsEstimated
-            ? '<div style="text-align:right"><div style="font-size:11px;color:var(--fc-text-faint)">Expected</div><div style="font-size:17px;font-weight:750;color:var(--fc-text);font-variant-numeric:tabular-nums">'+FCData.formatCurrency(expectedPay)+'</div></div>'
+            ? '<div style="text-align:right"><div style="font-size:11px;color:var(--fc-text-faint)">Expected</div><div style="font-size:17px;font-weight:800;color:var(--fc-text);font-variant-numeric:tabular-nums">'+FCData.formatCurrency(expectedPay)+'</div></div>'
             : '')
         +'</div>'
         /* Both the bar and the Remaining/Short pair divide by expectedPay,
@@ -8824,7 +8824,7 @@ window.FCApp = (function () {
           +'<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">'
             +'<div class="fc-eyebrow">Recurring Charges</div>'
           +'</div>'
-          +'<div style="font-size:26px;font-weight:750;color:var(--fc-text);font-variant-numeric:tabular-nums">'+FCData.formatCurrency(subsTotal)+'<span style="font-size:13px;font-weight:500;color:var(--fc-text-muted)">/mo</span></div>'
+          +'<div style="font-size:26px;font-weight:800;color:var(--fc-text);font-variant-numeric:tabular-nums">'+FCData.formatCurrency(subsTotal)+'<span style="font-size:13px;font-weight:500;color:var(--fc-text-muted)">/mo</span></div>'
           +'<div style="font-size:13px;color:var(--fc-text-muted);margin-bottom:10px">'+subs.length+' subscription'+(subs.length===1?'':'s')+' detected</div>'
           +subs.map(s2 => planRow(_ic('play-screen','var(--fc-text-muted)',16), esc(s2.name||'Subscription'), s2.amount||0, '', '')).join('')
           +'<div style="font-size:12px;color:var(--fc-text-faint);margin-top:12px;line-height:1.5">Not using one of these? Cancel it in the provider\'s app — then watch this number drop.</div>'
@@ -8966,7 +8966,7 @@ window.FCApp = (function () {
               const _paceDelta = _paceAmt - totalSpend;
               const _onPace   = _paceDelta >= 0;
               return '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">'
-                +'<div style="font-size:24px;font-weight:750;color:var(--fc-text);font-variant-numeric:tabular-nums">'+FCData.formatCurrency(totalSpend)+'</div>'
+                +'<div style="font-size:24px;font-weight:800;color:var(--fc-text);font-variant-numeric:tabular-nums">'+FCData.formatCurrency(totalSpend)+'</div>'
                 +'<div style="font-size:13px;color:var(--fc-text-muted)">of '+FCData.formatCurrency(budgetLimit)+'</div>'
               +'</div>'
               +'<div class="fc-progress" style="margin-bottom:8px;position:relative;overflow:visible">'
@@ -10572,7 +10572,7 @@ window.FCApp = (function () {
           +(a.highlight
             ? '<div style="background:var(--fc-warning-soft);border-radius:12px;padding:12px 14px;margin:4px 0 14px;display:flex;align-items:center;justify-content:space-between">'
                 +'<div><div style="font-size:12px;color:var(--fc-text-muted)">'+esc(a.highlight.label)+'</div><div style="font-size:12px;color:var(--fc-text-muted)">'+a.highlight.sub+'</div></div>'
-                +'<div style="font-size:20px;font-weight:750;color:var(--fc-text);font-variant-numeric:tabular-nums">'+a.highlight.value+'</div>'
+                +'<div style="font-size:20px;font-weight:800;color:var(--fc-text);font-variant-numeric:tabular-nums">'+a.highlight.value+'</div>'
               +'</div>'
             : '')
           +'<button class="fc-btn fc-btn--primary" style="width:100%" onclick="'+a.action+'">'+a.cta+'</button>'
@@ -11403,7 +11403,7 @@ window.FCApp = (function () {
         +'<button type="button" class="fc-sub-back" onclick="FCApp._closeSubScreen()">'
           +'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg> Back'
         +'</button>'
-        +'<div style="flex:1;font-size:22px;font-weight:750;color:var(--fc-text)">Investments</div>'
+        +'<div style="flex:1;font-size:22px;font-weight:800;color:var(--fc-text)">Investments</div>'
       +'</header>'
 
       +(invAccts.length > 0
@@ -11497,7 +11497,7 @@ window.FCApp = (function () {
         <button type="button" class="fc-sub-back" onclick="FCApp._closeSubScreen()">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg> Back
         </button>
-        <div style="flex:1;font-size:22px;font-weight:750;color:var(--fc-text)">Calendar</div>
+        <div style="flex:1;font-size:22px;font-weight:800;color:var(--fc-text)">Calendar</div>
       </div>
       <div class="fc-card" style="padding:16px;margin-bottom:14px">
         <div style="font-size:16px;font-weight:600;color:var(--fc-text);text-align:center;margin-bottom:14px">${monthName}</div>
@@ -11610,7 +11610,7 @@ window.FCApp = (function () {
         <button type="button" class="fc-sub-back" onclick="FCApp._closeSubScreen()">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg> Back
         </button>
-        <div style="flex:1;font-size:22px;font-weight:750;color:var(--fc-text)">Reports</div>
+        <div style="flex:1;font-size:22px;font-weight:800;color:var(--fc-text)">Reports</div>
       </div>
       ${reportCards}
       <!-- "Export PDF" called window.print(), which does nothing at all in a

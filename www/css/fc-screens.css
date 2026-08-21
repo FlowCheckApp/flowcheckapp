@@ -444,7 +444,7 @@ body.fc-theme .fc-brand-mark svg {
   height: 24px;
   fill: var(--fc-accent);
 }
-body.fc-theme .fc-brand-name { color: var(--fc-text); font-size: 16px; font-weight: 650; }
+body.fc-theme .fc-brand-name { color: var(--fc-text); font-size: 16px; font-weight: 700; }
 body.fc-theme .fc-brand-col { gap: 0; }
 body.fc-theme .fc-island-pill,
 body.fc-theme #header-sync-btn { display: none; }
@@ -472,7 +472,7 @@ body.fc-theme .fc-header-avatar {
   color: var(--fc-accent-ink);
   font: inherit;
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 700;
   cursor: pointer;
 }
 
@@ -527,7 +527,7 @@ body.fc-theme .fc-nav {
   margin: 0;
   color: var(--fc-text);
   font-size: 23px;
-  font-weight: 650;
+  font-weight: 700;
   letter-spacing: -0.03em;
   line-height: 1.08;
 }
@@ -605,7 +605,7 @@ body.fc-theme .fc-nav {
   margin: 3px 0 2px;
   color: var(--fc-text);
   font-size: 24px;
-  font-weight: 650;
+  font-weight: 700;
   letter-spacing: -0.035em;
   line-height: 1;
   font-variant-numeric: tabular-nums;
@@ -623,7 +623,7 @@ body.fc-theme .fc-nav {
   margin: 3px 0 2px;
   color: var(--fc-text);
   font-size: 17px;
-  font-weight: 650;
+  font-weight: 700;
   letter-spacing: -0.025em;
   line-height: 1.05;
   white-space: nowrap;
@@ -699,7 +699,7 @@ body.fc-theme .fc-nav {
   margin: 0;
   color: var(--fc-text);
   font-size: 16px;
-  font-weight: 650;
+  font-weight: 700;
   letter-spacing: -0.025em;
   line-height: 1.2;
 }
@@ -734,7 +734,7 @@ body.fc-theme .fc-nav {
   margin-top: 5px;
   color: var(--fc-text);
   font-size: 15px;
-  font-weight: 650;
+  font-weight: 700;
   letter-spacing: -0.025em;
   line-height: 1;
   white-space: nowrap;
@@ -754,7 +754,7 @@ body.fc-theme .fc-nav {
   margin-top: 5px;
   color: var(--fc-text);
   font-size: 27px;
-  font-weight: 650;
+  font-weight: 700;
   letter-spacing: -0.04em;
   line-height: 1;
   font-variant-numeric: tabular-nums;
@@ -804,7 +804,7 @@ body.fc-theme .fc-nav {
   background: var(--fc-accent-soft);
   color: var(--fc-accent);
   font-size: 14px;
-  font-weight: 650;
+  font-weight: 700;
 }
 .home-v8__list-icon.is-warning { background: var(--fc-warning-soft); color: var(--fc-warning-text); }
 .home-v8__list-icon.is-success { background: var(--fc-success-soft); color: var(--fc-success); }
@@ -1296,7 +1296,7 @@ body.fc-theme .fc-nav {
   .fc-desktop-brand-name {
     color: var(--fc-text);
     font-size: 18px;
-    font-weight: 650;
+    font-weight: 700;
     letter-spacing: -0.025em;
     line-height: 1;
   }
@@ -1328,7 +1328,7 @@ body.fc-theme .fc-nav {
     color: var(--fc-text-muted);
     font: inherit;
     font-size: 14px;
-    font-weight: 560;
+    font-weight: 600;
     letter-spacing: -0.01em;
     text-align: left;
     cursor: pointer;
@@ -1368,7 +1368,7 @@ body.fc-theme .fc-nav {
   .fc-desktop-sidebar-card-kicker {
     color: var(--fc-success);
     font-size: 10px;
-    font-weight: 650;
+    font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }
@@ -1377,7 +1377,7 @@ body.fc-theme .fc-nav {
     margin-top: 7px;
     color: var(--fc-text);
     font-size: 14px;
-    font-weight: 650;
+    font-weight: 700;
     letter-spacing: -0.015em;
   }
 
@@ -1479,7 +1479,7 @@ body.fc-theme .fc-nav {
 
   body[data-screen="app"] .home-v8__greeting h1 {
     font-size: clamp(29px, 3vw, 38px);
-    font-weight: 650;
+    font-weight: 700;
   }
 
   body[data-screen="app"] .home-v8__date {
@@ -1585,7 +1585,7 @@ body.fc-theme .fc-nav {
 
   body[data-screen="app"] .dash-stat-amount {
     font-size: clamp(20px, 2.2vw, 30px);
-    font-weight: 650;
+    font-weight: 700;
   }
 
   body[data-screen="app"] .dash-outlook-header {
@@ -1594,7 +1594,7 @@ body.fc-theme .fc-nav {
 
   body[data-screen="app"] .dash-outlook-amount {
     font-size: clamp(36px, 4vw, 54px);
-    font-weight: 650;
+    font-weight: 700;
   }
 
   body[data-screen="app"] .dash-chart-wrapper {
@@ -2852,7 +2852,7 @@ body.fc-theme .fc-nav {
   transform: translateY(-100%);
   padding-bottom: 8px;
   font-size: 10px;
-  font-weight: 650;
+  font-weight: 700;
   color: var(--fc-text-muted);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -3047,7 +3047,7 @@ body.fc-theme .fc-nav {
   pointer-events: none;
   z-index: 3;
 }
-.rw-readout b { font-weight: 750; }
+.rw-readout b { font-weight: 800; }
 .rw-scrubbing .rw-readout { opacity: 1; }
 
 @media (prefers-reduced-motion: reduce) {
@@ -3141,7 +3141,7 @@ body.fc-theme .fc-nav {
 
 .ob-rw-label {
   display: block;
-  font-size: 12.5px; font-weight: 650;
+  font-size: 12.5px; font-weight: 700;
   color: var(--fc-text-muted);
   margin-bottom: 8px; text-align: left;
 }
@@ -3198,7 +3198,7 @@ body.fc-theme .fc-nav {
   text-transform: uppercase; color: var(--fc-text-faint);
 }
 .ob-rw-verdict {
-  margin-top: 2px; font-size: 13px; font-weight: 650;
+  margin-top: 2px; font-size: 13px; font-weight: 700;
   color: var(--fc-text); line-height: 1.25;
 }
 .ob-rw-end {
