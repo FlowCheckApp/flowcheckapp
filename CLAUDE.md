@@ -92,6 +92,42 @@ vocabularies for one relationship (chevron+label, a bare `←` at weight 500, a
 grey circle with an arrow, a header X, and three simultaneous exits on the legal
 pages), and none of it was visible in review because each reads as correct alone.
 
+**A view in `_NAV_PARENT` is a PUSH, not a tab.** Activity, More, Settings and
+Insights have no slot in the five-item bar and borrow a parent's highlight, so
+the nav lights a tab you are not on. Every one of them needs `.fc-sub-back`.
+Activity and More had none at all — the only exit was guessing which nav item
+to press. Use `FCApp._backToParent()` (reads the same table, so the highlight
+and the Back destination cannot disagree); Settings uses `_closeSubScreen()`
+because it is reachable from anywhere and should return where you came from.
+
+### ★ The bottom nav is defined ONCE
+
+`.fc-nav` lives only in the `★ CANONICAL BOTTOM NAV ★` block in
+`flowcheck-design-system.css`. There were **seven** definitions across all
+three stylesheets, setting `min-height` to 66px, then 58px, then 74px, each
+with `!important`. The bar that rendered was decided by load order. Theme
+recolouring is fine — the tokens `--fc-premium-nav` / `--fc-premium-border` /
+`--fc-premium-shadow` are already themed. Enforced by
+`scripts/check-canonical-chrome.js`.
+
+### ★ Money formatting — two functions, and which is which matters
+
+| Surface | Use | Why |
+|---|---|---|
+| Transaction rows, account balances — anything reconciled against a bank | `FCData.formatCurrency` | cents are the point |
+| Heroes, stat cards, goal targets, plan rows — anything scanned | `FCData.formatSummary` | whole dollars |
+
+Home used to print `$3,242 available` while Money printed `$3,241.87` for the
+same account, and Goals rendered twelve figures of which **every one** ended in
+`.00`. Subscriptions are a deliberate exception and keep cents: `$15.99/mo` is
+the shape people recognise.
+
+**Wherever a total sits with its parts, derive the total from the ROUNDED
+parts.** Rounded independently they contradict each other on screen —
+`$134.40 + $85.40 + $295.40` shows as `134 + 85 + 295` under a heading of
+`$515`. Inline `Math.round(x).toLocaleString('en-US')` is a third convention
+and is ratcheted by `scripts/check-single-source.js`.
+
 ## Deploy flow
 ```bash
 # After editing www/ files:

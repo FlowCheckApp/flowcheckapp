@@ -49,10 +49,10 @@ const WEIGHT_SCALE  = new Set([400, 500, 600, 700]);
    Set from the real counts on 2026-08-12, after collapsing 99px -> 999px. */
 const CEILING = {
   distinctFontSizes:  40,
-  distinctRadii:      27,
-  offScaleWeights:     5,   // 560, 650, 750, 800, 900
-  offScaleSpacing:   476,
-  pillSpellings:       1,   // 999px only — 99px and 9999px are gone, keep it that way
+  distinctRadii:      21,
+  offScaleWeights:     1,   // was 5: 560, 650, 750, 800, 900 — the app's font renders four of them identically
+  offScaleSpacing:   473,
+  pillSpellings:       0,   // all three spellings gone; --fc-r-pill is the only one
 };
 
 const declRe = {
