@@ -1506,11 +1506,22 @@ body.fc-theme {
 .act-search-wrap .fc-search,
 .act-filter-btn {
   height: 44px !important;
-  border-radius: 14px !important;
 }
 
+/* Icon-only buttons are circles everywhere else in the app — the persistent
+   header's eye, bell and avatar are all 34px circles, and the canonical
+   .fc-page-head__action is a circle too. These two were 44px rounded
+   squares, sitting about 60px below those circles on the same screen, doing
+   the same job. One vocabulary for one role. */
 .act-filter-btn {
   width: 44px !important;
+  border-radius: var(--fc-r-pill) !important;
+}
+
+/* The search field is a text input, not an icon button, so it keeps a bar
+   shape — moved onto the radius scale rather than left at an off-scale 14. */
+.act-search-wrap .fc-search {
+  border-radius: var(--fc-r-md) !important;
 }
 
 .act-segment-wrap {

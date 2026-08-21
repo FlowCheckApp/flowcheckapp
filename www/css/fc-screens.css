@@ -2682,15 +2682,25 @@ body.fc-theme .fc-header-avatar {
 .coach-ask-go {
   width: 46px; height: 46px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
-  background: var(--fc-accent); border: 0; border-radius: 14px;
+  background: var(--fc-accent); border: 0; border-radius: var(--fc-r-pill);
   cursor: pointer; -webkit-tap-highlight-color: transparent;
   transition: transform 0.14s var(--fc-ease-out), filter 0.14s var(--fc-ease-out);
 }
 .coach-ask-go:active { transform: scale(0.94); filter: brightness(0.95); }
 
+/* This row scrolls 96px wider than the screen, and it used to end in a chip
+   sliced clean in half at the viewport edge — which reads as a layout bug,
+   not as "there is more this way". The mask fades both ends instead. The
+   left fade is 10px, inside the 16px padding, so at rest (scrollLeft 0) it
+   falls on empty gutter and the first chip is untouched; the right fade is
+   wide enough to be legible as an affordance. */
 .coach-ask-starters {
   display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none;
   padding: 0 16px 14px; -webkit-overflow-scrolling: touch;
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 10px,
+                      #000 calc(100% - 34px), transparent 100%);
+          mask-image: linear-gradient(to right, transparent 0, #000 10px,
+                      #000 calc(100% - 34px), transparent 100%);
 }
 .coach-ask-starters::-webkit-scrollbar { display: none; }
 .coach-ask-starters .fc-chip { flex-shrink: 0; }
