@@ -8787,10 +8787,28 @@ window.FCApp = (function () {
            just `0 - assigned` wearing the costume of a finding. When the
            paycheck is unknown the card shows what it does know (the bills
            it has lined up) and names the gap instead of inventing one. */
+        /* Over-assigning used to clamp the bar to 100% and paint the whole
+           thing red, so being $64 over a $1,620 paycheck drew exactly the
+           same picture as being $3,000 over: a full red bar. Once it
+           saturates the bar carries no information at all, and it also
+           reddens the 96% that IS correctly funded.
+
+           Same fix the allocation ring above already uses — divide by
+           whichever side is larger, so the segments can never sum past the
+           track. Under-assigned is unchanged (one green bar). Over-assigned
+           now keeps the funded part green and shows the overage as its own
+           red segment, so a small overshoot looks small. */
         +(payIsEstimated
-          ? '<div style="height:8px;background:var(--fc-bg-elevated-2);border-radius:var(--fc-r-pill);overflow:hidden;margin-bottom:8px">'
-              +'<div style="height:100%;width:'+Math.min(100,Math.round(assigned/expectedPay*100))+'%;background:'+(payRemaining>=0?'var(--fc-success)':'var(--fc-danger)')+';border-radius:var(--fc-r-pill)"></div>'
-            +'</div>'
+          ? (() => {
+              const barDenom  = Math.max(expectedPay, assigned) || 1;
+              const barFunded = Math.min(assigned, expectedPay);
+              const barOver   = Math.max(0, assigned - expectedPay);
+              const pct = v => (v / barDenom) * 100;
+              return '<div style="height:8px;background:var(--fc-bg-elevated-2);border-radius:var(--fc-r-pill);overflow:hidden;margin-bottom:8px;display:flex">'
+                +'<div style="height:100%;width:'+pct(barFunded).toFixed(1)+'%;background:var(--fc-success)"></div>'
+                +(barOver > 0 ? '<div style="height:100%;width:'+pct(barOver).toFixed(1)+'%;background:var(--fc-danger)"></div>' : '')
+              +'</div>';
+            })()
             +'<div style="display:flex;justify-content:space-between;margin-bottom:14px">'
               +'<div><div style="font-size:11px;color:var(--fc-text-faint)">Assigned</div><div style="font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--fc-text)">'+FCData.formatCurrency(assigned)+'</div></div>'
               +'<div style="text-align:right"><div style="font-size:11px;color:var(--fc-text-faint)">'+(payRemaining>=0?'Remaining':'Short')+'</div><div style="font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;color:'+(payRemaining>=0?'var(--fc-success)':'var(--fc-danger)')+'">'+FCData.formatCurrency(Math.abs(payRemaining))+'</div></div>'
@@ -12766,8 +12784,18 @@ window.FCApp = (function () {
       const h = {}, end = 3241.87 + 12800 - (723.55 + 14250);
       for (let i = 60; i >= 0; i--) {
         const d = new Date(_demoNow); d.setDate(d.getDate() - i);
-        // A gently improving line with a little week-to-week texture.
-        const drift = (60 - i) * 26;
+        /* `i` counts DOWN to today, so the drift has to shrink as i shrinks.
+           It was `(60 - i) * 26`, which grew toward the present and subtracted
+           more the closer you got — the "gently improving line" the comment
+           promised actually fell $1,560 over 60 days and ended at −$491.68,
+           while the card above it read $1,068.32 from the accounts and
+           "+$648.68 this month". Chart and headline disagreed by $1,560 about
+           the same number, side by side, in the demo App Review sees.
+
+           Today (i = 0) must land exactly on `end`, because that is the figure
+           the hero derives independently from the account balances. sin(0) is
+           0, so the wobble does not disturb that. */
+        const drift = i * 12;
         const wobble = Math.sin(i / 4) * 140;
         h[`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`]
           = Math.round((end - drift + wobble) * 100) / 100;
