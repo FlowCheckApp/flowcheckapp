@@ -5837,6 +5837,12 @@ body:not(.keyboard-open) .fc-sheet {
   <!-- ────────────────────────────── VIEW: ACTIVITY -->
   <div id="view-activity" class="fc-view" role="tabpanel">
 
+    <!-- Activity is a push, not a tab: it has no slot in the five-item bar,
+         and the nav lights Money while you are here. It rendered a full page
+         header with no way out, so the only exit was to guess which nav item
+         to press. Same control as every other pushed screen. -->
+    <div class="act-backrow"><button type="button" class="fc-sub-back" onclick="FCApp._backToParent()" aria-label="Back"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>Back</button></div>
+
     <!-- Title -->
     <div class="act-header">
       <h1 class="act-title">Activity</h1>
@@ -6190,7 +6196,14 @@ body:not(.keyboard-open) .fc-sheet {
 
   </style>
 
+    <!-- Insights borrows Plan's nav highlight, which makes it a push, so it
+         carries the same way back as every other push. Worth noting: it has
+         zero switchTab('insights') call sites, so nothing in the app can
+         currently reach it — the screen was folded into Plan. It is kept
+         consistent rather than left as a known hole, but it is a candidate
+         for deletion, not a screen anyone is maintaining. -->
     <div class="premium-insights-shell">
+      <div class="act-backrow" style="padding:0 0 4px"><button type="button" class="fc-sub-back" onclick="FCApp._backToParent()" aria-label="Back"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>Back</button></div>
       <header class="premium-page-header">
         <div>
           <h1>Insights</h1>
@@ -6779,10 +6792,10 @@ body:not(.keyboard-open) .fc-sheet {
 
     <!-- Sub-screen back nav -->
     <div style="display:flex;align-items:center;gap:10px;padding:16px 20px 8px;position:sticky;top:0;background:var(--fc-bg);z-index:10;border-bottom:1px solid var(--fc-border)">
-      <button onclick="FCApp._closeSubScreen()" style="display:flex;align-items:center;gap:4px;background:none;border:none;cursor:pointer;color:var(--fc-accent);font-size:15px;font-weight:600;font-family:inherit;padding:11px 8px 11px 0;min-height:44px;-webkit-tap-highlight-color:transparent">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
-        Back
-      </button>
+      <!-- Was an inline copy of .fc-sub-back, down to the 1px padding
+           difference. check-back-affordances only scanned fc-app.js, so the
+           one violation living in index.html went unenforced. -->
+      <button type="button" class="fc-sub-back" onclick="FCApp._closeSubScreen()" aria-label="Back"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>Back</button>
       <div style="font-size:20px;font-weight:700;color:var(--fc-text);flex:1">Settings</div>
     </div>
 
@@ -6994,6 +7007,9 @@ body:not(.keyboard-open) .fc-sheet {
   <!-- ══ MORE HUB ══════════════════════════════════════════════ -->
   <div id="view-more" class="fc-view" role="tabpanel"
        style="overflow-y:scroll;-webkit-overflow-scrolling:touch;padding-bottom:calc(env(safe-area-inset-bottom) + 110px)">
+    <!-- Reached from the header avatar and nowhere else, and the nav lights
+         Coach while you are here. Same push relationship as Activity. -->
+    <div class="act-backrow" style="padding-left:16px"><button type="button" class="fc-sub-back" onclick="FCApp._backToParent()" aria-label="Back"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>Back</button></div>
     <div id="more-content" style="padding:0 16px">
       <!-- Rendered by _renderMore() -->
     </div>

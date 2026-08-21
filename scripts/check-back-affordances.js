@@ -31,13 +31,45 @@ const fs = require('fs');
 const path = require('path');
 const root = path.join(__dirname, '..');
 const app = fs.readFileSync(path.join(root, 'www/js/fc-app.js'), 'utf8');
+const html = fs.readFileSync(path.join(root, 'www/index.html'), 'utf8');
 
 const problems = [];
 
-/* 1. Every sub-screen back control uses the class, never an inline restyle. */
-const inlineBack = [...app.matchAll(/_closeSubScreen\(\)"\s+style=/g)];
-if (inlineBack.length) {
-  problems.push(`${inlineBack.length} sub-screen back button(s) carry inline styles instead of class="fc-sub-back".`);
+/* 1. Every back control uses the class, never an inline restyle.
+   Both sources: this scanned fc-app.js only, and the one violation in the
+   app lived in index.html — Settings had a hand-rolled copy of .fc-sub-back,
+   identical but for a 1px padding difference, and it went unenforced. */
+[['fc-app.js', app], ['index.html', html]].forEach(([name, src]) => {
+  const inlineBack = [...src.matchAll(/(?:_closeSubScreen|_backToParent)\(\)"\s+style=/g)];
+  if (inlineBack.length) {
+    problems.push(`${name}: ${inlineBack.length} back button(s) carry inline styles instead of class="fc-sub-back".`);
+  }
+});
+
+/* 1b. Every view that borrows another tab's nav highlight is a PUSH, and a
+   push needs a way back. Activity and More each rendered a full page header
+   with no exit at all, while the nav lit a tab the user was not on — so the
+   only way out was to guess which of the five items to press. The parent
+   table in fc-app.js is the list of screens this applies to, so read it
+   rather than keeping a second copy here that can drift out of step. */
+const parentTable = app.match(/const _NAV_PARENT = \{([^}]*)\}/);
+if (!parentTable) {
+  problems.push('fc-app.js: _NAV_PARENT is gone — parented views can no longer be checked for a way back.');
+} else {
+  const parented = [...parentTable[1].matchAll(/(\w+)\s*:/g)].map(m => m[1]);
+  parented.forEach(view => {
+    const open = html.indexOf(`id="view-${view}"`);
+    if (open === -1) return;                       // rendered entirely from JS
+    /* The view's own markup, up to the next view. */
+    const next = html.indexOf('id="view-', open + 1);
+    const block = html.slice(open, next === -1 ? html.length : next);
+    if (!/class="fc-sub-back"/.test(block)) {
+      problems.push(
+        `view-${view} borrows the "${parentTable[1].match(new RegExp(view + "\\s*:\\s*'(\\w+)'"))?.[1]}" ` +
+        `nav highlight but has no .fc-sub-back — it is a push with no way out.`
+      );
+    }
+  });
 }
 
 /* 2. Nobody reintroduces an arrow glyph where the chevron SVG is the shape. */
@@ -65,7 +97,6 @@ for (const page of ['terms', 'privacy', 'support']) {
 /* 4. Every sheet has exactly ONE visible dismiss control: the grabber, which
       is a real <button aria-label="Close"> so it is reachable by VoiceOver.
       A second control (a header X) is the "three exits" problem in miniature. */
-const html = fs.readFileSync(path.join(root, 'www/index.html'), 'utf8');
 /* Extract each overlay by DIV DEPTH, not by "text until the next overlay".
    The last sheet in the document has no next overlay, so a text-range regex
    ran to EOF and swallowed the in-app page viewer's X — reporting a second

@@ -3783,3 +3783,12 @@ body.fc-theme .fc-header-avatar {
   color: var(--fc-text-faint);
   line-height: 1.4;
 }
+
+/* Back row for a parented view (Activity, More). These are pushes with no
+   slot in the tab bar, so they carry the same chevron + "Back" as every
+   other pushed screen; the row only supplies its position above the title. */
+.act-backrow {
+  padding: 10px 20px 0;
+  display: flex;
+  align-items: center;
+}

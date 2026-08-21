@@ -1607,6 +1607,15 @@ window.FCApp = (function () {
                         'notifications','settings','vault','budgets'];
 
   const _NAV_TABS = new Set(['home', 'activity', 'plan', 'wealth', 'goals', 'coach', 'more']);
+
+  /* Views with no slot of their own in the five-item tab bar. They borrow
+     their parent's highlight so the nav never shows "nowhere", and — since
+     that makes them pushes, not tabs — the parent is also where Back goes.
+     Hoisted out of switchTab so _backToParent can read the same table:
+     Activity and More rendered a full page header with no way out at all,
+     and the nav lit a tab the user was not on, so the only exit was to guess
+     which of the five to press. */
+  const _NAV_PARENT = { activity: 'wealth', more: 'coach', settings: 'coach', insights: 'plan' };
   let _lastNavTab = 'more';
 
   function switchTab(tabId) {
@@ -1707,10 +1716,7 @@ window.FCApp = (function () {
     }
 
     // ── Nav items ──────────────────────────────────────────────────────────
-    // Views without their own nav slot highlight the tab they're reached from,
-    // so the nav never shows "nowhere" (activity ← Money, more/settings ← Coach).
-    const _navParent = { activity: 'wealth', more: 'coach', settings: 'coach', insights: 'plan' };
-    const navView = _navParent[tabId] || tabId;
+    const navView = _NAV_PARENT[tabId] || tabId;
     document.querySelectorAll('.fc-nav-item').forEach(item => {
       const active = item.dataset.view === navView;
       item.classList.toggle('active', active);
@@ -8545,6 +8551,14 @@ window.FCApp = (function () {
       else if (screenId === 'settings') { _renderSettings(); }
       _ensureLegalFooter(el);
     });
+  }
+
+  /* Back out of a parented view. _closeSubScreen cannot serve here: it
+     returns to _lastNavTab, and Activity and More are both in _NAV_TABS, so
+     visiting them sets _lastNavTab to themselves and Back would be a no-op. */
+  function _backToParent() {
+    const parent = _NAV_PARENT[state.tab];
+    if (parent) switchTab(parent);
   }
 
   function _closeSubScreen() {
@@ -16692,6 +16706,7 @@ window.FCApp = (function () {
     _openDebtPage,
     _openDebtStrategy,
     _closeSubScreen,
+    _backToParent,
     _dismissInsight,
     handleWebSearch,
     _exportCSV,
