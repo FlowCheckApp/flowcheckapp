@@ -2473,3 +2473,333 @@ body.fc-theme {
   .home-move-impact { width: 58px; height: 58px; min-width: 58px; }
   .home-month-icon { display: grid; width: 31px; height: 31px; }
 }
+
+/* ================================================================
+   SIGNATURE DATA VISUALS
+   Shared motion and depth for Activity, Insights, and Money charts.
+   ================================================================ */
+
+#act-summary-card {
+  position: relative;
+  overflow: hidden;
+  border-color: var(--fc-border-accent) !important;
+  background:
+    radial-gradient(ellipse 88% 80% at 104% -12%, var(--fc-electric-soft), transparent 72%),
+    radial-gradient(ellipse 95% 75% at -12% 118%, var(--fc-accent-soft), transparent 72%),
+    var(--fc-premium-card) !important;
+}
+
+#act-summary-card::after {
+  content: '';
+  position: absolute;
+  inset: auto -24px -34px auto;
+  width: 100px;
+  height: 100px;
+  border: 1px solid var(--fc-border-accent);
+  border-radius: 50%;
+  opacity: 0.34;
+  pointer-events: none;
+}
+
+#act-summary-card .act-summary-chart {
+  isolation: isolate;
+  overflow: visible;
+}
+
+#act-summary-card .act-summary-chart::before {
+  content: '';
+  position: absolute;
+  inset: -3px 0 20px;
+  z-index: -1;
+  border: 1px solid var(--fc-border);
+  border-radius: 12px;
+  background: linear-gradient(180deg, var(--fc-bg-elevated-2), transparent);
+  opacity: 0.58;
+  pointer-events: none;
+}
+
+.act-chart-grid,
+.premium-chart-grid,
+.wv-chart-grid {
+  stroke: var(--fc-border);
+  stroke-width: 1;
+  stroke-dasharray: 2 7;
+  opacity: 0.72;
+}
+
+.act-chart-glow,
+.premium-chart-glow,
+.wv-chart-glow {
+  opacity: 0.12;
+}
+
+.act-chart-line,
+.premium-chart-line,
+.wv-chart-line {
+  stroke-dasharray: 760;
+  stroke-dashoffset: 760;
+  animation: fcChartDraw 760ms cubic-bezier(0.22, 1, 0.36, 1) 80ms forwards;
+}
+
+.act-chart-area,
+.premium-chart-area,
+.wv-chart-area {
+  opacity: 0;
+  animation: fcChartAreaIn 520ms ease 260ms forwards;
+}
+
+.act-chart-now-line,
+.premium-chart-now {
+  stroke: var(--fc-border-strong);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+  opacity: 0.7;
+}
+
+.act-chart-endpoint,
+.premium-trend-marker,
+.wv-chart-endpoint {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--fc-bg-elevated);
+  border-radius: 50%;
+  background: var(--fc-electric);
+  box-shadow: 0 0 0 4px var(--fc-electric-soft), 0 0 18px var(--fc-accent-soft);
+  pointer-events: none;
+  animation: fcChartPointIn 420ms cubic-bezier(0.34, 1.56, 0.64, 1) 620ms both;
+}
+
+.act-chart-endpoint {
+  right: 2px;
+  transform: translateY(-50%);
+}
+
+.premium-analytics-card.premium-trend-card,
+.premium-analytics-card.premium-category-card,
+.premium-analytics-card.premium-cashflow-card {
+  position: relative;
+  overflow: hidden;
+  border-color: var(--fc-border-accent) !important;
+  background:
+    radial-gradient(ellipse 80% 68% at 108% -10%, var(--fc-electric-soft), transparent 74%),
+    var(--fc-premium-card) !important;
+}
+
+.premium-trend-plot {
+  position: relative;
+  height: 104px;
+  margin-top: 8px;
+  overflow: hidden;
+  border: 1px solid var(--fc-border);
+  border-radius: 13px;
+  background:
+    linear-gradient(180deg, var(--fc-bg-elevated-2), transparent),
+    radial-gradient(ellipse 62% 105% at 88% 24%, var(--fc-electric-soft), transparent 76%);
+}
+
+.premium-trend-plot .premium-trend-chart {
+  height: 104px;
+  margin-top: 0;
+}
+
+.premium-trend-marker {
+  transform: translate(-100%, -50%);
+}
+
+.premium-chart-labels {
+  padding: 4px 2px 0;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.premium-donut-wrap,
+.premium-donut-wrap svg {
+  width: 104px;
+  height: 104px;
+}
+
+.premium-donut-track {
+  opacity: 0.86;
+}
+
+.premium-donut-slice {
+  stroke-linecap: round;
+  opacity: 0;
+  animation: fcDonutSliceIn 480ms cubic-bezier(0.22, 1, 0.36, 1) var(--slice-delay, 0ms) forwards;
+}
+
+.premium-cashflow-legend {
+  display: flex;
+  gap: 13px;
+  margin-top: 8px;
+  color: var(--fc-text-faint);
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.premium-cashflow-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.premium-cashflow-legend i {
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+}
+
+.premium-cashflow-legend-income { background: var(--fc-accent); }
+.premium-cashflow-legend-spend { background: var(--fc-electric); }
+
+.premium-cashflow-bars {
+  height: 72px;
+  margin-top: 8px;
+  padding: 4px 4px 0;
+  border: 1px solid var(--fc-border);
+  border-radius: 12px 12px 5px 5px;
+  background: repeating-linear-gradient(to top, var(--fc-border) 0 1px, transparent 1px 25%);
+}
+
+.premium-cashflow-group {
+  gap: 4px;
+  padding: 0 2px;
+}
+
+.premium-cashflow-group i {
+  width: min(13px, 42%);
+  height: var(--bar-height) !important;
+  min-height: 2px;
+  border-radius: 5px 5px 2px 2px;
+  transform: scaleY(0);
+  transform-origin: center bottom;
+  animation: fcCashflowRise 560ms cubic-bezier(0.22, 1, 0.36, 1) var(--bar-delay, 0ms) forwards;
+}
+
+.premium-cashflow-group .premium-cashflow-income {
+  background: linear-gradient(to top, var(--fc-electric), var(--fc-accent));
+  opacity: 1;
+}
+
+.premium-cashflow-group .premium-cashflow-spend {
+  background: var(--fc-electric);
+  opacity: 0.62;
+}
+
+.premium-cashflow-labels {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 2px 0;
+  color: var(--fc-text-faint);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.wv-position {
+  position: relative;
+  overflow: hidden;
+  border-color: var(--fc-border-accent) !important;
+  background:
+    radial-gradient(ellipse 92% 68% at 108% -10%, var(--fc-electric-soft), transparent 72%),
+    radial-gradient(ellipse 90% 64% at -12% 108%, var(--fc-accent-soft), transparent 74%),
+    var(--wv-card) !important;
+}
+
+.wv-position-spark {
+  margin-top: 10px !important;
+  overflow: visible !important;
+}
+
+.wv-chart-shell {
+  position: relative;
+}
+
+.wv-chart-range,
+.wv-chart-axis {
+  display: flex;
+  justify-content: space-between;
+  color: var(--wv-t3);
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+}
+
+.wv-chart-range {
+  margin-bottom: 4px;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+.wv-chart-axis {
+  margin-top: 2px;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.wv-chart-plot {
+  position: relative;
+  height: 68px;
+  overflow: hidden;
+  border: 1px solid var(--fc-border);
+  border-radius: 12px;
+  background: linear-gradient(180deg, var(--fc-bg-elevated-2), transparent);
+}
+
+.wv-chart-plot svg {
+  display: block;
+  width: 100%;
+  height: 68px;
+}
+
+.wv-chart-endpoint {
+  background: var(--wv-chart-color, var(--fc-accent));
+  transform: translate(-100%, -50%);
+}
+
+@keyframes fcChartDraw {
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes fcChartAreaIn {
+  to { opacity: 1; }
+}
+
+@keyframes fcChartPointIn {
+  from { opacity: 0; scale: 0.35; }
+  to { opacity: 1; scale: 1; }
+}
+
+@keyframes fcDonutSliceIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fcCashflowRise {
+  to { transform: scaleY(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .act-chart-line,
+  .premium-chart-line,
+  .wv-chart-line,
+  .act-chart-area,
+  .premium-chart-area,
+  .wv-chart-area,
+  .act-chart-endpoint,
+  .premium-trend-marker,
+  .wv-chart-endpoint,
+  .premium-donut-slice {
+    animation: none;
+    opacity: 1;
+    stroke-dashoffset: 0;
+    scale: 1;
+  }
+
+  .premium-cashflow-group i {
+    animation: none;
+    transform: none;
+  }
+}

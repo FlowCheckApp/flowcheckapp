@@ -6209,7 +6209,7 @@ body:not(.keyboard-open) .fc-sheet {
         </button>
       </div>
 
-      <section class="premium-analytics-card">
+      <section class="premium-analytics-card premium-trend-card">
         <div class="premium-card-heading">
           <div>
             <span>Spending trend</span>
@@ -6217,11 +6217,14 @@ body:not(.keyboard-open) .fc-sheet {
           </div>
           <strong id="premium-trend-total">$0</strong>
         </div>
-        <svg id="premium-trend-chart" class="premium-trend-chart" viewBox="0 0 320 118" preserveAspectRatio="none" aria-hidden="true"></svg>
+        <div class="premium-trend-plot">
+          <svg id="premium-trend-chart" class="premium-trend-chart" viewBox="0 0 320 118" preserveAspectRatio="none" aria-hidden="true"></svg>
+          <span id="premium-trend-marker" class="premium-trend-marker" aria-hidden="true"></span>
+        </div>
         <div class="premium-chart-labels" id="premium-trend-labels"></div>
       </section>
 
-      <section class="premium-analytics-card">
+      <section class="premium-analytics-card premium-category-card">
         <div class="premium-card-heading">
           <div>
             <span>Spending by category</span>
@@ -6251,7 +6254,12 @@ body:not(.keyboard-open) .fc-sheet {
           <div><span>Cash flow comparison</span><small>Income versus spending</small></div>
           <strong id="premium-cashflow-net">$0</strong>
         </div>
+        <div class="premium-cashflow-legend" aria-hidden="true">
+          <span><i class="premium-cashflow-legend-income"></i>Income</span>
+          <span><i class="premium-cashflow-legend-spend"></i>Spending</span>
+        </div>
         <div id="premium-cashflow-bars" class="premium-cashflow-bars" aria-label="Cash flow comparison chart"></div>
+        <div id="premium-cashflow-labels" class="premium-cashflow-labels" aria-hidden="true"></div>
       </section>
 
       <div id="premium-insights-gate" class="premium-insights-gate" hidden>
@@ -6838,6 +6846,19 @@ body:not(.keyboard-open) .fc-sheet {
                tabindex="0" aria-labelledby="toggle-notifications-label"
                onclick="handleNotifToggle(this)"
                onkeydown="switchKeydown(event, handleNotifToggle)"></div>
+        </div>
+        <div class="fc-settings-row">
+          <div class="fc-settings-icon" style="background:rgba(37,99,235,0.15)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fc-electric)"
+                 stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <rect x="7" y="2" width="10" height="20" rx="2.5"/><path d="M3 9v6M21 9v6"/>
+            </svg>
+          </div>
+          <div class="fc-settings-label" id="toggle-haptics-label">Haptic feedback</div>
+          <div id="toggle-haptics" class="fc-toggle" role="switch" aria-checked="true"
+               tabindex="0" aria-labelledby="toggle-haptics-label"
+               onclick="handleHapticsToggle(this)"
+               onkeydown="switchKeydown(event, handleHapticsToggle)"></div>
         </div>
         <button type="button" class="fc-settings-row" style="border-bottom:none"
              onclick="document.getElementById('settings-appearance-sheet').style.display==='none'?document.getElementById('settings-appearance-sheet').style.display='block':document.getElementById('settings-appearance-sheet').style.display='none'">
@@ -7721,6 +7742,22 @@ async function handleBiometricToggle(el) {
 }
 
 let _notifToggleBusy = false;
+/* Haptic feedback toggle.
+
+   Gates FCApp.haptic() centrally, so all 124 call sites go quiet at once
+   rather than needing 124 edits. Defaults ON — that is what the app has
+   always done — but whether a phone should buzz on every tap is a
+   preference, not a fact about the user. */
+function handleHapticsToggle(el) {
+  const on = el.getAttribute('aria-checked') !== 'true';
+  el.setAttribute('aria-checked', on ? 'true' : 'false');
+  el.classList.toggle('is-on', on);
+  FCApp.setHapticsEnabled(on);
+  /* Confirm only when switching ON — buzzing to confirm you turned buzzing
+     off would be absurd. */
+  if (on) FCApp.haptic('light');
+}
+
 async function handleNotifToggle(el) {
   if (_notifToggleBusy) return; // debounce — prevent rapid double-tap
   _notifToggleBusy = true;

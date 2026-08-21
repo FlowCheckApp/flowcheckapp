@@ -2100,6 +2100,510 @@ body.fc-theme .fc-nav {
 #view-home .home-v8 > * { margin-top: 0; margin-bottom: 0; }
 
 /* ══════════════════════════════════════════════════════════════
+   SAFE TODAY
+   One decision surface: protect bills and a buffer, then make the
+   remainder understandable as a daily allowance.
+   ══════════════════════════════════════════════════════════════ */
+.st-card {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: 20px 16px 12px;
+  border-color: var(--fc-border-accent);
+  background:
+    radial-gradient(ellipse 90% 34% at 50% 18%, var(--fc-electric-soft), transparent 72%),
+    radial-gradient(ellipse 70% 48% at 0% 100%, var(--fc-accent-soft), transparent 76%),
+    linear-gradient(160deg, var(--fc-card-bg), var(--fc-bg-elevated));
+  box-shadow: var(--fc-shadow-md);
+}
+
+.st-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(115deg, transparent 24%, var(--fc-accent-soft) 52%, transparent 76%);
+  opacity: 0.54;
+  pointer-events: none;
+}
+
+.st-topline,
+.st-allocation,
+.st-actions,
+.st-bills__heading,
+.st-bill,
+.st-paycheck-card {
+  display: flex;
+  align-items: center;
+}
+
+.st-topline {
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.st-kicker,
+.st-payday,
+.st-hero__label,
+.st-hero__support,
+.st-available,
+.st-horizon h3,
+.st-bills__heading h3,
+.st-calculation p {
+  margin: 0;
+}
+
+.st-kicker {
+  color: var(--fc-accent);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.st-payday {
+  color: var(--fc-text-muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.st-hero {
+  padding: 20px 0 16px;
+  text-align: center;
+}
+
+.st-hero__label {
+  color: var(--fc-text-muted);
+  font-size: 16px;
+  line-height: 1.2;
+}
+
+.st-hero__value {
+  margin: 4px 0 2px;
+  color: var(--fc-text);
+  font-size: clamp(52px, 16vw, 64px);
+  font-weight: 700;
+  letter-spacing: -0.06em;
+  line-height: 1;
+  text-shadow: 0 0 28px var(--fc-accent-glow);
+}
+
+.st-hero__support {
+  color: var(--fc-text-muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.st-available {
+  padding-bottom: 8px;
+  color: var(--fc-text);
+  font-size: 13px;
+  text-align: center;
+}
+
+.st-available strong { color: var(--fc-accent); font-size: 15px; }
+
+.st-bar {
+  display: flex;
+  width: 100%;
+  height: 20px;
+  overflow: hidden;
+  border: 1px solid var(--fc-border);
+  border-radius: var(--fc-r-pill);
+  background: var(--fc-bg-elevated-2);
+  box-shadow: inset 0 1px 4px var(--fc-bg);
+}
+
+.st-bar > span {
+  display: block;
+  min-width: 0;
+  transform-origin: left center;
+  animation: st-bar-in 660ms var(--fc-ease-decel) both;
+}
+
+.st-bar__bills {
+  background: linear-gradient(90deg, var(--fc-accent), var(--fc-accent-hover));
+  box-shadow: 0 0 20px var(--fc-accent-glow);
+}
+
+.st-bar__protected {
+  border-left: 1px solid var(--fc-bg);
+  background: var(--fc-electric);
+  opacity: 0.68;
+}
+
+.st-bar__left {
+  border-left: 1px solid var(--fc-bg);
+  background: var(--fc-bg-elevated-2);
+}
+
+@keyframes st-bar-in {
+  from { transform: scaleX(0); opacity: 0; }
+  to { transform: scaleX(1); opacity: 1; }
+}
+
+.st-allocation {
+  padding: 12px 0 20px;
+}
+
+.st-allocation > div {
+  flex: 1 1 0;
+  min-width: 0;
+  text-align: center;
+}
+
+.st-allocation > div + div { border-left: 1px solid var(--fc-border-strong); }
+
+.st-allocation strong,
+.st-allocation span {
+  display: block;
+}
+
+.st-allocation strong {
+  color: var(--fc-text);
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.st-allocation > div:first-child strong { color: var(--fc-accent); }
+.st-allocation > div:nth-child(2) strong { color: var(--fc-electric); }
+
+.st-allocation span {
+  margin-top: 2px;
+  color: var(--fc-text-muted);
+  font-size: 11px;
+}
+
+.st-horizon h3 {
+  color: var(--fc-text-muted);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.st-days {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.st-day {
+  min-width: 0;
+  min-height: 64px;
+  padding: 10px 2px;
+  border: 1px solid var(--fc-border-strong);
+  border-radius: var(--fc-r-sm);
+  background: var(--fc-card-bg);
+  color: var(--fc-text-muted);
+  cursor: pointer;
+  font: inherit;
+  text-align: center;
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color 160ms var(--fc-ease-out), background 160ms var(--fc-ease-out), transform 120ms var(--fc-ease-out);
+}
+
+.st-day:active { transform: scale(0.97); }
+.st-day.is-active { border-color: var(--fc-accent); background: var(--fc-accent-soft); }
+
+.st-day__label,
+.st-day__amount { display: block; overflow: hidden; text-overflow: ellipsis; }
+
+.st-day__label {
+  color: inherit;
+  font-size: 10px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.st-day__amount {
+  margin-top: 8px;
+  color: var(--fc-text);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.st-day.is-active .st-day__label,
+.st-day.is-active .st-day__amount { color: var(--fc-accent); }
+
+.st-bills {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--fc-border);
+}
+
+.st-bills__heading {
+  gap: 10px;
+  padding: 0 2px 12px;
+}
+
+.st-bills__heading h3 {
+  color: var(--fc-text);
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.st-bills__heading > span {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 1px solid var(--fc-border-accent);
+  border-radius: 50%;
+  background: var(--fc-accent-soft);
+}
+
+.st-bills__list {
+  overflow: hidden;
+  border: 1px solid var(--fc-border-strong);
+  border-radius: var(--fc-r-md);
+  background: var(--fc-card-bg);
+}
+
+.st-bill {
+  width: 100%;
+  min-height: 64px;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--fc-text);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.st-bill + .st-bill { border-top: 1px solid var(--fc-border); }
+.st-bill:active { background: var(--fc-card-bg-hover); }
+
+.st-bill__icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  place-items: center;
+  border: 1px solid var(--fc-border-accent);
+  border-radius: 50%;
+  background: var(--fc-accent-soft);
+  box-shadow: 0 0 20px var(--fc-accent-soft);
+}
+
+.st-bill__copy {
+  display: block;
+  min-width: 0;
+  flex: 1;
+}
+
+.st-bill__copy strong,
+.st-bill__copy span { display: block; }
+
+.st-bill__copy strong {
+  overflow: hidden;
+  color: var(--fc-text);
+  font-size: 14px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.st-bill__copy span {
+  margin-top: 2px;
+  color: var(--fc-text-muted);
+  font-size: 12px;
+}
+
+.st-bill__chevron,
+.st-paycheck-card__chevron {
+  color: var(--fc-text-muted);
+  font-size: 32px;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.st-bills__empty {
+  padding: 16px;
+  color: var(--fc-text-muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.st-calculation {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--fc-border);
+  border-radius: var(--fc-r-md);
+  background: var(--fc-bg-elevated-2);
+  animation: st-calc-in 220ms var(--fc-ease-decel) both;
+}
+
+.st-calculation[hidden] { display: none; }
+
+.st-calculation > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0;
+  color: var(--fc-text-muted);
+  font-size: 12px;
+}
+
+.st-calculation strong {
+  color: var(--fc-text);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.st-calculation .st-calculation__total {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid var(--fc-border-strong);
+  color: var(--fc-text);
+  font-weight: 700;
+}
+
+.st-calculation p {
+  padding-top: 8px;
+  color: var(--fc-accent);
+  font-size: 11px;
+  text-align: right;
+}
+
+@keyframes st-calc-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.st-actions {
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 12px;
+}
+
+.st-actions button {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px;
+  border: 0;
+  background: transparent;
+  color: var(--fc-accent);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.st-actions button:last-child { color: var(--fc-electric); font-weight: 500; }
+
+.st-paycheck-card {
+  width: 100%;
+  min-height: 112px;
+  gap: 16px;
+  padding: 16px;
+  border-color: var(--fc-border-accent);
+  background:
+    radial-gradient(circle at 18% 50%, var(--fc-accent-soft), transparent 32%),
+    linear-gradient(145deg, var(--fc-card-bg), var(--fc-bg-elevated));
+  color: var(--fc-text);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.st-paycheck-card__icon {
+  display: grid;
+  width: 60px;
+  height: 60px;
+  flex: 0 0 60px;
+  place-items: center;
+  border: 1px solid var(--fc-border-accent);
+  border-radius: 50%;
+  background: var(--fc-accent-soft);
+  box-shadow: 0 0 24px var(--fc-accent-soft);
+}
+
+.st-paycheck-card__copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.st-paycheck-card__kicker {
+  color: var(--fc-accent);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.st-paycheck-card__date {
+  overflow: hidden;
+  color: var(--fc-text-muted);
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.st-paycheck-card__amount {
+  color: var(--fc-text-muted);
+  font-size: 12px;
+}
+
+.st-paycheck-card__amount strong {
+  margin-right: 6px;
+  color: var(--fc-text);
+  font-size: 26px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.st-paycheck-card__missing { color: var(--fc-text-muted); font-size: 12px; }
+
+@media (max-width: 359px) {
+  .st-card { padding-right: 12px; padding-left: 12px; }
+  .st-days { gap: 4px; }
+  .st-day { padding-right: 1px; padding-left: 1px; }
+  .st-day__amount { font-size: 10px; }
+  .st-actions button { padding-right: 4px; padding-left: 4px; font-size: 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .st-bar > span,
+  .st-calculation { animation: none; }
+}
+
+@media (min-width: 900px) {
+  body[data-screen="app"] .st-card {
+    grid-column: 1;
+    grid-row: 2 / span 2;
+    padding: 28px 24px 16px;
+  }
+
+  body[data-screen="app"] .st-paycheck-card {
+    grid-column: 2;
+    grid-row: 2;
+    min-height: 144px;
+    padding: 24px;
+  }
+
+  body[data-screen="app"] .st-hero { padding-top: 28px; padding-bottom: 24px; }
+  body[data-screen="app"] .st-hero__value { font-size: clamp(54px, 6vw, 64px); }
+  body[data-screen="app"] .st-days { gap: 10px; }
+  body[data-screen="app"] .st-day { min-height: 76px; padding: 12px 4px; }
+  body[data-screen="app"] .st-day__label { font-size: 11px; }
+  body[data-screen="app"] .st-day__amount { font-size: 14px; }
+}
+
+/* ══════════════════════════════════════════════════════════════
    DASHBOARD v9 — THE RUNWAY  (DASHBOARD_SPEC.md)
    Answers "will I make it to payday?" as a picture. Card shell uses
    the canonical chrome; only the chart internals are new.
@@ -2108,7 +2612,8 @@ body.fc-theme .fc-nav {
   padding: 16px 16px 14px;
   border-color: var(--fc-border-accent);
   background:
-    radial-gradient(ellipse 120% 90% at 0% 0%, var(--fc-accent-soft), transparent 70%),
+    radial-gradient(ellipse 105% 74% at -8% -8%, var(--fc-accent-soft), transparent 64%),
+    radial-gradient(ellipse 82% 58% at 108% 96%, var(--fc-electric-soft), transparent 72%),
     var(--fc-card-bg);
   box-shadow: var(--fc-shadow-md);
 }
@@ -2272,8 +2777,32 @@ body.fc-theme .fc-nav {
   color: var(--fc-text-faint);
 }
 
-.rw-chart { position: relative; }
+.rw-chart { position: relative; isolation: isolate; }
+.rw-chart::before {
+  content: '';
+  position: absolute;
+  inset: -6px -8px 16px;
+  z-index: -1;
+  border: 1px solid var(--fc-border);
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, var(--fc-bg-elevated-2), transparent 78%),
+    radial-gradient(ellipse 58% 95% at 92% 20%, var(--fc-electric-soft), transparent 76%);
+  opacity: 0.72;
+  pointer-events: none;
+}
 .rw-chart svg { display: block; width: 100%; height: 104px; overflow: visible; }
+.rw-grid {
+  stroke: var(--fc-border);
+  stroke-width: 1;
+  stroke-dasharray: 2 6;
+  opacity: 0.62;
+}
+.rw-line-glow {
+  opacity: 0.13;
+  stroke-dasharray: 1000;
+  stroke-dashoffset: 0;
+}
 /* ── Chart annotations ────────────────────────────────────────────────
    Both label types sit in .rw-overlay, which is positioned in percent over
    the SVG's own 104px box. They are placed ABOVE their anchor point because
@@ -2297,6 +2826,10 @@ body.fc-theme .fc-nav {
   pointer-events: none;
 }
 .rw-today-amt {
+  padding: 2px 6px;
+  border: 1px solid var(--fc-border-accent);
+  border-radius: var(--fc-r-pill);
+  background: var(--fc-bg-elevated);
   font-size: 12px;
   font-weight: 700;
   color: var(--fc-text);
@@ -2363,7 +2896,8 @@ body.fc-theme .fc-nav {
 .rw-marker { opacity: 1; }
 .rw-dot    { opacity: 1; }
 
-.home-v8--enter .rw-line {
+.home-v8--enter .rw-line,
+.home-v8--enter .rw-line-glow {
   stroke-dashoffset: 1000;
   animation: rwDraw 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.1s forwards;
 }
@@ -2402,9 +2936,10 @@ body.fc-theme .fc-nav {
   transform: translate(-50%, -50%);
 }
 .rw-dot--end {
-  width: 9px; height: 9px;
+  width: 10px; height: 10px;
   background: var(--rw-dot-stroke, var(--fc-accent));
-  border: none;
+  border: 2px solid var(--fc-bg-elevated);
+  box-shadow: 0 0 0 4px var(--fc-accent-soft), 0 0 16px var(--fc-accent-soft);
 }
 /* An unlabelled dashed red rule is decoration. This is the one number the
    line is measured against, so it says so. */
@@ -2455,7 +2990,8 @@ body.fc-theme .fc-nav {
 .rw-trust svg { flex-shrink: 0; opacity: 0.85; }
 
 @media (prefers-reduced-motion: reduce) {
-  .rw-line, .home-v8--enter .rw-line { animation: none; stroke-dashoffset: 0; }
+  .rw-line, .rw-line-glow,
+  .home-v8--enter .rw-line, .home-v8--enter .rw-line-glow { animation: none; stroke-dashoffset: 0; }
   .rw-marker, .rw-dot, .rw-zero-lbl, .rw-cross,
   .home-v8--enter .rw-marker, .home-v8--enter .rw-dot,
   .home-v8--enter .rw-zero-lbl, .home-v8--enter .rw-cross {

@@ -1099,7 +1099,40 @@ window.FCApp = (function () {
   }
 
   /* ── Capacitor haptics ───────────────────────────────────── */
+  /* Haptics are opt-out.
+
+     There are 124 haptic() calls across the app — 69 of them 'light', which
+     means most taps buzz. That reads as premium to some people and as noise
+     to others, and it is not a preference anyone can guess for a user. Apple
+     ships a system-wide switch for exactly this reason.
+
+     Gating the single haptic() implementation is the whole feature: every one
+     of those 124 call sites goes quiet without touching any of them. */
+  let _hapticsOn = true;
+
+  function setHapticsEnabled(on) {
+    _hapticsOn = !!on;
+    try {
+      const Prefs = window.Capacitor?.Plugins?.Preferences;
+      if (Prefs) Prefs.set({ key: 'fc_haptics_enabled', value: _hapticsOn ? 'true' : 'false' });
+      else localStorage.setItem('fc_haptics_enabled', _hapticsOn ? 'true' : 'false');
+    } catch (_) { /* preference is a nicety; never block the interaction */ }
+  }
+
+  function hapticsEnabled() { return _hapticsOn; }
+
+  async function _loadHapticPref() {
+    try {
+      const Prefs = window.Capacitor?.Plugins?.Preferences;
+      const v = Prefs ? (await Prefs.get({ key: 'fc_haptics_enabled' })).value
+                      : localStorage.getItem('fc_haptics_enabled');
+      /* Absent means never set, which is on — the default the app shipped with. */
+      if (v !== null && v !== undefined) _hapticsOn = v !== 'false';
+    } catch (_) { /* leave the default */ }
+  }
+
   function haptic(style) {
+    if (!_hapticsOn) return;
     try {
       const h = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Haptics;
       if (h) h.impact({ style: style || 'light' });
@@ -1777,10 +1810,11 @@ window.FCApp = (function () {
      ANIMATED COUNTER
      ───────────────────────────────────────────────────────────── */
 
-  function animateNumber(element, target, prefix, suffix, duration) {
+  function animateNumber(element, target, prefix, suffix, duration, decimals) {
     if (!element) return;
     prefix   = prefix  || '';
     suffix   = suffix  || '';
+    decimals = decimals === undefined ? 2 : decimals;
     // Default 680ms — fast enough to feel snappy, slow enough to feel premium
     duration = duration || 680;
 
@@ -1810,8 +1844,8 @@ window.FCApp = (function () {
 
       const isNeg  = current < 0;
       const absStr = Math.abs(current).toLocaleString('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals,
       });
       element.textContent = (isNeg ? (prefix ? '−' + prefix : '−') : (prefix || '')) + absStr + suffix;
       element.dataset.animVal = current;
@@ -1823,8 +1857,8 @@ window.FCApp = (function () {
         // Ensure the final value is always exact (no floating-point drift)
         const finalIsNeg = target < 0;
         const finalStr   = Math.abs(target).toLocaleString('en-US', {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
+          minimumFractionDigits: decimals,
+          maximumFractionDigits: decimals,
         });
         element.textContent = (finalIsNeg ? (prefix ? '−' + prefix : '−') : (prefix || '')) + finalStr + suffix;
       }
@@ -1837,11 +1871,12 @@ window.FCApp = (function () {
      last shown value per id — re-renders with the same value stay static, and
      changed values animate from the previous value instead of from zero. */
   const _countupLast = {};
-  function _countup(id, value, prefix) {
+  function _countup(id, value, prefix, decimals) {
     const el = document.getElementById(id);
     if (!el) return;
     if (prefix === undefined) prefix = '$';
-    const fmtStatic = v => (v < 0 ? '−' : '') + prefix + Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const places = decimals === undefined ? 2 : decimals;
+    const fmtStatic = v => (v < 0 ? '−' : '') + prefix + Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: places, maximumFractionDigits: places });
     const prev = _countupLast[id];
     const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (reduced || (prev !== undefined && Math.abs(prev - value) < 0.005)) {
@@ -1850,7 +1885,7 @@ window.FCApp = (function () {
       return;
     }
     el.dataset.animVal = String(prev !== undefined ? prev : 0);
-    animateNumber(el, value, prefix);
+    animateNumber(el, value, prefix, '', undefined, places);
     _countupLast[id] = value;
   }
 
@@ -2806,6 +2841,10 @@ window.FCApp = (function () {
     const VE = ' vector-effect="non-scaling-stroke"';
     const xPct = p => (x(p) / W * 100).toFixed(2);
     const yPct = v => (y(v) / H * 100).toFixed(2);
+    const gridLines = [0.33, 0.66].map(ratio => {
+      const gy = g.PAD_T + (H - g.PAD_T - PAD_B) * ratio;
+      return '<line class="rw-grid" x1="0" y1="' + gy.toFixed(1) + '" x2="' + W + '" y2="' + gy.toFixed(1) + '"' + VE + '/>';
+    }).join('');
 
     const markerLines = pts.filter(p => p.bills.length).map(p =>
       '<line class="rw-marker" x1="' + x(p.day).toFixed(1) + '" y1="' + y(p.balance).toFixed(1) + '" x2="' + x(p.day).toFixed(1) + '" y2="' + (H - PAD_B) + '" stroke="var(--fc-border-strong)" stroke-width="1" stroke-dasharray="2 3"' + VE + '/>').join('');
@@ -2924,8 +2963,10 @@ window.FCApp = (function () {
         + '<stop offset="55%" stop-color="' + stroke + '" stop-opacity="0.10"/>'
         + '<stop offset="100%" stop-color="' + stroke + '" stop-opacity="0.02"/>'
       + '</linearGradient></defs>'
+      + gridLines
       + (minV < 0 ? '<line x1="0" y1="' + zeroY.toFixed(1) + '" x2="' + W + '" y2="' + zeroY.toFixed(1) + '" stroke="var(--fc-danger)" stroke-width="1" stroke-dasharray="3 3" opacity="0.55"' + VE + '/>' : '')
       + '<path d="' + area + '" fill="url(#rwGrad)"/>'
+      + '<path class="rw-line-glow" d="' + line + '" fill="none" stroke="' + stroke + '" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"' + VE + '/>'
       + '<path class="rw-line" d="' + line + '" fill="none" stroke="' + stroke + '" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"' + VE + '/>'
       + markerLines
       + '</svg>'
@@ -3150,6 +3191,167 @@ window.FCApp = (function () {
            It stays on the sample/skeleton cards, where it is doing real work
            for someone deciding whether to connect a bank. */
       + '</section>';
+  }
+
+  /* ── Safe Today ────────────────────────────────────────────────
+     Reserve every bill and a safety buffer first, then turn what remains
+     into a daily plan. The inputs stay shared with the runway so Home and
+     Plan cannot disagree about cash, bill timing or payday. */
+  function _renderSafeTodayCard() {
+    if (state.initialLoading && state.user?.plaid_linked && !(state.accounts || []).length) {
+      _rwSeries = null;
+      return _renderRunwaySkeleton();
+    }
+
+    let runway;
+    try { runway = _buildRunwaySeries(); }
+    catch (_) { runway = null; }
+    _rwSeries = runway;
+    if (!runway) return '';
+
+    const projection = runway.projection || {};
+    const horizon = Math.max(1, Number(runway.horizon || projection.days || 7));
+    const available = Math.max(0, Number(runway.startBalance || projection.cash || 0));
+    const upcomingBills = (runway.points || [])
+      .flatMap(point => (point.bills || []).map(bill => ({ bill, day: point.day })))
+      .sort((a, b) => a.day - b.day);
+    const billsTotal = upcomingBills.reduce((sum, item) => sum + Number(item.bill.amount || 0), 0);
+    const protectedAmount = Math.max(0, Math.min(available, Number(projection.reserve || 0)));
+    const left = Math.max(0, available - billsTotal - protectedAmount);
+    const leftWhole = Math.round(left);
+    const safeToday = Math.floor(leftWhole / horizon);
+    const payday = runway.payday || null;
+    const endDate = payday?.date || runway.points?.[runway.points.length - 1]?.date || new Date();
+    const dateLabel = endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const scopeLabel = payday ? 'Until payday' : `Next ${horizon} days`;
+    const dayCountLabel = `${horizon} day${horizon === 1 ? '' : 's'} · ${dateLabel}`;
+    const fmtWhole = value => '$' + Math.max(0, Math.round(Number(value || 0))).toLocaleString('en-US');
+
+    const allocatedTotal = Math.max(1, available, billsTotal + protectedAmount + left);
+    const billsPct = Math.max(0, (billsTotal / allocatedTotal) * 100);
+    const protectedPct = Math.max(0, (protectedAmount / allocatedTotal) * 100);
+    const leftPct = Math.max(0, 100 - billsPct - protectedPct);
+
+    const bucketSizes = horizon <= 5
+      ? Array.from({ length: horizon }, () => 1)
+      : [1, 1, 1, Math.min(2, horizon - 3), Math.max(0, horizon - 5)].filter(Boolean);
+    let cursor = 0;
+    let allocated = 0;
+    const dayCards = bucketSizes.map((count, index) => {
+      const start = new Date();
+      start.setHours(0, 0, 0, 0);
+      start.setDate(start.getDate() + cursor);
+      const end = new Date(start);
+      end.setDate(end.getDate() + count - 1);
+
+      let label;
+      if (cursor === 0) label = 'Today';
+      else if (count === 1) label = start.toLocaleDateString('en-US', { weekday: 'short' });
+      else if (count === 2 && start.getDay() === 6 && end.getDay() === 0) label = 'Weekend';
+      else label = start.toLocaleDateString('en-US', { weekday: 'short' }) + '–'
+        + end.toLocaleDateString('en-US', { weekday: 'short' });
+
+      const amount = index === bucketSizes.length - 1
+        ? Math.max(0, leftWhole - allocated)
+        : safeToday * count;
+      allocated += amount;
+      cursor += count;
+      return '<button class="st-day' + (index === 0 ? ' is-active' : '') + '" type="button"'
+        + ' aria-pressed="' + (index === 0 ? 'true' : 'false') + '"'
+        + ' onclick="FCApp.selectSafeDay(this)">'
+        + '<span class="st-day__label">' + esc(label) + '</span>'
+        + '<span class="st-day__amount">' + fmtWhole(amount) + '</span></button>';
+    }).join('');
+
+    const visibleBills = upcomingBills.slice(0, 3);
+    const billRows = visibleBills.length ? visibleBills.map(({ bill }) => {
+      let due = 'Date not set';
+      if (bill.due_date) {
+        try { due = FCData.parseDateLocal(bill.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); }
+        catch (_) { /* Keep the explicit date-not-set fallback for malformed legacy bills. */ }
+      }
+      const name = bill.name || 'Bill';
+      return '<button class="st-bill" type="button" onclick="FCApp.switchTab(\'activity\');FCApp.switchActivitySegment(\'bills\')"'
+        + ' aria-label="View ' + esc(name) + '">'
+        + '<span class="st-bill__icon" aria-hidden="true">' + _billIcon(bill, 'var(--fc-accent)', 22) + '</span>'
+        + '<span class="st-bill__copy"><strong>' + esc(name) + '</strong>'
+        + '<span>' + esc(due) + ' · ' + fmtWhole(bill.amount) + '</span></span>'
+        + '<span class="st-bill__chevron" aria-hidden="true">›</span></button>';
+    }).join('') : '<div class="st-bills__empty">No bills are due in this window.</div>';
+
+    const billCount = upcomingBills.length;
+    return '<section class="fc-ui-card st-card" aria-labelledby="st-card-title">'
+      + '<div class="st-topline"><p class="st-kicker" id="st-card-title">' + esc(scopeLabel) + '</p>'
+      + '<p class="st-payday">' + esc(dayCountLabel) + '</p></div>'
+      + '<div class="st-hero"><p class="st-hero__label">Safe today</p>'
+      + '<p class="st-hero__value fc-amount" id="st-safe-today-value" data-countup="' + safeToday + '" data-countup-decimals="0">' + fmtWhole(safeToday) + '</p>'
+      + '<p class="st-hero__support">You can spend this today and stay on track.</p></div>'
+      + '<p class="st-available"><strong>' + fmtWhole(available) + '</strong> available</p>'
+      + '<div class="st-bar" aria-label="Available money allocation">'
+      + '<span class="st-bar__bills" style="width:' + billsPct.toFixed(2) + '%"></span>'
+      + '<span class="st-bar__protected" style="width:' + protectedPct.toFixed(2) + '%"></span>'
+      + '<span class="st-bar__left" style="width:' + leftPct.toFixed(2) + '%"></span></div>'
+      + '<div class="st-allocation">'
+      + '<div><strong>' + fmtWhole(billsTotal) + '</strong><span>bills</span></div>'
+      + '<div><strong>' + fmtWhole(protectedAmount) + '</strong><span>protected</span></div>'
+      + '<div><strong>' + fmtWhole(left) + '</strong><span>left</span></div></div>'
+      + '<section class="st-horizon" aria-labelledby="st-horizon-title"><h3 id="st-horizon-title">Your next ' + horizon + ' days</h3>'
+      + '<div class="st-days">' + dayCards + '</div></section>'
+      + '<section class="st-bills" aria-labelledby="st-bills-title">'
+      + '<div class="st-bills__heading"><span aria-hidden="true">' + _ic('calendar', 'var(--fc-accent)', 20) + '</span>'
+      + '<h3 id="st-bills-title">' + billCount + ' bill' + (billCount === 1 ? '' : 's') + ' before ' + (payday ? 'payday' : 'the end') + '</h3></div>'
+      + '<div class="st-bills__list">' + billRows + '</div></section>'
+      + '<div class="st-calculation" id="st-calculation" hidden>'
+      + '<div><span>Available cash</span><strong>' + fmtWhole(available) + '</strong></div>'
+      + '<div><span>Bills before ' + (payday ? 'payday' : 'the end') + '</span><strong>−' + fmtWhole(billsTotal) + '</strong></div>'
+      + '<div><span>Protected buffer</span><strong>−' + fmtWhole(protectedAmount) + '</strong></div>'
+      + '<div class="st-calculation__total"><span>Safe until then</span><strong>' + fmtWhole(left) + '</strong></div>'
+      + '<p>' + fmtWhole(left) + ' ÷ ' + horizon + ' days = ' + fmtWhole(safeToday) + ' per day</p></div>'
+      + '<div class="st-actions"><button type="button" onclick="FCApp.haptic(\'light\');FCApp.switchTab(\'plan\')">'
+      + _ic('bar-chart', 'currentColor', 18) + '<span>Adjust plan</span></button>'
+      + '<button type="button" aria-expanded="false" aria-controls="st-calculation" onclick="FCApp.toggleSafeTodayCalculation(this)">View calculation</button></div>'
+      + '</section>';
+  }
+
+  function _renderSafePaycheckCard() {
+    let payday = null;
+    try { payday = _predictNextPayday(); }
+    catch (_) { /* The card has an honest no-prediction state. */ }
+    const dateLabel = payday?.date
+      ? payday.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      : 'Not detected yet';
+    const amount = Math.max(0, Number(payday?.amount || 0));
+    return '<button class="fc-ui-card st-paycheck-card" type="button" onclick="FCApp.haptic(\'light\');FCApp.switchTab(\'plan\')"'
+      + ' aria-label="Open paycheck plan">'
+      + '<span class="st-paycheck-card__icon" aria-hidden="true">' + _ic('calendar', 'var(--fc-accent)', 26) + '</span>'
+      + '<span class="st-paycheck-card__copy"><span class="st-paycheck-card__kicker">Coming up</span>'
+      + '<span class="st-paycheck-card__date">' + (payday ? 'Next paycheck · ' : 'Payday · ') + esc(dateLabel) + '</span>'
+      + (payday ? '<span class="st-paycheck-card__amount"><strong id="st-paycheck-value" data-countup="' + amount + '" data-countup-decimals="0">$' + Math.round(amount).toLocaleString('en-US') + '</strong> expected</span>'
+        : '<span class="st-paycheck-card__missing">Add more income history to predict it</span>')
+      + '</span><span class="st-paycheck-card__chevron" aria-hidden="true">›</span></button>';
+  }
+
+  function toggleSafeTodayCalculation(button) {
+    const calculation = document.getElementById('st-calculation');
+    if (!calculation) return;
+    const opening = calculation.hidden;
+    calculation.hidden = !opening;
+    if (button) {
+      button.setAttribute('aria-expanded', String(opening));
+      button.textContent = opening ? 'Hide calculation' : 'View calculation';
+    }
+    haptic('light');
+  }
+
+  function selectSafeDay(button) {
+    const card = button?.closest('.st-days');
+    if (!card) return;
+    card.querySelectorAll('.st-day').forEach(day => {
+      const active = day === button;
+      day.classList.toggle('is-active', active);
+      day.setAttribute('aria-pressed', String(active));
+    });
+    haptic('light');
   }
 
   /* ── Dashboard v9 wow #2: drag to scrub (DASHBOARD_SPEC.md §4) ──
@@ -4514,9 +4716,8 @@ window.FCApp = (function () {
         return `${p.days} day${p.days === 1 ? '' : 's'} to payday`;
       } catch (_) { return ''; }
     })();
-    // Dashboard v9 — the runway replaces the Safe-to-Spend hero card.
-    // It answers the same question with a picture instead of a number.
-    const safeSpendMarkup = _renderRunwayCard();
+    // Safe Today turns the shared projection into a daily action plan.
+    const safeSpendMarkup = _renderSafeTodayCard();
 
     /* Quick actions. Two changes from the fixed +/↗/✓ trio:
 
@@ -4796,84 +4997,7 @@ window.FCApp = (function () {
         </header>
 
         ${safeSpendMarkup}
-        ${_renderForecastCard()}
-
-        <!-- These moves used to be a horizontal carousel: one card visible,
-             the other two behind 12px dots that nothing signposted. The
-             moves are already ranked, so paginating them hid the second and
-             third behind a gesture almost nobody performs. Now the top move
-             keeps the full treatment and the rest are listed under it —
-             everything visible, still ordered, no hidden state. -->
-        <section class="fc-ui-card home-v8__move" aria-label="Your next best move">
-          <div class="home-v8__move-primary">
-            <div class="home-v8__move-copy">
-              <p class="fc-section-label">${esc(carouselCards[0].label)}</p>
-              <h2 class="home-v8__move-title">${esc(carouselCards[0].title)}</h2>
-              <p class="home-v8__move-text">${esc(_cardBody(carouselCards[0].body, 75))}</p>
-              <div class="home-v8__move-actions">
-                <!-- --secondary, not --primary: the runway card directly above
-                     already carries a full-width filled .rw-cta, and two filled
-                     accent buttons stacked on one screen is what dilutes the
-                     signature moment the hero glow is supposed to own. The
-                     ghost treatment already exists in the system — accent
-                     border, card background, accent text — so this reads as
-                     the second action rather than a rival first one.
-                     The first-run CTA above keeps --primary: it is alone on an
-                     otherwise empty screen with nothing to compete with. -->
-                <button class="fc-action-button fc-action-button--secondary" type="button" onclick="${carouselCards[0].onclick}">${esc(carouselCards[0].action)}</button>
-              </div>
-            </div>
-            <div class="home-v8__slide-emoji" aria-hidden="true">${carouselCards[0].emoji}</div>
-          </div>
-          ${carouselCards.length > 1 ? `
-          <ul class="home-v8__move-rest">
-            ${carouselCards.slice(1).map((card) => `
-              <li>
-                <button class="home-v8__move-row" type="button" onclick="${card.onclick}">
-                  ${card.rowArt}
-                  <span class="home-v8__move-row-copy">
-                    <span class="home-v8__move-row-title">${esc(card.title)}</span>
-                    <span class="home-v8__move-row-label">${esc(card.label)}</span>
-                  </span>
-                  <span class="home-v8__move-row-chevron" aria-hidden="true">›</span>
-                </button>
-              </li>`).join('')}
-          </ul>` : ''}
-        </section>
-
-
-        <!-- Progress, not a warning. It sits under the "next move" card
-             because it is a reward for having acted, not a decision to make;
-             and above Quick actions because a person who just paid something
-             off is exactly who is willing to do the next thing. It renders
-             nothing at all for someone with no debt. -->
-        ${_renderDebtProgressCard()}
-
-        <!-- Dashboard v9 (DASHBOARD_SPEC.md §3): bills, monthly stats, the
-             Cash Flow Outlook chart and Goals were all removed from Today.
-             Each already owns a tab (Plan / Money / Goals), and duplicating
-             them here is exactly what made this screen read as generic. The
-             outlook chart in particular is now redundant — the runway IS the
-             cash-flow picture, and a better one. -->
-        <section class="home-v8__section home-v8__actions-panel" aria-labelledby="home-actions-heading">
-          <div class="home-v8__section-heading"><div><h2 id="home-actions-heading">Quick actions</h2></div></div>
-          <div class="home-v8__quick-actions">${quickActionsMarkup}</div>
-        </section>
-
-        <!-- Money Week sits below the actions on purpose. It is a recap, not a
-             decision — above the fold it was competing with the runway for
-             attention while answering nothing the user came here to ask. -->
-        ${(state.transactions || []).length >= 3 ? `
-        <button class="fcst-banner" type="button" onclick="FCApp.openMoneyStory()" aria-label="Play Your Money Week recap">
-          <span class="fcst-banner-play" aria-hidden="true">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-          </span>
-          <span class="fcst-banner-copy">
-            <span class="fcst-banner-title">Your Money Week is ready</span>
-            <span class="fcst-banner-sub">30-second recap of your week</span>
-          </span>
-          <span class="fcst-banner-chevron" aria-hidden="true">›</span>
-        </button>` : ''}
+        ${_renderSafePaycheckCard()}
 
         <p class="home-v8__disclaimer">FlowCheck is not a bank. Not financial advice.</p>
       </div>`;
@@ -4888,7 +5012,7 @@ window.FCApp = (function () {
     // this cannot silently rot again the next time the card is rewritten.
     el.querySelectorAll('[data-countup][id]').forEach(node => {
       const target = parseFloat(node.dataset.countup);
-      if (!isNaN(target)) _countup(node.id, target);
+      if (!isNaN(target)) _countup(node.id, target, '$', Number(node.dataset.countupDecimals || 2));
     });
 
     // ── Chart scrubbing — press and drag to read any day's value ─────────
@@ -5686,8 +5810,23 @@ window.FCApp = (function () {
         line += ` C${middle.toFixed(1)},${previous.y.toFixed(1)} ${middle.toFixed(1)},${point.y.toFixed(1)} ${point.x.toFixed(1)},${point.y.toFixed(1)}`;
       }
       const last = points[points.length - 1];
-      const grid = [0.25, 0.5, 0.75].map(ratio => `<line x1="0" y1="${(height * ratio).toFixed(1)}" x2="${width}" y2="${(height * ratio).toFixed(1)}" stroke="var(--fc-premium-divider)" stroke-width="1"/>`).join('');
-      chart.innerHTML = `<defs><linearGradient id="premiumTrendArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="var(--fc-accent)" stop-opacity=".25"/><stop offset="100%" stop-color="var(--fc-accent)" stop-opacity="0"/></linearGradient></defs>${grid}<path d="${line} L${width},${height} L0,${height} Z" fill="url(#premiumTrendArea)"/><path d="${line}" fill="none" stroke="var(--fc-accent)" stroke-width="2.5" stroke-linecap="round"/><circle cx="${last.x.toFixed(1)}" cy="${last.y.toFixed(1)}" r="4" fill="var(--fc-accent)"/>`;
+      const grid = [0.25, 0.5, 0.75].map(ratio => `<line class="premium-chart-grid" x1="0" y1="${(height * ratio).toFixed(1)}" x2="${width}" y2="${(height * ratio).toFixed(1)}" vector-effect="non-scaling-stroke"/>`).join('');
+      chart.innerHTML = `<defs>
+        <linearGradient id="premiumTrendArea" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="var(--fc-accent)" stop-opacity=".34"/>
+          <stop offset="52%" stop-color="var(--fc-electric)" stop-opacity=".10"/>
+          <stop offset="100%" stop-color="var(--fc-electric)" stop-opacity="0"/>
+        </linearGradient>
+        <linearGradient id="premiumTrendStroke" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="var(--fc-accent)"/>
+          <stop offset="100%" stop-color="var(--fc-electric)"/>
+        </linearGradient>
+      </defs>${grid}<path class="premium-chart-area" d="${line} L${width},${height} L0,${height} Z" fill="url(#premiumTrendArea)"/><path class="premium-chart-glow" d="${line}" fill="none" stroke="var(--fc-accent)" stroke-width="9" stroke-linecap="round" vector-effect="non-scaling-stroke"/><path class="premium-chart-line" d="${line}" fill="none" stroke="url(#premiumTrendStroke)" stroke-width="2.75" stroke-linecap="round" vector-effect="non-scaling-stroke"/><line class="premium-chart-now" x1="${last.x.toFixed(1)}" y1="${Math.min(height, last.y + 8).toFixed(1)}" x2="${last.x.toFixed(1)}" y2="${height}" vector-effect="non-scaling-stroke"/>`;
+      const marker = document.getElementById('premium-trend-marker');
+      if (marker) {
+        marker.style.left = `${(last.x / width) * 100}%`;
+        marker.style.top = `${(last.y / height) * 100}%`;
+      }
       if (labels) {
         const firstDate = FCData.parseDateLocal(pointsData[0].date);
         const lastDate = FCData.parseDateLocal(pointsData[pointsData.length - 1].date);
@@ -5709,13 +5848,13 @@ window.FCApp = (function () {
     if (donut) {
       const radius = 45, circumference = 2 * Math.PI * radius;
       let offset = 0;
-      const slices = categories.map(([category, amount]) => {
+      const slices = categories.map(([category, amount], index) => {
         const length = periodSpend > 0 ? (amount / periodSpend) * circumference : 0;
-        const circle = `<circle cx="60" cy="60" r="${radius}" fill="none" stroke="${FCData.categoryColor(category)}" stroke-width="16" stroke-dasharray="${Math.max(0, length - 2).toFixed(2)} ${(circumference - Math.max(0, length - 2)).toFixed(2)}" stroke-dashoffset="${(-offset).toFixed(2)}"/>`;
+        const circle = `<circle class="premium-donut-slice" cx="60" cy="60" r="${radius}" fill="none" stroke="${FCData.categoryColor(category)}" stroke-width="16" stroke-dasharray="${Math.max(0, length - 3).toFixed(2)} ${(circumference - Math.max(0, length - 3)).toFixed(2)}" stroke-dashoffset="${(-offset).toFixed(2)}" style="--slice-delay:${index * 55}ms"/>`;
         offset += length;
         return circle;
       }).join('');
-      donut.innerHTML = `<circle cx="60" cy="60" r="${radius}" fill="none" stroke="var(--fc-premium-track)" stroke-width="16"/>${slices}`;
+      donut.innerHTML = `<circle class="premium-donut-track" cx="60" cy="60" r="${radius}" fill="none" stroke="var(--fc-premium-track)" stroke-width="16"/>${slices}`;
     }
     if (legend) {
       legend.innerHTML = categories.length ? categories.slice(0, 5).map(([category, amount]) => {
@@ -5747,13 +5886,27 @@ window.FCApp = (function () {
     if (bars) {
       const ordered = periodTxns.filter(txn => txn.date).slice().sort((a, b) => a.date.localeCompare(b.date));
       const groups = Array.from({ length: 6 }, () => ({ income: 0, spend: 0 }));
+      const times = ordered.map(txn => FCData.parseDateLocal(txn.date).getTime());
+      const firstTime = times[0] || Date.now();
+      const lastTime = times[times.length - 1] || firstTime;
+      const timeSpan = Math.max(1, lastTime - firstTime);
       ordered.forEach((txn, index) => {
-        const group = groups[Math.min(5, Math.floor(index / Math.max(1, ordered.length / 6)))];
+        const groupIndex = lastTime === firstTime ? 5 : Math.min(5, Math.floor(((times[index] - firstTime) / timeSpan) * 6));
+        const group = groups[groupIndex];
         if (_isIncomeTxn(txn)) group.income += Math.abs(Number(txn.amount || 0));
         if (_isSpendTxn(txn)) group.spend += Number(txn.amount || 0);
       });
       const peak = Math.max(1, ...groups.flatMap(group => [group.income, group.spend]));
-      bars.innerHTML = groups.map(group => `<div class="premium-cashflow-group"><i style="height:${Math.max(4, Math.round((group.income / peak) * 100))}%"></i><i style="height:${Math.max(4, Math.round((group.spend / peak) * 100))}%"></i></div>`).join('');
+      bars.innerHTML = groups.map((group, index) => {
+        const incomeHeight = group.income > 0 ? Math.max(6, Math.round((group.income / peak) * 100)) : 2;
+        const spendHeight = group.spend > 0 ? Math.max(6, Math.round((group.spend / peak) * 100)) : 2;
+        return `<div class="premium-cashflow-group" style="--bar-delay:${index * 45}ms" aria-label="Income ${FCData.formatCurrency(group.income)}, spending ${FCData.formatCurrency(group.spend)}"><i class="premium-cashflow-income" style="--bar-height:${incomeHeight}%"></i><i class="premium-cashflow-spend" style="--bar-height:${spendHeight}%"></i></div>`;
+      }).join('');
+      const cashflowLabels = document.getElementById('premium-cashflow-labels');
+      if (cashflowLabels) {
+        const dateLabel = value => value.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        cashflowLabels.innerHTML = `<span>${dateLabel(new Date(firstTime))}</span><span>${dateLabel(new Date(lastTime))}</span>`;
+      }
     }
   }
 
@@ -6640,7 +6793,7 @@ window.FCApp = (function () {
         <div style="font-size:11px;font-weight:500;color:var(--fc-text-faint);letter-spacing:0.1px;text-align:center">Tracking your net worth from today</div>
       </div>`;
     }
-    const W=320, H=56, pad=6;
+    const W=320, H=68, pad=7;
     const min=Math.min(...vals), max=Math.max(...vals), range=max-min||1;
     /* The chart autoscales to its own min and max, which means a $60,000
        swing and a $60 swing draw the identical shape. Without the numbers
@@ -6665,6 +6818,7 @@ window.FCApp = (function () {
     }
     const lp=pts[pts.length-1];
     const gid='wvsg'+Math.random().toString(36).slice(2,6);
+    const lineGid=gid+'line';
     /* Same trap the runway card had, and the day-one branch above already
        calls out: preserveAspectRatio="none" stretches this 320-wide viewBox
        to the card's real width, so a <circle> renders as an ellipse and the
@@ -6678,22 +6832,32 @@ window.FCApp = (function () {
        the floor of the chart — which reads as a collapse. Centre it, and
        say "no change" rather than printing the same figure at both ends. */
     const _flat = (max - min) < 0.005;
-    return `<div style="position:relative">
-      <div style="display:flex;justify-content:space-between;font-size:10px;font-weight:600;
-                  letter-spacing:0.04em;color:var(--wv-t3);margin-bottom:2px;
-                  font-variant-numeric:tabular-nums">
+    return `<div class="wv-chart-shell">
+      <div class="wv-chart-range">
         <span>${esc(_compact(max))}</span>
         <span>${esc(_flat ? 'no change' : _compact(min))}</span>
       </div>
-      <svg viewBox="0 0 320 56" width="100%" height="56" preserveAspectRatio="none" aria-hidden="true">
-        <defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="${color}" stop-opacity="0.28"/>
-          <stop offset="100%" stop-color="${color}" stop-opacity="0"/>
-        </linearGradient></defs>
-        <path d="${d} L${lp[0].toFixed(1)},${H} L0,${H} Z" fill="url(#${gid})"/>
-        <path d="${d}" stroke="${color}" stroke-width="2" fill="none" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
-      </svg>
-      <span style="position:absolute;left:${(lp[0]/W*100).toFixed(2)}%;top:${(lp[1]/H*100).toFixed(2)}%;width:7px;height:7px;border-radius:999px;background:${color};transform:translate(-50%,-50%);pointer-events:none"></span>
+      <div class="wv-chart-plot">
+        <svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" preserveAspectRatio="none" aria-hidden="true">
+          <defs>
+            <linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="${color}" stop-opacity="0.36"/>
+              <stop offset="52%" stop-color="${color}" stop-opacity="0.10"/>
+              <stop offset="100%" stop-color="${color}" stop-opacity="0"/>
+            </linearGradient>
+            <linearGradient id="${lineGid}" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="${color}"/>
+              <stop offset="100%" stop-color="${isPos ? 'var(--fc-electric)' : color}"/>
+            </linearGradient>
+          </defs>
+          ${[0.25, 0.5, 0.75].map(ratio => `<line class="wv-chart-grid" x1="0" y1="${(H * ratio).toFixed(1)}" x2="${W}" y2="${(H * ratio).toFixed(1)}" vector-effect="non-scaling-stroke"/>`).join('')}
+          <path class="wv-chart-area" d="${d} L${lp[0].toFixed(1)},${H} L0,${H} Z" fill="url(#${gid})"/>
+          <path class="wv-chart-glow" d="${d}" stroke="${color}" stroke-width="9" fill="none" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+          <path class="wv-chart-line" d="${d}" stroke="url(#${lineGid})" stroke-width="2.6" fill="none" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+        </svg>
+        <span class="wv-chart-endpoint" style="left:${(lp[0]/W*100).toFixed(2)}%;top:${(lp[1]/H*100).toFixed(2)}%;--wv-chart-color:${color}"></span>
+      </div>
+      <div class="wv-chart-axis"><span>Start</span><span>Now</span></div>
     </div>`;
   }
 
@@ -7815,19 +7979,38 @@ window.FCApp = (function () {
       // Fill area
       const fillD = d + ` L ${pts[pts.length-1][0]},${chartH} L ${pts[0][0]},${chartH} Z`;
       const lastPt = pts[pts.length - 1];
+      const grid = [0.28, 0.62].map(ratio => `<line class="act-chart-grid" x1="0" y1="${(chartH * ratio).toFixed(1)}" x2="${chartW}" y2="${(chartH * ratio).toFixed(1)}" vector-effect="non-scaling-stroke"/>`).join('');
 
       svgEl.setAttribute('viewBox', `0 0 ${chartW} ${chartH}`);
       svgEl.innerHTML = `
         <defs>
           <linearGradient id="actChartGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="var(--fc-accent)" stop-opacity="0.22"/>
+            <stop offset="0%" stop-color="var(--fc-accent)" stop-opacity="0.34"/>
+            <stop offset="58%" stop-color="var(--fc-electric)" stop-opacity="0.08"/>
             <stop offset="100%" stop-color="var(--fc-accent)" stop-opacity="0"/>
           </linearGradient>
+          <linearGradient id="actChartStroke" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="var(--fc-accent)"/>
+            <stop offset="100%" stop-color="var(--fc-electric)"/>
+          </linearGradient>
         </defs>
-        <path d="${fillD}" fill="url(#actChartGrad)"/>
-        <path d="${d}" fill="none" stroke="var(--fc-accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        <circle cx="${lastPt[0]}" cy="${lastPt[1]}" r="4" fill="var(--fc-accent)"/>
+        ${grid}
+        <path class="act-chart-area" d="${fillD}" fill="url(#actChartGrad)"/>
+        <path class="act-chart-glow" d="${d}" fill="none" stroke="var(--fc-accent)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+        <path class="act-chart-line" d="${d}" fill="none" stroke="url(#actChartStroke)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+        <line class="act-chart-now-line" x1="${lastPt[0]}" y1="${Math.min(chartH, lastPt[1] + 6)}" x2="${lastPt[0]}" y2="${chartH}" vector-effect="non-scaling-stroke"/>
       `;
+      const chartWrap = svgEl.closest('.act-summary-chart');
+      if (chartWrap) {
+        let marker = chartWrap.querySelector('.act-chart-endpoint');
+        if (!marker) {
+          marker = document.createElement('span');
+          marker.className = 'act-chart-endpoint';
+          marker.setAttribute('aria-hidden', 'true');
+          chartWrap.appendChild(marker);
+        }
+        marker.style.top = `${lastPt[1]}px`;
+      }
     }
 
     if (labelsEl) {
@@ -8149,6 +8332,18 @@ window.FCApp = (function () {
     // Show dev-only tools when env = development
     const devRow = document.getElementById('dev-test-email-row');
     if (devRow) devRow.style.display = FC_CONFIG.app.env === 'development' ? 'flex' : 'none';
+
+    /* Reflect the saved haptics preference. Read here rather than at boot:
+       Settings is the only screen that shows it, and a Preferences read is
+       async — putting it on the boot path would delay first paint for a
+       toggle nobody is looking at yet. */
+    _loadHapticPref().then(() => {
+      const hapToggle = document.getElementById('toggle-haptics');
+      if (!hapToggle) return;
+      const on = hapticsEnabled();
+      hapToggle.setAttribute('aria-checked', on ? 'true' : 'false');
+      hapToggle.classList.toggle('is-on', on);
+    });
 
     const versionEl = document.getElementById('settings-version');
     if (versionEl) versionEl.textContent = FC_CONFIG.app.version || '';
@@ -12632,6 +12827,11 @@ window.FCApp = (function () {
       { transaction_id: 't22', name: 'Target', amount: 67.80, date: _demoAgo(3), category: ['Shops','Department Stores'], account_id: 'demo-cc', isCredit: false },
       { transaction_id: 't23', name: 'Target', amount: 67.80, date: _demoAgo(2), category: ['Shops','Department Stores'], account_id: 'demo-cc', isCredit: false },
       { transaction_id: 't24', name: 'Target', amount: 67.80, date: _demoAgo(0), category: ['Shops','Department Stores'], account_id: 'demo-cc', isCredit: true  },
+      // A clean biweekly series gives App Review the same payday prediction
+      // a real linked account earns after three deposits.
+      { transaction_id: 't25', name: 'Demo Employer Payroll', amount: 1620.00, date: _demoAgo(6),  category: ['Transfer','Payroll'], account_id: 'demo-chk', isCredit: true },
+      { transaction_id: 't26', name: 'Demo Employer Payroll', amount: 1620.00, date: _demoAgo(20), category: ['Transfer','Payroll'], account_id: 'demo-chk', isCredit: true },
+      { transaction_id: 't27', name: 'Demo Employer Payroll', amount: 1620.00, date: _demoAgo(34), category: ['Transfer','Payroll'], account_id: 'demo-chk', isCredit: true },
     ]
       // Real transactions come out of listenToTransactions() carrying `id`
       // (the Firestore doc id); demo rows only declared transaction_id, so
@@ -12641,8 +12841,8 @@ window.FCApp = (function () {
       // two id fields.
       .map(t => ({ ...t, id: t.transaction_id }));
     state.bills = [
-      { id: 'b1', name: 'Rent',          amount: 1200.00, due_date: _demoIn(6),  status: 'upcoming', icon: '🏠', category: 'Housing' },
-      { id: 'b2', name: 'Electric',      amount: 89.50,   due_date: _demoIn(12), status: 'upcoming', icon: '⚡', category: 'Utilities' },
+      { id: 'b1', name: 'Rent',          amount: 1200.00, due_date: _demoIn(3),  status: 'upcoming', icon: '🏠', category: 'Housing' },
+      { id: 'b2', name: 'Phone',         amount: 250.00,  due_date: _demoIn(6),  status: 'upcoming', icon: '📱', category: 'Utilities' },
       { id: 'b3', name: 'Internet',      amount: 59.99,   due_date: _demoIn(18), status: 'upcoming', icon: '📡', category: 'Utilities' },
     ];
     state.goals = [
@@ -16257,6 +16457,8 @@ window.FCApp = (function () {
     closeCoachSheet,
     showAffordSheet,
     runAffordCheck,
+    toggleSafeTodayCalculation,
+    selectSafeDay,
     // Dashboard v9 — exported for verification assertions (DASHBOARD_SPEC.md §7)
     _buildRunwaySeries,
     // Money Week story
@@ -16388,6 +16590,9 @@ window.FCApp = (function () {
     // Open URL natively (used by cancel links in Subscription Hunter)
     openUrl: _openUrl,
     closeInAppPage,
+    setHapticsEnabled,
+    hapticsEnabled,
+    _loadHapticPref,
     dismissSheetFrom,
     _openCancelSheet,
     // Transaction detail + edit
