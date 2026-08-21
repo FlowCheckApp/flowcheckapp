@@ -194,11 +194,10 @@
 }
 
 /* Light mode nav — frosted white glass */
-[data-theme="light"] .fc-nav {
-  background: rgba(240, 243, 247, 0.95);
-  border-top-color: rgba(13, 27, 46, 0.09);
-  box-shadow: 0 -1px 0 rgba(13,27,46,0.06), 0 -8px 24px rgba(13,27,46,0.04);
-}
+/* Light mode inherits the canonical bar wholesale: --fc-premium-nav,
+   --fc-premium-border and --fc-premium-shadow are all themed already, so
+   re-stating background/border/shadow here only reintroduced the second
+   source this block was just collapsed out of. */
 /* Light mode nav active tab */
 [data-theme="light"] .fc-nav-item.active { color: var(--fc-accent); }
 [data-theme="light"] .fc-nav-item.active svg {
@@ -669,23 +668,55 @@ body.fc-theme {
 /* ============================================================
    Bottom navigation — premium glass bar with content fade
    ============================================================ */
+/* ★ CANONICAL BOTTOM NAV ★ — the ONLY .fc-nav box definition in the app.
+   Read this before restyling the tab bar.
+
+   There were SEVEN, across all three stylesheets: design-system had three,
+   fc-screens one, fc-premium-screens three. They set min-height to 66px,
+   then 58px, then 74px — each with !important, each overriding the last —
+   and padding, background and border three times over. The bar you actually
+   saw was whichever file happened to load last, and nothing in review shows
+   that, because every one of the seven reads as reasonable on its own.
+
+   The active-item indicator went through the same thing: a 50x30 pill behind
+   the icon, then an 18x2 line above it, then a size change. The line won. It
+   is written out below as one state rather than three layers cancelling.
+
+   If you need to change the bar, change it HERE. */
 .fc-nav {
   position: fixed;
-  bottom: 0; left: 0; right: 0;
-  /* Slightly more transparent so the blur shows through */
-  background: rgba(4, 9, 18, 0.82);
-  -webkit-backdrop-filter: saturate(220%) blur(32px);
-  backdrop-filter: saturate(220%) blur(32px);
-  /* Top edge: thin accent-tinted line for a premium seam */
-  border-top: 0.5px solid rgba(26, 196, 240, 0.12);
-  padding: 6px 0 calc(env(safe-area-inset-bottom) + 4px);
+  left: 12px; right: 12px;
+  bottom: calc(env(safe-area-inset-bottom) + 8px);
+  min-height: 74px;
+  padding: 7px 5px;
   display: grid;
   grid-template-columns: repeat(5, 1fr);
+  background: var(--fc-premium-nav);
+  -webkit-backdrop-filter: saturate(180%) blur(30px);
+  backdrop-filter: saturate(180%) blur(30px);
+  border: 1px solid var(--fc-premium-border);
+  border-radius: 23px;
+  box-shadow: var(--fc-premium-shadow);
   z-index: 50;
   transform: translateZ(0);
   -webkit-transform: translateZ(0);
   will-change: transform;
   isolation: isolate;
+}
+
+/* The bar floats, so content scrolls through the strip beneath it — 8px in
+   the browser, but 8px PLUS the home-indicator inset on a real iPhone, which
+   is a 42px band of live content sliding along under the tab bar. This fills
+   only that strip, below the bar's bottom edge, so the glass still has real
+   content to blur along its top edge. */
+body[data-screen="app"]::after {
+  content: "";
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  height: calc(env(safe-area-inset-bottom) + 9px);
+  background: var(--fc-bg);
+  z-index: 49;
+  pointer-events: none;
 }
 
 .fc-nav-item {
@@ -725,27 +756,29 @@ body.fc-theme {
 }
 .fc-nav-item:active { transform: scale(0.90); }
 
-/* Floating pill — scales in behind the active icon */
+/* Active indicator: a short line along the bar's top edge, scaling in from
+   the centre. It was a 50x30 pill behind the icon; a later file overrode it
+   to 18x2 without deleting the pill, so both rules ran and the winner was
+   decided by load order. This is the surviving design, stated once. */
 .fc-nav-item::before {
   content: '';
   position: absolute;
-  top: 5px;
+  top: 0;
   left: 50%;
-  transform: translateX(-50%) scale(0.4);
-  width: 50px;
-  height: 30px;
-  border-radius: var(--fc-r-md);
-  background: transparent;
-  transition: background 0.28s var(--fc-ease-out),
+  transform: translateX(-50%) scaleX(0);
+  width: 18px;
+  height: 2px;
+  border-radius: var(--fc-r-pill);
+  background: var(--fc-accent);
+  opacity: 0;
+  transition: opacity 0.24s var(--fc-ease-out),
               transform 0.32s var(--fc-ease-spring);
   pointer-events: none;
   z-index: 0;
 }
 .fc-nav-item.active::before {
-  background: rgba(26, 196, 240, 0.14);
-  transform: translateX(-50%) scale(1);
-  box-shadow: 0 0 18px rgba(26,196,240,0.10),
-              inset 0 1px 0 rgba(26,196,240,0.08);
+  transform: translateX(-50%) scaleX(1);
+  opacity: 1;
 }
 
 /* ============================================================
@@ -1018,11 +1051,6 @@ body.fc-theme {
 }
 
 /* ── Bottom nav — stronger glass seam ───────────────────────── */
-.fc-nav {
-  border-top: 0.5px solid rgba(26,196,240,0.15);
-  box-shadow: 0 -1px 0 rgba(0,0,0,0.25), 0 -16px 32px rgba(0,0,0,0.18);
-}
-
 /* ── Header — stronger glass ─────────────────────────────────── */
 .fc-header {
   background: rgba(6,14,24,0.78);
@@ -3143,13 +3171,6 @@ body.fc-theme,
   box-shadow: var(--fc-shadow-sm);
 }
 
-.fc-nav {
-  background: var(--fc-glass);
-  border-top-color: var(--fc-border);
-  box-shadow: var(--fc-shadow-sm);
-  padding-top: 5px;
-}
-
 .fc-nav-item {
   min-height: 52px;
   gap: 3px;
@@ -3172,14 +3193,6 @@ body.fc-theme,
   transform: translateY(-1px);
 }
 
-.fc-nav-item.active::before {
-  top: 0;
-  width: 18px;
-  height: 2px;
-  background: var(--fc-accent);
-  border-radius: var(--fc-r-pill);
-  box-shadow: none;
-}
 
 button:focus-visible,
 a[role="tab"]:focus-visible,

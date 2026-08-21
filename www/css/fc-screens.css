@@ -476,12 +476,6 @@ body.fc-theme .fc-header-avatar {
   cursor: pointer;
 }
 
-body.fc-theme .fc-nav {
-  background: var(--fc-glass);
-  border-top: 1px solid var(--fc-border);
-  box-shadow: 0 -8px 24px var(--fc-bg);
-}
-
 /* ============================================================
    Home — Phase 2
    ============================================================ */
