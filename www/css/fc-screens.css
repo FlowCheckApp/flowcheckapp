@@ -3934,3 +3934,46 @@ body.fc-theme .fc-header-avatar {
 }
 .pc-empty { margin: 6px 0 0; font-size: 13px; color: var(--fc-text-muted); }
 .pc-edit { width: 100%; margin-top: 16px; }
+
+/* ── Merchant logo tile ────────────────────────────────────────────────
+   Plaid's logos are square marks, very often a dark wordmark on a
+   transparent ground — on this navy background those would simply vanish.
+   They sit on a white chip for the same reason every other finance app does
+   it: brand marks are drawn to be seen on white, and inverting or tinting
+   them is worse than giving them the ground they expect.
+
+   The image is layered OVER the drawn fallback rather than replacing it, so
+   `onerror="this.remove()"` reveals what was already underneath — no broken
+   glyph, no empty square, no second request. */
+.fc-txn-icon {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fc-txn-logo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 4px;
+  background: #fff;
+  border-radius: inherit;
+}
+
+/* A brand we know the colour of but Plaid has no logo for. The initial on
+   the real brand colour still reads as that brand at this size. */
+.fc-txn-initial {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}

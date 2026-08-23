@@ -109,6 +109,94 @@ window.FCApp = (function () {
       +'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+path+'</svg>';
   }
 
+  /* ── Merchant logos ───────────────────────────────────────────────
+     Plaid enriches transactions with a merchant logo and the sync path has
+     been storing it as `logo_url` all along. Nothing rendered it: the helper
+     that did lived INSIDE _renderHomeDashboard, where nothing could call it,
+     so every row fell through to a category emoji. Same reachability failure
+     as the debt-progress card.
+
+     Only Plaid-hosted URLs are loaded. Plaid already holds the transaction,
+     so fetching a logo from them discloses nothing new — but a URL pointing
+     at the merchant's own server would tell that merchant this user exists,
+     which is a spending disclosure the app must not make for decoration. */
+  function _txnLogoSrc(t) {
+    const url = t && t.logo_url;
+    if (!url || typeof url !== 'string') return '';
+    if (/^data:image\//i.test(url)) return url;   // never leaves the device
+    try {
+      const u = new URL(url);
+      if (u.protocol !== 'https:') return '';
+      return (u.hostname === 'plaid.com' || u.hostname.endsWith('.plaid.com')) ? url : '';
+    } catch (_) { return ''; }
+  }
+
+  /* Brand colours for merchants Plaid has no logo for — an initial on the
+     real brand colour still reads as that brand at 36px. */
+  const _MBRAND = {
+    // Food & coffee
+    starbucks: { bg:'#00704A', fg:'#fff' }, chipotle: { bg:'#A81612', fg:'#fff' },
+    mcdonald:  { bg:'#FFC72C', fg:'#27251F' }, doordash: { bg:'#FF3008', fg:'#fff' },
+    grubhub:   { bg:'#F63440', fg:'#fff' }, subway:   { bg:'#009B48', fg:'#fff' },
+    chickfil:  { bg:'#E4182D', fg:'#fff' }, tacobell: { bg:'#702082', fg:'#fff' },
+    domino:    { bg:'#006491', fg:'#fff' }, pizzahut: { bg:'#EE3224', fg:'#fff' },
+    panera:    { bg:'#74AA50', fg:'#fff' }, dunkin:   { bg:'#FF671F', fg:'#fff' },
+    wendys:    { bg:'#E2203B', fg:'#fff' }, burgerking:{ bg:'#D62300', fg:'#fff' },
+    chilis:    { bg:'#B51919', fg:'#fff' },
+    // Retail & grocery
+    amazon:    { bg:'#FF9900', fg:'#131921' }, walmart: { bg:'#0071CE', fg:'#fff' },
+    target:    { bg:'#CC0000', fg:'#fff' }, costco:   { bg:'#005DAA', fg:'#fff' },
+    wholefood: { bg:'#00674B', fg:'#fff' }, instacart: { bg:'#43B02A', fg:'#fff' },
+    bestbuy:   { bg:'#1F49A0', fg:'#FFE000' }, homedepot: { bg:'#F96302', fg:'#fff' },
+    lowes:     { bg:'#004990', fg:'#fff' }, tjmaxx:   { bg:'#CC0000', fg:'#fff' },
+    nordstrom: { bg:'#1B1B1B', fg:'#fff' }, macys:    { bg:'#CC0000', fg:'#fff' },
+    gap:       { bg:'#1C2B4B', fg:'#fff' }, nike:     { bg:'#111',    fg:'#fff' },
+    cvs:       { bg:'#CC0000', fg:'#fff' }, walgreen: { bg:'#E31837', fg:'#fff' },
+    // Gas & auto
+    shell:     { bg:'#FFCC00', fg:'#CC0000' }, chevron: { bg:'#0056A2', fg:'#fff' },
+    exxon:     { bg:'#CC0000', fg:'#fff' }, bp:       { bg:'#3E9A54', fg:'#fff' },
+    // Tech & streaming
+    apple:     { bg:'#2C2C2C', fg:'#fff' }, netflix:  { bg:'#E50914', fg:'#fff' },
+    spotify:   { bg:'#1DB954', fg:'#fff' }, hulu:     { bg:'#1CE783', fg:'#000' },
+    disney:    { bg:'#0063E5', fg:'#fff' }, youtube:  { bg:'#FF0000', fg:'#fff' },
+    google:    { bg:'#4285F4', fg:'#fff' }, microsoft: { bg:'#00A4EF', fg:'#fff' },
+    zoom:      { bg:'#2D8CFF', fg:'#fff' }, adobe:    { bg:'#FF0000', fg:'#fff' },
+    dropbox:   { bg:'#0061FF', fg:'#fff' },
+    // Travel & transport
+    uber:      { bg:'#000',    fg:'#fff' }, lyft:     { bg:'#FF00BF', fg:'#fff' },
+    airbnb:    { bg:'#FF5A5F', fg:'#fff' }, expedia:  { bg:'#FFC425', fg:'#1E1E1E' },
+    delta:     { bg:'#003366', fg:'#fff' }, southwest: { bg:'#CC1E2C', fg:'#fff' },
+    // Finance & payments
+    paypal:    { bg:'#003087', fg:'#fff' }, venmo:    { bg:'#3D95CE', fg:'#fff' },
+    cashapp:   { bg:'#00D632', fg:'#111' }, zelle:    { bg:'#6B1BE3', fg:'#fff' },
+    chase:     { bg:'#117ACA', fg:'#fff' }, amex:     { bg:'#016FD0', fg:'#fff' },
+  };
+
+  function _txnBrand(t) {
+    const raw = ((t && (t.merchant_name || t.name)) || '').toLowerCase();
+    for (const key in _MBRAND) if (raw.includes(key)) return _MBRAND[key];
+    return null;
+  }
+
+  /* The complete tile: logo over a drawn fallback. The image is layered ON
+     TOP rather than swapped in, so a logo that 404s removes itself and what
+     was already behind it shows — no broken-image glyph, no empty square. */
+  function _txnIconTile(t, fallbackHTML, fallbackBg) {
+    const src   = _txnLogoSrc(t);
+    const brand = src ? null : _txnBrand(t);
+    const inner = brand
+      ? '<span class="fc-txn-initial" style="background:' + brand.bg + ';color:' + brand.fg + '">'
+        + esc(((t.merchant_name || t.name || '?').charAt(0) || '?').toUpperCase()) + '</span>'
+      : fallbackHTML;
+    return '<div class="fc-list-icon fc-txn-icon" style="background:' + fallbackBg + '">'
+      + inner
+      + (src
+          ? '<img class="fc-txn-logo" src="' + esc(src) + '" alt="" loading="lazy" decoding="async"'
+            + ' onerror="this.remove()">'
+          : '')
+      + '</div>';
+  }
+
   // Shared bill-category icon — one mapping for Home, Plan, Activity, and Bills hub
   function _billIcon(nameOrBill, color, size) {
     const n = String((nameOrBill && nameOrBill.name) || (nameOrBill && nameOrBill.category) || nameOrBill || '').toLowerCase();
@@ -4828,64 +4916,6 @@ window.FCApp = (function () {
       .replace(/\bTARGET\b/i, 'Target')
       .replace(/\bCOSTCO\b/i, 'Costco')
       .trim());
-    const _MBRAND = {
-      // Food & coffee
-      starbucks: { bg:'#00704A', fg:'#fff' }, chipotle: { bg:'#A81612', fg:'#fff' },
-      mcdonald:  { bg:'#FFC72C', fg:'#27251F' }, doordash: { bg:'#FF3008', fg:'#fff' },
-      grubhub:   { bg:'#F63440', fg:'#fff' }, subway:   { bg:'#009B48', fg:'#fff' },
-      chickfil:  { bg:'#E4182D', fg:'#fff' }, tacobell: { bg:'#702082', fg:'#fff' },
-      domino:    { bg:'#006491', fg:'#fff' }, pizzahut: { bg:'#EE3224', fg:'#fff' },
-      panera:    { bg:'#74AA50', fg:'#fff' }, dunkin:   { bg:'#FF671F', fg:'#fff' },
-      wendys:    { bg:'#E2203B', fg:'#fff' }, burgerking:{ bg:'#D62300', fg:'#fff' },
-      chilis:    { bg:'#B51919', fg:'#fff' },
-      // Retail & grocery
-      amazon:    { bg:'#FF9900', fg:'#131921' }, walmart: { bg:'#0071CE', fg:'#fff' },
-      target:    { bg:'#CC0000', fg:'#fff' }, costco:   { bg:'#005DAA', fg:'#fff' },
-      wholefood: { bg:'#00674B', fg:'#fff' }, instacart: { bg:'#43B02A', fg:'#fff' },
-      bestbuy:   { bg:'#1F49A0', fg:'#FFE000' }, homedepot: { bg:'#F96302', fg:'#fff' },
-      lowes:     { bg:'#004990', fg:'#fff' }, tjmaxx:   { bg:'#CC0000', fg:'#fff' },
-      nordstrom: { bg:'#1B1B1B', fg:'#fff' }, macys:    { bg:'#CC0000', fg:'#fff' },
-      gap:       { bg:'#1C2B4B', fg:'#fff' }, nike:     { bg:'#111',    fg:'#fff' },
-      cvs:       { bg:'#CC0000', fg:'#fff' }, walgreen: { bg:'#E31837', fg:'#fff' },
-      // Gas & auto
-      shell:     { bg:'#FFCC00', fg:'#CC0000' }, chevron: { bg:'#0056A2', fg:'#fff' },
-      exxon:     { bg:'#CC0000', fg:'#fff' }, bp:       { bg:'#3E9A54', fg:'#fff' },
-      // Tech & streaming
-      apple:     { bg:'#2C2C2C', fg:'#fff' }, netflix:  { bg:'#E50914', fg:'#fff' },
-      spotify:   { bg:'#1DB954', fg:'#fff' }, hulu:     { bg:'#1CE783', fg:'#000' },
-      disney:    { bg:'#0063E5', fg:'#fff' }, youtube:  { bg:'#FF0000', fg:'#fff' },
-      google:    { bg:'#4285F4', fg:'#fff' }, microsoft: { bg:'#00A4EF', fg:'#fff' },
-      zoom:      { bg:'#2D8CFF', fg:'#fff' }, adobe:    { bg:'#FF0000', fg:'#fff' },
-      dropbox:   { bg:'#0061FF', fg:'#fff' },
-      // Travel & transport
-      uber:      { bg:'#000',    fg:'#fff' }, lyft:     { bg:'#FF00BF', fg:'#fff' },
-      airbnb:    { bg:'#FF5A5F', fg:'#fff' }, expedia:  { bg:'#FFC425', fg:'#1E1E1E' },
-      delta:     { bg:'#003366', fg:'#fff' }, southwest: { bg:'#CC1E2C', fg:'#fff' },
-      // Finance & payments
-      paypal:    { bg:'#003087', fg:'#fff' }, venmo:    { bg:'#3D95CE', fg:'#fff' },
-      cashapp:   { bg:'#00D632', fg:'#111' }, zelle:    { bg:'#6B1BE3', fg:'#fff' },
-      chase:     { bg:'#117ACA', fg:'#fff' }, amex:     { bg:'#016FD0', fg:'#fff' },
-    };
-    const _txnLogoHTML = txn => {
-      if (txn.logo_url) return '<img src="' + esc(txn.logo_url) + '" class="dash-txn-logo" alt="" loading="lazy">';
-      const raw = (txn.merchant_name || txn.name || '').toLowerCase();
-      for (const [key, c] of Object.entries(_MBRAND)) {
-        if (raw.includes(key)) {
-          const letter = (txn.merchant_name || txn.name || '?').charAt(0).toUpperCase();
-          return '<span class="dash-txn-initial" style="background:' + c.bg + ';color:' + c.fg + '">' + letter + '</span>';
-        }
-      }
-      if (_isIncomeTxn(txn)) return '<span class="dash-txn-cat dash-txn-cat--income">↑</span>';
-      const catRaw = (Array.isArray(txn.category) ? txn.category[0] : txn.category || '').toLowerCase();
-      if (/food|restaurant|dining|coffee/.test(catRaw) || /coffee|starbucks|chipotle|mcdonald|restaurant/.test(raw)) return '<span class="dash-txn-cat">☕</span>';
-      if (/shop|retail|merchand/.test(catRaw) || /amazon|walmart|target|costco/.test(raw)) return '<span class="dash-txn-cat">🛍️</span>';
-      if (/travel|transport|uber|lyft|transit/.test(catRaw) || /uber|lyft|transit/.test(raw)) return '<span class="dash-txn-cat">🚗</span>';
-      if (/entertain|stream/.test(catRaw) || /netflix|spotify|hulu|disney/.test(raw)) return '<span class="dash-txn-cat">🎬</span>';
-      if (/medical|health|pharmacy/.test(catRaw)) return '<span class="dash-txn-cat">💊</span>';
-      if (/gas|fuel|shell|chevron|exxon/.test(raw)) return '<span class="dash-txn-cat">⛽</span>';
-      const letter = (txn.merchant_name || txn.name || '?').charAt(0).toUpperCase();
-      return '<span class="dash-txn-initial" style="background:var(--fc-accent-soft);color:var(--fc-accent)">' + letter + '</span>';
-    };
     // ── Premium dashboard section helpers ──────────────────────
     const dueLabelFull = bill => {
       const days = FCData.daysUntil(bill.due_date);
@@ -5272,7 +5302,9 @@ window.FCApp = (function () {
           : '';
         return `
           <div class="fc-list-item" style="cursor:pointer" onclick="FCApp.openTransactionDetail('${esc(t.id)}')" role="button">
-            <div class="fc-list-icon" style="background:${isEmojiIcon ? FCData.categoryColor(rawCat) + '22' : FCData.categoryColor(rawCat)};font-size:${isEmojiIcon ? '20px' : '15px'};font-weight:${isEmojiIcon ? '400' : '700'};color:white">${emoji}</div>
+            ${_txnIconTile(t,
+                `<span style="font-size:${isEmojiIcon ? '20px' : '15px'};font-weight:${isEmojiIcon ? '400' : '700'};color:white">${emoji}</span>`,
+                isEmojiIcon ? FCData.categoryColor(rawCat) + '22' : FCData.categoryColor(rawCat))}
             <div class="fc-list-body">
               <div class="fc-list-title">${esc(displayName)}${editedDot}</div>
               <div class="fc-list-meta">${esc(cat)}${txDate ? ' · ' + txDate : ''}</div>
