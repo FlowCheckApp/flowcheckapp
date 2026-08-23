@@ -109,6 +109,23 @@ window.FCApp = (function () {
       +'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+path+'</svg>';
   }
 
+  /* Does this transaction name one of the user's own accounts? Masks are
+     the last four digits the bank prints, and they are already on every
+     account record. Guarded to 3+ digits so a stray "12" cannot match half
+     the statement, and to whole numbers so mask 0572 does not match an
+     amount like 105728. */
+  function _namesOwnAccount(t) {
+    const name = String((t && (t.name || t.merchant_name)) || '');
+    if (!name) return false;
+    const accts = state.accounts || [];
+    for (const a of accts) {
+      const mask = String(a.mask || '').trim();
+      if (mask.length < 3) continue;
+      if (new RegExp('(?<![0-9])' + mask + '(?![0-9])').test(name)) return true;
+    }
+    return false;
+  }
+
   /* ── Merchant logos ───────────────────────────────────────────────
      Plaid enriches transactions with a merchant logo and the sync path has
      been storing it as `logo_url` all along. Nothing rendered it: the helper
@@ -5301,7 +5318,6 @@ window.FCApp = (function () {
     let renderedCount = 0;
     let truncated = false;
 
-    const chevronSvg = `<svg class="fc-list-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>`;
 
     // allGroups is already an ordered array of [label, txns] pairs — do NOT
     // wrap it in Object.entries(), which is what used to discard the order.
@@ -5326,23 +5342,30 @@ window.FCApp = (function () {
         const isEmojiIcon = emoji.length <= 2 && isNaN(emoji);
         /* Moving your own money is neither earning nor spending, and paint
            decides how a list reads before any word does. Six of the seven
-           rows on a real Aug 17 were internal transfers, every one of them
-           green or red — the day looked like a torrent of income and
-           spending when almost none of it left the user's own accounts.
+           rows on a real Aug 17 were internal transfers, every one green or
+           red — the day looked like a torrent of income and spending when
+           almost none of it left the user's own accounts.
 
-           The sign stays, because direction is still worth seeing. Only the
-           colour goes neutral, which lets the genuine spending on the same
-           day carry the red on its own.
+           But "category says transfer" is the wrong test, and greying those
+           out cost a paycheck its green: Plaid files many real direct
+           deposits under TRANSFER_IN, which is exactly why isIncomeTxn
+           counts them as income. A demo Salary of $3,200 went neutral.
 
-           This is display only. isIncomeTxn deliberately counts TRANSFER_IN
-           as income — Plaid files many real direct deposits there, and a
-           whitelist drops paychecks — so the arithmetic is untouched. */
-        const isXfer = /transfer/.test(FCData.normalizePlaidCategory(rawCat).toLowerCase());
+           The precise signal is the counterparty. An INTERNAL transfer names
+           an account the user owns — "Transfer From Checking 1271",
+           "Transfer To Online Savings 0572" — and those masks are on the
+           account records already. A payroll deposit names an employer and
+           matches nothing. So: transfer category AND a mask we recognise.
+           No match, and it keeps its colour, which fails toward the louder
+           reading rather than hiding real money.
+
+           Display only — no arithmetic changes. */
+        const isXfer = /transfer/.test(FCData.normalizePlaidCategory(rawCat).toLowerCase())
+          && _namesOwnAccount(t);
         const color  = isXfer ? 'var(--fc-text-muted)'
                      : t.isCredit ? 'var(--fc-success)' : 'var(--fc-danger)';
         const sign   = t.isCredit ? '+' : '−';
         const displayName = _cleanTxnName(t);
-        const txDate = t.date ? FCData.parseDateLocal(t.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
         const editedDot = t._edited
           ? '<span style="width:5px;height:5px;background:var(--fc-accent);border-radius:50%;display:inline-block;margin-left:4px;vertical-align:middle"></span>'
           : '';
@@ -5353,11 +5376,10 @@ window.FCApp = (function () {
                 isEmojiIcon ? FCData.categoryColor(rawCat) + '22' : FCData.categoryColor(rawCat))}
             <div class="fc-list-body">
               <div class="fc-list-title">${esc(displayName)}${editedDot}</div>
-              <div class="fc-list-meta">${esc(cat)}${txDate ? ' · ' + txDate : ''}</div>
+              <div class="fc-list-meta">${esc(cat)}</div>
             </div>
             <div class="fc-list-right">
               <div class="fc-list-amount" style="color:${color}">${sign}${FCData.formatCurrency(t.amount)}</div>
-              ${chevronSvg}
             </div>
           </div>`;
       }).join('');
@@ -8074,8 +8096,10 @@ window.FCApp = (function () {
     // New in/out row elements
     const inAmtEl  = document.getElementById('act-in-amount');
     const outAmtEl = document.getElementById('act-out-amount');
-    if (inAmtEl)  inAmtEl.textContent  = FCData.formatCurrency(thisIncome);
-    if (outAmtEl) outAmtEl.textContent = FCData.formatCurrency(thisSpend);
+    /* Headline figures on a summary card — whole dollars, like every other
+       scanned total. These were missed in the formatSummary sweep. */
+    if (inAmtEl)  inAmtEl.textContent  = FCData.formatSummary(thisIncome);
+    if (outAmtEl) outAmtEl.textContent = FCData.formatSummary(thisSpend);
     if (cashflowEl) {
       cashflowEl.textContent  = (cashFlow >= 0 ? '+' : '−') + FCData.formatCurrency(Math.abs(cashFlow));
       cashflowEl.style.color  = cashFlow >= 0 ? 'var(--fc-success)' : 'var(--fc-danger)';
@@ -8084,8 +8108,12 @@ window.FCApp = (function () {
     if (labelEl)    labelEl.textContent = _actSummaryPeriod === 'M' ? 'Last 30 Days' : _actSummaryPeriod === '6M' ? 'Last 6 Months' : 'Last 12 Months';
 
     if (deltaEl && spendDelta !== null) {
+      /* Name what moved. This sits directly under a row showing income AND
+         spending, and read "↑ 110% vs last period" — which of the two was
+         up was left to the reader, with only the red to hint at it. It has
+         always been spendDelta. */
       const up = spendDelta > 0;
-      deltaEl.textContent = (up ? '↑ ' : '↓ ') + Math.abs(spendDelta) + '% vs last period';
+      deltaEl.textContent = 'Spending ' + (up ? '↑ ' : '↓ ') + Math.abs(spendDelta) + '% vs last period';
       deltaEl.style.color = up ? 'var(--fc-danger)' : 'var(--fc-success)';
       deltaEl.style.display = '';
     } else if (deltaEl) {

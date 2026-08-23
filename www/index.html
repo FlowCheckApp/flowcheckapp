@@ -5160,7 +5160,7 @@ body:not(.keyboard-open) .fc-sheet {
        Tightened from 18px/0 to 13px/7px: Activity spends six stacked bands
        before the first transaction, and this is the cheapest of them to give
        back. */
-    .act-header{display:flex;align-items:flex-end;justify-content:space-between;padding:13px 20px 7px}
+    .act-header{display:flex;align-items:flex-end;justify-content:space-between;padding:8px 20px 10px}
     /* .act-title styling → CANONICAL SCREEN CHROME (flowcheck-design-system.css) */
     .act-subtitle{font-size:14px;font-weight:400;color:rgba(255,255,255,0.44);padding:5px 20px 0;line-height:1.4}
 
@@ -5215,8 +5215,11 @@ body:not(.keyboard-open) .fc-sheet {
     .act-segment-wrap{padding:12px 16px 0}
 
     /* This Month summary card */
+    /* Orientation above a list, not a dashboard. Every point this card
+       takes is a transaction the user did not see: Activity opened with
+       531 of 874 points spent before the first row, showing 4 of 27. */
     .act-summary-card{
-      margin:12px 16px 0;padding:18px 20px 16px;
+      margin:10px 16px 0;padding:12px 16px 12px;
       background:rgba(255,255,255,0.05);border:0.5px solid rgba(255,255,255,0.09);
       border-radius:var(--fc-r-xl);box-shadow:0 4px 16px rgba(0,0,0,0.18);
     }
@@ -5255,7 +5258,11 @@ body:not(.keyboard-open) .fc-sheet {
     .act-summary-metric-val{font-size:13px;font-weight:600;color:#fff;font-variant-numeric:tabular-nums;letter-spacing:-0.01em}
     /* Line chart */
     .act-summary-chart{margin-top:10px;position:relative;overflow:hidden}
-    .act-chart-labels{display:flex;justify-content:space-between;margin-top:5px;padding:0 2px}
+    /* Hidden, not deleted: _renderActivity still fills #act-chart-labels,
+       and the element has to stay in the DOM or that write throws. Six date
+       stamps under a 52px sparkline are decoration anyway — the M/6M/Y
+       control directly above already says what window this is. */
+    .act-chart-labels{display:none}
     .act-chart-lbl{font-size:10px;color:rgba(255,255,255,0.32);font-weight:500}
     .act-chart-lbl.now{color:var(--fc-accent);font-weight:700}
 
@@ -5828,15 +5835,14 @@ body:not(.keyboard-open) .fc-sheet {
          and the nav lights Money while you are here. It rendered a full page
          header with no way out, so the only exit was to guess which nav item
          to press. Same control as every other pushed screen. -->
-    <div class="act-backrow"><button type="button" class="fc-sub-back" onclick="FCApp._backToParent()" aria-label="Back"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>Back</button></div>
-
-    <!-- Title -->
-    <div class="act-header">
-      <h1 class="act-title">Activity</h1>
-      <!-- Actions live on the title line so the search field does not need a
-           permanent band of its own. Filter moved up here with it: collapsing
-           the row would otherwise have taken the filter sheet's only entry
-           point down with the search box. -->
+    <!-- Back and the actions share one bar, the way a nav bar works. They
+         were two stacked rows — 55px for a lone Back, then 90px for the
+         title and its buttons — on a screen that already spent 531 of 874
+         points on chrome before the first transaction, showing 4 of 27.
+         The back control keeps chevron + the word "Back" per the one rule
+         the app has for a push. -->
+    <div class="act-navbar">
+      <button type="button" class="fc-sub-back" onclick="FCApp._backToParent()" aria-label="Back"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>Back</button>
       <div class="act-header-actions">
         <button id="activity-search-toggle" class="act-filter-btn" type="button"
                 onclick="FCApp.toggleActivitySearch()" aria-label="Search transactions" aria-expanded="false">
@@ -5848,6 +5854,10 @@ body:not(.keyboard-open) .fc-sheet {
         <button id="activity-add-bill-btn" class="fc-iconbtn" onclick="FCApp.showBillSheet()" type="button"
                 aria-label="Add bill" style="display:none;width:36px;height:36px;background:rgba(26,196,240,0.12);color:var(--fc-accent);border-radius:var(--fc-r-sm);font-size:20px;line-height:1;border:0.5px solid rgba(26,196,240,0.22)">+</button>
       </div>
+    </div>
+
+    <div class="act-header">
+      <h1 class="act-title">Activity</h1>
     </div>
 
     <!-- Search + filter button -->

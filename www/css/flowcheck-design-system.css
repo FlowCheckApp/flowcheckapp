@@ -3698,6 +3698,14 @@ a[role="tab"]:focus-visible,
   line-height: 1.15 !important;
   letter-spacing: -0.02em !important;
   color: var(--fc-text) !important;
+  /* Some of these are <h1> and some are <div>, and only the h1s were
+     carrying the browser's default 0.67em margin — 37.5px at this size.
+     On Activity that inflated the title band from 52px to 90px on a screen
+     already spending 531 of 874 points before the first transaction.
+     Zeroing it here is what makes the treatment identical whatever element
+     it lands on, which is the point of a canonical block. Surrounding
+     padding is the layout's job, not the heading's. */
+  margin: 0 !important;
 }
 .wv-panel-sub,
 .wv-page-sub,

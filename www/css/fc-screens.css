@@ -3797,10 +3797,21 @@ body.fc-theme .fc-header-avatar {
 /* Back row for a parented view (Activity, More). These are pushes with no
    slot in the tab bar, so they carry the same chevron + "Back" as every
    other pushed screen; the row only supplies its position above the title. */
+/* Activity's nav bar: back on the left, actions on the right, one band.
+   .act-backrow stays for the other parented views (More, Insights), which
+   have no actions to pair the back control with. */
 .act-backrow {
   padding: 10px 20px 0;
   display: flex;
   align-items: center;
+}
+
+.act-navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 20px 0;
 }
 
 /* ── Plan › Paycheck card ──────────────────────────────────────────────
