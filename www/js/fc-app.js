@@ -165,16 +165,47 @@ window.FCApp = (function () {
     // Travel & transport
     uber:      { bg:'#000',    fg:'#fff' }, lyft:     { bg:'#FF00BF', fg:'#fff' },
     airbnb:    { bg:'#FF5A5F', fg:'#fff' }, expedia:  { bg:'#FFC425', fg:'#1E1E1E' },
-    delta:     { bg:'#003366', fg:'#fff' }, southwest: { bg:'#CC1E2C', fg:'#fff' },
+    /* No `delta` key: it matches "Delta Dental", which is dental insurance,
+       not the airline. Air travel is infrequent and the category icon covers
+       it; miscolouring a recurring insurance payment is the worse trade. */
+    southwest: { bg:'#CC1E2C', fg:'#fff' },
     // Finance & payments
     paypal:    { bg:'#003087', fg:'#fff' }, venmo:    { bg:'#3D95CE', fg:'#fff' },
     cashapp:   { bg:'#00D632', fg:'#111' }, zelle:    { bg:'#6B1BE3', fg:'#fff' },
     chase:     { bg:'#117ACA', fg:'#fff' }, amex:     { bg:'#016FD0', fg:'#fff' },
   };
 
+  /* Whole-word match, against the CLEANED name.
+
+     A plain substring test over the raw bank string was catastrophically
+     loose, because several brand keys are common English fragments:
+
+       "DEBIT PURCHASE ANTHROPIC"  contains "chase"  -> Chase blue
+       "POS PURCHASE RAILWAY"      contains "chase"  -> Chase blue
+       "SQ *SINGAPORE NOODLE"      contains "gap"    -> Gap navy
+
+     Every card purchase on the statement says PURCHASE, so on a real
+     account five unrelated merchants all rendered as an identical blue
+     tile — lettered from the raw string, so they read "D" for DEBIT
+     rather than anything to do with the merchant.
+
+     How tight the boundary needs to be depends on the key. The short keys
+     are exactly the collision-prone ones, so they must match a WHOLE word:
+     that is what stops "purchase" hitting chase, "singapore" hitting gap,
+     and "Applebee's" hitting apple.
+
+     Longer keys are deliberate prefixes — mcdonald, walgreen, domino — and
+     a trailing \b would stop them matching the plural the merchant
+     actually trades under, so they only need the leading boundary. No
+     English fragment six characters or longer collides with one of them. */
+  const _MBRAND_RE = Object.keys(_MBRAND).map(k => [
+    new RegExp('\\b' + k + (k.length <= 5 ? '\\b' : '')),
+    _MBRAND[k],
+  ]);
+
   function _txnBrand(t) {
-    const raw = ((t && (t.merchant_name || t.name)) || '').toLowerCase();
-    for (const key in _MBRAND) if (raw.includes(key)) return _MBRAND[key];
+    const name = _cleanTxnName(t).toLowerCase();
+    for (const [re, colours] of _MBRAND_RE) if (re.test(name)) return colours;
     return null;
   }
 
@@ -186,7 +217,7 @@ window.FCApp = (function () {
     const brand = src ? null : _txnBrand(t);
     const inner = brand
       ? '<span class="fc-txn-initial" style="background:' + brand.bg + ';color:' + brand.fg + '">'
-        + esc(((t.merchant_name || t.name || '?').charAt(0) || '?').toUpperCase()) + '</span>'
+        + esc(((_cleanTxnName(t) || '?').charAt(0) || '?').toUpperCase()) + '</span>'
       : fallbackHTML;
     return '<div class="fc-list-icon fc-txn-icon" style="background:' + fallbackBg + '">'
       + inner
@@ -5293,7 +5324,22 @@ window.FCApp = (function () {
         const cat    = _prettyCategory(FCData.normalizePlaidCategory(rawCat));
         const emoji  = FCData.categoryEmoji(rawCat, t.name);
         const isEmojiIcon = emoji.length <= 2 && isNaN(emoji);
-        const color  = t.isCredit ? 'var(--fc-success)' : 'var(--fc-danger)';
+        /* Moving your own money is neither earning nor spending, and paint
+           decides how a list reads before any word does. Six of the seven
+           rows on a real Aug 17 were internal transfers, every one of them
+           green or red — the day looked like a torrent of income and
+           spending when almost none of it left the user's own accounts.
+
+           The sign stays, because direction is still worth seeing. Only the
+           colour goes neutral, which lets the genuine spending on the same
+           day carry the red on its own.
+
+           This is display only. isIncomeTxn deliberately counts TRANSFER_IN
+           as income — Plaid files many real direct deposits there, and a
+           whitelist drops paychecks — so the arithmetic is untouched. */
+        const isXfer = /transfer/.test(FCData.normalizePlaidCategory(rawCat).toLowerCase());
+        const color  = isXfer ? 'var(--fc-text-muted)'
+                     : t.isCredit ? 'var(--fc-success)' : 'var(--fc-danger)';
         const sign   = t.isCredit ? '+' : '−';
         const displayName = _cleanTxnName(t);
         const txDate = t.date ? FCData.parseDateLocal(t.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
