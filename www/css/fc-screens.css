@@ -3806,12 +3806,57 @@ body.fc-theme .fc-header-avatar {
   align-items: center;
 }
 
+/* One bar: back, title, actions. Activity was spending four separate
+   bands on chrome — the global FlowCheck header (62), a lone Back (55), the
+   title and its buttons (90), then the segment (51) — before a summary card
+   and only then a transaction. A pushed screen owns its nav bar; it does
+   not stack one on top of the app's.
+
+   The title here is NOT .act-title. That class is the canonical 28px page
+   heading and it belongs on screens that have a heading band. This is a
+   nav-bar title, a different component, and sizing it as one is the point. */
 .act-navbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--fc-bg);
+  border-bottom: 1px solid var(--fc-border);
+}
+
+.act-navbar__back { justify-self: start; }
+
+.act-navbar__title {
+  margin: 0;
+  justify-self: center;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--fc-text);
+  white-space: nowrap;
+}
+
+.act-navbar .act-header-actions {
+  justify-self: end;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 4px 20px 0;
+  gap: 6px;
+}
+
+/* Activity is a push with its own bar, so the app header stands down.
+
+   The specificity here is not decoration. Header visibility is already a
+   two-sided !important fight in this codebase — fc-premium-screens hides
+   `.fc-screen[data-screen="app"] > .fc-header` and fc-screens shows it back
+   with `html body.fc-theme ...`, which wins. Matching that shape and adding
+   the tab attribute is what puts this above both; a plain
+   `body[data-tab] .fc-header` loses silently. */
+html body.fc-theme[data-tab="activity"] .fc-screen[data-screen="app"] > .fc-header {
+  display: none !important;
 }
 
 /* ── Plan › Paycheck card ──────────────────────────────────────────────
@@ -4005,3 +4050,28 @@ body.fc-theme .fc-header-avatar {
   color: var(--fc-warning-text);
   font-weight: 600;
 }
+
+/* ── Day groups: a list, not a stack of cards ──────────────────────────
+   Each day was an .fc-card — 1px border, 14px radius, 20px padding and a
+   7px margin. Six of those down a screen is six framed boxes competing
+   with the rows inside them, and roughly 40 points per group spent on
+   chrome that separates days the date label already separates.
+
+   The label does the separating now and the rows run continuously, which
+   is denser and quieter both. Rows keep their own hairline divider. */
+.act-day {
+  display: block;
+  margin: 0 12px 2px;
+  padding: 0;
+  background: var(--fc-card-bg);
+  border: 1px solid var(--fc-border);
+  border-radius: var(--fc-r-md);
+  overflow: hidden;
+}
+
+.act-day .fc-list-item {
+  padding-left: 14px;
+  padding-right: 14px;
+  border-bottom: 1px solid var(--fc-border);
+}
+.act-day .fc-list-item:last-child { border-bottom: 0; }

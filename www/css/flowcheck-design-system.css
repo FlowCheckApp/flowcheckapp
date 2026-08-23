@@ -727,6 +727,22 @@ body[data-screen="app"]::after {
   pointer-events: none;
 }
 
+/* A scroll container clips at its own edge, so the last visible row was
+   guillotined mid-height on a hard line just above the tab bar. This is the
+   24px immediately ABOVE the bar, and only that: it stops at the bar's top
+   edge so the glass still has real content to blur rather than a flat wash.
+   Content dissolves into the bar instead of being cut off against it. */
+body[data-screen="app"]::before {
+  content: "";
+  position: fixed;
+  left: 0; right: 0;
+  bottom: calc(env(safe-area-inset-bottom) + 8px + 74px);
+  height: 24px;
+  background: linear-gradient(to bottom, transparent, var(--fc-bg));
+  z-index: 49;
+  pointer-events: none;
+}
+
 .fc-nav-item {
   position: relative;
   display: flex;

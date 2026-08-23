@@ -1895,6 +1895,12 @@ window.FCApp = (function () {
       setTimeout(() => target.classList.remove('fc-tab-in'), 200);
     }
 
+    /* Expose the tab on <body> so CSS can react to which screen is up.
+       Activity uses it to drop the global header: it is a pushed screen with
+       its own back control, and stacking two nav bars is 62px of chrome
+       saying nothing twice. */
+    document.body.dataset.tab = tabId;
+
     // ── Nav items ──────────────────────────────────────────────────────────
     const navView = _NAV_PARENT[tabId] || tabId;
     document.querySelectorAll('.fc-nav-item').forEach(item => {
@@ -5371,7 +5377,7 @@ window.FCApp = (function () {
       const netColor = netAmt >= 0 ? 'var(--fc-success)' : 'var(--fc-text-muted)';
 
       html += `<div class="fc-date-label">${label}<span class="fc-date-label-spacer"></span><span class="fc-date-net">Net <span style="color:${netColor}">${netStr}</span></span></div>
-               <article class="fc-card">`;
+               <article class="act-day">`;
 
       html += txns.map(t => {
         const rawCat = (t.category && t.category[0]) || t.category || 'Other';
@@ -8742,7 +8748,18 @@ window.FCApp = (function () {
     const p = document.createElement('p');
     p.className = 'fc-legal-footer';
     p.textContent = 'FlowCheck is not a bank. Not financial advice.';
-    view.appendChild(p);
+    /* Most views scroll as a whole, so appending to the view puts the footer
+       after the content, which is where it belongs. Activity does not: it is
+       a flex column whose list scrolls in an inner panel, so a footer on the
+       view became a fixed 45px band across the bottom and the list clipped
+       mid-row against it.
+
+       A view can nominate the element to host it. Explicit, because guessing
+       the scroll container risks appending into something a renderer
+       overwrites — and a disclaimer CLAUDE.md requires to stay visible is
+       not something to lose to a heuristic. */
+    const host = view.querySelector('[data-legal-host]') || view;
+    host.appendChild(p);
   }
 
   function _openSubScreen(screenId) {

@@ -5842,7 +5842,8 @@ body:not(.keyboard-open) .fc-sheet {
          The back control keeps chevron + the word "Back" per the one rule
          the app has for a push. -->
     <div class="act-navbar">
-      <button type="button" class="fc-sub-back" onclick="FCApp._backToParent()" aria-label="Back"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>Back</button>
+      <button type="button" class="fc-sub-back act-navbar__back" onclick="FCApp._backToParent()" aria-label="Back"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>Back</button>
+      <h1 class="act-navbar__title">Activity</h1>
       <div class="act-header-actions">
         <button id="activity-search-toggle" class="act-filter-btn" type="button"
                 onclick="FCApp.toggleActivitySearch()" aria-label="Search transactions" aria-expanded="false">
@@ -5856,9 +5857,6 @@ body:not(.keyboard-open) .fc-sheet {
       </div>
     </div>
 
-    <div class="act-header">
-      <h1 class="act-title">Activity</h1>
-    </div>
 
     <!-- Search + filter button -->
     <div class="act-search-row">
@@ -5887,7 +5885,7 @@ body:not(.keyboard-open) .fc-sheet {
     </div>
 
     <!-- Transactions panel -->
-    <div id="activity-txns-panel">
+    <div id="activity-txns-panel" data-legal-host>
 
       <!-- This Month summary card -->
       <div id="act-summary-card" class="act-summary-card" style="display:none">

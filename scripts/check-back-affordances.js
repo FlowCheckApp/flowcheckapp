@@ -63,7 +63,12 @@ if (!parentTable) {
     /* The view's own markup, up to the next view. */
     const next = html.indexOf('id="view-', open + 1);
     const block = html.slice(open, next === -1 ? html.length : next);
-    if (!/class="fc-sub-back"/.test(block)) {
+    /* Match the class within a class list, not an exact attribute value.
+       The exact form failed the moment Activity's control gained a second
+       class for its nav-bar position — the control was present, 63x45pt and
+       working, and the check called it missing. A check that fails on
+       correct code teaches people to ignore it. */
+    if (!/class="[^"]*\bfc-sub-back\b[^"]*"/.test(block)) {
       problems.push(
         `view-${view} borrows the "${parentTable[1].match(new RegExp(view + "\\s*:\\s*'(\\w+)'"))?.[1]}" ` +
         `nav highlight but has no .fc-sub-back — it is a push with no way out.`
