@@ -33,6 +33,7 @@
   --fc-warning:         #F59E0B;
   --fc-warning-text:    #B45309;  /* 5.02:1 on white — #F59E0B is 2.15:1 and must never carry text */
   --fc-warning-soft:    rgba(245, 158, 11, 0.10);
+  --fc-warning-border:  rgba(245, 158, 11, 0.22);
   --fc-danger:          #CC1F1F;  /* was #DC2626 — 4.49:1 on the page bg (--fc-bg #f4f7fb), just under AA, and that is where daily net totals sit */
   --fc-danger-soft:     rgba(239, 68, 68, 0.10);
   --fc-danger-border:   rgba(239, 68, 68, 0.22);
@@ -109,6 +110,7 @@
   --fc-warning:         #ff9f0a;
   --fc-warning-text:    #ff9f0a;  /* 9.43:1 on the dark background — already safe */
   --fc-warning-soft:    rgba(255, 159, 10, 0.14);
+  --fc-warning-border:  rgba(255, 159, 10, 0.25);
   --fc-danger:          #ff453a;
   --fc-danger-soft:     rgba(255, 69, 58, 0.14);
   --fc-danger-border:   rgba(255, 69, 58, 0.25);
@@ -158,6 +160,7 @@
   --fc-warning:         #F59E0B;
   --fc-warning-text:    #B45309;  /* 5.02:1 on white — #F59E0B is 2.15:1 and must never carry text */
   --fc-warning-soft:    rgba(245, 158, 11, 0.10);
+  --fc-warning-border:  rgba(245, 158, 11, 0.22);
   --fc-danger:          #CC1F1F;  /* was #DC2626 — 4.49:1 on the page bg (--fc-bg #f4f7fb), just under AA, and that is where daily net totals sit */
   --fc-danger-soft:     rgba(239, 68, 68, 0.10);
   --fc-danger-border:   rgba(239, 68, 68, 0.22);

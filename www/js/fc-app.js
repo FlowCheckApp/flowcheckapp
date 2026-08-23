@@ -8766,12 +8766,33 @@ window.FCApp = (function () {
        card renders its unknown state instead of a false shortfall. */
     const expectedPay = payday && payday.amount > 0 ? payday.amount : 0;
     const payIsEstimated = expectedPay > 0;
+    /* The window this paycheck is responsible for: from the day it LANDS to
+       the day the next one does.
+
+       It used to be `0 … payday.days` — everything due between today and the
+       cheque. That is a different question, and it is the one Home already
+       answers ("can I make it to payday on the cash I have"). Applied here it
+       is a category error: it took the bills you must pay OUT OF CURRENT CASH
+       before the cheque arrives, and divided them by the cheque.
+
+       On a real account that produced "Expected $800 / Assigned $2,491 /
+       Short $1,691" sitting directly beneath a month card reading
+       "LEFT OVER +$1,008". Both were computed from the same data; only one
+       could be true. The bills were due on days 4, 9 and 11 and the paycheck
+       landed on day 13, so it could not have covered any of them.
+
+       This card has manufactured a false shortfall once before — see the
+       note on expectedPay above, where the divisor was whatever income
+       happened to land last. Same symptom, second cause. */
+    const CYCLE_DAYS = { weekly: 7, biweekly: 14, semimonthly: 15, monthly: 30 };
+    const payCycle = CYCLE_DAYS[payday && payday.cadence] || 14;
     // Math.max(1, …): days is 0 on payday itself, and a 0-day bill window
     // would show an empty paycheck plan on the very day it matters most.
-    const payWindow = payday ? Math.max(1, payday.days) : 14;
+    const payStart = payday ? Math.max(0, payday.days) : 0;
+    const payEnd   = payStart + payCycle;
     const payBills = allUnpaidBills.filter(b => {
       const d = FCData.daysUntil(b.due_date);
-      return d !== null && d >= 0 && d <= payWindow;
+      return d !== null && d > payStart && d <= payEnd;
     });
     /* Rounded per bill, not rounded at the end. Every row on this card prints
        to the dollar and Assigned is their sum, so summing the same rounded
@@ -8795,12 +8816,45 @@ window.FCApp = (function () {
     const PER_MONTH = { weekly: 52 / 12, biweekly: 26 / 12, semimonthly: 2, monthly: 1 };
     const payPerMonth = PER_MONTH[payday && payday.cadence] || 2;
     const savePlan  = Math.round(goalMonthly / payPerMonth);
-    const spendPlan = Math.round(proj.expectedEverydaySpend || 0);
+    /* Everyday spending across THIS paycheck's cycle, at the same daily rate
+       the projection measured. proj.expectedEverydaySpend is scaled to the
+       days-until-payday window, which is the wrong span for this card and is
+       additionally clamped to 14 — so re-scale from the daily rate rather
+       than reuse a figure computed for a different question. */
+    const dailyBurn = proj.days > 0 ? (proj.expectedEverydaySpend || 0) / proj.days : 0;
+    const spendPlan = Math.round(dailyBurn * payCycle);
     const assigned  = payBillsTotal + savePlan + spendPlan;
     const payRemaining = expectedPay - assigned;
     const paydayTitle = payday
       ? payday.date.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' Paycheck'
       : 'Next Paycheck';
+    /* The span this cheque is responsible for, said in words. Without it the
+       card names a date and then lists bills from a window the reader has to
+       infer — which is how it came to list bills due BEFORE the cheque and
+       nobody noticed. */
+    const _dayLabel = n => {
+      const d = new Date(); d.setDate(d.getDate() + n);
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    };
+    const payCoverLabel = payday ? `Covers ${_dayLabel(payStart)} – ${_dayLabel(payEnd)}` : '';
+
+    /* Committed is what the cheque OWES. Everyday spending is a forecast at
+       the user's own recent pace, and putting a forecast in the same list as
+       Rent — same row, same weight — is what made the card read as though
+       $1,599 of discretionary spending were a bill falling due. */
+    const committed  = payBillsTotal + savePlan;
+    const leftToSpend = expectedPay - committed;
+    const perDay      = payCycle > 0 ? leftToSpend / payCycle : 0;
+    const pacePerDay  = dailyBurn;
+
+    /* A detected paycheck can be one of several income streams. On a real
+       account this payer was $800 biweekly (~$1,733/mo) against $3,794 of
+       actual monthly income — so the card measured every obligation against
+       45% of the money and called the difference a shortfall. Say what the
+       cheque is, rather than pretending it is the whole picture. */
+    const _msIncome = (() => { try { return _monthSummaryData().income || 0; } catch (_) { return 0; } })();
+    const payMonthly = expectedPay * payPerMonth;
+    const hasOtherIncome = _msIncome > 0 && payMonthly > 0 && payMonthly < _msIncome * 0.75;
     /* Subscriptions keep their cents -- "$15.99/mo" is the shape people
        recognise and "$16/mo" reads as wrong. The paycheck plan rows want
        whole dollars. Same row, two surfaces, so the formatter is an argument
@@ -8813,13 +8867,15 @@ window.FCApp = (function () {
         +(badge ? '<div style="font-size:11px;font-weight:600;color:'+badgeColor+';min-width:52px;text-align:right">'+badge+'</div>' : '')
       +'</div>';
     const paycheckHTML =
-      '<div class="fc-card" style="margin-bottom:14px;padding:18px 16px">'
-        +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">'
-          +'<div style="font-size:17px;font-weight:700;color:var(--fc-text)">'+paydayTitle+'</div>'
+      '<div class="fc-card pc-card">'
+        +'<div class="pc-head">'
+          +'<div><div class="pc-title">'+paydayTitle+'</div>'
+          +(payCoverLabel ? '<div class="pc-cover">'+esc(payCoverLabel)+'</div>' : '')+'</div>'
           // A labelled em-dash is not information. With no paycheck detected
           // the sentence below already says so, in words.
           +(payIsEstimated
-            ? '<div style="text-align:right"><div style="font-size:11px;color:var(--fc-text-faint)">Expected</div><div style="font-size:17px;font-weight:800;color:var(--fc-text);font-variant-numeric:tabular-nums">'+FCData.formatSummary(expectedPay)+'</div></div>'
+            ? '<div class="pc-expected"><div class="pc-expected__label">Expected</div>'
+              +'<div class="pc-expected__value">'+FCData.formatSummary(expectedPay)+'</div></div>'
             : '')
         +'</div>'
         /* Both the bar and the Remaining/Short pair divide by expectedPay,
@@ -8839,38 +8895,81 @@ window.FCApp = (function () {
            track. Under-assigned is unchanged (one green bar). Over-assigned
            now keeps the funded part green and shows the overage as its own
            red segment, so a small overshoot looks small. */
+        /* The bar shows the cheque being SPLIT, not a quota being breached.
+           Bills and savings are committed; whatever is left is what there is
+           to live on. That is a fact about the cheque and can never overflow,
+           so there is no saturating-red case to guard against here — the
+           overspend risk is expressed below, as a rate, where the lever is. */
         +(payIsEstimated
           ? (() => {
-              const barDenom  = Math.max(expectedPay, assigned) || 1;
-              const barFunded = Math.min(assigned, expectedPay);
-              const barOver   = Math.max(0, assigned - expectedPay);
-              const pct = v => (v / barDenom) * 100;
-              return '<div style="height:8px;background:var(--fc-bg-elevated-2);border-radius:var(--fc-r-pill);overflow:hidden;margin-bottom:8px;display:flex">'
-                +'<div style="height:100%;width:'+pct(barFunded).toFixed(1)+'%;background:var(--fc-success)"></div>'
-                +(barOver > 0 ? '<div style="height:100%;width:'+pct(barOver).toFixed(1)+'%;background:var(--fc-danger)"></div>' : '')
+              const denom = expectedPay || 1;
+              const pct = v => Math.max(0, Math.min(100, (v / denom) * 100));
+              return '<div class="pc-bar">'
+                +(payBillsTotal > 0 ? '<span class="pc-bar__bills" style="width:'+pct(payBillsTotal).toFixed(1)+'%"></span>' : '')
+                +(savePlan > 0 ? '<span class="pc-bar__save" style="width:'+pct(savePlan).toFixed(1)+'%"></span>' : '')
+                +(leftToSpend > 0 ? '<span class="pc-bar__left" style="width:'+pct(leftToSpend).toFixed(1)+'%"></span>' : '')
               +'</div>';
             })()
-            +'<div style="display:flex;justify-content:space-between;margin-bottom:14px">'
-              +'<div><div style="font-size:11px;color:var(--fc-text-faint)">Assigned</div><div style="font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--fc-text)">'+FCData.formatSummary(assigned)+'</div></div>'
-              +'<div style="text-align:right"><div style="font-size:11px;color:var(--fc-text-faint)">'+(payRemaining>=0?'Remaining':'Short')+'</div><div style="font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;color:'+(payRemaining>=0?'var(--fc-success)':'var(--fc-danger)')+'">'+FCData.formatSummary(Math.abs(payRemaining))+'</div></div>'
+            +'<div class="pc-split">'
+              +'<div><div class="pc-split__label">Committed</div>'
+              +'<div class="pc-split__value">'+FCData.formatSummary(committed)+'</div></div>'
+              +'<div class="pc-split__right"><div class="pc-split__label">'+(leftToSpend >= 0 ? 'Left to spend' : 'Over by')+'</div>'
+              +'<div class="pc-split__value'+(leftToSpend >= 0 ? '' : ' is-bad')+'">'+FCData.formatSummary(Math.abs(leftToSpend))+'</div></div>'
             +'</div>'
-          : '<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--fc-border)">'
-              +'<div><div style="font-size:11px;color:var(--fc-text-faint)">Lined up</div><div style="font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--fc-text)">'+FCData.formatSummary(assigned)+'</div></div>'
-              +'<div style="flex:1;text-align:right;font-size:11.5px;color:var(--fc-text-muted);line-height:1.4;padding-left:14px">No regular paycheck detected yet — we need three deposits from one payer.</div>'
+            /* The lever, not the verdict. "Short $1,691" named a number and
+               stopped; a daily rate against the user's own measured pace says
+               the same thing and tells them what to change. */
+            +(leftToSpend > 0 && pacePerDay > 0
+              ? '<div class="pc-pace'+(pacePerDay > perDay ? ' is-tight' : '')+'">'
+                  +'<div class="pc-pace__row"><span>That is</span>'
+                  +'<strong>'+FCData.formatSummary(perDay)+'/day</strong>'
+                  +'<span>for '+payCycle+' days</span></div>'
+                  +'<div class="pc-pace__meta">'
+                  +(pacePerDay > perDay
+                    ? 'You have been spending '+FCData.formatSummary(pacePerDay)+'/day. Trimming to '
+                      +FCData.formatSummary(perDay)+' keeps this cheque whole.'
+                    : 'Your recent pace is '+FCData.formatSummary(pacePerDay)+'/day, so this is comfortable.')
+                  +'</div></div>'
+              : '')
+            +(hasOtherIncome
+              ? '<p class="pc-note">This is one of your income sources — about '
+                +FCData.formatSummary(payMonthly)+' of the '+FCData.formatSummary(_msIncome)
+                +' that came in this month. Other deposits are not planned here.</p>'
+              : '')
+          : '<div class="pc-unknown">'
+              +'<div><div class="pc-split__label">Lined up</div>'
+              +'<div class="pc-split__value">'+FCData.formatSummary(committed)+'</div></div>'
+              +'<div class="pc-unknown__note">No regular paycheck detected yet — we need three deposits from one payer.</div>'
             +'</div>')
-        +payBills.map(b => {
-          const d = FCData.daysUntil(b.due_date);
-          return planRow(_billIcon(b,'var(--fc-text-muted)',16), esc(b.name||'Bill'), b.amount||0,
-            d===0?'Due today':'Due '+_fmtDue(b.due_date), d!==null&&d<=3?'var(--fc-warning)':'var(--fc-text-faint)', FCData.formatSummary);
-        }).join('')
-        +(savePlan>0 ? planRow(_ic('flag','var(--fc-success)',16), 'Goal savings', savePlan, 'Planned', 'var(--fc-text-faint)', FCData.formatSummary) : '')
-        +(spendPlan>0 ? planRow(_ic('credit-card','var(--fc-text-muted)',16), 'Everyday spending', spendPlan, 'Planned', 'var(--fc-text-faint)', FCData.formatSummary) : '')
-        +'<button class="fc-btn fc-btn--ghost fc-btn--sm" style="width:100%;margin-top:14px" onclick="FCApp._openBudgetWizard()">Edit Paycheck Plan</button>'
+        /* Two groups, because these are two different kinds of claim on the
+           cheque and the flat list said they were the same kind. Rent falls
+           due whether or not you agree; everyday spending is a projection of
+           your own behaviour that you can change today. Presented identically,
+           the largest number on the card was the one nobody owed anyone. */
+        +(payBills.length || savePlan > 0
+          ? '<p class="pc-group">Committed</p>'
+            +payBills.map(b => {
+                const d = FCData.daysUntil(b.due_date);
+                return planRow(_billIcon(b,'var(--fc-text-muted)',16), esc(b.name||'Bill'), b.amount||0,
+                  d===0?'Due today':'Due '+_fmtDue(b.due_date), d!==null&&d<=3?'var(--fc-warning)':'var(--fc-text-faint)', FCData.formatSummary);
+              }).join('')
+            +(savePlan>0 ? planRow(_ic('flag','var(--fc-success)',16), 'Goal savings', savePlan, 'Planned', 'var(--fc-text-faint)', FCData.formatSummary) : '')
+          : '<p class="pc-group">Committed</p><p class="pc-empty">Nothing falls due in this stretch.</p>')
+        +(spendPlan>0
+          ? '<p class="pc-group">At your recent pace</p>'
+            +planRow(_ic('credit-card','var(--fc-text-muted)',16), 'Everyday spending', spendPlan,
+                     'Forecast', 'var(--fc-text-faint)', FCData.formatSummary)
+          : '')
+        +'<button class="fc-btn fc-btn--ghost fc-btn--sm pc-edit" onclick="FCApp._openBudgetWizard()">Adjust what this paycheck covers</button>'
       +'</div>'
+      /* Surplus is what survives the forecast, not what survives the bills.
+         Keyed off payRemaining it fired for anyone whose bills were small,
+         offering to "assign" money their own spending pace was already
+         going to consume. */
       +(payIsEstimated && payRemaining > 25
         ? '<div class="fc-card" style="margin-bottom:14px;padding:14px 16px;background:var(--fc-success-soft);border-color:var(--fc-success-border);display:flex;align-items:center;gap:12px">'
             +'<span style="flex-shrink:0">'+_ic('trending-up','var(--fc-success)',18)+'</span>'
-            +'<div style="flex:1;font-size:13px;color:var(--fc-text);line-height:1.45">'+FCData.formatSummary(payRemaining)+' unassigned. Put it toward a goal or your smallest debt before it disappears.</div>'
+            +'<div style="flex:1;font-size:13px;color:var(--fc-text);line-height:1.45">'+FCData.formatSummary(payRemaining)+' spare after bills and your usual spending. Put it toward a goal or your smallest debt before it disappears.</div>'
             +'<button onclick="FCApp.openCoachAnswer(\'debt\')" style="background:var(--fc-success);color:var(--fc-success-ink);border:none;border-radius:10px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0;font-family:inherit">Assign</button>'
           +'</div>'
         : '');

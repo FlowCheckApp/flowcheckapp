@@ -3802,3 +3802,135 @@ body.fc-theme .fc-header-avatar {
   display: flex;
   align-items: center;
 }
+
+/* ── Plan › Paycheck card ──────────────────────────────────────────────
+   The card answers one question: what is this cheque for. It used to
+   compare the bills due BEFORE the cheque against the cheque itself and
+   print the difference as "Short", which on a real account read
+   "Short $1,691" directly beneath a month card saying "LEFT OVER +$1,008".
+   Now it splits the cheque into committed / left to spend, and expresses
+   the risk as a daily rate against the user's own measured pace — which is
+   the number they can actually act on. */
+.pc-card { margin-bottom: 14px; padding: 16px; }
+
+.pc-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.pc-title { font-size: 17px; font-weight: 700; color: var(--fc-text); }
+.pc-cover { margin-top: 2px; font-size: 12px; color: var(--fc-text-muted); }
+.pc-expected { flex-shrink: 0; text-align: right; }
+.pc-expected__label { font-size: 11px; color: var(--fc-text-faint); }
+.pc-expected__value {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--fc-text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Splitting the cheque, not breaching a quota — the segments are shares of
+   one paycheck and cannot overflow it. */
+.pc-bar {
+  display: flex;
+  gap: 2px;
+  height: 8px;
+  margin-bottom: 10px;
+  border-radius: var(--fc-r-pill);
+  background: var(--fc-bg-elevated-2);
+  overflow: hidden;
+}
+.pc-bar > span { height: 100%; }
+.pc-bar__bills { background: var(--fc-accent); }
+.pc-bar__save  { background: var(--fc-success); }
+.pc-bar__left  { background: var(--fc-electric); }
+
+.pc-split { display: flex; justify-content: space-between; margin-bottom: 14px; }
+.pc-split__right { text-align: right; }
+.pc-split__label { font-size: 11px; color: var(--fc-text-faint); }
+.pc-split__value {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--fc-text);
+  font-variant-numeric: tabular-nums;
+}
+.pc-split__value.is-bad { color: var(--fc-danger); }
+
+/* The lever. Neutral by default; tinted only when the user's own pace is
+   above the rate this cheque supports — and even then it is amber, not red,
+   because it is a forecast about behaviour, not a debt falling due. */
+.pc-pace {
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--fc-border);
+  border-radius: var(--fc-r-sm);
+  background: var(--fc-bg-elevated-2);
+}
+/* A 0.14 amber wash over dark navy composites to rgb(49,43,30) — a muddy
+   brown, not a warning. Contrast was never the problem (the body text
+   measured 5.41:1); it just looked cheap. The signal moves onto the number
+   and a single edge, which is how the rest of the app marks state. */
+.pc-pace.is-tight {
+  border-color: var(--fc-border);
+  border-left: 2px solid var(--fc-warning);
+  background: var(--fc-bg-elevated-2);
+}
+.pc-pace.is-tight .pc-pace__row strong { color: var(--fc-warning-text); }
+.pc-pace__row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--fc-text-muted);
+}
+.pc-pace__row strong {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--fc-text);
+  font-variant-numeric: tabular-nums;
+}
+.pc-pace__meta {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--fc-text-muted);
+}
+
+.pc-note {
+  margin: 0 0 14px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--fc-text-faint);
+}
+
+.pc-unknown {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 14px;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--fc-border);
+}
+.pc-unknown__note {
+  flex: 1;
+  text-align: right;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--fc-text-muted);
+}
+
+/* Group headings: a bill and a spending forecast are different kinds of
+   claim on the cheque, and the flat list said they were the same kind. */
+.pc-group {
+  margin: 14px 0 2px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--fc-text-faint);
+}
+.pc-empty { margin: 6px 0 0; font-size: 13px; color: var(--fc-text-muted); }
+.pc-edit { width: 100%; margin-top: 16px; }
