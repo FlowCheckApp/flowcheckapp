@@ -342,10 +342,27 @@ window.FCApp = (function () {
     if (_subDetectCache !== null && _subDetectCacheTxLen === txLen && _subDetectCacheBillLen === billLen) {
       return _subDetectCache;
     }
+    /* A merchant the user already tracks as a BILL is not a subscription.
+       Progressive Insurance was listed on Plan › Bills at $243 and detected
+       again on Plan › Subs at $242.33 — the same obligation, counted twice,
+       with a video-player icon on the second one. Insurance lands in Plaid's
+       "Service" bucket, which _SUB_GOOD_CATS accepts, so category alone was
+       never going to separate them. The bill list is the better signal: the
+       user has already said what this is.
+
+       Keyed with _subGroupKey so "PROGRESSIVE INS *AUTOPAY" on the statement
+       matches the bill the user named "Proggresive Insurance" — the same
+       normalisation that groups the transactions themselves. */
+    const billKeys = new Set(
+      (state.bills || [])
+        .map(b => _subGroupKey(String(b.name || '')))
+        .filter(Boolean)
+    );
     const map = {};
     for (const t of state.transactions) {
       if (t.isCredit || !t.date || !t.name) continue;
       if (_SUB_EXCLUDE_RE.test(t.name)) continue;
+      if (billKeys.has(_subGroupKey(t.merchant_name || t.name))) continue;
 
       const rawCat  = (t.category && t.category[0]) || '';
       const normCat = FCData.normalizePlaidCategory(rawCat).toLowerCase();
@@ -5436,9 +5453,14 @@ window.FCApp = (function () {
     setBar('ins-bar-networth', 'ins-val-networth', nwScore, 33, nwScore >= 20 ? 'linear-gradient(90deg,var(--fc-warning),var(--fc-electric))' : 'linear-gradient(90deg,#ff3b30,var(--fc-warning))');
 
     // Debt sub-metric: based on credit utilization (0-100 mapped to visual bar)
-    const totalCreditLimit = accts.filter(a => a.type === 'credit')
+    /* Same matched-set rule as the Debt panel: a card with no reported limit
+       was inflating utilisation here too, and this figure drives the debt
+       half of the health score. */
+    const _ratedCards = accts.filter(a => a.type === 'credit'
+      && (a.balance_limit || a.balances?.limit || 0) > 0);
+    const totalCreditLimit = _ratedCards
       .reduce((s, a) => s + (a.balance_limit || a.balances?.limit || 0), 0);
-    const totalCreditUsed  = accts.filter(a => a.type === 'credit')
+    const totalCreditUsed  = _ratedCards
       .reduce((s, a) => s + Math.max(0, a.balance_current || a.balance || 0), 0);
     const utilPct = totalCreditLimit > 0 ? Math.round((totalCreditUsed / totalCreditLimit) * 100) : null;
     // Score: 100 = 0% utilization, 0 = 100%+ utilization
@@ -7464,8 +7486,18 @@ window.FCApp = (function () {
     const totalDebt=debtAccts.reduce((s,a)=>s+Math.max(0,a.balance_current||a.balance||0),0);
     const cards=debtAccts.filter(a=>a.type==='credit'||['credit card','line of credit'].includes((a.subtype||'').toLowerCase()));
     const ccBal=cards.reduce((s,a)=>s+Math.max(0,a.balance_current||a.balance||0),0);
-    const ccLimit=cards.reduce((s,a)=>s+(a.balance_limit||a.balances?.limit||0),0);
-    const utilPct=ccLimit>0?Math.round((ccBal/ccLimit)*100):0;
+    /* Numerator and denominator must describe the SAME cards. ccBal sums
+       every card, but a card whose limit the bank does not report added its
+       balance to the top of the fraction and nothing to the bottom — so on a
+       real account $2,031.61 of balances over one $500 limit printed
+       "406% credit utilized", and tripped debtIsUrgent with it.
+       Utilisation is now computed only across cards that report a limit, and
+       the row says so when that is not all of them. */
+    const _cardsWithLimit = cards.filter(a => (a.balance_limit || a.balances?.limit || 0) > 0);
+    const ccLimit = _cardsWithLimit.reduce((s,a)=>s+(a.balance_limit||a.balances?.limit||0),0);
+    const _ccUsedRated = _cardsWithLimit.reduce((s,a)=>s+Math.max(0,a.balance_current||a.balance||0),0);
+    const utilPct = ccLimit>0?Math.round((_ccUsedRated/ccLimit)*100):0;
+    const _utilPartial = _cardsWithLimit.length < cards.length;
     const utilColor=utilPct>30?'var(--wv-red)':utilPct>10?'var(--wv-amber)':'var(--wv-green)';
     // Donut
     const segs=[
@@ -7796,7 +7828,7 @@ window.FCApp = (function () {
         <div>
           <div style="font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--wv-t3);margin-bottom:4px">Total Debt</div>
           <div class="wv-debt-total${debtIsUrgent?' wv-debt-total--urgent':''}">${FCData.formatSummary(totalDebtShown)}</div>
-          ${ccLimit>0?`<div class="wv-debt-status" style="color:${utilColor};font-size:12px;margin-top:3px">${utilPct}% credit utilized${utilPct>30?' — consider paying down':''}</div>`:''}
+          ${ccLimit>0?`<div class="wv-debt-status" style="color:${utilColor};font-size:12px;margin-top:3px">${utilPct}% credit utilized${_utilPartial?` (across ${_cardsWithLimit.length} of ${cards.length} cards)`:''}${utilPct>30?' — consider paying down':''}</div>`:''}
           ${nextBill?`<div style="font-size:12px;color:var(--wv-t2);margin-top:4px">Next payment: <strong style="color:var(--wv-t1)">${FCData.formatSummary(nextBill.amount||0)}</strong></div>`:''}
           ${debtLegendHTML}
         </div>

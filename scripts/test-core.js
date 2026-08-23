@@ -968,6 +968,24 @@ t('minPayment/debtRate: 0 is a real answer from the bank, not an absence', () =>
   eq(C.debtRate(acct, overlay), 0);
   eq(C.minPayment(acct, overlay), 0);
 });
+/* A rate the bank cannot plausibly mean. Plaid's field is a PERCENTAGE
+   (7.0 = 7%) but some institutions send the fraction (0.07 = 7%), and the app
+   presented the result as fact — it drove avalanche ordering, the weighted
+   average and the debt-free date. An incredible rate is treated as absent so
+   the user is asked, rather than a number nobody believes being kept. */
+t('debtRate: a rate between 0 and 0.5% is not believed', () => {
+  const acct = { id: 'sl', interest_rate: 0.07 };       // SoFi, real case
+  eq(C.debtRate(acct, { sl: { interest_rate: 7 } }), 7);  // the user's correction lands
+  eq(C.debtRate(acct, {}), 0);                            // otherwise: ask, don't guess
+});
+t('debtRate: exactly 0 is a real promo rate and survives', () => {
+  // The band is open at the bottom on purpose — 0% promos report exactly 0.
+  eq(C.debtRate({ id: 'p', interest_rate: 0 }, { p: { interest_rate: 24.99 } }), 0);
+});
+t('debtRate: a credible low rate is still believed', () => {
+  eq(C.debtRate({ id: 'm', interest_rate: 0.5 }, { m: { interest_rate: 9 } }), 0.5);
+  eq(C.debtRate({ id: 'n', interest_rate: 2.9 }, { n: { interest_rate: 9 } }), 2.9);
+});
 t('minPayment/debtRate: unknown is 0, never a guess', () => {
   eq(C.minPayment({ id: 'x' }, {}), 0);
   eq(C.debtRate({ id: 'x' }, undefined), 0);

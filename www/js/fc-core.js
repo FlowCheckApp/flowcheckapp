@@ -1019,10 +1019,31 @@
     return Number((overlay || {})[accountKey(a)]?.minimum_payment) || 0;
   }
 
+  /* A rate strictly between 0 and MIN_CREDIBLE_APR is not a lending rate.
+     Real 0% promotional cards report exactly 0, so the band is open at the
+     bottom and nothing legitimate falls in it.
+
+     Plaid's field is `interest_rate_percentage` — 7.0 means 7% — but some
+     institutions populate it with the fraction instead (0.07 for 7%). A real
+     account showed "0.07% APR" on two SoFi student loans, and the app
+     presented it as fact: it drove the avalanche ordering, the weighted
+     average, and the debt-free projection.
+
+     We cannot know which reading is right, so we do not guess and we do not
+     silently keep a number we do not believe. An incredible rate is treated
+     as ABSENT, which routes it through the path the user already has for a
+     rate the bank never sent — the row offers "Add rate", and what they type
+     fills the gap. Precedence between bank and user is unchanged: the bank
+     still wins whenever it says something credible, including a true 0%. */
+  const MIN_CREDIBLE_APR = 0.5;
+
   function debtRate(a, overlay) {
     const own = _ownValue(a?.interest_rate ?? a?.apr);
-    if (own !== null) return own;
-    return Number((overlay || {})[accountKey(a)]?.interest_rate) || 0;
+    const user = _ownValue((overlay || {})[accountKey(a)]?.interest_rate);
+    const ownIsCredible = own !== null && !(own > 0 && own < MIN_CREDIBLE_APR);
+    if (ownIsCredible) return own;
+    if (user !== null) return user;
+    return 0;
   }
 
   /* ── The month's budget ceiling ────────────────────────────────────
@@ -1138,6 +1159,7 @@
     weightedApr,
     minPayment, debtRate, accountKey, totalBudgetLimit,
     debtProgress,
+    MIN_CREDIBLE_APR,
     compareOffer,
   };
 }));
