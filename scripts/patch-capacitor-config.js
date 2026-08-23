@@ -43,6 +43,16 @@ if (!list.includes('CapacitorGoogleAuth')) {
   changed = true;
 }
 
+/* Plugins defined in the app target rather than in an npm package are not
+   discovered by `cap sync` — it builds this list from installed packages.
+   BiometricAuthNative survives only because it is named in the source
+   capacitor.config.json; anything else has to be re-added here after every
+   sync or the class is compiled and never registered, and the JS call fails
+   with "not implemented" against code that is demonstrably present. */
+for (const own of ['BiometricAuthNative', 'OnDeviceCoachNative']) {
+  if (!list.includes(own)) { list.push(own); changed = true; }
+}
+
 if (changed) {
   fs.writeFileSync(configPath, JSON.stringify(config, null, '\t') + '\n', 'utf8');
   console.log('[patch-capacitor-config] ✓ Fixed packageClassList: GoogleAuth → CapacitorGoogleAuth');

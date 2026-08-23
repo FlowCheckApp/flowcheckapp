@@ -11323,6 +11323,63 @@ window.FCApp = (function () {
     return f;
   }
 
+  /* ── Where an unrecognised question goes ───────────────────────
+     Three tiers, cheapest and most private first:
+
+       1  Apple's on-device model — free at any scale, nothing leaves the
+          phone, works offline. Needs Apple Intelligence (iPhone 15 Pro or
+          newer, switched on), so it is a bonus, never a requirement.
+       2  the backend Claude route — better answers, costs money, and sends
+          derived figures to a third party. Only if a key is configured.
+       3  the deterministic reply — always available, never wrong, narrower.
+
+     Checked once and remembered: availability cannot change while the app
+     is in the foreground, and asking on every keystroke would cross the
+     bridge for nothing. */
+  let _onDeviceAI = null;   // null = not yet asked, true/false = answer
+  async function _onDeviceCoachReady() {
+    if (_onDeviceAI !== null) return _onDeviceAI;
+    try {
+      const plugin = window.Capacitor?.Plugins?.OnDeviceCoach;
+      if (!plugin) { _onDeviceAI = false; return false; }
+      const r = await plugin.availability();
+      _onDeviceAI = !!(r && r.available);
+      if (!_onDeviceAI) fcLog('[coach] on-device model unavailable:', r && r.reason);
+    } catch (_e) {
+      _onDeviceAI = false;
+    }
+    return _onDeviceAI;
+  }
+
+  /* The same rules the server sends, because the two must not answer the
+     same question differently. Shorter, because a ~3B model follows a short
+     instruction better than a long one — and because the one rule that
+     actually matters is the first. */
+  const _COACH_ON_DEVICE_RULES = [
+    'You are the FlowCheck money coach.',
+    'Use ONLY the numbers in FACTS. Never calculate or estimate a figure.',
+    'If FACTS does not contain what is needed, say what is missing.',
+    'You are not a financial adviser: no investments, crypto or tax advice.',
+    'Answer in two to four sentences. Lead with the answer. No lists, no markdown.',
+  ].join(' ');
+
+  async function _coachAskOnDevice(question) {
+    if (!(await _onDeviceCoachReady())) return null;
+    try {
+      const r = await window.Capacitor.Plugins.OnDeviceCoach.ask({
+        system: _COACH_ON_DEVICE_RULES,
+        prompt: 'FACTS (the only numbers you may use):\n'
+              + JSON.stringify(_coachAIFacts(), null, 2)
+              + '\n\nQUESTION: ' + question,
+      });
+      return r && r.answer ? { answer: r.answer, source: 'on-device' } : null;
+    } catch (_e) {
+      /* Guardrails or a model still downloading. Fall through to the next
+         tier rather than showing the user Apple's error. */
+      return null;
+    }
+  }
+
   async function _coachAskAI(question, outId) {
     const out = document.getElementById(outId || 'coach-ask-answer');
     if (!out || !question) return;
@@ -11336,6 +11393,25 @@ window.FCApp = (function () {
       out.innerHTML = '<div class="fc-card coach-ai">'
         + '<p class="coach-ai__text">' + esc(msg) + '</p></div>';
     };
+
+    /* One renderer for both tiers. "On this device" is stated because it is
+       a real difference the user is entitled to know about: that answer was
+       written without anything leaving their phone. */
+    const show = (answer, onDevice) => {
+      out.innerHTML = '<div class="fc-card coach-ai">'
+        + '<p class="coach-ai__text">' + esc(answer) + '</p>'
+        + '<p class="coach-ai__note">'
+          + (onDevice ? 'Answered on this device \u00b7 ' : '')
+          + 'Figures come from your own accounts. '
+          + 'FlowCheck is not a bank and this is not financial advice.</p>'
+      + '</div>';
+    };
+
+    /* Tier 1 — on device. No network, no cost, nothing leaves the phone. */
+    try {
+      const local = await _coachAskOnDevice(question);
+      if (local) return show(local.answer, true);
+    } catch (_e) { /* Fall through to the network tier. */ }
 
     try {
       const base = (window.FC_CONFIG && FC_CONFIG.app && FC_CONFIG.app.apiBase) || '';
@@ -11356,13 +11432,7 @@ window.FCApp = (function () {
       const data = await resp.json();
       if (!data || !data.answer) return fail('I could not answer that just now.');
 
-      out.innerHTML = '<div class="fc-card coach-ai">'
-        + '<p class="coach-ai__text">' + esc(data.answer) + '</p>'
-        /* Said plainly, every time. The user should never have to guess
-           whether a number came from their ledger or from a model. */
-        + '<p class="coach-ai__note">Figures come from your own accounts. '
-        + 'FlowCheck is not a bank and this is not financial advice.</p>'
-      + '</div>';
+      return show(data.answer, false);
     } catch (_e) {
       fail('I could not reach the coach. Check your connection and try again.');
     }

@@ -29,6 +29,6 @@
   "ios": {
     "contentInset": "never",
     "backgroundColor": "#0a1520",
-    "packageClassList": ["BiometricAuthNative", "CapacitorGoogleAuth"]
+    "packageClassList": ["BiometricAuthNative", "OnDeviceCoachNative", "CapacitorGoogleAuth"]
   }
 }
