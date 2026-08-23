@@ -178,7 +178,7 @@
 /* ── Budget / category status badge ── */
 .fcs-badge {
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   padding: 2px 6px;
   border-radius: var(--fc-r-pill);
   white-space: nowrap;
@@ -444,7 +444,7 @@ body.fc-theme .fc-brand-mark svg {
   height: 24px;
   fill: var(--fc-accent);
 }
-body.fc-theme .fc-brand-name { color: var(--fc-text); font-size: 16px; font-weight: 700; }
+body.fc-theme .fc-brand-name { color: var(--fc-text); font-size: 16px; font-weight: 600; }
 body.fc-theme .fc-brand-col { gap: 0; }
 body.fc-theme .fc-island-pill,
 body.fc-theme #header-sync-btn { display: none; }
@@ -472,7 +472,7 @@ body.fc-theme .fc-header-avatar {
   color: var(--fc-accent-ink);
   font: inherit;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
 }
 
@@ -527,7 +527,7 @@ body.fc-theme .fc-header-avatar {
   margin: 0;
   color: var(--fc-text);
   font-size: 23px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: -0.03em;
   line-height: 1.08;
 }
@@ -605,7 +605,7 @@ body.fc-theme .fc-header-avatar {
   margin: 3px 0 2px;
   color: var(--fc-text);
   font-size: 24px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: -0.035em;
   line-height: 1;
   font-variant-numeric: tabular-nums;
@@ -623,7 +623,7 @@ body.fc-theme .fc-header-avatar {
   margin: 3px 0 2px;
   color: var(--fc-text);
   font-size: 17px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: -0.025em;
   line-height: 1.05;
   white-space: nowrap;
@@ -699,7 +699,7 @@ body.fc-theme .fc-header-avatar {
   margin: 0;
   color: var(--fc-text);
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: -0.025em;
   line-height: 1.2;
 }
@@ -734,7 +734,7 @@ body.fc-theme .fc-header-avatar {
   margin-top: 5px;
   color: var(--fc-text);
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: -0.025em;
   line-height: 1;
   white-space: nowrap;
@@ -754,7 +754,7 @@ body.fc-theme .fc-header-avatar {
   margin-top: 5px;
   color: var(--fc-text);
   font-size: 27px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: -0.04em;
   line-height: 1;
   font-variant-numeric: tabular-nums;
@@ -804,7 +804,7 @@ body.fc-theme .fc-header-avatar {
   background: var(--fc-accent-soft);
   color: var(--fc-accent);
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
 }
 .home-v8__list-icon.is-warning { background: var(--fc-warning-soft); color: var(--fc-warning-text); }
 .home-v8__list-icon.is-success { background: var(--fc-success-soft); color: var(--fc-success); }
@@ -918,7 +918,7 @@ body.fc-theme .fc-header-avatar {
   align-items: center;
   justify-content: center;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   flex-shrink: 0;
   margin-bottom: 1px;
 }
@@ -935,7 +935,7 @@ body.fc-theme .fc-header-avatar {
 }
 .dash-stat-amount {
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--fc-text);
   letter-spacing: -0.3px;
   font-variant-numeric: tabular-nums;
@@ -983,7 +983,7 @@ body.fc-theme .fc-header-avatar {
 .dash-outlook-badge {
   flex-shrink: 0;
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.4px;
   text-transform: uppercase;
   padding: 4px 10px;
@@ -1058,7 +1058,7 @@ body.fc-theme .fc-header-avatar {
 .dash-card-title { font-size: 15px; font-weight: 600; color: var(--fc-text); margin: 0; }
 .dash-card-header-right { text-align: right; flex-shrink: 0; }
 .dash-card-meta-label  { display: block; font-size: 11px; color: var(--fc-text-muted); font-weight: 500; }
-.dash-card-meta-amount { font-size: 13px; font-weight: 700; color: var(--fc-accent); font-variant-numeric: tabular-nums; }
+.dash-card-meta-amount { font-size: 13px; font-weight: 600; color: var(--fc-accent); font-variant-numeric: tabular-nums; }
 .dash-divider { height: 1px; background: var(--fc-border); }
 
 /* ── Shared icon circle ─────────────────────────────────────────── */
@@ -1104,7 +1104,7 @@ body.fc-theme .fc-header-avatar {
 .dash-goal-copy { gap: 4px; display: flex; flex-direction: column; }
 .dash-goal-top-row    { display: flex; justify-content: space-between; align-items: baseline; gap: 4px; }
 .dash-goal-bottom-row { display: flex; justify-content: space-between; align-items: center; }
-.dash-goal-pct { font-size: 13px; font-weight: 700; color: var(--fc-accent); flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.dash-goal-pct { font-size: 13px; font-weight: 600; color: var(--fc-accent); flex-shrink: 0; font-variant-numeric: tabular-nums; }
 .dash-goal-bar-track {
   height: 5px; border-radius: var(--fc-r-pill);
   background: var(--fc-border-strong);
@@ -1210,7 +1210,7 @@ body.fc-theme .fc-header-avatar {
   width: 100%;
   height: 100%;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: -0.02em;
   border-radius: 50%;
 }
@@ -1226,7 +1226,7 @@ body.fc-theme .fc-header-avatar {
 .dash-txn-cat--income {
   color: var(--fc-success);
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 /* ── Dark mode compat — txn icons ─────────────────────────── */
@@ -1296,7 +1296,7 @@ body.fc-theme .fc-header-avatar {
   .fc-desktop-brand-name {
     color: var(--fc-text);
     font-size: 18px;
-    font-weight: 700;
+    font-weight: 600;
     letter-spacing: -0.025em;
     line-height: 1;
   }
@@ -1368,7 +1368,7 @@ body.fc-theme .fc-header-avatar {
   .fc-desktop-sidebar-card-kicker {
     color: var(--fc-success);
     font-size: 10px;
-    font-weight: 700;
+    font-weight: 600;
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }
@@ -1377,7 +1377,7 @@ body.fc-theme .fc-header-avatar {
     margin-top: 7px;
     color: var(--fc-text);
     font-size: 14px;
-    font-weight: 700;
+    font-weight: 600;
     letter-spacing: -0.015em;
   }
 
@@ -1585,7 +1585,7 @@ body.fc-theme .fc-header-avatar {
 
   body[data-screen="app"] .dash-stat-amount {
     font-size: clamp(20px, 2.2vw, 30px);
-    font-weight: 700;
+    font-weight: 600;
   }
 
   body[data-screen="app"] .dash-outlook-header {
@@ -1730,7 +1730,7 @@ body.fc-theme .fc-header-avatar {
 .fcst-paused {
   position: absolute; bottom: calc(env(safe-area-inset-bottom) + 34px);
   left: 50%; transform: translateX(-50%) translateY(8px);
-  font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+  font-size: 12px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
   color: rgba(255,255,255,0.5); opacity: 0; pointer-events: none; z-index: 5;
   transition: opacity 0.18s ease, transform 0.18s ease;
 }
@@ -1748,7 +1748,7 @@ body.fc-theme .fc-header-avatar {
 .fcst-end-btn {
   min-height: 44px; padding: 0 22px; border-radius: var(--fc-r-pill);
   border: 1px solid rgba(255,255,255,0.22); background: rgba(255,255,255,0.08);
-  color: #fff; font-family: inherit; font-size: 14px; font-weight: 700;
+  color: #fff; font-family: inherit; font-size: 14px; font-weight: 600;
   cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
 .fcst-end-btn--primary { background: #fff; color: #06121f; border-color: #fff; }
@@ -1804,19 +1804,19 @@ body.fc-theme .fc-header-avatar {
 .fcst-tap--r { right: 0; width: 67%; }
 
 .fcst-eyebrow {
-  font-size: 11px; font-weight: 800; letter-spacing: 0.14em;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.14em;
   color: rgba(255,255,255,0.45); text-transform: uppercase; margin-bottom: 18px;
 }
 .fcst-hero {
-  font-size: 44px; font-weight: 800; line-height: 1.05;
+  font-size: 44px; font-weight: 700; line-height: 1.05;
   letter-spacing: -0.03em; color: #fff; margin: 18px 0 14px;
 }
 .fcst-title {
-  font-size: 30px; font-weight: 800; letter-spacing: -0.02em;
+  font-size: 30px; font-weight: 700; letter-spacing: -0.02em;
   color: #fff; margin: 14px 0 8px; word-break: break-word;
 }
 .fcst-big {
-  font-size: 54px; font-weight: 800; letter-spacing: -0.03em;
+  font-size: 54px; font-weight: 700; letter-spacing: -0.03em;
   color: #fff; font-variant-numeric: tabular-nums; margin-bottom: 12px;
 }
 .fcst-big--md { font-size: 40px; margin-top: 22px; }
@@ -1849,7 +1849,7 @@ body.fc-theme .fc-header-avatar {
 .fcst-avatar {
   width: 84px; height: 84px; border-radius: 50%;
   background: linear-gradient(135deg, #1ac4f0, #2563eb);
-  color: #fff; font-size: 36px; font-weight: 800;
+  color: #fff; font-size: 36px; font-weight: 700;
   display: flex; align-items: center; justify-content: center;
   box-shadow: 0 0 44px rgba(26,196,240,0.35);
 }
@@ -1883,7 +1883,7 @@ body.fc-theme .fc-header-avatar {
 .fcst-grade {
   position: absolute; inset: 0;
   display: flex; align-items: center; justify-content: center;
-  font-size: 52px; font-weight: 800; letter-spacing: -0.02em;
+  font-size: 52px; font-weight: 700; letter-spacing: -0.02em;
   animation: fcstGradePop 0.5s cubic-bezier(0.34,1.56,0.64,1) 0.55s both;
 }
 @keyframes fcstGradePop {
@@ -1893,7 +1893,7 @@ body.fc-theme .fc-header-avatar {
 .fcst-cta {
   margin-top: 26px; padding: 14px 30px; border-radius: var(--fc-r-md); border: none;
   background: linear-gradient(135deg, #1ac4f0, #2563eb); color: #fff;
-  font-size: 16px; font-weight: 700; font-family: inherit; cursor: pointer;
+  font-size: 16px; font-weight: 600; font-family: inherit; cursor: pointer;
   box-shadow: 0 8px 30px rgba(26,196,240,0.35);
   -webkit-tap-highlight-color: transparent; position: relative; z-index: 3;
 }
@@ -1916,7 +1916,7 @@ body.fc-theme .fc-header-avatar {
   animation: fcstPulse 2.4s ease-in-out infinite;
 }
 .fcst-banner-copy { flex: 1; display: flex; flex-direction: column; gap: 1px; }
-.fcst-banner-title { font-size: 14px; font-weight: 700; color: #fff; }
+.fcst-banner-title { font-size: 14px; font-weight: 600; color: #fff; }
 .fcst-banner-sub   { font-size: 12px; color: rgba(255,255,255,0.62); }
 .fcst-banner-chevron { font-size: 18px; color: rgba(255,255,255,0.55); }
 
@@ -1957,7 +1957,7 @@ body.fc-theme .fc-header-avatar {
 /* The number. Tabular figures so it never reflows as the value ticks. */
 .home-v8__hero-value {
   font-size: clamp(38px, 12.5vw, 46px);
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1.02;
   letter-spacing: -0.035em;
   color: var(--fc-text);
@@ -1989,7 +1989,7 @@ body.fc-theme .fc-header-avatar {
   color: var(--fc-accent-ink);
   font-family: inherit;
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transition: transform 0.14s var(--fc-ease-out), filter 0.14s var(--fc-ease-out);
@@ -2029,7 +2029,7 @@ body.fc-theme .fc-header-avatar {
   top: -13px;
   right: 0;
   font-size: 9.5px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--fc-text-faint);
@@ -2062,7 +2062,7 @@ body.fc-theme .fc-header-avatar {
   color: var(--fc-text-muted);
   font-family: inherit;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -2130,8 +2130,6 @@ body.fc-theme .fc-header-avatar {
 .st-topline,
 .st-allocation,
 .st-actions,
-.st-bills__heading,
-.st-bill,
 .st-paycheck-card {
   display: flex;
   align-items: center;
@@ -2148,7 +2146,6 @@ body.fc-theme .fc-header-avatar {
 .st-hero__support,
 .st-available,
 .st-horizon h3,
-.st-bills__heading h3,
 .st-calculation p {
   margin: 0;
 }
@@ -2156,7 +2153,7 @@ body.fc-theme .fc-header-avatar {
 .st-kicker {
   color: var(--fc-accent);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
@@ -2272,7 +2269,7 @@ body.fc-theme .fc-header-avatar {
   color: var(--fc-text);
   font-size: 16px;
   font-variant-numeric: tabular-nums;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .st-allocation > div:first-child strong { color: var(--fc-accent); }
@@ -2330,122 +2327,18 @@ body.fc-theme .fc-header-avatar {
   color: var(--fc-text);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: -0.02em;
 }
 
 .st-day.is-active .st-day__label,
 .st-day.is-active .st-day__amount { color: var(--fc-accent); }
 
-/* Hidden, deliberately and on purpose kept that way here. The card still
-   RENDERS a full "N bills before payday" list — heading, icons, rows — and
-   this one declaration is the only reason nobody has seen it. The hide used
-   to live in flowcheck-design-system.css, where it was the sole surviving
-   property of a rule otherwise entirely shadowed by this one, so deleting
-   that duplicate would have silently un-hidden the section. Restored here
-   verbatim so the consolidation changes nothing; whether the section should
-   come back is a product call, not a refactor's side effect. */
-.st-bills {
-  display: none;
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid var(--fc-border);
-}
-
-.st-bills__heading {
-  gap: 10px;
-  padding: 0 2px 12px;
-}
-
-.st-bills__heading h3 {
-  color: var(--fc-text);
-  font-size: 15px;
-  font-weight: 500;
-}
-
-.st-bills__heading > span {
-  display: grid;
-  width: 32px;
-  height: 32px;
-  place-items: center;
-  border: 1px solid var(--fc-border-accent);
-  border-radius: 50%;
-  background: var(--fc-accent-soft);
-}
-
-.st-bills__list {
-  overflow: hidden;
-  border: 1px solid var(--fc-border-strong);
-  border-radius: var(--fc-r-md);
-  background: var(--fc-card-bg);
-}
-
-.st-bill {
-  width: 100%;
-  min-height: 64px;
-  gap: 12px;
-  padding: 10px 12px;
-  border: 0;
-  background: transparent;
-  color: var(--fc-text);
-  cursor: pointer;
-  font: inherit;
-  text-align: left;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.st-bill + .st-bill { border-top: 1px solid var(--fc-border); }
-.st-bill:active { background: var(--fc-card-bg-hover); }
-
-.st-bill__icon {
-  display: grid;
-  width: 40px;
-  height: 40px;
-  flex: 0 0 40px;
-  place-items: center;
-  border: 1px solid var(--fc-border-accent);
-  border-radius: 50%;
-  background: var(--fc-accent-soft);
-  box-shadow: 0 0 20px var(--fc-accent-soft);
-}
-
-.st-bill__copy {
-  display: block;
-  min-width: 0;
-  flex: 1;
-}
-
-.st-bill__copy strong,
-.st-bill__copy span { display: block; }
-
-.st-bill__copy strong {
-  overflow: hidden;
-  color: var(--fc-text);
-  font-size: 14px;
-  font-weight: 700;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.st-bill__copy span {
-  margin-top: 2px;
-  color: var(--fc-text-muted);
-  font-size: 12px;
-}
-
-.st-bill__chevron,
 .st-paycheck-card__chevron {
   color: var(--fc-text-muted);
   font-size: 32px;
   font-weight: 400;
   line-height: 1;
-}
-
-.st-bills__empty {
-  padding: 16px;
-  color: var(--fc-text-muted);
-  font-size: 13px;
-  text-align: center;
 }
 
 .st-calculation {
@@ -2479,7 +2372,7 @@ body.fc-theme .fc-header-avatar {
   padding-top: 8px;
   border-top: 1px solid var(--fc-border-strong);
   color: var(--fc-text);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .st-calculation p {
@@ -2580,7 +2473,7 @@ body.fc-theme .fc-header-avatar {
   color: var(--fc-text);
   font-size: 26px;
   font-variant-numeric: tabular-nums;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: -0.03em;
 }
 
@@ -2654,7 +2547,7 @@ body.fc-theme .fc-header-avatar {
 .rw-headline {
   margin: 3px 0 2px;
   font-size: 26px;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.1;
   letter-spacing: -0.03em;
   color: var(--fc-text);
@@ -2666,7 +2559,7 @@ body.fc-theme .fc-header-avatar {
 .rw-end { text-align: right; flex-shrink: 0; }
 .rw-end-lbl {
   margin: 0 0 1px;
-  font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
+  font-size: 10px; font-weight: 600; letter-spacing: 0.1em;
   text-transform: uppercase; color: var(--fc-text-faint);
 }
 /* Supporting metric, not the hero. Demoted from 24px/800 so it stops
@@ -2739,7 +2632,7 @@ body.fc-theme .fc-header-avatar {
   animation: fcCoachIn 0.22s cubic-bezier(0.32, 0.72, 0, 1) both;
 }
 .coach-answer-verdict {
-  margin: 0; font-size: 19px; font-weight: 700; letter-spacing: -0.02em;
+  margin: 0; font-size: 19px; font-weight: 600; letter-spacing: -0.02em;
   color: var(--fc-text); line-height: 1.25;
 }
 .coach-answer-detail {
@@ -2769,7 +2662,7 @@ body.fc-theme .fc-header-avatar {
 .coach-opt-label { font-size: 14px; font-weight: 600; color: var(--fc-text); }
 .coach-opt-note  { font-size: 11.5px; color: var(--fc-text-muted); }
 .coach-opt-rec {
-  flex-shrink: 0; font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
+  flex-shrink: 0; font-size: 10px; font-weight: 600; letter-spacing: 0.04em;
   text-transform: uppercase; color: var(--fc-success);
   background: rgba(52,199,89,0.12); padding: 4px 8px; border-radius: var(--fc-r-pill);
 }
@@ -2787,7 +2680,7 @@ body.fc-theme .fc-header-avatar {
 .coach-math-total {
   margin-top: 4px; padding-top: 8px;
   border-top: 0.5px solid var(--fc-border);
-  font-weight: 700; color: var(--fc-text);
+  font-weight: 600; color: var(--fc-text);
 }
 @keyframes fcCoachIn {
   from { opacity: 0; transform: translateY(6px); }
@@ -2859,7 +2752,7 @@ body.fc-theme .fc-header-avatar {
   border-radius: var(--fc-r-pill);
   background: var(--fc-bg-elevated);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--fc-text);
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.2px;
@@ -2880,7 +2773,7 @@ body.fc-theme .fc-header-avatar {
   transform: translateY(-100%);
   padding-bottom: 8px;
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--fc-text-muted);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -2992,7 +2885,7 @@ body.fc-theme .fc-header-avatar {
   position: absolute; left: 0;
   transform: translateY(-100%);
   padding: 0 0 2px 2px;
-  font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
+  font-size: 10px; font-weight: 600; letter-spacing: 0.04em;
   color: var(--fc-danger); opacity: 0.75;
 }
 /* The date in the headline, marked where it actually happens. */
@@ -3008,14 +2901,14 @@ body.fc-theme .fc-header-avatar {
   background: var(--fc-danger-soft);
   border: 1px solid var(--fc-danger-border);
   color: var(--fc-danger);
-  font-size: 10px; font-weight: 700; white-space: nowrap;
+  font-size: 10px; font-weight: 600; white-space: nowrap;
 }
 
 .rw-cta {
   display: block; width: 100%; margin-top: 14px;
   padding: 13px 16px; border: none; border-radius: 14px;
   background: var(--fc-accent); color: var(--fc-accent-ink);
-  font-family: inherit; font-size: 15px; font-weight: 700;
+  font-family: inherit; font-size: 15px; font-weight: 600;
   cursor: pointer; -webkit-tap-highlight-color: transparent;
   transition: transform 0.14s var(--fc-ease-out), filter 0.14s var(--fc-ease-out);
 }
@@ -3087,7 +2980,7 @@ body.fc-theme .fc-header-avatar {
   pointer-events: none;
   z-index: 3;
 }
-.rw-readout b { font-weight: 800; }
+.rw-readout b { font-weight: 600; }
 .rw-scrubbing .rw-readout { opacity: 1; }
 
 @media (prefers-reduced-motion: reduce) {
@@ -3126,7 +3019,7 @@ body.fc-theme .fc-header-avatar {
   background: var(--fc-bg-elevated);
   border: 1px solid var(--fc-border-strong);
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--fc-text-muted);
@@ -3153,17 +3046,17 @@ body.fc-theme .fc-header-avatar {
 .fc-score { padding: 16px; }
 .fc-score-lead {
   margin: 4px 0 12px;
-  font-size: 15px; font-weight: 700; letter-spacing: -0.015em;
+  font-size: 15px; font-weight: 600; letter-spacing: -0.015em;
   color: var(--fc-text); line-height: 1.3;
 }
 .fc-score-row { display: flex; gap: 28px; }
 .fc-score-k {
-  font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
+  font-size: 10px; font-weight: 600; letter-spacing: 0.1em;
   text-transform: uppercase; color: var(--fc-text-faint);
 }
 .fc-score-v {
   margin-top: 2px;
-  font-size: 20px; font-weight: 800; letter-spacing: -0.03em;
+  font-size: 20px; font-weight: 600; letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums; color: var(--fc-text);
 }
 .fc-score-note {
@@ -3181,7 +3074,7 @@ body.fc-theme .fc-header-avatar {
 
 .ob-rw-label {
   display: block;
-  font-size: 12.5px; font-weight: 700;
+  font-size: 12.5px; font-weight: 600;
   color: var(--fc-text-muted);
   margin-bottom: 8px; text-align: left;
 }
@@ -3193,12 +3086,12 @@ body.fc-theme .fc-header-avatar {
   border: 1px solid var(--fc-border);
   border-radius: 14px;
 }
-.ob-rw-cur { font-size: 22px; font-weight: 800; color: var(--fc-text-faint); }
+.ob-rw-cur { font-size: 22px; font-weight: 600; color: var(--fc-text-faint); }
 .ob-rw-input {
   flex: 1; min-width: 0;
   background: none; border: none; outline: none;
   color: var(--fc-text);
-  font-family: inherit; font-size: 24px; font-weight: 800;
+  font-family: inherit; font-size: 24px; font-weight: 600;
   letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
 }
 .ob-rw-input::placeholder { color: var(--fc-text-disabled); }
@@ -3213,7 +3106,7 @@ body.fc-theme .fc-header-avatar {
   border-radius: 10px;
   background: var(--fc-bg-elevated-2);
   color: var(--fc-text-muted);
-  font-family: inherit; font-size: 12px; font-weight: 700;
+  font-family: inherit; font-size: 12px; font-weight: 600;
   cursor: pointer; -webkit-tap-highlight-color: transparent;
   transition: background 0.15s var(--fc-ease-out), color 0.15s var(--fc-ease-out);
 }
@@ -3234,16 +3127,16 @@ body.fc-theme .fc-header-avatar {
   gap: 12px; margin-bottom: 10px;
 }
 .ob-rw-eyebrow {
-  font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
+  font-size: 10px; font-weight: 600; letter-spacing: 0.1em;
   text-transform: uppercase; color: var(--fc-text-faint);
 }
 .ob-rw-verdict {
-  margin-top: 2px; font-size: 13px; font-weight: 700;
+  margin-top: 2px; font-size: 13px; font-weight: 600;
   color: var(--fc-text); line-height: 1.25;
 }
 .ob-rw-end {
   flex-shrink: 0;
-  font-size: 22px; font-weight: 800; letter-spacing: -0.03em;
+  font-size: 22px; font-weight: 600; letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums; color: var(--fc-text);
 }
 .ob-rw-end.is-warn { color: var(--fc-danger); }
@@ -3267,14 +3160,14 @@ body.fc-theme .fc-header-avatar {
   gap: 12px; margin-bottom: 10px;
 }
 .ob-demo-verdict {
-  margin-top: 2px; font-size: 14px; font-weight: 700;
+  margin-top: 2px; font-size: 14px; font-weight: 600;
   color: var(--fc-text); line-height: 1.25;
   transition: color 0.3s ease;
 }
 .ob-demo-verdict.is-fixed { color: var(--fc-success); }
 .ob-demo-amt {
   margin-top: 2px;
-  font-size: 22px; font-weight: 800; letter-spacing: -0.03em;
+  font-size: 22px; font-weight: 600; letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums; color: var(--fc-text);
   transition: color 0.3s ease;
 }
@@ -3296,7 +3189,7 @@ body.fc-theme .fc-header-avatar {
   transition: opacity 0.4s ease, transform 0.4s var(--fc-ease-out, ease);
 }
 .ob-demo-fix.is-in { opacity: 1; transform: none; }
-.ob-demo-fix strong { color: var(--fc-text); font-weight: 700; }
+.ob-demo-fix strong { color: var(--fc-text); font-weight: 600; }
 .ob-demo-fix-ic {
   flex-shrink: 0; width: 16px; height: 16px; margin-top: 1px;
   color: var(--fc-accent);
@@ -3397,7 +3290,7 @@ body.fc-theme .fc-header-avatar {
   margin: 8px 0 8px;
   color: var(--fc-text);
   font-size: 22px;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.2;
   letter-spacing: -0.02em;
 }
@@ -3508,13 +3401,13 @@ body.fc-theme .fc-header-avatar {
   padding: 20px;
 }
 .wv-df-eyebrow {
-  font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
+  font-size: 10px; font-weight: 600; letter-spacing: 0.1em;
   text-transform: uppercase; color: var(--fc-text-faint);
   margin: 0 0 4px;
 }
 .wv-df-date {
   margin: 0;
-  font-size: 28px; font-weight: 800; letter-spacing: -0.03em;
+  font-size: 28px; font-weight: 700; letter-spacing: -0.03em;
   color: var(--fc-text); line-height: 1.05;
 }
 .wv-df-sub {
@@ -3530,7 +3423,7 @@ body.fc-theme .fc-header-avatar {
   font-size: 12.5px; line-height: 1.45; color: var(--fc-text-muted);
 }
 .wv-df-lever svg { flex-shrink: 0; margin-top: 1px; }
-.wv-df-lever strong { color: var(--fc-success); font-weight: 700; }
+.wv-df-lever strong { color: var(--fc-success); font-weight: 600; }
 /* The state where we do not know enough to answer. Asking is the content. */
 .wv-df--ask .wv-df-ask {
   margin: 0; font-size: 13px; line-height: 1.5; color: var(--fc-text-muted);
@@ -3595,7 +3488,7 @@ body.fc-theme .fc-header-avatar {
 .wv-acct-group-lbl {
   padding: 12px 16px 6px;
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--wv-t3);
@@ -3651,7 +3544,7 @@ body.fc-theme .fc-header-avatar {
   display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
 }
 .fc-cb-summary-amt {
-  font-size: 24px; font-weight: 700; color: var(--fc-text);
+  font-size: 24px; font-weight: 600; color: var(--fc-text);
   font-variant-numeric: tabular-nums; letter-spacing: -0.5px;
 }
 .fc-cb-summary-note {
@@ -3797,7 +3690,7 @@ body.fc-theme .fc-header-avatar {
 .fc-ms-label {
   display: block;
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.07em;
   text-transform: uppercase;
   color: var(--fc-text-faint);
@@ -3806,7 +3699,7 @@ body.fc-theme .fc-header-avatar {
 .fc-ms-value {
   display: block;
   font-size: 17px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--fc-text);
   letter-spacing: -0.3px;
   font-variant-numeric: tabular-nums;
@@ -3870,7 +3763,7 @@ body.fc-theme .fc-header-avatar {
   margin: 0;
   justify-self: center;
   font-size: 17px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--fc-text);
   white-space: nowrap;
@@ -3912,13 +3805,13 @@ html body.fc-theme[data-tab="activity"] .fc-screen[data-screen="app"] > .fc-head
   gap: 12px;
   margin-bottom: 14px;
 }
-.pc-title { font-size: 17px; font-weight: 700; color: var(--fc-text); }
+.pc-title { font-size: 17px; font-weight: 600; color: var(--fc-text); }
 .pc-cover { margin-top: 2px; font-size: 12px; color: var(--fc-text-muted); }
 .pc-expected { flex-shrink: 0; text-align: right; }
 .pc-expected__label { font-size: 11px; color: var(--fc-text-faint); }
 .pc-expected__value {
   font-size: 17px;
-  font-weight: 800;
+  font-weight: 600;
   color: var(--fc-text);
   font-variant-numeric: tabular-nums;
 }
@@ -3944,7 +3837,7 @@ html body.fc-theme[data-tab="activity"] .fc-screen[data-screen="app"] > .fc-head
 .pc-split__label { font-size: 11px; color: var(--fc-text-faint); }
 .pc-split__value {
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--fc-text);
   font-variant-numeric: tabular-nums;
 }
@@ -3979,7 +3872,7 @@ html body.fc-theme[data-tab="activity"] .fc-screen[data-screen="app"] > .fc-head
 }
 .pc-pace__row strong {
   font-size: 18px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--fc-text);
   font-variant-numeric: tabular-nums;
 }
@@ -4019,7 +3912,7 @@ html body.fc-theme[data-tab="activity"] .fc-screen[data-screen="app"] > .fc-head
 .pc-group {
   margin: 14px 0 2px;
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.09em;
   text-transform: uppercase;
   color: var(--fc-text-faint);
@@ -4066,7 +3959,7 @@ html body.fc-theme[data-tab="activity"] .fc-screen[data-screen="app"] > .fc-head
   height: 100%;
   border-radius: inherit;
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: -0.01em;
   /* Themed, not the brand's own foreground — see _txnIconTile. */
   color: var(--fc-text);
@@ -4135,7 +4028,7 @@ html body.fc-theme[data-tab="activity"] .fc-screen[data-screen="app"] > .fc-head
 }
 .st-runway__low strong {
   color: var(--fc-text);
-  font-weight: 700;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
@@ -4168,7 +4061,7 @@ html body.fc-theme[data-tab="activity"] .fc-screen[data-screen="app"] > .fc-head
   color: var(--fc-accent-ink, #04121a);
   font-family: inherit;
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: -0.02em;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;

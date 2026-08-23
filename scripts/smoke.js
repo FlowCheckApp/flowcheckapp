@@ -34,6 +34,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const net = require('net');
 
 const ROOT = path.join(__dirname, '..');
 const PORT = 4399;
@@ -118,10 +119,15 @@ function cdp(wsUrl) {
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-const getJSON = (port, route) => new Promise((res, rej) => {
-  http.get(`http://127.0.0.1:${port}${route}`, r => {
-    let d = ''; r.on('data', c => d += c); r.on('end', () => { try { res(JSON.parse(d)); } catch (e) { rej(e); } });
-  }).on('error', rej);
+const getJSON = (port, route, method = 'GET') => new Promise((res, rej) => {
+  const req = http.request(
+    { host: '127.0.0.1', port, path: route, method },
+    r => {
+      let d = ''; r.on('data', c => d += c);
+      r.on('end', () => { try { res(JSON.parse(d)); } catch (e) { rej(e); } });
+    });
+  req.on('error', rej);
+  req.end();
 });
 
 /**
@@ -130,16 +136,23 @@ const getJSON = (port, route) => new Promise((res, rej) => {
  * /json/version (the browser endpoint) fails with "'Runtime.enable' wasn't
  * found".
  */
-async function endpoint(port, tries = 60) {
+async function endpoint(port, tries = 160) {
   for (let i = 0; i < tries; i++) {
     try {
       const list = await getJSON(port, '/json/list');
       const page = list.find(t => t.type === 'page' && t.webSocketDebuggerUrl);
       if (page) return page.webSocketDebuggerUrl;
-      await getJSON(port, '/json/new?about:blank').catch(() => {});
+      /* PUT, not GET. Chrome has rejected GET on /json/new since v111 (it
+         was changed to stop drive-by pages opening tabs in a debugging
+         browser), so this fallback had been silently failing — which only
+         mattered once Chrome also stopped opening about:blank eagerly, and
+         then there was no page to attach to at all. */
+      await getJSON(port, '/json/new?about:blank', 'PUT').catch(() => {});
     } catch (_) { /* Chrome still starting */ }
     await sleep(250);
   }
+  /* 40s, not 15. The old window was comfortable on an idle machine and not
+     on one also running an Xcode build, where this failed spuriously. */
   throw new Error('Chrome exposed no page target to attach to');
 }
 
@@ -275,9 +288,31 @@ const DRIVE = `(async () => {
 (async () => {
   const server = await serve();
   const userDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fc-smoke-'));
+  /* An explicit port, chosen by the OS a moment earlier.
+
+     This used to pass --remote-debugging-port=0 and scrape the port out of
+     Chrome's "DevTools listening on ws://…" stderr line. As of Chrome 151
+     that line is not printed when the port is 0, and nothing is written to
+     DevToolsActivePort either — so the harness waited its full 12 seconds
+     and declared "Chrome did not report a debugging port" against a Chrome
+     that had started fine. With an explicit port Chrome still announces
+     itself normally.
+
+     Binding :0 and closing immediately keeps the property port=0 was there
+     for — parallel runs and a rerun after a crashed run do not collide on a
+     hardcoded number. */
+  const dbgPort = await new Promise((resolve, reject) => {
+    const probe = net.createServer();
+    probe.once('error', reject);
+    probe.listen(0, '127.0.0.1', () => {
+      const { port } = probe.address();
+      probe.close(() => resolve(port));
+    });
+  });
+
   const chrome = spawn(CHROME, [
     HEADFUL ? '--no-first-run' : '--headless=new',
-    '--remote-debugging-port=0',
+    `--remote-debugging-port=${dbgPort}`,
     `--user-data-dir=${userDir}`,
     '--no-default-browser-check',
     '--disable-background-timer-throttling',
@@ -302,10 +337,9 @@ const DRIVE = `(async () => {
   process.on('exit', cleanup);
 
   try {
-    for (let i = 0; i < 80 && !port; i++) await sleep(150);
-    if (!port) throw new Error('Chrome did not report a debugging port');
-
-    const client = await cdp(await endpoint(port));
+    /* endpoint() already retries for 15s while Chrome boots, so there is
+       nothing to wait for separately — and nothing to parse. */
+    const client = await cdp(await endpoint(dbgPort));
     const errors = [];
     client.on(msg => {
       if (msg.method === 'Runtime.exceptionThrown') {

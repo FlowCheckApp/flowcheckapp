@@ -665,7 +665,7 @@ window.FCApp = (function () {
     if (body) body.innerHTML = `
       <div class="fcs-sheet-header">
         <div style="font-size:48px;margin-bottom:10px">${subIcon(sub.name)}</div>
-        <div style="font-size:20px;font-weight:700;color:var(--fc-text);margin-bottom:4px">${esc(_cleanTxnName({ name: sub.name }))}</div>
+        <div style="font-size:20px;font-weight:600;color:var(--fc-text);margin-bottom:4px">${esc(_cleanTxnName({ name: sub.name }))}</div>
         <div style="font-size:28px;font-weight:700;color:var(--fc-text);margin-bottom:2px;letter-spacing:-0.02em;font-variant-numeric:tabular-nums">${FCData.formatCurrency(sub.amount)}<span style="font-size:15px;font-weight:400;color:var(--fc-text-muted)">/${sub.freq}</span></div>
         <div class="fcs-sub">${FCData.formatCurrency(Math.round(annualEst))}/year estimated</div>
       </div>
@@ -1718,7 +1718,7 @@ window.FCApp = (function () {
                  <div style="display:flex;align-items:center;gap:14px">
                    <div style="flex:1;min-width:0">
                      <div class="fc-eyebrow" style="color:var(--fc-accent)">Bills This Month</div>
-                     <div style="font-size:24px;font-weight:700;color:var(--fc-text);font-variant-numeric:tabular-nums">${FCData.formatSummary(_totalDue)}</div>
+                     <div style="font-size:24px;font-weight:600;color:var(--fc-text);font-variant-numeric:tabular-nums">${FCData.formatSummary(_totalDue)}</div>
                      <div style="font-size:13px;color:var(--fc-text-muted)">${_paidTotal > 0 ? FCData.formatSummary(_paidTotal) + ' paid so far' : 'due this month'}</div>
                    </div>
                    ${_leftToPay > 0
@@ -3458,24 +3458,6 @@ window.FCApp = (function () {
         + '<span class="st-day__amount">' + fmtWhole(amount) + '</span></button>';
     }).join('');
 
-    const visibleBills = upcomingBills.slice(0, 3);
-    const billRows = visibleBills.length ? visibleBills.map(({ bill }) => {
-      let due = 'Date not set';
-      if (bill.due_date) {
-        try { due = FCData.parseDateLocal(bill.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); }
-        catch (_) { /* Keep the explicit date-not-set fallback for malformed legacy bills. */ }
-      }
-      const name = bill.name || 'Bill';
-      return '<button class="st-bill" type="button" onclick="FCApp.switchTab(\'activity\');FCApp.switchActivitySegment(\'bills\')"'
-        + ' aria-label="View ' + esc(name) + '">'
-        + '<span class="st-bill__icon" aria-hidden="true">' + _billIcon(bill, 'var(--fc-accent)', 22) + '</span>'
-        + '<span class="st-bill__copy"><strong>' + esc(name) + '</strong>'
-        + '<span>' + esc(due) + ' · ' + fmtWhole(bill.amount) + '</span></span>'
-        + '<span class="st-bill__chevron" aria-hidden="true">›</span></button>';
-    }).join('') : '<div class="st-bills__empty">No bills are due in this window.</div>';
-
-    const billCount = upcomingBills.length;
-
     /* The runway series, folded into this card rather than shown beside it.
        _renderRunwayCard was built with a chart, a scrubber and its own
        affordability CTA, and then never called — the fourth dead-but-complete
@@ -3539,10 +3521,6 @@ window.FCApp = (function () {
       + '<div><span>Flexible</span><strong>' + fmtWhole(left) + '</strong></div>'
       + '<div><span>Bills</span><strong>' + fmtWhole(billsTotal) + '</strong></div>'
       + '<div><span>Protected</span><strong>' + fmtWhole(protectedAmount) + '</strong></div></div>'
-      + '<section class="st-bills" aria-labelledby="st-bills-title">'
-      + '<div class="st-bills__heading"><span aria-hidden="true">' + _ic('calendar', 'var(--fc-accent)', 20) + '</span>'
-      + '<h3 id="st-bills-title">' + billCount + ' bill' + (billCount === 1 ? '' : 's') + ' before ' + (payday ? 'payday' : 'the end') + '</h3></div>'
-      + '<div class="st-bills__list">' + billRows + '</div></section>'
       + '<div class="st-calculation" id="st-calculation" hidden>'
       + '<div><span>Available cash</span><strong>' + fmtWhole(available) + '</strong></div>'
       + '<div><span>Bills before ' + (payday ? 'payday' : 'the end') + '</span><strong>−' + fmtWhole(billsTotal) + '</strong></div>'
@@ -4003,22 +3981,68 @@ window.FCApp = (function () {
       + '</section>';
   }
 
+  /* One implementation of "how fresh is this number", used by the header
+     chip and the debt card. They disagreed by wording before, which reads as
+     two different facts about the same sync. */
+  function _syncFreshnessLabel() {
+    const at = _getLastSyncAt();
+    if (!at) return '';
+    const mins = Math.floor((Date.now() - at) / 60000);
+    if (mins < 1) return 'Updated just now';
+    if (mins < 60) return 'Updated ' + mins + ' min ago';
+    return 'Updated at ' + new Date(at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  }
+
   function _renderDebtMomentumSection() {
     const debtNow = FCCore.netWorth(state.accounts || []).liabilities;
     if (!(debtNow > 0)) return '';
     const p = FCCore.debtProgress(state.debtHistory || {}, debtNow);
     const remaining = FCData.formatSummary(Math.abs(debtNow));
+
+    /* The bar used to be `width: 10%` in the stylesheet — the same sliver for
+       everybody, whatever they had actually repaid. A progress bar is a
+       claim about the user's money; drawing one from a constant is inventing
+       a number in a finance app. It is now derived, or it is not drawn.
+
+       Denominator is the debt as first observed (what is left plus what has
+       gone), not a goal nobody set. */
+    const paid = p.ok ? Math.max(0, p.paidDown) : 0;
+    const opening = paid + Math.abs(debtNow);
+    const pct = paid > 0 && opening > 0
+      ? Math.max(1, Math.min(100, Math.round((paid / opening) * 100)))
+      : 0;
+
     const monthText = p.ok && p.month > 0
       ? FCData.formatSummary(Math.abs(p.month)) + ' paid down this month.'
-      : 'Every payment moves the date closer.';
+      : paid > 0
+        /* parseDateLocal, not new Date(str) — a bare YYYY-MM-DD parses as UTC
+           and prints the previous day west of Greenwich. Enforced by
+           scripts/check-utc-dates.js. */
+        ? FCData.formatSummary(paid) + ' paid down since '
+          + FCData.parseDateLocal(p.from).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + '.'
+        /* Honest about why there is no figure yet: the balance is tracked
+           daily, so this resolves itself without the user doing anything. */
+        : 'Tracking daily — your first month of progress appears here.';
+
+    const fresh = _syncFreshnessLabel();
+
     return ''
       + '<section class="fc-ui-card today-section-card today-debt-card">'
         + '<div class="today-section-head"><h2>Debt momentum</h2><button type="button" onclick="FCApp.switchTab(\'wealth\')">View plan</button></div>'
         + '<div class="today-debt-card__value">' + remaining + ' <span>remaining</span></div>'
         + '<p class="today-debt-card__meta">' + esc(monthText) + '</p>'
-        + '<div class="today-debt-card__track"><span></span></div>'
-        + '<div class="today-debt-card__labels"><span>Today</span><span>Debt-free goal</span></div>'
-        + '<button class="today-outline-btn" type="button" onclick="FCApp.switchTab(\'wealth\')">Update balance</button>'
+        + (pct > 0
+            ? '<div class="today-debt-card__track"><span style="width:' + pct + '%"></span></div>'
+              + '<div class="today-debt-card__labels"><span>' + esc(FCData.formatSummary(paid)) + ' paid</span>'
+              + '<span>' + esc(FCData.formatSummary(Math.abs(debtNow))) + ' to go</span></div>'
+            : '')
+        /* No "Update balance" button. It never updated anything — it called
+           switchTab('wealth') — and the balance is read from the connected
+           accounts on every sync, so asking the user to maintain it by hand
+           described the opposite of what the app does. Replaced with the
+           thing that was actually missing: evidence the figure is current. */
+        + (fresh ? '<p class="today-debt-card__sync">' + _ic('clock', 'currentColor', 12)
+            + '<span>Updates automatically from your accounts \u00b7 ' + esc(fresh) + '</span></p>' : '')
       + '</section>';
   }
 
@@ -4446,7 +4470,7 @@ window.FCApp = (function () {
                            : 'var(--fc-accent)';
         const bg = b.color || FCData.categoryColor(b.category || 'Service');
         billsEl.innerHTML = `
-          <div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--fc-accent);margin-bottom:6px;padding:0 2px">Next Bill</div>
+          <div style="font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--fc-accent);margin-bottom:6px;padding:0 2px">Next Bill</div>
           <div class="dash-bill-card" style="border-left-color:${accentColor}" data-bill-id="${esc(b.id)}" onclick="FCApp.switchTab('activity');FCApp.switchActivitySegment('bills')" role="button">
             <div class="dash-bill-icon" style="background:${esc(bg)};color:white">${esc(b.icon || b.name.charAt(0))}</div>
             <div class="dash-bill-body">
@@ -4614,7 +4638,7 @@ window.FCApp = (function () {
                     stroke-dasharray="${dash}" stroke-dashoffset="${offset}"
                     stroke-linecap="round" transform="rotate(-90 32 32)"/>
           </svg>
-          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--fc-text);font-size:13px;font-weight:700;line-height:1">${pct}%</div>
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--fc-text);font-size:13px;font-weight:600;line-height:1">${pct}%</div>
         </div>
         <div class="fc-grow">
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
@@ -4736,8 +4760,12 @@ window.FCApp = (function () {
           const color = delta >= 0 ? 'rgba(48,209,88,0.12)' : 'rgba(255,69,58,0.10)';
           const borderColor = delta >= 0 ? 'rgba(48,209,88,0.28)' : 'rgba(255,69,58,0.25)';
           const textColor   = delta >= 0 ? 'var(--fc-success)' : 'var(--fc-danger)';
-          deltaEl.textContent = `${sign}${FCData.formatCurrency(Math.abs(delta))} vs last week`;
-          deltaEl.style.cssText = `display:inline-flex;align-items:center;gap:4px;background:${color};border:0.5px solid ${borderColor};border-radius:var(--fc-r-pill);padding:4px 10px;font-size:11px;font-weight:700;color:${textColor};margin-bottom:8px`;
+          /* formatSummary: this is a glanceable pill, not a ledger row, and
+             "$722.12 vs last week" put cents on a comparison nobody reads to
+             the penny. Weight 600, not 700 — an 11px pill was carrying the
+             same weight as the 60px hero. */
+          deltaEl.textContent = `${sign}${FCData.formatSummary(Math.abs(delta))} vs last week`;
+          deltaEl.style.cssText = `display:inline-flex;align-items:center;gap:4px;background:${color};border:0.5px solid ${borderColor};border-radius:var(--fc-r-pill);padding:4px 10px;font-size:11px;font-weight:600;color:${textColor};margin-bottom:8px`;
         } else {
           deltaEl.style.display = 'none';
         }
@@ -6646,7 +6674,7 @@ window.FCApp = (function () {
               ${budSubline ? `<div style="margin-top:1px">${budSubline}</div>` : ''}
             </div>
             <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
-              <span style="font-size:14px;font-weight:700;color:${isOver ? 'var(--fc-danger)' : 'var(--fc-text)'}">${FCData.formatCurrency(amount)}</span>
+              <span style="font-size:14px;font-weight:600;color:${isOver ? 'var(--fc-danger)' : 'var(--fc-text)'}">${FCData.formatCurrency(amount)}</span>
               <div style="display:flex;align-items:center;gap:4px">
                 <span style="font-size:10px;color:var(--fc-text-faint)">${p}%</span>
                 ${statusBadge}
@@ -6728,7 +6756,7 @@ window.FCApp = (function () {
           <div class="fcs-cal-row">
             <div style="width:38px;text-align:center">
               <div style="font-size:10px;color:var(--fc-text-faint);font-weight:500">${label}</div>
-              <div style="font-size:15px;font-weight:700;color:var(--fc-text)">${d.getDate()}</div>
+              <div style="font-size:15px;font-weight:600;color:var(--fc-text)">${d.getDate()}</div>
             </div>
             <div style="flex:1">
               ${dueBills.map(b => `
@@ -6816,7 +6844,7 @@ window.FCApp = (function () {
         const initial   = s.name.charAt(0).toUpperCase();
         return `
           <div class="fc-list-item fcs-zombie-row">
-            <div class="fc-list-icon" style="background:rgba(255,69,58,0.10);color:var(--fc-danger);font-weight:700;font-size:14px;width:38px;height:38px;flex-shrink:0">
+            <div class="fc-list-icon" style="background:rgba(255,69,58,0.10);color:var(--fc-danger);font-weight:600;font-size:14px;width:38px;height:38px;flex-shrink:0">
               ${initial}
             </div>
             <div class="fc-list-body">
@@ -7020,8 +7048,8 @@ window.FCApp = (function () {
       const amtTxt  = isFut ? '—' : spend >= 1000 ? `$${(spend/1000).toFixed(1)}k` : `$${Math.round(spend)}`;
       const amtCol  = isFut ? 'rgba(255,255,255,0.18)' : 'white';
       return `<div style="flex-shrink:0;width:68px;scroll-snap-align:start;border-radius:14px;background:${cardBg};border:${border};padding:10px 6px 8px;text-align:center;cursor:${isFut?'default':'pointer'}" ${!isFut ? `onclick="FCApp._showMonthBudgetDetail(${i},${year})"` : ''}>
-        <div style="font-size:10px;font-weight:700;color:${isCur?'var(--fc-accent)':'var(--fc-text-faint)'};letter-spacing:0.5px;text-transform:uppercase;margin-bottom:5px">${name}</div>
-        <div style="font-size:13px;font-weight:800;color:${amtCol};margin-bottom:5px;letter-spacing:-0.02em">${amtTxt}</div>
+        <div style="font-size:10px;font-weight:600;color:${isCur?'var(--fc-accent)':'var(--fc-text-faint)'};letter-spacing:0.5px;text-transform:uppercase;margin-bottom:5px">${name}</div>
+        <div style="font-size:13px;font-weight:600;color:${amtCol};margin-bottom:5px;letter-spacing:-0.02em">${amtTxt}</div>
         <div class="fcs-bar-track" style="height:3px;margin-bottom:3px">
           <div style="height:100%;width:${(isFut||!hasBudget)?0:pct}%;background:${color};border-radius:var(--fc-r-pill)"></div>
         </div>
@@ -7152,7 +7180,7 @@ window.FCApp = (function () {
           ? ` (${delta >= 0 ? '+' : '−'}${Math.abs(Math.round((delta / Math.abs(prev)) * 100))}%)`
           : '';
         dlEl.innerHTML = `<span>${sign}${FCData.formatCurrency(Math.abs(delta))}</span><span style="font-weight:500;color:var(--fc-text-faint);margin-left:4px">${pctText} this month</span>`;
-        dlEl.style.cssText = `display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;padding:4px 10px;border-radius:var(--fc-r-pill);background:${color};color:${textColor};margin-top:8px`;
+        dlEl.style.cssText = `display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:4px 10px;border-radius:var(--fc-r-pill);background:${color};color:${textColor};margin-top:8px`;
       } else {
         dlEl.style.display = 'none';
       }
@@ -8588,7 +8616,7 @@ window.FCApp = (function () {
       const good  = invert ? d < 0 : d > 0;
       const color = good ? 'var(--fc-success)' : d === 0 ? 'var(--fc-text-faint)' : 'var(--fc-danger)';
       const arrow = d > 0 ? '↑' : d < 0 ? '↓' : '→';
-      return `<div style="margin-top:4px"><span style="font-size:10px;color:${color};font-weight:700">${arrow}${Math.abs(d)}%</span> <span style="font-size:10px;color:var(--fc-text-faint)">vs last mo</span></div>`;
+      return `<div style="margin-top:4px"><span style="font-size:10px;color:${color};font-weight:600">${arrow}${Math.abs(d)}%</span> <span style="font-size:10px;color:var(--fc-text-faint)">vs last mo</span></div>`;
     };
 
     el.innerHTML = `
@@ -8610,7 +8638,7 @@ window.FCApp = (function () {
               </div>
               <div class="ins-changed-body">
                 <div class="ins-changed-label">${m.icon} ${esc(m.label)}</div>
-                ${d !== null ? `<div class="ins-changed-sub"><span style="color:${color};font-weight:700">${arrow}${Math.abs(d)}%</span> vs last month</div>` : ''}
+                ${d !== null ? `<div class="ins-changed-sub"><span style="color:${color};font-weight:600">${arrow}${Math.abs(d)}%</span> vs last month</div>` : ''}
               </div>
               <div class="ins-changed-val">${m.value}</div>
             </div>`;
@@ -9466,7 +9494,7 @@ window.FCApp = (function () {
           +'<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">'
             +'<div class="fc-eyebrow">Recurring Charges</div>'
           +'</div>'
-          +'<div style="font-size:26px;font-weight:800;color:var(--fc-text);font-variant-numeric:tabular-nums">'+FCData.formatCurrency(subsTotal)+'<span style="font-size:13px;font-weight:500;color:var(--fc-text-muted)">/mo</span></div>'
+          +'<div style="font-size:26px;font-weight:600;color:var(--fc-text);font-variant-numeric:tabular-nums">'+FCData.formatCurrency(subsTotal)+'<span style="font-size:13px;font-weight:500;color:var(--fc-text-muted)">/mo</span></div>'
           +'<div style="font-size:13px;color:var(--fc-text-muted);margin-bottom:10px">'+subs.length+' subscription'+(subs.length===1?'':'s')+' detected</div>'
           +subs.map(s2 => planRow(_ic('play-screen','var(--fc-text-muted)',16), esc(s2.name||'Subscription'), s2.amount||0, '', '')).join('')
           +'<div style="font-size:12px;color:var(--fc-text-faint);margin-top:12px;line-height:1.5">Not using one of these? Cancel it in the provider\'s app — then watch this number drop.</div>'
@@ -9574,7 +9602,7 @@ window.FCApp = (function () {
             +ringHTML
             +'<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center">'
               +'<div style="font-size:10px;font-weight:600;color:var(--fc-text-faint);letter-spacing:0.3px">INCOME</div>'
-              +'<div style="font-size:14px;font-weight:700;color:var(--fc-text)">'+(totalIncome>0?(totalIncome>=1000?'$'+(totalIncome/1000).toFixed(1).replace(/\.0$/,'')+'k':FCData.formatSummary(totalIncome)):'--')+'</div>'
+              +'<div style="font-size:14px;font-weight:600;color:var(--fc-text)">'+(totalIncome>0?(totalIncome>=1000?'$'+(totalIncome/1000).toFixed(1).replace(/\.0$/,'')+'k':FCData.formatSummary(totalIncome)):'--')+'</div>'
             +'</div>'
           +'</div>'
           +'<div style="flex:1;display:flex;flex-direction:column;gap:7px">'
@@ -9595,7 +9623,7 @@ window.FCApp = (function () {
       // ── Budget Progress ──
       +'<div class="fc-card" style="margin-bottom:14px;padding:18px 16px">'
         +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">'
-          +'<div style="font-size:17px;font-weight:700;color:var(--fc-text)">Budget Progress</div>'
+          +'<div style="font-size:17px;font-weight:600;color:var(--fc-text)">Budget Progress</div>'
           +'<div style="font-size:13px;color:var(--fc-text-faint)">'+daysLeft+'d left</div>'
         +'</div>'
         /* The reward, stated plainly and only when it was earned. This is
@@ -9617,7 +9645,7 @@ window.FCApp = (function () {
               const _paceDelta = _paceAmt - totalSpend;
               const _onPace   = _paceDelta >= 0;
               return '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">'
-                +'<div style="font-size:24px;font-weight:800;color:var(--fc-text);font-variant-numeric:tabular-nums">'+FCData.formatSummary(totalSpend)+'</div>'
+                +'<div style="font-size:24px;font-weight:600;color:var(--fc-text);font-variant-numeric:tabular-nums">'+FCData.formatSummary(totalSpend)+'</div>'
                 +'<div style="font-size:13px;color:var(--fc-text-muted)">of '+FCData.formatSummary(budgetLimit)+'</div>'
               +'</div>'
               +'<div class="fc-progress" style="margin-bottom:8px;position:relative;overflow:visible">'
@@ -9641,7 +9669,7 @@ window.FCApp = (function () {
       +(catBudgetRows.length > 0
         ? '<div class="fc-card" style="margin-bottom:14px;padding:18px 16px">'
             +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">'
-              +'<div style="font-size:17px;font-weight:700;color:var(--fc-text)">Category Budgets</div>'
+              +'<div style="font-size:17px;font-weight:600;color:var(--fc-text)">Category Budgets</div>'
               +'<button onclick="FCApp._openBudgetWizard()" style="background:none;border:none;color:var(--fc-accent);font-size:13px;font-weight:600;cursor:pointer">View all</button>'
             +'</div>'
             +catBudgetRows.map(r =>
@@ -9702,7 +9730,7 @@ window.FCApp = (function () {
       +(_planSeg !== 'bills' ? '' : ''
       +'<div class="fc-card" style="margin-bottom:14px;padding:18px 16px">'
         +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">'
-          +'<div style="font-size:17px;font-weight:700;color:var(--fc-text)">Upcoming Bills</div>'
+          +'<div style="font-size:17px;font-weight:600;color:var(--fc-text)">Upcoming Bills</div>'
           /* Was _openSubScreen('bills'). #view-bills was deleted when the
              duplicate Bills screen was removed, but these two routes into it
              were not — and _openSubScreen fires its haptic BEFORE looking the
@@ -10200,7 +10228,7 @@ window.FCApp = (function () {
       +'</header>'
 
       +'<div class="fc-card" style="padding:16px;margin-bottom:20px;cursor:pointer;display:flex;align-items:center;gap:14px" onclick="FCApp._openSubScreen(\'settings\')">'
-        +'<div style="width:48px;height:48px;border-radius:50%;background:var(--fc-accent-soft);border:2px solid var(--fc-accent);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:var(--fc-accent);flex-shrink:0">'+esc(initial)+'</div>'
+        +'<div style="width:48px;height:48px;border-radius:50%;background:var(--fc-accent-soft);border:2px solid var(--fc-accent);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:600;color:var(--fc-accent);flex-shrink:0">'+esc(initial)+'</div>'
         /* esc() on both. These are the user's own profile name and email —
            user.name comes from Firestore and is written by
            saveProfileChanges() after nothing but a .trim() and a non-empty
@@ -10211,7 +10239,7 @@ window.FCApp = (function () {
           +'<div style="font-size:17px;font-weight:600;color:var(--fc-text)">'+esc(displayName)+'</div>'
           +'<div style="font-size:13px;color:var(--fc-text-muted);margin-top:1px">'+esc(displayEmail)+'</div>'
         +'</div>'
-        +(isPro?'<span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:var(--fc-r-pill);background:var(--fc-accent-soft);color:var(--fc-accent)">PRO</span>':'')
+        +(isPro?'<span style="font-size:11px;font-weight:600;padding:3px 9px;border-radius:var(--fc-r-pill);background:var(--fc-accent-soft);color:var(--fc-accent)">PRO</span>':'')
         +'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>'
       +'</div>'
 
@@ -10430,7 +10458,7 @@ window.FCApp = (function () {
             + esc(_vaultDateLabel(e.date)) + ' · ' + esc(e.detail) + '</div>'
         + '</div>'
         + '<div style="text-align:right;flex-shrink:0">'
-          + '<div class="fc-amount" style="font-size:15px;font-weight:700;color:' + tint + '">+'
+          + '<div class="fc-amount" style="font-size:15px;font-weight:600;color:' + tint + '">+'
             + esc(FCData.formatCurrency(e.amount)) + '</div>'
           + '<div style="font-size:10px;color:var(--fc-text-faint);margin-top:1px">'
             + (attributed ? esc(e.confidence === 'observed' ? 'Verified' : 'Estimated') : 'Your win') + '</div>'
@@ -10577,7 +10605,7 @@ window.FCApp = (function () {
       '<div style="flex:1;min-width:0">'
       + '<p style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--fc-text-faint);margin:0 0 3px">'
         + esc(label) + '</p>'
-      + '<p class="fc-amount" style="font-size:17px;font-weight:700;margin:0;color:' + (color || 'var(--fc-text)') + '">'
+      + '<p class="fc-amount" style="font-size:17px;font-weight:600;margin:0;color:' + (color || 'var(--fc-text)') + '">'
         + esc(value) + '</p></div>';
 
     /* Lifetime: found vs paid. The net is shown even when it is negative —
@@ -11160,7 +11188,7 @@ window.FCApp = (function () {
       +'<div class="fc-card" style="margin-bottom:18px;padding:16px;cursor:pointer;-webkit-tap-highlight-color:transparent" onclick="FCApp.openMoneyStory()">'
         +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'
           +'<div class="fc-eyebrow">This Week\'s Review</div>'
-          +'<div style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:700;color:var(--fc-accent)">'
+          +'<div style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:var(--fc-accent)">'
             +'<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>Play'
           +'</div>'
         +'</div>'
@@ -11206,8 +11234,8 @@ window.FCApp = (function () {
     const section = (n, label, body) =>
       '<div style="margin-bottom:14px">'
         +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">'
-          +'<div style="width:20px;height:20px;border-radius:50%;background:var(--fc-accent-soft);color:var(--fc-accent);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+n+'</div>'
-          +'<div style="font-size:13px;font-weight:700;color:var(--fc-text)">'+label+'</div>'
+          +'<div style="width:20px;height:20px;border-radius:50%;background:var(--fc-accent-soft);color:var(--fc-accent);font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+n+'</div>'
+          +'<div style="font-size:13px;font-weight:600;color:var(--fc-text)">'+label+'</div>'
         +'</div>'
         +'<div style="font-size:14px;color:var(--fc-text-muted);line-height:1.5;padding-left:28px">'+body+'</div>'
       +'</div>';
@@ -11223,7 +11251,7 @@ window.FCApp = (function () {
           +(a.highlight
             ? '<div style="background:var(--fc-warning-soft);border-radius:var(--fc-r-sm);padding:12px 14px;margin:4px 0 14px;display:flex;align-items:center;justify-content:space-between">'
                 +'<div><div style="font-size:12px;color:var(--fc-text-muted)">'+esc(a.highlight.label)+'</div><div style="font-size:12px;color:var(--fc-text-muted)">'+a.highlight.sub+'</div></div>'
-                +'<div style="font-size:20px;font-weight:800;color:var(--fc-text);font-variant-numeric:tabular-nums">'+a.highlight.value+'</div>'
+                +'<div style="font-size:20px;font-weight:600;color:var(--fc-text);font-variant-numeric:tabular-nums">'+a.highlight.value+'</div>'
               +'</div>'
             : '')
           +'<button class="fc-btn fc-btn--primary" style="width:100%" onclick="'+a.action+'">'+a.cta+'</button>'
@@ -11269,8 +11297,8 @@ window.FCApp = (function () {
         +'<div style="padding:0 20px 20px">'
           +'<label for="afford-amount" style="font-size:12px;font-weight:600;color:var(--fc-text-muted);display:block;margin-bottom:6px">How much is it?</label>'
           +'<div style="display:flex;align-items:center;gap:8px;background:var(--fc-bg-elevated-2);border-radius:var(--fc-r-sm);padding:2px 14px;margin-bottom:10px">'
-            +'<span style="font-size:20px;font-weight:700;color:var(--fc-text-muted)">$</span>'
-            +'<input id="afford-amount" type="number" inputmode="decimal" enterkeyhint="go" placeholder="65" style="flex:1;background:none;border:none;outline:none;font-size:22px;font-weight:700;color:var(--fc-text);padding:12px 0;font-family:inherit;font-variant-numeric:tabular-nums" autocomplete="off">'
+            +'<span style="font-size:20px;font-weight:600;color:var(--fc-text-muted)">$</span>'
+            +'<input id="afford-amount" type="number" inputmode="decimal" enterkeyhint="go" placeholder="65" style="flex:1;background:none;border:none;outline:none;font-size:22px;font-weight:600;color:var(--fc-text);padding:12px 0;font-family:inherit;font-variant-numeric:tabular-nums" autocomplete="off">'
           +'</div>'
           +'<div class="afford-chips">' + [20, 50, 100, 250].map(_chip).join('') + '</div>'
           +'<button class="fc-btn fc-btn--primary" style="width:100%" onclick="FCApp.runAffordCheck()">Check</button>'
@@ -11383,7 +11411,7 @@ window.FCApp = (function () {
       '<div style="background:'+toneSoft+';border-radius:14px;padding:14px 16px;margin:16px 0 12px;display:flex;gap:12px;align-items:flex-start">'
         +'<span style="flex-shrink:0;margin-top:1px">'+_ic(tone === 'success' ? 'check' : 'alert', toneColor, 20)+'</span>'
         +'<div>'
-          +'<div style="font-size:15px;font-weight:700;color:var(--fc-text)">'+verdict+'</div>'
+          +'<div style="font-size:15px;font-weight:600;color:var(--fc-text)">'+verdict+'</div>'
           +'<div style="font-size:13px;color:var(--fc-text-muted);line-height:1.45;margin-top:3px">'+detail+'</div>'
         +'</div>'
       +'</div>'
@@ -11899,7 +11927,7 @@ window.FCApp = (function () {
           +'<div style="display:flex;align-items:center;gap:14px">'
             +'<div style="flex:1">'
               +'<div class="fc-eyebrow" style="color:var(--fc-accent);margin-bottom:4px">Your Next Best Goal</div>'
-              +'<div style="font-size:17px;font-weight:700;color:var(--fc-text);margin-bottom:2px">Emergency Fund</div>'
+              +'<div style="font-size:17px;font-weight:600;color:var(--fc-text);margin-bottom:2px">Emergency Fund</div>'
               +'<div style="font-size:13px;color:var(--fc-text-muted);line-height:1.45">'
                 +(!_efGoal
                   ? 'You have no safety cushion yet. Build this before anything else.'
@@ -12061,7 +12089,7 @@ window.FCApp = (function () {
         +'<button type="button" class="fc-sub-back" onclick="FCApp._closeSubScreen()">'
           +'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg> Back'
         +'</button>'
-        +'<div style="flex:1;font-size:22px;font-weight:800;color:var(--fc-text)">Investments</div>'
+        +'<div style="flex:1;font-size:22px;font-weight:600;color:var(--fc-text)">Investments</div>'
       +'</header>'
 
       +(invAccts.length > 0
@@ -12155,7 +12183,7 @@ window.FCApp = (function () {
         <button type="button" class="fc-sub-back" onclick="FCApp._closeSubScreen()">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg> Back
         </button>
-        <div style="flex:1;font-size:22px;font-weight:800;color:var(--fc-text)">Calendar</div>
+        <div style="flex:1;font-size:22px;font-weight:600;color:var(--fc-text)">Calendar</div>
       </div>
       <div class="fc-card" style="padding:16px;margin-bottom:14px">
         <div style="font-size:16px;font-weight:600;color:var(--fc-text);text-align:center;margin-bottom:14px">${monthName}</div>
@@ -12268,7 +12296,7 @@ window.FCApp = (function () {
         <button type="button" class="fc-sub-back" onclick="FCApp._closeSubScreen()">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg> Back
         </button>
-        <div style="flex:1;font-size:22px;font-weight:800;color:var(--fc-text)">Reports</div>
+        <div style="flex:1;font-size:22px;font-weight:600;color:var(--fc-text)">Reports</div>
       </div>
       ${reportCards}
       <!-- "Export PDF" called window.print(), which does nothing at all in a
@@ -12297,7 +12325,7 @@ window.FCApp = (function () {
     el.innerHTML = `
       <div style="display:flex;align-items:center;gap:12px;padding:20px 0 16px">
         <button type="button" class="fc-sub-back" onclick="FCApp._closeSubScreen()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg> Back</button>
-        <div style="flex:1;font-size:22px;font-weight:700;color:var(--fc-text)">Notifications</div>
+        <div style="flex:1;font-size:22px;font-weight:600;color:var(--fc-text)">Notifications</div>
         ${unreadCount > 0 ? `<button onclick="FCApp._markAllNotifRead()" style="background:none;border:none;cursor:pointer;font-size:13px;color:var(--fc-accent)">Clear all</button>` : ''}
       </div>
       ${notifs.length > 0 ? `<div class="fc-card" style="padding:4px 16px">
@@ -13278,7 +13306,7 @@ window.FCApp = (function () {
       overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;align-items:flex-end;justify-content:center';
       overlay.innerHTML = `
         <div style="background:var(--fc-bg-elevated,#0b1826);border-radius:24px 24px 0 0;padding:24px 24px calc(24px + env(safe-area-inset-bottom,0));width:100%;max-width:480px;border-top:1px solid var(--fc-border,rgba(255,255,255,0.07))">
-          <div style="font-size:17px;font-weight:700;color:var(--fc-text,#f0f6ff);margin-bottom:8px;text-align:center">${title.replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}</div>
+          <div style="font-size:17px;font-weight:600;color:var(--fc-text,#f0f6ff);margin-bottom:8px;text-align:center">${title.replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}</div>
           <div style="font-size:14px;color:var(--fc-text-muted,rgba(240,246,255,0.58));line-height:1.5;margin-bottom:24px;text-align:center">${message.replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}</div>
           <button id="_fc-dlg-confirm" style="width:100%;padding:16px;border-radius:14px;border:none;background:var(--fc-danger,#ff453a);color:#fff;font-size:16px;font-weight:600;cursor:pointer;margin-bottom:10px">${confirmText.replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}</button>
           <button id="_fc-dlg-cancel" style="width:100%;padding:14px;border-radius:14px;border:1px solid var(--fc-border,rgba(255,255,255,0.07));background:transparent;color:var(--fc-text-muted,rgba(240,246,255,0.58));font-size:15px;font-weight:500;cursor:pointer">Cancel</button>
@@ -14500,7 +14528,7 @@ window.FCApp = (function () {
           <div style="width:56px;height:56px;border-radius:18px;background:linear-gradient(145deg,rgba(26,196,240,0.10),rgba(37,99,235,0.06));border:0.5px solid rgba(26,196,240,0.18);display:flex;align-items:center;justify-content:center;margin-bottom:4px;box-shadow:0 6px 20px rgba(0,0,0,0.28)">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="rgba(26,196,240,0.7)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
           </div>
-          <div style="font-size:15px;font-weight:700;color:var(--fc-text);letter-spacing:-0.02em">You're all caught up</div>
+          <div style="font-size:15px;font-weight:600;color:var(--fc-text);letter-spacing:-0.02em">You're all caught up</div>
           <div style="font-size:13px;color:var(--fc-text-faint);line-height:1.5;max-width:220px">We'll notify you about bills, budget alerts, and account activity</div>
         </div>`;
       return;
@@ -16788,9 +16816,9 @@ window.FCApp = (function () {
         <div style="width:68px;height:68px;background:linear-gradient(135deg,rgba(26,196,240,0.18),rgba(37,99,235,0.12));border-radius:22px;display:flex;align-items:center;justify-content:center;margin:0 auto 22px;border:0.5px solid rgba(26,196,240,0.2)">
           <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="var(--fc-accent,#1ac4f0)" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
         </div>
-        <div style="font-size:22px;font-weight:800;color:var(--fc-text,#f0f6ff);margin-bottom:12px;letter-spacing:-0.03em">Welcome to FlowCheck</div>
+        <div style="font-size:22px;font-weight:600;color:var(--fc-text,#f0f6ff);margin-bottom:12px;letter-spacing:-0.03em">Welcome to FlowCheck</div>
         <div style="font-size:14.5px;color:var(--fc-text-muted,rgba(240,246,255,0.58));line-height:1.65;margin-bottom:28px">FlowCheck is built to help you understand your money, track your progress, and make smarter decisions with confidence. Your feedback helps us improve the experience for everyone.</div>
-        <button id="_fc-welcome-start" style="width:100%;padding:15px;border-radius:14px;border:none;background:var(--fc-accent,#1ac4f0);color:#060e18;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:10px;letter-spacing:-0.01em">Get Started</button>
+        <button id="_fc-welcome-start" style="width:100%;padding:15px;border-radius:14px;border:none;background:var(--fc-accent,#1ac4f0);color:#060e18;font-size:16px;font-weight:600;cursor:pointer;margin-bottom:10px;letter-spacing:-0.01em">Get Started</button>
         <button id="_fc-welcome-feedback" style="width:100%;padding:14px;border-radius:14px;border:0.5px solid var(--fc-border,rgba(255,255,255,0.07));background:transparent;color:var(--fc-text-muted,rgba(240,246,255,0.58));font-size:15px;font-weight:500;cursor:pointer">Send Feedback</button>
       </div>`;
     document.body.appendChild(overlay);

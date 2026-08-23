@@ -3,8 +3,9 @@ import LocalAuthentication
 
 // Full-screen native lock screen — shown on every app resume when biometric is enabled.
 // Owns its own Face ID / Touch ID prompt via LAContext directly (no Capacitor bridge needed).
-// On success: scale+fade dismiss. On failure: shake + retry.
-// "Use Password Instead" posts FCSignOutRequested so the JS layer signs out.
+// On success: scale+fade dismiss. On failure: the screen states why and offers the
+// two ways forward. "Use account password" posts FCSignOutRequested so the JS
+// layer signs out.
 final class NativeLockScreenViewController: UIViewController {
 
     // MARK: - Callbacks
@@ -17,19 +18,50 @@ final class NativeLockScreenViewController: UIViewController {
     // MARK: - Design tokens (FlowCheck design system)
     private let fcBg       = UIColor(red: 0.020, green: 0.055, blue: 0.094, alpha: 1) // #050e18
     private let fcAccent   = UIColor(red: 0.102, green: 0.769, blue: 0.941, alpha: 1) // #1ac4f0
+    private let fcAccentInk = UIColor(red: 0.000, green: 0.102, blue: 0.141, alpha: 1) // #001a24
     private let fcElectric = UIColor(red: 0.145, green: 0.388, blue: 0.922, alpha: 1) // #2563eb
     private let fcSuccess  = UIColor(red: 0.204, green: 0.780, blue: 0.349, alpha: 1) // #34c759
     private let fcDanger   = UIColor(red: 1.000, green: 0.271, blue: 0.227, alpha: 1) // #ff453a
 
+    /* Never hardcode "Face ID". The policy used below is
+       .deviceOwnerAuthentication, which resolves to Touch ID on a home-button
+       device and to the passcode when no biometry is enrolled — so a button
+       reading "Try Face ID again" would name a sensor the phone does not have.
+       Resolved once, from the device. */
+    private lazy var biometryName: String = {
+        let ctx = LAContext()
+        _ = ctx.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: nil)
+        switch ctx.biometryType {
+        case .faceID:  return "Face ID"
+        case .touchID: return "Touch ID"
+        default:       return "Passcode"
+        }
+    }()
+
+    private lazy var biometrySymbol: String = {
+        let ctx = LAContext()
+        _ = ctx.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: nil)
+        switch ctx.biometryType {
+        case .faceID:  return "faceid"
+        case .touchID: return "touchid"
+        default:       return "lock.fill"
+        }
+    }()
+
     // MARK: - Views
     private let glowLayer     = CAGradientLayer()
+    private let logoShadow    = UIView()
     private let logoContainer = UIView()
     private let appNameLabel  = UILabel()
-    private let subtitleLabel = UILabel()
     private let ringContainer = UIView()
-    private let faceIDButton  = UIButton(type: .custom)
+    private let glyphView     = UIButton(type: .custom)
+    private let titleLabel    = UILabel()
     private let statusLabel   = UILabel()
-    private let passwordBtn   = UIButton(type: .system)
+    private let hintLabel     = UILabel()
+    private let retryBtn      = UIButton(type: .custom)
+    private let passwordBtn   = UIButton(type: .custom)
+    private let troubleBtn    = UIButton(type: .system)
+    private let footerStack   = UIStackView()
     private var pulseLayers   = [CALayer]()
 
     // MARK: - Lifecycle
@@ -38,11 +70,12 @@ final class NativeLockScreenViewController: UIViewController {
         super.viewDidLoad()
         view.backgroundColor = fcBg
         setupGlow()
-        setupLogo()
-        setupLabels()
-        setupRingAndButton()
-        setupStatusLabel()
-        setupPasswordButton()
+        setupHeader()
+        setupGlyph()
+        setupCopy()
+        setupActions()
+        setupFooter()
+        applyIdleState()
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -58,68 +91,62 @@ final class NativeLockScreenViewController: UIViewController {
             self.view.transform = .identity
         }
         // Fire Face ID 95ms in — mid-animation, so the dialog appears as the
-        // screen finishes settling. Feels instant vs waiting for completion.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.095) {
-            self.authenticate()
+        // screen settles rather than after it.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.095) { [weak self] in
+            self?.authenticate()
         }
     }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         glowLayer.frame = view.bounds
-        // Keep logo gradient in sync with its frame
-        logoContainer.layer.sublayers?
-            .compactMap { $0 as? CAGradientLayer }
-            .first?.frame = logoContainer.bounds
+        if let grad = logoContainer.layer.sublayers?.compactMap({ $0 as? CAGradientLayer }).first {
+            grad.frame = logoContainer.bounds
+        }
     }
 
-    override var prefersStatusBarHidden: Bool { true }
-
-    // MARK: - UI Setup
+    // MARK: - Chrome
 
     private func setupGlow() {
-        glowLayer.type   = .radial
-        glowLayer.colors = [fcAccent.withAlphaComponent(0.10).cgColor, UIColor.clear.cgColor]
-        glowLayer.startPoint = CGPoint(x: 0.5, y: 0.38)
-        glowLayer.endPoint   = CGPoint(x: 1.0, y: 1.0)
-        glowLayer.frame      = view.bounds
+        glowLayer.colors     = [fcAccent.withAlphaComponent(0.10).cgColor, UIColor.clear.cgColor]
+        glowLayer.startPoint = CGPoint(x: 0.5, y: 0.0)
+        glowLayer.endPoint   = CGPoint(x: 0.5, y: 0.6)
         view.layer.insertSublayer(glowLayer, at: 0)
 
-        // Breathe animation on the glow
         let pulse = CABasicAnimation(keyPath: "opacity")
-        pulse.fromValue    = 0.5
+        pulse.fromValue    = 0.55
         pulse.toValue      = 1.0
-        pulse.duration     = 3.0
+        pulse.duration     = 3.4
         pulse.autoreverses = true
         pulse.repeatCount  = .infinity
         pulse.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
         glowLayer.add(pulse, forKey: "glow")
     }
 
-    private func setupLogo() {
+    /* Icon and wordmark on one line at the top, the way the app's own header
+       renders them. They used to stack — a 72pt tile with a 26pt heavy
+       wordmark under it — which spent the top third of the screen restating
+       which app you had just opened. */
+    private func setupHeader() {
         logoContainer.translatesAutoresizingMaskIntoConstraints = false
-        logoContainer.layer.cornerRadius = 22
+        logoContainer.layer.cornerRadius = 10
         logoContainer.clipsToBounds      = true
 
-        // Gradient fill
         let grad = CAGradientLayer()
-        grad.colors      = [fcAccent.cgColor, fcElectric.cgColor]
-        grad.startPoint  = CGPoint(x: 0.2, y: 0.0)
-        grad.endPoint    = CGPoint(x: 0.8, y: 1.0)
-        grad.cornerRadius = 22
+        grad.colors       = [fcAccent.cgColor, fcElectric.cgColor]
+        grad.startPoint   = CGPoint(x: 0.2, y: 0.0)
+        grad.endPoint     = CGPoint(x: 0.8, y: 1.0)
+        grad.cornerRadius = 10
         logoContainer.layer.insertSublayer(grad, at: 0)
 
-        // Drop shadow (applied to wrapper since clipsToBounds hides shadow on logoContainer)
-        let shadowWrap = UIView()
-        shadowWrap.translatesAutoresizingMaskIntoConstraints = false
-        shadowWrap.layer.shadowColor   = fcAccent.cgColor
-        shadowWrap.layer.shadowOffset  = CGSize(width: 0, height: 10)
-        shadowWrap.layer.shadowRadius  = 24
-        shadowWrap.layer.shadowOpacity = 0.40
+        logoShadow.translatesAutoresizingMaskIntoConstraints = false
+        logoShadow.layer.shadowColor   = fcAccent.cgColor
+        logoShadow.layer.shadowOffset  = CGSize(width: 0, height: 6)
+        logoShadow.layer.shadowRadius  = 14
+        logoShadow.layer.shadowOpacity = 0.35
 
-        // App icon — load the actual FlowCheck icon from the bundle so the lock
-        // screen shows real branding, not a generic SF Symbol.
-        // Falls back to the chart symbol if the icon can't be loaded (e.g. simulator).
+        // The real app icon, so the lock screen shows real branding rather
+        // than a generic SF Symbol. Falls back where the bundle has no icon.
         let appIcon: UIImage? = {
             if let icons = Bundle.main.infoDictionary?["CFBundleIcons"] as? [String: Any],
                let primary = icons["CFBundlePrimaryIcon"] as? [String: Any],
@@ -133,127 +160,245 @@ final class NativeLockScreenViewController: UIViewController {
         let iconView: UIImageView
         if let appIcon = appIcon {
             iconView = UIImageView(image: appIcon)
-            iconView.contentMode   = .scaleAspectFill
-            iconView.layer.cornerRadius = 14
-            iconView.clipsToBounds = true
+            iconView.contentMode        = .scaleAspectFill
+            iconView.layer.cornerRadius = 8
+            iconView.clipsToBounds      = true
         } else {
-            let cfg  = UIImage.SymbolConfiguration(pointSize: 28, weight: .medium)
-            let sym  = UIImage(systemName: "chart.line.uptrend.xyaxis", withConfiguration: cfg)
-                    ?? UIImage(systemName: "dollarsign.circle.fill", withConfiguration: cfg)
-            iconView = UIImageView(image: sym)
+            let cfg = UIImage.SymbolConfiguration(pointSize: 16, weight: .semibold)
+            iconView = UIImageView(image: UIImage(systemName: "chart.line.uptrend.xyaxis",
+                                                  withConfiguration: cfg))
             iconView.tintColor = .white
         }
         iconView.translatesAutoresizingMaskIntoConstraints = false
-        logoContainer.addSubview(iconView)
 
-        shadowWrap.addSubview(logoContainer)
-        view.addSubview(shadowWrap)
-
-        NSLayoutConstraint.activate([
-            shadowWrap.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            shadowWrap.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 72),
-            shadowWrap.widthAnchor.constraint(equalToConstant: 72),
-            shadowWrap.heightAnchor.constraint(equalToConstant: 72),
-
-            logoContainer.topAnchor.constraint(equalTo: shadowWrap.topAnchor),
-            logoContainer.leadingAnchor.constraint(equalTo: shadowWrap.leadingAnchor),
-            logoContainer.trailingAnchor.constraint(equalTo: shadowWrap.trailingAnchor),
-            logoContainer.bottomAnchor.constraint(equalTo: shadowWrap.bottomAnchor),
-
-            iconView.centerXAnchor.constraint(equalTo: logoContainer.centerXAnchor),
-            iconView.centerYAnchor.constraint(equalTo: logoContainer.centerYAnchor),
-        ])
-    }
-
-    private func setupLabels() {
-        appNameLabel.text          = "FlowCheck"
-        appNameLabel.font          = UIFont.systemFont(ofSize: 26, weight: .heavy)
-        appNameLabel.textColor     = .white
-        appNameLabel.textAlignment = .center
+        appNameLabel.text      = "FlowCheck"
+        /* 20pt semibold, not 26 heavy. The app-wide weight scale reserves the
+           heaviest weight for one display figure per surface; a wordmark that
+           is not the subject of the screen is not it. */
+        appNameLabel.font      = UIFont.systemFont(ofSize: 20, weight: .semibold)
+        appNameLabel.textColor = .white
         appNameLabel.translatesAutoresizingMaskIntoConstraints = false
 
-        subtitleLabel.text          = "Your finances are locked"
-        subtitleLabel.font          = UIFont.systemFont(ofSize: 13, weight: .regular)
-        subtitleLabel.textColor     = UIColor.white.withAlphaComponent(0.45)
-        subtitleLabel.textAlignment = .center
-        subtitleLabel.translatesAutoresizingMaskIntoConstraints = false
+        logoContainer.addSubview(iconView)
+        logoShadow.addSubview(logoContainer)
 
-        view.addSubview(appNameLabel)
-        view.addSubview(subtitleLabel)
-
-        // Find the shadow wrapper (last added view before these labels)
-        let logoWrapper = view.subviews.last(where: { $0.layer.shadowOpacity > 0 })!
+        let header = UIStackView(arrangedSubviews: [logoShadow, appNameLabel])
+        header.axis      = .horizontal
+        header.alignment = .center
+        header.spacing   = 10
+        header.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(header)
 
         NSLayoutConstraint.activate([
-            appNameLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            appNameLabel.topAnchor.constraint(equalTo: logoWrapper.bottomAnchor, constant: 22),
+            header.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            header.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 24),
 
-            subtitleLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            subtitleLabel.topAnchor.constraint(equalTo: appNameLabel.bottomAnchor, constant: 6),
+            logoShadow.widthAnchor.constraint(equalToConstant: 32),
+            logoShadow.heightAnchor.constraint(equalToConstant: 32),
+            logoContainer.topAnchor.constraint(equalTo: logoShadow.topAnchor),
+            logoContainer.leadingAnchor.constraint(equalTo: logoShadow.leadingAnchor),
+            logoContainer.trailingAnchor.constraint(equalTo: logoShadow.trailingAnchor),
+            logoContainer.bottomAnchor.constraint(equalTo: logoShadow.bottomAnchor),
+            iconView.centerXAnchor.constraint(equalTo: logoContainer.centerXAnchor),
+            iconView.centerYAnchor.constraint(equalTo: logoContainer.centerYAnchor),
+            iconView.widthAnchor.constraint(equalTo: logoContainer.widthAnchor),
+            iconView.heightAnchor.constraint(equalTo: logoContainer.heightAnchor),
         ])
     }
 
-    private func setupRingAndButton() {
+    /* The biometry glyph. Still tappable — retrying by pressing the thing the
+       screen is about is the gesture people reach for first — but it is no
+       longer the ONLY way to retry, which is why the explicit button below
+       exists. */
+    private func setupGlyph() {
         ringContainer.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(ringContainer)
 
+        glyphView.translatesAutoresizingMaskIntoConstraints = false
+        glyphView.backgroundColor     = fcAccent.withAlphaComponent(0.08)
+        glyphView.layer.cornerRadius  = 66
+        glyphView.layer.borderWidth   = 1
+        glyphView.layer.borderColor   = fcAccent.withAlphaComponent(0.22).cgColor
+        glyphView.layer.masksToBounds = true
+        glyphView.tintColor           = fcAccent
+        glyphView.accessibilityLabel  = "Unlock with \(biometryName)"
+        glyphView.setImage(UIImage(systemName: biometrySymbol,
+                                   withConfiguration: UIImage.SymbolConfiguration(pointSize: 58,
+                                                                                  weight: .ultraLight)),
+                           for: .normal)
+        glyphView.addTarget(self, action: #selector(retryTapped), for: .touchUpInside)
+        ringContainer.addSubview(glyphView)
+
         NSLayoutConstraint.activate([
             ringContainer.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            ringContainer.centerYAnchor.constraint(equalTo: view.centerYAnchor, constant: 24),
-            ringContainer.widthAnchor.constraint(equalToConstant: 120),
-            ringContainer.heightAnchor.constraint(equalToConstant: 120),
-        ])
+            ringContainer.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 132),
+            ringContainer.widthAnchor.constraint(equalToConstant: 176),
+            ringContainer.heightAnchor.constraint(equalToConstant: 176),
 
-        faceIDButton.translatesAutoresizingMaskIntoConstraints = false
-        faceIDButton.backgroundColor    = fcAccent.withAlphaComponent(0.08)
-        faceIDButton.layer.cornerRadius = 44
-        faceIDButton.layer.borderWidth  = 1.5
-        faceIDButton.layer.borderColor  = fcAccent.withAlphaComponent(0.35).cgColor
-        faceIDButton.layer.masksToBounds = true
-
-        let cfg      = UIImage.SymbolConfiguration(pointSize: 38, weight: .ultraLight)
-        let faceIcon = UIImage(systemName: "faceid", withConfiguration: cfg)
-        faceIDButton.setImage(faceIcon, for: .normal)
-        faceIDButton.tintColor = fcAccent
-        faceIDButton.addTarget(self, action: #selector(faceIDTapped), for: .touchUpInside)
-
-        ringContainer.addSubview(faceIDButton)
-
-        NSLayoutConstraint.activate([
-            faceIDButton.centerXAnchor.constraint(equalTo: ringContainer.centerXAnchor),
-            faceIDButton.centerYAnchor.constraint(equalTo: ringContainer.centerYAnchor),
-            faceIDButton.widthAnchor.constraint(equalToConstant: 88),
-            faceIDButton.heightAnchor.constraint(equalToConstant: 88),
+            glyphView.centerXAnchor.constraint(equalTo: ringContainer.centerXAnchor),
+            glyphView.centerYAnchor.constraint(equalTo: ringContainer.centerYAnchor),
+            glyphView.widthAnchor.constraint(equalToConstant: 132),
+            glyphView.heightAnchor.constraint(equalToConstant: 132),
         ])
     }
 
-    private func setupStatusLabel() {
-        statusLabel.text          = ""
-        statusLabel.font          = UIFont.systemFont(ofSize: 14, weight: .medium)
-        statusLabel.textColor     = UIColor.white.withAlphaComponent(0.45)
+    private func setupCopy() {
+        titleLabel.text          = "Unlock FlowCheck"
+        titleLabel.font          = UIFont.systemFont(ofSize: 30, weight: .bold)
+        titleLabel.textColor     = .white
+        titleLabel.textAlignment = .center
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        statusLabel.font          = UIFont.systemFont(ofSize: 16, weight: .regular)
+        statusLabel.textColor     = UIColor.white.withAlphaComponent(0.62)
         statusLabel.textAlignment = .center
+        statusLabel.numberOfLines = 0
         statusLabel.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(statusLabel)
+
+        hintLabel.font          = UIFont.systemFont(ofSize: 14, weight: .regular)
+        hintLabel.textColor     = UIColor.white.withAlphaComponent(0.40)
+        hintLabel.textAlignment = .center
+        hintLabel.numberOfLines = 0
+        hintLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        [titleLabel, statusLabel, hintLabel].forEach { view.addSubview($0) }
 
         NSLayoutConstraint.activate([
+            titleLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            titleLabel.topAnchor.constraint(equalTo: ringContainer.bottomAnchor, constant: 18),
+            titleLabel.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 24),
+
             statusLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            statusLabel.topAnchor.constraint(equalTo: ringContainer.bottomAnchor, constant: 28),
+            statusLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 10),
+            statusLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 32),
+            statusLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -32),
+
+            hintLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            hintLabel.topAnchor.constraint(equalTo: statusLabel.bottomAnchor, constant: 6),
+            hintLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 32),
+            hintLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -32),
         ])
     }
 
-    private func setupPasswordButton() {
-        passwordBtn.setTitle("Sign in with account password", for: .normal)
-        passwordBtn.titleLabel?.font = UIFont.systemFont(ofSize: 14, weight: .medium)
-        passwordBtn.setTitleColor(UIColor.white.withAlphaComponent(0.30), for: .normal)
-        passwordBtn.setTitleColor(fcAccent, for: .highlighted)
-        passwordBtn.translatesAutoresizingMaskIntoConstraints = false
+    /* Two full-width controls and a text link, in that order of weight.
+       Before this the only visible exit was a 30%-opacity line of text at the
+       very bottom of the screen — the fallback everyone needs when Face ID
+       fails was the least visible thing on the failure screen. */
+    private func setupActions() {
+        styleFilled(retryBtn, title: "Try \(biometryName) again", symbol: biometrySymbol)
+        retryBtn.addTarget(self, action: #selector(retryTapped), for: .touchUpInside)
+
+        styleOutlined(passwordBtn, title: "Use account password", symbol: "lock.fill")
         passwordBtn.addTarget(self, action: #selector(passwordTapped), for: .touchUpInside)
-        view.addSubview(passwordBtn)
+
+        troubleBtn.setTitle("Having trouble?", for: .normal)
+        troubleBtn.titleLabel?.font = UIFont.systemFont(ofSize: 14, weight: .medium)
+        troubleBtn.setTitleColor(fcAccent, for: .normal)
+        troubleBtn.translatesAutoresizingMaskIntoConstraints = false
+        troubleBtn.addTarget(self, action: #selector(troubleTapped), for: .touchUpInside)
+
+        [retryBtn, passwordBtn, troubleBtn].forEach { view.addSubview($0) }
 
         NSLayoutConstraint.activate([
-            passwordBtn.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            passwordBtn.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -28),
+            retryBtn.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
+            retryBtn.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -24),
+            retryBtn.topAnchor.constraint(equalTo: hintLabel.bottomAnchor, constant: 28),
+            retryBtn.heightAnchor.constraint(equalToConstant: 54),
+
+            passwordBtn.leadingAnchor.constraint(equalTo: retryBtn.leadingAnchor),
+            passwordBtn.trailingAnchor.constraint(equalTo: retryBtn.trailingAnchor),
+            passwordBtn.topAnchor.constraint(equalTo: retryBtn.bottomAnchor, constant: 12),
+            passwordBtn.heightAnchor.constraint(equalToConstant: 54),
+
+            troubleBtn.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            troubleBtn.topAnchor.constraint(equalTo: passwordBtn.bottomAnchor, constant: 16),
+            troubleBtn.heightAnchor.constraint(equalToConstant: 44),
         ])
+    }
+
+    private func setupFooter() {
+        let cfg   = UIImage.SymbolConfiguration(pointSize: 12, weight: .medium)
+        let shield = UIImageView(image: UIImage(systemName: "lock.shield.fill", withConfiguration: cfg))
+        shield.tintColor = fcAccent.withAlphaComponent(0.55)
+        shield.setContentHuggingPriority(.required, for: .horizontal)
+
+        let note = UILabel()
+        note.text      = "Your financial data stays private."
+        note.font      = UIFont.systemFont(ofSize: 12, weight: .regular)
+        note.textColor = UIColor.white.withAlphaComponent(0.38)
+
+        footerStack.addArrangedSubview(shield)
+        footerStack.addArrangedSubview(note)
+        footerStack.axis      = .horizontal
+        footerStack.alignment = .center
+        footerStack.spacing   = 6
+        footerStack.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(footerStack)
+
+        NSLayoutConstraint.activate([
+            footerStack.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            footerStack.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -20),
+        ])
+    }
+
+    // MARK: - Button styling
+
+    /* UIButton.Configuration, not imageEdgeInsets. The insets pair has been
+       deprecated since iOS 15 — the project's own deployment target — and is
+       ignored outright once a configuration is attached, so the icon/label
+       spacing would have silently stopped applying. `imagePadding` is the
+       supported way to say the same thing. */
+    private func styleFilled(_ b: UIButton, title: String, symbol: String) {
+        b.translatesAutoresizingMaskIntoConstraints = false
+        var cfg = UIButton.Configuration.filled()
+        cfg.baseBackgroundColor = fcAccent
+        cfg.baseForegroundColor = fcAccentInk
+        cfg.cornerStyle         = .fixed
+        cfg.background.cornerRadius = 16
+        cfg.image = UIImage(systemName: symbol,
+                            withConfiguration: UIImage.SymbolConfiguration(pointSize: 17, weight: .medium))
+        cfg.imagePadding = 8
+        cfg.attributedTitle = AttributedString(
+            title, attributes: AttributeContainer([.font: UIFont.systemFont(ofSize: 16, weight: .semibold)]))
+        b.configuration = cfg
+    }
+
+    private func styleOutlined(_ b: UIButton, title: String, symbol: String) {
+        b.translatesAutoresizingMaskIntoConstraints = false
+        var cfg = UIButton.Configuration.plain()
+        cfg.baseForegroundColor = .white
+        cfg.cornerStyle         = .fixed
+        cfg.background.cornerRadius  = 16
+        cfg.background.strokeColor   = fcAccent.withAlphaComponent(0.45)
+        cfg.background.strokeWidth   = 1
+        cfg.background.backgroundColor = .clear
+        cfg.image = UIImage(systemName: symbol,
+                            withConfiguration: UIImage.SymbolConfiguration(pointSize: 15, weight: .medium))
+        cfg.imagePadding = 8
+        cfg.attributedTitle = AttributedString(
+            title, attributes: AttributeContainer([.font: UIFont.systemFont(ofSize: 16, weight: .medium)]))
+        b.configuration = cfg
+    }
+
+    // MARK: - Screen states
+
+    private func applyIdleState() {
+        statusLabel.text      = "Your finances are locked"
+        statusLabel.textColor = UIColor.white.withAlphaComponent(0.62)
+        hintLabel.text        = "\(biometryName) will open the app."
+    }
+
+    private func applyScanningState() {
+        statusLabel.text      = "Checking…"
+        statusLabel.textColor = UIColor.white.withAlphaComponent(0.62)
+        hintLabel.text        = " "
+    }
+
+    private func applyFailureState(cancelled: Bool) {
+        statusLabel.text      = cancelled ? "\(biometryName) cancelled"
+                                          : "\(biometryName) wasn't recognized"
+        statusLabel.textColor = cancelled ? UIColor.white.withAlphaComponent(0.62) : fcDanger
+        hintLabel.text        = "Try again or use your account password."
     }
 
     // MARK: - Pulse Rings
@@ -262,8 +407,11 @@ final class NativeLockScreenViewController: UIViewController {
         pulseLayers.forEach { $0.removeFromSuperlayer() }
         pulseLayers = []
 
-        let center = CGPoint(x: 60, y: 60)
-        let configs: [(CGFloat, Double)] = [(56, 0.0), (48, 0.7)]
+        // Centre and radii track ringContainer (176pt) and the 132pt glyph
+        // inside it. They were hardcoded to the old 120pt container and would
+        // have drawn off-centre here.
+        let center = CGPoint(x: 88, y: 88)
+        let configs: [(CGFloat, Double)] = [(78, 0.0), (68, 0.7)]
 
         for (radius, delay) in configs {
             let layer = CALayer()
@@ -271,14 +419,14 @@ final class NativeLockScreenViewController: UIViewController {
             layer.position     = center
             layer.cornerRadius = radius
             layer.borderWidth  = 1.5
-            layer.borderColor  = fcAccent.withAlphaComponent(0.25).cgColor
+            layer.borderColor  = fcAccent.withAlphaComponent(0.20).cgColor
             layer.opacity      = 0
             ringContainer.layer.insertSublayer(layer, at: 0)
             pulseLayers.append(layer)
 
             let scale = CABasicAnimation(keyPath: "transform.scale")
             scale.fromValue = 0.88
-            scale.toValue   = 1.18
+            scale.toValue   = 1.14
 
             let opacity = CAKeyframeAnimation(keyPath: "opacity")
             opacity.values   = [0, 1, 0]
@@ -296,15 +444,18 @@ final class NativeLockScreenViewController: UIViewController {
 
     // MARK: - Authentication
 
-    @objc private func faceIDTapped() {
+    @objc private func retryTapped() {
+        impact(.light)
         authenticate()
     }
 
     private func authenticate() {
         guard !isAuthenticating else { return }
-        isAuthenticating    = true
-        faceIDButton.isEnabled = false
-        subtitleLabel.text  = "Scanning…"
+        isAuthenticating   = true
+        glyphView.isEnabled = false
+        retryBtn.isEnabled  = false
+        retryBtn.alpha      = 0.6
+        applyScanningState()
 
         let context = LAContext()
         context.localizedFallbackTitle = "Enter Account Password"
@@ -320,7 +471,6 @@ final class NativeLockScreenViewController: UIViewController {
             }
         }
     }
-
 
     /// Honours the app's "Haptic feedback" setting.
     ///
@@ -346,30 +496,30 @@ final class NativeLockScreenViewController: UIViewController {
     private func handleSuccess() {
         impact(.medium)
 
-        // Button turns green
         UIView.animate(withDuration: 0.2) {
-            self.faceIDButton.backgroundColor = self.fcSuccess.withAlphaComponent(0.15)
-            self.faceIDButton.layer.borderColor = self.fcSuccess.withAlphaComponent(0.5).cgColor
-            self.faceIDButton.tintColor = self.fcSuccess
+            self.glyphView.backgroundColor     = self.fcSuccess.withAlphaComponent(0.15)
+            self.glyphView.layer.borderColor   = self.fcSuccess.withAlphaComponent(0.5).cgColor
+            self.glyphView.tintColor           = self.fcSuccess
+            self.retryBtn.alpha                = 0
+            self.passwordBtn.alpha             = 0
+            self.troubleBtn.alpha              = 0
         }
-        let cfg = UIImage.SymbolConfiguration(pointSize: 34, weight: .light)
-        faceIDButton.setImage(UIImage(systemName: "checkmark", withConfiguration: cfg), for: .normal)
+        let cfg = UIImage.SymbolConfiguration(pointSize: 52, weight: .light)
+        glyphView.setImage(UIImage(systemName: "checkmark", withConfiguration: cfg), for: .normal)
 
-        statusLabel.text      = "✓ Unlocked"
+        statusLabel.text      = "Unlocked"
         statusLabel.textColor = fcSuccess
-        subtitleLabel.text    = ""
+        hintLabel.text        = " "
 
-        // Spring pop
         UIView.animate(withDuration: 0.35, delay: 0, usingSpringWithDamping: 0.52,
                        initialSpringVelocity: 1.0, options: []) {
-            self.faceIDButton.transform = CGAffineTransform(scaleX: 1.18, y: 1.18)
+            self.glyphView.transform = CGAffineTransform(scaleX: 1.12, y: 1.12)
         } completion: { _ in
             UIView.animate(withDuration: 0.18) {
-                self.faceIDButton.transform = .identity
+                self.glyphView.transform = .identity
             }
         }
 
-        // Dismiss after spring animation completes — 0.18s identity + slight buffer
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) { [weak self] in
             self?.dismissWithSuccess()
         }
@@ -382,40 +532,35 @@ final class NativeLockScreenViewController: UIViewController {
                         error?.code == .appCancel   ||
                         error?.code == .systemCancel
 
-        if cancelled {
-            // User dismissed the prompt — show a clear tap-to-retry state
-            subtitleLabel.text    = "Tap to try again"
-            statusLabel.text      = ""
-            faceIDButton.isEnabled = true
-        } else {
-            UIView.animate(withDuration: 0.2) {
-                self.faceIDButton.backgroundColor = self.fcDanger.withAlphaComponent(0.12)
-                self.faceIDButton.layer.borderColor = self.fcDanger.withAlphaComponent(0.40).cgColor
-            }
-            statusLabel.text      = "Didn't recognize you"
-            statusLabel.textColor = fcDanger
-            shakeButton()
+        glyphView.isEnabled = true
+        retryBtn.isEnabled  = true
+        retryBtn.alpha      = 1
+        applyFailureState(cancelled: cancelled)
 
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) { [weak self] in
-                guard let self else { return }
-                UIView.animate(withDuration: 0.25) {
-                    self.faceIDButton.backgroundColor = self.fcAccent.withAlphaComponent(0.08)
-                    self.faceIDButton.layer.borderColor = self.fcAccent.withAlphaComponent(0.35).cgColor
-                }
-                self.statusLabel.text      = "Tap to try again"
-                self.statusLabel.textColor = UIColor.white.withAlphaComponent(0.45)
+        guard !cancelled else { return }
+
+        UIView.animate(withDuration: 0.2) {
+            self.glyphView.backgroundColor   = self.fcDanger.withAlphaComponent(0.12)
+            self.glyphView.layer.borderColor = self.fcDanger.withAlphaComponent(0.40).cgColor
+        }
+        shakeGlyph()
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) { [weak self] in
+            guard let self else { return }
+            UIView.animate(withDuration: 0.25) {
+                self.glyphView.backgroundColor   = self.fcAccent.withAlphaComponent(0.08)
+                self.glyphView.layer.borderColor = self.fcAccent.withAlphaComponent(0.22).cgColor
             }
-            subtitleLabel.text     = "Your finances are locked"
-            faceIDButton.isEnabled = true
+            self.statusLabel.textColor = UIColor.white.withAlphaComponent(0.62)
         }
     }
 
-    private func shakeButton() {
+    private func shakeGlyph() {
         let anim = CAKeyframeAnimation(keyPath: "transform.translation.x")
         anim.timingFunction = CAMediaTimingFunction(name: .linear)
         anim.duration = 0.38
         anim.values   = [0, -9, 9, -6, 6, -3, 3, 0]
-        faceIDButton.layer.add(anim, forKey: "shake")
+        glyphView.layer.add(anim, forKey: "shake")
     }
 
     private func dismissWithSuccess() {
@@ -440,5 +585,27 @@ final class NativeLockScreenViewController: UIViewController {
         dismiss(animated: true) { [weak self] in
             self?.onSignOut?()
         }
+    }
+
+    /* A visible link needs a real destination. This explains the two things
+       that actually cause a lock-out — biometry disabled in iOS Settings, and
+       iOS demanding the passcode after repeated failures — and then offers
+       the same escape hatch as the button above, so the sheet is never a
+       dead end. */
+    @objc private func troubleTapped() {
+        impact(.light)
+        let sheet = UIAlertController(
+            title: "Can't unlock?",
+            message: "\(biometryName) can be switched off for FlowCheck in iOS Settings, "
+                   + "and iOS asks for your device passcode instead after several failed attempts.\n\n"
+                   + "You can always sign in with your FlowCheck account password.",
+            preferredStyle: .alert)
+        sheet.addAction(UIAlertAction(title: "Use account password", style: .default) { [weak self] _ in
+            self?.passwordTapped()
+        })
+        sheet.addAction(UIAlertAction(title: "Try again", style: .cancel) { [weak self] _ in
+            self?.authenticate()
+        })
+        present(sheet, animated: true)
     }
 }

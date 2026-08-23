@@ -138,7 +138,7 @@ body.fc-theme {
   background: var(--fc-success-soft);
   color: var(--fc-success);
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .premium-balance-sub {
@@ -211,7 +211,7 @@ body.fc-theme {
   background: var(--fc-accent-soft);
   color: var(--fc-accent);
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .premium-stat-value {
@@ -219,7 +219,7 @@ body.fc-theme {
   overflow: hidden;
   color: var(--fc-text);
   font-size: clamp(15px, 4.4vw, 20px);
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.1;
   letter-spacing: -0.035em;
   text-overflow: ellipsis;
@@ -249,7 +249,7 @@ body.fc-theme {
     conic-gradient(var(--fc-accent) calc(var(--health-score) * 1%), var(--fc-premium-track) 0);
   color: var(--fc-text);
   font-size: 15px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 #view-home > .home-two-col,
@@ -284,7 +284,7 @@ body.fc-theme {
 .dash-sec-title {
   color: var(--fc-text) !important;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .dash-bill-card,
@@ -336,7 +336,7 @@ body.fc-theme {
 }
 .act-inout-amt {
   font-size: 22px;
-  font-weight: 700;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
 }
@@ -462,7 +462,7 @@ body.fc-theme {
   color: var(--fc-accent-ink);
   font: inherit;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .premium-page-header {
@@ -490,7 +490,7 @@ body.fc-theme {
   background: var(--fc-card-bg);
   color: var(--fc-text-muted);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .premium-periods--standalone {
@@ -526,7 +526,7 @@ body.fc-theme {
   display: block;
   color: var(--fc-text);
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .premium-card-heading small {
@@ -653,7 +653,7 @@ body.fc-theme {
 .premium-insight-card span {
   color: var(--fc-text);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .premium-insight-card p {
@@ -1139,7 +1139,7 @@ body.fc-theme {
   align-items: center;
   gap: 6px;
   color: var(--fc-text-muted);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .home-safe-status > span {
@@ -1222,7 +1222,7 @@ body.fc-theme {
   margin-bottom: 1px;
   color: var(--fc-warning-text);
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: .07em;
   text-transform: uppercase;
 }
@@ -1231,7 +1231,7 @@ body.fc-theme {
   overflow: hidden;
   color: var(--fc-text);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1248,7 +1248,7 @@ body.fc-theme {
 .home-next-risk-amount {
   color: var(--fc-text);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -1360,7 +1360,7 @@ body.fc-theme {
   margin: 0 2px 7px;
   color: var(--fc-text);
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .home-month-strip {
@@ -1418,7 +1418,7 @@ body.fc-theme {
 .home-month-strip strong {
   color: var(--fc-text);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1581,7 +1581,7 @@ body.fc-theme {
 
 .fc-list-amount {
   font-size: 15px !important;
-  font-weight: 700 !important;
+  font-weight: 600 !important;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.01em;
 }
@@ -1745,7 +1745,7 @@ body.fc-theme {
   padding: 18px 20px 8px;
   color: var(--wv-t3);
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: .08em;
   text-transform: uppercase;
 }
@@ -1757,7 +1757,7 @@ body.fc-theme {
   color: var(--wv-blue);
   font: inherit;
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0;
   text-transform: none;   /* an action, not a label */
 }
@@ -1802,7 +1802,7 @@ body.fc-theme {
 .wv-linked-balance {
   flex-shrink: 0;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1835,7 +1835,7 @@ body.fc-theme {
   padding: 12px 15px 6px;
   color: var(--wv-t1);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .premium-goals-heading button {
@@ -1845,7 +1845,7 @@ body.fc-theme {
   color: var(--wv-blue);
   font: inherit;
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .premium-goals-list {
@@ -1900,7 +1900,7 @@ body.fc-theme {
   margin-top: 2px;
   color: var(--wv-t1);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .premium-goal-amount span {
@@ -1932,7 +1932,7 @@ body.fc-theme {
 
 .premium-goal-meta span:first-child {
   color: var(--wv-green);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .premium-streak-card {
@@ -1981,7 +1981,7 @@ body.fc-theme {
   background: var(--fc-accent-soft);
   color: var(--fc-accent);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
   box-shadow: inset 0 0 0 2px var(--fc-border-accent);
 }
 
@@ -2705,7 +2705,7 @@ body.fc-theme {
   justify-content: space-between;
   color: var(--wv-t3);
   font-variant-numeric: tabular-nums;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .wv-chart-range {
