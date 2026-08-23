@@ -1209,6 +1209,223 @@
     return { ...EMPTY, reason: 'never_pays_off' };
   }
 
+  /* ══════════════════════════════════════════════════════════════════
+     SUBSCRIPTIONS — normalise, age, and rank for cutting
+     ══════════════════════════════════════════════════════════════════
+
+     A detected subscription is { name, amount, freq, entries[], lastDate }
+     where freq is one of 'wk' | 'mo' | '2mo' | 'yr' and entries are
+     { amount, ts, date } sorted oldest-first.
+     ────────────────────────────────────────────────────────────────── */
+
+  /* Days in one billing cycle. The one place the cadence vocabulary is
+     interpreted — every total, every staleness test reads from here. */
+  const SUB_CYCLE_DAYS = { wk: 7, mo: 30.44, '2mo': 60.88, yr: 365.25 };
+
+  /* What one subscription costs per month, whatever it bills.
+
+     Totals used to be `subs.reduce((s, x) => s + x.amount)` — every cadence
+     added up as if it were monthly. A $139/yr Prime counted as $139 A MONTH
+     and a $9.99/wk charge counted as $9.99. On a realistic mix that reported
+     $172/mo and "$2,064/year" for a set of subscriptions actually costing
+     $78/mo and $934/year: wrong by more than double, in the direction that
+     makes the app look alarmist. */
+  function subMonthly(sub) {
+    const amt = Number(sub && sub.amount);
+    if (!Number.isFinite(amt) || amt <= 0) return 0;
+    const days = SUB_CYCLE_DAYS[sub.freq];
+    if (!days) return 0;
+    return amt * (365.25 / 12) / days;
+  }
+
+  function subYearly(sub) { return subMonthly(sub) * 12; }
+
+  /* Active, or just still in the transaction history?
+
+     `lastDate` was captured by the detector and then never read, so a
+     subscription cancelled eight months ago sat in the list — and in the
+     monthly total — exactly like a live one. "Find all ACTIVE
+     subscriptions" is not answerable without this.
+
+     1.6 cycles of grace: a monthly charge can legitimately land 45 days
+     after the last one (billing-date drift, a card reissue, a weekend), and
+     calling that cancelled would be worse than waiting one more cycle. */
+  function subStatus(sub, today) {
+    const days = SUB_CYCLE_DAYS[sub && sub.freq];
+    const last = sub && sub.lastDate ? parseDateLocal(sub.lastDate) : null;
+    if (!days || !last || isNaN(last.getTime())) return 'unknown';
+    const now = today instanceof Date ? today : new Date();
+    const elapsed = (now.getTime() - last.getTime()) / 86400000;
+    if (elapsed < 0) return 'active';
+    return elapsed > days * 1.6 ? 'lapsed' : 'active';
+  }
+
+  /* A step change in price, not a wobble.
+
+     Compares the most recent charge against the most common EARLIER charge
+     rather than against the mean, because a mean is dragged toward the new
+     price by every charge since the increase — which is what made a real
+     hike look like ordinary noise. */
+  function subPriceChange(sub) {
+    const NONE = { changed: false, from: 0, to: 0, pct: 0, since: null };
+    const es = (sub && sub.entries) || [];
+    if (es.length < 3) return NONE;
+
+    const sorted = [...es].sort((a, b) => a.ts - b.ts);
+    const to = round2(sorted[sorted.length - 1].amount);
+
+    /* The prior price is the mode of everything before the current run —
+       robust where a median is not, because after enough charges at the new
+       price the median IS the new price. */
+    let i = sorted.length - 1;
+    while (i > 0 && Math.abs(sorted[i - 1].amount - to) < 0.01) i--;
+    if (i === 0) return NONE;                       // never anything else
+    const before = sorted.slice(0, i).map(e => round2(e.amount));
+    const counts = {};
+    for (const a of before) counts[a] = (counts[a] || 0) + 1;
+    let from = before[before.length - 1], best = 0;
+    for (const [a, n] of Object.entries(counts)) {
+      if (n > best) { best = n; from = Number(a); }
+    }
+    if (!(from > 0) || Math.abs(to - from) < 0.01) return NONE;
+
+    return {
+      changed: true,
+      from, to,
+      pct: Math.round(((to - from) / from) * 100),
+      since: sorted[i].date || null,
+    };
+  }
+
+  /* Service category, for spotting two subscriptions that do one job.
+     Deliberately narrow: a wrong grouping tells someone to cancel a service
+     that is not a duplicate, which is worse than staying quiet. */
+  const SUB_CATEGORIES = [
+    ['music',    /\b(spotify|apple music|amazon music|youtube music|tidal|deezer|pandora|sirius|napster)\b/i],
+    ['video',    /\b(netflix|hulu|disney|max|hbo|peacock|paramount|starz|showtime|apple tv|prime video|crunchyroll|funimation|mubi|criterion)\b/i],
+    ['livetv',   /\b(youtube tv|sling|fubo|directv|philo|hulu live)\b/i],
+    ['cloud',    /\b(icloud|google one|google storage|dropbox|box|onedrive|backblaze|mega)\b/i],
+    ['fitness',  /\b(peloton|classpass|strava|whoop|myfitnesspal|noom|planet fitness|la fitness|anytime fitness|crunch|equinox|gold's gym)\b/i],
+    ['news',     /\b(nytimes|new york times|washington post|wsj|wall street journal|economist|bloomberg|medium|substack)\b/i],
+    ['vpn',      /\b(nordvpn|expressvpn|surfshark|protonvpn|mullvad)\b/i],
+    ['password', /\b(1password|lastpass|dashlane|bitwarden|keeper)\b/i],
+    ['ai',       /\b(chatgpt|openai|claude|anthropic|copilot|midjourney|perplexity)\b/i],
+    ['design',   /\b(adobe|creative cloud|canva|figma|sketch)\b/i],
+    ['audiobook',/\b(audible|scribd|kindle unlimited|libro)\b/i],
+  ];
+
+  function subCategory(name) {
+    const n = String(name || '');
+    for (const [cat, re] of SUB_CATEGORIES) if (re.test(n)) return cat;
+    return null;
+  }
+
+  const SUB_CATEGORY_LABEL = {
+    music: 'music streaming', video: 'video streaming', livetv: 'live TV',
+    cloud: 'cloud storage', fitness: 'fitness', news: 'news',
+    vpn: 'VPN', password: 'password manager', ai: 'AI assistant',
+    design: 'design tools', audiobook: 'audiobooks',
+  };
+
+  /* Ranked cut candidates, each with the yearly figure it would free up.
+
+     Three grounds, and only three, because each is something the
+     TRANSACTIONS actually show. FlowCheck cannot see whether someone opens
+     an app, so nothing here claims a subscription is "unused" — every
+     reason below is a fact from the ledger.
+
+       lapsed    — charges stopped; may already be cancelled, worth confirming
+       hike      — the price went up, by this much, on this date
+       duplicate — two live subscriptions doing one job
+
+     Savings are NOT summed across reasons: one subscription appears once,
+     under its strongest reason, or a "you could save" figure would count the
+     same money twice. */
+  function subCutCandidates(subs, today) {
+    const list = Array.isArray(subs) ? subs : [];
+    const now  = today instanceof Date ? today : new Date();
+    const out  = [];
+    const claimed = new Set();
+
+    const enriched = list.map(s => ({
+      sub:     s,
+      status:  subStatus(s, now),
+      monthly: subMonthly(s),
+      price:   subPriceChange(s),
+      cat:     subCategory(s.name),
+    }));
+
+    // 1. Lapsed — strongest signal, and the money may already be saved.
+    for (const e of enriched) {
+      if (e.status !== 'lapsed' || claimed.has(e.sub.name)) continue;
+      claimed.add(e.sub.name);
+      out.push({
+        name: e.sub.name, reason: 'lapsed', monthly: e.monthly,
+        yearly: round2(e.monthly * 12), detail: e.sub.lastDate || null,
+      });
+    }
+
+    // 2. Price hikes on live subscriptions.
+    for (const e of enriched) {
+      if (e.status === 'lapsed' || claimed.has(e.sub.name)) continue;
+      if (!e.price.changed || e.price.pct < 10) continue;
+      claimed.add(e.sub.name);
+      out.push({
+        name: e.sub.name, reason: 'hike', monthly: e.monthly,
+        yearly: round2(e.monthly * 12), detail: e.price,
+      });
+    }
+
+    // 3. Overlapping services — flag the pricier one, keep the cheaper.
+    const byCat = {};
+    for (const e of enriched) {
+      if (e.status === 'lapsed' || !e.cat) continue;
+      (byCat[e.cat] = byCat[e.cat] || []).push(e);
+    }
+    for (const [cat, group] of Object.entries(byCat)) {
+      if (group.length < 2) continue;
+      const ranked = [...group].sort((a, b) => b.monthly - a.monthly);
+      const keep = ranked[ranked.length - 1];
+      for (const e of ranked.slice(0, -1)) {
+        if (claimed.has(e.sub.name)) continue;
+        claimed.add(e.sub.name);
+        out.push({
+          name: e.sub.name, reason: 'duplicate', monthly: e.monthly,
+          yearly: round2(e.monthly * 12),
+          detail: { category: cat, label: SUB_CATEGORY_LABEL[cat] || cat, alsoPaying: keep.sub.name },
+        });
+      }
+    }
+
+    out.sort((a, b) => b.yearly - a.yearly);
+
+    /* Derived from the ROUNDED per-item figures, so the total always equals
+       what the rows add up to on screen. */
+    const totalYearly = out.reduce((s, c) => s + Math.round(c.yearly), 0);
+    return { candidates: out, totalYearly, totalMonthly: round2(totalYearly / 12) };
+  }
+
+  /* One pass over a detected list: what is live, what it costs, what to cut. */
+  function subSummary(subs, today) {
+    const list = Array.isArray(subs) ? subs : [];
+    const now  = today instanceof Date ? today : new Date();
+    const active = list.filter(s => subStatus(s, now) !== 'lapsed');
+    const lapsed = list.filter(s => subStatus(s, now) === 'lapsed');
+    const monthly = active.reduce((s, x) => s + subMonthly(x), 0);
+    return {
+      active, lapsed,
+      count: active.length,
+      monthly: round2(monthly),
+      /* From the rounded monthly figure, not a second full-precision pass —
+         or the card prints a yearly total its own monthly total does not
+         support. */
+      yearly: round2(Math.round(monthly) * 12),
+      cuts: subCutCandidates(list, now),
+    };
+  }
+
+  function round2(n) { return Math.round(Number(n) * 100) / 100; }
+
   return {
     parseDateLocal, daysUntil, isoDay,
     forecastToRecord, forecastsToSettle,
@@ -1225,6 +1442,9 @@
     debtProgress,
     merchantStats,
     merchantNote,
+    subMonthly, subYearly, subStatus, subPriceChange,
+    subCategory, subCutCandidates, subSummary,
+    SUB_CYCLE_DAYS,
     MIN_CREDIBLE_APR,
     compareOffer,
   };

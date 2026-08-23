@@ -4084,3 +4084,193 @@ html body.fc-theme[data-tab="activity"] .fc-screen[data-screen="app"] > .fc-head
 /* A projected shortfall is the number the RUNS SHORT pill is about, so it
    carries the same amber rather than sitting in body colour. */
 .st-runway__low strong.is-short { color: var(--fc-warning-text); }
+
+/* ══════════════════════════════════════════════════════════════════
+   SUBSCRIPTIONS — Plan › Subs
+   Sole definition; do not add a second copy to flowcheck-design-system.css
+   (check-canonical-chrome.js fails the build if you do).
+   ══════════════════════════════════════════════════════════════════ */
+
+.subs-hero { margin-bottom: 14px; padding: 16px; }
+
+.subs-hero__value {
+  margin-top: 4px;
+  color: var(--fc-text);
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.subs-hero__value span {
+  margin-left: 2px;
+  color: var(--fc-text-muted);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+.subs-hero__meta {
+  margin-top: 2px;
+  color: var(--fc-text-muted);
+  font-size: 13px;
+}
+
+/* ── What you could cut ── */
+.subs-cuts { margin-bottom: 14px; padding: 16px 16px 8px; }
+
+.subs-cuts__head { margin-bottom: 14px; }
+
+.subs-cuts__value {
+  margin-top: 4px;
+  color: var(--fc-success);
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.subs-cuts__value span {
+  margin-left: 2px;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+.subs-cuts__sub {
+  margin-top: 2px;
+  color: var(--fc-text-muted);
+  font-size: 12.5px;
+}
+
+.subs-cut {
+  padding: 12px 0;
+  border-top: 1px solid var(--fc-border);
+}
+
+.subs-cut__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.subs-cut__tag {
+  padding: 2px 8px;
+  border-radius: var(--fc-r-pill);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+/* Three grounds, three colours: money already stopped, money going up, money
+   spent twice. Amber not red — none of these is an error, and a finance app
+   that paints every observation red teaches people to ignore red. */
+.subs-cut__tag--lapsed    { background: rgba(48,209,88,0.13);  color: var(--fc-success); }
+.subs-cut__tag--hike      { background: rgba(255,159,10,0.14); color: var(--fc-warning-text); }
+.subs-cut__tag--duplicate { background: rgba(37,99,235,0.16);  color: var(--fc-electric); }
+
+.subs-cut__save {
+  flex: none;
+  color: var(--fc-text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.subs-cut__name {
+  margin: 6px 0 0;
+  color: var(--fc-text);
+  font-size: 14.5px;
+  font-weight: 600;
+}
+
+.subs-cut__why {
+  margin: 2px 0 0;
+  color: var(--fc-text-muted);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.subs-cut__act {
+  margin-top: 8px;
+  padding: 6px 12px;
+  border: 1px solid var(--fc-border-strong);
+  border-radius: var(--fc-r-pill);
+  background: transparent;
+  color: var(--fc-accent);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.subs-cut__act:active { transform: scale(0.97); }
+
+/* ── The lists ── */
+.subs-list { margin-bottom: 14px; padding: 16px 16px 6px; }
+.subs-list--muted { opacity: 0.72; }
+
+.subs-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid var(--fc-border);
+}
+.subs-row:first-of-type { border-top: 0; }
+
+.subs-row__icon {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--fc-r-sm);
+  background: var(--fc-accent-soft);
+  color: var(--fc-accent);
+  font-size: 14px;
+  font-weight: 600;
+}
+.subs-row--off .subs-row__icon {
+  background: var(--fc-surface-2, rgba(255,255,255,0.06));
+  color: var(--fc-text-faint);
+}
+
+.subs-row__copy { flex: 1 1 auto; min-width: 0; }
+
+.subs-row__name {
+  margin: 0;
+  overflow: hidden;
+  color: var(--fc-text);
+  font-size: 14.5px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.subs-row__meta {
+  margin: 2px 0 0;
+  color: var(--fc-text-muted);
+  font-size: 12px;
+}
+
+.subs-row__up { color: var(--fc-warning-text); font-weight: 600; }
+
+.subs-row__amt {
+  flex: none;
+  margin: 0;
+  color: var(--fc-text);
+  font-size: 14.5px;
+  font-weight: 600;
+}
+.subs-row__amt span {
+  color: var(--fc-text-faint);
+  font-size: 11.5px;
+  font-weight: 500;
+}
+.subs-row--off .subs-row__amt { color: var(--fc-text-muted); }
+
+.subs-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0 2px 14px;
+  color: var(--fc-text-faint);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+.subs-note svg { flex: none; margin-top: 1px; }

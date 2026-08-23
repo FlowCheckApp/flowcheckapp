@@ -571,20 +571,42 @@ window.FCApp = (function () {
       const freq = isMonthly ? 'mo' : isWeekly ? 'wk' : isBiMonthly ? '2mo' : isAnnual ? 'yr' : null;
       if (!freq) continue;
 
-      // Median amount — resistant to one-off anomalies
-      const sorted = [...data.entries].sort((a, b) => a.amount - b.amount);
-      const mid    = Math.floor(sorted.length / 2);
-      const medAmt = sorted.length % 2 === 0
-        ? (sorted[mid - 1].amount + sorted[mid].amount) / 2
-        : sorted[mid].amount;
+      /* The CURRENT price, not the historical median.
 
-      // Reject implausibly large "subscriptions" (>$500/mo) and micro-amounts
-      if (medAmt < 0.99 || medAmt > 500) continue;
+         Two things were wrong with a median here. It answers "what has this
+         cost on average", when the question on a subscriptions screen is
+         "what is this costing me now" — after a hike from $7.99 to $15.99
+         the median says $11.99, a price the user has never paid and will
+         never pay again.
 
-      // Require amount consistency: std dev < 20% of median (not a variable-spend merchant)
-      const variance = data.entries.reduce((s, e) => s + Math.pow(e.amount - medAmt, 2), 0) / data.entries.length;
-      const stdDev   = Math.sqrt(variance);
-      if (stdDev / medAmt > 0.25) continue; // >25% variance = not a subscription
+         And it was the basis of the consistency gate below, which is worse:
+         measured against the median, a doubling scores 33% variance and the
+         subscription was dropped from the list ENTIRELY. The one most worth
+         showing someone was the one guaranteed to disappear. Verified
+         against real 2023-24 price rises: Disney+ 7.99→15.99 was dropped;
+         Netflix 15.49→22.99 survived at 19.5% only by luck. */
+      const chron   = [...data.entries].sort((a, b) => a.ts - b.ts);
+      const current = chron[chron.length - 1].amount;
+
+      if (current < 0.99 || current > 500) continue;
+
+      /* Consistency is judged within the CURRENT price run — charges at
+         today's price — so a step change is history, not disqualifying
+         noise. A merchant whose latest charges still wobble is a
+         variable-spend merchant and is still rejected, which is what this
+         gate is actually for. */
+      const era = chron.filter(e => Math.abs(e.amount - current) <= Math.max(0.02, current * 0.01));
+      const gateSet = era.length >= 2 ? era : chron;
+      const gateRef = era.length >= 2 ? current
+        : (() => {
+            const so = [...chron].sort((a, b) => a.amount - b.amount);
+            const m = Math.floor(so.length / 2);
+            return so.length % 2 === 0 ? (so[m - 1].amount + so[m].amount) / 2 : so[m].amount;
+          })();
+      const variance = gateSet.reduce((s, e) => s + Math.pow(e.amount - gateRef, 2), 0) / gateSet.length;
+      if (Math.sqrt(variance) / gateRef > 0.25) continue;
+
+      const medAmt = current;
 
       const mostRecent = data.entries[data.entries.length - 1];
       const displayName = _cleanSubName(data.rawT);
@@ -706,6 +728,15 @@ window.FCApp = (function () {
   }
 
   // Cancel / manage URL for known subscription services
+  /* Reads the URL from the element rather than from an interpolated
+     onclick — see the note at the button that renders it. */
+  function openSubCancel(el) {
+    const url = el && el.getAttribute && el.getAttribute('data-sub-url');
+    if (!url) return;
+    haptic('light');
+    _openUrl(url);
+  }
+
   function _subCancelUrl(name) {
     const n = name.toLowerCase();
     const MAP = [
@@ -2746,7 +2777,9 @@ window.FCApp = (function () {
     try {
       const zombies = _detectSubscriptions().filter(s => !s.tracked);
       if (zombies.length > 0) {
-        const total = zombies.reduce((s,z) => s + (z.amount || 0), 0);
+        /* Cadence-aware. This summed every amount as if monthly, so one
+            annual charge made the "in subscriptions" figure wildly high. */
+        const total = FCCore.subSummary(zombies, new Date()).monthly;
         insights.push({
           type: 'info',
           label: 'Trim subscriptions',
@@ -8567,12 +8600,19 @@ window.FCApp = (function () {
     const subs = _detectSubscriptions(state.transactions || []);
     if (!subs || !subs.length) { el.style.display = 'none'; return; }
 
-    const total   = subs.reduce((s, sub) => s + (sub.amount || 0), 0);
+    /* Cadence-aware, and lapsed subs excluded — see FCCore.subSummary.
+       The COUNT has to come from the same place as the total. Reading
+       subs.length while the total counted only the active ones printed
+       "5 recurring charges detected · $52.96/mo" where the $52.96 was four
+       of them. */
+    const _ss     = FCCore.subSummary(subs, new Date());
     const titleEl = document.getElementById('act-recurring-title');
     const subEl   = document.getElementById('act-recurring-sub');
+    if (!_ss.count) { el.style.display = 'none'; return; }
 
-    if (titleEl) titleEl.textContent = `${subs.length} recurring charge${subs.length !== 1 ? 's' : ''} detected`;
-    if (subEl)   subEl.textContent   = `${FCData.formatCurrency(total)}/mo · Review subscriptions to avoid surprises.`;
+    if (titleEl) titleEl.textContent = `${_ss.count} recurring charge${_ss.count !== 1 ? 's' : ''} detected`;
+    /* Whole dollars — a banner is scanned, not reconciled. */
+    if (subEl)   subEl.textContent   = `${FCData.formatSummary(_ss.monthly)}/mo · Review subscriptions to avoid surprises.`;
 
     el.style.display = '';
   }
@@ -8761,8 +8801,8 @@ window.FCApp = (function () {
 
     const subs = _detectSubscriptions(txns);
     if (subs && subs.length > 3) {
-      const subsTotal = subs.reduce((s, sub) => s + (sub.amount || 0), 0);
-      recs.push({ icon: '🔄', title: `Review ${subs.length} recurring charges`, detail: `${FCData.formatCurrency(subsTotal)}/mo in detected subscriptions — any you can cancel?` });
+      const _rs = FCCore.subSummary(subs, new Date());
+      recs.push({ icon: '🔄', title: `Review ${_rs.count} recurring charges`, detail: `${FCData.formatSummary(_rs.monthly)}/mo in detected subscriptions — any you can cancel?` });
     }
 
     if (goals.length === 0) {
@@ -9487,18 +9527,122 @@ window.FCApp = (function () {
         : '');
 
     // ── Subscriptions panel ─────────────────────────────────────
-    const subs = (_detectSubscriptions(txns) || []).sort((a,b) => (b.amount||0)-(a.amount||0));
-    const subsTotal = subs.reduce((s,x) => s+(x.amount||0), 0);
+    /* All of the arithmetic comes from FCCore.subSummary, which is unit
+       tested. The panel used to do its own: `subs.reduce((s,x) => s+x.amount)`
+       labelled "/mo", which added a $139/yr charge to a monthly total as
+       $139 and a $9.99/wk charge as $9.99. On a realistic mix that reported
+       $172/mo for subscriptions actually costing $78/mo. */
+    const subs    = _detectSubscriptions(txns) || [];
+    const subSum  = FCCore.subSummary(subs, now);
+    const subCuts = subSum.cuts;
+
+    const _subNextCharge = (sub) => {
+      const days = FCCore.SUB_CYCLE_DAYS[sub.freq];
+      if (!days || !sub.lastDate) return null;
+      const last = FCData.parseDateLocal(sub.lastDate);
+      if (isNaN(last.getTime())) return null;
+      return new Date(last.getTime() + days * 86400000);
+    };
+    const _shortD = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const _SUB_FREQ_WORD = { wk: 'week', mo: 'month', '2mo': '2 months', yr: 'year' };
+    const _SUB_REASON = { lapsed: 'Stopped charging', hike: 'Price went up', duplicate: 'Overlaps' };
+    const _subCutLine = (c) => {
+      if (c.reason === 'lapsed') {
+        const d = c.detail ? FCData.parseDateLocal(c.detail) : null;
+        return 'No charge since ' + (d && !isNaN(d.getTime()) ? _shortD(d) : 'a while')
+             + ' \u2014 it may already be cancelled.';
+      }
+      if (c.reason === 'hike') {
+        const d = c.detail.since ? FCData.parseDateLocal(c.detail.since) : null;
+        return 'Was ' + FCData.formatCurrency(c.detail.from) + ', now '
+             + FCData.formatCurrency(c.detail.to) + ' \u2014 up ' + c.detail.pct + '%'
+             + (d && !isNaN(d.getTime())
+                 ? ' since ' + d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : '') + '.';
+      }
+      return 'You also pay for ' + c.detail.alsoPaying + ' \u2014 two ' + c.detail.label + ' subscriptions.';
+    };
+
+    const subCutsHTML = subCuts.candidates.length
+      ? '<div class="fc-card subs-cuts">'
+        + '<div class="subs-cuts__head">'
+          + '<div class="fc-eyebrow">What you could cut</div>'
+          + '<div class="subs-cuts__value fc-amount">' + esc(FCData.formatSummary(subCuts.totalYearly))
+          + '<span>/yr</span></div>'
+          + '<div class="subs-cuts__sub">across ' + subCuts.candidates.length + ' subscription'
+          + (subCuts.candidates.length === 1 ? '' : 's') + '</div>'
+        + '</div>'
+        + subCuts.candidates.map(c => {
+            const url = _subCancelUrl(c.name);
+            return '<div class="subs-cut">'
+              + '<div class="subs-cut__row">'
+                + '<span class="subs-cut__tag subs-cut__tag--' + c.reason + '">'
+                  + esc(_SUB_REASON[c.reason] || 'Review') + '</span>'
+                + '<span class="subs-cut__save fc-amount">'
+                  + esc(FCData.formatSummary(Math.round(c.yearly))) + '/yr</span>'
+              + '</div>'
+              + '<p class="subs-cut__name">' + esc(c.name) + '</p>'
+              + '<p class="subs-cut__why">' + esc(_subCutLine(c)) + '</p>'
+              /* The URL rides in a data attribute, not inside the onclick.
+                 Interpolating it into a JS string inside an HTML attribute
+                 needs THREE escapings to be safe (HTML, then JS string, then
+                 URL) and esc() only does the first — an apostrophe in a URL
+                 would have closed the string and put the rest in code
+                 position. One escaping, one context, no injection surface. */
+              + (url ? '<button type="button" class="subs-cut__act" data-sub-url="' + esc(url)
+                  + '" onclick="FCApp.openSubCancel(this)">Manage \u203a</button>' : '')
+            + '</div>';
+          }).join('')
+        + '</div>'
+      : '';
+
+    const subRow = (sub, off) => {
+      const next = off ? null : _subNextCharge(sub);
+      const chg  = off ? { changed: false } : FCCore.subPriceChange(sub);
+      return '<div class="subs-row' + (off ? ' subs-row--off' : '') + '">'
+        + '<div class="subs-row__icon">' + esc(String(sub.name || '?').charAt(0).toUpperCase()) + '</div>'
+        + '<div class="subs-row__copy">'
+          + '<p class="subs-row__name">' + esc(sub.name || 'Subscription') + '</p>'
+          + '<p class="subs-row__meta">'
+            + (off
+                ? 'Last charged ' + esc(_shortD(FCData.parseDateLocal(sub.lastDate)))
+                : (next && !isNaN(next.getTime())
+                    ? 'Next ' + esc(_shortD(next))
+                    : 'Every ' + esc(_SUB_FREQ_WORD[sub.freq] || sub.freq)))
+            + (chg.changed && chg.pct >= 10
+                ? ' \u00b7 <span class="subs-row__up">up ' + chg.pct + '%</span>' : '')
+          + '</p>'
+        + '</div>'
+        /* Cents stay on the row: "$15.99/mo" is the shape people recognise
+           from the service itself, and CLAUDE.md names subscriptions as the
+           deliberate exception. The totals above are whole dollars. */
+        + '<p class="subs-row__amt fc-amount">' + esc(FCData.formatCurrency(sub.amount || 0))
+          + (off ? '' : '<span>/' + esc(sub.freq) + '</span>') + '</p>'
+      + '</div>';
+    };
+
     const subsHTML = subs.length
-      ? '<div class="fc-card" style="margin-bottom:14px;padding:18px 16px">'
-          +'<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">'
-            +'<div class="fc-eyebrow">Recurring Charges</div>'
-          +'</div>'
-          +'<div style="font-size:26px;font-weight:600;color:var(--fc-text);font-variant-numeric:tabular-nums">'+FCData.formatCurrency(subsTotal)+'<span style="font-size:13px;font-weight:500;color:var(--fc-text-muted)">/mo</span></div>'
-          +'<div style="font-size:13px;color:var(--fc-text-muted);margin-bottom:10px">'+subs.length+' subscription'+(subs.length===1?'':'s')+' detected</div>'
-          +subs.map(s2 => planRow(_ic('play-screen','var(--fc-text-muted)',16), esc(s2.name||'Subscription'), s2.amount||0, '', '')).join('')
-          +'<div style="font-size:12px;color:var(--fc-text-faint);margin-top:12px;line-height:1.5">Not using one of these? Cancel it in the provider\'s app — then watch this number drop.</div>'
-        +'</div>'
+      ? '<div class="fc-card subs-hero">'
+          + '<div class="fc-eyebrow">Active subscriptions</div>'
+          + '<div class="subs-hero__value fc-amount">' + esc(FCData.formatSummary(subSum.monthly))
+            + '<span>/mo</span></div>'
+          + '<div class="subs-hero__meta">' + subSum.count + ' active \u00b7 '
+            + esc(FCData.formatSummary(subSum.yearly)) + ' a year</div>'
+        + '</div>'
+        + subCutsHTML
+        + (subSum.active.length
+            ? '<div class="fc-card subs-list"><div class="fc-eyebrow">Active</div>'
+              + subSum.active.map(x => subRow(x, false)).join('') + '</div>'
+            : '')
+        + (subSum.lapsed.length
+            ? '<div class="fc-card subs-list subs-list--muted"><div class="fc-eyebrow">Stopped charging</div>'
+              + subSum.lapsed.map(x => subRow(x, true)).join('') + '</div>'
+            : '')
+        /* Said plainly. Everything above is derived from charges; claiming
+           to know what is "unused" would be claiming usage data FlowCheck
+           has never had. */
+        + '<p class="subs-note">' + _ic('shield', 'currentColor', 12)
+          + '<span>FlowCheck reads your charges, not your usage \u2014 it can see that a price '
+          + 'rose or that two services overlap, but not whether you still watch.</span></p>'
       : '<div class="fc-card" style="padding:36px 24px;text-align:center;margin-bottom:14px">'
           +'<div style="width:52px;height:52px;border-radius:var(--fc-r-md);background:var(--fc-accent-soft);display:flex;align-items:center;justify-content:center;margin:0 auto 12px">'+_ic('play-screen','var(--fc-accent)',24)+'</div>'
           +'<div style="font-size:16px;font-weight:600;color:var(--fc-text);margin-bottom:6px">No subscriptions detected yet</div>'
@@ -10476,6 +10620,43 @@ window.FCApp = (function () {
       + '</div>';
   }
 
+  /* ── Subscriptions screen ─────────────────────────────────────────
+     The detector has existed for a long time; there was nowhere to see it.
+     Its only rendered surface was #sub-hunter-card inside #view-insights,
+     a view that is display:none and unreachable — so a user could not list
+     their own subscriptions at all. Everything below reads from FCCore,
+     where the money math is unit-tested.
+     ───────────────────────────────────────────────────────────────── */
+
+  function _subNextCharge(sub) {
+    const days = FCCore.SUB_CYCLE_DAYS[sub.freq];
+    if (!days || !sub.lastDate) return null;
+    const last = FCData.parseDateLocal(sub.lastDate);
+    if (isNaN(last.getTime())) return null;
+    return new Date(last.getTime() + days * 86400000);
+  }
+
+  const _SUB_FREQ_WORD = { wk: 'week', mo: 'month', '2mo': '2 months', yr: 'year' };
+
+  function _subCutLine(c) {
+    if (c.reason === 'lapsed') {
+      const d = c.detail ? FCData.parseDateLocal(c.detail) : null;
+      return 'No charge since ' + (d && !isNaN(d.getTime())
+        ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'a while')
+        + ' — it may already be cancelled.';
+    }
+    if (c.reason === 'hike') {
+      const d = c.detail.since ? FCData.parseDateLocal(c.detail.since) : null;
+      return 'Was ' + FCData.formatCurrency(c.detail.from) + ', now '
+        + FCData.formatCurrency(c.detail.to) + ' — up ' + c.detail.pct + '%'
+        + (d && !isNaN(d.getTime())
+            ? ' since ' + d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : '') + '.';
+    }
+    return 'You also pay for ' + c.detail.alsoPaying + ' — two ' + c.detail.label + ' subscriptions.';
+  }
+
+  const _SUB_REASON_LABEL = { lapsed: 'Stopped charging', hike: 'Price went up', duplicate: 'Overlaps' };
+
   function _renderVaultScreen() {
     const el = document.getElementById('vault-screen-content');
     if (!el) return;
@@ -10973,10 +11154,12 @@ window.FCApp = (function () {
       const subs = _detectSubscriptions(state.transactions || []) || [];
       if (!subs.length) return { tone: 'good', verdict: 'No recurring charges spotted.',
                                  detail: 'Nothing looks like a subscription in your recent activity.' };
-      const total = subs.reduce((s, x) => s + (x.amount || 0), 0);
-      return { tone: 'neutral', verdict: money(total) + '/mo in subscriptions',
-               detail: subs.length + ' recurring charge' + (subs.length === 1 ? '' : 's') + ' — that\'s '
-                     + money(total * 12) + ' a year.' };
+      const _ss = FCCore.subSummary(subs, new Date());
+      /* Yearly from the ROUNDED monthly figure printed beside it, or the
+         two sentences disagree about the same subscriptions. */
+      return { tone: 'neutral', verdict: money(_ss.monthly) + '/mo in subscriptions',
+               detail: _ss.count + ' recurring charge' + (_ss.count === 1 ? '' : 's') + ' — that\'s '
+                     + money(_ss.yearly) + ' a year.' };
     }
 
     if (parsed.intent === 'bills') {
@@ -11125,14 +11308,15 @@ window.FCApp = (function () {
       else if (d >= startLast.getTime() && d < endLast) lastWeek += t.amount || 0;
     }
     const subs = _detectSubscriptions(state.transactions || []) || [];
-    const subsTotal = subs.reduce((s, x) => s + (x.amount || 0), 0);
+    const subsSum = FCCore.subSummary(subs, new Date());
     const weekDelta = lastWeek - thisWeek;
     const reviewLine = lastWeek > 0
       ? (weekDelta >= 0
           ? 'You spent ' + FCData.formatCurrency(weekDelta) + ' less than this time last week.'
           : 'You\'ve spent ' + FCData.formatCurrency(Math.abs(weekDelta)) + ' more than this time last week.')
       : 'Your week is just getting started.';
-    const reviewSub = subs.length ? subs.length + ' subscriptions run you ' + FCData.formatCurrency(subsTotal) + '/mo.' : '';
+    const reviewSub = subsSum.count
+      ? subsSum.count + ' subscriptions run you ' + FCData.formatSummary(subsSum.monthly) + '/mo.' : '';
 
     const coachRow = (key, icon, color, soft, title, sub) => answers[key]
       ? '<div class="fc-card" style="margin-bottom:10px;padding:14px 16px;display:flex;align-items:center;gap:13px;cursor:pointer;-webkit-tap-highlight-color:transparent" onclick="FCApp.openCoachAnswer(\''+key+'\')">'
@@ -11511,7 +11695,7 @@ window.FCApp = (function () {
     const biggest = [...spendThis].sort((a, b) => (b.amount || 0) - (a.amount || 0))[0];
 
     const subs = _detectSubscriptions() || [];
-    const subsTotal = subs.reduce((s, x) => s + (x.amount || 0), 0);
+    const subsSum = FCCore.subSummary(subs, new Date());
     const net = totIn - totThis;
     const overdue = _billsForDisplay().filter(b => b.status !== 'paid' && (FCData.daysUntil(b.due_date) ?? 0) < 0).length;
 
@@ -11562,12 +11746,16 @@ window.FCApp = (function () {
             : (biggest ? '<div class="fcst-meta">Also your biggest single charge: <strong>' + FCData.formatCurrency(biggest.amount || 0) + '</strong></div>' : ''))
       );
     }
-    if (subs.length) {
+    if (subsSum.count) {
       cards.push(
         '<div class="fcst-eyebrow">RUNNING ON AUTOPILOT</div>'
-        + '<div class="fcst-big" data-countup="' + subsTotal.toFixed(2) + '">$0</div>'
-        + '<div class="fcst-sub">' + subs.length + ' subscription' + (subs.length !== 1 ? 's' : '') + ' every month</div>'
-        + '<div class="fcst-meta">That\'s <strong>' + FCData.formatCurrency(subsTotal * 12) + '/year</strong>. Still using all of them?</div>'
+        + '<div class="fcst-big" data-countup="' + subsSum.monthly.toFixed(2) + '">$0</div>'
+        + '<div class="fcst-sub">' + subsSum.count + ' subscription' + (subsSum.count !== 1 ? 's' : '') + ' every month</div>'
+        /* Yearly from the rounded monthly figure counting up above it, and
+           the count excludes anything that stopped charging — "every month"
+           was previously said of subscriptions that had not billed since
+           spring. */
+        + '<div class="fcst-meta">That\'s <strong>' + FCData.formatSummary(subsSum.yearly) + '/year</strong>. Still using all of them?</div>'
       );
     }
     const inW = totIn + totThis > 0 ? Math.max(6, Math.round((totIn / (totIn + totThis)) * 100)) : 50;
@@ -13515,6 +13703,24 @@ window.FCApp = (function () {
       { transaction_id: 't19', name: 'Adobe Creative Cloud', amount: 54.99, date: _demoAgo(95),  category: ['Service','Subscription'], account_id: 'demo-cc', isCredit: false },
       { transaction_id: 't20', name: 'Adobe Creative Cloud', amount: 54.99, date: _demoAgo(125), category: ['Service','Subscription'], account_id: 'demo-cc', isCredit: false },
       { transaction_id: 't21', name: 'Adobe Creative Cloud', amount: 54.99, date: _demoAgo(155), category: ['Service','Subscription'], account_id: 'demo-cc', isCredit: false },
+      /* Two more shapes, so App Review can see all THREE grounds the
+         subscription screen ever gives for cutting something, not just the
+         one the Vault pays out on:
+
+           Disney+   — billed 7.99, now 15.99. A real 2023 rise, and the case
+                       that used to make the detector DROP the subscription
+                       entirely (33% variance against the median).
+           Apple Music — a second music service alongside Spotify, which is
+                       the overlap rule: two subscriptions doing one job. */
+      { transaction_id: 't28', name: 'Disney+',     amount: 15.99, date: _demoAgo(4),   category: ['Service','Subscription'], account_id: 'demo-cc', isCredit: false },
+      { transaction_id: 't29', name: 'Disney+',     amount: 15.99, date: _demoAgo(34),  category: ['Service','Subscription'], account_id: 'demo-cc', isCredit: false },
+      { transaction_id: 't30', name: 'Disney+',     amount: 15.99, date: _demoAgo(64),  category: ['Service','Subscription'], account_id: 'demo-cc', isCredit: false },
+      { transaction_id: 't31', name: 'Disney+',     amount: 7.99,  date: _demoAgo(94),  category: ['Service','Subscription'], account_id: 'demo-cc', isCredit: false },
+      { transaction_id: 't32', name: 'Disney+',     amount: 7.99,  date: _demoAgo(124), category: ['Service','Subscription'], account_id: 'demo-cc', isCredit: false },
+      { transaction_id: 't33', name: 'Disney+',     amount: 7.99,  date: _demoAgo(154), category: ['Service','Subscription'], account_id: 'demo-cc', isCredit: false },
+      { transaction_id: 't34', name: 'Apple Music', amount: 10.99, date: _demoAgo(8),   category: ['Service','Subscription'], account_id: 'demo-cc', isCredit: false },
+      { transaction_id: 't35', name: 'Apple Music', amount: 10.99, date: _demoAgo(38),  category: ['Service','Subscription'], account_id: 'demo-cc', isCredit: false },
+      { transaction_id: 't36', name: 'Apple Music', amount: 10.99, date: _demoAgo(68),  category: ['Service','Subscription'], account_id: 'demo-cc', isCredit: false },
       // A double charge that came back — both sides on the statement, which
       // is the only kind of "we found you money" the Vault counts in full.
       // Dated into the CURRENT month on purpose: the Vault bills per month,
@@ -17166,6 +17372,7 @@ window.FCApp = (function () {
     },
     // Open URL natively (used by cancel links in Subscription Hunter)
     openUrl: _openUrl,
+    openSubCancel,
     closeInAppPage,
     setHapticsEnabled,
     hapticsEnabled,

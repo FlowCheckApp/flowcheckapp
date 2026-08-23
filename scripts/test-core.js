@@ -1077,6 +1077,178 @@ t('totalBudgetLimit: nothing budgeted is 0, not NaN', () => {
   eq(C.totalBudgetLimit({ food: {} }), 0);
 });
 
+/* ── Subscriptions ────────────────────────────────────────────────
+   Every case here is one where the old code showed a number that was
+   wrong, or dropped a subscription it should have surfaced. */
+
+const DAY = 86400000;
+/* Build entries ending `endDaysAgo` before `today`, spaced by cadence. */
+function subOf(name, freq, amounts, endDaysAgo = 0, today = new Date('2026-08-23T12:00:00')) {
+  const step = C.SUB_CYCLE_DAYS[freq] * DAY;
+  const end  = today.getTime() - endDaysAgo * DAY;
+  const entries = amounts.map((amount, i) => {
+    const ts = end - (amounts.length - 1 - i) * step;
+    return { amount, ts, date: C.isoDay(new Date(ts)) };
+  });
+  const sorted = [...amounts].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return {
+    name, freq,
+    amount: sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2,
+    entries,
+    lastDate: entries[entries.length - 1].date,
+  };
+}
+const TODAY = new Date('2026-08-23T12:00:00');
+
+t('subMonthly: every cadence normalises to a real monthly cost', () => {
+  near(C.subMonthly({ amount: 22.99, freq: 'mo' }), 22.99, 0.01);
+  near(C.subMonthly({ amount: 139,   freq: 'yr' }), 11.58, 0.02, 'annual');
+  near(C.subMonthly({ amount: 9.99,  freq: 'wk' }), 43.44, 0.05, 'weekly');
+  near(C.subMonthly({ amount: 20,    freq: '2mo' }), 10.0, 0.02, 'bi-monthly');
+});
+
+t('subMonthly: the mixed-cadence total that used to be more than double', () => {
+  // The old code summed amounts regardless of cadence: $171.98/mo, $2,063.76/yr.
+  const subs = [
+    { amount: 22.99, freq: 'mo' },
+    { amount: 139,   freq: 'yr' },
+    { amount: 9.99,  freq: 'wk' },
+  ];
+  const monthly = subs.reduce((s, x) => s + C.subMonthly(x), 0);
+  near(monthly, 78.01, 0.05);
+  near(monthly * 12, 936.13, 0.5);
+});
+
+t('subMonthly: junk cadence and junk amount cost nothing, not NaN', () => {
+  eq(C.subMonthly({ amount: 10, freq: 'fortnightly' }), 0);
+  eq(C.subMonthly({ amount: -5, freq: 'mo' }), 0);
+  eq(C.subMonthly(null), 0);
+});
+
+t('subStatus: a monthly charge 8 months silent is lapsed, not active', () => {
+  eq(C.subStatus(subOf('Netflix', 'mo', [15.49, 15.49, 15.49], 240), TODAY), 'lapsed');
+});
+
+t('subStatus: ordinary billing drift is still active', () => {
+  // 45 days out — a card reissue or a weekend, not a cancellation.
+  eq(C.subStatus(subOf('Spotify', 'mo', [11.99, 11.99, 11.99], 45), TODAY), 'active');
+});
+
+t('subStatus: an annual sub is not lapsed just for being 3 months quiet', () => {
+  eq(C.subStatus(subOf('Prime', 'yr', [139, 139], 90), TODAY), 'active');
+});
+
+t('subStatus: unknown when there is no date or no cadence to judge by', () => {
+  eq(C.subStatus({ freq: 'mo' }, TODAY), 'unknown');
+  eq(C.subStatus({ lastDate: '2026-08-01' }, TODAY), 'unknown');
+});
+
+t('subPriceChange: catches the doubling the variance gate used to delete', () => {
+  // Disney+ 7.99 → 15.99 scored 33% variance and was dropped from the list
+  // entirely — the subscription most worth flagging was the one that vanished.
+  const p = C.subPriceChange(subOf('Disney+', 'mo',
+    [7.99, 7.99, 7.99, 7.99, 7.99, 7.99, 15.99, 15.99, 15.99, 15.99, 15.99, 15.99]));
+  ok(p.changed, 'should detect the change');
+  near(p.from, 7.99);
+  near(p.to, 15.99);
+  eq(p.pct, 100);
+});
+
+t('subPriceChange: the prior price is the mode, not the mean', () => {
+  // Dragged toward the new price, a mean makes a real hike look like noise.
+  const p = C.subPriceChange(subOf('Netflix', 'mo',
+    [15.49, 15.49, 22.99, 22.99, 22.99, 22.99, 22.99]));
+  near(p.from, 15.49);
+  near(p.to, 22.99);
+  eq(p.pct, 48);
+});
+
+t('subPriceChange: a steady price is not a change', () => {
+  eq(C.subPriceChange(subOf('Spotify', 'mo', [11.99, 11.99, 11.99, 11.99])).changed, false);
+});
+
+t('subPriceChange: too little history to judge says no, rather than guessing', () => {
+  eq(C.subPriceChange(subOf('New', 'mo', [9.99, 12.99])).changed, false);
+});
+
+t('subPriceChange: a price DROP reports as negative, not as an increase', () => {
+  const p = C.subPriceChange(subOf('Hulu', 'mo', [17.99, 17.99, 17.99, 12.99]));
+  ok(p.changed);
+  ok(p.pct < 0, 'a cut should be negative, got ' + p.pct);
+});
+
+t('subCategory: known services group, unknown ones stay ungrouped', () => {
+  eq(C.subCategory('Spotify Premium'), 'music');
+  eq(C.subCategory('Apple Music'), 'music');
+  eq(C.subCategory('Netflix'), 'video');
+  eq(C.subCategory('1Password'), 'password');
+  eq(C.subCategory("Dave's Hot Chicken"), null);
+});
+
+t('subCutCandidates: overlapping services flag the pricier, keep the cheaper', () => {
+  const subs = [
+    subOf('Spotify',     'mo', [11.99, 11.99, 11.99]),
+    subOf('Apple Music', 'mo', [10.99, 10.99, 10.99]),
+  ];
+  const { candidates } = C.subCutCandidates(subs, TODAY);
+  eq(candidates.length, 1);
+  eq(candidates[0].name, 'Spotify');
+  eq(candidates[0].reason, 'duplicate');
+  eq(candidates[0].detail.alsoPaying, 'Apple Music');
+});
+
+t('subCutCandidates: one subscription is never counted under two reasons', () => {
+  // Lapsed AND a price hike AND a duplicate — it must still be one row, or
+  // the "you could save" figure counts the same money three times.
+  const subs = [
+    subOf('Netflix', 'mo', [9.99, 9.99, 9.99, 19.99, 19.99], 300),
+    subOf('Hulu',    'mo', [17.99, 17.99, 17.99]),
+  ];
+  const { candidates } = C.subCutCandidates(subs, TODAY);
+  eq(candidates.filter(c => c.name === 'Netflix').length, 1);
+  eq(candidates.find(c => c.name === 'Netflix').reason, 'lapsed');
+});
+
+t('subCutCandidates: the total equals the rounded rows on screen', () => {
+  const subs = [
+    subOf('Gone',    'mo', [10.40, 10.40, 10.40], 300),
+    subOf('AlsoGone','mo', [5.40,  5.40,  5.40 ], 300),
+  ];
+  const r = C.subCutCandidates(subs, TODAY);
+  const shown = r.candidates.reduce((s, c) => s + Math.round(c.yearly), 0);
+  eq(r.totalYearly, shown, 'total must equal what the rows add to');
+});
+
+t('subCutCandidates: a small hike is noise, not a recommendation', () => {
+  const subs = [subOf('Steady', 'mo', [10.00, 10.00, 10.00, 10.50])];
+  eq(C.subCutCandidates(subs, TODAY).candidates.length, 0);
+});
+
+t('subSummary: lapsed subscriptions leave the active total', () => {
+  const subs = [
+    subOf('Live',   'mo', [10, 10, 10]),
+    subOf('Dead',   'mo', [50, 50, 50], 300),
+  ];
+  const s = C.subSummary(subs, TODAY);
+  eq(s.count, 1);
+  near(s.monthly, 10, 0.05);
+  eq(s.lapsed.length, 1);
+});
+
+t('subSummary: yearly is derived from the monthly figure it prints', () => {
+  const subs = [subOf('A', 'mo', [10.40, 10.40, 10.40]), subOf('B', 'mo', [5.40, 5.40, 5.40])];
+  const s = C.subSummary(subs, TODAY);
+  // 10.40 + 5.40 = 15.80 → shown as $16 → 16 * 12 = 192, never 189.60.
+  eq(s.yearly, 192);
+});
+
+t('subSummary: an empty list is zero everywhere, not NaN', () => {
+  const s = C.subSummary([], TODAY);
+  eq(s.count, 0); eq(s.monthly, 0); eq(s.yearly, 0);
+  eq(s.cuts.totalYearly, 0);
+});
+
 console.log(`fc-core: ${passed} passed, ${failed} failed`);
 if (failed) {
   console.error('');
