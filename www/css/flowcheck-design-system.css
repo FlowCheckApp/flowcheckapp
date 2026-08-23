@@ -695,8 +695,13 @@ body.fc-theme {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   background: var(--fc-premium-nav);
-  -webkit-backdrop-filter: saturate(180%) blur(30px);
-  backdrop-filter: saturate(180%) blur(30px);
+  /* Desaturating, not the usual vibrancy boost. saturate(180%) is the classic
+     iOS material recipe, but it amplifies whatever is behind the bar — a
+     full-width red button on Money › Debt bled through and turned the whole
+     tab bar red. Chrome should not change colour with the screen under it, so
+     the backdrop is muted toward neutral and the blur carries the depth. */
+  -webkit-backdrop-filter: saturate(72%) blur(30px);
+  backdrop-filter: saturate(72%) blur(30px);
   border: 1px solid var(--fc-premium-border);
   border-radius: 23px;
   box-shadow: var(--fc-premium-shadow);

@@ -1502,7 +1502,7 @@ window.FCApp = (function () {
             </div>
           </div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">
-            <div class="fc-list-amount">${FCData.formatCurrency(b.amount)}</div>
+            <div class="fc-list-amount">${FCData.formatSummary(b.amount)}</div>
             ${statusText}
           </div>
           ${checkBtn}
@@ -1524,8 +1524,12 @@ window.FCApp = (function () {
       const d = FCData.parseDateLocal(b.due_date);
       return d.getMonth() === _now.getMonth() && d.getFullYear() === _now.getFullYear();
     });
-    const _totalDue  = _monthBills.reduce((s, b) => s + (b.amount || 0), 0);
-    const _paidTotal = _monthBills.filter(b => b.status === 'paid').reduce((s, b) => s + (b.amount || 0), 0);
+    /* Rounded per bill, because every row on this list prints to the dollar
+       and these three totals sit directly above them. The same bill also
+       appears on the Paycheck card — it read $243.00 here and $243 there,
+       which is the Home-vs-Money disagreement all over again on one screen. */
+    const _totalDue  = _monthBills.reduce((s, b) => s + Math.round(b.amount || 0), 0);
+    const _paidTotal = _monthBills.filter(b => b.status === 'paid').reduce((s, b) => s + Math.round(b.amount || 0), 0);
     const _leftToPay = Math.max(0, _totalDue - _paidTotal);
 
     let html = '';
@@ -1535,12 +1539,12 @@ window.FCApp = (function () {
                  <div style="display:flex;align-items:center;gap:14px">
                    <div style="flex:1;min-width:0">
                      <div class="fc-eyebrow" style="color:var(--fc-accent)">Bills This Month</div>
-                     <div style="font-size:24px;font-weight:700;color:var(--fc-text);font-variant-numeric:tabular-nums">${FCData.formatCurrency(_totalDue)}</div>
-                     <div style="font-size:13px;color:var(--fc-text-muted)">${_paidTotal > 0 ? FCData.formatCurrency(_paidTotal) + ' paid so far' : 'due this month'}</div>
+                     <div style="font-size:24px;font-weight:700;color:var(--fc-text);font-variant-numeric:tabular-nums">${FCData.formatSummary(_totalDue)}</div>
+                     <div style="font-size:13px;color:var(--fc-text-muted)">${_paidTotal > 0 ? FCData.formatSummary(_paidTotal) + ' paid so far' : 'due this month'}</div>
                    </div>
                    ${_leftToPay > 0
                      ? `<div style="text-align:right;flex-shrink:0">
-                          <div style="font-size:13px;color:var(--fc-warning-text);font-weight:600;font-variant-numeric:tabular-nums">${FCData.formatCurrency(_leftToPay)}</div>
+                          <div style="font-size:13px;color:var(--fc-warning-text);font-weight:600;font-variant-numeric:tabular-nums">${FCData.formatSummary(_leftToPay)}</div>
                           <div style="font-size:11px;color:var(--fc-text-faint)">left to pay</div>
                         </div>`
                      : `<div style="text-align:right;flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:2px">
@@ -7105,7 +7109,7 @@ window.FCApp = (function () {
              or a promo, not as money in an account. -->
         <div class="wv-sav-hero-icon">${_ic('bank','var(--wv-green)',24)}</div>
         <div>
-          <div class="wv-sav-total">${FCData.formatCurrency(total)}</div>
+          <div class="wv-sav-total">${FCData.formatSummary(total)}</div>
           <div class="wv-sav-sub">${savAccts.length} account${savAccts.length!==1?'s':''} · Cash &amp; Savings</div>
         </div>
       </div>
@@ -7122,14 +7126,14 @@ window.FCApp = (function () {
         </div>
         <div>
           <div class="wv-ef-title">${efGoal?esc(efGoal.name):'Emergency Fund'}</div>
-          <div class="wv-ef-sub">${FCData.formatCurrency(efCurrent)} of ${FCData.formatCurrency(efTarget)} · ${efPct>=100?'Fully funded':'Keep it up'}</div>
+          <div class="wv-ef-sub">${FCData.formatSummary(efCurrent)} of ${FCData.formatSummary(efTarget)} · ${efPct>=100?'Fully funded':'Keep it up'}</div>
           ${efPct<100?`<div class="wv-ef-bar"><div class="wv-pbar"><div class="wv-pbar-fill" style="width:${efPct}%;background:${efColor}"></div></div></div>`:''}
         </div>
       </div>`:''}
       ${efPct<100&&sts>10?`
       <div class="wv-card wv-sav-move">
         <div class="wv-sav-move-title">Recommended Move</div>
-        <div class="wv-sav-move-body">Save ${FCData.formatCurrency(weeklyAmt)}/week toward your Emergency Fund${monthsToTarget?` — funded in ~${monthsToTarget} months`:''}.</div>
+        <div class="wv-sav-move-body">Save ${FCData.formatSummary(weeklyAmt)}/week toward your Emergency Fund${monthsToTarget?` — funded in ~${monthsToTarget} months`:''}.</div>
         <div class="wv-move-btns">
           <button class="wv-btn-p" onclick="FCApp.showAddGoalSheet&&FCApp.showAddGoalSheet()">Adjust Goal</button>
         </div>
@@ -7148,9 +7152,9 @@ window.FCApp = (function () {
       ${savAccts.length&&efGoal?`
       <div class="wv-lbl">Savings Plan</div>
       <div class="wv-card wv-plan-card">
-        <div class="wv-plan-row"><div class="wv-plan-k">Goal Target</div><div class="wv-plan-v">${FCData.formatCurrency(efTarget)}</div></div>
-        <div class="wv-plan-row"><div class="wv-plan-k">Saved So Far</div><div class="wv-plan-v">${FCData.formatCurrency(efCurrent)}</div></div>
-        <div class="wv-plan-row"><div class="wv-plan-k">Weekly to Hit Target</div><div class="wv-plan-v">${FCData.formatCurrency(weeklyAmt)}</div></div>
+        <div class="wv-plan-row"><div class="wv-plan-k">Goal Target</div><div class="wv-plan-v">${FCData.formatSummary(efTarget)}</div></div>
+        <div class="wv-plan-row"><div class="wv-plan-k">Saved So Far</div><div class="wv-plan-v">${FCData.formatSummary(efCurrent)}</div></div>
+        <div class="wv-plan-row"><div class="wv-plan-k">Weekly to Hit Target</div><div class="wv-plan-v">${FCData.formatSummary(weeklyAmt)}</div></div>
         ${monthsToTarget?`<div class="wv-plan-row"><div class="wv-plan-k">Est. Completion</div><div class="wv-plan-v">~${monthsToTarget} months</div></div>`:''}
       </div>`:''}
       <div style="height:8px"></div>`;
@@ -7201,7 +7205,7 @@ window.FCApp = (function () {
     const rate = _debtRate(acct), min = _minPayment(acct);
     if (todayEl) {
       todayEl.textContent = (rate > 0 && min > 0)
-        ? `Right now: ${rate.toFixed(rate % 1 ? 2 : 0)}% APR, paying ${FCData.formatCurrency(min)}/mo`
+        ? `Right now: ${rate.toFixed(rate % 1 ? 2 : 0)}% APR, paying ${FCData.formatSummary(min)}/mo`
         : 'Add this debt\u2019s rate and minimum first — without them there is nothing to compare against.';
     }
     // Prefill the payment with what they already pay: the most useful
@@ -7313,7 +7317,7 @@ window.FCApp = (function () {
       return;
     }
 
-    const money = v => FCData.formatCurrency(Math.abs(v));
+    const money = v => FCData.formatSummary(Math.abs(v));
     const cheaper = r.interestSaved > 0;
     const lowerPm = r.monthlyChange > 0;
     const mo = n => `${n} month${n === 1 ? '' : 's'}`;
@@ -7468,6 +7472,14 @@ window.FCApp = (function () {
       {lbl:'Cards',val:ccBal,color:'var(--fc-danger)'},
       {lbl:'Loans',val:debtAccts.filter(a=>a.type==='loan').reduce((s,a)=>s+Math.max(0,a.balance_current||a.balance||0),0),color:'var(--fc-warning)'},
     ].filter(s=>s.val>0);
+    /* The legend prints these two to the dollar directly beneath the total
+       they make up, so the total is derived from the same rounded figures
+       rather than rounded on its own — otherwise Cards + Loans can display
+       a dollar off from Total debt. Only when both segments are shown; with
+       one segment the legend is suppressed and there is nothing to reconcile. */
+    const totalDebtShown = segs.length > 1
+      ? segs.reduce((sum, seg) => sum + Math.round(seg.val), 0)
+      : totalDebt;
     const R=40,r=24,cx=52,cy=52,circ2=2*Math.PI*R;
     let cumA=-90;
     const arcs=segs.map(seg=>{
@@ -7502,7 +7514,7 @@ window.FCApp = (function () {
         ${segs.map(s => `<div style="display:flex;align-items:center;gap:5px">`
           + `<span style="width:7px;height:7px;border-radius:2px;background:${s.color};flex-shrink:0"></span>`
           + `<span style="font-size:11px;color:var(--wv-t3);font-weight:500">${esc(s.lbl)}</span>`
-          + `<span style="font-size:11px;color:var(--wv-t2);font-weight:600;font-variant-numeric:tabular-nums">${FCData.formatCurrency(s.val)}</span>`
+          + `<span style="font-size:11px;color:var(--wv-t2);font-weight:600;font-variant-numeric:tabular-nums">${FCData.formatSummary(s.val)}</span>`
         + `</div>`).join('')}
       </div>` : '';
     // Next payment from bills
@@ -7560,7 +7572,7 @@ window.FCApp = (function () {
          this panel, and reusing it inherited a 32px pill into the row. */
       const meta = [];
       if (_r > 0) meta.push(`<span class="wv-debt-fact">${_r.toFixed(_r % 1 ? 2 : 0)}% APR</span>`);
-      if (_m > 0) meta.push(`<span class="wv-debt-fact">${FCData.formatCurrency(_m)}/mo min</span>`);
+      if (_m > 0) meta.push(`<span class="wv-debt-fact">${FCData.formatSummary(_m)}/mo min</span>`);
       if (bal > 0 && (_r <= 0 || _m <= 0)) {
         meta.push(`<span class="wv-debt-fact wv-debt-fact--gap">${
             _r <= 0 && _m <= 0 ? 'Add rate &amp; minimum'
@@ -7636,7 +7648,16 @@ window.FCApp = (function () {
     })();
     const debtIsUrgent = utilPct > 70 || totalDebt > 20000;
     const debtCta      = debtIsUrgent ? 'Review debt strategy' : 'See Wealth Plan';
-    const debtCtaColor = debtIsUrgent ? 'var(--wv-red)' : 'var(--wv-blue)';
+    /* The button is an ACTION, not a verdict, so it stays the action colour.
+       It was --wv-red, which in this app means destructive — and the trigger
+       is `totalDebt > 20000`, which a car loan plus student loans clears
+       permanently, so the primary action on this screen was red forever.
+       A full-width danger button also sat directly under the tab bar and
+       tinted the glass red on the way past.
+
+       Urgency is not lost: the utilisation line above still turns red and
+       says "consider paying down", which is the part that carries meaning. */
+    const debtCtaColor = 'var(--wv-blue)';
     /* Debt lived on TWO screens: this panel and a standalone sub-screen with
        its own back button, its own totals and a "+" that had no onclick at
        all. Neither could actually add a debt, and the standalone one was
@@ -7708,7 +7729,7 @@ window.FCApp = (function () {
       if (!_dfNow.ok && _dfNow.reason === 'missing_minimums') {
         return '<div class="wv-card wv-df wv-df--ask">'
           + '<p class="wv-df-eyebrow">Debt-free date</p>'
-          + '<p class="wv-df-ask">Add the minimum payment on each debt and we\u2019ll show you the month you are free \u2014 and what an extra ' + FCData.formatCurrency(_EXTRA_STEP) + ' a month does to it.</p>'
+          + '<p class="wv-df-ask">Add the minimum payment on each debt and we\u2019ll show you the month you are free \u2014 and what an extra ' + FCData.formatSummary(_EXTRA_STEP) + ' a month does to it.</p>'
           + '</div>';
       }
       if (!_dfNow.ok && _dfNow.reason === 'never_pays_off') {
@@ -7726,16 +7747,16 @@ window.FCApp = (function () {
         + '<p class="wv-df-date">' + esc(_dfMonth(_dfNow.date)) + '</p>'
         + '<p class="wv-df-sub">' + esc(_dfYears(_dfNow.months)) + ' away at your current payments'
           + (_dfNow.totalInterest > 0
-              ? ' \u00b7 ' + FCData.formatCurrency(_dfNow.totalInterest) + ' of interest'
+              ? ' \u00b7 ' + FCData.formatSummary(_dfNow.totalInterest) + ' of interest'
               : '')
         + '</p>'
         + (saved > 0
             ? '<div class="wv-df-lever">'
                 + _ic('trending-up', 'var(--fc-success)', 15)
-                + '<span>An extra <strong>' + FCData.formatCurrency(_EXTRA_STEP) + '/month</strong> makes it '
+                + '<span>An extra <strong>' + FCData.formatSummary(_EXTRA_STEP) + '/month</strong> makes it '
                 + '<strong>' + esc(_dfMonth(_dfBoost.date)) + '</strong> \u2014 '
                 + saved + ' month' + (saved === 1 ? '' : 's') + ' sooner, and '
-                + FCData.formatCurrency(Math.max(0, _dfNow.totalInterest - _dfBoost.totalInterest))
+                + FCData.formatSummary(Math.max(0, _dfNow.totalInterest - _dfBoost.totalInterest))
                 + ' less interest.</span>'
               + '</div>'
             : '')
@@ -7766,7 +7787,7 @@ window.FCApp = (function () {
             null,
             avgRate > 0 && _ratePartial ? `${_rated.length} of ${_withBal.length} debts` : '')}
         ${metric('Monthly Min.',
-            totalMin > 0 ? FCData.formatCurrency(totalMin) : dash,
+            totalMin > 0 ? FCData.formatSummary(totalMin) : dash,
             null,
             totalMin > 0 && _minPartial ? `${_withMin.length} of ${_withBal.length} debts` : '')}
       </div>
@@ -7774,9 +7795,9 @@ window.FCApp = (function () {
         ${donutSVG}
         <div>
           <div style="font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--wv-t3);margin-bottom:4px">Total Debt</div>
-          <div class="wv-debt-total${debtIsUrgent?' wv-debt-total--urgent':''}">${FCData.formatCurrency(totalDebt)}</div>
+          <div class="wv-debt-total${debtIsUrgent?' wv-debt-total--urgent':''}">${FCData.formatSummary(totalDebtShown)}</div>
           ${ccLimit>0?`<div class="wv-debt-status" style="color:${utilColor};font-size:12px;margin-top:3px">${utilPct}% credit utilized${utilPct>30?' — consider paying down':''}</div>`:''}
-          ${nextBill?`<div style="font-size:12px;color:var(--wv-t2);margin-top:4px">Next payment: <strong style="color:var(--wv-t1)">${FCData.formatCurrency(nextBill.amount||0)}</strong></div>`:''}
+          ${nextBill?`<div style="font-size:12px;color:var(--wv-t2);margin-top:4px">Next payment: <strong style="color:var(--wv-t1)">${FCData.formatSummary(nextBill.amount||0)}</strong></div>`:''}
           ${debtLegendHTML}
         </div>
       </div>
@@ -7795,13 +7816,13 @@ window.FCApp = (function () {
       <div class="wv-card wv-debt-card">${debtRows}</div>
       ${_payoffTarget && _poMonths ? `
       <div class="wv-impact">
-        <div class="wv-impact-title">Extra ${FCData.formatCurrency(extraAmt)}/month impact</div>
-        <div class="wv-impact-body">Paying ${FCData.formatCurrency(_poPay)}/month toward <strong>${esc(_payoffTarget.name || 'this debt')}</strong>${
-          _poMin > 0 ? ` — the ${FCData.formatCurrency(_poMin)} minimum plus ${FCData.formatCurrency(extraAmt)}` : ''
+        <div class="wv-impact-title">Extra ${FCData.formatSummary(extraAmt)}/month impact</div>
+        <div class="wv-impact-body">Paying ${FCData.formatSummary(_poPay)}/month toward <strong>${esc(_payoffTarget.name || 'this debt')}</strong>${
+          _poMin > 0 ? ` — the ${FCData.formatSummary(_poMin)} minimum plus ${FCData.formatSummary(extraAmt)}` : ''
         } clears it in about ${_poMonths} month${_poMonths === 1 ? '' : 's'}${
           _poRate > 0 ? ` at ${_poRate.toFixed(1)}% APR` : ''
         }.${
-          _poMin > 0 ? ` That frees up ${FCData.formatCurrency(_poMin)} a month once it is gone.` : ''
+          _poMin > 0 ? ` That frees up ${FCData.formatSummary(_poMin)} a month once it is gone.` : ''
         }${
           /* Say so rather than quietly present an interest-free projection
              as if it were the real payoff date. */
@@ -9090,7 +9111,7 @@ window.FCApp = (function () {
             +ringHTML
             +'<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center">'
               +'<div style="font-size:10px;font-weight:600;color:var(--fc-text-faint);letter-spacing:0.3px">INCOME</div>'
-              +'<div style="font-size:14px;font-weight:700;color:var(--fc-text)">'+(totalIncome>0?(totalIncome>=1000?'$'+(totalIncome/1000).toFixed(1).replace(/\.0$/,'')+'k':FCData.formatCurrency(totalIncome)):'--')+'</div>'
+              +'<div style="font-size:14px;font-weight:700;color:var(--fc-text)">'+(totalIncome>0?(totalIncome>=1000?'$'+(totalIncome/1000).toFixed(1).replace(/\.0$/,'')+'k':FCData.formatSummary(totalIncome)):'--')+'</div>'
             +'</div>'
           +'</div>'
           +'<div style="flex:1;display:flex;flex-direction:column;gap:7px">'
@@ -9103,7 +9124,7 @@ window.FCApp = (function () {
            story — this line is the rest of it. */
         +(ringOver > 0
           ? '<div style="margin-top:12px;padding-top:11px;border-top:1px solid var(--fc-border);font-size:12.5px;font-weight:600;color:var(--fc-danger)">'
-              +'Your plan is '+FCData.formatCurrency(ringOver)+' more than you brought in this month.'
+              +'Your plan is '+FCData.formatSummary(ringOver)+' more than you brought in this month.'
             +'</div>'
           : '')
       +'</div>')
@@ -9121,7 +9142,7 @@ window.FCApp = (function () {
           ? '<div style="display:flex;align-items:center;gap:7px;margin:-4px 0 12px">'
               + _ic('trending-up','var(--fc-success)',14)
               + '<span style="font-size:12.5px;color:var(--fc-success);font-weight:600">'
-              + FCData.formatCurrency(rollIn) + ' rolled over from last month</span>'
+              + FCData.formatSummary(rollIn) + ' rolled over from last month</span>'
             +'</div>'
           : '')
         +(budgetLimit > 0
@@ -9133,8 +9154,8 @@ window.FCApp = (function () {
               const _paceDelta = _paceAmt - totalSpend;
               const _onPace   = _paceDelta >= 0;
               return '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">'
-                +'<div style="font-size:24px;font-weight:800;color:var(--fc-text);font-variant-numeric:tabular-nums">'+FCData.formatCurrency(totalSpend)+'</div>'
-                +'<div style="font-size:13px;color:var(--fc-text-muted)">of '+FCData.formatCurrency(budgetLimit)+'</div>'
+                +'<div style="font-size:24px;font-weight:800;color:var(--fc-text);font-variant-numeric:tabular-nums">'+FCData.formatSummary(totalSpend)+'</div>'
+                +'<div style="font-size:13px;color:var(--fc-text-muted)">of '+FCData.formatSummary(budgetLimit)+'</div>'
               +'</div>'
               +'<div class="fc-progress" style="margin-bottom:8px;position:relative;overflow:visible">'
                 +'<div class="fc-progress-fill" style="width:'+budgetPct+'%;background:'+budgetColor+'"></div>'
@@ -9142,9 +9163,9 @@ window.FCApp = (function () {
               +'</div>'
               +'<div style="display:flex;justify-content:space-between;align-items:center">'
                 +'<div style="font-size:13px;font-weight:600;color:'+(_onPace?'var(--fc-success)':'var(--fc-warning)')+'">'
-                  +(_onPace ? FCData.formatCurrency(_paceDelta)+' under pace' : FCData.formatCurrency(Math.abs(_paceDelta))+' over pace')
+                  +(_onPace ? FCData.formatSummary(_paceDelta)+' under pace' : FCData.formatSummary(Math.abs(_paceDelta))+' over pace')
                 +'</div>'
-                +'<div style="font-size:13px;font-weight:600;color:'+(budgetPct>90?'var(--fc-danger)':budgetPct>70?'var(--fc-warning)':'var(--fc-success)')+'">'+FCData.formatCurrency(Math.max(0,budgetLimit-totalSpend))+' left</div>'
+                +'<div style="font-size:13px;font-weight:600;color:'+(budgetPct>90?'var(--fc-danger)':budgetPct>70?'var(--fc-warning)':'var(--fc-success)')+'">'+FCData.formatSummary(Math.max(0,Math.round(budgetLimit)-Math.round(totalSpend)))+' left</div>'
               +'</div>';
             })()
           : '<div style="text-align:center;padding:12px 0">'
