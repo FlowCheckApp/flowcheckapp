@@ -2167,8 +2167,12 @@ body.fc-theme .fc-header-avatar {
   font-weight: 500;
 }
 
+/* Sole definition. .st-hero and .st-allocation were each declared in BOTH
+   this file and flowcheck-design-system.css; this file loads later so it
+   won, and edits to the other copy did nothing at all. Same failure as the
+   seven .fc-nav rules and the two .home-v8 ones. */
 .st-hero {
-  padding: 20px 0 16px;
+  padding: 2px 0 8px;
   text-align: center;
 }
 
@@ -2243,12 +2247,17 @@ body.fc-theme .fc-header-avatar {
 }
 
 .st-allocation {
-  padding: 12px 0 20px;
+  padding: 10px 0 4px;
+  border-top: 1px solid var(--fc-border);
 }
 
 .st-allocation > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   flex: 1 1 0;
   min-width: 0;
+  padding: 4px 10px;
   text-align: center;
 }
 
@@ -2328,7 +2337,16 @@ body.fc-theme .fc-header-avatar {
 .st-day.is-active .st-day__label,
 .st-day.is-active .st-day__amount { color: var(--fc-accent); }
 
+/* Hidden, deliberately and on purpose kept that way here. The card still
+   RENDERS a full "N bills before payday" list — heading, icons, rows — and
+   this one declaration is the only reason nobody has seen it. The hide used
+   to live in flowcheck-design-system.css, where it was the sole surviving
+   property of a rule otherwise entirely shadowed by this one, so deleting
+   that duplicate would have silently un-hidden the section. Restored here
+   verbatim so the consolidation changes nothing; whether the section should
+   come back is a product call, not a refactor's side effect. */
 .st-bills {
+  display: none;
   margin-top: 20px;
   padding-top: 16px;
   border-top: 1px solid var(--fc-border);
@@ -2878,10 +2896,22 @@ body.fc-theme .fc-header-avatar {
 .rw-chart.rw-scrubbing .rw-today { opacity: 0.25; }
 .rw-evt, .rw-today { transition: opacity 0.18s ease; }
 
+/* align-items, gap, letter-spacing and text-transform were declared only in
+   the flowcheck-design-system.css copy of this rule. That copy loses on load
+   order for every property BOTH files set, which is why it looked dead — but
+   a property only one copy declares still applies, so these four were live.
+   Folded in verbatim when the duplicate was removed. */
 .rw-axis {
-  display: flex; justify-content: space-between;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   margin-top: 2px;
-  font-size: 10px; font-weight: 600; color: var(--fc-text-faint);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--fc-text-faint);
 }
 
 /* The window label sits between two dates, so it has to NOT look like a
@@ -4092,19 +4122,15 @@ html body.fc-theme[data-tab="activity"] .fc-screen[data-screen="app"] > .fc-head
    order. */
 
 .st-runway { margin: 14px 0 4px; }
-.st-runway__axis {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 6px;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--fc-text-faint);
-}
 .st-runway__low {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   margin: 10px 0 0;
   font-size: 12px;
+  line-height: 1.4;
+  text-align: center;
   color: var(--fc-text-muted);
 }
 .st-runway__low strong {
@@ -4118,10 +4144,23 @@ html body.fc-theme[data-tab="activity"] .fc-screen[data-screen="app"] > .fc-head
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-top: 14px;
+  /* 14 margin + the 12 padding inherited from .st-actions put 26px between
+     the allocation row and the button, which pushed "Check a purchase" —
+     the one thing this card exists to let you do — below the tab bar on a
+     375pt screen. */
+  margin-top: 6px;
+  padding-top: 8px;
 }
+/* Specificity, not preference: this same file carries
+   `.st-actions button { background: transparent }` at (0,1,1), which beats a
+   bare `.st-cta` at (0,1,0) — so the primary action rendered as a plain
+   link. Qualifying with the parent puts it at (0,2,0). The rule used to be
+   duplicated into flowcheck-design-system.css, which loses on load order,
+   so the qualifier lived in the copy that could not apply it. */
+.st-actions--primary .st-cta,
 .st-cta {
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 0;
   min-height: 44px;
   border: 0;
   border-radius: var(--fc-r-pill);
@@ -4130,6 +4169,7 @@ html body.fc-theme[data-tab="activity"] .fc-screen[data-screen="app"] > .fc-head
   font-family: inherit;
   font-size: 15px;
   font-weight: 700;
+  letter-spacing: -0.02em;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
@@ -4147,3 +4187,7 @@ html body.fc-theme[data-tab="activity"] .fc-screen[data-screen="app"] > .fc-head
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
+
+/* A projected shortfall is the number the RUNS SHORT pill is about, so it
+   carries the same amber rather than sitting in body colour. */
+.st-runway__low strong.is-short { color: var(--fc-warning-text); }

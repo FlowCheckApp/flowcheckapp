@@ -86,9 +86,65 @@ if (found.length === 0) {
   );
 }
 
-console.log('canonical-chrome check: bottom nav single-source');
+/* ── 2. No Home-card selector may live in two stylesheets ─────────────
+ *
+ * The nav was not the only component written twice. The Payday Runway card
+ * — .st-*, .rw-*, .home-v8* — was defined in BOTH flowcheck-design-system.css
+ * and fc-screens.css, 21 selectors deep. fc-screens loads second, so it won
+ * every property both files set, and edits made to the design-system copy
+ * did nothing at all. That is the expensive part: the losing copy is not
+ * dead, so it does not look dead. A property only ONE copy declares still
+ * applies, which is how `.st-bills { display: none }` kept a fully rendered
+ * bills section invisible from a file whose other 8 declarations were inert,
+ * and how `.st-allocation > div`'s 16px padding survived in a rule that
+ * looked entirely overridden.
+ *
+ * So the rule is not "don't override" — it is "one component, one file".
+ * Cross-file only: a second rule in the SAME file is visible in review and
+ * resolves by document order, which is legible. Two files is where load
+ * order decides silently.
+ */
+const NS = /^\.(st-|rw-|home-v8)/;
+const homeWhere = {};
+
+for (const rel of SOURCES) {
+  const abs = path.join(ROOT, rel);
+  if (!fs.existsSync(abs) || !rel.endsWith('.css')) continue;
+  const text = fs.readFileSync(abs, 'utf8');
+  const ruleRe = /([^{}]+)\{([^{}]*)\}/g;
+  let r;
+  while ((r = ruleRe.exec(text)) !== null) {
+    const sel = r[1].replace(/\/\*[\s\S]*?\*\//g, '').trim();
+    if (!sel || sel.startsWith('@')) continue;
+    const line = text.slice(0, r.index).split('\n').length;
+    for (const raw of sel.split(',')) {
+      const one = raw.replace(/\s+/g, ' ').trim();
+      if (!NS.test(one)) continue;
+      (homeWhere[one] = homeWhere[one] || []).push({ rel, line });
+    }
+  }
+}
+
+const split = Object.entries(homeWhere)
+  .filter(([, hits]) => new Set(hits.map(h => h.rel)).size > 1);
+
+if (split.length) {
+  failures.push(
+    `${split.length} Home-card selector(s) defined in more than one stylesheet:\n` +
+    split.map(([sel, hits]) =>
+      `      ${sel}\n` +
+      hits.map(h => `          ${h.rel}:${h.line}`).join('\n')
+    ).join('\n') +
+    '\n    Pick the file that already wins on load order and fold the other\n' +
+    "    copy into it. Check for properties only the losing copy declares —\n" +
+    '    those are live and will vanish silently if you just delete it.'
+  );
+}
+
+console.log('canonical-chrome check: bottom nav single-source + Home-card namespace');
 if (failures.length) {
   failures.forEach(f => console.error('  ✗ ' + f));
   process.exit(1);
 }
 console.log('  ✓ the tab bar is defined exactly once (' + found[0].rel + ':' + found[0].line + ').');
+console.log('  ✓ ' + Object.keys(homeWhere).length + ' Home-card selectors, none split across stylesheets.');

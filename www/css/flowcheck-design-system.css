@@ -1968,7 +1968,6 @@ body.fc-theme {
   color: rgba(13,27,46,0.28) !important;
 }
 
-
 /* ============================================================
    PREMIUM POLISH v4 — Enterprise UX layer
    FlowCheck: Top-tier App Store fintech quality
@@ -2751,37 +2750,6 @@ body.fc-theme {
 /* ══════════════════════════════════════════════════════════════════
    TODAY SCREEN — reference-led stacked dashboard
    ══════════════════════════════════════════════════════════════════ */
-.home-v8__greeting {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 6px 2px 2px;
-}
-
-.home-v8__greeting h1 {
-  margin: 0;
-  color: var(--fc-text);
-  font-size: 24px;
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  line-height: 1.08;
-}
-
-.home-v8__date {
-  margin: 8px 0 0;
-  color: var(--fc-text-muted);
-  font-size: 13px;
-  line-height: 1.35;
-}
-
-.home-v8__disclaimer {
-  margin: 4px 0 0;
-  color: var(--fc-text-muted);
-  font-size: 12px;
-  line-height: 1.4;
-  text-align: center;
-}
 
 .home-v8 .fc-ui-card {
   background:
@@ -2793,46 +2761,15 @@ body.fc-theme {
   overflow: hidden;
 }
 
-.st-card {
-  padding: 16px 16px 16px;
-  border-color: rgba(26,196,240,0.2);
-  background:
-    radial-gradient(circle at 0% 0%, rgba(26,196,240,0.12), transparent 34%),
-    linear-gradient(180deg, rgba(8,24,40,0.98), rgba(7,18,30,0.94));
-}
-
-.st-topline {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.st-kicker {
-  margin: 0;
-  color: var(--fc-accent);
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.st-payday {
-  margin: 0;
-  color: var(--fc-text-muted);
-  font-size: 12px;
-  font-weight: 600;
-}
-
 .st-status {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin: 14px 0 8px;
-  padding: 6px 12px;
+  margin: 6px 0 4px;
+  padding: 4px 10px;
   border-radius: var(--fc-r-pill);
-  font-size: 12px;
-  font-weight: 800;
+  font-size: 10px;
+  font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
@@ -2860,146 +2797,16 @@ body.fc-theme {
   border: 1px solid var(--fc-warning-border);
 }
 
-.st-hero {
-  padding: 2px 0 10px;
-  text-align: center;
-}
-
-.st-hero__label {
-  margin: 0 0 8px;
-  color: var(--fc-text-muted);
-  font-size: 15px;
-  line-height: 1.3;
-}
-
-.st-hero__value {
-  margin: 0;
-  color: var(--fc-text);
-  /* Fluid, not a fixed 74px. It was clamp(52px, 16vw, 64px) and the fixed
-     value overflows a 375pt phone the moment the figure is "$1,468" rather
-     than "$18" — which is the whole point of the clamp. Top raised to 72 to
-     keep the bigger-hero intent. */
-  font-size: clamp(52px, 17vw, 72px);
-  font-weight: 700;
-  letter-spacing: -0.055em;
-  line-height: 0.94;
-}
-
-.st-hero__support {
-  margin: 10px 0 0;
-  color: var(--fc-text-muted);
-  font-size: 14px;
-  line-height: 1.4;
-}
-
-.st-allocation {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  margin-top: 10px;
-  border-top: 1px solid rgba(255,255,255,0.07);
-  border-bottom: 1px solid rgba(255,255,255,0.07);
-}
-
-.st-allocation > div {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 16px 10px 16px;
-  text-align: center;
-}
-
-.st-allocation > div + div {
-  border-left: 1px solid rgba(255,255,255,0.07);
-}
-
-.st-allocation span {
-  color: var(--fc-text-muted);
-  font-size: 12px;
-  line-height: 1.2;
-}
-
-.st-allocation strong {
-  color: var(--fc-accent);
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: -0.03em;
-}
-
-.st-runway {
-  margin-top: 14px;
-}
-
 .st-runway .rw-chart {
-  min-height: 258px;
-  padding: 14px 4px 0;
-}
-
-.st-runway__axis,
-.rw-axis {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-top: 10px;
-  color: var(--fc-text-faint);
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.st-runway__low {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  margin: 14px 0 0;
-  color: var(--fc-text-muted);
-  font-size: 13px;
-  line-height: 1.4;
-  text-align: center;
-}
-
-.st-runway__low strong {
-  color: var(--fc-text);
-  font-weight: 700;
-}
-
-.st-bills {
-  display: none;
-}
-
-.st-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  margin-top: 16px;
-}
-
-.st-cta {
-  min-height: 48px;
-  min-width: 0;
-  flex: 1 1 auto;
-  border: none;
-  border-radius: 14px;
-  background: linear-gradient(180deg, var(--fc-accent), #17b4dc);
-  color: #021721;
-  font-family: inherit;
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  cursor: pointer;
-}
-
-.st-linkbtn {
-  flex: 0 0 auto;
-  border: none;
-  background: none;
-  color: var(--fc-accent);
-  font-family: inherit;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
+  /* The SVG is 104px. This was pinned to 258, which is where the card's
+     acres of empty space under the line came from — the line drew in the
+     top third and the rest was nothing. 150 leaves room for the point
+     labels, which are absolutely positioned above and below the line.
+     150 still left 32px of nothing below the last point — the overlay that
+     holds those labels is sized to the SVG's own 104px, so nothing can ever
+     paint below it. 124 = 104 + the 14px top pad + 6px of breathing. */
+  min-height: 124px;
+  padding-top: 14px;
 }
 
 .today-whatif,
@@ -3018,7 +2825,13 @@ body.fc-theme {
 
 .today-whatif {
   display: grid;
-  grid-template-columns: auto 1fr auto auto;
+  /* Three columns, not four: the fourth held a "Try an amount" label that
+     duplicated the button's own purpose and the chevron beside it. As an
+     `auto` track it claimed its full 91px max-content width before the 1fr
+     copy column got anything, so on a 375pt screen the copy was left with
+     94px. minmax(0, 1fr) keeps the copy column from being floored at its
+     min-content width too. */
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 14px;
   padding: 14px 16px;
@@ -3840,7 +3653,6 @@ body.fc-theme,
   filter: none;
   transform: translateY(-1px);
 }
-
 
 button:focus-visible,
 a[role="tab"]:focus-visible,

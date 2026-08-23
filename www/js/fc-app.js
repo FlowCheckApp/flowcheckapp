@@ -3047,7 +3047,13 @@ window.FCApp = (function () {
        line start?". Both belong on the card; they are not the same number
        and must not be shown as one. */
     const todayLbl = '<span class="rw-today" style="top:' + yPct(r.startBalance) + '%">'
-      + '<span class="rw-today-amt">' + esc(FCData.formatCurrency(r.startBalance)) + '</span>'
+      /* formatSummary, not formatCurrency. This badge sits on a card whose
+         every other figure — the hero, the three allocation stats, the
+         lowest-balance line, even the bill labels on this same chart — is
+         whole dollars. Printing "$3,241.87" here made one number on the
+         card look like it came from somewhere else. Cents belong on rows
+         reconciled against a bank, not on a chart read at a glance. */
+      + '<span class="rw-today-amt">' + esc(FCData.formatSummary(r.startBalance)) + '</span>'
       + '<span class="rw-today-cap">today</span></span>';
 
     /* ── Bill drops, labelled with what caused them ────────────────────
@@ -3413,15 +3419,13 @@ window.FCApp = (function () {
     const payday = runway.payday || null;
     const endDate = payday?.date || runway.points?.[runway.points.length - 1]?.date || new Date();
     const dateLabel = endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    const scopeLabel = payday ? 'Until payday' : `Next ${horizon} days`;
     const dayCountLabel = `${horizon} day${horizon === 1 ? '' : 's'} · ${dateLabel}`;
     const fmtWhole = value => '$' + Math.max(0, Math.round(Number(value || 0))).toLocaleString('en-US');
-    const chartWindowLabel = payday ? `${horizon} days · ${dateLabel}` : _rwWindowLabel(horizon);
 
-    const allocatedTotal = Math.max(1, available, billsTotal + protectedAmount + left);
-    const billsPct = Math.max(0, (billsTotal / allocatedTotal) * 100);
-    const protectedPct = Math.max(0, (protectedAmount / allocatedTotal) * 100);
-    const leftPct = Math.max(0, 100 - billsPct - protectedPct);
+    /* The allocated-percentage math that stood here fed a stacked
+       allocation BAR that no longer renders — the three figures replaced
+       it. Four locals and a near-duplicate of dayCountLabel were still
+       being computed on every render for nothing. */
 
     const bucketSizes = horizon <= 5
       ? Array.from({ length: horizon }, () => 1)
@@ -3493,10 +3497,6 @@ window.FCApp = (function () {
       + '<div class="st-hero"><p class="st-hero__label">Safe to spend today</p>'
       + '<p class="st-hero__value fc-amount" id="st-safe-today-value" data-countup="' + safeToday + '" data-countup-decimals="0">' + fmtWhole(safeToday) + '</p>'
       + '<p class="st-hero__support">' + (_onTrack ? 'Bills covered. Protection untouched.' : 'Bills land before your cash does.') + '</p></div>'
-      + '<div class="st-allocation">'
-      + '<div><span>Flexible</span><strong>' + fmtWhole(left) + '</strong></div>'
-      + '<div><span>Bills</span><strong>' + fmtWhole(billsTotal) + '</strong></div>'
-      + '<div><span>Protected</span><strong>' + fmtWhole(protectedAmount) + '</strong></div></div>'
       /* The chart replaces the per-day chip row. Five chips repeating
          "$244, $244, $244" said the daily allowance is flat, which the
          headline already says; the line shows where the balance actually
@@ -3512,17 +3512,33 @@ window.FCApp = (function () {
           ? '<div class="st-runway"><div class="rw-chart">'
             + _rwChartSVG(_rw, 'var(--fc-accent)')
             + '</div>'
-            + '<div class="st-runway__axis"><span>Today</span>'
-              + '<span>' + esc(chartWindowLabel) + '</span>'
-              + '<span>' + esc(_rw.points[_rw.points.length - 1].date
-                  .toLocaleDateString('en-US', { month: 'short', day: 'numeric' })) + '</span></div>'
-            + '<p class="st-runway__low">Lowest projected balance '
-              + '<strong>' + fmtWhole(Math.max(0, _rw.lowest.balance)) + '</strong> on '
+            /* No axis row. It read "TODAY | 8 DAYS · AUG 31 | AUG 31", and
+               once the duplicate middle label was dropped what remained was
+               "TODAY" — which the badge pinned to the line's first point
+               already says, two lines above it — and "AUG 31", which the
+               card's own topline already says as "8 days · Aug 31". A row
+               whose every label is a restatement of something else on the
+               same card is chrome; the card is shorter without it and says
+               exactly as much. */
+            /* The real figure, negative and all. Math.max(0, …) printed "$0"
+               under a card already saying RUNS SHORT — clamping away the
+               shortfall is hiding the one number the warning is about. */
+            + '<p class="st-runway__low">'
+              + (_rw.lowest.balance < 0 ? 'Projected to run short by ' : 'Lowest projected balance ')
+              + '<strong class="' + (_rw.lowest.balance < 0 ? 'is-short' : '') + '">'
+                + fmtWhole(Math.abs(_rw.lowest.balance)) + '</strong> on '
               + esc(_rw.points[_rw.lowest.day].date
                   .toLocaleDateString('en-US', { month: 'short', day: 'numeric' })) + '</p>'
           + '</div>'
           : '<section class="st-horizon" aria-labelledby="st-horizon-title"><h3 id="st-horizon-title">Your next ' + horizon + ' days</h3>'
             + '<div class="st-days">' + dayCards + '</div></section>')
+      /* Below the chart, not above it. The three figures are the chart's
+         legend — they say what the line is made of — so reading them before
+         the line exists puts the breakdown ahead of the thing broken down. */
+      + '<div class="st-allocation">'
+      + '<div><span>Flexible</span><strong>' + fmtWhole(left) + '</strong></div>'
+      + '<div><span>Bills</span><strong>' + fmtWhole(billsTotal) + '</strong></div>'
+      + '<div><span>Protected</span><strong>' + fmtWhole(protectedAmount) + '</strong></div></div>'
       + '<section class="st-bills" aria-labelledby="st-bills-title">'
       + '<div class="st-bills__heading"><span aria-hidden="true">' + _ic('calendar', 'var(--fc-accent)', 20) + '</span>'
       + '<h3 id="st-bills-title">' + billCount + ' bill' + (billCount === 1 ? '' : 's') + ' before ' + (payday ? 'payday' : 'the end') + '</h3></div>'
@@ -3912,7 +3928,11 @@ window.FCApp = (function () {
       ? ' \u2014 tomorrow adjusts to ' + FCData.formatSummary(tomorrow) + '/day.'
       : ' \u2014 it would come out of your protected buffer.';
     return ''
-      + '<button class="fc-ui-card today-whatif" type="button" onclick="FCApp.haptic(\'light\');FCApp.showAffordSheet&&FCApp.showAffordSheet()" aria-label="Try an amount">'
+      /* No aria-label. It was "Try an amount", which REPLACES the inner text
+         for a screen reader — so the question, the verdict and the figure
+         were all announced as the words "Try an amount, button". The inner
+         text is the informative part; letting it be read is the fix. */
+      + '<button class="fc-ui-card today-whatif" type="button" onclick="FCApp.haptic(\'light\');FCApp.showAffordSheet&&FCApp.showAffordSheet()">'
         + '<div class="today-whatif__icon" aria-hidden="true">' + _ic('pie-chart', 'var(--fc-accent)', 22) + '</div>'
         + '<div class="today-whatif__copy">'
           + '<p class="today-whatif__kicker">What if?</p>'
@@ -3920,7 +3940,11 @@ window.FCApp = (function () {
           + '<p class="today-whatif__meta"><span class="' + (affordable ? 'is-yes' : 'is-no') + '">'
             + verdict + '</span>' + esc(detail) + '</p>'
         + '</div>'
-        + '<span class="today-whatif__cta">Try an amount</span>'
+        /* The "Try an amount" label is gone. The whole card is a button and
+           the chevron already says so, but the label was an auto-width grid
+           column taking 91px of a 375pt screen — which squeezed the copy
+           column to 94px and wrapped "Could I spend $190 tonight?" onto
+           three lines with the icon stranded beside it. */
         + '<span class="today-whatif__chevron" aria-hidden="true">›</span>'
       + '</button>';
   }
