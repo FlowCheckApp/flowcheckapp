@@ -5259,6 +5259,14 @@ window.FCApp = (function () {
       };
     });
 
+    /* Merchant history index, built once per render over the FULL list —
+       not the filtered page, or "6 times this period" would count only what
+       happens to be on screen. Per-row it would be O(n^2). */
+    const _merchantStats = FCCore.merchantStats(txnsWithOverrides);
+    /* Rows render newest-first, so the first time a merchant is seen in
+       this pass is its most recent transaction. */
+    const _notedMerchants = new Set();
+
     // Type filter — the new quick-filter chips (All/Income/Expenses/Transfers/Recurring)
     const _XFER_CATS = new Set(['transfer', 'transfer in', 'transfer out', 'loan', 'loan payment', 'loan payments', 'credit card payment']);
     const _isTransferTxn = (t) => {
@@ -5337,6 +5345,22 @@ window.FCApp = (function () {
 
       html += txns.map(t => {
         const rawCat = (t.category && t.category[0]) || t.category || 'Other';
+        /* What the user's own history says about this purchase. Silent
+           unless there is something to say — see merchantNote in fc-core
+           for why the thresholds are where they are.
+
+           A frequency count is a fact about the MERCHANT, so it belongs on
+           one row, not on all of them: five Casey's rows each reading "5
+           times this period" is the same noise the annotation exists to cut
+           through. It lands on the most recent visit, which is the one
+           nearest the top. An outlier is a fact about the TRANSACTION and
+           always shows — each unusual charge is its own event. */
+        let mNote = FCCore.merchantNote(_merchantStats, t);
+        if (mNote && mNote.kind === 'often') {
+          const mKey = (t.merchant_name || t.name || '').toLowerCase();
+          if (_notedMerchants.has(mKey)) mNote = null;
+          else _notedMerchants.add(mKey);
+        }
         const cat    = _prettyCategory(FCData.normalizePlaidCategory(rawCat));
         const emoji  = FCData.categoryEmoji(rawCat, t.name);
         const isEmojiIcon = emoji.length <= 2 && isNaN(emoji);
@@ -5376,7 +5400,9 @@ window.FCApp = (function () {
                 isEmojiIcon ? FCData.categoryColor(rawCat) + '22' : FCData.categoryColor(rawCat))}
             <div class="fc-list-body">
               <div class="fc-list-title">${esc(displayName)}${editedDot}</div>
-              <div class="fc-list-meta">${esc(cat)}</div>
+              <div class="fc-list-meta">${esc(cat)}${mNote
+                ? ` <span class="fc-list-note fc-list-note--${mNote.kind}">${esc(mNote.text)}</span>`
+                : ''}</div>
             </div>
             <div class="fc-list-right">
               <div class="fc-list-amount" style="color:${color}">${sign}${FCData.formatCurrency(t.amount)}</div>

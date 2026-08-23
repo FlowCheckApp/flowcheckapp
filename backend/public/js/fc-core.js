@@ -142,6 +142,70 @@
     return String(name).toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 18);
   }
 
+  /* ── What the user's own history says about a purchase ────────────
+     A chronological list is a receipt printer: it shows what happened and
+     tells you nothing you did not already know. On a real account Casey's
+     appeared six times in five days at $9.37, $9.77, $10.00, $10.07,
+     $10.77 — and once at $40.10. Starbucks ran $6.81, $7.89 and once
+     $21.40. Both facts are in the data and neither is visible while
+     scrolling.
+
+     Two annotations, at most one per row, and only when there is something
+     to say. Silence is the default: a list that comments on everything is
+     the same wall of noise with more words in it.
+
+     Thresholds are set to avoid crying wolf, and were checked against real
+     transactions before being chosen:
+
+       MIN_HISTORY 3    below that there is no "usual" to be unusual against
+       median           not mean, so the outlier cannot drag its own baseline
+       2.5x AND +$10    both, because 2.5x of a $2 coffee is a $5 coffee and
+                        nobody needs telling. Market L ranged $2.28–$6.85
+                        and must stay silent; it does.
+       4+ visits        before frequency is worth a word at all */
+  const MERCHANT_MIN_HISTORY   = 3;
+  const MERCHANT_OUTLIER_MULT  = 2.5;
+  const MERCHANT_OUTLIER_DELTA = 10;
+  const MERCHANT_OFTEN_COUNT   = 4;
+
+  /* Built once per render, not per row: per-row it is O(n^2) over the whole
+     list. */
+  function merchantStats(transactions) {
+    const byKey = new Map();
+    for (const t of transactions || []) {
+      if (!isSpendTxn(t)) continue;
+      const k = txnKey(t);
+      if (!k) continue;
+      if (!byKey.has(k)) byKey.set(k, []);
+      byKey.get(k).push(Math.abs(Number(t.amount) || 0));
+    }
+    const out = new Map();
+    for (const [k, amounts] of byKey) {
+      out.set(k, { count: amounts.length, median: median(amounts) });
+    }
+    return out;
+  }
+
+  /** @returns {{kind:'high'|'often', text:string}|null} */
+  function merchantNote(stats, t) {
+    if (!stats || !t || !isSpendTxn(t)) return null;
+    const s = stats.get(txnKey(t));
+    if (!s || s.count < MERCHANT_MIN_HISTORY) return null;
+
+    const amt = Math.abs(Number(t.amount) || 0);
+    if (s.median > 0
+        && amt >= s.median * MERCHANT_OUTLIER_MULT
+        && amt - s.median >= MERCHANT_OUTLIER_DELTA) {
+      const mult = amt / s.median;
+      const shown = mult >= 10 ? '10×+' : (Math.round(mult * 10) / 10) + '×';
+      return { kind: 'high', text: shown + ' your usual' };
+    }
+    if (s.count >= MERCHANT_OFTEN_COUNT) {
+      return { kind: 'often', text: s.count + ' times this period' };
+    }
+    return null;
+  }
+
   /* ── Account classification — ONE definition ──────────────────────
      Two vocabularies reach us and they do not overlap:
 
@@ -1159,6 +1223,8 @@
     weightedApr,
     minPayment, debtRate, accountKey, totalBudgetLimit,
     debtProgress,
+    merchantStats,
+    merchantNote,
     MIN_CREDIBLE_APR,
     compareOffer,
   };

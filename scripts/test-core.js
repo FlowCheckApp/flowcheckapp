@@ -944,6 +944,68 @@ t('isSpendTxn: transfers and debt payments are still excluded', () => {
 });
 
 /* ═══════════════════════════════════════════════════════════════
+   merchantStats / merchantNote — the annotation must stay quiet.
+   Every threshold here was chosen against real transactions; these
+   pin the ones that must NOT fire as hard as the ones that must.
+   ═══════════════════════════════════════════════════════════════ */
+const _mDay = (n) => { const d = new Date(); d.setDate(d.getDate() - n);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+const _spend = (name, amount, i) => ({ transaction_id: name + i, name, amount,
+  date: _mDay(i), category: ['GENERAL_MERCHANDISE'], isCredit: false });
+const _mk = (name, amounts) => amounts.map((a, i) => _spend(name, a, i + 1));
+
+t('merchantNote: a real outlier is called out', () => {
+  // Casey's, from a real account: five ~$10 visits and one $40.10.
+  const txns = _mk("Casey's", [9.37, 9.77, 10.00, 10.07, 10.77, 40.10]);
+  const stats = C.merchantStats(txns);
+  const big = txns.find(x => x.amount === 40.10);
+  const note = C.merchantNote(stats, big);
+  eq(note && note.kind, 'high');
+  eq(/× your usual$/.test(note.text), true);
+});
+t('merchantNote: an ordinary visit is never called unusual', () => {
+  // It may still say "6 times this period" — that is the frequency note
+  // doing its job. What it must never do is call a typical visit an
+  // outlier.
+  const txns = _mk("Casey's", [9.37, 9.77, 10.00, 10.07, 10.77, 40.10]);
+  const stats = C.merchantStats(txns);
+  const normal = txns.find(x => x.amount === 10.07);
+  const note = C.merchantNote(stats, normal);
+  eq(note && note.kind, 'often');
+});
+t('merchantNote: small absolute swings never fire', () => {
+  // Market L ranged $2.28-$6.85 on a real account. 3x of $2 is $6 and
+  // nobody needs telling; the +$10 floor is what keeps this quiet.
+  const txns = _mk('Market L', [2.28, 2.32, 3.75, 5.42, 5.82, 6.85]);
+  const stats = C.merchantStats(txns);
+  const top = txns.find(x => x.amount === 6.85);
+  const note = C.merchantNote(stats, top);
+  eq(note && note.kind !== 'high', true);   // may say "often", never "high"
+});
+t('merchantNote: frequency needs four visits, outlier needs three', () => {
+  const two = C.merchantStats(_mk('Rare', [5, 500]));
+  eq(C.merchantNote(two, _spend('Rare', 500, 9)), null);   // no history yet
+  const four = C.merchantStats(_mk('Often', [10, 10, 10, 10]));
+  const n = C.merchantNote(four, _spend('Often', 10, 9));
+  eq(n && n.kind, 'often');
+  eq(n.text, '4 times this period');
+});
+t('merchantNote: median, so the outlier cannot hide inside its own baseline', () => {
+  // [10,10,10,25] is the case that separates the two: against the median
+  // of 10 the $25 is 2.5x and fires; against the mean of 13.75 it is 1.8x
+  // and would slip through.
+  const txns = _mk('Shop', [10, 10, 10, 25]);
+  const stats = C.merchantStats(txns);
+  eq([...stats.values()][0].median, 10);
+  eq(C.merchantNote(stats, _spend('Shop', 25, 9)).kind, 'high');
+});
+t('merchantNote: income and transfers are never annotated', () => {
+  const stats = C.merchantStats(_mk('Payer', [100, 100, 100, 100]));
+  const credit = { name: 'Payer', amount: 5000, date: _mDay(1), isCredit: true, category: ['INCOME'] };
+  eq(C.merchantNote(stats, credit), null);
+});
+
+/* ═══════════════════════════════════════════════════════════════
    minPayment / debtRate — precedence between the bank and the user.
    Backwards precedence here means a stale hand-typed rate silently
    overriding a live one from the bank.

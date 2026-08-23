@@ -3988,3 +3988,18 @@ body.fc-theme .fc-header-avatar {
   font-weight: 700;
   letter-spacing: -0.01em;
 }
+
+/* ── What your own history says about a purchase ───────────────────────
+   Sits inside the row's meta line, after the category. Deliberately quiet:
+   most rows have nothing to say and show only the category. An outlier
+   earns the warning colour; a frequency count stays in the muted voice,
+   because "6 times this period" is an observation, not a problem. */
+.fc-list-note {
+  margin-left: 6px;
+  padding-left: 6px;
+  border-left: 1px solid var(--fc-border);
+}
+.fc-list-note--high {
+  color: var(--fc-warning-text);
+  font-weight: 600;
+}
