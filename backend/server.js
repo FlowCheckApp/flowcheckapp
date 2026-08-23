@@ -5090,11 +5090,28 @@ const Anthropic       = require('@anthropic-ai/sdk');
 const AnthropicClient  = Anthropic.default || Anthropic;
 const COACH_MODEL      = process.env.COACH_MODEL || 'claude-sonnet-5';
 const COACH_MAX_TOKENS = Number(process.env.COACH_MAX_TOKENS || 600);
-/* Constructed once. A client per request leaks sockets under load. Absent a
-   key the whole route is disabled rather than half-working. */
-const anthropic = process.env.ANTHROPIC_API_KEY
+/* TWO switches, deliberately, and an API key alone is not enough.
+
+   Sending a user's financial summary to a third party is a disclosure
+   event: it needs a line in the privacy policy and a matching App Store
+   data declaration. A single ANTHROPIC_API_KEY check would mean that
+   pasting a key into Railway — the sort of thing done while trying
+   something out — silently begins transmitting customer financial data
+   before either exists.
+
+   So the cloud tier also requires COACH_CLOUD_ENABLED=true, which is a
+   deliberate act with no other purpose. Without it the route reports
+   itself disabled and the app falls back to the on-device model and the
+   deterministic answers, both of which transmit nothing at all. */
+const COACH_CLOUD_ENABLED = process.env.COACH_CLOUD_ENABLED === 'true';
+const anthropic = (process.env.ANTHROPIC_API_KEY && COACH_CLOUD_ENABLED)
   ? new AnthropicClient({ apiKey: process.env.ANTHROPIC_API_KEY })
   : null;
+if (process.env.ANTHROPIC_API_KEY && !COACH_CLOUD_ENABLED) {
+  console.warn('[coach] ANTHROPIC_API_KEY is set but COACH_CLOUD_ENABLED is not "true" — '
+             + 'the cloud coach stays OFF. Update the privacy policy and the App Store '
+             + 'data disclosure before enabling it.');
+}
 
 const COACH_SYSTEM = [
   'You are the FlowCheck money coach. You answer one question at a time about',

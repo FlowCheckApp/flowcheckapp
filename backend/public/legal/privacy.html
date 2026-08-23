@@ -98,7 +98,7 @@
 <div class="page-hero">
   <div class="page-badge">Legal</div>
   <h1>Privacy Policy</h1>
-  <p class="page-meta">Last updated: June 2, 2026 · Effective: June 2, 2026</p>
+  <p class="page-meta">Last updated: August 23, 2026 · Effective: August 23, 2026</p>
 </div>
 
 <div class="doc-layout">
@@ -112,7 +112,8 @@
       <li><a href="#firebase">Firebase</a></li>
       <li><a href="#notifications">Notifications</a></li>
       <li><a href="#revenuecat">RevenueCat</a></li>
-      <li><a href="#how-we-use">How We Use Data</a></li>
+      <li><a href="#coach-ai">Coach &amp; AI</a>
+        <a href="#how-we-use">How We Use Data</a></li>
       <li><a href="#sharing">Data Sharing</a></li>
       <li><a href="#security">Security</a></li>
       <li><a href="#retention">Data Retention</a></li>
@@ -235,6 +236,21 @@
     </ul>
     <p><strong>PostHog does not receive any of the following:</strong> your name, email address, bank account data, transaction history, balances, or any other financial information. We have explicitly disabled automatic data capture and only send carefully selected non-sensitive events.</p>
     <p>PostHog data is stored on PostHog's US-based infrastructure. Their privacy policy is at <a href="https://posthog.com/privacy" target="_blank">posthog.com/privacy</a>.</p>
+
+    <h2 id="coach-ai">7a. The Coach &mdash; AI Features</h2>
+    <p>FlowCheck&rsquo;s Coach answers questions about your money. It works in three ways, and <strong>the first two never transmit anything</strong>.</p>
+    <p><strong>1. Calculated answers (always on).</strong> Most questions &mdash; what is safe to spend, when you get paid, whether your bills are covered, what a subscription is costing you &mdash; are answered by arithmetic running inside the app on your device. No network request is made and no data leaves your phone.</p>
+    <p><strong>2. Apple&rsquo;s on-device model (iPhone 15 Pro and newer, with Apple Intelligence enabled).</strong> For free-form questions, FlowCheck uses the language model built into iOS. This model runs entirely on your device. Your figures are not sent to Apple, to us, or to anyone else, and the feature works with no internet connection. If your device does not support it, FlowCheck simply uses the calculated answers above.</p>
+    <p><strong>3. Cloud processing (off by default).</strong> FlowCheck can optionally send a question to <strong>Anthropic</strong> (the maker of Claude) to phrase an answer. <em>This is disabled unless we explicitly turn it on, and we will update this policy and our App Store data disclosure before we do.</em></p>
+    <p>If cloud processing is ever enabled, what would be sent is limited to <strong>derived summary figures</strong>, such as:</p>
+    <ul>
+      <li>Totals we have already calculated &mdash; safe-to-spend, bills due before payday, monthly subscription cost, total debt</li>
+      <li>The names of bills and subscriptions as they already appear on your screen, with their amounts</li>
+      <li>Spending totals by category, and your question itself</li>
+    </ul>
+    <p><strong>What would never be sent:</strong> your individual transactions, your account numbers or the last four digits of them, your per-account balances, your bank&rsquo;s name, your email address, your name, or your account identifier. This limit is enforced in our server code by a fixed list of permitted fields, not by convention, and is covered by automated tests.</p>
+    <p><strong>In all three cases the numbers come from your own accounts.</strong> The model never calculates a figure &mdash; every amount you see was computed by FlowCheck and checked by our own tests. Anthropic does not train models on data sent through their API. Their privacy policy is at <a href="https://www.anthropic.com/legal/privacy" target="_blank">anthropic.com/legal/privacy</a>.</p>
+    <p>FlowCheck is not a bank and the Coach does not provide financial, investment, or tax advice.</p>
 
     <h2 id="how-we-use">8. How We Use Your Information</h2>
     <p>We use the information we collect to:</p>
