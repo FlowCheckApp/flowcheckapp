@@ -3377,6 +3377,9 @@ window.FCApp = (function () {
      Reserve every bill and a safety buffer first, then turn what remains
      into a daily plan. The inputs stay shared with the runway so Home and
      Plan cannot disagree about cash, bill timing or payday. */
+  /* Set by _renderSafeTodayCard, read by the cards rendered after it. */
+  let _stFigures = null;
+
   function _renderSafeTodayCard() {
     if (state.initialLoading && state.user?.plaid_linked && !(state.accounts || []).length) {
       _rwSeries = null;
@@ -3400,12 +3403,20 @@ window.FCApp = (function () {
     const left = Math.max(0, available - billsTotal - protectedAmount);
     const leftWhole = Math.round(left);
     const safeToday = Math.floor(leftWhole / horizon);
+    /* The cards below Home's hero need these EXACT figures, not their own
+       recomputation. They were handed _buildSafeSpendProjection().safe —
+       the TOTAL safe amount — and used it as a daily rate, so one screen
+       answered "how much can I spend today" three different ways: the hero
+       said $183, Today's Move said $1,200, and What If said $1,080/day.
+       Stashed like _rwSeries, and read only after this function has run. */
+    _stFigures = { safeToday, left: leftWhole, horizon, available };
     const payday = runway.payday || null;
     const endDate = payday?.date || runway.points?.[runway.points.length - 1]?.date || new Date();
     const dateLabel = endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     const scopeLabel = payday ? 'Until payday' : `Next ${horizon} days`;
     const dayCountLabel = `${horizon} day${horizon === 1 ? '' : 's'} · ${dateLabel}`;
     const fmtWhole = value => '$' + Math.max(0, Math.round(Number(value || 0))).toLocaleString('en-US');
+    const chartWindowLabel = payday ? `${horizon} days · ${dateLabel}` : _rwWindowLabel(horizon);
 
     const allocatedTotal = Math.max(1, available, billsTotal + protectedAmount + left);
     const billsPct = Math.max(0, (billsTotal / allocatedTotal) * 100);
@@ -3474,26 +3485,18 @@ window.FCApp = (function () {
     const _onTrack = _rwOk ? !_rw.goesNegative : null;
 
     return '<section class="fc-ui-card st-card" aria-labelledby="st-card-title">'
-      + '<div class="st-topline"><p class="st-kicker" id="st-card-title">' + esc(scopeLabel) + '</p>'
+      + '<div class="st-topline"><p class="st-kicker" id="st-card-title">Payday runway</p>'
       + '<p class="st-payday">' + esc(dayCountLabel) + '</p></div>'
       + (_onTrack === null ? ''
          : '<p class="st-status st-status--' + (_onTrack ? 'ok' : 'short') + '">'
            + (_onTrack ? 'On track' : 'Runs short') + '</p>')
-      + '<div class="st-hero"><p class="st-hero__label">Safe today</p>'
+      + '<div class="st-hero"><p class="st-hero__label">Safe to spend today</p>'
       + '<p class="st-hero__value fc-amount" id="st-safe-today-value" data-countup="' + safeToday + '" data-countup-decimals="0">' + fmtWhole(safeToday) + '</p>'
-      + '<p class="st-hero__support">You can spend this today and stay on track.</p></div>'
-      + '<p class="st-available"><strong>' + fmtWhole(available) + '</strong> available</p>'
-      + '<div class="st-bar" aria-label="Available money allocation">'
-      + '<span class="st-bar__bills" style="width:' + billsPct.toFixed(2) + '%"></span>'
-      + '<span class="st-bar__protected" style="width:' + protectedPct.toFixed(2) + '%"></span>'
-      + '<span class="st-bar__left" style="width:' + leftPct.toFixed(2) + '%"></span></div>'
-      /* Flexible first: it is the only one of the three the user can act on.
-         "left" named it as a remainder; it is the actual answer to what is
-         mine to spend. */
+      + '<p class="st-hero__support">' + (_onTrack ? 'Bills covered. Protection untouched.' : 'Bills land before your cash does.') + '</p></div>'
       + '<div class="st-allocation">'
-      + '<div><strong>' + fmtWhole(left) + '</strong><span>flexible</span></div>'
-      + '<div><strong>' + fmtWhole(billsTotal) + '</strong><span>bills</span></div>'
-      + '<div><strong>' + fmtWhole(protectedAmount) + '</strong><span>protected</span></div></div>'
+      + '<div><span>Flexible</span><strong>' + fmtWhole(left) + '</strong></div>'
+      + '<div><span>Bills</span><strong>' + fmtWhole(billsTotal) + '</strong></div>'
+      + '<div><span>Protected</span><strong>' + fmtWhole(protectedAmount) + '</strong></div></div>'
       /* The chart replaces the per-day chip row. Five chips repeating
          "$244, $244, $244" said the daily allowance is flat, which the
          headline already says; the line shows where the balance actually
@@ -3510,7 +3513,7 @@ window.FCApp = (function () {
             + _rwChartSVG(_rw, 'var(--fc-accent)')
             + '</div>'
             + '<div class="st-runway__axis"><span>Today</span>'
-              + '<span>' + esc(_rwWindowLabel(_rw.horizon)) + '</span>'
+              + '<span>' + esc(chartWindowLabel) + '</span>'
               + '<span>' + esc(_rw.points[_rw.points.length - 1].date
                   .toLocaleDateString('en-US', { month: 'short', day: 'numeric' })) + '</span></div>'
             + '<p class="st-runway__low">Lowest projected balance '
@@ -3883,6 +3886,176 @@ window.FCApp = (function () {
       value: monthLine,
       meta: `${money(debtNow)} total · tracked since ${fromLabel}`,
     });
+  }
+
+  /* The answer is computed, not asserted.
+
+     This card shipped with the word "Yes" as a literal and "tomorrow" as
+     safeToday * 0.9 — an invented number. With an $18 daily allowance it
+     said "Could I spend $20 tonight? Yes", and handed the TOTAL safe figure
+     rather than the daily one it said "tomorrow adjusts to $1,080/day"
+     beside a hero reading $183. A finance app does not get to guess this.
+
+     Both figures now come from the numbers the hero itself used:
+       probe    = the daily rate rounded up to the next $10, min $20, so the
+                  question is always a little more than the easy answer
+       tomorrow = what is left after that spend, over the days that remain */
+  function _renderWhatIfCard(fig) {
+    if (!fig || !(fig.horizon > 1)) return '';
+    const safeToday = Math.max(0, fig.safeToday);
+    const probe = Math.max(20, Math.ceil((safeToday + 1) / 10) * 10);
+    const remaining = fig.left - probe;
+    const affordable = remaining >= 0;
+    const tomorrow = affordable ? Math.floor(remaining / (fig.horizon - 1)) : 0;
+    const verdict = affordable ? 'Yes' : 'Not from flexible money';
+    const detail = affordable
+      ? ' \u2014 tomorrow adjusts to ' + FCData.formatSummary(tomorrow) + '/day.'
+      : ' \u2014 it would come out of your protected buffer.';
+    return ''
+      + '<button class="fc-ui-card today-whatif" type="button" onclick="FCApp.haptic(\'light\');FCApp.showAffordSheet&&FCApp.showAffordSheet()" aria-label="Try an amount">'
+        + '<div class="today-whatif__icon" aria-hidden="true">' + _ic('pie-chart', 'var(--fc-accent)', 22) + '</div>'
+        + '<div class="today-whatif__copy">'
+          + '<p class="today-whatif__kicker">What if?</p>'
+          + '<p class="today-whatif__title">Could I spend ' + FCData.formatSummary(probe) + ' tonight?</p>'
+          + '<p class="today-whatif__meta"><span class="' + (affordable ? 'is-yes' : 'is-no') + '">'
+            + verdict + '</span>' + esc(detail) + '</p>'
+        + '</div>'
+        + '<span class="today-whatif__cta">Try an amount</span>'
+        + '<span class="today-whatif__chevron" aria-hidden="true">›</span>'
+      + '</button>';
+  }
+
+  function _renderBeforePaydayCard(upcomingBills) {
+    let payday = null;
+    try { payday = _predictNextPayday(); }
+    catch (_) { /* Leave the footer in its honest no-prediction state. */ }
+    const visibleBills = upcomingBills.slice(0, 3);
+    const rows = visibleBills.length ? visibleBills.map(bill => {
+      let date = 'Date not set';
+      if (bill.due_date) {
+        try { date = FCData.parseDateLocal(bill.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); }
+        catch (_) { /* Keep the fallback. */ }
+      }
+      return ''
+        + '<button class="today-list-row" type="button" onclick="FCApp.switchTab(\'activity\');FCApp.switchActivitySegment(\'bills\')">'
+          + '<span class="today-list-row__icon" aria-hidden="true">' + _billIcon(bill, 'var(--fc-accent)', 20) + '</span>'
+          + '<span class="today-list-row__copy"><strong>' + esc(bill.name || 'Bill') + '</strong><span>' + esc(date) + '</span></span>'
+          + '<span class="today-list-row__value">' + FCData.formatSummary(Math.abs(Number(bill.amount || 0))) + '</span>'
+        + '</button>';
+    }).join('') : '<div class="today-empty">No bills are due before the next paycheck.</div>';
+    const footerLabel = payday?.date
+      ? payday.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' · expected'
+      : 'Not detected yet';
+    const footerAmount = payday?.amount ? FCData.formatSummary(payday.amount) : '—';
+    return ''
+      + '<section class="fc-ui-card today-section-card">'
+        + '<div class="today-section-head"><h2>Before payday</h2><button type="button" onclick="FCApp.switchTab(\'activity\');FCApp.switchActivitySegment(\'bills\')">View all</button></div>'
+        + '<div class="today-list">' + rows + '</div>'
+        + '<button class="today-paycheck-row" type="button" onclick="FCApp.switchTab(\'plan\')">'
+          + '<span class="today-paycheck-row__icon" aria-hidden="true">' + _ic('calendar', 'var(--fc-accent)', 22) + '</span>'
+          + '<span class="today-paycheck-row__copy"><span>Next paycheck</span><strong>' + footerAmount + '</strong></span>'
+          + '<span class="today-paycheck-row__meta">' + esc(footerLabel) + '</span>'
+        + '</button>'
+      + '</section>';
+  }
+
+  function _renderThisMonthCard(monthIncome, monthSpend, cashFlow) {
+    const keepPct = monthIncome > 0 ? Math.max(0, Math.min(100, Math.round((cashFlow / monthIncome) * 100))) : 0;
+    const keepBarPct = Math.max(12, keepPct || 12);
+    return ''
+      + '<section class="fc-ui-card today-section-card">'
+        + '<div class="today-section-head"><h2>This month</h2><button type="button" onclick="FCApp.switchTab(\'activity\')">See activity</button></div>'
+        + '<div class="today-month-grid">'
+          /* Whole dollars: a three-figure stat card is scanned, not
+             reconciled. Net is derived from the two figures beside it so the
+             row cannot print arithmetic it does not satisfy. */
+          + '<div><span>Income</span><strong>' + FCData.formatSummary(monthIncome) + '</strong></div>'
+          + '<div><span>Spent</span><strong>' + FCData.formatSummary(monthSpend) + '</strong></div>'
+          + '<div><span>Net</span><strong class="' + (cashFlow >= 0 ? 'is-positive' : 'is-negative') + '">' + (cashFlow >= 0 ? '+' : '\u2212') + FCData.formatSummary(Math.abs(Math.round(monthIncome) - Math.round(monthSpend))) + '</strong></div>'
+        + '</div>'
+        + '<div class="today-month-bar"><span style="width:' + keepBarPct + '%"></span></div>'
+        + '<div class="today-month-foot"><p>You kept ' + keepPct + '% of this month\'s income.</p>'
+          + '<span class="today-month-pill ' + (cashFlow >= 0 ? 'is-positive' : 'is-negative') + '">' + (cashFlow >= 0 ? 'On pace' : 'Behind pace') + '</span></div>'
+      + '</section>';
+  }
+
+  function _renderDebtMomentumSection() {
+    const debtNow = FCCore.netWorth(state.accounts || []).liabilities;
+    if (!(debtNow > 0)) return '';
+    const p = FCCore.debtProgress(state.debtHistory || {}, debtNow);
+    const remaining = FCData.formatSummary(Math.abs(debtNow));
+    const monthText = p.ok && p.month > 0
+      ? FCData.formatSummary(Math.abs(p.month)) + ' paid down this month.'
+      : 'Every payment moves the date closer.';
+    return ''
+      + '<section class="fc-ui-card today-section-card today-debt-card">'
+        + '<div class="today-section-head"><h2>Debt momentum</h2><button type="button" onclick="FCApp.switchTab(\'wealth\')">View plan</button></div>'
+        + '<div class="today-debt-card__value">' + remaining + ' <span>remaining</span></div>'
+        + '<p class="today-debt-card__meta">' + esc(monthText) + '</p>'
+        + '<div class="today-debt-card__track"><span></span></div>'
+        + '<div class="today-debt-card__labels"><span>Today</span><span>Debt-free goal</span></div>'
+        + '<button class="today-outline-btn" type="button" onclick="FCApp.switchTab(\'wealth\')">Update balance</button>'
+      + '</section>';
+  }
+
+  function _renderRecentActivityCard(recentTransactions) {
+    const rows = recentTransactions.length ? recentTransactions.slice(0, 3).map(transaction => {
+      const rawCat = (transaction.category && transaction.category[0]) || transaction.category || 'Other';
+      const emoji = FCData.categoryEmoji(rawCat, transaction.name);
+      const isEmojiIcon = emoji.length <= 2 && isNaN(emoji);
+      /* Same rule as the Activity list, or Home contradicts it: spending
+         takes the primary text colour and green means money arrived. Red on
+         every outgoing row makes red mean nothing. */
+      const isIn = _isIncomeTxn(transaction);
+      const color = isIn ? 'var(--fc-success)' : 'var(--fc-text)';
+      const sign = isIn ? '+' : '\u2212';
+      const amount = FCData.formatCurrency(Math.abs(Number(transaction.amount || 0)));
+      const merchant = _cleanTxnName(transaction);
+      const category = _prettyCategory(FCData.normalizePlaidCategory(rawCat));
+      let date = '';
+      if (transaction?.date) {
+        try {
+          const parsed = FCData.parseDateLocal(transaction.date);
+          const today = new Date();
+          const yesterday = new Date(today);
+          yesterday.setDate(today.getDate() - 1);
+          if (parsed.toDateString() === today.toDateString()) date = 'Today';
+          else if (parsed.toDateString() === yesterday.toDateString()) date = 'Yesterday';
+          else date = parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        } catch (_) { /* Leave the date blank for malformed legacy rows. */ }
+      }
+      return ''
+        + `<button class="today-list-row" type="button" onclick="FCApp.openTransactionDetail('${esc(transaction.id)}')">`
+          /* The same tile the Activity list draws — Plaid's real logo where
+             there is one, a tinted brand initial otherwise, the category
+             emoji last. Home was showing emoji for merchants Activity draws
+             properly, two answers to "what does this merchant look like". */
+          + _txnIconTile(transaction,
+              '<span class="today-list-row__emoji">' + esc(emoji) + '</span>',
+              isEmojiIcon ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.07)')
+          + '<span class="today-list-row__copy"><strong>' + esc(merchant) + '</strong><span>' + esc(category) + (date ? ' · ' + esc(date) : '') + '</span></span>'
+          + '<span class="today-list-row__value" style="color:' + color + '">' + sign + amount + '</span>'
+        + '</button>';
+    }).join('') : '<div class="today-empty">Recent activity will appear after your next sync.</div>';
+    return ''
+      + '<section class="fc-ui-card today-section-card">'
+        + '<div class="today-section-head"><h2>Recent activity</h2><button type="button" onclick="FCApp.switchTab(\'activity\')">View all</button></div>'
+        + '<div class="today-list">' + rows + '</div>'
+      + '</section>';
+  }
+
+  function _renderTodaysMoveCard(fig) {
+    const safeToday = Math.max(0, (fig && fig.safeToday) || 0);
+    return ''
+      + '<button class="fc-ui-card today-move-card" type="button" onclick="FCApp.switchTab(\'coach\')">'
+        + '<div class="today-move-card__icon" aria-hidden="true">' + _ic('shield', 'var(--fc-accent)', 26) + '</div>'
+        + '<div class="today-move-card__copy">'
+          + '<p class="today-move-card__kicker">Today\'s move</p>'
+          + '<p class="today-move-card__title">Stay under ' + FCData.formatSummary(Math.max(0, safeToday)) + ' today to keep your plan unchanged.</p>'
+        + '</div>'
+        + '<span class="today-move-card__cta">Ask Coach</span>'
+        + '<span class="today-move-card__chevron" aria-hidden="true">›</span>'
+      + '</button>';
   }
 
   /* One card shape for all four debt states, so the good news and the bad
@@ -4967,13 +5140,6 @@ window.FCApp = (function () {
     // it leads the screen and is the largest thing on it. It previously sat
     // third, at 118px, under a 225px dismissible alert — the core value was
     // visually subordinate to an interruption.
-    const _paydayInfo = (() => {
-      try {
-        const p = _predictNextPayday();
-        if (!p) return '';
-        return `${p.days} day${p.days === 1 ? '' : 's'} to payday`;
-      } catch (_) { return ''; }
-    })();
     // Safe Today turns the shared projection into a daily action plan.
     const safeSpendMarkup = _renderSafeTodayCard();
 
@@ -5197,8 +5363,12 @@ window.FCApp = (function () {
         </header>
 
         ${safeSpendMarkup}
-        ${_renderSafePaycheckCard()}
-        ${_renderDebtProgressCard()}
+        ${_renderWhatIfCard(_stFigures)}
+        ${_renderBeforePaydayCard(upcomingBills)}
+        ${_renderThisMonthCard(monthIncome, monthSpend, cashFlow)}
+        ${_renderDebtMomentumSection()}
+        ${_renderRecentActivityCard(recentTransactions)}
+        ${_renderTodaysMoveCard(_stFigures)}
 
         <p class="home-v8__disclaimer">FlowCheck is not a bank. Not financial advice.</p>
       </div>`;

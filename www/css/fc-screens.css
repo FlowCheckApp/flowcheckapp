@@ -495,6 +495,12 @@ body.fc-theme .fc-header-avatar {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 14px;
+  /* Padding lives here, with the layout. A second .home-v8 rule in
+     flowcheck-design-system.css declared display:flex, gap:12px AND this
+     padding — but that file loads FIRST and the specificity is identical, so
+     only the padding survived: the layout came from here and the spacing
+     from there. One element, two files, and the half that lost was silent. */
+  padding: 6px 16px calc(env(safe-area-inset-bottom) + 112px);
   /* Scoped to --enter, which _renderHomeDashboard() adds only on first mount.
      This used to sit on .home-v8 itself, and that element is rebuilt on every
      render — so each Firestore snapshot that landed during launch replayed the
@@ -4080,20 +4086,10 @@ html body.fc-theme[data-tab="activity"] .fc-screen[data-screen="app"] > .fc-head
    The runway chart used to live in its own card that nothing rendered.
    Shown as a second card it produced two headlines that disagreed, so it
    folds into this one instead. */
-.st-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  margin: 0 0 2px;
-  padding: 4px 10px;
-  border-radius: var(--fc-r-pill);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-.st-status--ok    { background: var(--fc-success-soft); color: var(--fc-success); }
-.st-status--short { background: var(--fc-warning-soft); color: var(--fc-warning-text); }
+/* .st-status lives in flowcheck-design-system.css — richer treatment there,
+   with a status dot. Two definitions of one component is how the tab bar
+   ended up with seven; this one is deleted rather than left to lose on load
+   order. */
 
 .st-runway { margin: 14px 0 4px; }
 .st-runway__axis {
