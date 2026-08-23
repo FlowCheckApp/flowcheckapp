@@ -51,7 +51,7 @@ const CEILING = {
   distinctFontSizes:  40,
   distinctRadii:      21,
   offScaleWeights:     1,   // was 5: 560, 650, 750, 800, 900 — the app's font renders four of them identically
-  offScaleSpacing:   473,
+  offScaleSpacing:   469,
   pillSpellings:       0,   // all three spellings gone; --fc-r-pill is the only one
 };
 

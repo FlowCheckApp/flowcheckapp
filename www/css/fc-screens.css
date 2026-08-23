@@ -3987,6 +3987,8 @@ body.fc-theme .fc-header-avatar {
   font-size: 15px;
   font-weight: 700;
   letter-spacing: -0.01em;
+  /* Themed, not the brand's own foreground — see _txnIconTile. */
+  color: var(--fc-text);
 }
 
 /* ── What your own history says about a purchase ───────────────────────

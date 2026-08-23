@@ -341,7 +341,11 @@ body.fc-theme {
   letter-spacing: -0.02em;
 }
 .act-inout-amt--in  { color: var(--fc-success); }
-.act-inout-amt--out { color: var(--fc-danger); }
+/* No --out rule here. flowcheck-design-system.css already sets it to
+   --fc-text, which is right: spending is the normal case and does not need
+   a danger colour. This file loaded later and overrode the correct rule
+   with a red one, which then shouted above a transaction list where red had
+   just been removed for exactly the same reason. */
 .act-inout-lbl {
   font-size: 13px;
   color: var(--fc-text-faint);
@@ -1556,16 +1560,30 @@ body.fc-theme {
   border-radius: var(--fc-r-sm) !important;
 }
 
+/* The merchant and the amount are what a list row is FOR, and both sat at
+   12px/600 — the same size and weight as each other and barely above the
+   10px meta line. Nothing anchored the row, which is why it read as flat
+   however good the logos were.
+
+   Now the two anchors carry the row and the category recedes: name and
+   amount at 15px, the amount a step heavier so the eye lands there first
+   when scanning a column of numbers. Applies to the bills list too, which
+   has the same anatomy and the same problem. */
 .fc-list-title {
-  font-size: 12px !important;
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.01em;
 }
 
 .fc-list-meta {
-  font-size: 10px !important;
+  font-size: 11.5px !important;
 }
 
 .fc-list-amount {
-  font-size: 12px !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
 }
 
 /* Insights fits the trend, category, insight, and cash-flow story in one pass. */

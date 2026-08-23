@@ -220,6 +220,18 @@ window.FCApp = (function () {
     _MBRAND[k],
   ]);
 
+  /* #rgb / #rrggbb -> rgba() at the given alpha. Returns the input
+     untouched if it is not a hex colour, so a token or named colour still
+     renders rather than disappearing. */
+  function _tint(hex, alpha) {
+    const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(String(hex || '').trim());
+    if (!m) return hex;
+    let h = m[1];
+    if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    const n = parseInt(h, 16);
+    return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+  }
+
   function _txnBrand(t) {
     const name = _cleanTxnName(t).toLowerCase();
     for (const [re, colours] of _MBRAND_RE) if (re.test(name)) return colours;
@@ -232,8 +244,22 @@ window.FCApp = (function () {
   function _txnIconTile(t, fallbackHTML, fallbackBg) {
     const src   = _txnLogoSrc(t);
     const brand = src ? null : _txnBrand(t);
+    /* A brand-coloured tile is a GUESS dressed as a logo. Ten fully
+       saturated squares — Starbucks green, Target red, Netflix red, Shell
+       yellow — turned the icon column into a paint chart and competed with
+       the real logos beside them, which are the only ones that actually
+       know what the brand looks like.
+
+       So the guess gets a tint of the brand hue and the real thing keeps
+       full colour. Identity survives; the column calms down; colour once
+       again means "this is verified".
+
+       The letter takes --fc-text rather than the brand's own foreground:
+       several of these are near-white or yellow, which is why the design
+       system carries --fc-warning-text at all, and a themed token is legible
+       on both grounds without auditing 57 brand palettes. */
     const inner = brand
-      ? '<span class="fc-txn-initial" style="background:' + brand.bg + ';color:' + brand.fg + '">'
+      ? '<span class="fc-txn-initial" style="background:' + _tint(brand.bg, 0.18) + '">'
         + esc(((_cleanTxnName(t) || '?').charAt(0) || '?').toUpperCase()) + '</span>'
       : fallbackHTML;
     return '<div class="fc-list-icon fc-txn-icon" style="background:' + fallbackBg + '">'
@@ -5338,7 +5364,11 @@ window.FCApp = (function () {
       // Compute net total for the date group
       const netAmt = txns.reduce((sum, t) => sum + (t.isCredit ? t.amount : -t.amount), 0);
       const netStr = (netAmt >= 0 ? '+' : '−') + FCData.formatCurrency(Math.abs(netAmt));
-      const netColor = netAmt >= 0 ? 'var(--fc-success)' : 'var(--fc-danger)';
+      /* One rule across this screen: green means money came in, neutral is
+         the normal case, red is reserved. Most days are net negative — that
+         is what spending is — and colouring each one red made a ladder of
+         red down the page, the same noise the rows were just freed from. */
+      const netColor = netAmt >= 0 ? 'var(--fc-success)' : 'var(--fc-text-muted)';
 
       html += `<div class="fc-date-label">${label}<span class="fc-date-label-spacer"></span><span class="fc-date-net">Net <span style="color:${netColor}">${netStr}</span></span></div>
                <article class="fc-card">`;
@@ -5386,8 +5416,18 @@ window.FCApp = (function () {
            Display only — no arithmetic changes. */
         const isXfer = /transfer/.test(FCData.normalizePlaidCategory(rawCat).toLowerCase())
           && _namesOwnAccount(t);
-        const color  = isXfer ? 'var(--fc-text-muted)'
-                     : t.isCredit ? 'var(--fc-success)' : 'var(--fc-danger)';
+        /* Spending is the normal case, so it gets the normal colour.
+           21 of 27 rows on this list were red — at that density red stops
+           meaning "look at this" and the whole page just reads as alarming.
+           Apple Card and Copilot both leave spending in the primary text
+           colour and spend colour only on the exception.
+
+           Green is now the only colour in the column, and it means money
+           arrived. Transfers stay muted. Red is freed up for something that
+           genuinely warrants it. */
+        const color  = isXfer      ? 'var(--fc-text-muted)'
+                     : t.isCredit  ? 'var(--fc-success)'
+                     :               'var(--fc-text)';
         const sign   = t.isCredit ? '+' : '−';
         const displayName = _cleanTxnName(t);
         const editedDot = t._edited
@@ -8140,7 +8180,9 @@ window.FCApp = (function () {
          always been spendDelta. */
       const up = spendDelta > 0;
       deltaEl.textContent = 'Spending ' + (up ? '↑ ' : '↓ ') + Math.abs(spendDelta) + '% vs last period';
-      deltaEl.style.color = up ? 'var(--fc-danger)' : 'var(--fc-success)';
+      /* Amber, not red. Spending being up is worth noticing, not an
+         emergency — and red is now reserved on this screen. */
+      deltaEl.style.color = up ? 'var(--fc-warning-text)' : 'var(--fc-success)';
       deltaEl.style.display = '';
     } else if (deltaEl) {
       deltaEl.style.display = 'none';
