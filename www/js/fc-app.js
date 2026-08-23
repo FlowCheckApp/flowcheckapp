@@ -11119,6 +11119,22 @@ window.FCApp = (function () {
     if (!s) return null;
     const money = _coachAmount(s);
 
+    /* Greetings and pleasantries are not questions.
+
+       Typed "Hello" on device, the on-device model answered "You have 11
+       days until payday." It had been handed a FACTS block and a string it
+       could not treat as a question, so it stated a fact at random — which
+       is the failure mode a ~3B model has and a frontier one mostly does
+       not. The fix is not a better prompt; it is not sending a greeting to
+       a model at all. Answered here: instant, free, and it cannot pick the
+       wrong fact because it does not pick one. */
+    if (/^(thanks|thank you|ty|cheers|nice one)[\s!.?]*$/.test(s)) {
+      return { intent: 'greeting', thanks: true };
+    }
+    if (/^(hi|hey|hello|yo|sup|hiya|howdy|good (morning|afternoon|evening)|ok|okay|cool|nice|test)[\s!.?]*$/.test(s)) {
+      return { intent: 'greeting' };
+    }
+
     // Follow-up: "what about 300", "and 500?", or just "300" after an afford.
     const bare = /^(?:what about|how about|and|or)?\s*\$?\s*[0-9][0-9,.k]*\s*\??$/.test(s);
     if (bare && money != null && _coachLast && _coachLast.intent === 'afford') {
@@ -11163,10 +11179,27 @@ window.FCApp = (function () {
 
   /** Returns { verdict, detail, tone } — tone drives colour only. */
   function _coachAnswer(parsed) {
-    const money = v => FCData.formatCurrency(v);
+    /* formatSummary, not formatCurrency. The coach answered "$1,193.07 safe
+       to spend" while Home said "$183" and Plan said "$1,450" for figures
+       from the same engines — one voice printing cents that no other screen
+       shows. A coach answer is scanned, not reconciled against a statement. */
+    const money = v => FCData.formatSummary(v);
     if (!parsed || parsed.intent === 'unknown') {
       return { tone: 'neutral', verdict: 'Ask me about a purchase, your bills, or payday.',
                detail: 'Try "Can I afford $200?" or "When do I get paid?"' };
+    }
+    /* A greeting gets a greeting back, and one useful thing — not a random
+       figure from the FACTS block. See the note in _coachParse. */
+    if (parsed.intent === 'greeting') {
+      let line = 'Ask me anything about your money.';
+      try {
+        const days = (_predictNextPayday() || {}).days;
+        if (Number.isFinite(days)) {
+          line = days === 0 ? 'You get paid today.'
+               : 'Payday is ' + days + ' day' + (days === 1 ? '' : 's') + ' away. Ask me anything about your money.';
+        }
+      } catch (_e) { /* No payday prediction — the generic opener still works. */ }
+      return { tone: 'neutral', verdict: parsed.thanks ? 'Anytime.' : 'Hey.', detail: line };
     }
     const p = _buildSafeSpendProjection();
     const safe = Math.max(0, p.safe || 0);
@@ -11678,6 +11711,29 @@ window.FCApp = (function () {
     sheet.style.display = 'flex';
     requestAnimationFrame(() => sheet.classList.add('is-open'));
     _syncCoachOrb();
+
+    /* Bring the field to the top of the sheet once the keyboard is up.
+
+       With resize:"native" the WebView shrinks to the area above the
+       keyboard, so the sheet IS on screen — but only its first ~150px, and
+       the ask field sits below the "Right now" card. On device that read as
+       the keyboard having swallowed the sheet: the user could type and see
+       neither the field nor what they had typed.
+
+       'start', not 'center': centring in a viewport barely taller than the
+       field leaves it half under the keyboard again. */
+    const field = document.getElementById('agent-sheet-input');
+    if (field) {
+      field.addEventListener('focus', () => {
+        /* After the keyboard animation, not during — scrolling mid-animation
+           is what produced the "jumps high then snaps down" artifact the
+           keyboard IIFE already documents. */
+        setTimeout(() => {
+          try { field.scrollIntoView({ block: 'start', behavior: 'smooth' }); }
+          catch (_e) { /* Older WebView without smooth scrolling — position is close enough. */ }
+        }, 320);
+      });
+    }
   }
 
   function closeAgentSheet() {
