@@ -4274,3 +4274,102 @@ html body.fc-theme[data-tab="activity"] .fc-screen[data-screen="app"] > .fc-head
   line-height: 1.45;
 }
 .subs-note svg { flex: none; margin-top: 1px; }
+
+.subs-row__track {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-left: 2px;
+  border: 1px solid var(--fc-border-strong);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--fc-accent);
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+}
+.subs-row__track:active { transform: scale(0.92); }
+
+/* ══════════════════════════════════════════════════════════════════
+   BILLS — Plan › Bills
+   ══════════════════════════════════════════════════════════════════ */
+
+.bills-verdict { margin-bottom: 14px; padding: 16px; }
+
+.bills-verdict__head {
+  margin-top: 4px;
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.bills-verdict--ok    .bills-verdict__head { color: var(--fc-text); }
+.bills-verdict--short .bills-verdict__head { color: var(--fc-warning-text); }
+
+.bills-verdict__line {
+  margin-top: 4px;
+  color: var(--fc-text-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+/* Amber, not red. Being short before payday is a situation to act on, not
+   an error — and an app that paints every warning red teaches people to
+   stop reading red. */
+.bills-autopay {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--fc-warning-border);
+  border-radius: var(--fc-r-sm);
+  background: rgba(255, 159, 10, 0.10);
+  color: var(--fc-warning-text);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+.bills-autopay svg { flex: none; margin-top: 1px; }
+
+.bills-auto {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--fc-success-soft);
+  color: var(--fc-success);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.bills-drift { color: var(--fc-warning-text); font-weight: 600; }
+
+/* The one that does not clear, marked on the row itself so the verdict and
+   the list agree without the reader having to match names. */
+.fc-bill-row--risk {
+  border-radius: var(--fc-r-sm);
+  box-shadow: inset 2px 0 0 var(--fc-warning-text);
+}
+
+.bills-commit { margin-bottom: 14px; padding: 14px 16px; }
+
+.bills-commit__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--fc-text);
+  font-size: 14px;
+}
+.bills-commit__row strong { font-weight: 600; }
+.bills-commit__row--sub {
+  margin-top: 4px;
+  color: var(--fc-text-muted);
+  font-size: 12.5px;
+}
+.bills-commit__row--sub strong { color: var(--fc-text-muted); font-weight: 500; }

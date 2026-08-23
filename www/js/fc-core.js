@@ -1220,7 +1220,12 @@
 
   /* Days in one billing cycle. The one place the cadence vocabulary is
      interpreted — every total, every staleness test reads from here. */
-  const SUB_CYCLE_DAYS = { wk: 7, mo: 30.44, '2mo': 60.88, yr: 365.25 };
+  /* 365.25/12 exactly, not 30.44. Rounded to two places, a $100 monthly
+     charge normalises to $99.99 — the identity case for a monthly cadence
+     has to come back unchanged or every "per month" figure carries a small
+     lie. Same reason '2mo' is derived rather than typed. */
+  const MONTH_DAYS = 365.25 / 12;
+  const SUB_CYCLE_DAYS = { wk: 7, mo: MONTH_DAYS, '2mo': MONTH_DAYS * 2, yr: 365.25 };
 
   /* What one subscription costs per month, whatever it bills.
 
@@ -1424,6 +1429,136 @@
     };
   }
 
+  /* ══════════════════════════════════════════════════════════════════
+     BILLS — cadence, coverage, and what autopay does when you are short
+     ══════════════════════════════════════════════════════════════════
+
+     A bill is { name, amount, due_date, status, frequency, autopay }.
+     `frequency` is one of 'monthly' | 'weekly' | 'annual' | 'one-time' —
+     the user picks it in the add-bill form, it is stored on every bill, and
+     before this it was read by exactly ONE line in the whole app: a text
+     label. Twelve places summed bill amounts; none consulted it.
+     ────────────────────────────────────────────────────────────────── */
+
+  const BILL_CYCLE_DAYS = { weekly: 7, monthly: MONTH_DAYS, annual: 365.25 };
+
+  /* What a bill really costs per month.
+
+     A $139 annual bill is not $139 a month, and a $60 weekly bill is not
+     $60 a month — it is $261. Summing `amount` across a mixed list and
+     calling it a monthly commitment is the same defect the subscription
+     totals had. 'one-time' contributes nothing: it is not a commitment. */
+  function billMonthly(bill) {
+    const amt = Number(bill && bill.amount);
+    if (!Number.isFinite(amt) || amt <= 0) return 0;
+    const freq = String((bill && bill.frequency) || 'monthly').toLowerCase();
+    if (freq === 'one-time') return 0;
+    const days = BILL_CYCLE_DAYS[freq];
+    if (!days) return amt;                      // unknown cadence: treat as monthly
+    return amt * (365.25 / 12) / days;
+  }
+
+  function billsMonthlyTotal(bills) {
+    return round2((Array.isArray(bills) ? bills : [])
+      .reduce((s, b) => s + billMonthly(b), 0));
+  }
+
+  /* Unpaid bills falling between today and `until`, in due order. */
+  function billsDueBefore(bills, until, today) {
+    const now = today instanceof Date ? today : new Date();
+    const end = until instanceof Date ? until : null;
+    return (Array.isArray(bills) ? bills : [])
+      .filter(b => {
+        if (!b || b.status === 'paid' || !b.due_date) return false;
+        const d = parseDateLocal(b.due_date);
+        if (isNaN(d.getTime())) return false;
+        if (end && d > end) return false;
+        return true;
+      })
+      .sort((a, b) => parseDateLocal(a.due_date) - parseDateLocal(b.due_date));
+  }
+
+  /* Can the money on hand cover what is due before the next paycheck?
+
+     Walks the bills in DUE ORDER rather than comparing two totals, because
+     the order is what decides which bill bounces. Two bills of $100 and
+     $900 against $500 of cash is not "short $500" in the abstract — the
+     $100 clears, the $900 does not, and saying which is the difference
+     between a warning and an instruction.
+
+     autopay is the reason this matters. A bill the user pays by hand can be
+     delayed; one on autopay is taken whether the money is there or not, so
+     an autopay bill sitting AFTER the balance runs out is an overdraft with
+     a date on it. The flag was stored on every bill and rendered as a badge
+     and never once used to decide anything. */
+  function billCoverage(opts) {
+    const o = opts || {};
+    const now    = o.today instanceof Date ? o.today : new Date();
+    const payday = o.payday instanceof Date ? o.payday : null;
+    const cash   = Number.isFinite(Number(o.cash)) ? Number(o.cash) : 0;
+    const due    = billsDueBefore(o.bills, payday, now);
+
+    const total = round2(due.reduce((s, b) => s + Number(b.amount || 0), 0));
+
+    let balance = cash;
+    let breaking = null;
+    const unpayable = [];
+    for (const b of due) {
+      const amt = Number(b.amount || 0);
+      if (balance >= amt) { balance = round2(balance - amt); continue; }
+      if (!breaking) {
+        breaking = { name: b.name || 'A bill', date: b.due_date,
+                     amount: round2(amt), shortBy: round2(amt - balance) };
+      }
+      unpayable.push(b);
+      balance = round2(balance - amt);          // keep going: autopay still pulls
+    }
+
+    const autopayAtRisk = unpayable.filter(b => b && b.autopay);
+
+    return {
+      due, count: due.length, total,
+      cash: round2(cash),
+      covered: breaking === null,
+      shortfall: breaking ? round2(Math.max(0, total - cash)) : 0,
+      spare:     breaking ? 0 : round2(cash - total),
+      breaking,
+      autopayAtRisk,
+      payday,
+    };
+  }
+
+  /* Has this bill actually been costing what it says?
+
+     Matches the bill against transactions by normalised name and compares
+     the stored amount with what has really been charged. A plan built on
+     "Electric $130" when the last three bills were $167 is not a plan; the
+     number is stale and every total that includes it is wrong by the
+     difference. Needs 2+ matching charges and a >5% gap before it says so —
+     utilities move a little every month and flagging that is noise. */
+  function billDrift(bill, transactions, keyFn) {
+    const NONE = { drifted: false, stated: 0, actual: 0, diff: 0, pct: 0, samples: 0 };
+    const stated = Number(bill && bill.amount);
+    if (!Number.isFinite(stated) || stated <= 0) return NONE;
+    const key = typeof keyFn === 'function' ? keyFn : (n => String(n || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12));
+    const want = key(bill.name);
+    if (!want) return NONE;
+
+    const hits = (Array.isArray(transactions) ? transactions : [])
+      .filter(t => t && !t.isCredit && Number(t.amount) > 0
+                && key(t.merchant_name || t.name) === want)
+      .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
+      .slice(0, 3);
+    if (hits.length < 2) return NONE;
+
+    const actual = median(hits.map(t => Number(t.amount)));
+    const diff = round2(actual - stated);
+    const pct  = Math.round((diff / stated) * 100);
+    if (Math.abs(pct) < 5) return NONE;
+    return { drifted: true, stated: round2(stated), actual: round2(actual),
+             diff, pct, samples: hits.length };
+  }
+
   function round2(n) { return Math.round(Number(n) * 100) / 100; }
 
   return {
@@ -1445,6 +1580,8 @@
     subMonthly, subYearly, subStatus, subPriceChange,
     subCategory, subCutCandidates, subSummary,
     SUB_CYCLE_DAYS,
+    billMonthly, billsMonthlyTotal, billsDueBefore, billCoverage, billDrift,
+    BILL_CYCLE_DAYS,
     MIN_CREDIBLE_APR,
     compareOffer,
   };

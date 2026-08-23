@@ -1249,6 +1249,142 @@ t('subSummary: an empty list is zero everywhere, not NaN', () => {
   eq(s.cuts.totalYearly, 0);
 });
 
+/* ── Bills ────────────────────────────────────────────────────────
+   frequency and autopay were both stored on every bill and read by
+   nothing but a label and a badge. */
+
+const B = (name, amount, dueDaysOut, extra) => Object.assign({
+  name, amount, status: 'unpaid',
+  due_date: C.isoDay(new Date(new Date('2026-08-23T12:00:00').getTime() + dueDaysOut * 86400000)),
+}, extra || {});
+const BNOW = new Date('2026-08-23T12:00:00');
+const PAYDAY = new Date('2026-09-03T12:00:00');
+
+t('billMonthly: an annual bill is not a monthly bill', () => {
+  near(C.billMonthly({ amount: 139, frequency: 'annual' }), 11.58, 0.02);
+  near(C.billMonthly({ amount: 60,  frequency: 'weekly' }), 260.9, 0.5);
+  near(C.billMonthly({ amount: 120, frequency: 'monthly' }), 120);
+});
+
+t('billMonthly: a one-time bill is not a commitment', () => {
+  eq(C.billMonthly({ amount: 500, frequency: 'one-time' }), 0);
+});
+
+t('billMonthly: an unknown or missing cadence falls back to monthly', () => {
+  eq(C.billMonthly({ amount: 100 }), 100);
+  eq(C.billMonthly({ amount: 100, frequency: 'fortnightly' }), 100);
+  eq(C.billMonthly({ amount: 0, frequency: 'monthly' }), 0);
+  eq(C.billMonthly(null), 0);
+});
+
+t('billsMonthlyTotal: the mixed-cadence total nothing used to compute', () => {
+  const bills = [
+    B('Rent', 1200, 3, { frequency: 'monthly' }),
+    B('Prime', 139, 10, { frequency: 'annual' }),
+    B('Cleaner', 60, 2, { frequency: 'weekly' }),
+  ];
+  // Naive sum: 1399. Real monthly commitment: 1200 + 11.58 + 260.89.
+  near(C.billsMonthlyTotal(bills), 1472.47, 0.5);
+});
+
+t('billsDueBefore: paid bills and bills after payday are excluded', () => {
+  const bills = [
+    B('Rent', 1200, 3),
+    B('Paid already', 80, 4, { status: 'paid' }),
+    B('After payday', 90, 20),
+  ];
+  const due = C.billsDueBefore(bills, PAYDAY, BNOW);
+  eq(due.length, 1);
+  eq(due[0].name, 'Rent');
+});
+
+t('billsDueBefore: returns them in due order, not list order', () => {
+  const due = C.billsDueBefore([B('Later', 10, 8), B('Sooner', 10, 1)], PAYDAY, BNOW);
+  eq(due[0].name, 'Sooner');
+});
+
+t('billCoverage: comfortably covered reports the spare, not a shortfall', () => {
+  const r = C.billCoverage({ bills: [B('Rent', 1200, 3)], payday: PAYDAY, cash: 1500, today: BNOW });
+  eq(r.covered, true);
+  eq(r.shortfall, 0);
+  near(r.spare, 300);
+  eq(r.breaking, null);
+});
+
+t('billCoverage: names the bill that breaks, in due order', () => {
+  // $500 cash, $100 then $900. The $100 clears; the $900 is the one that
+  // fails. Comparing totals alone could not say which.
+  const r = C.billCoverage({
+    bills: [B('Small', 100, 1), B('Big', 900, 5)],
+    payday: PAYDAY, cash: 500, today: BNOW,
+  });
+  eq(r.covered, false);
+  eq(r.breaking.name, 'Big');
+  near(r.breaking.shortBy, 500);
+  near(r.shortfall, 500);
+});
+
+t('billCoverage: autopay bills past the break are the overdraft risk', () => {
+  const r = C.billCoverage({
+    bills: [B('Rent', 900, 1), B('Gym', 60, 4, { autopay: true }), B('Manual', 40, 5)],
+    payday: PAYDAY, cash: 900, today: BNOW,
+  });
+  eq(r.covered, false);
+  eq(r.autopayAtRisk.length, 1);
+  eq(r.autopayAtRisk[0].name, 'Gym', 'the manual bill can be delayed; autopay cannot');
+});
+
+t('billCoverage: no bills due is covered, not a division by nothing', () => {
+  const r = C.billCoverage({ bills: [], payday: PAYDAY, cash: 100, today: BNOW });
+  eq(r.count, 0); eq(r.covered, true); eq(r.total, 0); near(r.spare, 100);
+});
+
+t('billCoverage: with no payday known it still judges every unpaid bill', () => {
+  const r = C.billCoverage({ bills: [B('Rent', 50, 2)], payday: null, cash: 10, today: BNOW });
+  eq(r.count, 1);
+  eq(r.covered, false);
+});
+
+t('billDrift: a stale amount is caught, with the real figure', () => {
+  const txns = [
+    { name: 'Electric Co', amount: 167, date: '2026-08-01' },
+    { name: 'Electric Co', amount: 165, date: '2026-07-01' },
+    { name: 'Electric Co', amount: 169, date: '2026-06-01' },
+  ];
+  const d = C.billDrift(B('Electric Co', 130, 5), txns);
+  ok(d.drifted);
+  near(d.actual, 167);
+  eq(d.stated, 130);
+  eq(d.pct, 28);
+});
+
+t('billDrift: normal utility wobble is not a finding', () => {
+  const txns = [
+    { name: 'Electric Co', amount: 132, date: '2026-08-01' },
+    { name: 'Electric Co', amount: 129, date: '2026-07-01' },
+  ];
+  eq(C.billDrift(B('Electric Co', 130, 5), txns).drifted, false);
+});
+
+t('billDrift: one charge is not evidence, and credits never count', () => {
+  eq(C.billDrift(B('Electric Co', 130, 5),
+     [{ name: 'Electric Co', amount: 400, date: '2026-08-01' }]).drifted, false);
+  eq(C.billDrift(B('Electric Co', 130, 5), [
+     { name: 'Electric Co', amount: 400, date: '2026-08-01', isCredit: true },
+     { name: 'Electric Co', amount: 400, date: '2026-07-01', isCredit: true },
+  ]).drifted, false);
+});
+
+t('billDrift: a bill that got CHEAPER reports a negative, not a rise', () => {
+  const txns = [
+    { name: 'Insurance', amount: 90, date: '2026-08-01' },
+    { name: 'Insurance', amount: 90, date: '2026-07-01' },
+  ];
+  const d = C.billDrift(B('Insurance', 130, 5), txns);
+  ok(d.drifted);
+  ok(d.pct < 0, 'expected a negative pct, got ' + d.pct);
+});
+
 console.log(`fc-core: ${passed} passed, ${failed} failed`);
 if (failed) {
   console.error('');

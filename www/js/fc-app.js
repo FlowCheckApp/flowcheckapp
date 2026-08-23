@@ -9617,6 +9617,18 @@ window.FCApp = (function () {
            deliberate exception. The totals above are whole dollars. */
         + '<p class="subs-row__amt fc-amount">' + esc(FCData.formatCurrency(sub.amount || 0))
           + (off ? '' : '<span>/' + esc(sub.freq) + '</span>') + '</p>'
+        /* Only for live ones, and only when it is not already a bill — the
+           detector already excludes tracked merchants, so anything here is
+           genuinely untracked. This is the bridge to the Bills page: a
+           subscription you have decided to keep belongs in the plan. */
+        + (off || sub.tracked ? ''
+            : '<button type="button" class="subs-row__track" aria-label="Track '
+              + esc(sub.name) + ' as a bill"'
+              + ' data-sub-name="' + esc(sub.name) + '"'
+              + ' data-sub-amount="' + esc(String(sub.amount || 0)) + '"'
+              + ' data-sub-freq="' + esc(sub.freq) + '"'
+              + ' data-sub-last="' + esc(sub.lastDate || '') + '"'
+              + ' onclick="FCApp.trackSubAsBill(this)">+</button>')
       + '</div>';
     };
 
@@ -9871,44 +9883,125 @@ window.FCApp = (function () {
       )
 
       // ── Bills panel ──
-      +(_planSeg !== 'bills' ? '' : ''
-      +'<div class="fc-card" style="margin-bottom:14px;padding:18px 16px">'
-        +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">'
-          +'<div style="font-size:17px;font-weight:600;color:var(--fc-text)">Upcoming Bills</div>'
-          /* Was _openSubScreen('bills'). #view-bills was deleted when the
-             duplicate Bills screen was removed, but these two routes into it
-             were not — and _openSubScreen fires its haptic BEFORE looking the
-             element up, then returns silently when it is missing. So the
-             button buzzed and did nothing, which is the most convincing way
-             possible for a dead control to look alive.
-             Activity > Bills is the surviving bills screen and is what every
-             other entry point in the app already uses. */
-          +'<button onclick="FCApp.switchTab(\'activity\');FCApp.switchActivitySegment(\'bills\')" style="background:none;border:none;color:var(--fc-accent);font-size:13px;font-weight:600;cursor:pointer">Manage →</button>'
+      +(_planSeg !== 'bills' ? '' : (() => {
+        /* Every figure below comes from FCCore, where it is unit tested.
+           This panel used to be a flat list: name, date, amount, status. It
+           could not answer the only question a bills screen exists for —
+           can I pay these before I get paid again? */
+        const cov = FCCore.billCoverage({
+          bills:  state.bills || [],
+          payday: payday && payday.date ? payday.date : null,
+          cash:   FCCore.spendableCash(accounts),
+          today:  now,
+        });
+        const commitment = FCCore.billsMonthlyTotal(
+          (state.bills || []).filter(b => b.frequency !== 'one-time'));
+
+        const paydayLabel = payday && payday.date
+          ? payday.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+          : null;
+
+        /* The verdict, in one sentence, before any list. Covered says the
+           spare; short says which bill breaks and by how much — the order
+           the bills fall in is what decides that, so naming it is the
+           difference between a warning and an instruction. */
+        const verdict = !cov.count
+          ? { tone: 'ok', head: 'Nothing due' + (paydayLabel ? ' before ' + paydayLabel : ''),
+              line: 'No unpaid bills between now and your next paycheck.' }
+          : cov.covered
+            ? { tone: 'ok',
+                head: FCData.formatSummary(cov.total) + ' due'
+                      + (paydayLabel ? ' before ' + paydayLabel : ''),
+                line: cov.count + ' bill' + (cov.count === 1 ? '' : 's') + ' \u00b7 covered, with '
+                      + FCData.formatSummary(cov.spare) + ' to spare.' }
+            : { tone: 'short',
+                head: 'Short ' + FCData.formatSummary(cov.shortfall)
+                      + (paydayLabel ? ' before ' + paydayLabel : ''),
+                line: esc(cov.breaking.name) + ' on '
+                      + _fmtDue(cov.breaking.date) + ' is the one that does not clear.' };
+
+        /* Autopay is why this is urgent rather than merely awkward. A bill
+           you pay by hand can wait; one on autopay is taken whether the
+           money is there or not. The flag was on every bill and decided
+           nothing. */
+        const autopayWarn = cov.autopayAtRisk.length
+          ? '<div class="bills-autopay">' + _ic('alert', 'currentColor', 14)
+            + '<span><strong>' + cov.autopayAtRisk.map(b => esc(b.name)).join(', ')
+            + '</strong> ' + (cov.autopayAtRisk.length === 1 ? 'is' : 'are')
+            + ' on autopay and will be taken anyway \u2014 that is an overdraft, not a late fee.</span></div>'
+          : '';
+
+        const rows = allUnpaidBills.map(b => {
+          const st    = _billStatus(b);
+          const drift = FCCore.billDrift(b, txns, _subGroupKey);
+          const risky = cov.breaking && b.name === cov.breaking.name;
+          return '<div class="fc-bill-row' + (risky ? ' fc-bill-row--risk' : '') + '"'
+            + ' onclick="FCApp.switchTab(\'activity\');FCApp.switchActivitySegment(\'bills\')">'
+            +'<div class="fc-bill-icon">'+billEmoji(b)+'</div>'
+            +'<div class="fc-bill-info">'
+              +'<div class="fc-bill-name">'+esc(b.name)
+                + (b.autopay ? '<span class="bills-auto">auto</span>' : '') + '</div>'
+              +'<div class="fc-bill-due">Due '+_fmtDue(b.due_date)
+                + (b.frequency && b.frequency !== 'monthly'
+                    ? ' \u00b7 ' + esc(b.frequency) : '')
+                /* Stated vs actually charged. A plan built on "Electric
+                   $130" when the last three were $167 is not a plan. */
+                + (drift.drifted
+                    ? ' \u00b7 <span class="bills-drift">usually '
+                      + esc(FCData.formatCurrency(drift.actual)) + '</span>' : '')
+              +'</div>'
+            +'</div>'
+            +'<div class="fc-bill-right">'
+              +'<div class="fc-bill-amount">'+FCData.formatCurrency(b.amount||0)+'</div>'
+              +'<div class="fc-bill-status '+(b.status==='paid'?'fc-bill-status--paid':st.cls)+'">'
+                +esc(b.status==='paid'?'Paid':st.label)+'</div>'
+            +'</div>'
+          +'</div>';
+        }).join('');
+
+        return ''
+        +'<div class="fc-card bills-verdict bills-verdict--' + verdict.tone + '">'
+          +'<div class="fc-eyebrow">Before your next paycheck</div>'
+          +'<div class="bills-verdict__head fc-amount">' + verdict.head + '</div>'
+          +'<div class="bills-verdict__line">' + verdict.line + '</div>'
+          + autopayWarn
         +'</div>'
-        +(allUnpaidBills.length > 0
-          ? allUnpaidBills.map(b => {
-              const st = _billStatus(b);
-              return '<div class="fc-bill-row" onclick="FCApp.switchTab(\'activity\');FCApp.switchActivitySegment(\'bills\')">'
-                +'<div class="fc-bill-icon">'+billEmoji(b)+'</div>'
-                +'<div class="fc-bill-info">'
-                  +'<div class="fc-bill-name">'+esc(b.name)+'</div>'
-                  +'<div class="fc-bill-due">Due '+_fmtDue(b.due_date)+'</div>'
-                +'</div>'
-                +'<div class="fc-bill-right">'
-                  +'<div class="fc-bill-amount">'+FCData.formatCurrency(b.amount||0)+'</div>'
-                  +'<div class="fc-bill-status '+(b.status==='paid'?'fc-bill-status--paid':st.cls)+'">'+esc(b.status==='paid'?'Paid':st.label)+'</div>'
-                +'</div>'
-              +'</div>';
-            }).join('')
-          // "No upcoming bills" is technically true when everything is paid,
-          // but it reads as "we have no record of your bills" — which is
-          // alarming on a screen whose job is to reassure. Distinguish the
-          // two states: nothing left to pay vs nothing tracked at all.
-          : (monthBills.length > 0
-              ? '<div style="padding:12px 0;text-align:center;color:var(--fc-success);font-size:14px;font-weight:600">All ' + monthBills.length + ' bill' + (monthBills.length !== 1 ? 's' : '') + ' paid this month</div>'
-              : '<div style="padding:12px 0;text-align:center;color:var(--fc-text-muted);font-size:14px">No bills tracked yet</div>'))
-      +'</div>'
-      );
+        +'<div class="fc-card" style="margin-bottom:14px;padding:16px">'
+          +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">'
+            +'<div style="font-size:17px;font-weight:600;color:var(--fc-text)">Upcoming Bills</div>'
+            /* Was _openSubScreen('bills'). #view-bills was deleted when the
+               duplicate Bills screen was removed, but these two routes into
+               it were not — and _openSubScreen fires its haptic BEFORE
+               looking the element up, then returns silently when it is
+               missing. So the button buzzed and did nothing, which is the
+               most convincing way possible for a dead control to look alive.
+               Activity > Bills is the surviving bills screen. */
+            +'<button onclick="FCApp.switchTab(\'activity\');FCApp.switchActivitySegment(\'bills\')" style="background:none;border:none;color:var(--fc-accent);font-size:13px;font-weight:600;cursor:pointer">Manage →</button>'
+          +'</div>'
+          +(allUnpaidBills.length > 0
+            ? rows
+            // "No upcoming bills" is technically true when everything is
+            // paid, but it reads as "we have no record of your bills" —
+            // alarming on a screen whose job is to reassure. Distinguish
+            // the two states: nothing left to pay vs nothing tracked.
+            : (monthBills.length > 0
+                ? '<div style="padding:12px 0;text-align:center;color:var(--fc-success);font-size:14px;font-weight:600">All ' + monthBills.length + ' bill' + (monthBills.length !== 1 ? 's' : '') + ' paid this month</div>'
+                : '<div style="padding:12px 0;text-align:center;color:var(--fc-text-muted);font-size:14px">No bills tracked yet</div>'))
+        +'</div>'
+        /* The committed total, cadence-aware. `frequency` is chosen by the
+           user on every bill and, before this, was read by one line in the
+           app — a label. A $139 annual bill is not $139 a month. */
+        + (commitment > 0
+            ? '<div class="fc-card bills-commit">'
+              + '<div class="bills-commit__row"><span>Committed every month</span>'
+              + '<strong class="fc-amount">' + esc(FCData.formatSummary(commitment)) + '</strong></div>'
+              + '<div class="bills-commit__row bills-commit__row--sub"><span>That is</span>'
+              + '<strong>' + esc(FCData.formatSummary(Math.round(commitment) * 12)) + ' a year</strong></div>'
+            + '</div>'
+            : '')
+        ;
+      })())
+      ;
   }
 
   let _planSeg = 'paycheck';
@@ -13743,9 +13836,13 @@ window.FCApp = (function () {
       // two id fields.
       .map(t => ({ ...t, id: t.transaction_id }));
     state.bills = [
-      { id: 'b1', name: 'Rent',          amount: 1200.00, due_date: _demoIn(3),  status: 'upcoming', icon: '🏠', category: 'Housing' },
-      { id: 'b2', name: 'Phone',         amount: 250.00,  due_date: _demoIn(6),  status: 'upcoming', icon: '📱', category: 'Utilities' },
-      { id: 'b3', name: 'Internet',      amount: 59.99,   due_date: _demoIn(18), status: 'upcoming', icon: '📡', category: 'Utilities' },
+      /* frequency and autopay are real fields the add-bill form collects on
+         every bill. The demo omitted both, so neither the cadence maths nor
+         the autopay risk had anything to act on — App Review saw a bills
+         screen with the two things that make it useful switched off. */
+      { id: 'b1', name: 'Rent',          amount: 1200.00, due_date: _demoIn(3),  status: 'upcoming', icon: '🏠', category: 'Housing',   frequency: 'monthly', autopay: true  },
+      { id: 'b2', name: 'Phone',         amount: 250.00,  due_date: _demoIn(6),  status: 'upcoming', icon: '📱', category: 'Utilities', frequency: 'monthly', autopay: false },
+      { id: 'b3', name: 'Internet',      amount: 59.99,   due_date: _demoIn(18), status: 'upcoming', icon: '📡', category: 'Utilities', frequency: 'monthly', autopay: true  },
     ];
     state.goals = [
       { id: 'g1', name: 'Emergency Fund', target: 3000, current: 1300, pct: 43, icon: '🛡️' },
@@ -16355,7 +16452,15 @@ window.FCApp = (function () {
      Creates a monthly bill from a detected recurring charge.
      ───────────────────────────────────────────────────────────── */
 
-  async function addRecurringToBills(name, amount, freq) {
+  /* Reads from the element rather than an interpolated onclick — a
+     merchant name is Plaid data and has no business in code position. */
+  function trackSubAsBill(el) {
+    if (!el) return;
+    const d = el.dataset || {};
+    addRecurringToBills(d.subName, d.subAmount, d.subFreq, d.subLast);
+  }
+
+  async function addRecurringToBills(name, amount, freq, lastDate) {
     haptic('light');
     try {
       // Dedup check — don't add if already tracked
@@ -16365,9 +16470,22 @@ window.FCApp = (function () {
       );
       if (already) { toast('Already in your bills list', 'info'); return; }
 
-      // Set next due date to same day next month
-      const nextDue = new Date();
-      nextDue.setMonth(nextDue.getMonth() + 1);
+      /* The next due date comes from the subscription's OWN cadence and its
+         last charge, not "one month from today". A weekly subscription was
+         being written with a due date 30 days out, and the cadence map only
+         recognised 'wk' — so 'yr' and '2mo' both fell through to 'monthly'
+         and a $139/YEAR charge became a $139/MONTH bill in the user's plan,
+         inflating their committed spending by $1,529 a year. */
+      const FREQ = { wk: 'weekly', mo: 'monthly', '2mo': 'monthly', yr: 'annual' };
+      const cycle = FCCore.SUB_CYCLE_DAYS[freq] || FCCore.SUB_CYCLE_DAYS.mo;
+      const from  = lastDate ? FCData.parseDateLocal(lastDate) : null;
+      const base  = from && !isNaN(from.getTime()) ? from : new Date();
+      let nextDue = new Date(base.getTime() + cycle * 86400000);
+      /* If the last charge is old enough that one cycle still lands in the
+         past, roll forward until it does not — a bill dated last month
+         renders as overdue the moment it is created. */
+      const today = new Date();
+      while (nextDue < today) nextDue = new Date(nextDue.getTime() + cycle * 86400000);
 
       await FCData.createBill({
         name,
@@ -16376,7 +16494,7 @@ window.FCApp = (function () {
         // a UTC key here is an off-by-one the rest of the app cannot see.
         due_date:  FCCore.isoDay(nextDue),
         category:  'Subscription',
-        frequency: freq === 'wk' ? 'weekly' : 'monthly',
+        frequency: FREQ[freq] || 'monthly',
       });
       toast(`${name} added to bills ✓`, 'success');
       haptic('medium');
@@ -17388,6 +17506,7 @@ window.FCApp = (function () {
     quickPayBill,
     // Recurring → bills
     addRecurringToBills,
+    trackSubAsBill,
     // Activity category filter
     filterActivityCategory,
     // Per-category budget editor
