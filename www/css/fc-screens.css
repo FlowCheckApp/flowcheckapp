@@ -4075,3 +4075,79 @@ html body.fc-theme[data-tab="activity"] .fc-screen[data-screen="app"] > .fc-head
   border-bottom: 1px solid var(--fc-border);
 }
 .act-day .fc-list-item:last-child { border-bottom: 0; }
+
+/* ── Payday Runway: the merged hero ────────────────────────────────────
+   The runway chart used to live in its own card that nothing rendered.
+   Shown as a second card it produced two headlines that disagreed, so it
+   folds into this one instead. */
+.st-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0 0 2px;
+  padding: 4px 10px;
+  border-radius: var(--fc-r-pill);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.st-status--ok    { background: var(--fc-success-soft); color: var(--fc-success); }
+.st-status--short { background: var(--fc-warning-soft); color: var(--fc-warning-text); }
+
+.st-runway { margin: 14px 0 4px; }
+.st-runway__axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fc-text-faint);
+}
+.st-runway__low {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: var(--fc-text-muted);
+}
+.st-runway__low strong {
+  color: var(--fc-text);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Checking a purchase is what the card is for, so it looks like it. */
+.st-actions--primary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+}
+.st-cta {
+  flex: 1;
+  min-height: 44px;
+  border: 0;
+  border-radius: var(--fc-r-pill);
+  background: var(--fc-accent);
+  color: var(--fc-accent-ink, #04121a);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.st-cta:active { transform: scale(0.98); }
+.st-linkbtn {
+  flex: none;
+  min-height: 44px;
+  padding: 0 2px;
+  border: 0;
+  background: none;
+  color: var(--fc-accent);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}

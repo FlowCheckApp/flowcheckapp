@@ -3460,9 +3460,25 @@ window.FCApp = (function () {
     }).join('') : '<div class="st-bills__empty">No bills are due in this window.</div>';
 
     const billCount = upcomingBills.length;
+
+    /* The runway series, folded into this card rather than shown beside it.
+       _renderRunwayCard was built with a chart, a scrubber and its own
+       affordability CTA, and then never called — the fourth dead-but-complete
+       component found in this codebase today. Wiring it in as a SECOND card
+       is what the obvious move would have been, and it produced two heroes
+       that disagreed: the runway said "SAFE TO SPEND $1,267.12" while this
+       card said "Safe today $244". Both were right about different things
+       and neither said which. One card, one headline. */
+    const _rw = (() => { try { return _buildRunwaySeries(); } catch (_) { return null; } })();
+    const _rwOk = !!(_rw && _rw.points && _rw.points.length > 1);
+    const _onTrack = _rwOk ? !_rw.goesNegative : null;
+
     return '<section class="fc-ui-card st-card" aria-labelledby="st-card-title">'
       + '<div class="st-topline"><p class="st-kicker" id="st-card-title">' + esc(scopeLabel) + '</p>'
       + '<p class="st-payday">' + esc(dayCountLabel) + '</p></div>'
+      + (_onTrack === null ? ''
+         : '<p class="st-status st-status--' + (_onTrack ? 'ok' : 'short') + '">'
+           + (_onTrack ? 'On track' : 'Runs short') + '</p>')
       + '<div class="st-hero"><p class="st-hero__label">Safe today</p>'
       + '<p class="st-hero__value fc-amount" id="st-safe-today-value" data-countup="' + safeToday + '" data-countup-decimals="0">' + fmtWhole(safeToday) + '</p>'
       + '<p class="st-hero__support">You can spend this today and stay on track.</p></div>'
@@ -3471,12 +3487,39 @@ window.FCApp = (function () {
       + '<span class="st-bar__bills" style="width:' + billsPct.toFixed(2) + '%"></span>'
       + '<span class="st-bar__protected" style="width:' + protectedPct.toFixed(2) + '%"></span>'
       + '<span class="st-bar__left" style="width:' + leftPct.toFixed(2) + '%"></span></div>'
+      /* Flexible first: it is the only one of the three the user can act on.
+         "left" named it as a remainder; it is the actual answer to what is
+         mine to spend. */
       + '<div class="st-allocation">'
+      + '<div><strong>' + fmtWhole(left) + '</strong><span>flexible</span></div>'
       + '<div><strong>' + fmtWhole(billsTotal) + '</strong><span>bills</span></div>'
-      + '<div><strong>' + fmtWhole(protectedAmount) + '</strong><span>protected</span></div>'
-      + '<div><strong>' + fmtWhole(left) + '</strong><span>left</span></div></div>'
-      + '<section class="st-horizon" aria-labelledby="st-horizon-title"><h3 id="st-horizon-title">Your next ' + horizon + ' days</h3>'
-      + '<div class="st-days">' + dayCards + '</div></section>'
+      + '<div><strong>' + fmtWhole(protectedAmount) + '</strong><span>protected</span></div></div>'
+      /* The chart replaces the per-day chip row. Five chips repeating
+         "$244, $244, $244" said the daily allowance is flat, which the
+         headline already says; the line shows where the balance actually
+         dips and which bill does it. Same series and the same drawing code
+         the runway card used. */
+      + (_rwOk
+          /* .rw-chart, not a wrapper of my own: it carries `position:
+             relative` for the chart's absolutely-positioned point labels and
+             the ::before that draws its frame. Dropping the SVG into a plain
+             div let those labels escape their containing block and render
+             across the card header, over "UNTIL PAYDAY". The chart was built
+             with its wrapper; they ship together. */
+          ? '<div class="st-runway"><div class="rw-chart">'
+            + _rwChartSVG(_rw, 'var(--fc-accent)')
+            + '</div>'
+            + '<div class="st-runway__axis"><span>Today</span>'
+              + '<span>' + esc(_rwWindowLabel(_rw.horizon)) + '</span>'
+              + '<span>' + esc(_rw.points[_rw.points.length - 1].date
+                  .toLocaleDateString('en-US', { month: 'short', day: 'numeric' })) + '</span></div>'
+            + '<p class="st-runway__low">Lowest projected balance '
+              + '<strong>' + fmtWhole(Math.max(0, _rw.lowest.balance)) + '</strong> on '
+              + esc(_rw.points[_rw.lowest.day].date
+                  .toLocaleDateString('en-US', { month: 'short', day: 'numeric' })) + '</p>'
+          + '</div>'
+          : '<section class="st-horizon" aria-labelledby="st-horizon-title"><h3 id="st-horizon-title">Your next ' + horizon + ' days</h3>'
+            + '<div class="st-days">' + dayCards + '</div></section>')
       + '<section class="st-bills" aria-labelledby="st-bills-title">'
       + '<div class="st-bills__heading"><span aria-hidden="true">' + _ic('calendar', 'var(--fc-accent)', 20) + '</span>'
       + '<h3 id="st-bills-title">' + billCount + ' bill' + (billCount === 1 ? '' : 's') + ' before ' + (payday ? 'payday' : 'the end') + '</h3></div>'
@@ -3487,9 +3530,12 @@ window.FCApp = (function () {
       + '<div><span>Protected buffer</span><strong>−' + fmtWhole(protectedAmount) + '</strong></div>'
       + '<div class="st-calculation__total"><span>Safe until then</span><strong>' + fmtWhole(left) + '</strong></div>'
       + '<p>' + fmtWhole(left) + ' ÷ ' + horizon + ' days = ' + fmtWhole(safeToday) + ' per day</p></div>'
-      + '<div class="st-actions"><button type="button" onclick="FCApp.haptic(\'light\');FCApp.switchTab(\'plan\')">'
-      + _ic('bar-chart', 'currentColor', 18) + '<span>Adjust plan</span></button>'
-      + '<button type="button" aria-expanded="false" aria-controls="st-calculation" onclick="FCApp.toggleSafeTodayCalculation(this)">View calculation</button></div>'
+      /* Checking a purchase is the thing this card exists to enable, so it
+         is the primary action. It was not on the card at all — the only way
+         to it was the CTA inside the runway card, which nothing rendered. */
+      + '<div class="st-actions st-actions--primary">'
+      + '<button type="button" class="st-cta" onclick="FCApp.haptic(\'light\');FCApp.showAffordSheet&&FCApp.showAffordSheet()">Check a purchase</button>'
+      + '<button type="button" class="st-linkbtn" aria-expanded="false" aria-controls="st-calculation" onclick="FCApp.toggleSafeTodayCalculation(this)">See the math</button></div>'
       + '</section>';
   }
 
