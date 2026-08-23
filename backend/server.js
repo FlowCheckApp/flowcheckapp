@@ -5059,6 +5059,150 @@ app.post('/webhooks/revenuecat', async (req, res) => {
   res.json({ ok: true });
 });
 
+/* ═══════════════════════════════════════════════════════════════
+   COACH — Claude phrases the answer; it never computes one
+   ═══════════════════════════════════════════════════════════════
+
+   The client computes every figure with FCCore, which is unit tested, and
+   sends the RESULT. Claude's only jobs are understanding a free-form
+   question and writing the reply in plain English.
+
+   This is a correctness decision before it is a cost one. A language model
+   asked to work out whether someone can afford $200 will sometimes get it
+   wrong, and being wrong about a person's money is the one thing this app
+   cannot do. Every number in the reply must come from the `facts` block; a
+   figure that is not there is a figure Claude must decline to invent.
+
+   It is also why this is cheap: the prompt is a few hundred tokens of
+   summary rather than a transaction history.
+
+   WHAT LEAVES THE DEVICE — deliberately narrow, and enforced below rather
+   than left to the client:
+     · derived totals (safe-to-spend, bills due, subscription totals)
+     · the names of bills and subscriptions already surfaced in the app
+     · the user's question
+   NOT SENT: transaction history, account numbers or masks, balances per
+   account, institution names, email, uid, or anything identifying. Nothing
+   here can be tied back to a person by the model provider.
+   ═══════════════════════════════════════════════════════════════ */
+
+const Anthropic       = require('@anthropic-ai/sdk');
+const AnthropicClient  = Anthropic.default || Anthropic;
+const COACH_MODEL      = process.env.COACH_MODEL || 'claude-sonnet-5';
+const COACH_MAX_TOKENS = Number(process.env.COACH_MAX_TOKENS || 600);
+/* Constructed once. A client per request leaks sockets under load. Absent a
+   key the whole route is disabled rather than half-working. */
+const anthropic = process.env.ANTHROPIC_API_KEY
+  ? new AnthropicClient({ apiKey: process.env.ANTHROPIC_API_KEY })
+  : null;
+
+const COACH_SYSTEM = [
+  'You are the FlowCheck money coach. You answer one question at a time about',
+  "the user's own finances, in plain English.",
+  '',
+  'ABSOLUTE RULES:',
+  '1. Every number you state must appear verbatim in the FACTS block. Never',
+  '   calculate, estimate, extrapolate, or infer a figure. If answering needs',
+  '   a number that is not in FACTS, say what is missing and stop.',
+  '2. You are not a licensed financial adviser. Never recommend investments,',
+  '   securities, crypto, tax positions, or debt consolidation products.',
+  '   Budgeting, bills, subscriptions and payoff ORDER are in scope.',
+  '3. Never claim to know whether a subscription is used. FlowCheck sees',
+  '   charges, not usage.',
+  '4. If the question is not about the money in FACTS, say so briefly.',
+  '',
+  'STYLE: two to four sentences. Lead with the answer. No preamble, no',
+  'bullet lists, no markdown headings, no emoji. Use the same currency',
+  'formatting that appears in FACTS.',
+].join('\n');
+
+const { coachFacts } = require('./lib/coach-facts');
+
+app.post('/coach/ask',
+  requireAuth,
+  /* Per-user, because the cost is per-user. 20 questions per 15 minutes is
+     far above normal use and far below anything that could run up a bill. */
+  perUserLimiter(20),
+  /* Same gate as /plaid/sync: this endpoint costs money to serve. */
+  requireEntitlement,
+  async (req, res) => {
+    if (!anthropic) {
+      /* 503 and a code the client can branch on — it falls back to the
+         on-device agent, which answers without any of this. */
+      return res.status(503).json({
+        code: 'coach_ai_disabled',
+        message: 'The AI coach is not configured on this server.',
+      });
+    }
+
+    const question = typeof req.body?.question === 'string' ? req.body.question.trim() : '';
+    if (!question)          return res.status(400).json({ message: 'A question is required.' });
+    if (question.length > 300) return res.status(400).json({ message: 'Question is too long.' });
+
+    try {
+      const facts = coachFacts(req.body);
+      const response = await anthropic.messages.create({
+        model:      COACH_MODEL,
+        max_tokens: COACH_MAX_TOKENS,
+        system: [{
+          type: 'text',
+          text: COACH_SYSTEM,
+          /* The system prompt is byte-identical on every request, so it is
+             the cacheable prefix. Caching only engages above ~1024 tokens;
+             below that this is inert rather than harmful. */
+          cache_control: { type: 'ephemeral' },
+        }],
+        /* Low effort: the reasoning has already been done by the engine that
+           produced FACTS. Claude is choosing words, not working anything out. */
+        thinking:      { type: 'adaptive' },
+        output_config: { effort: 'low' },
+        messages: [{
+          role: 'user',
+          content: 'FACTS (the only numbers you may use):\n'
+                 + JSON.stringify(facts, null, 2)
+                 + '\n\nQUESTION: ' + question,
+        }],
+      });
+
+      if (response.stop_reason === 'refusal') {
+        return res.status(422).json({
+          code: 'coach_declined',
+          message: 'I could not answer that one. Try asking about your bills, spending or subscriptions.',
+        });
+      }
+
+      const text = (response.content || [])
+        .filter(b => b.type === 'text').map(b => b.text).join('').trim();
+      if (!text) return res.status(502).json({ message: 'No answer was produced.' });
+
+      return res.json({
+        answer: text,
+        model:  response.model,
+        /* Returned so cost can be watched from logs without a dashboard. */
+        usage: {
+          input:  response.usage?.input_tokens ?? null,
+          output: response.usage?.output_tokens ?? null,
+          cached: response.usage?.cache_read_input_tokens ?? null,
+        },
+      });
+    } catch (err) {
+      /* Typed, most specific first — a 429 from Anthropic is a retry, a 401
+         is a misconfigured server, and the two must not read alike. */
+      const E = AnthropicClient;
+      if (err instanceof E.RateLimitError) {
+        return res.status(429).json({ code: 'coach_busy', message: 'The coach is busy. Try again in a moment.' });
+      }
+      if (err instanceof E.AuthenticationError) {
+        console.error('[coach] ANTHROPIC_API_KEY rejected');
+        return res.status(503).json({ code: 'coach_ai_disabled', message: 'The AI coach is unavailable.' });
+      }
+      /* No err.message to the client and no question in the log — the
+         question is the user's financial situation in their own words. */
+      console.error('[coach] request failed:', err.status || '', err.name || 'Error');
+      return res.status(502).json({ message: 'The coach could not answer just now.' });
+    }
+  });
+
 /* ─────────────────────────────────────────────────────────────
    ERROR HANDLERS — MUST STAY BELOW EVERY ROUTE
    ─────────────────────────────────────────────────────────────

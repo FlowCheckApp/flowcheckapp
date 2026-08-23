@@ -11,6 +11,7 @@
     "dev": "nodemon server.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.120.0",
     "@sentry/node": "^10.55.0",
     "cbor-x": "^1.5.9",
     "compression": "^1.8.0",

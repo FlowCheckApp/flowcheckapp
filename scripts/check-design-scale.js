@@ -65,8 +65,18 @@ const declRe = {
 const fontSizes = new Map(), radii = new Map(), weights = new Map(), spacing = new Map();
 const bump = (m, k) => m.set(k, (m.get(k) || 0) + 1);
 
+/* Keyframe bodies are animation STATE, not design tokens.
+
+   This check exists because the UI had thirteen corner radii including three
+   spellings of one pill. A morphing blob's border-radius keyframes are not
+   that: they are the frames of one shape, they never apply to a card, and
+   counting them made an eight-frame animation look like eight new radii in
+   the design system. Stripped before scanning; every real declaration, in
+   every rule, is still counted. */
+const stripKeyframes = css => css.replace(/@keyframes[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g, '');
+
 for (const rel of SOURCES) {
-  const src = fs.readFileSync(path.join(root, rel), 'utf8');
+  const src = stripKeyframes(fs.readFileSync(path.join(root, rel), 'utf8'));
   let m;
   declRe.fontSize.lastIndex = 0;
   while ((m = declRe.fontSize.exec(src))) bump(fontSizes, parseFloat(m[1]));

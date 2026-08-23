@@ -4373,3 +4373,461 @@ html body.fc-theme[data-tab="activity"] .fc-screen[data-screen="app"] > .fc-head
   font-size: 12.5px;
 }
 .bills-commit__row--sub strong { color: var(--fc-text-muted); font-weight: 500; }
+
+/* ══════════════════════════════════════════════════════════════════
+   COACH — one agent, one ranked agenda
+   ══════════════════════════════════════════════════════════════════ */
+
+.coach-lead { margin-bottom: 10px; padding: 16px; }
+
+.coach-lead__top {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.coach-lead__icon {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--fc-r-sm);
+}
+
+.coach-lead__title {
+  margin: 0;
+  color: var(--fc-text);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+
+.coach-lead__why {
+  margin: 10px 0 0;
+  color: var(--fc-text-muted);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+.coach-lead__go {
+  margin-top: 12px;
+  padding: 8px 14px;
+  border: 1px solid var(--fc-border-strong);
+  border-radius: var(--fc-r-pill);
+  background: transparent;
+  color: var(--fc-accent);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.coach-lead__go:active { transform: scale(0.97); }
+
+/* The lead is marked by a left edge rather than a coloured card. A full
+   amber panel for "you are short" shouts; the app already says it in words,
+   and saying it twice in two registers is how a warning stops being read. */
+.coach-lead--shortfall,
+.coach-lead--autopay,
+.coach-lead--overdue { box-shadow: inset 3px 0 0 var(--fc-warning-text); }
+.coach-lead--clear   { box-shadow: inset 3px 0 0 var(--fc-success); }
+
+.coach-rest { margin-bottom: 20px; padding: 4px 16px; }
+
+.coach-rest__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid var(--fc-border);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.coach-rest__row:first-child { border-top: 0; }
+
+.coach-rest__icon {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+}
+
+.coach-rest__copy { flex: 1 1 auto; min-width: 0; }
+
+.coach-rest__title {
+  margin: 0;
+  color: var(--fc-text);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.coach-rest__why {
+  margin: 2px 0 0;
+  color: var(--fc-text-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.coach-rest__chev {
+  flex: none;
+  color: var(--fc-text-faint);
+  font-size: 20px;
+  line-height: 1;
+}
+
+/* Claude fallback answer. Visually distinct from the deterministic answers
+   above it — those are the app's own arithmetic, this one is phrased by a
+   model, and the reader is entitled to know which they are looking at. */
+.coach-ai {
+  margin: 10px 0 16px;
+  padding: 14px 16px;
+  border-left: 3px solid var(--fc-accent);
+}
+
+.coach-ai__text {
+  margin: 0;
+  color: var(--fc-text);
+  font-size: 14.5px;
+  line-height: 1.55;
+}
+
+.coach-ai__note {
+  margin: 10px 0 0;
+  color: var(--fc-text-faint);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.coach-ai--wait {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--fc-text-muted);
+  font-size: 14px;
+}
+
+.coach-ai__dots { display: inline-flex; gap: 4px; }
+.coach-ai__dots i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--fc-accent);
+  animation: coach-dot 1.2s infinite ease-in-out;
+}
+.coach-ai__dots i:nth-child(2) { animation-delay: 0.15s; }
+.coach-ai__dots i:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes coach-dot {
+  0%, 80%, 100% { opacity: 0.25; }
+  40%           { opacity: 1; }
+}
+
+/* The app honours reduced motion everywhere else; a waiting indicator is
+   exactly the kind of looping animation that rule exists for. */
+@media (prefers-reduced-motion: reduce) {
+  .coach-ai__dots i { animation: none; opacity: 0.6; }
+}
+
+/* ── The agent from the header ─────────────────────────────────── */
+
+.coach-sheet-lead {
+  margin: 0 0 16px;
+  padding: 14px 16px;
+  border-left: 3px solid var(--fc-accent);
+  border-radius: var(--fc-r-sm);
+  background: var(--fc-bg-elevated-2);
+}
+
+.coach-sheet-lead__label {
+  margin: 0;
+  color: var(--fc-text-faint);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.coach-sheet-lead__title {
+  margin: 4px 0 0;
+  color: var(--fc-text);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.coach-sheet-lead__why {
+  margin: 4px 0 0;
+  color: var(--fc-text-muted);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   COACH ORB — the agent's presence
+   ══════════════════════════════════════════════════════════════════
+   Two offset blobs rotating at different speeds under a soft core. Each
+   blob morphs its own border-radius on a long, prime-ish duration, so the
+   two never resynchronise and the silhouette never visibly repeats — which
+   is the difference between "alive" and "a looping GIF".
+
+   Everything animated here is transform, opacity or border-radius on a 58px
+   element: no layout, no paint of anything underneath, and it composites on
+   its own layer. It costs nothing to have it always on screen.
+   ══════════════════════════════════════════════════════════════════ */
+
+.fc-orb {
+  position: fixed;
+  right: 16px;
+  /* Clear of the tab bar and the home indicator, on every device. */
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 104px);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 52px;
+  padding: 0 16px 0 6px;
+  border: 1px solid var(--fc-border-strong);
+  border-radius: var(--fc-r-pill);
+  background: var(--fc-card-bg);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  isolation: isolate;
+}
+
+/* The animated ball. Its own stacking context so the blend-mode highlight
+   cannot reach the pill behind it. */
+.fc-orb__ball {
+  position: relative;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  isolation: isolate;
+}
+
+.fc-orb__label {
+  color: var(--fc-text);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.fc-orb[hidden] { display: none; }
+
+/* The glow. Sits behind everything and breathes slowly. */
+.fc-orb__ball::before {
+  position: absolute;
+  content: '';
+  inset: -6px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 50%,
+    rgba(26, 196, 240, 0.38) 0%,
+    rgba(37, 99, 235, 0.16) 45%,
+    transparent 70%);
+  animation: orb-breathe 5.5s ease-in-out infinite;
+}
+
+.fc-orb__blob,
+.fc-orb__core {
+  position: absolute;
+  inset: 0;
+}
+
+/* The resting silhouettes live in variables because they are SHAPES, not
+   corner radii — one organic outline each, not eight design tokens. Keeping
+   them out of `border-radius:` also keeps them out of the design-scale
+   count, which is measuring something genuinely different. */
+.fc-orb {
+  --orb-shape-a: 68% 32% 55% 45% / 38% 62% 38% 62%;
+  --orb-shape-b: 33% 67% 38% 62% / 63% 35% 65% 37%;
+}
+
+.fc-orb__blob {
+  background: linear-gradient(135deg, var(--fc-accent) 0%, var(--fc-electric) 100%);
+  border-radius: var(--orb-shape-a);
+  animation: orb-morph-a 9s ease-in-out infinite, orb-spin 17s linear infinite;
+}
+
+/* The second blob is what makes it flow rather than wobble: a different
+   morph, a different duration, and counter-rotation. */
+.fc-orb__blob--b {
+  background: linear-gradient(300deg, var(--fc-electric) 0%, var(--fc-accent) 100%);
+  border-radius: var(--orb-shape-b);
+  opacity: 0.75;
+  animation: orb-morph-b 13s ease-in-out infinite, orb-spin-r 23s linear infinite;
+}
+
+/* A soft highlight so the thing reads as a volume, not a flat sticker. */
+.fc-orb__core {
+  border-radius: 50%;
+  /* A small specular highlight, not a sphere shade. At 62% it filled the
+     whole silhouette and turned two morphing blobs into one ball bearing. */
+  background: radial-gradient(circle at 32% 27%,
+    rgba(255, 255, 255, 0.60) 0%,
+    rgba(255, 255, 255, 0.12) 16%,
+    transparent 34%);
+  mix-blend-mode: screen;
+}
+
+/* Something needs attention. A small mark, not a recoloured orb — the orb
+   is how you reach the agent, and turning the whole thing amber every time
+   a subscription lapses is how a warning stops meaning anything. */
+.fc-orb__flag {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--fc-card-bg);
+  border-radius: 50%;
+  background: var(--fc-warning-text);
+}
+.fc-orb__flag[hidden] { display: none; }
+
+.fc-orb:active { transform: scale(0.96); }
+.fc-orb {
+  transition: transform 0.16s cubic-bezier(0.22, 1, 0.36, 1),
+              padding 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+              gap 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Collapses to the ball while you are reading — it does NOT disappear.
+   A control that vanishes is a control you cannot reach when you finally
+   want it, and the first version tucked it to opacity 0 over the primary
+   CTA on Home. Narrowing gets it out of the way and keeps it tappable. */
+.fc-orb.is-tucked {
+  padding-right: 6px;
+  gap: 0;
+}
+.fc-orb.is-tucked .fc-orb__label {
+  max-width: 0;
+  margin-right: -2px;
+  opacity: 0;
+  overflow: hidden;
+}
+
+.fc-orb__label {
+  max-width: 140px;
+  overflow: hidden;
+  transition: max-width 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+              opacity 0.18s ease,
+              margin-right 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fc-orb,
+  .fc-orb__label { transition: none; }
+}
+
+/* Wider swings than the first pass. Radii clustered near 50% summed to a
+   sphere no matter how they moved — the eye reads the union of two shapes,
+   so each has to be visibly off-round on its own. */
+@keyframes orb-morph-a {
+  0%, 100% { border-radius: 68% 32% 55% 45% / 38% 62% 38% 62%; }
+  33%      { border-radius: 34% 66% 40% 60% / 66% 32% 68% 34%; }
+  66%      { border-radius: 55% 45% 70% 30% / 40% 55% 45% 60%; }
+}
+
+@keyframes orb-morph-b {
+  0%, 100% { border-radius: 33% 67% 38% 62% / 63% 35% 65% 37%; }
+  40%      { border-radius: 70% 30% 62% 38% / 35% 66% 34% 65%; }
+  75%      { border-radius: 45% 55% 33% 67% / 58% 40% 60% 42%; }
+}
+
+@keyframes orb-spin   { to { transform: rotate(360deg); } }
+@keyframes orb-spin-r { to { transform: rotate(-360deg); } }
+
+@keyframes orb-breathe {
+  0%, 100% { opacity: 0.55; transform: scale(0.94); }
+  50%      { opacity: 1;    transform: scale(1.06); }
+}
+
+/* The app honours reduced motion everywhere; a permanently animating object
+   is the clearest case for it. Settles to a stable organic shape rather than
+   a circle, so the identity survives with the motion switched off. */
+@media (prefers-reduced-motion: reduce) {
+  .fc-orb__ball::before,
+  .fc-orb__blob,
+  .fc-orb__blob--b { animation: none; }
+  .fc-orb__ball::before { opacity: 0.8; transform: none; }
+}
+
+/* ── The recommendation ────────────────────────────────────────────
+   Set apart from the agenda above it: that card states facts, this one
+   asks for a decision, and the two should not read as the same kind of
+   thing. Accent edge, not a coloured panel — cancelling a subscription is
+   an opportunity, not an alarm. */
+.coach-advice {
+  margin-bottom: 20px;
+  padding: 16px;
+  border-left: 3px solid var(--fc-success);
+}
+
+.coach-advice__do {
+  margin: 0;
+  color: var(--fc-text);
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+.coach-advice__do strong { font-weight: 600; }
+
+.coach-advice__why {
+  margin: 6px 0 0;
+  color: var(--fc-text-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.coach-advice__then {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--fc-border);
+}
+
+.coach-advice__frees {
+  flex: none;
+  color: var(--fc-success);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.coach-advice__frees span {
+  color: var(--fc-text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+/* The consequence — the sentence that makes this advice rather than an
+   observation. It carries the most weight of anything in the card. */
+.coach-advice__result {
+  margin: 0;
+  color: var(--fc-text);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+.coach-advice__go {
+  margin-top: 14px;
+  padding: 8px 14px;
+  border: 1px solid var(--fc-border-strong);
+  border-radius: var(--fc-r-pill);
+  background: transparent;
+  color: var(--fc-accent);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.coach-advice__go:active { transform: scale(0.97); }

@@ -1385,6 +1385,242 @@ t('billDrift: a bill that got CHEAPER reports a negative, not a rise', () => {
   ok(d.pct < 0, 'expected a negative pct, got ' + d.pct);
 });
 
+/* ── Coach agenda ─────────────────────────────────────────────────
+   The point of one agent instead of four cards is that it RANKS. Every
+   test here is about the order, not the wording. */
+
+const CACC = (name, bal, type, rate) => ({ name, type: type || 'depository',
+  subtype: type === 'credit' ? 'credit card' : 'checking',
+  balance_current: bal, interest_rate: rate });
+
+t('coachAgenda: a bounced rent payment outranks a wasted subscription', () => {
+  const r = C.coachAgenda({
+    bills: [B('Rent', 1200, 2)],
+    accounts: [CACC('Checking', 300)],
+    subscriptions: [subOf('Adobe', 'mo', [54.99, 54.99, 54.99], 300)],
+    payday: PAYDAY, cash: 300, today: BNOW,
+  });
+  eq(r.lead.id, 'shortfall', 'a $660/yr subscription must never lead over rent bouncing');
+  ok(r.items.some(x => x.id === 'waste'), 'but the subscription is still on the agenda');
+});
+
+t('coachAgenda: autopay ranks above merely being overdue', () => {
+  const r = C.coachAgenda({
+    bills: [B('Rent', 900, 1), B('Gym', 60, 3, { autopay: true }), B('Old', 50, -5)],
+    accounts: [CACC('Checking', 900)],
+    payday: PAYDAY, cash: 900, today: BNOW,
+  });
+  const ids = r.items.map(x => x.id);
+  ok(ids.indexOf('autopay') < ids.indexOf('overdue'),
+     'an overdraft beats a late fee: ' + ids.join(','));
+});
+
+t('coachAgenda: no extra-debt advice while the bills do not clear', () => {
+  // The single most important cross-domain rule. Telling someone to put
+  // money on a card this month causes the shortfall the lead item warns of.
+  const r = C.coachAgenda({
+    bills: [B('Rent', 1200, 2)],
+    accounts: [CACC('Checking', 300), CACC('Visa', 4000, 'credit', 24.99)],
+    payday: PAYDAY, cash: 300, spare: 200, today: BNOW,
+  });
+  eq(r.lead.id, 'shortfall');
+  eq(r.items.some(x => x.id === 'debt'), false, 'must not advise an extra payment while short');
+});
+
+t('coachAgenda: with the bills covered, the debt advice appears', () => {
+  const r = C.coachAgenda({
+    bills: [B('Rent', 100, 2)],
+    accounts: [CACC('Checking', 5000), CACC('Visa', 4000, 'credit', 24.99)],
+    payday: PAYDAY, cash: 5000, spare: 200, today: BNOW,
+  });
+  ok(r.items.some(x => x.id === 'debt'), 'covered, so the optimisation is safe to give');
+});
+
+t('coachAgenda: avalanche targets the rate, snowball the balance', () => {
+  const accounts = [CACC('Checking', 5000),
+                    CACC('Small card', 800, 'credit', 12),
+                    CACC('Big card', 9000, 'credit', 27)];
+  const base = { bills: [], accounts, payday: PAYDAY, cash: 5000, spare: 100, today: BNOW };
+  const av = C.coachAgenda(Object.assign({}, base, { strategy: 'avalanche' }));
+  const sn = C.coachAgenda(Object.assign({}, base, { strategy: 'snowball' }));
+  eq(av.items.find(x => x.id === 'debt').subject, 'Big card');
+  eq(sn.items.find(x => x.id === 'debt').subject, 'Small card');
+});
+
+t('coachAgenda: no spare money means no debt item, whatever the strategy', () => {
+  const r = C.coachAgenda({
+    bills: [], accounts: [CACC('Checking', 5000), CACC('Visa', 900, 'credit', 20)],
+    payday: PAYDAY, cash: 5000, spare: 0, today: BNOW,
+  });
+  eq(r.items.some(x => x.id === 'debt'), false);
+});
+
+t('coachAgenda: pace names the period the caller actually compared', () => {
+  const r = C.coachAgenda({
+    bills: [], accounts: [CACC('Checking', 5000)], payday: PAYDAY, cash: 5000, today: BNOW,
+    spendThisPeriod: 900, spendLastPeriod: 500, periodLabel: 'last week',
+  });
+  const pace = r.items.find(x => x.id === 'pace');
+  ok(/last week/.test(pace.title), 'title: ' + pace.title);
+  ok(/last week/.test(pace.because), 'because: ' + pace.because);
+});
+
+t('coachAgenda: pace is informational and never leads', () => {
+  const r = C.coachAgenda({
+    bills: [B('Rent', 100, 2)], accounts: [CACC('Checking', 5000)],
+    payday: PAYDAY, cash: 5000, today: BNOW,
+    spendThisPeriod: 900, spendLastPeriod: 500,
+  });
+  ok(r.items.some(x => x.id === 'pace'));
+  ok(r.lead.id !== 'pace' || r.items.length === 1);
+});
+
+t('coachAgenda: a modest rise in spending is not worth saying', () => {
+  const r = C.coachAgenda({
+    bills: [], accounts: [CACC('Checking', 5000)], payday: PAYDAY, cash: 5000, today: BNOW,
+    spendThisPeriod: 530, spendLastPeriod: 500,
+  });
+  eq(r.items.some(x => x.id === 'pace'), false);
+});
+
+t('coachAgenda: with nothing wrong it says so rather than inventing a task', () => {
+  const r = C.coachAgenda({
+    bills: [], accounts: [CACC('Checking', 5000)], payday: PAYDAY, cash: 5000, today: BNOW,
+  });
+  eq(r.lead.id, 'clear');
+  eq(r.rest.length, 0);
+});
+
+t('coachAgenda: empty input is an answer, not a crash', () => {
+  const r = C.coachAgenda({});
+  ok(r.lead, 'must always return a lead');
+  eq(r.items.length, 1);
+});
+
+/* ── Advice ───────────────────────────────────────────────────────
+   The engine's job is to connect a cut to a consequence. These tests are
+   about WHICH consequence it picks and whether the chain is real. */
+
+const DEBT = (name, bal, rate, min) => ({
+  name, type: 'credit', subtype: 'credit card',
+  balance_current: bal, interest_rate: rate, minimum_payment: min,
+});
+
+t('advice: money at risk outranks paying down debt', () => {
+  const a = C.coachAdvice({
+    subscriptions: [subOf('Adobe', 'mo', [54.99, 54.99, 54.99], 300)],
+    accounts: [DEBT('Visa', 4000, 24.99, 80)],
+    coverage: { covered: false, shortfall: 40 },
+    today: BNOW,
+  });
+  eq(a.consequence.kind, 'shortfall', 'a shortfall now beats interest later');
+  eq(a.consequence.covered, true, '$55 covers a $40 gap');
+});
+
+t('advice: a partial cover says so rather than overclaiming', () => {
+  const a = C.coachAdvice({
+    subscriptions: [subOf('Spotify', 'mo', [11.99, 11.99, 11.99], 300)],
+    accounts: [], coverage: { covered: false, shortfall: 400 }, today: BNOW,
+  });
+  eq(a.consequence.covered, false);
+  ok(/toward the/.test(a.consequence.sentence), a.consequence.sentence);
+});
+
+t('advice: with bills covered it chains the cut to the debt payoff date', () => {
+  // $200 minimum on $4,000 at 24.99% does clear, so there is a real
+  // before-and-after to compare.
+  const a = C.coachAdvice({
+    subscriptions: [subOf('Adobe', 'mo', [54.99, 54.99, 54.99], 300)],
+    accounts: [DEBT('Visa', 4000, 24.99, 200)],
+    coverage: { covered: true, shortfall: 0 },
+    strategy: 'avalanche', today: BNOW,
+  });
+  eq(a.consequence.kind, 'debt');
+  ok(a.consequence.monthsSaved > 0, 'months saved: ' + a.consequence.monthsSaved);
+  ok(a.consequence.interestSaved > 0, 'interest saved: ' + a.consequence.interestSaved);
+  ok(/sooner/.test(a.consequence.sentence), a.consequence.sentence);
+});
+
+t('advice: when the minimums never clear the debt, it says THAT', () => {
+  // $80/mo on $4,000 at 24.99% is below the ~$83 monthly interest, so the
+  // balance grows forever. "4 months sooner" would be nonsense; the useful
+  // sentence is that the freed money makes it payable at all.
+  const a = C.coachAdvice({
+    subscriptions: [subOf('Adobe', 'mo', [54.99, 54.99, 54.99], 300)],
+    accounts: [DEBT('Visa', 4000, 24.99, 80)],
+    coverage: { covered: true }, strategy: 'avalanche', today: BNOW,
+  });
+  eq(a.consequence.kind, 'debt_unblocked');
+  ok(a.consequence.months > 0);
+  ok(/not going down/.test(a.consequence.sentence), a.consequence.sentence);
+});
+
+t('advice: no debt has a usable minimum, so it does not invent a payoff date', () => {
+  const a = C.coachAdvice({
+    subscriptions: [subOf('Adobe', 'mo', [54.99, 54.99, 54.99], 300)],
+    accounts: [DEBT('Visa', 4000, 24.99, 0)],
+    coverage: { covered: true }, today: BNOW,
+  });
+  ok(a.consequence.kind !== 'debt', 'got ' + a.consequence.kind);
+});
+
+t('advice: one incomplete debt does not suppress advice about a complete one', () => {
+  // An auto loan with no minimum on file is the common case — Plaid's
+  // Liabilities product does not cover auto loans. Requiring a minimum on
+  // EVERY debt threw away a correct recommendation about the credit card.
+  const a = C.coachAdvice({
+    subscriptions: [subOf('Adobe', 'mo', [54.99, 54.99, 54.99], 300)],
+    accounts: [DEBT('Visa', 4000, 24.99, 200), DEBT('Car loan', 12000, 0, 0)],
+    coverage: { covered: true }, strategy: 'avalanche', today: BNOW,
+  });
+  eq(a.consequence.kind, 'debt');
+  ok(a.consequence.monthsSaved > 0);
+});
+
+t('advice: no debt falls through to the goal, dated from the freed amount', () => {
+  const a = C.coachAdvice({
+    subscriptions: [subOf('Adobe', 'mo', [50, 50, 50], 300)],
+    accounts: [], coverage: { covered: true },
+    goal: { name: 'Emergency Fund', target: 3000, current: 2800 }, today: BNOW,
+  });
+  eq(a.consequence.kind, 'goal');
+  eq(a.consequence.months, 4, '200 left at 50/mo');
+});
+
+t('advice: nothing to fix states the plain yearly figure, not a fake stake', () => {
+  const a = C.coachAdvice({
+    subscriptions: [subOf('Adobe', 'mo', [50, 50, 50], 300)],
+    accounts: [], coverage: { covered: true }, today: BNOW,
+  });
+  eq(a.consequence.kind, 'savings');
+  ok(/600/.test(a.consequence.sentence), a.consequence.sentence);
+});
+
+t('advice: the reason given matches the reason it was flagged', () => {
+  const dup = C.coachAdvice({
+    subscriptions: [subOf('Spotify', 'mo', [11.99, 11.99, 11.99]),
+                    subOf('Apple Music', 'mo', [10.99, 10.99, 10.99])],
+    accounts: [], coverage: { covered: true }, today: BNOW,
+  });
+  eq(dup.reason, 'duplicate');
+  ok(/Apple Music/.test(dup.why), dup.why);
+});
+
+t('advice: nothing worth cutting returns null rather than inventing a chore', () => {
+  eq(C.coachAdvice({ subscriptions: [], accounts: [], today: BNOW }), null);
+  eq(C.coachAdvice({}), null);
+});
+
+t('advice: it names one cut, never a list', () => {
+  const a = C.coachAdvice({
+    subscriptions: [subOf('Adobe', 'mo', [54.99, 54.99, 54.99], 300),
+                    subOf('Hulu',  'mo', [17.99, 17.99, 17.99], 300)],
+    accounts: [], coverage: { covered: true }, today: BNOW,
+  });
+  eq(a.target, 'Adobe', 'the biggest one');
+  eq(typeof a.target, 'string');
+});
+
 console.log(`fc-core: ${passed} passed, ${failed} failed`);
 if (failed) {
   console.error('');

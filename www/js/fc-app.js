@@ -1471,6 +1471,9 @@ window.FCApp = (function () {
     // Switch body attribute — incoming screen becomes visible
     state.screen = name;
     document.body.dataset.screen = name;
+    /* The orb belongs to the app screen only — not the paywall, not
+       onboarding, not the auth flow. */
+    _syncCoachOrb();
 
     // Animate incoming screen
     const inEl = document.querySelector(`.fc-screen[data-screen="${name}"]`);
@@ -1984,6 +1987,9 @@ window.FCApp = (function () {
       _ensureLegalFooter(target);
     });
 
+    /* Re-evaluate on every tab change: the flag reflects the agenda, and the
+       agenda changes as data loads. */
+    _syncCoachOrb();
     if (typeof FCAnalytics !== 'undefined') FCAnalytics.screen('tab_' + tabId);
     fcLog('Tab →', tabId, '(from', prev + ')');
   }
@@ -11278,13 +11284,113 @@ window.FCApp = (function () {
   }
 
   /** Handle the ask bar. Renders one calm answer — never a transcript. */
-  function coachAsk(q) {
-    const input = document.getElementById('coach-ask-input');
+  /* ── Claude fallback ───────────────────────────────────────────
+     Sends DERIVED FIGURES only — never transactions, balances per account,
+     masks, or anything identifying. The server re-filters the payload to the
+     same allowlist, so this shape is a convenience, not the boundary. */
+  let _coachAgendaCache = [];
+
+  function _coachAIFacts() {
+    const f = {};
+    try {
+      const p = _buildSafeSpendProjection();
+      f.safeToday = FCData.formatSummary(Math.max(0, p.safe || 0));
+      f.daysUntilPayday = p.days ?? null;
+    } catch (_e) { /* Projection unavailable (no accounts yet) — the other facts still stand. */ }
+    try {
+      const payday = (_predictNextPayday() || {}).date || null;
+      const cov = FCCore.billCoverage({
+        bills: state.bills || [], payday,
+        cash: FCCore.spendableCash(state.accounts || []), today: new Date(),
+      });
+      f.billsDue      = FCData.formatSummary(cov.total);
+      f.billsCovered  = cov.covered;
+      f.shortfall     = FCData.formatSummary(cov.shortfall);
+    } catch (_e) { /* Coverage needs bills and a payday; without them the rest is still useful. */ }
+    try {
+      const ss = FCCore.subSummary(_detectSubscriptions() || [], new Date());
+      f.subsMonthly = FCData.formatSummary(ss.monthly);
+      f.subsCount   = ss.count;
+      f.couldCut    = FCData.formatSummary(ss.cuts.totalYearly);
+    } catch (_e) { /* No subscriptions detected yet. */ }
+    try {
+      f.totalDebt = FCData.formatSummary(FCCore.netWorth(state.accounts || []).liabilities);
+    } catch (_e) { /* No debt accounts, or balances not loaded. */ }
+    try {
+      f.agenda = (_coachAgendaCache || []).slice(0, 6)
+        .map(it => ({ title: it.title, because: it.because }));
+    } catch (_e) { /* Agenda not built yet — the sheet can open before the Coach tab has rendered. */ }
+    return f;
+  }
+
+  async function _coachAskAI(question, outId) {
+    const out = document.getElementById(outId || 'coach-ask-answer');
+    if (!out || !question) return;
+    haptic('light');
+    out.style.display = '';
+    out.innerHTML = '<div class="fc-card coach-ai coach-ai--wait">'
+      + '<span class="coach-ai__dots" aria-hidden="true"><i></i><i></i><i></i></span>'
+      + '<span>Thinking\u2026</span></div>';
+
+    const fail = (msg) => {
+      out.innerHTML = '<div class="fc-card coach-ai">'
+        + '<p class="coach-ai__text">' + esc(msg) + '</p></div>';
+    };
+
+    try {
+      const base = (window.FC_CONFIG && FC_CONFIG.app && FC_CONFIG.app.apiBase) || '';
+      const resp = await FCAuth.authedFetch(base + '/coach/ask', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(Object.assign({ question }, _coachAIFacts())),
+      });
+
+      if (resp.status === 503 || resp.status === 402) {
+        /* Not configured, or no entitlement. Neither is the user's problem to
+           read about — fall back to what the on-device agent can say. */
+        return fail('I can answer questions about your bills, spending, subscriptions and payday. Try one of the suggestions above.');
+      }
+      if (resp.status === 429) return fail('Give me a moment and ask again.');
+      if (!resp.ok)            return fail('I could not answer that just now.');
+
+      const data = await resp.json();
+      if (!data || !data.answer) return fail('I could not answer that just now.');
+
+      out.innerHTML = '<div class="fc-card coach-ai">'
+        + '<p class="coach-ai__text">' + esc(data.answer) + '</p>'
+        /* Said plainly, every time. The user should never have to guess
+           whether a number came from their ledger or from a model. */
+        + '<p class="coach-ai__note">Figures come from your own accounts. '
+        + 'FlowCheck is not a bank and this is not financial advice.</p>'
+      + '</div>';
+    } catch (_e) {
+      fail('I could not reach the coach. Check your connection and try again.');
+    }
+  }
+
+  /* `scope` lets the sheet reuse this without a second implementation — the
+     Coach tab and the header sheet ask the same questions of the same
+     engines and must never drift apart. */
+  function coachAsk(q, scope) {
+    const inId  = scope === 'sheet' ? 'agent-sheet-input'  : 'coach-ask-input';
+    const outId = scope === 'sheet' ? 'agent-sheet-answer' : 'coach-ask-answer';
+    const input = document.getElementById(inId);
     const query = q != null ? q : (input && input.value);
-    const out   = document.getElementById('coach-ask-answer');
+    const out   = document.getElementById(outId);
     if (!out) return;
     const parsed = _coachParse(query);
+    /* Empty box: clear and stop. */
     if (!parsed) { out.innerHTML = ''; out.style.display = 'none'; return; }
+    /* The deterministic answer wins whenever the parser recognises the
+       question: instant, exact, free, and it works with no signal. Claude is
+       the fallback for `unknown` — the branch that previously answered every
+       unrecognised question with the same "try asking about a purchase"
+       card, whatever had been typed.
+
+       Note it is `intent === 'unknown'`, not `!parsed`: _coachParse returns
+       an object for every non-empty string, so a falsy check here would
+       never have fired once. */
+    if (parsed.intent === 'unknown') { _coachAskAI(String(query || '').trim(), outId); return; }
     haptic('light');
     if (input && q != null) input.value = q;
 
@@ -11370,14 +11476,155 @@ window.FCApp = (function () {
     }
   }
 
-  function coachAskKey(e) {
-    if (e && (e.key === 'Enter' || e.keyCode === 13)) { e.preventDefault(); coachAsk(); }
+  function coachAskKey(e, scope) {
+    if (e && (e.key === 'Enter' || e.keyCode === 13)) { e.preventDefault(); coachAsk(null, scope); }
+  }
+
+  /* ── The agent, from anywhere ──────────────────────────────────
+     The Coach tab is where you go to think about money. The header button
+     is for the moment you are already looking at something and want to ask
+     about THAT — so the sheet opens knowing which screen you came from and
+     leads with the questions that make sense there. */
+  const _COACH_SUGGESTIONS = {
+    home:     ['What\u2019s safe to spend?', 'When do I get paid?', 'Can I afford $100?'],
+    plan:     ['Can I cover my bills?', 'What should I cancel?', 'What do subscriptions cost me?'],
+    wealth:   ['How much debt do I have?', 'Which debt should I pay first?', 'What\u2019s my net worth?'],
+    activity: ['Where did my money go?', 'What did I spend this week?', 'What\u2019s my biggest expense?'],
+    goals:    ['How are my goals doing?', 'What\u2019s safe to spend?'],
+    coach:    ['What\u2019s safe to spend?', 'Can I cover my bills?', 'What should I cancel?'],
+  };
+
+  /* ── The orb ───────────────────────────────────────────────────
+     Hidden whenever a sheet, the paywall, or a non-app screen owns the view.
+     A floating control that survives on top of a modal is the classic way a
+     FAB becomes a bug report, and it would also sit over the Coach sheet the
+     orb itself opens. */
+  function _syncCoachOrb() {
+    const orb = document.getElementById('fc-coach-orb');
+    if (!orb) return;
+
+    const onAppScreen = state.screen === 'app';
+    const sheetOpen = !!document.querySelector(
+      '.fc-sheet-overlay:not([style*="display: none"]):not([style*="display:none"])');
+    orb.hidden = !onAppScreen || sheetOpen;
+    if (orb.hidden) return;
+
+    /* The flag mirrors the agenda: it appears only for the things that put
+       money at risk, never for an optimisation. An orb that is permanently
+       flagged is an orb nobody reads. */
+    let urgent = false;
+    try {
+      const lead = FCCore.coachAgenda({
+        bills:         state.bills || [],
+        accounts:      state.accounts || [],
+        subscriptions: _detectSubscriptions() || [],
+        payday:        (_predictNextPayday() || {}).date || null,
+        cash:          FCCore.spendableCash(state.accounts || []),
+        today:         new Date(),
+        fmt:           v => FCData.formatSummary(v),
+      }).lead;
+      urgent = !!lead && ['shortfall', 'autopay', 'overdue'].includes(lead.id);
+    } catch (_e) { /* No agenda yet — no flag, which is the quiet default. */ }
+
+    const flag = document.getElementById('fc-coach-orb-flag');
+    if (flag) flag.hidden = !urgent;
+  }
+
+  /* Scroll-aware tucking. Listens on the app shell in the capture phase so
+     one listener covers every scrolling view, rather than one per screen
+     that has to be remembered when a screen is added. */
+  let _orbTuckTimer = null;
+  let _orbLastY = 0;
+  function _initCoachOrbScroll() {
+    const orb = document.getElementById('fc-coach-orb');
+    if (!orb) return;
+    const onScroll = (e) => {
+      const el = e.target;
+      const y = (el && el.scrollTop != null) ? el.scrollTop : window.scrollY;
+      if (typeof y !== 'number') return;
+      /* 6px of slack: a rubber-band bounce at the top of a list is not a
+         scroll, and flickering the orb on every overscroll reads as a bug. */
+      if (y > _orbLastY + 6)      orb.classList.add('is-tucked');
+      else if (y < _orbLastY - 6) orb.classList.remove('is-tucked');
+      _orbLastY = y;
+      clearTimeout(_orbTuckTimer);
+      /* Back when the scrolling stops — the orb should never be gone for
+         good just because someone read to the bottom of a page. */
+      _orbTuckTimer = setTimeout(() => orb.classList.remove('is-tucked'), 700);
+    };
+    document.addEventListener('scroll', onScroll, { capture: true, passive: true });
+  }
+
+  function openAgentSheet() {
+    const sheet = document.getElementById('fc-agent-sheet');
+    const body  = document.getElementById('agent-sheet-body');
+    if (!sheet || !body) return;
+    haptic('light');
+
+    /* The agent's current read, at the top — the same ranked agenda the
+       Coach tab shows, so the two can never say different things. */
+    let lead = null;
+    try {
+      lead = FCCore.coachAgenda({
+        bills:         state.bills || [],
+        accounts:      state.accounts || [],
+        subscriptions: _detectSubscriptions() || [],
+        payday:        (_predictNextPayday() || {}).date || null,
+        cash:          FCCore.spendableCash(state.accounts || []),
+        today:         new Date(),
+        fmt:           v => FCData.formatSummary(v),
+      }).lead;
+    } catch (_e) { /* Agenda unavailable — the sheet still opens as a plain ask box. */ }
+
+    const tab  = state.tab || 'home';
+    const sugg = _COACH_SUGGESTIONS[tab] || _COACH_SUGGESTIONS.coach;
+
+    body.innerHTML =
+      (lead
+        ? '<div class="coach-sheet-lead">'
+          + '<p class="coach-sheet-lead__label">Right now</p>'
+          + '<p class="coach-sheet-lead__title">' + esc(lead.title) + '</p>'
+          + '<p class="coach-sheet-lead__why">' + esc(lead.because) + '</p>'
+        + '</div>'
+        : '')
+      + '<div class="coach-ask">'
+        + '<div class="coach-ask-field">'
+          + _ic('search', 'var(--fc-text-faint)', 16)
+          + '<input id="agent-sheet-input" type="text" placeholder="Ask about your money\u2026"'
+            + ' aria-label="Ask the coach a question" autocomplete="off" autocorrect="off"'
+            + ' autocapitalize="sentences" spellcheck="false" enterkeyhint="send"'
+            + ' onkeydown="FCApp.coachAskKey(event,\'sheet\')">'
+        + '</div>'
+        + '<button class="coach-ask-go" type="button" onclick="FCApp.coachAsk(null,\'sheet\')" aria-label="Ask">'
+          + _ic('send', 'var(--fc-accent-ink)', 17)
+        + '</button>'
+      + '</div>'
+      + '<div class="coach-ask-starters">'
+        + sugg.map(q => '<button type="button" class="fc-chip" data-coach-q="' + esc(q) + '"'
+            + ' onclick="FCApp.coachAsk(this.dataset.coachQ,\'sheet\')">' + esc(q) + '</button>').join('')
+      + '</div>'
+      + '<div id="agent-sheet-answer" style="display:none"></div>';
+
+    sheet.style.display = 'flex';
+    requestAnimationFrame(() => sheet.classList.add('is-open'));
+    _syncCoachOrb();
+  }
+
+  function closeAgentSheet() {
+    const sheet = document.getElementById('fc-agent-sheet');
+    if (!sheet) return;
+    sheet.classList.remove('is-open');
+    /* Matches the sheet transition rather than a guessed delay — a shorter
+       timeout snaps the panel away mid-slide. */
+    setTimeout(() => { sheet.style.display = 'none'; _syncCoachOrb(); }, 260);
   }
 
   function _renderCoach() {
     const el = document.getElementById('coach-content');
     if (!el) return;
-    const answers = _coachAnswers();
+    /* No `answers` local any more. It existed only to title the four coach
+       rows; openCoachAnswer() calls _coachAnswers() itself, so the sheet
+       those questions open is unaffected. */
 
     // This week vs last week spend (same math as spending pulse)
     const now = new Date();
@@ -11411,16 +11658,129 @@ window.FCApp = (function () {
     const reviewSub = subsSum.count
       ? subsSum.count + ' subscriptions run you ' + FCData.formatSummary(subsSum.monthly) + '/mo.' : '';
 
-    const coachRow = (key, icon, color, soft, title, sub) => answers[key]
-      ? '<div class="fc-card" style="margin-bottom:10px;padding:14px 16px;display:flex;align-items:center;gap:13px;cursor:pointer;-webkit-tap-highlight-color:transparent" onclick="FCApp.openCoachAnswer(\''+key+'\')">'
-          +'<div style="width:40px;height:40px;border-radius:var(--fc-r-sm);background:'+soft+';display:flex;align-items:center;justify-content:center;flex-shrink:0">'+_ic(icon, color, 19)+'</div>'
-          +'<div style="flex:1;min-width:0">'
-            +'<div style="font-size:15px;font-weight:600;color:var(--fc-text)">'+title+'</div>'
-            +'<div style="font-size:12px;color:var(--fc-text-muted);margin-top:1px">'+sub+'</div>'
-          +'</div>'
-          +'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>'
-        +'</div>'
+    /* ── The agenda ────────────────────────────────────────────────
+       Four peer cards — Debt, Bill, Savings, Spending — was a menu, not a
+       coach. It left the reader to work out which of the four mattered
+       today, which is exactly the judgement the app can make and they
+       cannot: only the app can see that the bills will not clear before
+       payday, which makes the debt advice wrong this month however sound it
+       is in general. One agent, one ranked list, severity first. */
+    let spare = 0;
+    try { spare = Math.max(0, Math.round(Number(_buildSafeSpendProjection().safe || 0) * 0.25 / 5) * 5); }
+    catch (_e) { /* No projection yet — spare stays 0, which suppresses the debt item rather than guessing at one. */ }
+    let _payday = null;
+    try { _payday = (_predictNextPayday() || {}).date || null; }
+    catch (_e) { /* No payday prediction — coverage then judges every unpaid bill, which is the safe reading. */ }
+
+    const agenda = FCCore.coachAgenda({
+      bills:         state.bills || [],
+      accounts:      state.accounts || [],
+      subscriptions: subs,
+      payday:        _payday,
+      cash:          FCCore.spendableCash(state.accounts || []),
+      spare,
+      strategy:      _debtStrategy(),
+      today:         now,
+      spendThisPeriod: thisWeek,
+      spendLastPeriod: lastWeek,
+      periodLabel:   'last week',
+      /* One money formatter for the whole app — the agent must not print a
+         figure in a shape no other screen uses. */
+      fmt:           v => FCData.formatSummary(v),
+    });
+
+    /* Kept so the Claude fallback can send what the agent already decided
+       matters, rather than recomputing it in a second place. */
+    _coachAgendaCache = agenda.items;
+
+    /* The recommendation. Everything above it is what is true; this is what
+       to do about it, and what happens if you do. */
+    let advice = null;
+    try {
+      advice = FCCore.coachAdvice({
+        subscriptions: subs,
+        accounts:      state.accounts || [],
+        coverage:      agenda.coverage,
+        strategy:      _debtStrategy(),
+        goal:          (_goalsForDisplay() || [])[0] || null,
+        today:         now,
+        fmt:           v => FCData.formatSummary(v),
+      });
+    } catch (_e) { /* No recommendation available — the agenda still stands on its own. */ }
+
+    const adviceHTML = advice
+      ? '<div class="fc-eyebrow">What I\u2019d do</div>'
+        + '<div class="fc-card coach-advice">'
+          + '<p class="coach-advice__do">Cancel <strong>' + esc(advice.target) + '</strong></p>'
+          + '<p class="coach-advice__why">' + esc(advice.why) + '</p>'
+          + '<div class="coach-advice__then">'
+            + '<span class="coach-advice__frees">+' + esc(FCData.formatSummary(advice.freesMonthly))
+              + '<span>/mo</span></span>'
+            + '<p class="coach-advice__result">' + esc(advice.consequence.sentence) + '</p>'
+          + '</div>'
+          + '<button type="button" class="coach-advice__go" onclick="FCApp.haptic(\'light\');'
+            + 'FCApp.switchTab(\'plan\');FCApp.switchPlanSeg(\'subscriptions\')">Review subscriptions \u203a</button>'
+        + '</div>'
       : '';
+
+    const AGENDA_LOOK = {
+      shortfall: ['alert',         'var(--fc-warning-text)', 'var(--fc-warning-soft)'],
+      autopay:   ['alert',         'var(--fc-warning-text)', 'var(--fc-warning-soft)'],
+      overdue:   ['calendar',      'var(--fc-warning-text)', 'var(--fc-warning-soft)'],
+      waste:     ['pie-chart',     'var(--fc-electric)',     'rgba(37,99,235,0.14)'],
+      debt:      ['trending-down', 'var(--fc-accent)',       'var(--fc-accent-soft)'],
+      pace:      ['bar-chart',     'var(--fc-text-muted)',   'var(--fc-bg-elevated-2)'],
+      clear:     ['check',         'var(--fc-success)',      'var(--fc-success-soft)'],
+    };
+    /* Where each item sends you. The lead card's action has to land on the
+       screen that can actually resolve it, or "one agent" is just a nicer
+       list of things you cannot act on. */
+    const AGENDA_GO = {
+      shortfall: ["FCApp.switchTab('plan');FCApp.switchPlanSeg('bills')", 'See the bills'],
+      autopay:   ["FCApp.switchTab('plan');FCApp.switchPlanSeg('bills')", 'See the bills'],
+      overdue:   ["FCApp.switchTab('activity');FCApp.switchActivitySegment('bills')", 'Pay a bill'],
+      waste:     ["FCApp.switchTab('plan');FCApp.switchPlanSeg('subscriptions')", 'Review subscriptions'],
+      debt:      ["FCApp.switchTab('wealth');setTimeout(function(){FCApp.switchWealthSegment&&FCApp.switchWealthSegment('debt')},250)", 'See the debt plan'],
+      pace:      ["FCApp.switchTab('activity')", 'See where it went'],
+      clear:     ['', ''],
+    };
+
+    const leadLook = AGENDA_LOOK[agenda.lead.id] || AGENDA_LOOK.clear;
+    const leadGo   = AGENDA_GO[agenda.lead.id] || ['', ''];
+    const agendaHTML = adviceHTML
+      + '<div class="fc-eyebrow">What matters today</div>'
+      + '<div class="fc-card coach-lead coach-lead--' + agenda.lead.id + '">'
+        + '<div class="coach-lead__top">'
+          + '<span class="coach-lead__icon" style="background:' + leadLook[2] + '">'
+            + _ic(leadLook[0], leadLook[1], 20) + '</span>'
+          + '<h2 class="coach-lead__title">' + esc(agenda.lead.title) + '</h2>'
+        + '</div>'
+        + '<p class="coach-lead__why">' + esc(agenda.lead.because) + '</p>'
+        + (leadGo[0]
+            ? '<button type="button" class="coach-lead__go" onclick="FCApp.haptic(\'light\');'
+              + leadGo[0] + '">' + esc(leadGo[1]) + ' \u203a</button>'
+            : '')
+      + '</div>'
+      + (agenda.rest.length
+          ? '<div class="fc-card coach-rest">'
+            + agenda.rest.map(it => {
+                const look = AGENDA_LOOK[it.id] || AGENDA_LOOK.clear;
+                const go   = AGENDA_GO[it.id] || ['', ''];
+                return '<div class="coach-rest__row"'
+                  + (go[0] ? ' onclick="FCApp.haptic(\'light\');' + go[0] + '"' : '')
+                  + '>'
+                  + '<span class="coach-rest__icon" style="background:' + look[2] + '">'
+                    + _ic(look[0], look[1], 16) + '</span>'
+                  + '<div class="coach-rest__copy">'
+                    + '<p class="coach-rest__title">' + esc(it.title) + '</p>'
+                    + '<p class="coach-rest__why">' + esc(it.because) + '</p>'
+                  + '</div>'
+                  + (go[0] ? '<span class="coach-rest__chev">\u203a</span>' : '')
+                + '</div>';
+              }).join('')
+            + '</div>'
+          : '');
+
 
     el.innerHTML =
       '<header class="fc-page-head">'
@@ -11473,11 +11833,7 @@ window.FCApp = (function () {
         +(reviewSub ? '<div style="font-size:13px;color:var(--fc-text-muted);margin-top:4px">'+reviewSub+'</div>' : '')
       +'</div>'
 
-      +'<div class="fc-eyebrow">Your Coaches</div>'
-      +coachRow('debt', 'trending-down', 'var(--fc-danger)', 'var(--fc-danger-soft)', 'Debt Coach', answers.debt ? answers.debt.question : '')
-      +coachRow('bill', 'calendar', 'var(--fc-accent)', 'var(--fc-accent-soft)', 'Bill Coach', answers.bill ? answers.bill.question : '')
-      +coachRow('savings', 'dollar-sign', 'var(--fc-success)', 'var(--fc-success-soft)', 'Savings Coach', answers.savings ? answers.savings.question : '')
-      +coachRow('spending', 'bar-chart', 'var(--fc-warning)', 'var(--fc-warning-soft)', 'Spending Coach', answers.spending ? answers.spending.question : '')
+      +agendaHTML
 
       +'<div class="fc-eyebrow" style="margin:18px 0 10px">More</div>'
       +'<div class="fc-card" style="padding:0 16px;margin-bottom:14px">'
@@ -14345,6 +14701,7 @@ window.FCApp = (function () {
     FCAuth.init();
     _initPullToRefresh();
     _initSheetDrag();
+    _initCoachOrbScroll();
 
     // Hide iOS-only auth options on Android; add platform class for CSS targeting
     const platform = window.Capacitor?.getPlatform?.() || 'web';
@@ -17356,6 +17713,9 @@ window.FCApp = (function () {
     _vaultFlagVisibleSubs,
     // Coach + affordability
     openCoachAnswer,
+    openAgentSheet,
+    closeAgentSheet,
+    _syncCoachOrb,
     closeCoachSheet,
     showAffordSheet,
     runAffordCheck,

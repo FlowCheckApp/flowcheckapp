@@ -7112,7 +7112,40 @@ body:not(.keyboard-open) .fc-sheet {
 
 </section><!-- /app screen -->
 
+  <!-- ══════════════════════════════ COACH ORB ═══════════════
+       The agent's presence in the app: one control, on every screen.
+       There is deliberately no second entry point in the header — this app
+       has a long history of one action wearing two controls, and the two
+       always drift. Hidden by [hidden] whenever a sheet owns the screen. -->
+  <button id="fc-coach-orb" class="fc-orb" type="button"
+          aria-label="Ask the coach" onclick="FCApp.openAgentSheet()">
+    <span class="fc-orb__ball" aria-hidden="true">
+      <span class="fc-orb__blob"></span>
+      <span class="fc-orb__blob fc-orb__blob--b"></span>
+      <span class="fc-orb__core"></span>
+      <span class="fc-orb__flag" id="fc-coach-orb-flag" hidden></span>
+    </span>
+    <!-- The label is the whole point. An unlabelled floating shape is a
+         puzzle, and people do not tap puzzles in a finance app. It collapses
+         to the ball only after you have scrolled past it once — by then the
+         word has already done its job. -->
+    <span class="fc-orb__label" id="fc-coach-orb-label">Ask coach</span>
+  </button>
+
 </div><!-- /phone-frame -->
+
+<!-- ══════════════════════════════ COACH SHEET ══════════════
+     The agent, reachable from every screen via the header button. One
+     grabber, per the ★ Going back ★ rule — backdrop tap and swipe-down are
+     gestures and do not count as a second visible control. -->
+<div id="fc-agent-sheet" class="fc-sheet-overlay" onclick="if(event.target===this)FCApp.closeAgentSheet()" style="display:none" role="dialog" aria-modal="true" aria-label="Ask the coach">
+  <div class="fc-sheet" onclick="event.stopPropagation()" style="max-height:86vh;overflow-y:auto">
+    <button type="button" class="fc-sheet-handle" aria-label="Close"
+            onclick="FCApp.dismissSheetFrom(this)"></button>
+    <div class="fc-sheet-title">Coach</div>
+    <div id="agent-sheet-body" style="padding:0 16px 20px"></div>
+  </div>
+</div>
 
 <!-- ══════════════════════════════ REFERRAL SHEET ══════════ -->
 <div id="fc-referral-sheet" class="fc-sheet-overlay" onclick="if(event.target===this)FCApp.closeReferralSheet()" style="display:none" role="dialog" aria-modal="true" aria-label="Refer a Friend">

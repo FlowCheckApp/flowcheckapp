@@ -1559,6 +1559,322 @@
              diff, pct, samples: hits.length };
   }
 
+  /* ══════════════════════════════════════════════════════════════════
+     COACH — one agent with a ranked agenda
+     ══════════════════════════════════════════════════════════════════
+
+     The Coach screen used to be four peer cards — Debt, Bill, Savings,
+     Spending — each a door into its own advice, none aware of the others.
+     Four equal doors is not a coach; it is a menu, and it leaves the reader
+     to work out which of the four matters today. That is the judgement the
+     app is in a position to make and the reader is not: only the app can
+     see that the bills do not clear before payday, which makes the debt
+     advice wrong this month however sound it is in general.
+
+     So: one agenda, ranked, and the ranking is by what is at stake rather
+     than by topic.
+
+       1  shortfall   money that will not be there  — a payment fails
+       2  autopay     the same, but taken anyway    — an overdraft
+       3  overdue     already late                  — a fee, credit damage
+       4  waste       money leaving for nothing     — recoverable
+       5  debt        money working against you     — optimisable
+       6  pace        spending trending wrong       — informational
+
+     Severity, not topic. A $9 lapsed subscription never outranks a rent
+     payment that will bounce.
+     ────────────────────────────────────────────────────────────────── */
+
+  const COACH_RANK = { shortfall: 1, autopay: 2, overdue: 3, waste: 4, debt: 5, pace: 6, clear: 9 };
+
+  function coachAgenda(input) {
+    const i = input || {};
+    const today = i.today instanceof Date ? i.today : new Date();
+    const bills = Array.isArray(i.bills) ? i.bills : [];
+    const accounts = Array.isArray(i.accounts) ? i.accounts : [];
+    const subs = Array.isArray(i.subscriptions) ? i.subscriptions : [];
+    const payday = i.payday instanceof Date ? i.payday : null;
+    const cash = Number.isFinite(Number(i.cash)) ? Number(i.cash) : spendableCash(accounts);
+    /* The caller supplies the money formatter. fc-core does not own money
+       PRESENTATION — CLAUDE.md gives that to FCData.formatSummary, and a
+       third convention invented here is exactly what that rule exists to
+       prevent. The fallback keeps the engine usable (and testable) standalone. */
+    const money = typeof i.fmt === 'function'
+      ? i.fmt
+      : (n => '$' + Math.round(Number(n) || 0).toLocaleString('en-US'));
+
+    const items = [];
+    const cov = billCoverage({ bills, payday, cash, today });
+
+    /* 1 — the bills will not all clear. */
+    if (!cov.covered && cov.breaking) {
+      items.push({
+        id: 'shortfall', rank: COACH_RANK.shortfall,
+        title: 'You are ' + money(cov.shortfall) + ' short before payday',
+        amount: round2(cov.shortfall),
+        because: cov.breaking.name + ' on ' + cov.breaking.date + ' is the first payment that will not clear.',
+        subject: cov.breaking.name,
+      });
+    }
+
+    /* 2 — and some of them are taken automatically. */
+    if (cov.autopayAtRisk.length) {
+      items.push({
+        id: 'autopay', rank: COACH_RANK.autopay,
+        title: cov.autopayAtRisk.length + ' autopay bill'
+             + (cov.autopayAtRisk.length === 1 ? '' : 's') + ' will be taken anyway',
+        amount: round2(cov.autopayAtRisk.reduce((s, b) => s + Number(b.amount || 0), 0)),
+        because: 'Autopay does not check the balance first, so this is an overdraft rather than a late payment.',
+        names: cov.autopayAtRisk.map(b => b.name),
+      });
+    }
+
+    /* 3 — already late. */
+    const overdue = bills.filter(b => {
+      if (!b || b.status === 'paid' || !b.due_date) return false;
+      const d = daysUntil(b.due_date);
+      return d !== null && d < 0;
+    });
+    if (overdue.length) {
+      items.push({
+        id: 'overdue', rank: COACH_RANK.overdue,
+        title: overdue.length + ' bill' + (overdue.length === 1 ? ' is' : 's are') + ' past due',
+        amount: round2(overdue.reduce((s, b) => s + Number(b.amount || 0), 0)),
+        because: 'Late fees and, past 30 days, a mark on your credit file.',
+        names: overdue.map(b => b.name),
+      });
+    }
+
+    /* 4 — money leaving for nothing. */
+    const cuts = subCutCandidates(subs, today);
+    if (cuts.candidates.length) {
+      const top = cuts.candidates[0];
+      items.push({
+        id: 'waste', rank: COACH_RANK.waste,
+        title: money(cuts.totalYearly) + ' a year in subscriptions worth reviewing',
+        amount: round2(cuts.totalYearly),
+        because: top.name + ' is the biggest single one at ' + money(top.yearly) + ' a year.',
+        subject: top.name, count: cuts.candidates.length,
+      });
+    }
+
+    /* 5 — debt, but only when there is money that is not already spoken for.
+       Recommending an extra payment while the bills do not clear is advice
+       that causes the very problem the top item is warning about. */
+    const debts = accounts.filter(isDebtAccount)
+      .map(a => ({ name: a.name || 'Debt', bal: Math.max(0, accountBalance(a)), rate: debtRate(a) }))
+      .filter(d => d.bal > 0);
+    if (debts.length && cov.covered) {
+      const strategy = i.strategy === 'avalanche' ? 'avalanche' : 'snowball';
+      const ordered = [...debts].sort((a, b) => strategy === 'snowball'
+        ? a.bal - b.bal
+        : (Number(b.rate || 0) - Number(a.rate || 0)) || (b.bal - a.bal));
+      const target = ordered[0];
+      const spare = Math.max(0, Number(i.spare) || 0);
+      if (spare >= 5) {
+        items.push({
+          id: 'debt', rank: COACH_RANK.debt,
+          title: 'Put ' + money(spare) + ' extra toward ' + target.name,
+          amount: round2(spare),
+          because: strategy === 'snowball'
+            ? target.name + ' is your smallest balance, so clearing it frees its minimum payment.'
+            : target.name + ' carries your highest rate, so it costs the most to leave alone.',
+          subject: target.name, strategy,
+        });
+      }
+    }
+
+    /* 6 — pace. Informational, and last, because nothing is at stake today. */
+    const thisSpend = Number(i.spendThisPeriod);
+    const lastSpend = Number(i.spendLastPeriod);
+    if (Number.isFinite(thisSpend) && Number.isFinite(lastSpend) && lastSpend > 0
+        && thisSpend > lastSpend * 1.15) {
+      items.push({
+        id: 'pace', rank: COACH_RANK.pace,
+        title: 'Spending is running ahead of ' + (i.periodLabel || 'last period'),
+        amount: round2(thisSpend - lastSpend),
+        /* The caller names the period — Coach compares the same elapsed
+           slice of THIS week against last week, and hardcoding "month" here
+           would have described a comparison the app was not making. */
+        because: money(thisSpend) + ' so far against ' + money(lastSpend)
+               + ' at the same point ' + (i.periodLabel || 'last period') + '.',
+      });
+    }
+
+    items.sort((a, b) => a.rank - b.rank || (b.amount || 0) - (a.amount || 0));
+
+    if (!items.length) {
+      items.push({
+        id: 'clear', rank: COACH_RANK.clear,
+        title: 'Nothing needs your attention',
+        amount: 0,
+        because: cov.count
+          ? 'Your ' + cov.count + ' upcoming bill' + (cov.count === 1 ? ' is' : 's are')
+            + ' covered and nothing is overdue.'
+          : 'No bills due before payday and nothing overdue.',
+      });
+    }
+
+    return { lead: items[0], rest: items.slice(1), items, coverage: cov };
+  }
+
+  /* ══════════════════════════════════════════════════════════════════
+     ADVICE — a decision, and what it does to the rest of the money
+     ══════════════════════════════════════════════════════════════════
+
+     The agenda says what is true. This says what to DO about it, and — the
+     part that makes it worth reading — what happens if you do.
+
+     "Adobe has not charged since May" is an observation. "Cancel Adobe and
+     you clear the Visa four months sooner, for $340 less interest" is
+     advice, because it connects one small decision to a consequence
+     somewhere else in the same person's finances. That chaining is the
+     whole idea here, and every step of it is arithmetic the app already
+     owns — no model, no network, no cost.
+
+     Freed money is applied where it does the most good, in the order that
+     the money itself dictates:
+
+       1  a shortfall   — money at risk right now beats money saved later
+       2  debt          — it compounds, so every month earlier is worth cash
+       3  a goal        — dated, if the pace is known
+       4  savings       — the honest fallback when there is nothing to fix
+     ────────────────────────────────────────────────────────────────── */
+
+  function coachAdvice(input) {
+    const i = input || {};
+    const today = i.today instanceof Date ? i.today : new Date();
+    const money = typeof i.fmt === 'function'
+      ? i.fmt
+      : (n => '$' + Math.round(Number(n) || 0).toLocaleString('en-US'));
+
+    const subs = Array.isArray(i.subscriptions) ? i.subscriptions : [];
+    const cuts = subCutCandidates(subs, today);
+    if (!cuts.candidates.length) return null;
+
+    /* The single best cut, not the whole list. Advice that opens with four
+       things to do is a chore; one decision with a stated payoff is a
+       decision someone might actually make. */
+    const pick = cuts.candidates[0];
+    const frees = round2(pick.monthly);
+    if (!(frees > 0)) return null;
+
+    const why = pick.reason === 'lapsed'
+      ? 'It has already stopped charging, so this is likely just tidying up.'
+      : pick.reason === 'hike'
+        ? 'The price went up ' + pick.detail.pct + '% and it is the biggest of your subscriptions.'
+        : 'You are paying for ' + pick.detail.alsoPaying + ' as well, and they do the same job.';
+
+    /* ── 1. Money at risk ─────────────────────────────────────── */
+    const cov = i.coverage || null;
+    if (cov && cov.covered === false && cov.shortfall > 0) {
+      const covers = frees >= cov.shortfall;
+      return {
+        action: 'cancel', target: pick.name, reason: pick.reason,
+        freesMonthly: frees, freesYearly: round2(frees * 12), why,
+        consequence: {
+          kind: 'shortfall',
+          covered: covers,
+          shortfall: round2(cov.shortfall),
+          sentence: covers
+            ? 'That alone covers the ' + money(cov.shortfall) + ' you are short before payday.'
+            : 'That is ' + money(frees) + ' toward the ' + money(cov.shortfall)
+              + ' you are short before payday.',
+        },
+      };
+    }
+
+    /* ── 2. Debt ──────────────────────────────────────────────── */
+    const debts = (Array.isArray(i.accounts) ? i.accounts : [])
+      .filter(isDebtAccount)
+      .map(a => ({ name: a.name || 'Debt', balance: Math.max(0, accountBalance(a)),
+                   rate: Number(debtRate(a)) || 0, minimum: minPayment(a) }))
+      .filter(d => d.balance > 0);
+
+    /* Model the debts that CAN be modelled, not all-or-nothing.
+
+       debtFreePlan needs a minimum payment for every debt it is given, and
+       requiring one for every debt the user HAS threw away good advice: a
+       car loan with no minimum on file — Plaid's Liabilities product does
+       not cover auto loans, so this is the common case, not an edge one —
+       silently suppressed a correct recommendation about a credit card
+       whose numbers were complete. The payoff quoted is for the debts in
+       the model, which is the one the extra payment actually attacks. */
+    const modelled = debts.filter(d => d.minimum > 0);
+    if (modelled.length) {
+      const strategy = i.strategy === 'snowball' ? 'snowball' : 'avalanche';
+      const base = debtFreePlan(modelled, Number(i.extraAlready) || 0, strategy, today);
+      const with_ = debtFreePlan(modelled, (Number(i.extraAlready) || 0) + frees, strategy, today);
+
+      /* The case worth catching above all others: the minimums do not cover
+         the interest, so on the current path the balance never clears — and
+         the freed money is what makes it payable at all. There is no
+         "months sooner" to quote here because the baseline is never; saying
+         so plainly is the whole point. */
+      if (!base.ok && base.reason === 'never_pays_off' && with_.ok && with_.months) {
+        return {
+          action: 'cancel', target: pick.name, reason: pick.reason,
+          freesMonthly: frees, freesYearly: round2(frees * 12), why,
+          consequence: {
+            kind: 'debt_unblocked', months: with_.months,
+            interest: round2(with_.totalInterest),
+            sentence: 'Right now your minimum payments barely cover the interest, so the '
+              + 'balance is not going down. Putting ' + money(frees)
+              + ' a month against it clears the debt in ' + with_.months + ' months.',
+          },
+        };
+      }
+
+      /* Otherwise both plans have to succeed before a comparison means
+         anything — "never" against "never" is not a saving. */
+      if (base.ok && with_.ok && base.months && with_.months) {
+        const months = base.months - with_.months;
+        const interest = round2(base.totalInterest - with_.totalInterest);
+        if (months > 0) {
+          return {
+            action: 'cancel', target: pick.name, reason: pick.reason,
+            freesMonthly: frees, freesYearly: round2(frees * 12), why,
+            consequence: {
+              kind: 'debt', monthsSaved: months, interestSaved: Math.max(0, interest),
+              debtName: with_.cleared && with_.cleared.length ? with_.cleared[0].name : modelled[0].name,
+              sentence: 'Put that toward your debt and you are clear '
+                + months + ' month' + (months === 1 ? '' : 's') + ' sooner'
+                + (interest > 1 ? ', for ' + money(interest) + ' less interest' : '') + '.',
+            },
+          };
+        }
+      }
+    }
+
+    /* ── 3. A goal, if the pace is known ──────────────────────── */
+    const goal = i.goal && Number(i.goal.target) > 0 ? i.goal : null;
+    if (goal) {
+      const left = Math.max(0, Number(goal.target) - (Number(goal.current) || 0));
+      if (left > 0) {
+        const months = Math.ceil(left / frees);
+        return {
+          action: 'cancel', target: pick.name, reason: pick.reason,
+          freesMonthly: frees, freesYearly: round2(frees * 12), why,
+          consequence: {
+            kind: 'goal', goalName: goal.name || 'your goal', months,
+            sentence: 'Redirected to ' + (goal.name || 'your goal') + ', that finishes it in '
+              + months + ' month' + (months === 1 ? '' : 's') + '.',
+          },
+        };
+      }
+    }
+
+    /* ── 4. Nothing to fix — say the plain number, not a fake stake. */
+    return {
+      action: 'cancel', target: pick.name, reason: pick.reason,
+      freesMonthly: frees, freesYearly: round2(frees * 12), why,
+      consequence: {
+        kind: 'savings',
+        sentence: 'That is ' + money(frees * 12) + ' a year back in your pocket.',
+      },
+    };
+  }
+
   function round2(n) { return Math.round(Number(n) * 100) / 100; }
 
   return {
@@ -1582,6 +1898,7 @@
     SUB_CYCLE_DAYS,
     billMonthly, billsMonthlyTotal, billsDueBefore, billCoverage, billDrift,
     BILL_CYCLE_DAYS,
+    coachAgenda, COACH_RANK, coachAdvice,
     MIN_CREDIBLE_APR,
     compareOffer,
   };
