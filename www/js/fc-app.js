@@ -11316,46 +11316,139 @@ window.FCApp = (function () {
              detail: money(safe) + ' safe to spend between now and then.' };
   }
 
-  /** Handle the ask bar. Renders one calm answer — never a transcript. */
-  /* ── Claude fallback ───────────────────────────────────────────
-     Sends DERIVED FIGURES only — never transactions, balances per account,
-     masks, or anything identifying. The server re-filters the payload to the
-     same allowlist, so this shape is a convenience, not the boundary. */
   let _coachAgendaCache = [];
 
-  function _coachAIFacts() {
-    const f = {};
+  /* ── The snapshot the model reasons over ───────────────────────
+     A model can only answer what it has been told. The first version sent
+     ten numbers, so "how much did I spend on food?" had nothing to answer
+     with — and a small model handed a question it cannot answer from its
+     context will state something else instead, which is how "Hello" became
+     "You have 11 days until payday".
+
+     This is everything the app knows, derived and summarised: no raw
+     transaction rows, no account numbers, no balances per account. Roughly
+     500 tokens full, 340 compact.
+
+     The on-device model runs locally, so a richer snapshot costs nothing in
+     privacy. The server tier re-filters this through its own allowlist in
+     backend/lib/coach-facts.js, because that one leaves the phone. */
+  function _coachContext(depth) {
+    const full = depth !== 'compact';
+    const now = new Date();
+    const M = v => FCData.formatSummary(v);
+    const c = {};
+
     try {
       const p = _buildSafeSpendProjection();
-      f.safeToday = FCData.formatSummary(Math.max(0, p.safe || 0));
-      f.daysUntilPayday = p.days ?? null;
-    } catch (_e) { /* Projection unavailable (no accounts yet) — the other facts still stand. */ }
+      c.safeToSpend = M(Math.max(0, p.safe || 0));
+      c.cashAvailable = M(p.cash || 0);
+      c.daysToPayday = p.days ?? null;
+    } catch (_e) { /* No projection — the rest of the snapshot still stands. */ }
+
+    try {
+      const pd = _predictNextPayday();
+      if (pd && pd.date) {
+        c.payday = pd.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        if (pd.amount) c.paydayExpected = M(pd.amount);
+      }
+    } catch (_e) { /* No payday prediction. */ }
+
+    try {
+      const nw = FCCore.netWorth(state.accounts || []);
+      c.netWorth = M(nw.net); c.assets = M(nw.assets); c.debtTotal = M(nw.liabilities);
+    } catch (_e) { /* No accounts loaded. */ }
+
+    /* Bills, named — "which bill is biggest?" needs the names. */
     try {
       const payday = (_predictNextPayday() || {}).date || null;
       const cov = FCCore.billCoverage({
         bills: state.bills || [], payday,
-        cash: FCCore.spendableCash(state.accounts || []), today: new Date(),
+        cash: FCCore.spendableCash(state.accounts || []), today: now,
       });
-      f.billsDue      = FCData.formatSummary(cov.total);
-      f.billsCovered  = cov.covered;
-      f.shortfall     = FCData.formatSummary(cov.shortfall);
-    } catch (_e) { /* Coverage needs bills and a payday; without them the rest is still useful. */ }
+      c.billsDueBeforePayday = M(cov.total);
+      c.billsCovered = cov.covered;
+      if (!cov.covered) c.shortBy = M(cov.shortfall);
+      c.monthlyBillCommitment = M(FCCore.billsMonthlyTotal(state.bills || []));
+      c.bills = (state.bills || []).slice(0, 12).map(b => ({
+        n: b.name, amt: M(b.amount), due: b.due_date,
+        auto: !!b.autopay, paid: b.status === 'paid',
+      }));
+    } catch (_e) { /* No bills tracked. */ }
+
     try {
-      const ss = FCCore.subSummary(_detectSubscriptions() || [], new Date());
-      f.subsMonthly = FCData.formatSummary(ss.monthly);
-      f.subsCount   = ss.count;
-      f.couldCut    = FCData.formatSummary(ss.cuts.totalYearly);
-    } catch (_e) { /* No subscriptions detected yet. */ }
+      const ss = FCCore.subSummary(_detectSubscriptions() || [], now);
+      c.subsMonthly = M(ss.monthly);
+      c.subsYearly = M(ss.yearly);
+      c.subs = ss.active.slice(0, 12).map(x => ({ n: x.name, amt: M(x.amount), per: x.freq }));
+      if (ss.lapsed.length) c.subsStopped = ss.lapsed.slice(0, 6).map(x => x.name);
+      if (ss.cuts.candidates.length) {
+        c.couldCutPerYear = M(ss.cuts.totalYearly);
+        c.cutCandidates = ss.cuts.candidates.slice(0, 5)
+          .map(x => ({ n: x.name, why: x.reason, yr: M(Math.round(x.yearly)) }));
+      }
+    } catch (_e) { /* No subscriptions detected. */ }
+
+    /* Spending by category — the single biggest gap in the first version.
+       Without it every "what am I spending on X" question was unanswerable. */
     try {
-      f.totalDebt = FCData.formatSummary(FCCore.netWorth(state.accounts || []).liabilities);
-    } catch (_e) { /* No debt accounts, or balances not loaded. */ }
+      const mStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const lStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const txns = state.transactions || [];
+      const inMonth = txns.filter(t => t.date && FCData.parseDateLocal(t.date) >= mStart);
+      const inLast  = txns.filter(t => {
+        if (!t.date) return false;
+        const d = FCData.parseDateLocal(t.date);
+        return d >= lStart && d < mStart;
+      });
+      const sum = l => l.filter(_isSpendTxn).reduce((a, t) => a + (t.amount || 0), 0);
+      c.spentThisMonth = M(sum(inMonth));
+      c.spentLastMonth = M(sum(inLast));
+      c.incomeThisMonth = M(inMonth.filter(_isIncomeTxn).reduce((a, t) => a + (t.amount || 0), 0));
+
+      const byCat = {};
+      for (const t of inMonth) {
+        if (!_isSpendTxn(t)) continue;
+        const k = FCData.normalizePlaidCategory((t.category && t.category[0]) || 'Other');
+        byCat[k] = (byCat[k] || 0) + (t.amount || 0);
+      }
+      c.spendByCategory = Object.entries(byCat).sort((a, b) => b[1] - a[1])
+        .slice(0, full ? 10 : 5).map(([k, v]) => ({ cat: k, amt: M(v) }));
+
+      if (full) {
+        const byMerch = {};
+        for (const t of inMonth) {
+          if (!_isSpendTxn(t)) continue;
+          const n = _cleanTxnName(t);
+          if (!n) continue;
+          byMerch[n] = (byMerch[n] || 0) + (t.amount || 0);
+        }
+        c.topMerchants = Object.entries(byMerch).sort((a, b) => b[1] - a[1])
+          .slice(0, 8).map(([n, v]) => ({ n, amt: M(v) }));
+      }
+    } catch (_e) { /* No transactions yet. */ }
+
+    if (full) {
+      try {
+        c.debts = (state.accounts || []).filter(_isDebtAcct).map(a => ({
+          n: a.name, bal: M(FCCore.accountBalance(a)),
+          apr: FCCore.debtRate(a) || null, min: FCCore.minPayment(a) || null,
+        })).slice(0, 8);
+      } catch (_e) { /* No debt accounts. */ }
+
+      try {
+        c.goals = (_goalsForDisplay() || []).slice(0, 5)
+          .map(g => ({ n: g.name, target: M(g.target), saved: M(g.current) }));
+      } catch (_e) { /* No goals set. */ }
+    }
+
     try {
-      f.agenda = (_coachAgendaCache || []).slice(0, 6)
-        .map(it => ({ title: it.title, because: it.because }));
-    } catch (_e) { /* Agenda not built yet — the sheet can open before the Coach tab has rendered. */ }
-    return f;
+      c.today = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+    } catch (_e) { /* Locale unavailable — the date is a nicety, not a fact. */ }
+
+    return c;
   }
 
+  /** Handle the ask bar. Renders one calm answer — never a transcript. */
   /* ── Where an unrecognised question goes ───────────────────────
      Three tiers, cheapest and most private first:
 
@@ -11389,28 +11482,38 @@ window.FCApp = (function () {
      instruction better than a long one — and because the one rule that
      actually matters is the first. */
   const _COACH_ON_DEVICE_RULES = [
-    'You are the FlowCheck money coach.',
-    'Use ONLY the numbers in FACTS. Never calculate or estimate a figure.',
-    'If FACTS does not contain what is needed, say what is missing.',
-    'You are not a financial adviser: no investments, crypto or tax advice.',
-    'Answer in two to four sentences. Lead with the answer. No lists, no markdown.',
+    "You are the FlowCheck money coach. You answer questions about the user's own money.",
+    'Every number you state must appear in DATA. Never calculate, add, estimate or infer a figure.',
+    'If DATA does not contain what the question needs, say plainly that you do not have it —',
+    'never substitute a different fact you do have.',
+    'You are not a financial adviser: no investments, crypto, or tax advice.',
+    'Answer in one to three sentences. Lead with the answer. No lists, no markdown, no preamble.',
   ].join(' ');
 
+  /* Two attempts, not one. The on-device context window is finite and the
+     full snapshot can overflow it on an account with a lot of bills and
+     subscriptions; `exceededContextWindowSize` is the one failure worth
+     retrying, with less data rather than giving up. Every other error —
+     a guardrail, a refusal — must NOT be retried. */
   async function _coachAskOnDevice(question) {
     if (!(await _onDeviceCoachReady())) return null;
-    try {
-      const r = await window.Capacitor.Plugins.OnDeviceCoach.ask({
-        system: _COACH_ON_DEVICE_RULES,
-        prompt: 'FACTS (the only numbers you may use):\n'
-              + JSON.stringify(_coachAIFacts(), null, 2)
-              + '\n\nQUESTION: ' + question,
-      });
-      return r && r.answer ? { answer: r.answer, source: 'on-device' } : null;
-    } catch (_e) {
-      /* Guardrails or a model still downloading. Fall through to the next
-         tier rather than showing the user Apple's error. */
-      return null;
+    const plugin = window.Capacitor.Plugins.OnDeviceCoach;
+    const build = depth => 'DATA (the only numbers you may use):\n'
+      + JSON.stringify(_coachContext(depth))
+      + '\n\nQUESTION: ' + question;
+
+    for (const depth of ['full', 'compact']) {
+      try {
+        const r = await plugin.ask({ system: _COACH_ON_DEVICE_RULES, prompt: build(depth) });
+        if (r && r.answer) return { answer: r.answer, source: 'on-device' };
+        return null;
+      } catch (e) {
+        const code = e && (e.code || e.errorMessage);
+        if (code === 'context_too_large' && depth === 'full') continue;
+        return null;
+      }
     }
+    return null;
   }
 
   async function _coachAskAI(question, outId) {
@@ -11451,7 +11554,11 @@ window.FCApp = (function () {
       const resp = await FCAuth.authedFetch(base + '/coach/ask', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify(Object.assign({ question }, _coachAIFacts())),
+        /* The same derived snapshot the on-device model gets — compact,
+           because this one crosses the network. The server re-filters it
+           through its own allowlist, so this is a convenience, not the
+           boundary. */
+        body:    JSON.stringify(Object.assign({ question }, _coachContext('compact'))),
       });
 
       if (resp.status === 503 || resp.status === 402) {
@@ -17842,6 +17949,10 @@ window.FCApp = (function () {
     openAgentSheet,
     closeAgentSheet,
     _syncCoachOrb,
+    /* Exposed so the exact payload handed to a model can be inspected —
+       for a privacy-sensitive feature, "what did it actually send" has to
+       be answerable without reading the source. */
+    _coachContext,
     closeCoachSheet,
     showAffordSheet,
     runAffordCheck,

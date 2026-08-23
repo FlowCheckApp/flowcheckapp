@@ -96,10 +96,24 @@ public class OnDeviceCoachNative: CAPPlugin, CAPBridgedPlugin {
                     } else {
                         call.resolve(["answer": text, "source": "on-device"])
                     }
+                } catch let err as LanguageModelSession.GenerationError {
+                    /* Distinguish the recoverable failures. Context overflow
+                       in particular is not a dead end: the JS side retries
+                       with a smaller snapshot rather than giving up, so it
+                       has to be able to tell that case from a guardrail
+                       refusal it must not retry. */
+                    let code: String
+                    switch err {
+                    case .exceededContextWindowSize: code = "context_too_large"
+                    case .guardrailViolation:        code = "guardrail"
+                    case .rateLimited:               code = "rate_limited"
+                    case .concurrentRequests:        code = "busy"
+                    case .assetsUnavailable:         code = "model_not_ready"
+                    case .refusal:                   code = "refused"
+                    default:                         code = "failed"
+                    }
+                    call.reject("On-device coach failed.", code, err)
                 } catch {
-                    /* Guardrails, context overflow and a model still
-                       downloading all land here. The message is Apple's and
-                       is not shown to the user — the JS side falls back. */
                     call.reject("On-device coach failed.", "failed", error)
                 }
             }

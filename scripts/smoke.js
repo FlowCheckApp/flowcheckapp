@@ -184,13 +184,28 @@ const DRIVE = `(async () => {
   const REDIRECTS = { debt: 'view-wealth', bills: 'view-activity' };
   for (const t of TABS) {
     FCApp.switchTab(t);
-    await w(420);
+    /* 900ms, not 420. Five of these tabs are _openSubScreen targets whose
+       content loads asynchronously — Vault reads Firestore before it can
+       draw anything. At 420ms they reported zero own-content, which looked
+       like five broken screens and was really the harness measuring too
+       early. */
+    await w(900);
     const active = document.querySelector('.fc-view.active');
     const id = active && active.id;
-    const text = active ? active.innerText.replace(/\\s+/g,' ').trim() : '';
+    /* The legal footer does not count as content.
+
+       It is 45 characters that every view gets automatically, and MIN_CHARS
+       was 40 — so a screen that rendered NOTHING but its own disclaimer
+       cleared the bar and reported as fine. Coach did exactly that while its
+       renderer was not running, and this loop passed it.
+
+       Measure what the screen itself produced. */
+    let text = active ? active.innerText.replace(/\\s+/g,' ').trim() : '';
+    const foot = active && active.querySelector('.fc-legal-footer');
+    if (foot) text = text.replace(foot.innerText.replace(/\\s+/g,' ').trim(), '').trim();
     rendered[t] = text.length;
     if (id !== 'view-' + t) problems.push('tab ' + t + ' did not activate (active=' + id + ')');
-    else if (text.length < ${MIN_CHARS}) problems.push('tab ' + t + ' rendered only ' + text.length + ' chars');
+    else if (text.length < ${MIN_CHARS}) problems.push('tab ' + t + ' rendered only ' + text.length + ' chars of its own content');
   }
 
   for (const [tab, expected] of Object.entries(REDIRECTS)) {
