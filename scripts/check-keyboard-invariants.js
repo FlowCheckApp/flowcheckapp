@@ -137,56 +137,55 @@ if (!setsClass || !stylesClass) {
     + 'the avoidance system silently did nothing.');
 }
 
-/* ── Nothing may resize itself instantly when the keyboard opens ──────
+/* ── The keyboard has ONE owner ───────────────────────────────────────
  *
- * body.keyboard-open changes layout on several elements at once: the auth
- * orb fades, the header art collapses, the subtitle's height goes, the
- * screen's top padding shrinks, and a sheet reserves 69px for the Done bar.
- * They all animate over ~0.25s — except the ones that did not, and a single
- * untransitioned property in that group is enough to make the whole reflow
- * read as a lurch, because half the screen eases and half of it jumps.
+ * Capacitor is configured resize:"native", so iOS resizes the WebView when
+ * the keyboard appears and the page reflows once, on the system's own
+ * animation. Anything else that moves the same pixels at the same time is a
+ * second owner, and two owners is what "glitchy" means here.
  *
- * Three were found this way and none was visible in a browser:
- *   · .fc-auth-title  font-size, snapping while the art above it eased
- *   · .fc-auth-screen padding-top, shifting everything below it in one frame
- *   · .fc-sheet       padding-bottom, a 69px jump on every tap into an
- *                     amount field — which is most fields anyone types into
+ * This rule replaces an earlier one that required the opposite. I had read
+ * the mismatched timings as the bug — some properties eased, some snapped —
+ * and added transitions so they would match. That made it worse: a matched
+ * pair of page animations still races the viewport animation underneath it.
+ * The mismatch was a symptom of there being animations at all.
  *
- * A transition declared on the BASE selector counts: that is the correct
- * place for it, since the transition belongs to the element and not to the
- * state. The global prefers-reduced-motion rule neuters all of them, so
- * adding one costs nothing for users who have asked for stillness.
+ * So: no transition on a layout property that changes under
+ * body.keyboard-open, and no overshoot in a sheet's entry curve, since a
+ * spring settling back while the WebView resizes is exactly the "goes up
+ * then drops" people report.
  */
 {
-  const ANIMATABLE = /(font-size|max-height|min-height|height|padding[a-z-]*|margin[a-z-]*|opacity|transform)\s*:/;
+  const LAYOUT = /(font-size|max-height|min-height|height|padding|margin|top|bottom|transform)/;
   const ruleRe = /body\.keyboard-open([^{]*?)\{([^}]*)\}/g;
   let m;
   while ((m = ruleRe.exec(html)) !== null) {
-    const sel  = m[1].trim();
-    const body = m[2];
-    if (!ANIMATABLE.test(body)) continue;
-    if (/transition/.test(body)) continue;
-    if (!sel) continue;                       // bare body rule: nothing to ease
-
-    /* Is the element transitioned anywhere?
-
-       The transition belongs on the ELEMENT, not on the state — so look for
-       it on the last class in the selector, in any rule, rather than
-       requiring it inside the keyboard-open block itself. For
-       ".fc-kb-numeric .fc-sheet" that means .fc-sheet, which is where a
-       sheet's transition correctly lives. */
-    const classes = sel.match(/\.[-\w]+/g);
-    if (classes && classes.length) {
-      const last = classes[classes.length - 1];
-      const esc  = last.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const anyRule = new RegExp(esc + '(?![-\\w])[^{}]*\\{[^}]*transition[^}]*\\}');
-      if (anyRule.test(html)) continue;
-    }
-
+    const sel = m[1].trim(), body = m[2];
+    const tm = body.match(/transition\s*:\s*([^;]+)/);
+    if (!tm || /^\s*none\b/.test(tm[1])) continue;
+    if (!LAYOUT.test(tm[1])) continue;
     const line = html.slice(0, m.index).split('\n').length;
-    failures.push(`www/index.html:${line} — body.keyboard-open ${sel} changes layout `
-      + `with no transition. Half the screen eases and this half jumps, which is `
-      + `what reads as the keyboard "glitching". Put a transition on ${sel}.`);
+    failures.push(`www/index.html:${line} — body.keyboard-open ${sel} transitions `
+      + `a layout property (${tm[1].trim().slice(0, 48)}). iOS is already animating the `
+      + `viewport; this animates on top of it. The page must not move while the `
+      + `WebView resizes.`);
+  }
+
+  /* An overshoot is any cubic-bezier whose y control point exceeds 1 — but
+     only on something that can be on screen WITH the keyboard. A tour card
+     and a paywall celebration both spring, and both should: neither hosts a
+     text field. Scoped to sheets, which do. */
+  const sheetRuleRe = /(\.fc-sheet|\.fc-sheet-overlay)[^{]*\{([^}]*)\}/g;
+  let sr;
+  while ((sr = sheetRuleRe.exec(html)) !== null) {
+    const bez = sr[2].match(/animation:[^;]*cubic-bezier\(\s*[\d.-]+\s*,\s*([\d.-]+)\s*,\s*[\d.-]+\s*,\s*([\d.-]+)\s*\)/);
+    if (!bez) continue;
+    if (parseFloat(bez[1]) <= 1 && parseFloat(bez[2]) <= 1) continue;
+    const line = html.slice(0, sr.index).split('\n').length;
+    failures.push(`www/index.html:${line} — a sheet's entry animation uses an `
+      + `overshoot curve (control point > 1). A sheet that springs past its resting `
+      + `position and settles back reads as "it went up then dropped" when the `
+      + `keyboard opens with it.`);
   }
 }
 

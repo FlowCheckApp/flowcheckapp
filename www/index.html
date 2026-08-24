@@ -677,7 +677,11 @@ body.keyboard-open .fc-auth-art {
   opacity: 0;
   overflow: hidden;
   margin-bottom: 0 !important;
-  transition: max-height 0.25s ease, opacity 0.18s ease, margin-bottom 0.25s ease;
+  /* No transition. Collapsing the header art is right — it frees the space
+     the form needs — but ANIMATING the collapse makes it a second thing
+     moving while iOS resizes the WebView. Done instantly, it happens inside
+     the single reflow the resize already causes, and the screen settles
+     once. */
 }
 /* Transitioned, like everything else that moves on this reflow. Without it
    the title snapped to its smaller size in one frame while the art above was
@@ -685,7 +689,6 @@ body.keyboard-open .fc-auth-art {
    two timings on one reflow is what reads as the screen lurching, and this
    was the rule breaking it. */
 body.keyboard-open .fc-auth-title  { font-size: 22px; margin-bottom: 4px; }
-.fc-auth-title { transition: font-size 0.25s ease, margin-bottom 0.25s ease; }
 /* Hidden with visibility, not display, so the line keeps its box and the
    fields below do not jump upward as it goes. display:none removed the
    element from layout instantly while the art above it was still animating
@@ -696,13 +699,12 @@ body.keyboard-open .fc-auth-subtitle {
   max-height: 0;
   margin: 0 !important;
   overflow: hidden;
-  transition: max-height 0.25s ease;
+  /* Instant, for the same reason as .fc-auth-art above. */
 }
 body.keyboard-open .fc-auth-screen { padding-top: calc(env(safe-area-inset-top, 44px) + 8px); }
 /* The last untransitioned property in this group. The orb, the art and the
    subtitle all ease over 0.25s; the screen's own top padding jumped in one
    frame, which shifts everything below it against the others' animation. */
-.fc-auth-screen { transition: padding-top 0.25s ease; }
 
 /* Back control on auth screens. Positioned rather than in flow so it does
    not shift the centred logo, and 44pt because it is a real target. */
@@ -1562,7 +1564,13 @@ body {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   transform: translateY(0);
-  animation: fcSheetUp 0.36s cubic-bezier(0.34,1.56,0.64,1) backwards;
+  /* No overshoot. cubic-bezier(0.34, 1.56, 0.64, 1) has a control point
+     above 1, which means the sheet travels PAST its resting position and
+     settles back — a spring. On its own that reads as a nice bounce. With
+     the keyboard opening at the same time it reads as "it went up and then
+     dropped", because the settle-back lands while the WebView is still
+     resizing. A decelerating curve with no overshoot arrives once. */
+  animation: fcSheetUp 0.32s cubic-bezier(0.32, 0.72, 0, 1) backwards;
   /* Smooth resize when keyboard appears — composited on GPU, no repaint */
   will-change: transform;
   -webkit-user-select: none; user-select: none;
@@ -1635,13 +1643,15 @@ body.fc-kb-numeric #fc-kb-done { display: flex; }
    Only the CSS still double-corrected. Keeping the transition so the sheet
    settles smoothly if a transform is ever applied for another reason. */
 body.keyboard-open .fc-sheet {
-  /* padding-bottom is in here because .fc-kb-numeric adds 69px of Done-bar
-     reserve the moment an amount field takes focus. Untransitioned that is a
-     69px jump inside the sheet on every tap into a money field — add a bill,
-     check a purchase, set a goal — which is most of the fields in the app
-     that people actually type into. */
-  transition: transform 0.25s cubic-bezier(0.32, 0.72, 0, 1),
-              padding-bottom 0.2s ease;
+  /* NOTHING is transitioned here any more.
+
+     Animating layout while iOS is animating the viewport is two owners
+     moving the same pixels. I added transitions on font-size, padding-top
+     and padding-bottom earlier today believing the mismatch was the bug;
+     the mismatch was a symptom, and easing them made a second animation
+     race the system one. The keyboard has one owner: Capacitor resizes the
+     WebView, and this page does not animate anything while it does. */
+  transition: none;
   /* With resize:"native" the viewport is ALREADY only the area above the
      keyboard, so the 90% cap above throws away a tenth of the only space the
      form has left — the reason fields ended up just under the fold with the
@@ -1663,6 +1673,19 @@ body.keyboard-open .fc-sheet {
 body.keyboard-open.fc-kb-numeric .fc-sheet {
   padding-bottom: 69px;
 }
+/* Scroll room, reserved rather than injected.
+
+   A field near the end of a form has nothing below it to scroll against, so
+   the old code measured the shortfall and added padding on every focus —
+   layout changing while the viewport was already changing. Reserving it in
+   CSS costs one value, applies in the same reflow as the resize, and needs
+   no measurement at all. It is only present while the keyboard is up. */
+body.keyboard-open .fc-sheet,
+body.keyboard-open .fc-auth-screen,
+body.keyboard-open .fc-view { scroll-padding-bottom: 64px; }
+
+body.keyboard-open .fc-sheet > :last-child,
+body.keyboard-open .fc-auth-body > :last-child { margin-bottom: 64px; }
 body:not(.keyboard-open) .fc-sheet {
   transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -8068,8 +8091,6 @@ window._btnLoad = _btnLoad;
   // and the sheet's padding was never removed — it survived until the next
   // full re-render, leaving a dead gap under the form.
   let _kbAnimating = false;         // true between keyboardWillShow and DidShow
-  const _paddedContainers = new Set();
-  const _basePad = new WeakMap();   // container -> its padding before we touched it
 
   // Fields that open a picker rather than a keyboard. iOS presents these
   // through the same input-view mechanism, so keyboardWillShow DOES fire and
@@ -8142,31 +8163,58 @@ window._btnLoad = _btnLoad;
     // With resize:"native" the WebView has already shrunk to fit above the
     // keyboard, so vv.height IS the usable area — no kbH calculation needed.
     const vvH  = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-    // Breathing room under the focused field. Sheets and auth screens keep a
-    // CTA below the field, so they need more of it than a plain scroll view.
-    const margin = (_isAuth() || _isInSheet(active)) ? 88 : 20;
 
-    const rect  = active.getBoundingClientRect();
-    const delta = rect.bottom - (vvH - margin);
+    /* Scroll to the SUBMIT BUTTON, not to the field, when the form has one
+       below the field.
+
+       The margin used to be a guess: 88px of "breathing room" for auth
+       screens and sheets, on the theory that a CTA sits under the field.
+       On the sign-in screen the Sign In button sits about 175px below the
+       password field, so the guess left it cut exactly in half by the
+       keyboard — the field was judged comfortably visible, because it was,
+       and the only control that does anything was not.
+
+       Measuring the button removes the guess. Falls back to the field plus
+       a small margin when there is no button below it, which is the plain
+       scroll-view case. */
+    const cta = (() => {
+      if (!container) return null;
+      const buttons = container.querySelectorAll(
+        'button[type="submit"], .fc-btn--primary, .fc-btn--block');
+      for (const b of buttons) {
+        if (b.offsetParent === null) continue;              // hidden
+        /* Only a button BELOW the field — a "Continue with Apple" above it
+           is not what needs to stay visible. */
+        if (active.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) return b;
+      }
+      return null;
+    })();
+
+    const margin = cta ? 12 : ((_isAuth() || _isInSheet(active)) ? 88 : 20);
+    const rect  = (cta || active).getBoundingClientRect();
+    let   delta = rect.bottom - (vvH - margin);
+
+    /* Never scroll so far chasing the button that the field being typed into
+       leaves the top of the view. The bill sheet has twelve fields and one
+       Save at the bottom: aiming at Save from the first field would scroll
+       the whole form past it. When both cannot fit, the field wins — it is
+       the one with the caret in it. */
+    if (cta) {
+      const fieldTop = active.getBoundingClientRect().top;
+      delta = Math.min(delta, Math.max(0, fieldTop - 12));
+    }
     if (delta <= 0) return;                       // already comfortably visible
 
-    /* Pad only by what is actually missing. This used to inject a flat 100px
-       into every sheet on every focus — visible as a jump, unrelated to where
-       the field actually was, and still not enough for the last field in a
-       long form (there was nothing below it to scroll against). Measure the
-       scroll room that remains and top up only the shortfall. */
-    const room = container.scrollHeight - container.scrollTop - container.clientHeight;
-    if (room < delta) {
-      // Always measure from the container's ORIGINAL padding, remembered the
-      // first time we touch it. Reading back the computed value would include
-      // the padding we just injected, so switching between fields would
-      // compound it and the form would grow a larger gap on every tap.
-      if (!_basePad.has(container)) {
-        _basePad.set(container, parseFloat(getComputedStyle(container).paddingBottom) || 0);
-      }
-      container.style.paddingBottom = _basePad.get(container) + Math.ceil(delta - room) + 'px';
-      _paddedContainers.add(container);
-    }
+    /* Scroll. That is the ONLY thing this function does to the page.
+
+       It used to also inject paddingBottom, measured per focus, to create
+       scroll room for a field near the end of a form. That made it a second
+       thing changing layout while iOS was already resizing the WebView —
+       and the scroll room it was creating is now reserved statically in CSS
+       under .keyboard-open, which lands in the same reflow the resize
+       causes rather than in one of its own.
+
+       Capacitor resizes the WebView. This scrolls. Nothing else moves. */
     container.scrollTop += delta;
   }
 
@@ -8182,8 +8230,9 @@ window._btnLoad = _btnLoad;
     clearTimeout(_kbTimer);
     _kbTimer = setTimeout(() => {
       // Clear padding on EVERY container we injected into, not just the last.
-      _paddedContainers.forEach(c => { c.style.paddingBottom = ''; _basePad.delete(c); });
-      _paddedContainers.clear();
+      /* Nothing to unwind any more: the scroll room is reserved in CSS and
+         goes with the .keyboard-open class. This used to walk a Set of
+         containers clearing injected padding. */
       const el = _screenEl();
       if (el && _isAuth()) el.scrollTop = 0;
     }, 100);
