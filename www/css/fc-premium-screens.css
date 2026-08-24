@@ -2045,7 +2045,7 @@ body.fc-theme {
 
 .fc-nav-item {
   min-height: var(--fc-touch) !important;
-  font-size: 8px !important;
+  font-size: 10px !important;
 }
 
 .fc-nav-item svg {
@@ -2053,10 +2053,10 @@ body.fc-theme {
   height: 23px !important;
 }
 
-/* Reference-locked Home fidelity pass. Keep this final so legacy compact
-   overrides cannot collapse the approved composition. */
+/* Home's child layout owns the final dock clearance. Padding the scroll view
+   too doubled that space and left a large empty tail above the tab bar. */
 #view-home {
-  padding-bottom: calc(env(safe-area-inset-bottom) + 112px) !important;
+  padding-bottom: 0 !important;
 }
 
 #view-home .dash-hero {

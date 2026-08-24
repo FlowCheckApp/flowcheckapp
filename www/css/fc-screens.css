@@ -482,25 +482,25 @@ body.fc-theme .fc-header-avatar {
 #view-home {
   overflow-x: hidden;
   overflow-y: auto;
-  padding-bottom: calc(env(safe-area-inset-bottom) + 140px);
+  padding-bottom: 0;
   background: var(--fc-bg);
   overscroll-behavior: contain;
   scrollbar-width: none;
 }
 
 #view-home::-webkit-scrollbar { display: none; }
-#home-dash { min-width: 0; overflow-x: hidden; }
+#home-dash { min-width: 0; overflow-x: hidden; padding-bottom: 0; }
 
 .home-v8 {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 14px;
+  gap: 12px;
   /* Padding lives here, with the layout. A second .home-v8 rule in
      flowcheck-design-system.css declared display:flex, gap:12px AND this
      padding — but that file loads FIRST and the specificity is identical, so
      only the padding survived: the layout came from here and the spacing
      from there. One element, two files, and the half that lost was silent. */
-  padding: 6px 16px calc(env(safe-area-inset-bottom) + 112px);
+  padding: 8px 16px calc(env(safe-area-inset-bottom) + 98px);
   /* Scoped to --enter, which _renderHomeDashboard() adds only on first mount.
      This used to sit on .home-v8 itself, and that element is rebuilt on every
      render — so each Firestore snapshot that landed during launch replayed the
@@ -520,13 +520,13 @@ body.fc-theme .fc-header-avatar {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 2px 1px 1px;
+  padding: 4px 2px 3px;
 }
 
 .home-v8__greeting h1 {
   margin: 0;
   color: var(--fc-text);
-  font-size: 23px;
+  font-size: clamp(24px, 6.5vw, 27px);
   font-weight: 600;
   letter-spacing: -0.03em;
   line-height: 1.08;
@@ -535,7 +535,7 @@ body.fc-theme .fc-header-avatar {
 .home-v8__date {
   margin: 4px 0 0;
   color: var(--fc-text-muted);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.35;
 }
 
@@ -2698,29 +2698,52 @@ body.fc-theme .fc-header-avatar {
   color: var(--fc-text-faint);
 }
 
-.rw-chart { position: relative; isolation: isolate; }
-.rw-chart::before {
-  content: '';
-  position: absolute;
-  inset: -6px -8px 16px;
-  z-index: -1;
+.rw-chart {
+  --rw-plot-height: 128px;
+  position: relative;
+  isolation: isolate;
+  padding: 8px;
   border: 1px solid var(--fc-border);
-  border-radius: 14px;
+  border-radius: 16px;
   background:
-    linear-gradient(180deg, var(--fc-bg-elevated-2), transparent 78%),
-    radial-gradient(ellipse 58% 95% at 92% 20%, var(--fc-electric-soft), transparent 76%);
-  opacity: 0.72;
-  pointer-events: none;
+    radial-gradient(ellipse 68% 120% at 100% 0%, var(--fc-electric-soft), transparent 72%),
+    linear-gradient(180deg, var(--fc-bg-elevated-2), var(--fc-bg-elevated));
+  box-shadow: inset 0 1px 0 var(--fc-border);
 }
-.rw-chart svg { display: block; width: 100%; height: 104px; overflow: visible; }
+.rw-plot {
+  position: relative;
+  height: var(--rw-plot-height);
+}
+.rw-chart svg {
+  display: block;
+  width: 100%;
+  height: var(--rw-plot-height);
+  overflow: visible;
+}
 .rw-grid {
   stroke: var(--fc-border);
   stroke-width: 1;
-  stroke-dasharray: 2 6;
+  stroke-dasharray: 2 7;
+  opacity: 0.7;
+}
+.rw-safe-area,
+.rw-risk-area { pointer-events: none; }
+.rw-risk-band {
+  fill: var(--fc-danger-soft);
+  opacity: 0.48;
+}
+.rw-zero-rule {
+  stroke: var(--fc-danger);
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
   opacity: 0.62;
 }
 .rw-line-glow {
-  opacity: 0.13;
+  opacity: 0.16;
+  stroke-dasharray: 1000;
+  stroke-dashoffset: 0;
+}
+.rw-risk-line {
   stroke-dasharray: 1000;
   stroke-dashoffset: 0;
 }
@@ -2734,59 +2757,81 @@ body.fc-theme .fc-header-avatar {
    the chart; these explain it. If a label ever competes with the stroke for
    attention, that is the bug. */
 
-/* Today's balance — anchored to the line's left end. */
+/* Today's balance establishes the chart scale without pretending it is the
+   safe-to-spend number in the card headline. */
 .rw-today {
   position: absolute;
-  left: 0;
-  transform: translateY(-100%);
-  padding-bottom: 8px;
-  display: flex;
-  align-items: baseline;
-  gap: 4px;
-  white-space: nowrap;
-  pointer-events: none;
-}
-.rw-today-amt {
+  top: 3px;
+  left: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   padding: 2px 6px;
   border: 1px solid var(--fc-border-accent);
   border-radius: var(--fc-r-pill);
   background: var(--fc-bg-elevated);
-  font-size: 12px;
-  font-weight: 600;
+  box-shadow: 0 3px 12px var(--fc-electric-soft);
+  white-space: nowrap;
+  pointer-events: none;
+}
+.rw-today-amt {
+  font-size: 11px;
+  font-weight: 700;
   color: var(--fc-text);
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.2px;
 }
 .rw-today-cap {
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--fc-text-faint);
+  font-size: 8px;
+  font-weight: 700;
+  color: var(--fc-accent);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
 }
 
-/* Bill amounts — what caused each drop. */
+/* Named bill chips turn an unexplained drop into an actionable event. */
 .rw-evt {
   position: absolute;
-  /* Left-anchored, not centre-anchored — the renderer places these beside
-     the drop rather than over it, so the x it computes is the label's edge. */
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 116px;
+  padding: 2px 6px;
+  border: 1px solid var(--fc-border);
+  border-radius: 10px;
+  background: var(--fc-bg-elevated);
+  box-shadow: 0 3px 10px var(--fc-electric-soft);
   transform: translateY(-100%);
-  padding-bottom: 8px;
-  font-size: 10px;
+  margin-top: -6px;
+  font-size: 9px;
   font-weight: 600;
   color: var(--fc-text-muted);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   pointer-events: none;
 }
-/* Second row, for bills too close together to sit side by side. */
-.rw-evt--stack { padding-bottom: 24px; }
+.rw-evt__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rw-evt__amount {
+  flex: 0 0 auto;
+  color: var(--fc-text);
+}
+.rw-evt--below {
+  transform: none;
+  margin-top: 6px;
+}
+.rw-evt--above.rw-evt--stack { margin-top: -28px; }
+.rw-evt--below.rw-evt--stack { margin-top: 28px; }
 
 /* While scrubbing, the readout IS the answer — the static labels underneath
    it are the same information twice, and the pointer is usually sitting on
    top of them. Fade them rather than removing them so nothing reflows. */
 .rw-chart.rw-scrubbing .rw-evt,
-.rw-chart.rw-scrubbing .rw-today { opacity: 0.25; }
+.rw-chart.rw-scrubbing .rw-today,
+.rw-chart.rw-scrubbing .rw-cross-flag { opacity: 0.12; }
 .rw-evt, .rw-today { transition: opacity 0.18s ease; }
 
 /* align-items, gap, letter-spacing and text-transform were declared only in
@@ -2799,12 +2844,18 @@ body.fc-theme .fc-header-avatar {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  margin-top: 2px;
-  font-size: 10px;
+  margin: 6px 2px 0;
+  font-size: 9px;
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--fc-text-faint);
+}
+.rw-axis-hint {
+  color: var(--fc-text-muted);
+  font-size: 9px;
+  letter-spacing: 0.02em;
+  text-transform: none;
 }
 
 /* The window label sits between two dates, so it has to NOT look like a
@@ -2825,11 +2876,13 @@ body.fc-theme .fc-header-avatar {
    in from nothing and the endpoint dot pop again: a ~1.4s chart flicker on
    every resume. The resting state below is the finished state, so a
    re-rendered chart simply appears, already drawn. */
-.rw-line   { stroke-dasharray: 1000; stroke-dashoffset: 0; }
+.rw-line,
+.rw-risk-line { stroke-dasharray: 1000; stroke-dashoffset: 0; }
 .rw-marker { opacity: 1; }
 .rw-dot    { opacity: 1; }
 
 .home-v8--enter .rw-line,
+.home-v8--enter .rw-risk-line,
 .home-v8--enter .rw-line-glow {
   stroke-dashoffset: 1000;
   animation: rwDraw 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.1s forwards;
@@ -2851,14 +2904,11 @@ body.fc-theme .fc-header-avatar {
   to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 }
 
-/* ── Chart overlay ────────────────────────────────────────────────
-   Sized to the SVG's 104px, NOT to .rw-chart (which is taller — it also
-   holds .rw-axis). Percent coordinates written by _rwChartSVG map onto the
-   viewBox only while this box and the svg agree. Everything circular or
-   text-bearing lives here rather than inside the SVG, because the SVG is
-   stretched horizontally by preserveAspectRatio="none" and would squash it. */
+/* SVG paths stretch to the card; circular and text-bearing marks live in a
+   same-sized HTML layer so they retain their proportions. */
 .rw-overlay {
-  position: absolute; top: 0; left: 0; right: 0; height: 104px;
+  position: absolute;
+  inset: 0;
   pointer-events: none;
 }
 .rw-dot {
@@ -2868,11 +2918,20 @@ body.fc-theme .fc-header-avatar {
   border: 2px solid var(--rw-dot-stroke, var(--fc-accent));
   transform: translate(-50%, -50%);
 }
+.rw-dot--start {
+  width: 8px;
+  height: 8px;
+  background: var(--rw-dot-stroke, var(--fc-accent));
+  border-color: var(--fc-bg-elevated);
+}
 .rw-dot--end {
-  width: 10px; height: 10px;
+  width: 11px; height: 11px;
   background: var(--rw-dot-stroke, var(--fc-accent));
   border: 2px solid var(--fc-bg-elevated);
-  box-shadow: 0 0 0 4px var(--fc-accent-soft), 0 0 16px var(--fc-accent-soft);
+  box-shadow: 0 0 0 4px var(--fc-accent-soft), 0 0 18px var(--fc-accent-soft);
+}
+.rw-dot--risk.rw-dot--end {
+  box-shadow: 0 0 0 4px var(--fc-danger-soft), 0 0 18px var(--fc-danger-soft);
 }
 /* An unlabelled dashed red rule is decoration. This is the one number the
    line is measured against, so it says so. */
@@ -2885,24 +2944,38 @@ body.fc-theme .fc-header-avatar {
   position: absolute; left: 0;
   transform: translateY(-100%);
   padding: 0 0 2px 2px;
-  font-size: 10px; font-weight: 600; letter-spacing: 0.04em;
-  color: var(--fc-danger); opacity: 0.75;
+  font-size: 9px; font-weight: 700; letter-spacing: 0.04em;
+  color: var(--fc-danger); opacity: 0.82;
+}
+.rw-zone-label {
+  position: absolute;
+  right: 4px;
+  transform: translateY(5px);
+  color: var(--fc-danger);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.58;
 }
 /* The date in the headline, marked where it actually happens. */
 .rw-cross { position: absolute; top: 0; bottom: 0; width: 0; }
 .rw-cross::before {
-  content: ''; position: absolute; top: 6px; bottom: 20px; left: 0;
-  border-left: 1px dashed var(--fc-danger); opacity: 0.5;
+  content: ''; position: absolute; top: 24px; bottom: 4px; left: 0;
+  border-left: 1px dashed var(--fc-danger); opacity: 0.58;
 }
 .rw-cross-flag {
-  position: absolute; top: 0; left: 0;
+  position: absolute; top: 3px; left: 0;
   transform: translateX(-50%);
-  padding: 1px 4px; border-radius: var(--fc-r-pill);
+  padding: 2px 6px; border-radius: var(--fc-r-pill);
   background: var(--fc-danger-soft);
   border: 1px solid var(--fc-danger-border);
   color: var(--fc-danger);
-  font-size: 10px; font-weight: 600; white-space: nowrap;
+  font-size: 8px; font-weight: 700; letter-spacing: 0.02em; white-space: nowrap;
+  transition: opacity 0.18s ease;
 }
+.rw-cross--right .rw-cross-flag { transform: translateX(-100%); }
+.rw-cross--left .rw-cross-flag { transform: none; }
 
 .rw-cta {
   display: block; width: 100%; margin-top: 14px;
@@ -2923,8 +2996,9 @@ body.fc-theme .fc-header-avatar {
 .rw-trust svg { flex-shrink: 0; opacity: 0.85; }
 
 @media (prefers-reduced-motion: reduce) {
-  .rw-line, .rw-line-glow,
-  .home-v8--enter .rw-line, .home-v8--enter .rw-line-glow { animation: none; stroke-dashoffset: 0; }
+  .rw-line, .rw-risk-line, .rw-line-glow,
+  .home-v8--enter .rw-line, .home-v8--enter .rw-risk-line,
+  .home-v8--enter .rw-line-glow { animation: none; stroke-dashoffset: 0; }
   .rw-marker, .rw-dot, .rw-zero-lbl, .rw-cross,
   .home-v8--enter .rw-marker, .home-v8--enter .rw-dot,
   .home-v8--enter .rw-zero-lbl, .home-v8--enter .rw-cross {
@@ -2936,11 +3010,19 @@ body.fc-theme .fc-header-avatar {
 }
 
 /* ── Runway scrub (DASHBOARD_SPEC.md §4, wow #2) ──────────────── */
-.rw-chart { touch-action: pan-y; cursor: crosshair; }
+.rw-plot--interactive {
+  touch-action: pan-y;
+  cursor: crosshair;
+  border-radius: 10px;
+}
+.rw-plot--interactive:focus-visible {
+  outline: 2px solid var(--fc-accent);
+  outline-offset: 2px;
+}
 
 .rw-scrub {
   position: absolute;
-  top: 0; bottom: 20px; left: 0;
+  top: 0; bottom: 0; left: 0;
   width: 0;
   opacity: 0;
   transition: opacity 0.16s ease;
@@ -2961,26 +3043,27 @@ body.fc-theme .fc-header-avatar {
   border-radius: 50%;
   background: var(--fc-accent);
   border: 2.5px solid var(--fc-bg-elevated);
-  box-shadow: 0 2px 8px rgba(13, 27, 46, 0.28);
+  box-shadow: 0 2px 8px var(--fc-electric-soft);
 }
 
 .rw-readout {
   position: absolute;
-  top: -6px;
+  top: 3px;
   transform: translateX(-50%);
-  padding: 5px 10px;
+  padding: 4px 8px;
   border-radius: 10px;
   background: var(--fc-text);
   color: var(--fc-bg-elevated);
-  font-size: 11.5px;
+  font-size: 10px;
   font-weight: 600;
   white-space: nowrap;
   opacity: 0;
   transition: opacity 0.16s ease;
   pointer-events: none;
-  z-index: 3;
+  z-index: 4;
 }
 .rw-readout b { font-weight: 600; }
+.rw-readout .fc-amount { color: inherit; }
 .rw-scrubbing .rw-readout { opacity: 1; }
 
 @media (prefers-reduced-motion: reduce) {
@@ -3745,6 +3828,7 @@ body.fc-theme .fc-header-avatar {
    heading and it belongs on screens that have a heading band. This is a
    nav-bar title, a different component, and sizing it as one is the point. */
 .act-navbar {
+  --act-safe-top: env(safe-area-inset-top, 0px);
   position: sticky;
   top: 0;
   z-index: 20;
@@ -3752,7 +3836,7 @@ body.fc-theme .fc-header-avatar {
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
   gap: 8px;
-  padding: 6px 12px;
+  padding: calc(var(--act-safe-top) + 6px) 12px 6px;
   background: var(--fc-bg);
   border-bottom: 1px solid var(--fc-border);
 }

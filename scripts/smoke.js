@@ -175,6 +175,92 @@ const DRIVE = `(async () => {
   FCApp.startDemoMode();
   await w(2800);
 
+  /* Home chrome is part of the product, not decoration. The old layout
+     floated the nav above a separately-painted safe-area strip, then added
+     bottom clearance to both #view-home and .home-v8. On iPhone that became
+     a black band under the nav and a large empty tail above it. Exercise the
+     geometry at the smoke harness's 390x844 mobile viewport. */
+  {
+    const nav = document.querySelector('.fc-nav');
+    const home = document.getElementById('view-home');
+    const layout = home && home.querySelector('.home-v8');
+    const disclaimer = layout && layout.querySelector('.home-v8__disclaimer');
+    const orb = document.getElementById('fc-coach-orb');
+    if (!nav || !home || !layout || !disclaimer) {
+      problems.push('home chrome: nav or dashboard layout is missing');
+    } else {
+      const navRect = nav.getBoundingClientRect();
+      const viewPad = parseFloat(getComputedStyle(home).paddingBottom) || 0;
+      const layoutPad = parseFloat(getComputedStyle(layout).paddingBottom) || 0;
+      if (Math.abs(navRect.bottom - innerHeight) > 1) {
+        problems.push('home chrome: nav is not docked to the viewport bottom');
+      }
+      if (viewPad > 1) {
+        problems.push('home chrome: #view-home still adds duplicate bottom padding (' + viewPad + 'px)');
+      }
+      if (layoutPad < navRect.height + 16 || layoutPad > navRect.height + 32) {
+        problems.push('home chrome: dashboard clearance is not nav height + 16–32px (' + layoutPad + 'px vs ' + navRect.height + 'px)');
+      }
+      home.scrollTop = home.scrollHeight;
+      const footerGap = navRect.top - disclaimer.getBoundingClientRect().bottom;
+      if (footerGap < 16 || footerGap > 32) {
+        problems.push('home chrome: final content leaves a ' + footerGap.toFixed(1) + 'px gap above the nav');
+      }
+      home.scrollTop = 0;
+      if (orb && !orb.hidden) {
+        problems.push('home chrome: Coach orb obscures the dashboard despite existing Home entry points');
+      }
+
+      const runway = layout.querySelector('.st-runway .rw-chart');
+      const plot = runway && runway.querySelector('.rw-plot[data-rw-interactive="true"]');
+      const scrub = plot && plot.querySelector('#rw-scrub');
+      const readout = plot && plot.querySelector('#rw-readout');
+      if (!runway || !plot || !scrub || !readout) {
+        problems.push('runway chart: interactive plot controls are missing');
+      } else {
+        const plotHeight = plot.getBoundingClientRect().height;
+        if (plotHeight < 120) {
+          problems.push('runway chart: plot collapsed below 120px (' + plotHeight.toFixed(1) + 'px)');
+        }
+        if (!plot.querySelector('.rw-safe-area')) {
+          problems.push('runway chart: projected balance area is missing');
+        }
+        if (plot.querySelectorAll('.rw-dot').length < 2) {
+          problems.push('runway chart: start/end markers are missing');
+        }
+        if (plot.querySelector('.rw-marker') && !plot.querySelector('.rw-evt__name')) {
+          problems.push('runway chart: bill markers do not have named event labels');
+        }
+        const chartLabel = plot.getAttribute('aria-label') || '';
+        if (!/cash runway/i.test(chartLabel) || !/arrow keys/i.test(chartLabel)) {
+          problems.push('runway chart: accessible summary or keyboard hint is missing');
+        }
+
+        plot.focus({ preventScroll: true });
+        plot.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+        await w(40);
+        if (!runway.classList.contains('rw-scrubbing') || !readout.textContent.trim() || readout.dataset.day !== '1') {
+          problems.push('runway chart: arrow-key inspection did not update the readout');
+        }
+        plot.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+
+        const plotRect = plot.getBoundingClientRect();
+        plot.dispatchEvent(new PointerEvent('pointerdown', {
+          bubbles: true,
+          buttons: 1,
+          clientX: plotRect.left + plotRect.width * 0.65,
+          pointerId: 42,
+          pointerType: 'touch',
+        }));
+        await w(40);
+        if (!runway.classList.contains('rw-scrubbing') || Number(readout.dataset.day || 0) <= 1) {
+          problems.push('runway chart: pointer inspection did not follow the requested day');
+        }
+        plot.dispatchEvent(new PointerEvent('pointercancel', { bubbles: true, pointerId: 42, pointerType: 'touch' }));
+      }
+    }
+  }
+
   const TABS = ['home','activity','plan','wealth','more','settings','vault','goals',
                 'coach','reports','calendar','investments','notifications'];
 
@@ -212,6 +298,38 @@ const DRIVE = `(async () => {
     rendered[t] = text.length;
     if (id !== 'view-' + t) problems.push('tab ' + t + ' did not activate (active=' + id + ')');
     else if (text.length < ${MIN_CHARS}) problems.push('tab ' + t + ' rendered only ' + text.length + ' chars of its own content');
+
+    if (t === 'activity' && id === 'view-activity') {
+      const navbar = active.querySelector('.act-navbar');
+      const title = active.querySelector('.act-navbar__title');
+      const segment = active.querySelector('.act-segment-wrap');
+      const appHeader = document.querySelector('.fc-screen[data-screen="app"] > .fc-header');
+      if (!navbar || !title || !segment) {
+        problems.push('activity chrome: navbar, title, or segment control is missing');
+      } else {
+        /* Chrome reports env(safe-area-inset-top) as zero, so inject the
+           Dynamic Island inset through the navbar's test seam and verify
+           that its replacement header actually owns that space. */
+        navbar.style.setProperty('--act-safe-top', '59px');
+        const navbarRect = navbar.getBoundingClientRect();
+        const titleRect = title.getBoundingClientRect();
+        const segmentRect = segment.getBoundingClientRect();
+        const paddingTop = parseFloat(getComputedStyle(navbar).paddingTop) || 0;
+        if (paddingTop < 64 || paddingTop > 66) {
+          problems.push('activity chrome: 59px safe area produced ' + paddingTop + 'px top padding');
+        }
+        if (titleRect.top < navbarRect.top + 59) {
+          problems.push('activity chrome: title still enters the Dynamic Island safe area');
+        }
+        if (segmentRect.top < navbarRect.bottom - 1) {
+          problems.push('activity chrome: segment control overlaps the pushed-screen navbar');
+        }
+        navbar.style.removeProperty('--act-safe-top');
+      }
+      if (appHeader && getComputedStyle(appHeader).display !== 'none') {
+        problems.push('activity chrome: global header is stacked above the pushed-screen navbar');
+      }
+    }
   }
 
   for (const [tab, expected] of Object.entries(REDIRECTS)) {

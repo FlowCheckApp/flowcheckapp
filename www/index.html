@@ -62,9 +62,9 @@
 <meta name="theme-color" content="#060e18">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="stylesheet" href="css/flowcheck-design-system.css?v=20260823a">
-<link rel="stylesheet" href="css/fc-screens.css?v=20260823a">
-<link rel="stylesheet" href="css/fc-premium-screens.css?v=20260823a">
+<link rel="stylesheet" href="css/flowcheck-design-system.css?v=20260824c">
+<link rel="stylesheet" href="css/fc-screens.css?v=20260824c">
+<link rel="stylesheet" href="css/fc-premium-screens.css?v=20260824c">
 
 <!-- Sentry — error & crash monitoring (vanilla JS, no npm required).
 
@@ -4812,7 +4812,7 @@ body:not(.keyboard-open) .fc-sheet {
        ══════════════════════════════════════════════════════════════ */
 
     /* ── Scroll container ───────────────────────────────────────── */
-    #view-home{overflow-y:scroll;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding-bottom:100px;overscroll-behavior:contain;background:var(--fc-bg)}
+    #view-home{overflow-y:scroll;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding-bottom:0;overscroll-behavior:contain;background:var(--fc-bg)}
     #home-dash{overflow-x:hidden;width:100%;max-width:100%;box-sizing:border-box}
 
     /* ── Aurora keyframes for hero card glows ────────────────── */
@@ -7192,10 +7192,10 @@ body:not(.keyboard-open) .fc-sheet {
 </section><!-- /app screen -->
 
   <!-- ══════════════════════════════ COACH ORB ═══════════════
-       The agent's presence in the app: one control, on every screen.
-       There is deliberately no second entry point in the header — this app
-       has a long history of one action wearing two controls, and the two
-       always drift. Hidden by [hidden] whenever a sheet owns the screen. -->
+       Contextual Coach access on screens that do not already expose it.
+       Home has both a Coach tab and a Today's Move CTA; the Coach tab has
+       its own ask field, so the orb stays out of both reading lanes. Hidden
+       by [hidden] whenever a sheet owns the screen. -->
   <!-- Starts hidden. Without this it painted over the splash and the auth
        screens: _syncCoachOrb() decides visibility, but nothing had called it
        yet, so the default was "visible" for the whole of app launch. -->
@@ -7834,7 +7834,7 @@ body:not(.keyboard-open) .fc-sheet {
 <script src="js/fc-data.js"></script>
 <script src="js/fc-push.js"></script>
 <script src="js/fc-iap.js"></script>
-<script src="js/fc-app.js?v=20260823a"></script>
+<script src="js/fc-app.js?v=20260824c"></script>
 
 <script>
 'use strict';

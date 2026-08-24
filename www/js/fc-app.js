@@ -2961,7 +2961,7 @@ window.FCApp = (function () {
   }
 
   function _rwGeom(r) {
-    const W = 300, H = 104, PAD_T = 10, PAD_B = 20;
+    const W = 300, H = 128, PAD_T = 24, PAD_B = 18;
 
     /* The y-axis used to be anchored at zero: minV = min(lowest, 0). That
        made every healthy runway a flat line — a $9.62 bill against a $600
@@ -3021,9 +3021,9 @@ window.FCApp = (function () {
             + '<span class="fc-sk fc-sk--text-lg rw-sk-end"></span></div>'
         + '</div>'
         + '<div class="rw-chart">'
-          + '<svg viewBox="0 0 300 104" preserveAspectRatio="none" aria-hidden="true">'
-            + '<line x1="0" y1="84" x2="300" y2="84" stroke="var(--fc-border)" stroke-width="1"/>'
-            + '<line x1="298.5" y1="8" x2="298.5" y2="84" stroke="var(--fc-accent)" stroke-width="1.5" stroke-dasharray="3 3" opacity="0.55"/>'
+          + '<svg viewBox="0 0 300 128" preserveAspectRatio="none" aria-hidden="true">'
+            + '<line x1="0" y1="110" x2="300" y2="110" stroke="var(--fc-border)" stroke-width="1"/>'
+            + '<line x1="298.5" y1="18" x2="298.5" y2="110" stroke="var(--fc-accent)" stroke-width="1.5" stroke-dasharray="3 3" opacity="0.55"/>'
           + '</svg>'
           + '<div class="rw-axis"><span>Today</span><span>Payday</span></div>'
         + '</div>'
@@ -3054,173 +3054,165 @@ window.FCApp = (function () {
       + '</section>';
   }
 
-  /* The SVG itself — line, area, bill markers, zero-line, endpoint dot.
-     Shared by the real and sample cards so both render identically. */
-  function _rwChartSVG(r, stroke) {
+  /* The shared renderer keeps the forecast math untouched while making the
+     chart explain the forecast: named bill events, a semantic shortfall zone,
+     and one coordinate system for SVG, labels, and the scrubber. */
+  function _rwChartSVG(r, stroke, interactive = false) {
     const g = _rwGeom(r), pts = r.points;
-    const line = pts.map((p, i) => (i ? 'L' : 'M') + g.x(p.day).toFixed(1) + ',' + g.y(p.balance).toFixed(1)).join(' ');
-    const area = line + ' L' + g.W + ',' + g.y(g.minV).toFixed(1) + ' L0,' + g.y(g.minV).toFixed(1) + ' Z';
-    const zeroY = g.y(0);
-    const W = g.W, H = g.H, PAD_B = g.PAD_B, minV = g.minV;
+    const W = g.W, H = g.H, PAD_B = g.PAD_B;
     const x = g.x, y = g.y;
-    /* The viewBox is a fixed 300×104 stretched to the card's real width by
-       preserveAspectRatio="none" — about 1.13× on a 6.1" phone and more on a
-       Pro Max. Anything with a fixed aspect drawn INSIDE that space inherits
-       the stretch: <circle r="4.5"> renders as an ellipse and a 2.5 stroke
-       thickens unevenly along the line. It read as "almost right", which is
-       the exact register we are trying to leave.
-       So: paths stay in the stretched space (a stretched line is still the
-       right line) but with non-scaling-stroke so the ink stays 2.5 device px,
-       and every round thing moves to an HTML overlay positioned in percent —
-       the pattern .rw-scrub-dot already uses in this same card. */
     const VE = ' vector-effect="non-scaling-stroke"';
-    const xPct = p => (x(p) / W * 100).toFixed(2);
-    const yPct = v => (y(v) / H * 100).toFixed(2);
-    const gridLines = [0.33, 0.66].map(ratio => {
+    const xPct = day => (x(day) / W * 100).toFixed(2);
+    const yPct = value => (y(value) / H * 100).toFixed(2);
+    const pointPath = (points, initial = 'M') => points.map((p, i) =>
+      (i || initial === 'L' ? 'L' : 'M') + x(p.day).toFixed(1) + ',' + y(p.balance).toFixed(1)).join(' ');
+    const line = pointPath(pts);
+    const zeroY = y(0);
+
+    let crossingX = null;
+    let safeArea = '';
+    let riskLine = '';
+    let riskArea = '';
+    const crossIndex = r.goesNegative && r.firstNegativeDay != null ? r.firstNegativeDay : null;
+    if (crossIndex == null) {
+      const baseline = H - PAD_B;
+      safeArea = line + ' L' + W + ',' + baseline + ' L0,' + baseline + ' Z';
+    } else {
+      if (crossIndex === 0) {
+        crossingX = 0;
+      } else {
+        const previous = pts[crossIndex - 1];
+        const next = pts[crossIndex];
+        const distance = previous.balance - next.balance;
+        const ratio = distance ? previous.balance / distance : 1;
+        crossingX = x(previous.day + (next.day - previous.day) * ratio);
+        safeArea = pointPath(pts.slice(0, crossIndex))
+          + ' L' + crossingX.toFixed(1) + ',' + zeroY.toFixed(1)
+          + ' L0,' + zeroY.toFixed(1) + ' Z';
+      }
+      riskLine = 'M' + crossingX.toFixed(1) + ',' + zeroY.toFixed(1)
+        + (pts.slice(crossIndex).length ? ' ' + pointPath(pts.slice(crossIndex), 'L') : '');
+      riskArea = riskLine + ' L' + W + ',' + zeroY.toFixed(1) + ' Z';
+    }
+
+    const gridLines = [0.25, 0.5, 0.75].map(ratio => {
       const gy = g.PAD_T + (H - g.PAD_T - PAD_B) * ratio;
       return '<line class="rw-grid" x1="0" y1="' + gy.toFixed(1) + '" x2="' + W + '" y2="' + gy.toFixed(1) + '"' + VE + '/>';
     }).join('');
 
     const markerLines = pts.filter(p => p.bills.length).map(p =>
-      '<line class="rw-marker" x1="' + x(p.day).toFixed(1) + '" y1="' + y(p.balance).toFixed(1) + '" x2="' + x(p.day).toFixed(1) + '" y2="' + (H - PAD_B) + '" stroke="var(--fc-border-strong)" stroke-width="1" stroke-dasharray="2 3"' + VE + '/>').join('');
+      '<line class="rw-marker" x1="' + x(p.day).toFixed(1) + '" y1="' + y(p.balance).toFixed(1)
+      + '" x2="' + x(p.day).toFixed(1) + '" y2="' + (H - PAD_B)
+      + '" stroke="var(--fc-border-strong)" stroke-width="1" stroke-dasharray="2 4"' + VE + '/>').join('');
 
-    /* Bill dots + the endpoint, as HTML so they stay circular. */
-    const dots = pts.filter(p => p.bills.length).map(p =>
-      '<span class="rw-dot" style="left:' + xPct(p.day) + '%;top:' + yPct(p.balance) + '%;--rw-dot-stroke:' + stroke + '"></span>').join('')
-      + '<span class="rw-dot rw-dot--end" style="left:' + xPct(r.horizon) + '%;top:' + yPct(r.endBalance) + '%;--rw-dot-stroke:' + stroke + '"></span>';
+    const startDot = '<span class="rw-dot rw-dot--start" style="left:0%;top:' + yPct(r.startBalance)
+      + '%;--rw-dot-stroke:' + stroke + '"></span>';
+    const billDots = pts.filter(p => p.bills.length).map(p => {
+      const dotStroke = p.balance < 0 ? 'var(--fc-danger)' : stroke;
+      return '<span class="rw-dot' + (p.balance < 0 ? ' rw-dot--risk' : '') + '" style="left:'
+        + xPct(p.day) + '%;top:' + yPct(p.balance) + '%;--rw-dot-stroke:' + dotStroke + '"></span>';
+    }).join('');
+    const endStroke = r.endBalance < 0 ? 'var(--fc-danger)' : stroke;
+    const endDot = '<span class="rw-dot rw-dot--end' + (r.endBalance < 0 ? ' rw-dot--risk' : '')
+      + '" style="left:' + xPct(r.horizon) + '%;top:' + yPct(r.endBalance)
+      + '%;--rw-dot-stroke:' + endStroke + '"></span>';
 
-    /* ── Today's balance, anchored to the first plotted point ──────────
-       The chart's left end is r.startBalance — the cash you have right now.
-       It is deliberately NOT the "Safe to spend" figure in the header: that
-       one is _buildSafeSpendProjection().safe, which has upcoming bills and
-       typical spending already subtracted out. In demo data the difference
-       is $3,241.87 against $1,483.69. Printing the safe-to-spend number at
-       the line's left end would put a label on the y-axis at a height that
-       means something else, and misstate today's balance by $1,758.
+    const todayLbl = '<span class="rw-today"><span class="rw-today-cap">Today</span>'
+      + '<strong class="rw-today-amt">' + esc(FCData.formatSummary(r.startBalance)) + '</strong></span>';
 
-       The header answers "what can I spend?". This answers "where does the
-       line start?". Both belong on the card; they are not the same number
-       and must not be shown as one. */
-    const todayLbl = '<span class="rw-today" style="top:' + yPct(r.startBalance) + '%">'
-      /* formatSummary, not formatCurrency. This badge sits on a card whose
-         every other figure — the hero, the three allocation stats, the
-         lowest-balance line, even the bill labels on this same chart — is
-         whole dollars. Printing "$3,241.87" here made one number on the
-         card look like it came from somewhere else. Cents belong on rows
-         reconciled against a bank, not on a chart read at a glance. */
-      + '<span class="rw-today-amt">' + esc(FCData.formatSummary(r.startBalance)) + '</span>'
-      + '<span class="rw-today-cap">today</span></span>';
-
-    /* ── Bill drops, labelled with what caused them ────────────────────
-       A dot with a dashed drop-line says "something happened here". The
-       amount says what. That is the whole difference between a shape and an
-       explanation, and it is the one thing the card could not say before.
-
-       Clutter control, in order:
-        · only days that actually carry bills — never every point;
-        · at most MAX_LBL of them, largest first, so a fortnight with nine
-          small charges does not become a wall of text;
-        · a greedy left-to-right pass drops any label that would collide
-          with the one before it.
-
-       Collision is measured in PERCENT of chart width because that is the
-       coordinate system the overlay is positioned in, and the chart's pixel
-       width varies from ~311px on a 375pt iPhone SE to ~400px on a Pro Max.
-       Estimating the half-width from the character count keeps the gap
-       honest at both ends instead of tuning it for one device. */
-    const MAX_LBL = 4;
+    const MAX_LABELS = 3;
     const billDays = pts
       .filter(p => p.bills.length)
-      .map(p => ({ p, amt: p.bills.reduce((sum, b) => sum + Math.abs(b.amount || 0), 0) }))
-      .filter(e => e.amt > 0);
-
-    const chosen = billDays
-      .slice()
-      .sort((a, b) => b.amt - a.amt)
-      .slice(0, MAX_LBL)
+      .map(p => ({ p, amount: p.bills.reduce((sum, bill) => sum + Math.abs(bill.amount || 0), 0) }))
+      .filter(event => event.amount > 0)
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, MAX_LABELS)
       .sort((a, b) => a.p.day - b.p.day);
 
-    let lastRight = -Infinity;
-    const lastRowRight = [-Infinity, -Infinity];
-    const eventLbls = chosen.map(e => {
-      /* Whole dollars. "\u2212$1,200.00" spends four characters on precision
-         nobody reads at a glance and makes the label wide enough to collide
-         with its neighbour on a 375pt screen. The exact figure is one scrub
-         away. */
-      const text = '\u2212$' + Math.round(e.amt).toLocaleString('en-US');
-      /* ~0.62em per character at 10px, over the chart's own width. */
-      const wPct = (text.length * 6.2) / 309 * 100;
-      const cx = parseFloat(xPct(e.p.day));
-
-      /* Sit the label BESIDE the drop, not centred over it. A bill day is
-         where the line falls hardest, so a centred label lands squarely on
-         the descending stroke — at \u2212$1,200 the line ran straight through
-         the text. Starting it just right of the drop puts it above the flat
-         segment that follows, which is empty space.
-         Near the right edge there is no room to extend rightwards, so the
-         label flips and ends just left of the drop instead. */
-      const GAP = 1.6;
-      let left = cx + GAP;
-      if (left + wPct > 100) left = cx - GAP - wPct;
-      left = Math.max(0, Math.min(100 - wPct, left));
-
-      /* Two rows before giving up. A fortnight can easily put two bills a
-         day apart, and at that spacing the labels overlap horizontally no
-         matter which side of the drop they sit on. Lifting the second one
-         onto a higher row keeps both readable and keeps each one directly
-         above its own marker.
-         A third row would start competing with the headline for the top of
-         the card, so anything still colliding after two is dropped rather
-         than stacked — the dot and its dashed rule still mark the event, and
-         the exact figure is one scrub away. Crowding the chart to name every
-         bill would cost more than it buys. */
-      const row = (left < lastRight + 1.5) ? 1 : 0;
-      if (row === 1 && left < lastRowRight[1] + 1.5) return '';
-      lastRowRight[row] = left + wPct;
-      if (row === 0) lastRight = left + wPct;
-      return '<span class="rw-evt' + (row ? ' rw-evt--stack' : '') + '" style="left:'
-        + left.toFixed(2) + '%;top:' + yPct(e.p.balance) + '%">' + esc(text) + '</span>';
+    const lanes = { above: [-Infinity, -Infinity], below: [-Infinity, -Infinity] };
+    const eventLabels = billDays.map(event => {
+      const bills = event.p.bills;
+      const name = bills.length > 1 ? bills.length + ' bills' : String(bills[0].name || 'Bill');
+      const amount = '\u2212$' + Math.round(event.amount).toLocaleString('en-US');
+      const estimatedWidth = Math.min(116, Math.max(58, (name.length + amount.length) * 5.5 + 18));
+      const widthPct = estimatedWidth / 280 * 100;
+      const center = parseFloat(xPct(event.p.day));
+      const placement = y(event.p.balance) < 50 ? 'below' : 'above';
+      const lane = lanes[placement];
+      const gap = 1.6;
+      let left = center + gap;
+      if (left + widthPct > 100) left = center - gap - widthPct;
+      left = Math.max(0, Math.min(100 - widthPct, left));
+      const row = left < lane[0] + gap ? 1 : 0;
+      if (left < lane[row] + gap) return '';
+      lane[row] = left + widthPct;
+      return '<span class="rw-evt rw-evt--' + placement + (row ? ' rw-evt--stack' : '')
+        + '" style="left:' + left.toFixed(2) + '%;top:' + yPct(event.p.balance) + '%" title="'
+        + esc(name + ' ' + amount) + '"><span class="rw-evt__name">' + esc(name)
+        + '</span><span class="rw-evt__amount">' + esc(amount) + '</span></span>';
     }).join('');
 
-    /* The zero crossing is the whole point of the card in the negative
-       state — the headline names the date and the chart used to mark it
-       nowhere. Label the zero line too: an unlabelled dashed red rule is a
-       decoration, and the one number it stands for is the number that
-       matters. */
-    const cross = (r.goesNegative && r.firstNegativeDay != null) ? pts[r.firstNegativeDay] : null;
+    const cross = crossIndex == null ? null : pts[crossIndex];
+    const crossPct = crossingX == null ? null : crossingX / W * 100;
+    const crossAlign = crossPct == null ? '' : crossPct > 72 ? ' rw-cross--right' : crossPct < 28 ? ' rw-cross--left' : '';
+    const crossMarkup = cross ? '<span class="rw-cross' + crossAlign + '" style="left:' + crossPct.toFixed(2) + '%">'
+      + '<span class="rw-cross-flag">Below $0 · '
+      + esc(cross.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }))
+      + '</span></span>' : '';
 
-    return '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" aria-hidden="true">'
-      + '<defs><linearGradient id="rwGrad" x1="0" y1="0" x2="0" y2="1">'
-        /* Three stops, not two. The old 0.22 → 0 ramp spent most of its
-           range already invisible, so the fill read as a soft smudge under
-           the line rather than as the area it encloses. Holding a low but
-           non-zero value through the middle gives the region a floor you can
-           actually see, which is what makes it read as "money remaining"
-           instead of decoration.
-           It stops well short of a solid fill on purpose: the cyan stroke is
-           the chart, and the moment the fill competes with it for attention
-           this is worse, not better. */
-        + '<stop offset="0%" stop-color="' + stroke + '" stop-opacity="0.30"/>'
-        + '<stop offset="55%" stop-color="' + stroke + '" stop-opacity="0.10"/>'
-        + '<stop offset="100%" stop-color="' + stroke + '" stop-opacity="0.02"/>'
-      + '</linearGradient></defs>'
-      + gridLines
-      + (minV < 0 ? '<line x1="0" y1="' + zeroY.toFixed(1) + '" x2="' + W + '" y2="' + zeroY.toFixed(1) + '" stroke="var(--fc-danger)" stroke-width="1" stroke-dasharray="3 3" opacity="0.55"' + VE + '/>' : '')
-      + '<path d="' + area + '" fill="url(#rwGrad)"/>'
-      + '<path class="rw-line-glow" d="' + line + '" fill="none" stroke="' + stroke + '" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"' + VE + '/>'
-      + '<path class="rw-line" d="' + line + '" fill="none" stroke="' + stroke + '" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"' + VE + '/>'
-      + markerLines
+    const finalDate = pts[pts.length - 1].date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    let accessibleLabel = 'Cash runway starts at ' + FCData.formatSummary(r.startBalance) + ' today. ';
+    accessibleLabel += cross
+      ? 'It falls below zero on ' + cross.date.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })
+        + ' and reaches ' + FCData.formatSummary(r.endBalance) + ' by ' + finalDate + '. '
+      : 'It reaches ' + FCData.formatSummary(r.endBalance) + ' by ' + finalDate + '. ';
+    if (interactive) accessibleLabel += 'Drag across the chart or use the left and right arrow keys to inspect each day.';
+
+    const interactiveMarkup = interactive
+      ? '<div class="rw-scrub" id="rw-scrub" aria-hidden="true"><div class="rw-scrub-line"></div>'
+          + '<div class="rw-scrub-dot"></div></div>'
+          + '<output class="rw-readout" id="rw-readout" aria-live="polite" aria-atomic="true"></output>'
+      : '';
+
+    return '<div class="rw-plot' + (interactive ? ' rw-plot--interactive' : '') + '" role="'
+      + (interactive ? 'group' : 'img') + '" aria-label="' + esc(accessibleLabel) + '"'
+      + (interactive ? ' aria-roledescription="interactive cash runway" tabindex="0" data-rw-interactive="true"' : '') + '>'
+      + '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" aria-hidden="true">'
+        + '<defs>'
+          + '<linearGradient id="rwSafeGrad" x1="0" y1="0" x2="0" y2="1">'
+            + '<stop offset="0%" stop-color="' + stroke + '" stop-opacity="0.34"/>'
+            + '<stop offset="58%" stop-color="' + stroke + '" stop-opacity="0.12"/>'
+            + '<stop offset="100%" stop-color="' + stroke + '" stop-opacity="0.025"/>'
+          + '</linearGradient>'
+          + '<linearGradient id="rwRiskGrad" x1="0" y1="0" x2="0" y2="1">'
+            + '<stop offset="0%" stop-color="var(--fc-danger)" stop-opacity="0.08"/>'
+            + '<stop offset="100%" stop-color="var(--fc-danger)" stop-opacity="0.32"/>'
+          + '</linearGradient>'
+        + '</defs>'
+        + (cross ? '<rect class="rw-risk-band" x="0" y="' + zeroY.toFixed(1) + '" width="' + W
+            + '" height="' + Math.max(0, H - PAD_B - zeroY).toFixed(1) + '"/>' : '')
+        + gridLines
+        + (safeArea ? '<path class="rw-safe-area" d="' + safeArea + '" fill="url(#rwSafeGrad)"/>' : '')
+        + (riskArea ? '<path class="rw-risk-area" d="' + riskArea + '" fill="url(#rwRiskGrad)"/>' : '')
+        + markerLines
+        + (cross ? '<line class="rw-zero-rule" x1="0" y1="' + zeroY.toFixed(1) + '" x2="' + W
+            + '" y2="' + zeroY.toFixed(1) + '"' + VE + '/>' : '')
+        + '<path class="rw-line-glow" d="' + line + '" fill="none" stroke="' + stroke
+          + '" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"' + VE + '/>'
+        + '<path class="rw-line" d="' + line + '" fill="none" stroke="' + stroke
+          + '" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"' + VE + '/>'
+        + (riskLine ? '<path class="rw-risk-line" d="' + riskLine + '" fill="none" stroke="var(--fc-danger)"'
+            + ' stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"' + VE + '/>' : '')
       + '</svg>'
-      /* One overlay box, sized to the SVG's own 104px — NOT to .rw-chart,
-         which is taller because it also holds .rw-axis. Percent coordinates
-         here map 1:1 onto the viewBox only while this box matches the svg. */
       + '<div class="rw-overlay" aria-hidden="true">'
         + todayLbl
-        + eventLbls
-        + dots
-        + (minV < 0 ? '<span class="rw-zero-lbl" style="top:' + yPct(0) + '%">$0</span>' : '')
-        + (cross ? '<span class="rw-cross" style="left:' + xPct(cross.day) + '%">'
-            + '<span class="rw-cross-flag">' + esc(cross.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })) + '</span></span>' : '')
+        + eventLabels
+        + startDot + billDots + endDot
+        + (cross ? '<span class="rw-zero-lbl" style="top:' + yPct(0) + '%">$0</span>'
+            + '<span class="rw-zone-label" style="top:' + yPct(0) + '%">Shortfall zone</span>' : '')
+        + crossMarkup
+      + '</div>'
+      + interactiveMarkup
       + '</div>';
   }
 
@@ -3392,12 +3384,7 @@ window.FCApp = (function () {
           + '</div>'
         + '</div>'
         + '<div class="rw-chart">'
-          + _rwChartSVG(r, stroke)
-          + '<div class="rw-scrub" id="rw-scrub" aria-hidden="true">'
-            + '<div class="rw-scrub-line"></div>'
-            + '<div class="rw-scrub-dot"></div>'
-          + '</div>'
-          + '<div class="rw-readout" id="rw-readout" aria-hidden="true"></div>'
+          + _rwChartSVG(r, stroke, true)
           /* The middle label names the chart's window, and it exists because
              the card was contradicting itself. The headline reports
              coveredDays — how long you last assuming you never earn another
@@ -3547,16 +3534,11 @@ window.FCApp = (function () {
              across the card header, over "UNTIL PAYDAY". The chart was built
              with its wrapper; they ship together. */
           ? '<div class="st-runway"><div class="rw-chart">'
-            + _rwChartSVG(_rw, 'var(--fc-accent)')
+            + _rwChartSVG(_rw, 'var(--fc-accent)', true)
+            + '<div class="rw-axis rw-axis--compact"><span>Today</span>'
+              + '<span class="rw-axis-hint">Drag to inspect</span>'
+              + '<span>' + (_rw.hasPayday ? 'Payday' : esc(_rwWindowLabel(_rw.horizon))) + '</span></div>'
             + '</div>'
-            /* No axis row. It read "TODAY | 8 DAYS · AUG 31 | AUG 31", and
-               once the duplicate middle label was dropped what remained was
-               "TODAY" — which the badge pinned to the line's first point
-               already says, two lines above it — and "AUG 31", which the
-               card's own topline already says as "8 days · Aug 31". A row
-               whose every label is a restatement of something else on the
-               same card is chrome; the card is shorter without it and says
-               exactly as much. */
             /* The real figure, negative and all. Math.max(0, …) printed "$0"
                under a card already saying RUNS SHORT — clamping away the
                shortfall is hiding the one number the warning is about. */
@@ -3637,65 +3619,91 @@ window.FCApp = (function () {
      "Aug 14 — $612 left". Turns the chart from a picture into an
      instrument. Haptic ticks on day boundaries only, never per pixel. */
   function _attachRunwayScrub() {
-    const chart = document.querySelector('.rw-chart');
-    if (!chart || chart.dataset.scrubReady === '1') return;
-    chart.dataset.scrubReady = '1';
+    const plot = document.querySelector('.rw-plot[data-rw-interactive="true"]');
+    const chart = plot?.closest('.rw-chart');
+    if (!plot || !chart || plot.dataset.scrubReady === '1') return;
 
-    const scrub   = chart.querySelector('#rw-scrub');
-    const readout = chart.querySelector('#rw-readout');
-    const svg     = chart.querySelector('svg');
+    const scrub = plot.querySelector('#rw-scrub');
+    const readout = plot.querySelector('#rw-readout');
+    const svg = plot.querySelector('svg');
     if (!scrub || !readout || !svg) return;
+    plot.dataset.scrubReady = '1';
 
-    let lastDay = -1;
+    let activeDay = 0;
+    let lastHapticDay = -1;
+    let hideTimer = 0;
 
-    const end = () => {
+    const hide = () => {
+      clearTimeout(hideTimer);
       chart.classList.remove('rw-scrubbing');
-      lastDay = -1;
+      lastHapticDay = -1;
     };
 
-    const move = (clientX) => {
+    const finish = (delay = 1100) => {
+      clearTimeout(hideTimer);
+      hideTimer = setTimeout(hide, delay);
+    };
+
+    const showDay = day => {
       const r = _rwSeries;
       if (!r || !r.points.length) return;
-      const box = svg.getBoundingClientRect();
-      const pct = Math.min(1, Math.max(0, (clientX - box.left) / Math.max(1, box.width)));
-      const day = Math.round(pct * r.horizon);
-      const pt  = r.points[Math.min(day, r.points.length - 1)];
+      activeDay = Math.min(r.horizon, Math.max(0, Math.round(day)));
+      const pt = r.points[Math.min(activeDay, r.points.length - 1)];
       if (!pt) return;
 
+      clearTimeout(hideTimer);
       chart.classList.add('rw-scrubbing');
       const xPct = (pt.day / Math.max(1, r.horizon)) * 100;
       scrub.style.left = xPct + '%';
 
-      // vertical position of the dot mirrors the SVG's own y mapping
-      const maxV = Math.max(r.startBalance, 0);
-      const minV = Math.min(r.lowest.balance, 0);
-      const span = Math.max(1, maxV - minV);
-      const yPct = (1 - (pt.balance - minV) / span) * 100;
+      const geometry = _rwGeom(r);
+      const yPct = geometry.y(pt.balance) / geometry.H * 100;
       scrub.style.setProperty('--rw-y', yPct + '%');
 
       const label = pt.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      const amt   = (pt.balance < 0 ? '\u2212' : '') + FCData.formatCurrency(Math.abs(pt.balance));
+      const amt = (pt.balance < 0 ? '\u2212' : '') + FCData.formatCurrency(Math.abs(pt.balance));
       const billNote = pt.bills.length
         ? ' · ' + esc(pt.bills[0].name) + (pt.bills.length > 1 ? ' +' + (pt.bills.length - 1) : '')
         : '';
-      readout.innerHTML = '<b>' + esc(label) + '</b> — <span class="fc-amount">' + amt + '</span> left' + billNote;
-      // keep the readout inside the card
+      readout.innerHTML = '<b>' + esc(label) + '</b> · <span class="fc-amount">' + amt + '</span> left' + billNote;
+      readout.dataset.day = String(activeDay);
       readout.style.left = Math.min(88, Math.max(12, xPct)) + '%';
 
-      if (day !== lastDay) { lastDay = day; haptic('light'); }
+      if (activeDay !== lastHapticDay) {
+        lastHapticDay = activeDay;
+        haptic('light');
+      }
     };
 
-    chart.addEventListener('pointerdown', e => {
-      // setPointerCapture THROWS for a pointer id it doesn't recognise, and
-      // optional-chaining only guards a missing method, not a throw — an
-      // exception here would abort before the readout ever renders.
-      try { chart.setPointerCapture(e.pointerId); } catch (_) {}
+    const move = clientX => {
+      const r = _rwSeries;
+      if (!r || !r.points.length) return;
+      const box = svg.getBoundingClientRect();
+      const pct = Math.min(1, Math.max(0, (clientX - box.left) / Math.max(1, box.width)));
+      showDay(pct * r.horizon);
+    };
+
+    plot.addEventListener('pointerdown', e => {
+      try { plot.setPointerCapture(e.pointerId); } catch (_) {}
       move(e.clientX);
     });
-    chart.addEventListener('pointermove', e => { if (e.buttons || e.pointerType === 'touch') move(e.clientX); });
-    chart.addEventListener('pointerup', end);
-    chart.addEventListener('pointercancel', end);
-    chart.addEventListener('pointerleave', end);
+    plot.addEventListener('pointermove', e => {
+      if (e.buttons || e.pointerType === 'touch') move(e.clientX);
+    });
+    plot.addEventListener('pointerup', () => finish());
+    plot.addEventListener('pointercancel', hide);
+    plot.addEventListener('keydown', e => {
+      let next = activeDay;
+      if (e.key === 'ArrowLeft') next -= 1;
+      else if (e.key === 'ArrowRight') next += 1;
+      else if (e.key === 'Home') next = 0;
+      else if (e.key === 'End') next = _rwSeries?.horizon || 0;
+      else if (e.key === 'Escape') { hide(); return; }
+      else return;
+      e.preventDefault();
+      showDay(next);
+    });
+    plot.addEventListener('blur', hide);
   }
 
   /* ═══════════════════════════════════════════════════════════════
@@ -11787,9 +11795,11 @@ window.FCApp = (function () {
     if (!orb) return;
 
     const onAppScreen = state.screen === 'app';
+    const activeTab = state.tab || 'home';
+    const alreadyHasCoachEntry = activeTab === 'home' || activeTab === 'coach';
     const sheetOpen = !!document.querySelector(
       '.fc-sheet-overlay:not([style*="display: none"]):not([style*="display:none"])');
-    orb.hidden = !onAppScreen || sheetOpen;
+    orb.hidden = !onAppScreen || sheetOpen || alreadyHasCoachEntry;
     if (orb.hidden) return;
 
     /* The flag mirrors the agenda: it appears only for the things that put
