@@ -1741,6 +1741,101 @@
        4  savings       — the honest fallback when there is nothing to fix
      ────────────────────────────────────────────────────────────────── */
 
+  /* ── Levers: every way money could be freed, and how much ────────
+     Advice needs something to recommend. Until now that was always "cancel
+     a subscription", so a user with none got nothing — and a user spending
+     $180 more on dining than they usually do got told about a $9 app.
+
+     A lever is a change the LEDGER supports, sized in dollars per month:
+
+       subscription  a charge that stopped, rose, or duplicates another
+       category      spending above this person's OWN recent normal
+       bill          a bill costing more than the plan says it does
+
+     "Their own normal", not a budget and not a benchmark. FlowCheck does
+     not know what someone ought to spend on food, and a lever built on an
+     invented target would be an opinion dressed as arithmetic. The median
+     of their last three months is a fact about them.
+     ────────────────────────────────────────────────────────────────── */
+
+  function coachLevers(input) {
+    const i = input || {};
+    const today = i.today instanceof Date ? i.today : new Date();
+    const out = [];
+
+    /* 1 — subscriptions */
+    for (const c of subCutCandidates(i.subscriptions, today).candidates) {
+      out.push({
+        kind: 'subscription', name: c.name, monthly: round2(c.monthly),
+        reason: c.reason, detail: c.detail,
+      });
+    }
+
+    /* 2 — categories running above their own median.
+       Three prior whole months, so a part-month never sets the bar: a
+       comparison against 11 days of September would flag every category. */
+    const txns = Array.isArray(i.transactions) ? i.transactions : [];
+    if (txns.length) {
+      const monthKey = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+      const thisKey = monthKey(today);
+      const priorKeys = [1, 2, 3].map(n => {
+        const d = new Date(today.getFullYear(), today.getMonth() - n, 1);
+        return monthKey(d);
+      });
+
+      const byCatMonth = {};
+      for (const t of txns) {
+        if (!isSpendTxn(t) || !t.date) continue;
+        const d = parseDateLocal(t.date);
+        if (isNaN(d.getTime())) continue;
+        const mk = monthKey(d);
+        if (mk !== thisKey && priorKeys.indexOf(mk) === -1) continue;
+        const cat = normalizeCategory(firstCategory(t)) || 'Other';
+        ((byCatMonth[cat] = byCatMonth[cat] || {})[mk]) =
+          (byCatMonth[cat][mk] || 0) + Number(t.amount || 0);
+      }
+
+      /* Only compare once the month is far enough in to be comparable.
+         On the 3rd, "below your usual" is true of everything and means
+         nothing — so the prior months are scaled to the same elapsed
+         fraction rather than compared whole. */
+      const dayOfMonth = today.getDate();
+      const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+      const elapsed = Math.min(1, dayOfMonth / daysInMonth);
+
+      if (elapsed >= 0.4) {
+        for (const [cat, months] of Object.entries(byCatMonth)) {
+          const priors = priorKeys.map(k => months[k]).filter(v => Number.isFinite(v));
+          if (priors.length < 2) continue;             // one month is not a normal
+          const typical = median(priors) * elapsed;    // same slice of the month
+          const now = months[thisKey] || 0;
+          const over = now - typical;
+          /* Both a floor and a proportion: $12 over on a $40 category is
+             noise, and 40% over on a $5 category is a rounding error. */
+          if (over < 40 || typical <= 0 || over / typical < 0.25) continue;
+          out.push({
+            kind: 'category', name: cat, monthly: round2(over),
+            reason: 'over_usual',
+            detail: { spent: round2(now), typical: round2(typical) },
+          });
+        }
+      }
+    }
+
+    /* 3 — bills costing more than the plan says */
+    for (const b of (Array.isArray(i.bills) ? i.bills : [])) {
+      const d = billDrift(b, txns, i.keyFn);
+      if (!d.drifted || d.diff <= 0) continue;
+      out.push({
+        kind: 'bill', name: b.name || 'A bill', monthly: round2(d.diff),
+        reason: 'costs_more', detail: d,
+      });
+    }
+
+    out.sort((a, b) => b.monthly - a.monthly);
+    return out;
+  }
+
   function coachAdvice(input) {
     const i = input || {};
     const today = i.today instanceof Date ? i.today : new Date();
@@ -1748,29 +1843,40 @@
       ? i.fmt
       : (n => '$' + Math.round(Number(n) || 0).toLocaleString('en-US'));
 
-    const subs = Array.isArray(i.subscriptions) ? i.subscriptions : [];
-    const cuts = subCutCandidates(subs, today);
-    if (!cuts.candidates.length) return null;
-
-    /* The single best cut, not the whole list. Advice that opens with four
-       things to do is a chore; one decision with a stated payoff is a
-       decision someone might actually make. */
-    const pick = cuts.candidates[0];
+    /* The single biggest lever, whatever kind it is — not "a subscription"
+       by default. Advice that opens with four things to do is a chore; one
+       decision with a stated payoff is a decision someone might make. */
+    const levers = coachLevers(i);
+    if (!levers.length) return null;
+    const pick = levers[0];
     const frees = round2(pick.monthly);
     if (!(frees > 0)) return null;
 
-    const why = pick.reason === 'lapsed'
-      ? 'It has already stopped charging, so this is likely just tidying up.'
-      : pick.reason === 'hike'
-        ? 'The price went up ' + pick.detail.pct + '% and it is the biggest of your subscriptions.'
-        : 'You are paying for ' + pick.detail.alsoPaying + ' as well, and they do the same job.';
+    const why = pick.kind === 'category'
+      ? money(pick.detail.spent) + ' so far this month against your usual '
+        + money(pick.detail.typical) + ' by this point.'
+      : pick.kind === 'bill'
+        ? 'Your plan says ' + money(pick.detail.stated) + ' but the last few charges were '
+          + money(pick.detail.actual) + '.'
+        : pick.reason === 'lapsed'
+          ? 'It has already stopped charging, so this is likely just tidying up.'
+          : pick.reason === 'hike'
+            ? 'The price went up ' + pick.detail.pct + '% and it is the biggest of your subscriptions.'
+            : 'You are paying for ' + pick.detail.alsoPaying + ' as well, and they do the same job.';
+
+    /* The verb has to match the thing. "Cancel your Food and Drink" is
+       nonsense, and "cancel" on a bill that simply costs more than planned
+       would be advice to stop paying rent. */
+    const action = pick.kind === 'subscription' ? 'cancel'
+                 : pick.kind === 'category'     ? 'trim'
+                 : 'update';
 
     /* ── 1. Money at risk ─────────────────────────────────────── */
     const cov = i.coverage || null;
     if (cov && cov.covered === false && cov.shortfall > 0) {
       const covers = frees >= cov.shortfall;
       return {
-        action: 'cancel', target: pick.name, reason: pick.reason,
+        action, kind: pick.kind, target: pick.name, reason: pick.reason,
         freesMonthly: frees, freesYearly: round2(frees * 12), why,
         consequence: {
           kind: 'shortfall',
@@ -1813,7 +1919,7 @@
          so plainly is the whole point. */
       if (!base.ok && base.reason === 'never_pays_off' && with_.ok && with_.months) {
         return {
-          action: 'cancel', target: pick.name, reason: pick.reason,
+          action, kind: pick.kind, target: pick.name, reason: pick.reason,
           freesMonthly: frees, freesYearly: round2(frees * 12), why,
           consequence: {
             kind: 'debt_unblocked', months: with_.months,
@@ -1832,7 +1938,7 @@
         const interest = round2(base.totalInterest - with_.totalInterest);
         if (months > 0) {
           return {
-            action: 'cancel', target: pick.name, reason: pick.reason,
+            action, kind: pick.kind, target: pick.name, reason: pick.reason,
             freesMonthly: frees, freesYearly: round2(frees * 12), why,
             consequence: {
               kind: 'debt', monthsSaved: months, interestSaved: Math.max(0, interest),
@@ -1853,7 +1959,7 @@
       if (left > 0) {
         const months = Math.ceil(left / frees);
         return {
-          action: 'cancel', target: pick.name, reason: pick.reason,
+          action, kind: pick.kind, target: pick.name, reason: pick.reason,
           freesMonthly: frees, freesYearly: round2(frees * 12), why,
           consequence: {
             kind: 'goal', goalName: goal.name || 'your goal', months,
@@ -1866,7 +1972,7 @@
 
     /* ── 4. Nothing to fix — say the plain number, not a fake stake. */
     return {
-      action: 'cancel', target: pick.name, reason: pick.reason,
+      action, kind: pick.kind, target: pick.name, reason: pick.reason,
       freesMonthly: frees, freesYearly: round2(frees * 12), why,
       consequence: {
         kind: 'savings',
@@ -1898,7 +2004,7 @@
     SUB_CYCLE_DAYS,
     billMonthly, billsMonthlyTotal, billsDueBefore, billCoverage, billDrift,
     BILL_CYCLE_DAYS,
-    coachAgenda, COACH_RANK, coachAdvice,
+    coachAgenda, COACH_RANK, coachAdvice, coachLevers,
     MIN_CREDIBLE_APR,
     compareOffer,
   };

@@ -219,6 +219,33 @@ const DRIVE = `(async () => {
     }
   }
 
+  /* The Coach's recommendation. It is the app's only screen that tells the
+     user to DO something, and it is assembled from four engines — levers,
+     coverage, the debt plan, the agenda. A silent failure in any of them
+     leaves the card absent or, worse, present with a nonsense verb:
+     "Cancel your Food and Drink" was a real output before the verb came
+     from the engine rather than being hardcoded. */
+  FCApp.switchTab('coach'); await w(700);
+  {
+    const doEl  = document.querySelector('.coach-advice__do');
+    const resEl = document.querySelector('.coach-advice__result');
+    const leadEl = document.querySelector('.coach-lead__title');
+    if (!leadEl || !leadEl.textContent.trim()) {
+      problems.push('coach: no lead agenda item rendered');
+    }
+    /* The advice card is legitimately absent when there is nothing to
+       recommend — but if it IS there, it has to make sense. */
+    if (doEl) {
+      const verb = doEl.textContent.trim().split(/\\s+/)[0];
+      if (!['Cancel','Trim','Update','Review'].includes(verb)) {
+        problems.push('coach: advice verb is "' + verb + '" — not from the engine');
+      }
+      if (!resEl || resEl.textContent.trim().length < 15) {
+        problems.push('coach: advice has no consequence — that makes it an observation');
+      }
+    }
+  }
+
   // Segmented controls — these re-render whole panels and have broken before.
   for (const s of ['paycheck','bills','budget','subs']) {
     FCApp.switchTab('plan'); await w(250); FCApp.switchPlanSeg(s); await w(280);

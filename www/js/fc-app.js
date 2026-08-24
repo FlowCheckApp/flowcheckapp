@@ -11852,6 +11852,20 @@ window.FCApp = (function () {
     setTimeout(() => { sheet.style.display = 'none'; _syncCoachOrb(); }, 260);
   }
 
+  const _ADVICE_VERB = { cancel: 'Cancel', trim: 'Trim', update: 'Update' };
+  /* Each lever sends you where you can act on it — a category to the
+     spending it came from, a bill to the bills list. */
+  const _ADVICE_GO = {
+    subscription: "FCApp.switchTab('plan');FCApp.switchPlanSeg('subscriptions')",
+    category:     "FCApp.switchTab('activity')",
+    bill:         "FCApp.switchTab('plan');FCApp.switchPlanSeg('bills')",
+  };
+  const _ADVICE_GO_LABEL = {
+    subscription: 'Review subscriptions',
+    category:     'See the spending',
+    bill:         'Review bills',
+  };
+
   function _renderCoach() {
     const el = document.getElementById('coach-content');
     if (!el) return;
@@ -11932,6 +11946,13 @@ window.FCApp = (function () {
     try {
       advice = FCCore.coachAdvice({
         subscriptions: subs,
+        /* transactions and bills feed the other two levers — a category
+           running above its own median, and a bill costing more than the
+           plan says. Without them the engine could only ever recommend
+           cancelling a subscription. */
+        transactions:  state.transactions || [],
+        bills:         state.bills || [],
+        keyFn:         _subGroupKey,
         accounts:      state.accounts || [],
         coverage:      agenda.coverage,
         strategy:      _debtStrategy(),
@@ -11944,7 +11965,11 @@ window.FCApp = (function () {
     const adviceHTML = advice
       ? '<div class="fc-eyebrow">What I\u2019d do</div>'
         + '<div class="fc-card coach-advice">'
-          + '<p class="coach-advice__do">Cancel <strong>' + esc(advice.target) + '</strong></p>'
+          /* The verb comes from the engine: cancel a subscription, trim a
+             category, update a bill. "Cancel your Food and Drink" was what
+             a hardcoded verb produced. */
+          + '<p class="coach-advice__do">' + esc(_ADVICE_VERB[advice.action] || 'Review')
+            + ' <strong>' + esc(advice.target) + '</strong></p>'
           + '<p class="coach-advice__why">' + esc(advice.why) + '</p>'
           + '<div class="coach-advice__then">'
             + '<span class="coach-advice__frees">+' + esc(FCData.formatSummary(advice.freesMonthly))
@@ -11952,7 +11977,8 @@ window.FCApp = (function () {
             + '<p class="coach-advice__result">' + esc(advice.consequence.sentence) + '</p>'
           + '</div>'
           + '<button type="button" class="coach-advice__go" onclick="FCApp.haptic(\'light\');'
-            + 'FCApp.switchTab(\'plan\');FCApp.switchPlanSeg(\'subscriptions\')">Review subscriptions \u203a</button>'
+            + esc(_ADVICE_GO[advice.kind] || _ADVICE_GO.subscription) + '">'
+            + esc(_ADVICE_GO_LABEL[advice.kind] || 'Review') + ' \u203a</button>'
         + '</div>'
       : '';
 

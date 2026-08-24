@@ -1621,6 +1621,113 @@ t('advice: it names one cut, never a list', () => {
   eq(typeof a.target, 'string');
 });
 
+/* ── Levers ───────────────────────────────────────────────────────
+   Advice used to have exactly one thing to recommend: cancel a
+   subscription. These cover the other two, and the rule that the BIGGEST
+   lever wins regardless of kind. */
+
+/* Mid-month on purpose: the category comparison is suppressed before 40%
+   of the month has elapsed, because "below your usual" is true of
+   everything on the 3rd. */
+const MID = new Date('2026-08-20T12:00:00');
+const TX = (name, amount, date, cat) => ({ name, amount, date, category: [cat || 'Food and Drink'] });
+
+/* Same category across this month and the three before it. */
+function catHistory(cat, thisMonth, priors) {
+  const out = [];
+  thisMonth.forEach((a, k) => out.push(TX(cat, a, '2026-08-0' + (k + 1), cat)));
+  [['07', priors[0]], ['06', priors[1]], ['05', priors[2]]].forEach(([m, total]) => {
+    if (total != null) out.push(TX(cat, total, '2026-' + m + '-10', cat));
+  });
+  return out;
+}
+
+t('levers: a category running above its own median is a lever', () => {
+  // Prior months ~$200. Aug 20 is 65% through, so typical-so-far is ~$129.
+  const txns = catHistory('Food and Drink', [200, 150], [200, 200, 200]);
+  const l = C.coachLevers({ transactions: txns, today: MID });
+  const cat = l.find(x => x.kind === 'category');
+  ok(cat, 'expected a category lever, got ' + JSON.stringify(l.map(x => x.kind)));
+  eq(cat.name, 'Food and Drink');
+  ok(cat.monthly > 40, 'over amount: ' + cat.monthly);
+});
+
+t('levers: normal variation is not a lever', () => {
+  const txns = catHistory('Food and Drink', [130], [200, 200, 200]);
+  eq(C.coachLevers({ transactions: txns, today: MID }).some(x => x.kind === 'category'), false);
+});
+
+t('levers: a big percentage on a tiny category is not a lever', () => {
+  // Double the usual, but the usual is $12 — the difference is a rounding
+  // error and advice about it would be noise.
+  const txns = catHistory('Food and Drink', [24], [12, 12, 12]);
+  eq(C.coachLevers({ transactions: txns, today: MID }).some(x => x.kind === 'category'), false);
+});
+
+t('levers: too early in the month to judge, so it does not', () => {
+  const early = new Date('2026-08-03T12:00:00');
+  const txns = catHistory('Food and Drink', [200], [200, 200, 200]);
+  eq(C.coachLevers({ transactions: txns, today: early }).some(x => x.kind === 'category'), false);
+});
+
+t('levers: one prior month is not a normal', () => {
+  const txns = catHistory('Food and Drink', [400], [200, null, null]);
+  eq(C.coachLevers({ transactions: txns, today: MID }).some(x => x.kind === 'category'), false);
+});
+
+t('levers: a bill costing more than the plan says is a lever', () => {
+  const txns = [
+    TX('Electric Co', 167, '2026-08-01', 'Utilities'),
+    TX('Electric Co', 165, '2026-07-01', 'Utilities'),
+    TX('Electric Co', 169, '2026-06-01', 'Utilities'),
+  ];
+  const bills = [{ name: 'Electric Co', amount: 130, status: 'unpaid', due_date: '2026-08-28' }];
+  const l = C.coachLevers({ transactions: txns, bills, today: MID });
+  const bill = l.find(x => x.kind === 'bill');
+  ok(bill, 'expected a bill lever');
+  near(bill.monthly, 37, 1);
+});
+
+t('levers: the biggest wins regardless of kind', () => {
+  const txns = catHistory('Food and Drink', [400, 200], [200, 200, 200]);
+  const l = C.coachLevers({
+    transactions: txns,
+    subscriptions: [subOf('Hulu', 'mo', [17.99, 17.99, 17.99], 300)],
+    today: MID,
+  });
+  eq(l[0].kind, 'category', 'a $400 overspend must outrank a $18 subscription');
+});
+
+t('advice: the verb matches the thing being recommended', () => {
+  const catAdvice = C.coachAdvice({
+    transactions: catHistory('Food and Drink', [400, 200], [200, 200, 200]),
+    accounts: [], coverage: { covered: true }, today: MID,
+  });
+  eq(catAdvice.kind, 'category');
+  eq(catAdvice.action, 'trim', '"cancel your Food and Drink" is nonsense');
+
+  const subAdvice = C.coachAdvice({
+    subscriptions: [subOf('Adobe', 'mo', [54.99, 54.99, 54.99], 300)],
+    accounts: [], coverage: { covered: true }, today: BNOW,
+  });
+  eq(subAdvice.action, 'cancel');
+});
+
+t('advice: a category overspend still chains to a consequence', () => {
+  const a = C.coachAdvice({
+    transactions: catHistory('Food and Drink', [400, 200], [200, 200, 200]),
+    accounts: [DEBT('Visa', 4000, 24.99, 200)],
+    coverage: { covered: true }, strategy: 'avalanche', today: MID,
+  });
+  eq(a.kind, 'category');
+  eq(a.consequence.kind, 'debt');
+  ok(a.consequence.monthsSaved > 0, 'the whole point is the chain still fires');
+});
+
+t('advice: no levers at all returns null rather than inventing a chore', () => {
+  eq(C.coachAdvice({ transactions: [], subscriptions: [], bills: [], today: MID }), null);
+});
+
 console.log(`fc-core: ${passed} passed, ${failed} failed`);
 if (failed) {
   console.error('');
