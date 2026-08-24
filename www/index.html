@@ -7117,7 +7117,10 @@ body:not(.keyboard-open) .fc-sheet {
        There is deliberately no second entry point in the header — this app
        has a long history of one action wearing two controls, and the two
        always drift. Hidden by [hidden] whenever a sheet owns the screen. -->
-  <button id="fc-coach-orb" class="fc-orb" type="button"
+  <!-- Starts hidden. Without this it painted over the splash and the auth
+       screens: _syncCoachOrb() decides visibility, but nothing had called it
+       yet, so the default was "visible" for the whole of app launch. -->
+  <button id="fc-coach-orb" class="fc-orb" type="button" hidden
           aria-label="Ask the coach" onclick="FCApp.openAgentSheet()">
     <span class="fc-orb__ball" aria-hidden="true">
       <span class="fc-orb__blob"></span>

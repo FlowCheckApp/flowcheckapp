@@ -11147,6 +11147,18 @@ window.FCApp = (function () {
     }
     if (/safe to spend|how much (?:can|should) i spend|spending money|left to spend|spare/.test(s)) return { intent: 'safe' };
     if (/paid|payday|pay ?check|next check/.test(s))                    return { intent: 'payday' };
+    /* "What should I cut" is the question this app answers BEST, and it was
+       falling through to the language model — which, handed a data block it
+       could not turn into a recommendation, replied "cut spending on
+       services, shopping, food and drink, utilities, personal care, bank
+       fees, auto and transport, entertainment, and top merchants". That is
+       the model reading back the category names it was given. The engine
+       has a real answer with a name and a figure; it just was never asked.
+
+       Ordered before `subs` on purpose: "what subscription should I cut"
+       is a cut question, not a list-my-subscriptions question. */
+    if (/what (?:should|can) i cut|should i cut|what to cut|where (?:can|should) i cut|cut back|save money|spend less|trim/.test(s))
+      return { intent: 'cut' };
     if (/subscription|recurring|streaming/.test(s))                     return { intent: 'subs' };
     if (/debt|owe|credit card|loan|payoff|pay off/.test(s))             return { intent: 'debt' };
     if (/saving|save|goal|emergency fund/.test(s))                      return { intent: 'savings' };
@@ -11203,6 +11215,41 @@ window.FCApp = (function () {
     }
     const p = _buildSafeSpendProjection();
     const safe = Math.max(0, p.safe || 0);
+
+    /* The same recommendation the Coach card shows, in one sentence. One
+       named thing with a figure, not a list of categories. */
+    if (parsed.intent === 'cut') {
+      let a = null;
+      try {
+        a = FCCore.coachAdvice({
+          subscriptions: _detectSubscriptions() || [],
+          transactions:  state.transactions || [],
+          bills:         state.bills || [],
+          keyFn:         _subGroupKey,
+          accounts:      state.accounts || [],
+          coverage:      FCCore.billCoverage({
+            bills: state.bills || [],
+            payday: (_predictNextPayday() || {}).date || null,
+            cash: FCCore.spendableCash(state.accounts || []), today: new Date(),
+          }),
+          strategy: _debtStrategy(),
+          goal:     (_goalsForDisplay() || [])[0] || null,
+          today:    new Date(),
+          fmt:      v => FCData.formatSummary(v),
+        });
+      } catch (_e) { /* No recommendation available — say so rather than guess. */ }
+
+      if (!a) {
+        return { tone: 'good', verdict: 'Nothing obvious to cut.',
+                 detail: 'No lapsed subscriptions, no price rises, and your spending is in line with your usual. That is a good place to be.' };
+      }
+      const verb = a.action === 'cancel' ? 'Cancel' : a.action === 'trim' ? 'Trim' : 'Update';
+      return {
+        tone: 'neutral',
+        verdict: verb + ' ' + a.target + ' — ' + FCData.formatSummary(a.freesMonthly) + '/mo',
+        detail: a.why + ' ' + a.consequence.sentence,
+      };
+    }
 
     if (parsed.intent === 'afford') {
       if (parsed.amount == null) {
@@ -11486,6 +11533,8 @@ window.FCApp = (function () {
     'Every number you state must appear in DATA. Never calculate, add, estimate or infer a figure.',
     'If DATA does not contain what the question needs, say plainly that you do not have it —',
     'never substitute a different fact you do have.',
+    'Never answer by listing the names of the fields or categories in DATA. Name at most',
+    'two specific things, each with its amount.',
     'You are not a financial adviser: no investments, crypto, or tax advice.',
     'Answer in one to three sentences. Lead with the answer. No lists, no markdown, no preamble.',
   ].join(' ');
@@ -11789,15 +11838,20 @@ window.FCApp = (function () {
     const tab  = state.tab || 'home';
     const sugg = _COACH_SUGGESTIONS[tab] || _COACH_SUGGESTIONS.coach;
 
+    /* The FIELD comes first in the sheet, and the context second.
+
+       Opposite order to the Coach tab, on purpose. The tab is where you go
+       to read what the agent found; the sheet is what you open to ask
+       something. Putting the ask box under a card meant that when the
+       keyboard came up — and the WebView shrank to the strip above it — the
+       field was below the fold inside the sheet, so you were typing into
+       something you could not see.
+
+       The first version fixed that with scrollIntoView on focus, which
+       raced the keyboard animation and sometimes left the sheet showing
+       nothing but its own title. Order is not a race. */
     body.innerHTML =
-      (lead
-        ? '<div class="coach-sheet-lead">'
-          + '<p class="coach-sheet-lead__label">Right now</p>'
-          + '<p class="coach-sheet-lead__title">' + esc(lead.title) + '</p>'
-          + '<p class="coach-sheet-lead__why">' + esc(lead.because) + '</p>'
-        + '</div>'
-        : '')
-      + '<div class="coach-ask">'
+      '<div class="coach-ask">'
         + '<div class="coach-ask-field">'
           + _ic('search', 'var(--fc-text-faint)', 16)
           + '<input id="agent-sheet-input" type="text" placeholder="Ask about your money\u2026"'
@@ -11813,34 +11867,20 @@ window.FCApp = (function () {
         + sugg.map(q => '<button type="button" class="fc-chip" data-coach-q="' + esc(q) + '"'
             + ' onclick="FCApp.coachAsk(this.dataset.coachQ,\'sheet\')">' + esc(q) + '</button>').join('')
       + '</div>'
-      + '<div id="agent-sheet-answer" style="display:none"></div>';
+      + '<div id="agent-sheet-answer" style="display:none"></div>'
+      + (lead
+        ? '<div class="coach-sheet-lead coach-sheet-lead--after">'
+          + '<p class="coach-sheet-lead__label">Right now</p>'
+          + '<p class="coach-sheet-lead__title">' + esc(lead.title) + '</p>'
+          + '<p class="coach-sheet-lead__why">' + esc(lead.because) + '</p>'
+        + '</div>'
+        : '')
+      ;
+
 
     sheet.style.display = 'flex';
     requestAnimationFrame(() => sheet.classList.add('is-open'));
     _syncCoachOrb();
-
-    /* Bring the field to the top of the sheet once the keyboard is up.
-
-       With resize:"native" the WebView shrinks to the area above the
-       keyboard, so the sheet IS on screen — but only its first ~150px, and
-       the ask field sits below the "Right now" card. On device that read as
-       the keyboard having swallowed the sheet: the user could type and see
-       neither the field nor what they had typed.
-
-       'start', not 'center': centring in a viewport barely taller than the
-       field leaves it half under the keyboard again. */
-    const field = document.getElementById('agent-sheet-input');
-    if (field) {
-      field.addEventListener('focus', () => {
-        /* After the keyboard animation, not during — scrolling mid-animation
-           is what produced the "jumps high then snaps down" artifact the
-           keyboard IIFE already documents. */
-        setTimeout(() => {
-          try { field.scrollIntoView({ block: 'start', behavior: 'smooth' }); }
-          catch (_e) { /* Older WebView without smooth scrolling — position is close enough. */ }
-        }, 320);
-      });
-    }
   }
 
   function closeAgentSheet() {

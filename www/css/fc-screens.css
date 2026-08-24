@@ -4536,6 +4536,10 @@ html body.fc-theme[data-tab="activity"] .fc-screen[data-screen="app"] > .fc-head
 
 /* ── The agent from the header ─────────────────────────────────── */
 
+/* Sits BELOW the ask field now, so the margin moved with it — see the note
+   in openAgentSheet about why the field comes first. */
+.coach-sheet-lead--after { margin: 16px 0 0; }
+
 .coach-sheet-lead {
   margin: 0 0 16px;
   padding: 14px 16px;

@@ -254,6 +254,31 @@ const DRIVE = `(async () => {
     }
   }
 
+  /* "What should I cut" — the question this app answers best, and the one
+     that reached the language model and came back as "cut spending on
+     services, shopping, food and drink, utilities, personal care, bank
+     fees, auto and transport, entertainment, and top merchants": the model
+     reading back the category names it had been given. It must be answered
+     by the engine, which names ONE thing and a figure. */
+  FCApp.coachAsk('What should I cut'); await w(700);
+  {
+    const out = document.getElementById('coach-ask-answer');
+    const txt = out ? (out.innerText || '').replace(/\\s+/g, ' ').trim() : '';
+    if (!txt) {
+      problems.push('coach: "what should I cut" produced no answer');
+    } else {
+      /* A real recommendation carries a dollar figure. A list of category
+         names carries none, which is exactly how the bad answer read. */
+      if (!/\\$[0-9]/.test(txt)) {
+        problems.push('coach: "what should I cut" answered without a figure — ' + txt.slice(0, 90));
+      }
+      const listy = (txt.match(/,/g) || []).length;
+      if (listy >= 5) {
+        problems.push('coach: "what should I cut" answered with a list of ' + listy + ' items, not a recommendation');
+      }
+    }
+  }
+
   // Segmented controls — these re-render whole panels and have broken before.
   for (const s of ['paycheck','bills','budget','subs']) {
     FCApp.switchTab('plan'); await w(250); FCApp.switchPlanSeg(s); await w(280);
