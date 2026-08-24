@@ -20,6 +20,14 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     var window: UIWindow?
 
+    private var flowCheckWindowBackground: UIColor {
+        UIColor { traits in
+            traits.userInterfaceStyle == .dark
+                ? UIColor(red:   6/255, green:  14/255, blue:  24/255, alpha: 1)  // #060e18
+                : UIColor(red: 244/255, green: 247/255, blue: 251/255, alpha: 1)  // #f4f7fb
+        }
+    }
+
     // MARK: - Scene Connection
 
     func scene(
@@ -50,12 +58,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // A dynamic colour keeps the original intent (no dark bleed in light
         // mode) and fixes the frame, and it re-resolves automatically when the
         // appearance changes. Values match the web layer's own backgrounds.
-        window?.backgroundColor = UIColor { traits in
-            traits.userInterfaceStyle == .dark
-                ? UIColor(red:   6/255, green:  14/255, blue:  24/255, alpha: 1)  // #060e18
-                : UIColor(red: 244/255, green: 247/255, blue: 251/255, alpha: 1)  // #f4f7fb
-        }
-        window?.windowScene = windowScene
+        applyWindowBackground(windowScene: windowScene)
 
         // Cold launch via URL (e.g. OAuth redirect reopening a killed app)
         if let urlContext = connectionOptions.urlContexts.first {
@@ -73,6 +76,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         _ = ApplicationDelegateProxy.shared.application(UIApplication.shared, open: url, options: [:])
     }
     func sceneDidBecomeActive(_ scene: UIScene) {
+        applyWindowBackground(windowScene: scene as? UIWindowScene)
         // Delegate to AppDelegate's existing didBecomeActive logic
         appDelegate?.applicationDidBecomeActive(UIApplication.shared)
     }
@@ -93,5 +97,19 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     private var appDelegate: AppDelegate? {
         UIApplication.shared.delegate as? AppDelegate
+    }
+
+    private func applyWindowBackground(windowScene: UIWindowScene?) {
+        if window == nil, let sceneWindow = windowScene?.windows.first {
+            window = sceneWindow
+        }
+        let targetWindow = window
+            ?? windowScene?.windows.first
+            ?? UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+                .flatMap { $0.windows }
+                .first
+        targetWindow?.backgroundColor = flowCheckWindowBackground
+        targetWindow?.rootViewController?.view.backgroundColor = flowCheckWindowBackground
     }
 }

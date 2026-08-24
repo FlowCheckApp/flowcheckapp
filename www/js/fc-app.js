@@ -1363,6 +1363,13 @@ window.FCApp = (function () {
 
   let _screenTransitioning = false;
 
+  function _dismissFocusedInput() {
+    const ae = document.activeElement;
+    if (!ae) return;
+    if (ae.tagName !== 'INPUT' && ae.tagName !== 'TEXTAREA' && ae.tagName !== 'SELECT') return;
+    try { ae.blur(); } catch (_) {}
+  }
+
   function setScreen(name) {
     /* The subscription gate lives here because this is the only door.
        There are a dozen setScreen('app') call sites — onboarding, sign-in,
@@ -1455,6 +1462,12 @@ window.FCApp = (function () {
     const nextIdx = _SCREEN_ORDER[name]  ?? 0;
     const forward = nextIdx >= prevIdx;
     _screenTransitioning = true;
+
+    /* Full-screen transitions need the same guard as tab switches: if an
+       outgoing auth or sheet field stays focused, iOS keeps the keyboard
+       animation and resized viewport alive into the next screen's entrance.
+       That is how a clean push can inherit a stale keyboard-open layout. */
+    _dismissFocusedInput();
 
     // Pin outgoing screen so it stays visible during its exit animation
     const outEl = prev && prev !== 'splash'
@@ -1865,8 +1878,7 @@ window.FCApp = (function () {
     if (state.tab === tabId) return;
     haptic('light');
     // Dismiss keyboard before tab switch so stale viewport state doesn't carry over
-    const ae = document.activeElement;
-    if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA')) ae.blur();
+    _dismissFocusedInput();
     const prev = state.tab;
     state.tab  = tabId;
 

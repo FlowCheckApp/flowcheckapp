@@ -1560,7 +1560,22 @@ body {
      plugin to resize:"native", so the WebView is ALREADY shrunk to sit above
      the keyboard and dvh/svh report that reduced height. Subtracting again
      double-counted it and squashed the sheet. */
-  max-height: min(90dvh, 90svh, calc(100vh - 16px));
+  /* ONE height formula, in both states.
+
+     There used to be two: min(90dvh, 90svh, calc(100vh - 16px)) at rest and
+     min(92dvh, calc(100dvh - safe-top - 16px)) under .keyboard-open. Those
+     are different numbers, so merely adding the class resized the sheet —
+     on top of the viewport itself shrinking. That is the half-height-then-
+     full-height jump between two frames a second apart.
+
+     It also mixed three viewport units. dvh tracks the current viewport,
+     svh is the viewport as if the keyboard were ALWAYS showing, and vh is
+     the viewport as if it never were. Feeding all three to one min() means
+     the answer changes basis depending on which happens to be smallest.
+
+     dvh alone is correct here: resize:"native" means iOS has already
+     shrunk the WebView, so 100dvh IS the space above the keyboard. */
+  max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 16px);
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   transform: translateY(0);
@@ -1665,7 +1680,9 @@ body.keyboard-open .fc-sheet {
      Bottom padding is deliberately NOT overridden here: with the keyboard up
      the home indicator is covered, so env(safe-area-inset-bottom) already
      collapses to 0 on its own. One less thing changing mid-animation. */
-  max-height: min(92dvh, calc(100dvh - env(safe-area-inset-top, 0px) - 16px));
+  /* No max-height here any more — see .fc-sheet. The keyboard must not
+     change how this element is sized; only the viewport may, and iOS
+     already owns that. */
 }
 /* The Done bar is fixed at the viewport bottom, so it sits over whatever the
    sheet has down there — which is the Save button. Reserve its height (44px
