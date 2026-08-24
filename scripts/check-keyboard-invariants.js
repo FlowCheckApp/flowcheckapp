@@ -137,6 +137,59 @@ if (!setsClass || !stylesClass) {
     + 'the avoidance system silently did nothing.');
 }
 
+/* ── Nothing may resize itself instantly when the keyboard opens ──────
+ *
+ * body.keyboard-open changes layout on several elements at once: the auth
+ * orb fades, the header art collapses, the subtitle's height goes, the
+ * screen's top padding shrinks, and a sheet reserves 69px for the Done bar.
+ * They all animate over ~0.25s — except the ones that did not, and a single
+ * untransitioned property in that group is enough to make the whole reflow
+ * read as a lurch, because half the screen eases and half of it jumps.
+ *
+ * Three were found this way and none was visible in a browser:
+ *   · .fc-auth-title  font-size, snapping while the art above it eased
+ *   · .fc-auth-screen padding-top, shifting everything below it in one frame
+ *   · .fc-sheet       padding-bottom, a 69px jump on every tap into an
+ *                     amount field — which is most fields anyone types into
+ *
+ * A transition declared on the BASE selector counts: that is the correct
+ * place for it, since the transition belongs to the element and not to the
+ * state. The global prefers-reduced-motion rule neuters all of them, so
+ * adding one costs nothing for users who have asked for stillness.
+ */
+{
+  const ANIMATABLE = /(font-size|max-height|min-height|height|padding[a-z-]*|margin[a-z-]*|opacity|transform)\s*:/;
+  const ruleRe = /body\.keyboard-open([^{]*?)\{([^}]*)\}/g;
+  let m;
+  while ((m = ruleRe.exec(html)) !== null) {
+    const sel  = m[1].trim();
+    const body = m[2];
+    if (!ANIMATABLE.test(body)) continue;
+    if (/transition/.test(body)) continue;
+    if (!sel) continue;                       // bare body rule: nothing to ease
+
+    /* Is the element transitioned anywhere?
+
+       The transition belongs on the ELEMENT, not on the state — so look for
+       it on the last class in the selector, in any rule, rather than
+       requiring it inside the keyboard-open block itself. For
+       ".fc-kb-numeric .fc-sheet" that means .fc-sheet, which is where a
+       sheet's transition correctly lives. */
+    const classes = sel.match(/\.[-\w]+/g);
+    if (classes && classes.length) {
+      const last = classes[classes.length - 1];
+      const esc  = last.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const anyRule = new RegExp(esc + '(?![-\\w])[^{}]*\\{[^}]*transition[^}]*\\}');
+      if (anyRule.test(html)) continue;
+    }
+
+    const line = html.slice(0, m.index).split('\n').length;
+    failures.push(`www/index.html:${line} — body.keyboard-open ${sel} changes layout `
+      + `with no transition. Half the screen eases and this half jumps, which is `
+      + `what reads as the keyboard "glitching". Put a transition on ${sel}.`);
+  }
+}
+
 /* ── Report ───────────────────────────────────────────────────────── */
 if (failures.length) {
   console.error('Keyboard invariant check FAILED:\n');
