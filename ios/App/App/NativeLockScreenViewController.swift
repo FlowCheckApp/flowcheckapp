@@ -4,8 +4,8 @@ import LocalAuthentication
 // Full-screen native lock screen — shown on every app resume when biometric is enabled.
 // Owns its own Face ID / Touch ID prompt via LAContext directly (no Capacitor bridge needed).
 // On success: scale+fade dismiss. On failure: the screen states why and offers the
-// two ways forward. "Use account password" posts FCSignOutRequested so the JS
-// layer signs out.
+// two ways forward. "Use account password" keeps this gate opaque until the
+// JavaScript layer explicitly confirms that Firebase signed out.
 final class NativeLockScreenViewController: UIViewController {
 
     // MARK: - Callbacks
@@ -14,6 +14,8 @@ final class NativeLockScreenViewController: UIViewController {
 
     // MARK: - State
     private var isAuthenticating = false
+    private var isSigningOut = false
+    private var hasAppeared = false
 
     // MARK: - Design tokens (FlowCheck design system)
     private let fcBg       = UIColor(red: 0.020, green: 0.055, blue: 0.094, alpha: 1) // #050e18
@@ -76,13 +78,31 @@ final class NativeLockScreenViewController: UIViewController {
         setupActions()
         setupFooter()
         applyIdleState()
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(nativeSignOutFinished(_:)),
+            name: .fcNativeSignOutResult,
+            object: nil
+        )
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        // Presented alerts also trigger viewDidAppear when they close. Starting
+        // authentication or replaying the entrance there could interrupt the
+        // fail-closed password sign-out path.
+        guard !hasAppeared else { return }
+        hasAppeared = true
         startPulse()
 
-        view.alpha     = 0
+        // Keep the full-screen background opaque. Only translate it into place;
+        // fading this view while AppDelegate removes its privacy blur exposes
+        // the authenticated WebView underneath before authentication.
+        view.alpha     = 1
         view.transform = CGAffineTransform(translationX: 0, y: 14)
         UIView.animate(withDuration: 0.22, delay: 0,
                        usingSpringWithDamping: 0.88, initialSpringVelocity: 0.3,
@@ -450,7 +470,7 @@ final class NativeLockScreenViewController: UIViewController {
     }
 
     private func authenticate() {
-        guard !isAuthenticating else { return }
+        guard !isAuthenticating, !isSigningOut else { return }
         isAuthenticating   = true
         glyphView.isEnabled = false
         retryBtn.isEnabled  = false
@@ -581,10 +601,47 @@ final class NativeLockScreenViewController: UIViewController {
     }
 
     @objc private func passwordTapped() {
+        guard !isSigningOut else { return }
         impact(.light)
-        dismiss(animated: true) { [weak self] in
-            self?.onSignOut?()
+        guard let onSignOut else {
+            showSignOutUnavailable()
+            return
         }
+
+        isSigningOut = true
+        glyphView.isEnabled = false
+        retryBtn.isEnabled = false
+        passwordBtn.isEnabled = false
+        troubleBtn.isEnabled = false
+        statusLabel.text = "Opening secure sign-in…"
+        statusLabel.textColor = UIColor.white.withAlphaComponent(0.72)
+        hintLabel.text = "FlowCheck stays locked until this device signs out."
+        onSignOut()
+    }
+
+    func showSignOutUnavailable() {
+        finishSignOut(success: false)
+    }
+
+    @objc private func nativeSignOutFinished(_ notification: Notification) {
+        guard isSigningOut else { return }
+        finishSignOut(success: notification.userInfo?["success"] as? Bool ?? false)
+    }
+
+    private func finishSignOut(success: Bool) {
+        if success {
+            dismiss(animated: false)
+            return
+        }
+
+        isSigningOut = false
+        glyphView.isEnabled = true
+        retryBtn.isEnabled = true
+        passwordBtn.isEnabled = true
+        troubleBtn.isEnabled = true
+        statusLabel.text = "Could not open secure sign-in"
+        statusLabel.textColor = fcDanger
+        hintLabel.text = "FlowCheck is still locked. Try again or unlock this device."
     }
 
     /* A visible link needs a real destination. This explains the two things

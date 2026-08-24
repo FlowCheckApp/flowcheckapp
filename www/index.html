@@ -923,8 +923,8 @@ body.keyboard-open .fc-auth-screen { padding-top: calc(env(safe-area-inset-top, 
   background: linear-gradient(135deg, #fff 15%, rgba(26,196,240,0.95) 80%);
   -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
 }
-.fc-hero-sub {
-  font-size: 15px; line-height: 1.65; color: rgba(255,255,255,0.44);
+.fc-hero-screen .fc-hero-sub {
+  font-size: 15px; line-height: 1.65; color: var(--fc-text-muted);
   max-width: 290px; margin: 0 auto;
   animation: fcFadeUp 0.6s 0.22s var(--fc-ease-out) both;
 }
@@ -951,11 +951,11 @@ body.keyboard-open .fc-auth-screen { padding-top: calc(env(safe-area-inset-top, 
   animation: fcFadeUp 0.55s 0.42s var(--fc-ease-out) both;
 }
 .fc-hero-legal {
-  font-size: 11px; color: rgba(255,255,255,0.22); text-align: center;
+  font-size: 11px; color: var(--fc-text-faint); text-align: center;
   margin-top: 14px; line-height: 1.7; padding: 0 8px;
   animation: fcFadeUp 0.55s 0.48s var(--fc-ease-out) both;
 }
-.fc-hero-legal a { color: rgba(255,255,255,0.38); text-decoration: underline; }
+.fc-hero-legal a { color: var(--fc-text-muted); text-decoration: underline; }
 
 /* ════════════════════════════════════════════════════════════
    ONBOARDING (Plaid connect)
@@ -1168,7 +1168,7 @@ body.keyboard-open .fc-auth-screen { padding-top: calc(env(safe-area-inset-top, 
   text-shadow: 0 0 40px rgba(26,196,240,0.15);
 }
 .fc-hero-cents { font-size: 26px; color: rgba(255,255,255,0.45); font-weight: 600; }
-.fc-hero-sub { color: rgba(255,255,255,0.45); font-size: 12px; margin: 5px 0 14px; }
+.fc-hero .fc-hero-sub { color: var(--fc-text-faint); font-size: 12px; margin: 5px 0 14px; }
 
 /* Scrubber */
 .fc-scrubber {
@@ -4003,6 +4003,7 @@ body:not(.keyboard-open) .fc-sheet {
   var _totalSlides = 6;
   var _currentSlide = 0;
   var _selectedGoal = null;
+  var _selectedGoalUid = '';
   var _aiDone = false;
 
   /* ── Progress persistence (survives app crash mid-onboarding) ──
@@ -4013,22 +4014,25 @@ body:not(.keyboard-open) .fc-sheet {
      person signed up on the same device, the newcomer resumed exactly where
      the previous person stopped: measured, a brand-new user landed on slide
      4 of 6 at 80% progress, having never seen the security slide, the goal
-     question, the personalisation or the example. _selectedGoal was restored
-     too, so the previous person's answer rode along into the new user's
-     analytics.
+     question, the personalisation or the example.
 
-     A per-uid key also makes the legitimate case work properly: the same
-     person signing back in resumes their own place. */
-  function _obKey() {
+     Only the slide number is persisted. The money-goal answer is financial
+     profile data, so it stays in memory and in the signed-in user's Firestore
+     record; it must never be copied into WebView localStorage. */
+  function _obUid() {
     var uid = '';
     try {
       var u = window.FCAuth && FCAuth.currentUser && FCAuth.currentUser();
       uid = u && u.uid ? u.uid : '';
     } catch (_) {}
+    return uid;
+  }
+  function _obKey() {
+    var uid = _obUid();
     return uid ? 'fc_ob_progress_' + uid : 'fc_ob_progress_anon';
   }
   function _saveObProgress() {
-    try { localStorage.setItem(_obKey(), JSON.stringify({ slide: _currentSlide, goal: _selectedGoal })); } catch(_) {}
+    try { localStorage.setItem(_obKey(), JSON.stringify({ slide: _currentSlide })); } catch(_) {}
   }
   function _loadObProgress() {
     try {
@@ -4335,6 +4339,7 @@ body:not(.keyboard-open) .fc-sheet {
   /* ── Public: obSelectGoal ── */
   window.obSelectGoal = function(el, goal) {
     _selectedGoal = goal;
+    _selectedGoalUid = _obUid();
     document.querySelectorAll('.fc-ob-grid-option').forEach(function(b) {
       b.classList.remove('selected');
     });
@@ -4360,9 +4365,26 @@ body:not(.keyboard-open) .fc-sheet {
       if (m.attributeName === 'data-screen' && document.body.dataset.screen === 'onboarding') {
         // Restore saved progress (e.g. app crashed mid-onboarding, or returning
         // from the paywall to the bank-connect slide) or start at 0
+        var currentUid = _obUid();
+        var inMemoryGoal = currentUid && _selectedGoalUid === currentUid
+          ? _selectedGoal
+          : null;
         var saved = _loadObProgress();
         var resumeSlide = (saved && saved.slide > 0 && saved.slide <= _totalSlides - 1) ? saved.slide : 0;
-        var resumeGoal  = saved ? saved.goal : null;
+        // After a process restart the financial goal is intentionally absent
+        // from localStorage, so return to its secure selection step. Returning
+        // from the paywall in the same process keeps the in-memory answer.
+        if (resumeSlide > 1 && !inMemoryGoal) resumeSlide = 1;
+
+        // Never let a previous account's in-memory selection or DOM state
+        // survive an account switch in the same WebView process.
+        if (!inMemoryGoal) {
+          document.querySelectorAll('.fc-ob-grid-option').forEach(function(b) {
+            b.classList.remove('selected');
+          });
+          var goalContinue = document.getElementById('ob-goal-continue');
+          if (goalContinue) goalContinue.classList.remove('visible');
+        }
 
         // Reset all slides
         for (var i = 0; i < _totalSlides; i++) {
@@ -4373,7 +4395,8 @@ body:not(.keyboard-open) .fc-sheet {
         if (startSlide) startSlide.classList.add('active');
 
         _currentSlide = resumeSlide;
-        _selectedGoal = resumeGoal;
+        _selectedGoal = inMemoryGoal;
+        _selectedGoalUid = currentUid;
         _aiDone = false;
 
         // Reset AI steps

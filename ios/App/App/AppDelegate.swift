@@ -189,13 +189,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             self?.removePrivacyOverlay()
         }
 
-        lockVC.onSignOut = {
-            // Tell the Capacitor / JS layer to sign out.
-            // The JS listener in fc-app.js calls FCAuth.signOut() on this event.
-            NotificationCenter.default.post(
-                name: Notification.Name("FCSignOutRequested"),
-                object: nil
-            )
+        lockVC.onSignOut = { [weak self, weak lockVC] in
+            // Use FlowCheck's own plugin event, not an arbitrary NSNotification:
+            // Capacitor's App plugin does not forward custom notification names.
+            guard let bridgeVC = self?.window?.rootViewController as? CAPBridgeViewController,
+                  let plugin = bridgeVC.bridge?.plugin(withName: "BiometricAuth") as? BiometricAuthNative else {
+                lockVC?.showSignOutUnavailable()
+                return
+            }
+            plugin.requestSignOutFromLock()
         }
 
         // Present instantly (blur is covering — no visual gap).
@@ -257,7 +259,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         let blurView   = UIVisualEffectView(effect: blurEffect)
         blurView.frame            = window.bounds
         blurView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        blurView.alpha            = 0
+        // Privacy protection must be in place before iOS captures the task
+        // switcher snapshot. Never animate from a transparent starting state.
+        blurView.alpha            = 1
 
         // Subtle lock + wordmark centered in the blur
         let lockCfg  = UIImage.SymbolConfiguration(pointSize: 28, weight: .light)
@@ -286,7 +290,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         window.addSubview(blurView)
         privacyOverlay = blurView
 
-        UIView.animate(withDuration: 0.10) { blurView.alpha = 1.0 }
     }
 
     private func removePrivacyOverlay() {

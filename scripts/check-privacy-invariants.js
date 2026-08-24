@@ -19,6 +19,10 @@ const checks = [
     pattern: /localStorage\.setItem\([^\n]*(?:net.?worth|nw_history|debt|balance|transaction|income|spend|milestone_prev)/i,
   },
   {
+    label: 'Financial-profile answers must not be written to browser storage',
+    pattern: /localStorage\.setItem\([^\n]*(?:_selectedGoal|onboarding_goal|financial_goal)/i,
+  },
+  {
     label: 'Session storage is prohibited for app state',
     pattern: /sessionStorage\s*\./,
   },
@@ -46,6 +50,12 @@ for (const relative of files) {
       check.pattern.lastIndex = 0;
     });
   }
+}
+
+const onboarding = fs.readFileSync(path.join(root, 'www/index.html'), 'utf8');
+if (!/_selectedGoalUid\s*=\s*_obUid\(\)/.test(onboarding) ||
+    !/_selectedGoalUid\s*===\s*currentUid/.test(onboarding)) {
+  failures.push('www/index.html Onboarding goal memory must be bound to the current Firebase UID');
 }
 
 if (failures.length) {

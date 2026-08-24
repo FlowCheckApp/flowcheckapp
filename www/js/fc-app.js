@@ -2262,7 +2262,11 @@ window.FCApp = (function () {
      ALSO PRESERVE:
        fc_first_sts_    — uid-keyed analytics de-dupe flag; wiping it would
          re-fire the once-per-user "first Safe to Spend" event. */
-  const _WIPE_PRESERVE = ['fc_ob_done_', 'fc_pw_seen_', 'fc_first_sts_'];
+  const _WIPE_PRESERVE = [
+    'fc_ob_done_', 'fc_pw_seen_', 'fc_first_sts_',
+    // Device preferences belong to the installation, not the signed-in user.
+    'fc_haptics_enabled', 'fc_appearance',
+  ];
 
   /** Clear per-user fc_ localStorage keys, honouring _WIPE_PRESERVE.
    *  Every sign-out path must go through this. The resume handler used to
@@ -11591,14 +11595,13 @@ window.FCApp = (function () {
         + '<p class="coach-ai__text">' + esc(msg) + '</p></div>';
     };
 
-    /* One renderer for both tiers. "On this device" is stated because it is
-       a real difference the user is entitled to know about: that answer was
-       written without anything leaving their phone. */
+    /* One renderer for both tiers. Always name the processing boundary so a
+       cloud answer can never look like an on-device answer. */
     const show = (answer, onDevice) => {
       out.innerHTML = '<div class="fc-card coach-ai">'
         + '<p class="coach-ai__text">' + esc(answer) + '</p>'
         + '<p class="coach-ai__note">'
-          + (onDevice ? 'Answered on this device \u00b7 ' : '')
+          + (onDevice ? 'Answered on this device \u00b7 ' : 'Answered by Cloud Coach with your approval \u00b7 ')
           + 'Figures come from your own accounts. '
           + 'FlowCheck is not a bank and this is not financial advice.</p>'
       + '</div>';
@@ -11610,6 +11613,15 @@ window.FCApp = (function () {
       if (local) return show(local.answer, true);
     } catch (_e) { /* Fall through to the network tier. */ }
 
+    const cloudApproved = await _confirmDialog(
+      'Use Cloud Coach?',
+      'Your exact question and a limited summary of totals, bill and subscription names, and spending categories will be sent to Anthropic for this answer. Individual transactions, account numbers, bank names, and per-account balances are not attached. Do not include personal details in your question.',
+      'Use Cloud Coach',
+      'accent');
+    if (!cloudApproved) {
+      return fail('Nothing was sent. Try one of the suggested questions for an answer that stays on this device.');
+    }
+
     try {
       const base = (window.FC_CONFIG && FC_CONFIG.app && FC_CONFIG.app.apiBase) || '';
       const resp = await FCAuth.authedFetch(base + '/coach/ask', {
@@ -11619,10 +11631,10 @@ window.FCApp = (function () {
            because this one crosses the network. The server re-filters it
            through its own allowlist, so this is a convenience, not the
            boundary. */
-        body:    JSON.stringify(Object.assign({ question }, _coachContext('compact'))),
+        body:    JSON.stringify(Object.assign({ question, cloudConsent: true }, _coachContext('compact'))),
       });
 
-      if (resp.status === 503 || resp.status === 402) {
+      if (resp.status === 503 || resp.status === 402 || resp.status === 412) {
         /* Not configured, or no entitlement. Neither is the user's problem to
            read about — fall back to what the on-device agent can say. */
         return fail('I can answer questions about your bills, spending, subscriptions and payday. Try one of the suggestions above.');
@@ -14261,8 +14273,10 @@ window.FCApp = (function () {
     return raw || 'Something went wrong';
   }
 
-  function _confirmDialog(title, message, confirmText) {
+  function _confirmDialog(title, message, confirmText, tone) {
     confirmText = confirmText || title;
+    const confirmColor = tone === 'accent' ? 'var(--fc-accent)' : 'var(--fc-danger)';
+    const confirmInk = tone === 'accent' ? 'var(--fc-accent-ink)' : 'var(--fc-text)';
     return new Promise(resolve => {
       const overlay = document.createElement('div');
       overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;align-items:flex-end;justify-content:center';
@@ -14270,7 +14284,7 @@ window.FCApp = (function () {
         <div style="background:var(--fc-bg-elevated,#0b1826);border-radius:24px 24px 0 0;padding:24px 24px calc(24px + env(safe-area-inset-bottom,0));width:100%;max-width:480px;border-top:1px solid var(--fc-border,rgba(255,255,255,0.07))">
           <div style="font-size:17px;font-weight:600;color:var(--fc-text,#f0f6ff);margin-bottom:8px;text-align:center">${title.replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}</div>
           <div style="font-size:14px;color:var(--fc-text-muted,rgba(240,246,255,0.58));line-height:1.5;margin-bottom:24px;text-align:center">${message.replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}</div>
-          <button id="_fc-dlg-confirm" style="width:100%;padding:16px;border-radius:14px;border:none;background:var(--fc-danger,#ff453a);color:#fff;font-size:16px;font-weight:600;cursor:pointer;margin-bottom:10px">${confirmText.replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}</button>
+          <button id="_fc-dlg-confirm" style="width:100%;padding:16px;border-radius:14px;border:none;background:${confirmColor};color:${confirmInk};font-size:16px;font-weight:600;cursor:pointer;margin-bottom:10px">${confirmText.replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}</button>
           <button id="_fc-dlg-cancel" style="width:100%;padding:14px;border-radius:14px;border:1px solid var(--fc-border,rgba(255,255,255,0.07));background:transparent;color:var(--fc-text-muted,rgba(240,246,255,0.58));font-size:15px;font-weight:500;cursor:pointer">Cancel</button>
         </div>`;
       document.body.appendChild(overlay);
@@ -15948,7 +15962,7 @@ window.FCApp = (function () {
        AppDelegate.applicationWillResignActive → UIVisualEffectView blur
        AppDelegate.applicationDidBecomeActive  → NativeLockScreenViewController
          Face ID via LAContext → success: scale+fade dismiss
-         "Use Password Instead" → FCSignOutRequested notification → JS signs out
+          "Use Password Instead" → BiometricAuth signOutRequested → JS signs out
        JS idle timer → BiometricAuth.lock() plugin → AppDelegate shows lock screen
      ───────────────────────────────────────────────────────────── */
 
@@ -15967,16 +15981,40 @@ window.FCApp = (function () {
     } catch (_) {}
   }
 
-  /** Listen for the native "Use Password Instead" tap posted by AppDelegate. */
+  let _nativeSignOutInFlight = false;
+
+  async function _handleNativeLockSignOut() {
+    if (_nativeSignOutInFlight) return;
+    _nativeSignOutInFlight = true;
+    let success = false;
+    try {
+      clearTimeout(_idleTimer);
+      if (typeof FCAnalytics !== 'undefined') FCAnalytics.track('signed_out');
+      if (window.Sentry) Sentry.setUser(null);
+      _wipeUserState();
+      await FCAuth.signOut();
+      success = !FCAuth.currentUser();
+      if (!success) throw new Error('Firebase session is still active');
+      if (typeof FCAnalytics !== 'undefined') FCAnalytics.reset();
+      setScreen('hero');
+    } catch (err) {
+      console.warn('[FCApp] Native lock sign-out failed:', err && (err.code || err.message));
+    } finally {
+      try {
+        const BiometricAuth = window.Capacitor?.Plugins?.BiometricAuth;
+        if (BiometricAuth?.completeSignOut) await BiometricAuth.completeSignOut({ success });
+      } catch (_) { /* Native lock remains closed if acknowledgement fails. */ }
+      _nativeSignOutInFlight = false;
+    }
+  }
+
+  /** Listen on FlowCheck's own plugin, which explicitly bridges this event. */
   function _initSignOutListener() {
     try {
-      const AppPlugin = window.Capacitor?.Plugins?.App;
-      if (!AppPlugin) return;
-      // Capacitor App plugin forwards NSNotification names as custom events
-      AppPlugin.addListener('FCSignOutRequested', async () => {
-        FCData.detachAllListeners();
-        try { await FCAuth.signOut(); } catch (_) {}
-      });
+      const BiometricAuth = window.Capacitor?.Plugins?.BiometricAuth;
+      if (BiometricAuth?.addListener) {
+        BiometricAuth.addListener('signOutRequested', _handleNativeLockSignOut);
+      }
     } catch (_) {}
 
     // Also wire up token-revocation check + delivered notification clear on every resume

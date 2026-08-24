@@ -1,6 +1,10 @@
 import Capacitor
 import LocalAuthentication
 
+extension Notification.Name {
+    static let fcNativeSignOutResult = Notification.Name("FCNativeSignOutResult")
+}
+
 /**
  * BiometricAuthNative — custom Face ID / Touch ID plugin
  * Registered via packageClassList in capacitor.config.json
@@ -14,7 +18,27 @@ public class BiometricAuthNative: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "checkBiometry",  returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "authenticate",   returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "lock",           returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "completeSignOut", returnType: CAPPluginReturnPromise),
     ]
+
+    /// The native lock cannot dismiss until JavaScript confirms Firebase has
+    /// signed out. Retaining the event keeps cold-start bridge timing fail-safe.
+    func requestSignOutFromLock() {
+        notifyListeners("signOutRequested", data: [:], retainUntilConsumed: true)
+    }
+
+    /// Called by the web layer only after the sign-out attempt has completed.
+    @objc func completeSignOut(_ call: CAPPluginCall) {
+        let success = call.getBool("success") ?? false
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(
+                name: .fcNativeSignOutResult,
+                object: nil,
+                userInfo: ["success": success]
+            )
+            call.resolve()
+        }
+    }
 
     /// Called by the JS idle timer (5-min inactivity) to show the native lock screen.
     @objc func lock(_ call: CAPPluginCall) {

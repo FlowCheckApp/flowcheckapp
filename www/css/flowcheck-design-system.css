@@ -254,10 +254,10 @@
   -webkit-background-clip: text !important; background-clip: text !important;
   -webkit-text-fill-color: transparent !important;
 }
-[data-theme="light"] .fc-hero-sub { color: rgba(10,21,32,0.52) !important; }
+[data-theme="light"] .fc-hero-sub { color: var(--fc-text-muted) !important; }
 [data-theme="light"] .fc-hero-wordmark { color: rgba(10,21,32,0.55) !important; }
-[data-theme="light"] .fc-hero-legal { color: rgba(10,21,32,0.38) !important; }
-[data-theme="light"] .fc-hero-legal a { color: rgba(10,21,32,0.55) !important; }
+[data-theme="light"] .fc-hero-legal { color: var(--fc-text-faint) !important; }
+[data-theme="light"] .fc-hero-legal a { color: var(--fc-text-muted) !important; }
 
 /* Light mode OTP boxes */
 [data-theme="light"] .fc-otp-box {
@@ -1634,11 +1634,11 @@ body.fc-theme {
 
 /* ── Hero / onboarding screen in light ──────────────────── */
 [data-theme="light"] .fc-hero-headline { color: #0a1520 !important; }
-[data-theme="light"] .fc-hero-sub      { color: rgba(10,21,32,0.48) !important; }
+[data-theme="light"] .fc-hero-sub      { color: var(--fc-text-muted) !important; }
 [data-theme="light"] .fc-hero-wordmark { color: rgba(10,21,32,0.65) !important; }
 [data-theme="light"] .fc-hero-signin-link { color: rgba(10,21,32,0.45) !important; }
-[data-theme="light"] .fc-hero-legal    { color: rgba(10,21,32,0.28) !important; }
-[data-theme="light"] .fc-hero-legal a  { color: rgba(10,21,32,0.45) !important; }
+[data-theme="light"] .fc-hero-legal    { color: var(--fc-text-faint) !important; }
+[data-theme="light"] .fc-hero-legal a  { color: var(--fc-text-muted) !important; }
 /* Hero logo SVG (fill="white" attribute) */
 [data-theme="light"] .fc-hero-logo-icon svg { fill: #fff; } /* keeps white on dark icon bg */
 

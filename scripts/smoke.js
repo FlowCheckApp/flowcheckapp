@@ -37,6 +37,7 @@ const os = require('os');
 const net = require('net');
 
 const ROOT = path.join(__dirname, '..');
+const WWW_ROOT = path.join(ROOT, 'www');
 const PORT = 4399;
 const HEADFUL = process.argv.includes('--headful');
 const MIN_CHARS = 40; // a rendered screen with less text than this is broken
@@ -71,19 +72,24 @@ const MIME = { html:'text/html', css:'text/css', js:'application/javascript', js
                png:'image/png', svg:'image/svg+xml', ico:'image/x-icon', woff2:'font/woff2' };
 
 function serve() {
-  return new Promise(resolve => {
+  return new Promise((resolve, reject) => {
     const srv = http.createServer((req, res) => {
       const url = decodeURIComponent(req.url.split('?')[0]);
       const rel = url === '/' ? '/index.html' : url;
-      const file = path.join(ROOT, 'www', rel);
-      if (!path.resolve(file).startsWith(path.join(ROOT, 'www'))) { res.writeHead(403); return res.end(); }
+      const file = path.resolve(WWW_ROOT, '.' + rel);
+      const fromRoot = path.relative(WWW_ROOT, file);
+      if (fromRoot.startsWith('..') || path.isAbsolute(fromRoot)) { res.writeHead(403); return res.end(); }
       fs.readFile(file, (err, data) => {
         if (err) { res.writeHead(404); return res.end('404'); }
         res.writeHead(200, { 'Content-Type': MIME[file.split('.').pop()] || 'text/plain' });
         res.end(data);
       });
     });
-    srv.listen(PORT, () => resolve(srv));
+    srv.once('error', reject);
+    srv.listen(PORT, '127.0.0.1', () => {
+      srv.removeListener('error', reject);
+      resolve(srv);
+    });
   });
 }
 

@@ -17,9 +17,11 @@
 'use strict';
 
 /* Field types, declared once. Everything not named here is dropped. */
-const MONEY = /^[-+$\u2212]?[\d,.]+$/;
-const str   = (v, n) => (typeof v === 'string' ? v.slice(0, n) : '');
-const num   = v => (Number.isFinite(Number(v)) ? Number(v) : null);
+const MONEY = /^[-+$\u2212]?(?=[\d,.]*\d)[\d,.]+$/;
+const str   = (v, n) => (typeof v === 'string'
+  ? v.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n)
+  : '');
+const num   = v => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 const bool  = v => (typeof v === 'boolean' ? v : null);
 const money = v => (typeof v === 'string' && MONEY.test(v) ? v.slice(0, 16) : null);
 const date  = v => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null);
@@ -66,17 +68,6 @@ function coachFacts(body) {
     spentLastMonth:  money(b.spentLastMonth),
     incomeThisMonth: money(b.incomeThisMonth),
     spendByCategory: list(b.spendByCategory, 10, x => ({ cat: str(x && x.cat, 40), amt: money(x && x.amt) })),
-    topMerchants:    list(b.topMerchants, 8, x => ({ n: str(x && x.n, 40), amt: money(x && x.amt) })),
-
-    /* Debt and goals. APR and minimum are figures about an obligation, not
-       identifiers — no account number, mask, or institution goes with them. */
-    debts: list(b.debts, 8, x => ({
-      n: str(x && x.n, 40), bal: money(x && x.bal), apr: num(x && x.apr), min: num(x && x.min),
-    })),
-    goals: list(b.goals, 5, x => ({
-      n: str(x && x.n, 40), target: money(x && x.target), saved: money(x && x.saved),
-    })),
-
     today: str(b.today, 40),
   };
 }
