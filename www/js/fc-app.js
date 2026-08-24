@@ -12041,6 +12041,25 @@ window.FCApp = (function () {
           : '');
 
 
+    /* Starters that follow the situation, not three fixed strings. If the
+       bills do not clear, the useful question is not "can I afford $200".
+       The sheet already picks by screen; this picks by finding. */
+    const STARTER_FOR = {
+      shortfall: 'How do I cover my bills?',
+      autopay:   'Which bills are on autopay?',
+      overdue:   'What is overdue?',
+      waste:     'What should I cancel?',
+      debt:      'Which debt should I pay first?',
+      pace:      'Where is my money going?',
+      clear:     'What\u2019s safe to spend?',
+    };
+    const starters = [];
+    const firstQ = STARTER_FOR[agenda.lead.id];
+    if (firstQ) starters.push(firstQ);
+    for (const q of ['What\u2019s safe to spend?', 'When do I get paid?', 'Can I afford $100?']) {
+      if (starters.length < 3 && starters.indexOf(q) === -1) starters.push(q);
+    }
+
     el.innerHTML =
       '<header class="fc-page-head">'
         +'<div class="fc-page-head__text">'
@@ -12048,12 +12067,22 @@ window.FCApp = (function () {
           +'<p class="fc-page-sub">Straight answers from your own numbers</p>'
         +'</div>'
       +'</header>'
-      /* The ask bar. Three starters rather than a wall of them — enough to
-         teach the shape of a question without becoming a menu. */
+
+      /* What the agent noticed comes FIRST.
+
+         It used to be sixth of seven, below an empty text box and two cards,
+         so the screen opened by asking the user what they wanted instead of
+         telling them what it had found. A coach that has spotted a shortfall
+         before payday should lead with that. The ask box is for the question
+         the agent did not anticipate, which is by definition the second
+         thing. Asserted by scripts/smoke.js. */
+      +agendaHTML
+
+      +'<div class="fc-eyebrow" style="margin-top:20px">Ask anything</div>'
       +'<div class="coach-ask">'
         +'<div class="coach-ask-field">'
           +_ic('search','var(--fc-text-faint)',16)
-          +'<input id="coach-ask-input" type="text" placeholder="Ask about your money…"'
+          +'<input id="coach-ask-input" type="text" placeholder="Ask about your money\u2026"'
             +' aria-label="Ask Coach a question" autocomplete="off" autocorrect="off"'
             +' autocapitalize="sentences" spellcheck="false" enterkeyhint="send"'
             +' onkeydown="FCApp.coachAskKey(event)">'
@@ -12066,22 +12095,18 @@ window.FCApp = (function () {
         +'</button>'
       +'</div>'
       +'<div class="coach-ask-starters">'
-        +'<button type="button" class="fc-chip" onclick="FCApp.coachAsk(\'Can I afford $200?\')">Can I afford $200?</button>'
-        +'<button type="button" class="fc-chip" onclick="FCApp.coachAsk(\'When do I get paid?\')">When do I get paid?</button>'
-        +'<button type="button" class="fc-chip" onclick="FCApp.coachAsk(\'What\\u2019s safe to spend?\')">What’s safe to spend?</button>'
+        + starters.map(q => '<button type="button" class="fc-chip" data-coach-q="' + esc(q) + '"'
+            + ' onclick="FCApp.coachAsk(this.dataset.coachQ)">' + esc(q) + '</button>').join('')
       +'</div>'
       +'<div id="coach-ask-answer" style="display:none"></div>'
 
-      +'<div class="fc-card" style="margin-bottom:14px;padding:14px 16px;background:var(--fc-accent-soft);border-color:var(--fc-border-accent);display:flex;align-items:center;gap:13px;cursor:pointer;-webkit-tap-highlight-color:transparent" onclick="FCApp.showAffordSheet&&FCApp.showAffordSheet()">'
-        +'<div style="width:40px;height:40px;border-radius:var(--fc-r-sm);background:var(--fc-accent);display:flex;align-items:center;justify-content:center;flex-shrink:0">'+_ic('search','var(--fc-accent-ink)',19)+'</div>'
-        +'<div style="flex:1">'
-          +'<div style="font-size:15px;font-weight:600;color:var(--fc-text)">Can I afford this?</div>'
-          +'<div style="font-size:12px;color:var(--fc-text-muted);margin-top:1px">Check any purchase against your real numbers</div>'
-        +'</div>'
-        +'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>'
-      +'</div>'
+      /* The "Can I afford this?" card that stood here is gone. It opened the
+         same sheet the ask bar reaches, and "Can I afford $100?" is one of
+         the starter chips directly above it — one job wearing two controls,
+         eight lines apart. showAffordSheet is still reached from three
+         places on Home, so nothing is orphaned. */
 
-      +'<div class="fc-card" style="margin-bottom:18px;padding:16px;cursor:pointer;-webkit-tap-highlight-color:transparent" onclick="FCApp.openMoneyStory()">'
+      +'<div class="fc-card" style="margin-top:20px;margin-bottom:14px;padding:16px;cursor:pointer;-webkit-tap-highlight-color:transparent" onclick="FCApp.openMoneyStory()">'
         +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'
           +'<div class="fc-eyebrow">This Week\'s Review</div>'
           +'<div style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:var(--fc-accent)">'
@@ -12090,23 +12115,12 @@ window.FCApp = (function () {
         +'</div>'
         +'<div style="font-size:15px;font-weight:600;color:var(--fc-text);line-height:1.4">'+reviewLine+'</div>'
         +(reviewSub ? '<div style="font-size:13px;color:var(--fc-text-muted);margin-top:4px">'+reviewSub+'</div>' : '')
-      +'</div>'
-
-      +agendaHTML
-
-      +'<div class="fc-eyebrow" style="margin:18px 0 10px">More</div>'
-      +'<div class="fc-card" style="padding:0 16px;margin-bottom:14px">'
-        +'<div onclick="FCApp.switchTab(\'more\')" style="display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--fc-border);cursor:pointer;-webkit-tap-highlight-color:transparent">'
-          +'<div style="width:36px;height:36px;border-radius:10px;background:var(--fc-bg-elevated-2);display:flex;align-items:center;justify-content:center;flex-shrink:0">'+_ic('bar-chart','var(--fc-text-muted)',18)+'</div>'
-          +'<div style="flex:1"><div style="font-size:15px;font-weight:500;color:var(--fc-text)">All money tools</div><div style="font-size:12px;color:var(--fc-text-faint);margin-top:1px">Investments, calendar, reports & more</div></div>'
-          +'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>'
-        +'</div>'
-        +'<div onclick="FCApp._openSubScreen(\'settings\')" style="display:flex;align-items:center;gap:14px;padding:14px 0;cursor:pointer;-webkit-tap-highlight-color:transparent">'
-          +'<div style="width:36px;height:36px;border-radius:10px;background:var(--fc-bg-elevated-2);display:flex;align-items:center;justify-content:center;flex-shrink:0">'+_ic('gear','var(--fc-text-muted)',18)+'</div>'
-          +'<div style="flex:1"><div style="font-size:15px;font-weight:500;color:var(--fc-text)">Settings</div></div>'
-          +'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--fc-text-faint)" stroke-width="2.5" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>'
-        +'</div>'
       +'</div>';
+
+      /* The "More" list that closed this screen — All money tools, Settings —
+         is gone. Both live in the More tab, which has its own slot in the nav
+         bar, and neither is coaching. A screen about what to do with your
+         money should not end in a settings link. */
   }
 
   function openCoachAnswer(key) {

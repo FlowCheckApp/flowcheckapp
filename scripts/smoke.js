@@ -235,6 +235,14 @@ const DRIVE = `(async () => {
     }
     /* The advice card is legitimately absent when there is nothing to
        recommend — but if it IS there, it has to make sense. */
+    /* The agent's read must come BEFORE the ask box. It used to be sixth of
+       seven, so the screen opened by asking the user what they wanted
+       rather than telling them what it had found. */
+    const askEl = document.getElementById('coach-ask-input');
+    if (leadEl && askEl &&
+        (leadEl.compareDocumentPosition(askEl) & Node.DOCUMENT_POSITION_FOLLOWING) === 0) {
+      problems.push('coach: the ask box is above the agenda — the screen leads with a blank field');
+    }
     if (doEl) {
       const verb = doEl.textContent.trim().split(/\\s+/)[0];
       if (!['Cancel','Trim','Update','Review'].includes(verb)) {
