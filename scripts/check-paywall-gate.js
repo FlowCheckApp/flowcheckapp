@@ -104,6 +104,68 @@ if (/^\s*_doSetScreen\s*,/m.test(src)) {
     + `exporting it makes the gate optional from outside the module.`);
 }
 
+/* ── The server half ──────────────────────────────────────────────────────
+   Everything above guards the client, which is UX. CLAUDE.md is explicit
+   that the enforcement is elsewhere:
+
+     "The client gate is UX. The enforcement is requireEntitlement in
+      backend/server.js, which refuses /plaid/sync without an entitlement."
+
+   That gate was removed from /plaid/sync once, and every check in this
+   repo still passed, because nothing here looked at the server. /plaid/sync
+   is where balances and transactions come from, so losing it hands the whole
+   product away to any authenticated account.
+
+   The exempt routes are asserted too, in the opposite direction. Gating them
+   would lock lapsed users out of revoking bank access or deleting their data,
+   which Plaid's ToS and CCPA both forbid — a "fix" that added requireEntitlement
+   everywhere would be its own kind of bug.                                    */
+const serverRel = 'backend/server.js';
+const server = fs.readFileSync(path.join(root, serverRel), 'utf8');
+const serverLineOf = idx => server.slice(0, idx).split('\n').length;
+
+/** Middleware chain of a route: from its declaration to the handler body. */
+function routeMiddleware(method, routePath) {
+  const i = server.indexOf(`app.${method}('${routePath}'`);
+  if (i === -1) return null;
+  const handler = server.indexOf('async (req', i);
+  return { index: i, text: server.slice(i, handler === -1 ? i + 400 : handler) };
+}
+
+if (!/\bfunction requireEntitlement\b|\brequireEntitlement\s*=/.test(server)) {
+  failures.push(`${serverRel} — requireEntitlement is not defined. It is the only `
+    + `thing standing between a non-subscriber and the full product.`);
+}
+
+const MUST_GATE = [
+  ['get',  '/plaid/sync', 'balances and transactions come from here'],
+  ['post', '/coach/ask',  'hosted AI costs money per call'],
+];
+for (const [method, routePath, why] of MUST_GATE) {
+  const route = routeMiddleware(method, routePath);
+  if (!route) {
+    failures.push(`${serverRel} — ${method.toUpperCase()} ${routePath} not found; `
+      + `the entitlement check cannot be verified.`);
+  } else if (!/requireEntitlement\s*,/.test(route.text)) {
+    failures.push(`${serverRel}:${serverLineOf(route.index)} ${method.toUpperCase()} `
+      + `${routePath} no longer passes through requireEntitlement (${why}). `
+      + `FlowCheck is subscription-only; this is the boundary that actually holds.`);
+  }
+}
+
+const MUST_NOT_GATE = [
+  ['delete', '/plaid/disconnect', 'revoking bank access must work when lapsed'],
+  ['delete', '/user/account',     'erasure is required regardless of billing state'],
+  ['get',    '/plaid/items',      'it lists the banks to disconnect'],
+];
+for (const [method, routePath, why] of MUST_NOT_GATE) {
+  const route = routeMiddleware(method, routePath);
+  if (route && /requireEntitlement\s*,/.test(route.text)) {
+    failures.push(`${serverRel}:${serverLineOf(route.index)} ${method.toUpperCase()} `
+      + `${routePath} is gated by requireEntitlement, but must not be — ${why}.`);
+  }
+}
+
 if (failures.length) {
   console.error('Paywall gate check FAILED:\n');
   failures.forEach(f => console.error('  ✗ ' + f));
@@ -114,4 +176,10 @@ if (failures.length) {
 const appRoutes = (src.match(/setScreen\(\s*['"]app['"]\s*\)/g) || []).length;
 console.log(`paywall gate: ${appRoutes} setScreen('app') call site(s), all funnelled `
   + `through one _mayEnterApp() check`);
+const gated = MUST_GATE.filter(([m, r]) => {
+  const route = routeMiddleware(m, r);
+  return route && /requireEntitlement\s*,/.test(route.text);
+}).length;
+console.log(`entitlement: ${gated}/${MUST_GATE.length} paid route(s) gated server-side, `
+  + `${MUST_NOT_GATE.length} revocation route(s) deliberately open`);
 console.log('✓ no ungated route onto the app screen.');

@@ -239,6 +239,37 @@ app.use(helmet({
   referrerPolicy: { policy: 'no-referrer' },
 }));
 
+// Apple fetches this association before it will return Plaid OAuth users to
+// the native app. Keep the path scoped to the callback rather than claiming
+// every getflowcheck.app URL as an app link.
+const APPLE_APP_SITE_ASSOCIATION = Object.freeze({
+  applinks: {
+    details: [{
+      appIDs: [
+        'WGX2CUMPQ4.com.brandon.flowcheck',
+        // Debug builds of the SwiftUI app; harmless in production and
+        // required for Plaid OAuth to return to a dev build.
+        'WGX2CUMPQ4.com.brandon.flowcheck.dev',
+      ],
+      components: [{
+        '/': '/plaid/oauth-return',
+        comment: 'Return native Plaid OAuth sessions to FlowCheck.',
+      }],
+    }],
+  },
+});
+
+app.get([
+  '/.well-known/apple-app-site-association',
+  '/apple-app-site-association',
+], (_req, res) => {
+  res
+    .set('Content-Type', 'application/json')
+    .set('Cache-Control', 'public, max-age=3600')
+    .status(200)
+    .send(JSON.stringify(APPLE_APP_SITE_ASSOCIATION));
+});
+
 // ── CORS ───────────────────────────────────────────────────────
 // Capacitor iOS apps use 'capacitor://localhost' or null origin.
 const ALLOWED_ORIGINS = new Set([
@@ -893,10 +924,10 @@ app.post('/plaid/link-token', requireAuth, _plaidUserLimiter, async (req, res) =
       // Webhook registered at link time — Plaid calls this whenever
       // new transactions are available for this item.
       webhook: `${BACKEND_URL}/plaid/webhook`,
-      // OAuth redirect URI — required for banks that use OAuth (Chase, Capital One, etc.)
-      // The custom scheme 'flowcheck://' must also be registered in:
-      //   1. iOS Info.plist → CFBundleURLTypes (done)
-      //   2. Plaid Dashboard → Team Settings → API → Allowed redirect URIs
+      // OAuth redirect URI — required for banks that use OAuth (Chase,
+      // Capital One, etc.). The native app claims this HTTPS URL through its
+      // associated-domains entitlement and the AASA response above. It must
+      // also be allowlisted in Plaid Dashboard → Developers → API.
       redirect_uri: `${BACKEND_URL}/plaid/oauth-return`,
     });
     res.json({ link_token: data.link_token });
@@ -911,8 +942,9 @@ app.post('/plaid/link-token', requireAuth, _plaidUserLimiter, async (req, res) =
    GET /plaid/oauth-return
    Plaid OAuth flow: after the user authenticates with their bank
    (Chase, Capital One, etc.), the bank redirects back to this URL.
-   We immediately redirect to the app using the custom URL scheme
-   so Plaid Link can complete the flow inside the app.
+   The SwiftUI app normally receives this HTTPS URL as a universal link before
+   the server is reached. This custom-scheme redirect remains only as a
+   compatibility fallback for installed versions of the legacy Capacitor app.
    Register this URL in Plaid Dashboard → Team Settings → API →
    Allowed redirect URIs.
    ───────────────────────────────────────────────────────────── */
@@ -1406,6 +1438,8 @@ app.get('/financial/snapshot', requireAuth, perUserLimiter(120), async (req, res
   }
 });
 
+// A free user may sync the first connected bank. The exchange-token endpoint
+// remains the authoritative server-side gate for additional free-plan banks.
 app.get('/plaid/sync', requireAuth, requireEntitlement, perUserLimiter(30), async (req, res) => {
   try {
     const userRef = db.collection('users').doc(req.uid);
@@ -1548,9 +1582,8 @@ app.get('/plaid/sync', requireAuth, requireEntitlement, perUserLimiter(30), asyn
       ...(itemErrors.length ? { item_errors: itemErrors } : {}),
     });
   } catch (err) {
-    const msg = err.response?.data?.error_message || err.message;
-    console.error('[sync]', msg);
-    res.status(500).json({ message: msg });
+    console.error('[sync]', err?.response?.data?.error_code || err.message);
+    res.status(500).json({ message: _safeMsg(err, 'Could not sync bank data') });
   }
 });
 
