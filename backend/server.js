@@ -56,6 +56,7 @@ const path         = require('path');
    tested — this file listens on require, so nothing in it can be. */
 const { syncTransactionPages } = require('./lib/sync-pages');
 const { mapPlaidAccounts }     = require('./lib/map-accounts');
+const { buildFinancialSnapshot } = require('./lib/financial-snapshot');
 const _mail                    = require('./lib/email-shell');
 const {
   Configuration, PlaidApi, PlaidEnvironments,
@@ -1344,6 +1345,64 @@ app.get('/plaid/items', requireAuth, async (req, res) => {
   } catch (err) {
     console.error('[plaid/items]', err.message);
     res.status(500).json({ message: _safeMsg(err, 'Could not load linked banks') });
+  }
+});
+
+/** Convert a Firestore QuerySnapshot to plain documents while preserving the
+ * document ID. The allowlist mapper strips every field not in the native API. */
+function _snapshotDocuments(snapshot) {
+  return snapshot.docs.map(document => ({ id: document.id, ...document.data() }));
+}
+
+/* ── Native read-only data endpoints. These read the server-managed cache;
+ * Plaid access tokens never leave the backend and no client write is allowed. */
+app.get('/plaid/accounts', requireAuth, async (req, res) => {
+  try {
+    const snapshot = await db.collection('users').doc(req.uid).collection('accounts').get();
+    const data = buildFinancialSnapshot({ accounts: _snapshotDocuments(snapshot) });
+    res.json({ accounts: data.accounts });
+  } catch (err) {
+    console.error('[plaid/accounts]', err.message);
+    res.status(500).json({ message: _safeMsg(err, 'Could not load accounts') });
+  }
+});
+
+app.get('/plaid/transactions', requireAuth, async (req, res) => {
+  try {
+    const requested = Number.parseInt(req.query.limit, 10);
+    const limit = Number.isFinite(requested) ? Math.max(1, Math.min(500, requested)) : 100;
+    const snapshot = await db.collection('users').doc(req.uid)
+      .collection('transactions')
+      .orderBy('date', 'desc')
+      .limit(limit)
+      .get();
+    const data = buildFinancialSnapshot({ transactions: _snapshotDocuments(snapshot) });
+    res.json({ transactions: data.transactions });
+  } catch (err) {
+    console.error('[plaid/transactions]', err.message);
+    res.status(500).json({ message: _safeMsg(err, 'Could not load transactions') });
+  }
+});
+
+app.get('/financial/snapshot', requireAuth, perUserLimiter(120), async (req, res) => {
+  try {
+    const userRef = db.collection('users').doc(req.uid);
+    const [accounts, transactions, bills, goals] = await Promise.all([
+      userRef.collection('accounts').get(),
+      userRef.collection('transactions').orderBy('date', 'desc').limit(500).get(),
+      userRef.collection('bills').get(),
+      userRef.collection('goals').get(),
+    ]);
+    const data = buildFinancialSnapshot({
+      accounts: _snapshotDocuments(accounts),
+      transactions: _snapshotDocuments(transactions),
+      bills: _snapshotDocuments(bills),
+      goals: _snapshotDocuments(goals),
+    });
+    res.json({ ...data, generated_at: new Date().toISOString() });
+  } catch (err) {
+    console.error('[financial/snapshot]', err.message);
+    res.status(500).json({ message: _safeMsg(err, 'Could not load financial data') });
   }
 });
 
