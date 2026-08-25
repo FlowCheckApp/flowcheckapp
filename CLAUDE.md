@@ -23,9 +23,15 @@ FlowCheck is a personal finance iOS app built with Capacitor 8.x. It connects to
 - `ios/App/App/AppDelegate.swift` — WKWebView cache clearing on every launch
 
 ## Design system
-- Background: `#0a1520` (dark navy)
-- Accent/cyan: `#1ac4f0` (`--fc-accent`)
-- Electric blue (replaces old purple): `#2563eb` (`--fc-electric`)
+- Background: `#060e18` dark / `#F4F7FB` light (`--fc-bg`)
+- Accent: `#1ac4f0` cyan dark / `#0D64D4` blue light (`--fc-accent`)
+- Electric blue (replaces old purple): `#2563eb` dark / `#0D64D4` light (`--fc-electric`)
+
+**Read the values out of `flowcheck-design-system.css`, not out of this file.**
+The list above is a summary and has been wrong before: it said the background
+was `#0a1520` for long enough that the SwiftUI app was built from it, and six of
+its twelve colour tokens ended up disagreeing with the stylesheet. The `:root`
+block is LIGHT; dark lives under `[data-theme="dark"]`.
 - Text: `--fc-text`, `--fc-text-muted`, `--fc-text-faint`
 - CSS vars defined in `flowcheck-design-system.css` — always use vars, never hardcode colors
 - Note: `--fc-purple` is deprecated and inconsistent — use `--fc-electric` instead
