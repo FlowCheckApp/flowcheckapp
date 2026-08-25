@@ -64,3 +64,6 @@ yarn.lock
 node_modules/
 ios/App/App/public/
 GoogleService-Info 2.plist
+
+# Native SwiftUI rewrite — its own repo (FlowCheckApp/FlowCheckSwiftUI)
+FlowCheckSwiftUI/
