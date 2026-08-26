@@ -78,6 +78,34 @@ test('invalid numbers and dates fail closed to safe values', () => {
   equal(result.goals[0].target, 0);
 });
 
+test('merchant logos are kept only when Plaid hosts them', () => {
+  const result = buildFinancialSnapshot({
+    transactions: [
+      { id: 'a', logo_url: 'https://plaid.com/logos/starbucks.png' },
+      { id: 'b', logo_url: 'https://cdn.plaid.com/logos/caseys.png' },
+    ],
+  });
+  equal(result.transactions[0].logo_url, 'https://plaid.com/logos/starbucks.png');
+  equal(result.transactions[1].logo_url, 'https://cdn.plaid.com/logos/caseys.png');
+});
+
+test("a logo on the merchant's own host is dropped", () => {
+  /* Loading it would tell that merchant this person exists and is looking at
+     this purchase. Decoration is not worth a spending disclosure. */
+  const result = buildFinancialSnapshot({
+    transactions: [
+      { id: 'a', logo_url: 'https://starbucks.com/logo.png' },
+      { id: 'b', logo_url: 'https://plaid.com.evil.example/logo.png' },
+      { id: 'c', logo_url: 'http://plaid.com/logo.png' },
+      { id: 'd', logo_url: 'javascript:alert(1)' },
+      { id: 'e', logo_url: 42 },
+    ],
+  });
+  for (const txn of result.transactions) {
+    equal(txn.logo_url, undefined);
+  }
+});
+
 console.log(`financial-snapshot: ${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);
 console.log('✓ native snapshot fields are allowlisted and credentials stay server-side.');

@@ -64,6 +64,27 @@ function inferCredit(document, categoryList) {
   });
 }
 
+/* Merchant logos, restricted to Plaid's own host.
+
+   Plaid already holds the transaction, so fetching a logo from them discloses
+   nothing new. A URL pointing at the merchant's own server is different:
+   loading it would tell that merchant this person exists and is looking at this
+   purchase, which is a spending disclosure the app must not make for the sake
+   of decoration. The web app applies the same rule client-side; enforcing it
+   here too means no client can opt out of it. */
+function plaidLogoURL(value) {
+  if (typeof value !== 'string' || !value) return undefined;
+  let parsed;
+  try {
+    parsed = new URL(value);
+  } catch (_) {
+    return undefined;
+  }
+  if (parsed.protocol !== 'https:') return undefined;
+  const host = parsed.hostname.toLowerCase();
+  return (host === 'plaid.com' || host.endsWith('.plaid.com')) ? value : undefined;
+}
+
 function sanitizeAccount(document) {
   return {
     id: text(document.id),
@@ -91,6 +112,7 @@ function sanitizeTransaction(document) {
     date: dateString(document.date),
     category: transactionCategories,
     pending: document.pending === true,
+    logo_url: plaidLogoURL(document.logo_url),
   };
 }
 
