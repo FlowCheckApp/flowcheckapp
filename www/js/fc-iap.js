@@ -61,7 +61,23 @@ window.FCPurchases = (function () {
     }
     if (_configured) return;
     try {
-      const opts = { apiKey };
+      /* StoreKit 1, matching the native app, and for the same measured reason.
+
+         RevenueCat v5 defaults to StoreKit 2, which posts a signed transaction
+         for server-side validation. On this account that path fails: the
+         purchase completes at Apple and RevenueCat then rejects it with 7712,
+         "the purchased product was missing in the receipt". A freshly issued
+         In-App Purchase Key did not change it. StoreKit 1 posts the app receipt,
+         validated against the App-Specific Shared Secret, and completes.
+
+         This app inherited the same default and would have failed identically
+         for real customers — it was never exercised because nobody had run a
+         sandbox purchase through it since the SDK moved to v5.
+
+         Not the destination: RevenueCat is moving off StoreKit 1, so their
+         support still needs to resolve the StoreKit 2 path. Keep this in step
+         with SubscriptionService.swift in the native app. */
+      const opts = { apiKey, storeKitVersion: 'STOREKIT_1' };
       if (appUserID) opts.appUserID = String(appUserID);
       await plugin.configure(opts);
       _configured = true;
