@@ -1386,37 +1386,11 @@ function _snapshotDocuments(snapshot) {
   return snapshot.docs.map(document => ({ id: document.id, ...document.data() }));
 }
 
-/* ── Native read-only data endpoints. These read the server-managed cache;
- * Plaid access tokens never leave the backend and no client write is allowed. */
-app.get('/plaid/accounts', requireAuth, async (req, res) => {
-  try {
-    const snapshot = await db.collection('users').doc(req.uid).collection('accounts').get();
-    const data = buildFinancialSnapshot({ accounts: _snapshotDocuments(snapshot) });
-    res.json({ accounts: data.accounts });
-  } catch (err) {
-    console.error('[plaid/accounts]', err.message);
-    res.status(500).json({ message: _safeMsg(err, 'Could not load accounts') });
-  }
-});
-
-app.get('/plaid/transactions', requireAuth, async (req, res) => {
-  try {
-    const requested = Number.parseInt(req.query.limit, 10);
-    const limit = Number.isFinite(requested) ? Math.max(1, Math.min(500, requested)) : 100;
-    const snapshot = await db.collection('users').doc(req.uid)
-      .collection('transactions')
-      .orderBy('date', 'desc')
-      .limit(limit)
-      .get();
-    const data = buildFinancialSnapshot({ transactions: _snapshotDocuments(snapshot) });
-    res.json({ transactions: data.transactions });
-  } catch (err) {
-    console.error('[plaid/transactions]', err.message);
-    res.status(500).json({ message: _safeMsg(err, 'Could not load transactions') });
-  }
-});
-
-app.get('/financial/snapshot', requireAuth, perUserLimiter(120), async (req, res) => {
+/* The native app's primary data source: accounts, transactions, bills and
+   goals in one call. Gated because it is the product. The gate on
+   /plaid/sync only covers REFRESHING from Plaid — without this one, a
+   lapsed account could still read everything already stored. */
+app.get('/financial/snapshot', requireAuth, requireEntitlement, perUserLimiter(120), async (req, res) => {
   try {
     const userRef = db.collection('users').doc(req.uid);
     const [accounts, transactions, bills, goals] = await Promise.all([
@@ -1438,8 +1412,8 @@ app.get('/financial/snapshot', requireAuth, perUserLimiter(120), async (req, res
   }
 });
 
-// A free user may sync the first connected bank. The exchange-token endpoint
-// remains the authoritative server-side gate for additional free-plan banks.
+// Refreshing from Plaid requires an entitlement. The exchange-token endpoint
+// remains the authoritative server-side gate on connecting a bank at all.
 app.get('/plaid/sync', requireAuth, requireEntitlement, perUserLimiter(30), async (req, res) => {
   try {
     const userRef = db.collection('users').doc(req.uid);

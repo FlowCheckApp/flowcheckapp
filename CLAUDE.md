@@ -210,7 +210,14 @@ re-verification.
 ## Backend API
 - Base URL: `FC_CONFIG.app.apiBase` (from fc-config.js)
 - All routes require `Authorization: Bearer <firebase-id-token>`
-- Key routes: `POST /plaid/link-token`, `POST /plaid/exchange-token`, `GET /plaid/items`, `GET /plaid/transactions`, `GET /plaid/accounts`
+- Key routes: `POST /plaid/link-token`, `POST /plaid/exchange-token`,
+  `GET /plaid/items`, `GET /plaid/sync`, `GET /financial/snapshot`
+- `GET /plaid/accounts` and `GET /plaid/transactions` were deleted — nothing
+  called them and both served financial data without an entitlement check.
+- **Any route that reads `accounts`, `transactions`, `bills` or `goals` must
+  pass through `requireEntitlement`.** `scripts/check-paywall-gate.js` now
+  enumerates routes and fails on new ones, rather than checking a list of two
+  names — which is how `/financial/snapshot` shipped ungated.
 
 ## What "premium" means for this app
 Study: Apple Wallet, Robinhood, Monarch Money, Copilot. Key patterns:

@@ -137,9 +137,86 @@ if (!/\bfunction requireEntitlement\b|\brequireEntitlement\s*=/.test(server)) {
     + `thing standing between a non-subscriber and the full product.`);
 }
 
+/* Deny by default.
+
+   This list used to be the whole server check: two route names, hand-written.
+   That is allow-by-default — a new endpoint serving the same data ships ungated
+   and every check here still passes. Which is exactly what happened.
+   GET /financial/snapshot was added for the native app, returns accounts,
+   transactions, bills and goals in one call, and went out with requireAuth
+   alone. The script was not wrong; it was never told the route existed.
+
+   So enumerate instead. Any route whose handler reads a financial collection
+   must pass through requireEntitlement, unless it is exempt for a stated
+   reason. Adding a new data endpoint now fails this check until someone
+   decides which side it belongs on.                                          */
+
+/** Every `app.<method>('<path>'` declaration, with its handler body. */
+function everyRoute() {
+  const routes = [];
+  const decl = /app\.(get|post|put|patch|delete)\(\s*'([^']+)'/g;
+  let m;
+  while ((m = decl.exec(server)) !== null) {
+    const [, method, routePath] = m;
+    // The middleware chain runs from the declaration to the handler's `(req`.
+    const handlerAt = server.indexOf('(req', m.index);
+    if (handlerAt === -1) continue;
+    const open = server.indexOf('{', handlerAt);
+    if (open === -1) continue;
+    let depth = 0;
+    let end = open;
+    for (let i = open; i < server.length; i++) {
+      if (server[i] === '{') depth++;
+      else if (server[i] === '}') {
+        depth--;
+        if (depth === 0) { end = i; break; }
+      }
+    }
+    routes.push({
+      method,
+      path: routePath,
+      index: m.index,
+      middleware: server.slice(m.index, handlerAt),
+      body: server.slice(open, end + 1),
+    });
+  }
+  return routes;
+}
+
+/* Reading any of these is reading someone's finances. */
+const FINANCIAL_READ = /collection\(\s*'(accounts|transactions|bills|goals)'\s*\)|buildFinancialSnapshot\s*\(/;
+
+/* Exempt, each for a reason that outranks billing state. */
+const EXEMPT = new Map([
+  ['delete /user/account',              'erasure is required regardless of billing state'],
+  ['delete /plaid/disconnect',          'revoking bank access must work when lapsed'],
+  ['delete /plaid/disconnect/:itemId',  'revoking bank access must work when lapsed'],
+  ['post /plaid/webhook',               'Plaid calls this, not a subscriber; authenticated by JWT'],
+  /* Writes accounts after a successful link, and carries its OWN gate — a
+     leftover of the free-tier model that still lets a non-subscriber connect
+     one bank. That contradicts "subscription-only", but it is a product
+     decision rather than a boundary this script should quietly tighten.
+     Exempt so the check reports the truth; revisit the inline gate on purpose. */
+  ['post /plaid/exchange-token',        'has a bespoke legacy gate; see the note above'],
+]);
+
+for (const route of everyRoute()) {
+  if (!FINANCIAL_READ.test(route.body)) continue;
+  const key = `${route.method} ${route.path}`;
+  if (EXEMPT.has(key)) continue;
+  if (/requireEntitlement\s*,/.test(route.middleware)) continue;
+  failures.push(`${serverRel}:${serverLineOf(route.index)} ${route.method.toUpperCase()} `
+    + `${route.path} reads financial data but does not pass through `
+    + `requireEntitlement. FlowCheck is subscription-only and this is the `
+    + `boundary that actually holds. Gate it, or add it to EXEMPT in `
+    + `scripts/check-paywall-gate.js with the reason it must stay open.`);
+}
+
+/* Named routes worth failing loudly on even if the scan above changes shape. */
 const MUST_GATE = [
-  ['get',  '/plaid/sync', 'balances and transactions come from here'],
-  ['post', '/coach/ask',  'hosted AI costs money per call'],
+  ['get',  '/plaid/sync',         'balances and transactions come from here'],
+  ['get',  '/financial/snapshot', 'the native app reads the whole picture here'],
+  ['post', '/coach/ask',          'hosted AI costs money per call'],
 ];
 for (const [method, routePath, why] of MUST_GATE) {
   const route = routeMiddleware(method, routePath);
