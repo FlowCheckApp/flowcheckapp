@@ -33,6 +33,9 @@ test('allowlists account fields and strips credentials', () => {
     type: 'depository', subtype: 'checking', balance_current: 1250.25,
     balance_available: 1200, currency: 'USD', mask: '4821',
     institution_name: 'Sample Bank',
+    // Present but unknown for a depository account: Plaid describes rates for
+    // credit, student and mortgage only.
+    interest_rate: null, minimum_payment: null,
   });
   ok(!JSON.stringify(result).includes('must-not-leak'));
 });
@@ -104,6 +107,26 @@ test("a logo on the merchant's own host is dropped", () => {
   for (const txn of result.transactions) {
     equal(txn.logo_url, undefined);
   }
+});
+
+test('an unknown APR stays null and is never coerced to zero', () => {
+  /* 0% and "we do not know" are different claims. Collapsing them would let a
+     payoff date be computed from a rate nobody supplied. */
+  const result = buildFinancialSnapshot({
+    accounts: [
+      { id: 'a', interest_rate: null, minimum_payment: null },
+      { id: 'b', interest_rate: 0, minimum_payment: 0 },
+      { id: 'c', interest_rate: 28.5, minimum_payment: 35 },
+      { id: 'd' },
+    ],
+  });
+  equal(result.accounts[0].interest_rate, null);
+  equal(result.accounts[0].minimum_payment, null);
+  equal(result.accounts[1].interest_rate, 0);
+  equal(result.accounts[1].minimum_payment, 0);
+  equal(result.accounts[2].interest_rate, 28.5);
+  equal(result.accounts[2].minimum_payment, 35);
+  equal(result.accounts[3].interest_rate, null);
 });
 
 console.log(`financial-snapshot: ${passed} passed, ${failed} failed`);

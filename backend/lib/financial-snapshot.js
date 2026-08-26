@@ -97,6 +97,15 @@ function sanitizeAccount(document) {
     currency: text(document.currency, 'USD'),
     mask: optionalText(document.mask),
     institution_name: text(document.institution_name),
+    /* From Plaid's Liabilities product, for credit, student and mortgage
+       accounts. Auto loans never carry either — Plaid does not describe them —
+       which is why the client has to offer a way to enter them by hand.
+
+       optionalNumber keeps null distinct from 0 deliberately. A 0% APR and an
+       unknown APR are different claims, and downstream the difference is a
+       payoff date versus an honest refusal to guess one. */
+    interest_rate: optionalNumber(document.interest_rate),
+    minimum_payment: optionalNumber(document.minimum_payment),
   };
 }
 
