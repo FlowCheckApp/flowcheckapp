@@ -53,6 +53,18 @@ const documents = [
   ['privacy', 'Privacy Policy'],
 ];
 
+/* Plaid's own policy, surfaced where credentials are handed over. Only its
+   presence is asserted — it is somebody else's site, and a network call here
+   would make this check fail offline and be switched off within a week. The
+   two deeper Plaid URLs this repo used to reference were both 404 when they
+   were finally checked, so the value matters as much as the declaration. */
+if (!/static let plaidLegalURL\s*=\s*"https:\/\/plaid\.com\/legal\/"/.test(src)) {
+  failures.push(`${componentsRel} — FCLegal.plaidLegalURL is missing or no longer `
+    + `points at https://plaid.com/legal/. The deeper Plaid paths this repo once `
+    + `used (/legal/privacy-policy/ and /legal/end-user-privacy-policy/) are both `
+    + `404, so a "more specific" URL here is likely to be dead.`);
+}
+
 for (const [key, label] of documents) {
   const url = declaredURL(key);
   if (!url) {
