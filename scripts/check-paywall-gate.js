@@ -186,6 +186,14 @@ function everyRoute() {
 /* Reading any of these is reading someone's finances. */
 const FINANCIAL_READ = /collection\(\s*'(accounts|transactions|bills|goals)'\s*\)|buildFinancialSnapshot\s*\(/;
 
+/* And a route is financial by its PATH regardless of how the body is written.
+   The body scan only sees a literal collection('bills'). The moment a route
+   reaches its data through a helper — _billsRef(uid) — the scan stops seeing
+   it and the route passes whether or not it is gated. That is precisely the
+   allow-by-default behaviour this check was rewritten to remove, reappearing
+   one level of indirection later; five new /bills routes went unnoticed. */
+const FINANCIAL_PATH = /^\/(bills|goals|accounts|transactions|financial)\b/;
+
 /* Exempt, each for a reason that outranks billing state. */
 const EXEMPT = new Map([
   ['delete /user/account',              'erasure is required regardless of billing state'],
@@ -201,7 +209,7 @@ const EXEMPT = new Map([
 ]);
 
 for (const route of everyRoute()) {
-  if (!FINANCIAL_READ.test(route.body)) continue;
+  if (!FINANCIAL_READ.test(route.body) && !FINANCIAL_PATH.test(route.path)) continue;
   const key = `${route.method} ${route.path}`;
   if (EXEMPT.has(key)) continue;
   if (/requireEntitlement\s*,/.test(route.middleware)) continue;
@@ -217,6 +225,14 @@ const MUST_GATE = [
   ['get',  '/plaid/sync',         'balances and transactions come from here'],
   ['get',  '/financial/snapshot', 'the native app reads the whole picture here'],
   ['post', '/coach/ask',          'hosted AI costs money per call'],
+  /* The native app's bill writes. It carries no Firestore SDK, so this API is
+     the only way it can add, correct or settle a bill — which also makes it
+     the only place that boundary can be enforced for it. */
+  ['post',   '/bills',            'creating a bill writes to the financial record'],
+  ['patch',  '/bills/:id',        'editing a bill writes to the financial record'],
+  ['delete', '/bills/:id',        'deleting a bill writes to the financial record'],
+  ['post',   '/bills/:id/pay',    'settling a bill moves its due date'],
+  ['post',   '/bills/:id/unpay',  'undoing a payment moves its due date back'],
 ];
 for (const [method, routePath, why] of MUST_GATE) {
   const route = routeMiddleware(method, routePath);

@@ -133,6 +133,13 @@ function sanitizeBill(document) {
     due_date: dateString(document.due_date),
     category: text(document.category, 'Other'),
     status: text(document.status, 'pending'),
+    /* Both of these were dropped on the way out, which left the native app
+       unable to tell a monthly bill from a one-off, or to say when one was
+       last settled. The web app collected the frequency, stored it and printed
+       it on the row — so the word "monthly" was already on screen while the
+       only client that could act on it never received it. */
+    frequency: text(document.frequency, 'monthly'),
+    paid_at: dateString(document.paid_at),
   };
 }
 

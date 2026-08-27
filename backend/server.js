@@ -56,7 +56,8 @@ const path         = require('path');
    tested — this file listens on require, so nothing in it can be. */
 const { syncTransactionPages } = require('./lib/sync-pages');
 const { mapPlaidAccounts }     = require('./lib/map-accounts');
-const { buildFinancialSnapshot } = require('./lib/financial-snapshot');
+const { buildFinancialSnapshot, sanitizeBill } = require('./lib/financial-snapshot');
+const { normalizeBill, nextDueDate, previousDueDate } = require('./lib/bill-schedule');
 const _mail                    = require('./lib/email-shell');
 const {
   Configuration, PlaidApi, PlaidEnvironments,
@@ -1409,6 +1410,146 @@ app.get('/financial/snapshot', requireAuth, requireEntitlement, perUserLimiter(1
   } catch (err) {
     console.error('[financial/snapshot]', err.message);
     res.status(500).json({ message: _safeMsg(err, 'Could not load financial data') });
+  }
+});
+
+/* ── Bills ───────────────────────────────────────────────────────────────
+   The native app's write path. It has no Firestore SDK — everything goes
+   through this API with a Firebase ID token — so without these routes a bill
+   could be read and never added, corrected or removed.
+
+   Every one is gated. `scripts/check-paywall-gate.js` enumerates routes and
+   fails on any that touch collection('bills') without requireEntitlement,
+   which is the check that exists because /financial/snapshot once shipped
+   ungated.
+
+   Writes go through normalizeBill, which returns only fields the Firestore
+   rules allow. Those rules use hasOnly() and, on an update, test the whole
+   resulting document — so one stray field does not get ignored, it makes every
+   later write from any client fail. That is not hypothetical: the web app
+   sends `autopay`, which is not in the allowlist, and its bill edits have been
+   silently rejected ever since.
+   ──────────────────────────────────────────────────────────────────────── */
+
+function _billsRef(uid) {
+  return db.collection('users').doc(uid).collection('bills');
+}
+
+/** The bill as the API reports it, ID included. */
+function _billResponse(doc) {
+  return sanitizeBill({ id: doc.id, ...doc.data() });
+}
+
+app.post('/bills', requireAuth, requireEntitlement, perUserLimiter(60), async (req, res) => {
+  const { fields, error } = normalizeBill(req.body);
+  if (error) return res.status(400).json({ message: error });
+
+  try {
+    const ref = await _billsRef(req.uid).add({
+      ...fields,
+      status: 'pending',
+      created_at: admin.firestore.FieldValue.serverTimestamp(),
+      updated_at: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    const doc = await ref.get();
+    res.status(201).json({ bill: _billResponse(doc) });
+  } catch (err) {
+    console.error('[bills/create]', err.message);
+    res.status(500).json({ message: _safeMsg(err, 'Could not save that bill') });
+  }
+});
+
+app.patch('/bills/:id', requireAuth, requireEntitlement, perUserLimiter(60), async (req, res) => {
+  const { fields, error } = normalizeBill(req.body, { partial: true });
+  if (error) return res.status(400).json({ message: error });
+
+  try {
+    /* Scoped to the caller's own subcollection, so an id belonging to somebody
+       else simply is not found rather than being editable. */
+    const ref = _billsRef(req.uid).doc(req.params.id);
+    if (!(await ref.get()).exists) return res.status(404).json({ message: 'Bill not found' });
+
+    await ref.update({ ...fields, updated_at: admin.firestore.FieldValue.serverTimestamp() });
+    res.json({ bill: _billResponse(await ref.get()) });
+  } catch (err) {
+    console.error('[bills/update]', err.message);
+    res.status(500).json({ message: _safeMsg(err, 'Could not update that bill') });
+  }
+});
+
+app.delete('/bills/:id', requireAuth, requireEntitlement, perUserLimiter(60), async (req, res) => {
+  try {
+    const ref = _billsRef(req.uid).doc(req.params.id);
+    if (!(await ref.get()).exists) return res.status(404).json({ message: 'Bill not found' });
+    await ref.delete();
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[bills/delete]', err.message);
+    res.status(500).json({ message: _safeMsg(err, 'Could not delete that bill') });
+  }
+});
+
+/* Paying a bill is what makes a recurring one recurring.
+
+   A one-time bill is simply marked paid. A recurring one is marked paid AND
+   moved to its next occurrence, so the rent you just paid reappears next month
+   instead of vanishing until you type it again. Before this, `frequency` was
+   stored and displayed and did nothing whatsoever. */
+app.post('/bills/:id/pay', requireAuth, requireEntitlement, perUserLimiter(60), async (req, res) => {
+  try {
+    const ref = _billsRef(req.uid).doc(req.params.id);
+    const doc = await ref.get();
+    if (!doc.exists) return res.status(404).json({ message: 'Bill not found' });
+
+    const bill = doc.data() || {};
+    const paidOn = new Date().toISOString().slice(0, 10);
+    const update = {
+      paid_at: paidOn,
+      updated_at: admin.firestore.FieldValue.serverTimestamp(),
+    };
+
+    const next = nextDueDate(bill.due_date, bill.frequency);
+    if (next) {
+      /* Back to pending on its NEW date. A recurring bill is never "done" —
+         it is only ever paid up to a point in time. */
+      update.due_date = next;
+      update.status = 'pending';
+    } else {
+      update.status = 'paid';
+    }
+
+    await ref.update(update);
+    res.json({ bill: _billResponse(await ref.get()) });
+  } catch (err) {
+    console.error('[bills/pay]', err.message);
+    res.status(500).json({ message: _safeMsg(err, 'Could not mark that bill paid') });
+  }
+});
+
+/* Undo. A mis-tap on a payment control should not require re-typing a bill,
+   and for a recurring one it must also walk the due date back — otherwise
+   undoing a payment leaves the bill a month in the future. */
+app.post('/bills/:id/unpay', requireAuth, requireEntitlement, perUserLimiter(60), async (req, res) => {
+  try {
+    const ref = _billsRef(req.uid).doc(req.params.id);
+    const doc = await ref.get();
+    if (!doc.exists) return res.status(404).json({ message: 'Bill not found' });
+
+    const bill = doc.data() || {};
+    const update = {
+      status: 'pending',
+      paid_at: null,
+      updated_at: admin.firestore.FieldValue.serverTimestamp(),
+    };
+
+    const previous = previousDueDate(bill.due_date, bill.frequency);
+    if (previous) update.due_date = previous;
+
+    await ref.update(update);
+    res.json({ bill: _billResponse(await ref.get()) });
+  } catch (err) {
+    console.error('[bills/unpay]', err.message);
+    res.status(500).json({ message: _safeMsg(err, 'Could not undo that') });
   }
 });
 
