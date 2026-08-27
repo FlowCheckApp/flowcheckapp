@@ -56,8 +56,9 @@ const path         = require('path');
    tested — this file listens on require, so nothing in it can be. */
 const { syncTransactionPages } = require('./lib/sync-pages');
 const { mapPlaidAccounts }     = require('./lib/map-accounts');
-const { buildFinancialSnapshot, sanitizeBill } = require('./lib/financial-snapshot');
+const { buildFinancialSnapshot, sanitizeBill, sanitizeGoal } = require('./lib/financial-snapshot');
 const { normalizeBill, nextDueDate, previousDueDate } = require('./lib/bill-schedule');
+const { normalizeGoal, normalizeContribution } = require('./lib/goal-fields');
 const _mail                    = require('./lib/email-shell');
 const {
   Configuration, PlaidApi, PlaidEnvironments,
@@ -1550,6 +1551,99 @@ app.post('/bills/:id/unpay', requireAuth, requireEntitlement, perUserLimiter(60)
   } catch (err) {
     console.error('[bills/unpay]', err.message);
     res.status(500).json({ message: _safeMsg(err, 'Could not undo that') });
+  }
+});
+
+/* ── Goals ───────────────────────────────────────────────────────────────
+   Same shape as the bills routes above and gated the same way. Before these,
+   the native Goals tab had a prominent "+" that opened a sheet admitting the
+   feature did not exist — a control that leads nowhere is worse than no
+   control, and this is the second one of those found in a week.
+   ──────────────────────────────────────────────────────────────────────── */
+
+function _goalsRef(uid) {
+  return db.collection('users').doc(uid).collection('goals');
+}
+
+function _goalResponse(doc) {
+  return sanitizeGoal({ id: doc.id, ...doc.data() });
+}
+
+app.post('/goals', requireAuth, requireEntitlement, perUserLimiter(60), async (req, res) => {
+  const { fields, error } = normalizeGoal(req.body);
+  if (error) return res.status(400).json({ message: error });
+
+  try {
+    const ref = await _goalsRef(req.uid).add({
+      ...fields,
+      created_at: admin.firestore.FieldValue.serverTimestamp(),
+      updated_at: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    res.status(201).json({ goal: _goalResponse(await ref.get()) });
+  } catch (err) {
+    console.error('[goals/create]', err.message);
+    res.status(500).json({ message: _safeMsg(err, 'Could not save that goal') });
+  }
+});
+
+app.patch('/goals/:id', requireAuth, requireEntitlement, perUserLimiter(60), async (req, res) => {
+  const { fields, error } = normalizeGoal(req.body, { partial: true });
+  if (error) return res.status(400).json({ message: error });
+
+  try {
+    const ref = _goalsRef(req.uid).doc(req.params.id);
+    if (!(await ref.get()).exists) return res.status(404).json({ message: 'Goal not found' });
+    await ref.update({ ...fields, updated_at: admin.firestore.FieldValue.serverTimestamp() });
+    res.json({ goal: _goalResponse(await ref.get()) });
+  } catch (err) {
+    console.error('[goals/update]', err.message);
+    res.status(500).json({ message: _safeMsg(err, 'Could not update that goal') });
+  }
+});
+
+app.delete('/goals/:id', requireAuth, requireEntitlement, perUserLimiter(60), async (req, res) => {
+  try {
+    const ref = _goalsRef(req.uid).doc(req.params.id);
+    if (!(await ref.get()).exists) return res.status(404).json({ message: 'Goal not found' });
+    await ref.delete();
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[goals/delete]', err.message);
+    res.status(500).json({ message: _safeMsg(err, 'Could not delete that goal') });
+  }
+});
+
+/* Putting money in, as an increment rather than a new total.
+
+   Read-modify-write in a transaction so two contributions made from two
+   devices add up. Sending the resulting total from the client instead would
+   let the later write silently erase the earlier one — on a savings balance,
+   which is the number the whole feature exists to grow. */
+app.post('/goals/:id/contribute', requireAuth, requireEntitlement, perUserLimiter(60), async (req, res) => {
+  const { amount, error } = normalizeContribution(req.body);
+  if (error) return res.status(400).json({ message: error });
+
+  try {
+    const ref = _goalsRef(req.uid).doc(req.params.id);
+    const updated = await db.runTransaction(async tx => {
+      const doc = await tx.get(ref);
+      if (!doc.exists) return null;
+      const current = Number(doc.data().current) || 0;
+      // Never below zero: taking more out than is in there is a typo, not an
+      // instruction to invent a negative balance.
+      const next = Math.max(0, Math.round((current + amount) * 100) / 100);
+      tx.update(ref, {
+        current: next,
+        updated_at: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      return next;
+    });
+
+    if (updated === null) return res.status(404).json({ message: 'Goal not found' });
+    res.json({ goal: _goalResponse(await ref.get()) });
+  } catch (err) {
+    console.error('[goals/contribute]', err.message);
+    res.status(500).json({ message: _safeMsg(err, 'Could not add to that goal') });
   }
 });
 

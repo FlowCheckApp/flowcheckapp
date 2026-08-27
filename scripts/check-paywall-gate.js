@@ -233,6 +233,10 @@ const MUST_GATE = [
   ['delete', '/bills/:id',        'deleting a bill writes to the financial record'],
   ['post',   '/bills/:id/pay',    'settling a bill moves its due date'],
   ['post',   '/bills/:id/unpay',  'undoing a payment moves its due date back'],
+  ['post',   '/goals',               'creating a goal writes to the financial record'],
+  ['patch',  '/goals/:id',           'editing a goal writes to the financial record'],
+  ['delete', '/goals/:id',           'deleting a goal writes to the financial record'],
+  ['post',   '/goals/:id/contribute', 'moving money into a goal changes a balance'],
 ];
 for (const [method, routePath, why] of MUST_GATE) {
   const route = routeMiddleware(method, routePath);
