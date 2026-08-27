@@ -73,12 +73,54 @@ if (fs.existsSync(swift)) {
   }
 }
 
+/* The SwiftUI app has the same shape of hole in a different language. There,
+   `fcHaptic` is the gate — it wraps `.sensoryFeedback` and returns false from
+   the condition closure when `appState.hapticsEnabled` is off. Calling
+   `.sensoryFeedback` directly compiles, reads identically in review, and
+   ignores the setting entirely.
+
+   One place did: the "Can I afford this?" sheet, the app's signature
+   interaction. It also latched — its trigger was `verdict != nil`, true from
+   the first answer onward, so only the first purchase you checked ever buzzed.
+
+   The native repository is nested inside this one. When it is absent this
+   section is skipped rather than failing on something the developer cannot
+   see. */
+const nativeRoot = path.join(root, 'FlowCheckSwiftUI/FlowCheckSwiftUI');
+const gate = path.join(nativeRoot, 'Core/Design/FlowCheckMotion.swift');
+if (fs.existsSync(gate)) {
+  const gateSrc = fs.readFileSync(gate, 'utf8');
+  if (!/hapticsEnabled/.test(gateSrc)) {
+    problems.push('Core/Design/FlowCheckMotion.swift: fcHaptic no longer consults '
+      + 'appState.hapticsEnabled — the setting is now decorative app-wide');
+  }
+
+  /* Walk every Swift file. The gate itself is the one legitimate caller. */
+  const walk = dir => fs.readdirSync(dir, { withFileTypes: true }).flatMap(e => {
+    const full = path.join(dir, e.name);
+    if (e.isDirectory()) return walk(full);
+    return e.isFile() && e.name.endsWith('.swift') ? [full] : [];
+  });
+
+  for (const file of walk(nativeRoot)) {
+    if (file === gate) continue;
+    const src = fs.readFileSync(file, 'utf8');
+    const hits = (src.match(/\.sensoryFeedback\s*\(/g) || []).length;
+    if (hits > 0) {
+      const rel = path.relative(root, file);
+      problems.push(`${rel}: ${hits} direct .sensoryFeedback call(s) — use `
+        + `.fcHaptic(_:trigger:), the only place hapticsEnabled is checked`);
+    }
+  }
+}
+
 if (problems.length) {
   console.error('✗ haptics bypass the user preference:\n');
   problems.forEach(p => console.error('  ' + p));
   console.error('\n  Call FCApp.haptic(style) instead. It is the only place the');
   console.error('  "Haptic feedback" setting is enforced — a direct Capacitor call');
   console.error('  keeps buzzing after the user has switched haptics off.');
+  console.error('  In the SwiftUI app the equivalent is .fcHaptic(_:trigger:).');
   process.exit(1);
 }
-console.log('✓ haptics: every trigger — JS and native — honours the user preference');
+console.log('✓ haptics: every trigger — JS, Capacitor native and SwiftUI — honours the preference');

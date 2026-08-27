@@ -111,6 +111,65 @@ const dataSrc = fs.readFileSync(path.join(ROOT, 'www/js/fc-data.js'), 'utf8');
   }
 });
 
+/* 6. The native app's "money that is actually free" has one definition.
+      Same failure, fourth instance. Today prints it as "Flexible", the Coach
+      caps its debt advice with it and paces the save-more answer against it.
+      Each computed its own, and the Coach's was wrong: it capped at
+      month-to-date income minus spending, which counts money the month's
+      unpaid bills already have a claim on. On the sample data that is $3,534
+      against a real $587, so the Coach recommended putting $1,472 toward a
+      card on a screen whose sibling tab said $587 was free.
+
+      `FinancialSnapshot.flexibleCash` is now the only place the subtraction
+      happens. This counts the expression, not the property, so a second copy
+      is what fails — reading `flexibleCash` as often as you like is the point.
+
+      Skipped when the nested native repository is not in this checkout. */
+const NATIVE_ROOT = path.join(ROOT, 'FlowCheckSwiftUI/FlowCheckSwiftUI');
+const FLEXIBLE_HOME = 'Core/Models/FinancialModels.swift';
+if (fs.existsSync(path.join(NATIVE_ROOT, FLEXIBLE_HOME))) {
+  /* cashAvailable minus bills minus reserve, however it is spelled and
+     whatever it is subtracted through — `snapshot.`, `self.` or bare. */
+  const SUBTRACTION =
+    /cashAvailable\s*-\s*(?:\w+\.)?(?:upcomingBillsTotal|billsAmount)\s*-\s*(?:\w+\.)?(?:reserve|protectedAmount)/g;
+
+  const swiftFiles = (function walk(dir) {
+    return fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) return walk(full);
+      return entry.isFile() && entry.name.endsWith('.swift') ? [full] : [];
+    });
+  })(NATIVE_ROOT);
+
+  let copies = [];
+  for (const file of swiftFiles) {
+    const hits = (fs.readFileSync(file, 'utf8').match(SUBTRACTION) || []).length;
+    if (hits > 0) copies.push({ rel: path.relative(ROOT, file), hits });
+  }
+
+  const total = copies.reduce((n, c) => n + c.hits, 0);
+  const home = copies.find(c => c.rel.endsWith(FLEXIBLE_HOME));
+
+  if (!home) {
+    failures.push(`${FLEXIBLE_HOME} no longer computes flexible cash. `
+      + `FinancialSnapshot.flexibleCash is the one definition Today and the Coach share.`);
+  } else if (total > 1) {
+    const others = copies.filter(c => c !== home).map(c => `${c.rel} (${c.hits})`);
+    failures.push(`flexible cash is computed ${total} times — it must be computed once, `
+      + `in ${FLEXIBLE_HOME}, and read as flexibleCash everywhere else. Extra copies: `
+      + `${others.join(', ') || 'a second one inside ' + FLEXIBLE_HOME}. `
+      + `Recomputed independently, the Coach once advised $1,472 on a day Today said $587.`);
+  }
+
+  /* And the Coach must still cap with it. Dropping the cap reintroduces advice
+     that exceeds what the person has, which is the whole defect. */
+  const coach = path.join(NATIVE_ROOT, 'Features/Coach/CoachEngine.swift');
+  if (fs.existsSync(coach) && !/min\(\s*flexibleCash\s*,/.test(fs.readFileSync(coach, 'utf8'))) {
+    failures.push('Features/Coach/CoachEngine.swift no longer caps its debt advice with '
+      + 'flexibleCash. Uncapped, it recommends paying more than the person has.');
+  }
+}
+
 if (failures.length) {
   console.error(`Single-source check FAILED — ${failures.length} problem(s):\n`);
   failures.forEach(f => console.error('  ✗ ' + f));
