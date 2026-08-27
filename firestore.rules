@@ -199,20 +199,32 @@ service cloud.firestore {
       }
 
       // Bills — users can create/update/delete their own bills
+      /* `autopay` is in both lists because the add-bill form has always
+         collected it and the bill row has always rendered an "Auto Pay" badge
+         from it — but it was in neither allowlist, and hasOnly() on an update
+         tests the whole resulting document. So every bill edit was rejected in
+         production, silently, while adding one worked (createBill builds its
+         own object without it). Guarded as a bool so the badge cannot be
+         driven by an arbitrary value.
+         Enforced by scripts/check-firestore-rules-sync.js. */
       match /bills/{billId} {
         allow read:   if isOwner(uid);
         allow create: if isOwner(uid)
                       && request.resource.data.keys().hasOnly([
                            'name', 'amount', 'due_date', 'status',
                            'category', 'type', 'icon', 'color', 'frequency',
-                           'paid_at', 'created_at', 'updated_at',
-                         ]);
+                           'paid_at', 'created_at', 'updated_at', 'autopay',
+                         ])
+                      && (!('autopay' in request.resource.data)
+                          || request.resource.data.autopay is bool);
         allow update: if isOwner(uid)
                       && request.resource.data.keys().hasOnly([
                            'name', 'amount', 'due_date', 'status',
                            'category', 'type', 'icon', 'color', 'frequency',
-                           'paid_at', 'created_at', 'updated_at',
-                         ]);
+                           'paid_at', 'created_at', 'updated_at', 'autopay',
+                         ])
+                      && (!('autopay' in request.resource.data)
+                          || request.resource.data.autopay is bool);
         allow delete: if isOwner(uid);
       }
 
