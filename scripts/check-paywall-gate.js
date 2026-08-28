@@ -264,6 +264,31 @@ for (const [method, routePath, why] of MUST_NOT_GATE) {
   }
 }
 
+/* ── The entitlement question has one answer ──────────────────────────────
+   Every grant path writes `pro_expires_at`; nothing read it, so a referral
+   month — granted by a code the client mints — was Pro forever, and a lapse
+   whose webhook never arrived was too. The date is only enforced while the
+   judgement stays in lib/entitlement.js. A fresh `is_pro || pro` anywhere in
+   the backend re-opens it, silently and in the customer's favour. */
+const BARE_READ = /\b(?:is_pro|pro)\s*\|\|\s*[\w.]*\.?\bpro\b|\.\s*is_pro\s*\|\|/g;
+const referralRel = 'backend/referral.js';
+const referral = fs.readFileSync(path.join(root, referralRel), 'utf8');
+for (const [rel, text] of [[serverRel, server], [referralRel, referral]]) {
+  for (const m of text.matchAll(BARE_READ)) {
+    const line = text.slice(0, m.index).split('\n').length;
+    const context = text.slice(m.index - 60, m.index + 60);
+    if (/hasEntitlement|hasActivePro/.test(context)) continue;
+    failures.push(`${rel}:${line} judges entitlement inline (\`${m[0].trim()}\`) `
+      + `instead of calling hasEntitlement()/hasActivePro() from lib/entitlement.js. `
+      + `Inline reads ignore pro_expires_at, which makes an expired grant permanent.`);
+  }
+}
+
+if (!/require\(['"]\.\/lib\/entitlement['"]\)/.test(server)) {
+  failures.push(`${serverRel} no longer imports lib/entitlement — `
+    + `pro expiry is not being enforced anywhere.`);
+}
+
 if (failures.length) {
   console.error('Paywall gate check FAILED:\n');
   failures.forEach(f => console.error('  ✗ ' + f));

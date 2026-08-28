@@ -59,6 +59,7 @@ const { mapPlaidAccounts }     = require('./lib/map-accounts');
 const { buildFinancialSnapshot, sanitizeBill, sanitizeGoal } = require('./lib/financial-snapshot');
 const { normalizeBill, nextDueDate, previousDueDate } = require('./lib/bill-schedule');
 const { normalizeGoal, normalizeContribution } = require('./lib/goal-fields');
+const { hasEntitlement, hasActivePro } = require('./lib/entitlement');
 const _mail                    = require('./lib/email-shell');
 const {
   Configuration, PlaidApi, PlaidEnvironments,
@@ -969,7 +970,7 @@ app.post('/plaid/exchange-token', requireAuthStrict, _plaidUserLimiter, async (r
   try {
     const userSnap = await db.collection('users').doc(req.uid).get();
     const userData = userSnap.data() || {};
-    const isPro    = !!(userData.is_pro || userData.pro);
+    const isPro    = hasActivePro(userData);
     if (!isPro) {
       const existingItems = await db.collection('users').doc(req.uid)
         .collection('plaid_items').limit(1).get();
@@ -1921,7 +1922,8 @@ async function requireEntitlement(req, res, next) {
   try {
     const snap = await db.collection('users').doc(req.uid).get();
     const u = snap.data() || {};
-    if (u.is_pro || u.pro || u.grandfathered === true) return next();
+    // Expiry-aware: the boolean alone made referral grants permanent.
+    if (hasEntitlement(u)) return next();
     return res.status(402).json({
       message: 'A FlowCheck subscription is required.',
       code:    'subscription_required',

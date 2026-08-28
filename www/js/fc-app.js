@@ -376,7 +376,7 @@ window.FCApp = (function () {
 
     // 1. Strip full bank prefix phrases (case-insensitive)
     name = name.replace(
-      /^(?:DEBIT\s+(?:PURCHASE|CARD\s+PURCHASE)|POS\s+(?:PURCHASE|DEBIT|TERMINAL)|ACH\s+(?:DEBIT|WITHDRAWAL|WEB)|ONLINE\s+(?:PAYMENT|PURCHASE|BANKING\s+PAYMENT)|ELECTRONIC\s+(?:PAYMENT|DEBIT)|CHECK\s+CARD\s+(?:PURCHASE)?|CHECKCARD|VISA\s+(?:PURCHASE|DEBIT|DDA\s+PURCHASE)|MASTERCARD\s+(?:DEBIT|PURCHASE)|RECURRING\s+(?:CARD\s+)?PURCHASE|MOBILE\s+PURCHASE|ATM\s+(?:DEBIT|W\/D|WITHDRAWAL)|POINT\s+OF\s+SALE|POS\s+DEBIT\s+VISA)\s*/i,
+      /^(?:DEBIT\s+(?:PURCHASE|CARD\s+PURCHASE)|POS\s+DEBIT\s+VISA|POS\s+(?:PURCHASE|DEBIT|TERMINAL)|ACH\s+(?:DEBIT|WITHDRAWAL|WEB)|ONLINE\s+(?:PAYMENT|PURCHASE|BANKING\s+PAYMENT)|ELECTRONIC\s+(?:PAYMENT|DEBIT)|CHECK\s+CARD\s+(?:PURCHASE)?|CHECKCARD|VISA\s+(?:PURCHASE|DEBIT|DDA\s+PURCHASE)|MASTERCARD\s+(?:DEBIT|PURCHASE)|RECURRING\s+(?:CARD\s+)?PURCHASE|MOBILE\s+PURCHASE|ATM\s+(?:DEBIT|W\/D|WITHDRAWAL)|POINT\s+OF\s+SALE)\s*/i,
       ''
     );
     // Normalize garbled ATM Fee strings: "Pai ATM Omaha Ne ATM Fee" → "ATM Fee"
@@ -498,10 +498,26 @@ window.FCApp = (function () {
 
   let _planCatTab = 'all';
 
-  function _detectSubscriptions() {
-    const txLen   = state.transactions.length;
+  /**
+   * @param {Array} [txns] Transactions to scan. Defaults to `state.transactions`.
+   *
+   * The parameter used to be absent while five call sites passed one. Four of
+   * them passed `state.transactions`, so the omission was invisible. The fifth
+   * passed the ledger with the user's own renames applied — and the Activity
+   * screen then tagged rows by comparing the name SHOWN (the rename) against a
+   * recurring-set built from the raw statement names. Renaming a subscription
+   * made it stop being marked as one.
+   */
+  function _detectSubscriptions(txns) {
+    const source  = txns || state.transactions || [];
+    const txLen   = source.length;
     const billLen = state.bills.length;
-    if (_subDetectCache !== null && _subDetectCacheTxLen === txLen && _subDetectCacheBillLen === billLen) {
+    /* Only the default view is cached. A caller-supplied list is a different
+       question, and the cache key — two lengths — cannot tell the two apart:
+       the override list is the same length as the one it was built from. */
+    const cacheable = !txns || txns === state.transactions;
+    if (cacheable && _subDetectCache !== null
+        && _subDetectCacheTxLen === txLen && _subDetectCacheBillLen === billLen) {
       return _subDetectCache;
     }
     /* A merchant the user already tracks as a BILL is not a subscription.
@@ -521,7 +537,7 @@ window.FCApp = (function () {
         .filter(Boolean)
     );
     const map = {};
-    for (const t of state.transactions) {
+    for (const t of source) {
       if (t.isCredit || !t.date || !t.name) continue;
       if (_SUB_EXCLUDE_RE.test(t.name)) continue;
       if (billKeys.has(_subGroupKey(t.merchant_name || t.name))) continue;
@@ -530,18 +546,35 @@ window.FCApp = (function () {
       const normCat = FCData.normalizePlaidCategory(rawCat).toLowerCase();
 
       // Hard-exclude transfers, loans, grocery, gas, restaurants — they recur but aren't subscriptions
+      /* This list is now the ONLY category gate. While a merchant also had to
+         appear on a name list or in _SUB_GOOD_CATS, an omission here was
+         harmless — the allow-list caught it anyway. 'food and drink' was
+         missing, and FOOD_AND_DRINK normalises to exactly that, so removing
+         the allow-list without this line would have put lunch on the
+         subscriptions screen. */
       const hardExcludeCats = new Set(['transfer', 'loan', 'bank fees', 'grocery', 'groceries',
-        'gas stations', 'restaurants', 'coffee shop', 'auto and transport', 'healthcare', 'medical']);
+        'gas stations', 'restaurants', 'coffee shop', 'food and drink', 'dining',
+        'auto and transport', 'healthcare', 'medical', 'income', 'payroll']);
       if (hardExcludeCats.has(normCat) || normCat.includes('transfer')) continue;
 
-      // Require either a subscription-category OR a known subscription merchant name
+      /* Recognition is EVIDENCE, not a gate.
+
+         This used to be `if (!isKnownMerchant && !isSubCategory) continue;` —
+         an allow-list. _SUB_KNOWN_RE holds about ninety merchants, so a real
+         subscription to anything not on it, in a category Plaid did not label
+         as a service, was discarded here before its recurrence was ever
+         examined. It could bill on the same day for years and never appear.
+         That is why subscriptions were missing from this screen.
+
+         The name now only decides how much proof is required — see the two
+         tiers below. */
       const isKnownMerchant = _SUB_KNOWN_RE.test(t.name) || _SUB_KNOWN_RE.test(t.merchant_name || '');
       const isSubCategory   = _SUB_GOOD_CATS.has(normCat);
-      if (!isKnownMerchant && !isSubCategory) continue;
 
       const key = _subGroupKey(t.merchant_name || t.name);
       if (!key) continue;
-      if (!map[key]) map[key] = { name: t.merchant_name || t.name, rawT: t, entries: [] };
+      if (!map[key]) map[key] = { name: t.merchant_name || t.name, rawT: t, entries: [], recognised: false };
+      if (isKnownMerchant || isSubCategory) map[key].recognised = true;
       // Always prefer the most recent merchant_name for display
       if (t.merchant_name) map[key].name = t.merchant_name;
       map[key].rawT = t;
@@ -553,23 +586,47 @@ window.FCApp = (function () {
       });
     }
 
+    const median = (xs) => {
+      const so = [...xs].sort((a, b) => a - b);
+      const m  = Math.floor(so.length / 2);
+      return so.length % 2 === 0 ? (so[m - 1] + so[m]) / 2 : so[m];
+    };
+
     const detected = [];
     for (const [, data] of Object.entries(map)) {
-      if (data.entries.length < 2) continue;
+      const recognised = data.recognised;
+
+      /* Two tiers of evidence.
+
+         A recognised merchant is believed on two charges — Netflix billing
+         twice, a month apart, is not ambiguous. Anything else has to prove
+         itself: three charges, gaps that are each regular rather than merely
+         regular on average, and amounts that barely move. That proof is what
+         makes it safe to have stopped gating on the name list at all. */
+      if (data.entries.length < (recognised ? 2 : 3)) continue;
       data.entries.sort((a, b) => a.ts - b.ts);
 
       const gaps = [];
       for (let i = 1; i < data.entries.length; i++)
         gaps.push((data.entries[i].ts - data.entries[i - 1].ts) / 86400000);
-      const avgGap = gaps.reduce((a, b) => a + b, 0) / gaps.length;
+
+      /* The MEDIAN gap, not the mean. One skipped or refunded month drags a
+         mean clear out of the monthly band, and a genuine subscription then
+         reads as having no cadence at all. */
+      const typicalGap = median(gaps);
 
       // Monthly: 21–40 day gap | Weekly: 5–9 days | Bi-monthly: 55–65 days | Annual: 330–370 days
-      const isMonthly   = avgGap >= 21  && avgGap <= 40;
-      const isWeekly    = avgGap >= 5   && avgGap <= 9;
-      const isBiMonthly = avgGap >= 55  && avgGap <= 65;
-      const isAnnual    = avgGap >= 330 && avgGap <= 370;
+      const isMonthly   = typicalGap >= 21  && typicalGap <= 40;
+      const isWeekly    = typicalGap >= 5   && typicalGap <= 9;
+      const isBiMonthly = typicalGap >= 55  && typicalGap <= 65;
+      const isAnnual    = typicalGap >= 330 && typicalGap <= 370;
       const freq = isMonthly ? 'mo' : isWeekly ? 'wk' : isBiMonthly ? '2mo' : isAnnual ? 'yr' : null;
       if (!freq) continue;
+
+      /* For an unrecognised merchant every gap has to look like the cadence,
+         not just average out to it. Three visits at 10, 30 and 50 days have a
+         median of 30 and are a shop somebody happens to visit, not a bill. */
+      if (!recognised && gaps.some(g => Math.abs(g - typicalGap) > typicalGap * 0.4)) continue;
 
       /* The CURRENT price, not the historical median.
 
@@ -604,7 +661,11 @@ window.FCApp = (function () {
             return so.length % 2 === 0 ? (so[m - 1].amount + so[m].amount) / 2 : so[m].amount;
           })();
       const variance = gateSet.reduce((s, e) => s + Math.pow(e.amount - gateRef, 2), 0) / gateSet.length;
-      if (Math.sqrt(variance) / gateRef > 0.25) continue;
+      /* A recognised merchant is allowed to move — a plan change or a tax line
+         is normal. An unrecognised one has almost no room, because a steady
+         amount is most of what separates a subscription from a shop visited on
+         a rhythm. */
+      if (Math.sqrt(variance) / gateRef > (recognised ? 0.25 : 0.08)) continue;
 
       const medAmt = current;
 
@@ -622,9 +683,11 @@ window.FCApp = (function () {
         lastDate: mostRecent.date,
       });
     }
-    _subDetectCache = detected.sort((a, b) => b.amount - a.amount);
-    _subDetectCacheTxLen   = state.transactions.length;
-    _subDetectCacheBillLen = state.bills.length;
+    detected.sort((a, b) => b.amount - a.amount);
+    if (!cacheable) return detected;
+    _subDetectCache = detected;
+    _subDetectCacheTxLen   = txLen;
+    _subDetectCacheBillLen = billLen;
     return _subDetectCache;
   }
 
