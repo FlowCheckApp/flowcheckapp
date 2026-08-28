@@ -1395,14 +1395,39 @@ function _snapshotDocuments(snapshot) {
 app.get('/financial/snapshot', requireAuth, requireEntitlement, perUserLimiter(120), async (req, res) => {
   try {
     const userRef = db.collection('users').doc(req.uid);
-    const [accounts, transactions, bills, goals] = await Promise.all([
+    const [accounts, transactions, bills, goals, details] = await Promise.all([
       userRef.collection('accounts').get(),
       userRef.collection('transactions').orderBy('date', 'desc').limit(500).get(),
       userRef.collection('bills').get(),
       userRef.collection('goals').get(),
+      userRef.collection('account_details').get(),
     ]);
+
+    /* Rates and minimums the user typed in, merged over what Plaid reported.
+
+       Plaid's Liabilities product covers credit cards, student loans and
+       mortgages — never auto loans — so the single most common consumer debt
+       arrives with no rate and no minimum. `account_details` is where somebody
+       fills that in, and this endpoint did not read it: a rate entered in the
+       web app never reached the native one, which went on saying "rate not
+       reported" and could not produce a debt-free date.
+
+       User input WINS over Plaid. If somebody has taken the trouble to correct
+       a rate, they are looking at their statement and the bank's feed is not. */
+    const detailsById = {};
+    details.docs.forEach(doc => { detailsById[doc.id] = doc.data() || {}; });
+
+    const mergedAccounts = _snapshotDocuments(accounts).map(account => {
+      const own = detailsById[account.id] || {};
+      return {
+        ...account,
+        interest_rate: own.interest_rate ?? account.interest_rate ?? null,
+        minimum_payment: own.minimum_payment ?? account.minimum_payment ?? null,
+      };
+    });
+
     const data = buildFinancialSnapshot({
-      accounts: _snapshotDocuments(accounts),
+      accounts: mergedAccounts,
       transactions: _snapshotDocuments(transactions),
       bills: _snapshotDocuments(bills),
       goals: _snapshotDocuments(goals),
@@ -1551,6 +1576,74 @@ app.post('/bills/:id/unpay', requireAuth, requireEntitlement, perUserLimiter(60)
   } catch (err) {
     console.error('[bills/unpay]', err.message);
     res.status(500).json({ message: _safeMsg(err, 'Could not undo that') });
+  }
+});
+
+/* ── Account details ─────────────────────────────────────────────────────
+   The APR and minimum payment for a debt Plaid does not describe.
+
+   Plaid's Liabilities product covers credit cards, student loans and mortgages
+   and never auto loans, so the most common consumer debt arrives with neither.
+   Without them the Coach cannot rank a debt and the debt-free date cannot be
+   computed at all — the app just says "rate not reported" forever, and the only
+   person who can fix that is the one holding the statement.
+   ──────────────────────────────────────────────────────────────────────── */
+
+/** Validate an APR and a minimum payment. Returns `{ fields }` or `{ error }`. */
+function _normalizeAccountDetails(input) {
+  const source = input && typeof input === 'object' ? input : {};
+  const fields = {};
+
+  if (source.interest_rate !== undefined) {
+    if (source.interest_rate === null) {
+      fields.interest_rate = null;
+    } else {
+      const rate = Number(source.interest_rate);
+      /* Zero is meaningful — a 0% promotional card is real, and treating it as
+         "not set" would hide the one debt somebody should NOT rush to pay. */
+      if (!Number.isFinite(rate) || rate < 0 || rate > 100) {
+        return { error: 'Enter a rate between 0 and 100.' };
+      }
+      fields.interest_rate = Math.round(rate * 100) / 100;
+    }
+  }
+
+  if (source.minimum_payment !== undefined) {
+    if (source.minimum_payment === null) {
+      fields.minimum_payment = null;
+    } else {
+      const min = Number(source.minimum_payment);
+      if (!Number.isFinite(min) || min < 0 || min > 1_000_000) {
+        return { error: 'Enter a minimum payment of zero or more.' };
+      }
+      fields.minimum_payment = Math.round(min * 100) / 100;
+    }
+  }
+
+  if (Object.keys(fields).length === 0) return { error: 'Nothing to update.' };
+  return { fields };
+}
+
+app.patch('/accounts/:id/details', requireAuth, requireEntitlement, perUserLimiter(60), async (req, res) => {
+  const { fields, error } = _normalizeAccountDetails(req.body);
+  if (error) return res.status(400).json({ message: error });
+
+  try {
+    const userRef = db.collection('users').doc(req.uid);
+    /* Scoped to an account they actually hold, so an id from somewhere else
+       cannot create a details document for it. */
+    const account = await userRef.collection('accounts').doc(req.params.id).get();
+    if (!account.exists) return res.status(404).json({ message: 'Account not found' });
+
+    await userRef.collection('account_details').doc(req.params.id).set({
+      ...fields,
+      updated_at: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+
+    res.json({ ok: true, ...fields });
+  } catch (err) {
+    console.error('[accounts/details]', err.message);
+    res.status(500).json({ message: _safeMsg(err, 'Could not save those details') });
   }
 });
 

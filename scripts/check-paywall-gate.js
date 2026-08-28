@@ -237,6 +237,7 @@ const MUST_GATE = [
   ['patch',  '/goals/:id',           'editing a goal writes to the financial record'],
   ['delete', '/goals/:id',           'deleting a goal writes to the financial record'],
   ['post',   '/goals/:id/contribute', 'moving money into a goal changes a balance'],
+  ['patch',  '/accounts/:id/details', 'writes the APR the whole debt plan is built on'],
 ];
 for (const [method, routePath, why] of MUST_GATE) {
   const route = routeMiddleware(method, routePath);
