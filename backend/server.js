@@ -1194,7 +1194,7 @@ app.post('/plaid/exchange-token', requireAuthStrict, _plaidUserLimiter, async (r
                   : 'Your Pro subscription is extended by one month. Three referrals unlocks lifetime access.'}</p>
                 ${_mail.button('Open FlowCheck', `${BACKEND_URL}/open`, 'success')}`,
               footerHtml: `FlowCheck &middot; <a href="${_unsubUrl(referrerUid, 'all', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe</a>`,
-            }), referrerUid).catch(() => {});
+            }), referrerUid, { transactional: true }).catch(() => {});
           }
 
           // Notify referred user: you also earned 1 month Pro
@@ -1218,7 +1218,7 @@ app.post('/plaid/exchange-token', requireAuthStrict, _plaidUserLimiter, async (r
                 </table>
                 ${_mail.button('Explore Pro', `${BACKEND_URL}/open`, 'success')}`,
               footerHtml: `FlowCheck &middot; <a href="${_unsubUrl(req.uid, 'all', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe</a>`,
-            }), req.uid).catch(() => {});
+            }), req.uid, { transactional: true }).catch(() => {});
           }
         } catch (emailErr) {
           console.warn('[referral/auto-activate] email/notification failed:', emailErr.message);
@@ -2111,7 +2111,7 @@ app.delete('/user/account', requireAuthStrict, async (req, res) => {
              unsubscribe from, and a link that resolves to a deleted uid would
              fail. This is the last email this address will ever receive. */
           footerHtml: 'FlowCheck &middot; getflowcheck.app<br>This is a transactional email about your account deletion. No further emails will be sent to this address.',
-        }));
+        }), null, { transactional: true });
       }
     } catch (emailErr) {
       console.warn('[delete-account] goodbye email failed (non-fatal):', emailErr.message);
@@ -2312,10 +2312,51 @@ function _escHtml(s) {
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-async function _sendEmail(to, subject, html, uid = null) {
+/**
+ * Send one email.
+ *
+ * `options.transactional: true` means the person's own action asked for this
+ * message — a receipt, a security alert, a verification code, a confirmation
+ * of something they just did. Everything else is marketing and is suppressed
+ * when they have unsubscribed.
+ *
+ * The check lives HERE rather than at the call sites. It used to be written
+ * out at each one as `userData.email_alerts_enabled !== false`, twelve times,
+ * and nine sends did not have it: the weekly recap, the monthly recap, the
+ * whole four-part onboarding drip, a win-back nudge, the year in review and an
+ * "almost set up" reminder all went out to people who had unsubscribed. Every
+ * one of those carried a one-click unsubscribe header that visibly did
+ * nothing, which is a spam complaint waiting to happen and a CAN-SPAM problem
+ * rather than a UX one.
+ *
+ * Pass `options.userData` when the caller has already read the user document,
+ * so a cron sweeping every user does not read each one twice.
+ */
+async function _sendEmail(to, subject, html, uid = null, options = {}) {
+  const { transactional = false, userData = null } = options;
+
   if (!_resendApiKey) {
     console.log('[email] No Resend API key configured — skipping:', subject, '→', _maskEmail(to));
     return false;
+  }
+
+  if (uid && !transactional) {
+    let data = userData;
+    if (!data) {
+      try {
+        data = (await db.collection('users').doc(uid).get()).data() || {};
+      } catch (err) {
+        /* Fail CLOSED. If the preference cannot be read we do not know whether
+           they consented, and sending anyway is the outcome that cannot be
+           taken back. */
+        console.error('[email] Could not read consent, not sending:', err.message);
+        return false;
+      }
+    }
+    if (data.email_alerts_enabled === false) {
+      console.log(`[email] "${subject}" suppressed — unsubscribed → ${_maskEmail(to)}`);
+      return false;
+    }
   }
   // RFC 8058 List-Unsubscribe headers — enables one-click unsubscribe in Gmail + Apple Mail
   const headers = uid ? {
@@ -2396,7 +2437,7 @@ app.post('/email/welcome', requireAuth, async (req, res) => {
         </table>
         ${_mail.button('Open FlowCheck', `${BACKEND_URL}/open`, 'info')}`,
       footerHtml: `FlowCheck &middot; Your money, clearly.<br><a href="${_unsubUrl(req.uid, 'all', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe</a>`,
-    }), req.uid);
+    }), req.uid, { transactional: true });
     return res.json({ ok: true });
   } catch (err) {
     console.error('[email/welcome]', err.message);
@@ -2426,7 +2467,7 @@ app.post('/email/test', requireAuth, async (req, res) => {
       bodyHtml: `
         <p style="margin:0 0 8px">If this arrived, sending is configured correctly: DNS, DKIM, and the Resend key are all doing their jobs.</p>`,
       footerHtml: 'FlowCheck &middot; Test message, no action needed.',
-    }));
+    }), null, { transactional: true });
     return res.json({ ok: true, sent, to: email });
   } catch (err) {
     console.error('[email/test]', err.message);
@@ -2467,7 +2508,7 @@ app.post('/email/pro-upgrade', requireAuth, async (req, res) => {
         </table>
         ${_mail.button('Open FlowCheck', `${BACKEND_URL}/open`, 'success')}`,
       footerHtml: `FlowCheck &middot; Your money, clearly.<br><a href="${_unsubUrl(req.uid, 'all', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe</a>`,
-    }), req.uid);
+    }), req.uid, { transactional: true });
     return res.json({ ok: true });
   } catch (err) {
     console.error('[email/pro-upgrade]', err.message);
@@ -3091,7 +3132,7 @@ async function _sendBankConnectedEmail(uid, institutionName) {
         </table>
         ${_mail.button('View my dashboard', `${BACKEND_URL}/open`, 'success')}`,
       footerHtml: `FlowCheck &middot; Your money, clearly.<br><a href="${_unsubUrl(uid, 'all', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe</a>`,
-    }), uid);
+    }), uid, { transactional: true });
   } catch (err) {
     console.error('[email/bank-connected]', err.message);
   }
@@ -4975,7 +5016,7 @@ app.post('/auth/login-event', requireAuth, async (req, res) => {
         <p style="margin:0 0 24px">If this was you, there is nothing to do. If it was not, change your password straight away.</p>
         ${_mail.button('Open FlowCheck', `${BACKEND_URL}/open?ref=login_alert`, 'warn')}`,
       footerHtml: `FlowCheck &middot; Your money, clearly. &middot; <a href="${_unsubUrl(req.uid, 'alerts', BACKEND_URL)}" style="color:#9ca3af;text-decoration:none">Unsubscribe from security alerts</a>`,
-    }), req.uid).catch(e => console.error('[email login-alert]', e.message));
+    }), req.uid, { transactional: true }).catch(e => console.error('[email login-alert]', e.message));
   } catch (err) {
     console.error('[auth/login-event]', err.message);
   }
@@ -5027,7 +5068,7 @@ app.post('/auth/otp/send', requireAuth, async (req, res) => {
         </td></tr></table>
         <p style="font-size:13px;color:#9ca3af;margin:24px 0 0;text-align:center">Expires in 10 minutes. If you didn't request this, you can ignore this email.</p>`,
       footerHtml: 'FlowCheck &middot; Your money, clearly.',
-    }));
+    }), null, { transactional: true });
 
     if (!sent) {
       console.error('[auth/otp/send] _sendEmail returned false — RESEND_API_KEY may not be configured');
@@ -5312,7 +5353,7 @@ app.post('/webhooks/revenuecat', async (req, res) => {
         </table>
         ${_mail.button('Open FlowCheck', `${BACKEND_URL}/open`, 'success')}`,
       footerHtml: `FlowCheck &middot; Your money, clearly.<br><a href="${_unsubUrl(firebaseUid, 'all', BACKEND_URL)}" style="color:#9ca3af">Unsubscribe</a>`,
-    }));
+    }), null, { transactional: true });
             })
             .catch(() => {});
         }).catch(() => {});
