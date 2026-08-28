@@ -255,6 +255,7 @@ const MUST_NOT_GATE = [
   ['delete', '/plaid/disconnect', 'revoking bank access must work when lapsed'],
   ['delete', '/user/account',     'erasure is required regardless of billing state'],
   ['get',    '/plaid/items',      'it lists the banks to disconnect'],
+  ['get',    '/user/entitlement', 'an endpoint reporting entitlement cannot refuse the unentitled'],
 ];
 for (const [method, routePath, why] of MUST_NOT_GATE) {
   const route = routeMiddleware(method, routePath);

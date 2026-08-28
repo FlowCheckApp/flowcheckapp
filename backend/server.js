@@ -59,7 +59,7 @@ const { mapPlaidAccounts }     = require('./lib/map-accounts');
 const { buildFinancialSnapshot, sanitizeBill, sanitizeGoal } = require('./lib/financial-snapshot');
 const { normalizeBill, nextDueDate, previousDueDate } = require('./lib/bill-schedule');
 const { normalizeGoal, normalizeContribution } = require('./lib/goal-fields');
-const { hasEntitlement, hasActivePro } = require('./lib/entitlement');
+const { hasEntitlement, hasActivePro, proExpiresAt } = require('./lib/entitlement');
 const _mail                    = require('./lib/email-shell');
 const {
   Configuration, PlaidApi, PlaidEnvironments,
@@ -1393,6 +1393,46 @@ function _snapshotDocuments(snapshot) {
    goals in one call. Gated because it is the product. The gate on
    /plaid/sync only covers REFRESHING from Plaid — without this one, a
    lapsed account could still read everything already stored. */
+/* ─────────────────────────────────────────────────────────────
+   GET /user/entitlement
+
+   Deliberately NOT behind requireEntitlement: an endpoint that reports
+   whether you are entitled is useless if it refuses everyone who is not.
+
+   It exists because the native app gated its paywall on RevenueCat's live
+   entitlement alone, and RevenueCat only knows about people who bought
+   something. A referral grant is real, server-side Pro that RevenueCat has
+   never heard of, so those accounts were shown the paywall while every API
+   call they made succeeded. Same for `grandfathered`.
+
+   Answers with the same hasEntitlement() the gate uses, so the screen and
+   the enforcement cannot disagree.
+   ───────────────────────────────────────────────────────────── */
+app.get('/user/entitlement', requireAuth, perUserLimiter(60), async (req, res) => {
+  try {
+    const snap = await db.collection('users').doc(req.uid).get();
+    const u = snap.data() || {};
+    const expiry = proExpiresAt(u);
+
+    res.json({
+      entitled: hasEntitlement(u),
+      /* Why they are entitled, so the app can describe it honestly rather
+         than calling a referral month an App Store subscription. */
+      source: u.grandfathered === true ? 'grandfathered'
+            : u.pro_product_id           ? 'subscription'
+            : hasActivePro(u)            ? 'granted'
+            :                              'none',
+      expires_at: expiry ? expiry.toISOString() : null,
+    });
+  } catch (err) {
+    /* Unknown, not "no". The client falls back to RevenueCat when this
+       fails, and answering false here would paywall a paying subscriber
+       over a Firestore blip. */
+    console.error('[entitlement] status lookup failed:', err.code, err.message);
+    res.status(503).json({ message: 'Service temporarily unavailable. Please try again.' });
+  }
+});
+
 app.get('/financial/snapshot', requireAuth, requireEntitlement, perUserLimiter(120), async (req, res) => {
   try {
     const userRef = db.collection('users').doc(req.uid);
