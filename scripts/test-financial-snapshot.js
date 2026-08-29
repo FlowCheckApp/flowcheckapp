@@ -129,6 +129,43 @@ test('an unknown APR stays null and is never coerced to zero', () => {
   equal(result.accounts[3].interest_rate, null);
 });
 
+test('the ledger gets the newest 500; the rest go to recurrence only', () => {
+  /* A yearly subscription needs two charges ~365 days apart, and both have to
+     be in the data. The newest 500 can be a few months on an active account,
+     so annual plans were invisible however good the detector was. */
+  const many = Array.from({ length: 620 }, (_, i) => ({
+    id: `t${i}`, account_id: 'a', name: `Txn ${i}`, amount: 5,
+    date: '2026-08-01', category: ['FOOD_AND_DRINK'],
+  }));
+  const out = buildFinancialSnapshot({ transactions: many });
+  equal(out.transactions.length, 500, 'ledger size');
+  equal(out.recurrence_history.length, 120, 'the remainder');
+});
+
+test('history carries what recurrence needs and nothing it does not', () => {
+  const out = buildFinancialSnapshot({
+    transactions: [
+      ...Array.from({ length: 500 }, (_, i) => ({ id: `p${i}`, name: 'pad', amount: 1, date: '2026-08-01' })),
+      {
+        id: 'old', account_id: 'a', name: 'NETFLIX.COM', merchant_name: 'Netflix',
+        amount: 15.99, date: '2025-08-20', category: ['ENTERTAINMENT'],
+        logo_url: 'https://plaid.com/logos/n.png',
+      },
+    ],
+  });
+  const old = out.recurrence_history[0];
+  equal(old.merchant_name, 'Netflix');
+  equal(old.amount, 15.99);
+  equal(old.date, '2025-08-20');
+  ok(old.logo_url === undefined, 'no logo: nothing renders these');
+  ok(old.id === undefined, 'no id either');
+});
+
+test('an empty ledger produces an empty history, not undefined', () => {
+  const out = buildFinancialSnapshot({});
+  equal(out.recurrence_history, []);
+});
+
 console.log(`financial-snapshot: ${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);
 console.log('✓ native snapshot fields are allowlisted and credentials stay server-side.');

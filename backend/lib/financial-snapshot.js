@@ -157,11 +157,44 @@ function sanitizeGoal(document) {
   };
 }
 
+/** How many transactions the ledger screen receives in full. */
+const LEDGER_SIZE = 500;
+
+/* Everything older than the ledger window, carried in a compact shape.
+ *
+ * A yearly subscription needs two charges about 365 days apart, and both have
+ * to be in the data for the app to see the gap. On an active account the newest
+ * 500 transactions can be only a few months, so annual plans — often the
+ * expensive ones — were undetectable no matter how good the detector was. The
+ * limit was never the logic; it was the window.
+ *
+ * Sent separately rather than by simply enlarging the ledger: the screen shows
+ * perhaps fifty rows, and shipping fifteen hundred full records to render them
+ * costs the user bandwidth on every refresh. These carry only what recurrence
+ * needs — who, how much, when — which is roughly a third of the size and never
+ * reaches the ledger UI.
+ */
+function compactCharge(document) {
+  const merchant = optionalText(document.merchant_name);
+  return {
+    merchant_name: merchant,
+    name: text(document.name, 'Transaction'),
+    amount: Math.abs(number(document.amount)),
+    date: dateString(document.date),
+    category: categories(document.category),
+    is_credit: inferCredit(document, categories(document.category)),
+  };
+}
+
 function buildFinancialSnapshot(documents) {
   const input = documents || {};
+  const all = input.transactions || [];
   return {
     accounts: (input.accounts || []).map(sanitizeAccount),
-    transactions: (input.transactions || []).map(sanitizeTransaction),
+    transactions: all.slice(0, LEDGER_SIZE).map(sanitizeTransaction),
+    /* Older than the ledger window. The detector reads these; nothing renders
+       them, so they carry no logo and no id. */
+    recurrence_history: all.slice(LEDGER_SIZE).map(compactCharge),
     bills: (input.bills || []).map(sanitizeBill),
     goals: (input.goals || []).map(sanitizeGoal),
   };
@@ -169,6 +202,8 @@ function buildFinancialSnapshot(documents) {
 
 module.exports = {
   buildFinancialSnapshot,
+  compactCharge,
+  LEDGER_SIZE,
   sanitizeAccount,
   sanitizeTransaction,
   sanitizeBill,

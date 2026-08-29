@@ -1439,7 +1439,15 @@ app.get('/financial/snapshot', requireAuth, requireEntitlement, perUserLimiter(1
     const userRef = db.collection('users').doc(req.uid);
     const [accounts, transactions, bills, goals, details] = await Promise.all([
       userRef.collection('accounts').get(),
-      userRef.collection('transactions').orderBy('date', 'desc').limit(500).get(),
+      /* Wider than the ledger shows, so a yearly subscription's two charges
+         can both be in the data. buildFinancialSnapshot splits this: the newest
+         500 go to the screen in full, the rest go to the detector compacted.
+
+         Ordered and limited rather than filtered by date: `date` is a
+         YYYY-MM-DD string on current rows but a Timestamp on some legacy ones,
+         and Firestore orders by TYPE before value — a string range filter would
+         silently drop every legacy row rather than erroring. */
+      userRef.collection('transactions').orderBy('date', 'desc').limit(1500).get(),
       userRef.collection('bills').get(),
       userRef.collection('goals').get(),
       userRef.collection('account_details').get(),
