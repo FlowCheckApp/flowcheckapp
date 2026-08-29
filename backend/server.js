@@ -60,6 +60,7 @@ const { buildFinancialSnapshot, sanitizeBill, sanitizeGoal } = require('./lib/fi
 const { normalizeBill, nextDueDate, previousDueDate } = require('./lib/bill-schedule');
 const { normalizeGoal, normalizeContribution } = require('./lib/goal-fields');
 const { hasEntitlement, hasActivePro, proExpiresAt } = require('./lib/entitlement');
+const { transactionDoc } = require('./lib/plaid-transaction');
 const _mail                    = require('./lib/email-shell');
 const {
   Configuration, PlaidApi, PlaidEnvironments,
@@ -1867,22 +1868,11 @@ app.get('/plaid/sync', requireAuth, requireEntitlement, perUserLimiter(30), asyn
           },
           writePage: async ({ added: a, modified: m, removed: r }) => {
             await writeChunks([...a, ...m], (b, t) => {
-              b.set(userRef.collection('transactions').doc(t.transaction_id), {
-                id:              t.transaction_id,
-                account_id:      t.account_id,
-                name:            t.name,
-                amount:          Math.abs(t.amount),
-                isCredit:        t.amount < 0,
-                date:            t.date,
-                category:        t.personal_finance_category?.primary
-                                   ? [t.personal_finance_category.primary]
-                                   : (t.category || []),
-                pending:         t.pending,
-                merchant_name:   t.merchant_name    || null,
-                logo_url:        t.logo_url         || null,
-                payment_channel: t.payment_channel  || null,
-                updated_at:      TS(),
-              }, { merge: true });
+              b.set(
+                userRef.collection('transactions').doc(t.transaction_id),
+                transactionDoc(t, TS),
+                { merge: true }
+              );
             });
             await writeChunks(r, (b, x) =>
               b.delete(userRef.collection('transactions').doc(x.transaction_id)));
@@ -4219,22 +4209,11 @@ async function _webhookSyncItem(itemId, retryCount = 0) {
     for (let i = 0; i < upserts.length; i += 400) {
       batch = db.batch();
       upserts.slice(i, i + 400).forEach(t => {
-        batch.set(userRef.collection('transactions').doc(t.transaction_id), {
-          id:              t.transaction_id,
-          account_id:      t.account_id,
-          name:            t.name,
-          amount:          Math.abs(t.amount),
-          isCredit:        t.amount < 0,
-          date:            t.date,
-          category:        t.personal_finance_category?.primary
-                             ? [t.personal_finance_category.primary]
-                             : (t.category || []),
-          pending:         t.pending,
-          merchant_name:   t.merchant_name    || null,
-          logo_url:        t.logo_url         || null,
-          payment_channel: t.payment_channel  || null,
-          updated_at:      TS(),
-        }, { merge: true });
+        batch.set(
+          userRef.collection('transactions').doc(t.transaction_id),
+          transactionDoc(t, TS),
+          { merge: true }
+        );
       });
       await batch.commit();
     }

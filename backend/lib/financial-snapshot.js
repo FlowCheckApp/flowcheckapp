@@ -120,6 +120,10 @@ function sanitizeTransaction(document) {
     is_credit: inferCredit(document, transactionCategories),
     date: dateString(document.date),
     category: transactionCategories,
+    /* Forwarded so the app can say "Postage" where Plaid says
+       GENERAL_SERVICES. The primary stays authoritative; this only refines it
+       where the primary is a bucket. */
+    category_detailed: optionalText(document.category_detailed),
     pending: document.pending === true,
     logo_url: plaidLogoURL(document.logo_url),
   };
