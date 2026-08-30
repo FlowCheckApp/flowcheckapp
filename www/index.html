@@ -4007,11 +4007,8 @@ body:not(.keyboard-open) .fc-sheet {
 [data-theme="light"] .fc-stat-section-card,
 [data-theme="light"] .dash-stat-row .fc-card,
 [data-theme="light"] #view-wealth .fc-card,
-[data-theme="light"] #view-settings .fc-card {
-  background: #ffffff !important;
-  border: 1px solid rgba(13,27,46,0.08) !important;
-  box-shadow: 0 1px 3px rgba(13,27,46,0.06), 0 4px 14px rgba(13,27,46,0.05) !important;
-}
+/* Removed: a light-mode surface for one screen, in hardcoded colours. The
+   canonical card already carries both themes. */
 /* Overrides for any remaining inline-style dark gradients */
 [data-theme="light"] [style*="linear-gradient(145deg,#0d1b2e"],
 [data-theme="light"] [style*="linear-gradient(145deg, #0d1b2e"],
@@ -5610,10 +5607,9 @@ body:not(.keyboard-open) .fc-sheet {
 
     /* Settings grouped cards */
     #view-settings .fc-card{
-      background:linear-gradient(145deg,rgba(12,26,46,0.98),rgba(7,15,26,0.99));
-      border:0.5px solid rgba(255,255,255,0.08);
-      box-shadow:0 6px 22px rgba(0,0,0,0.38),inset 0 1px 0 rgba(255,255,255,0.05),inset 0 -1px 0 rgba(0,0,0,0.15);
-      border-radius:22px;margin:0 16px 10px;padding:0;overflow:hidden;
+      /* Layout only. The surface — gradient, hairline, radius, shadow — is
+         ★ THE CARD ★ in flowcheck-design-system.css. */
+      margin:0 16px 10px;padding:0;overflow:hidden;
     }
     .fc-settings-row{
       display:flex;align-items:center;gap:14px;padding:15px 17px;
@@ -6096,56 +6092,45 @@ body:not(.keyboard-open) .fc-sheet {
        ══════════════════════════════════════════════════════════════ */
 
     /* ── CSS custom properties scoped to Plan view ── */
+    /* Every one of these is an ALIAS onto the canonical token now, not a
+       value. They were a second design system: Plan's eyebrow was 40% white
+       where --fc-text-faint is 50%, its light-mode primary text was #071426
+       where --fc-text is #0D1B2E, and its secondary was #64748B where
+       --fc-text-muted is rgba(13,27,46,0.66). So two of the five tabs
+       rendered text in colours the design system does not contain, and no
+       amount of matching the SwiftUI app elsewhere could ever reach them.
+
+       The names stay — several hundred rules reference them — but they no
+       longer decide anything. One vocabulary, aliased at the edge. */
     #view-insights {
-      --pl-card-bg: rgba(255,255,255,0.04);
-      --pl-card-border: rgba(255,255,255,0.08);
+      --pl-card-bg: var(--fc-bg-elevated);
+      --pl-card-border: var(--fc-border);
       --pl-card-shadow: none;
-      --pl-soft-blue: rgba(20,124,255,0.10);
-      --pl-soft-blue-bd: rgba(20,124,255,0.22);
-      --pl-soft-green: rgba(22,163,74,0.10);
-      --pl-soft-green-bd: rgba(22,163,74,0.22);
-      --pl-soft-amber: rgba(245,158,11,0.10);
-      --pl-soft-amber-bd: rgba(245,158,11,0.22);
-      --pl-soft-red: rgba(239,68,68,0.10);
-      --pl-soft-red-bd: rgba(239,68,68,0.22);
-      --pl-eyebrow: rgba(240,246,255,0.40);
+      --pl-soft-blue: var(--fc-accent-soft);
+      --pl-soft-blue-bd: var(--fc-border-accent);
+      --pl-soft-green: var(--fc-success-soft);
+      --pl-soft-green-bd: var(--fc-success-border);
+      --pl-soft-amber: var(--fc-warning-soft);
+      --pl-soft-amber-bd: var(--fc-warning-border);
+      --pl-soft-red: var(--fc-danger-soft);
+      --pl-soft-red-bd: var(--fc-danger-border);
+      --pl-eyebrow: var(--fc-text-faint);
       --pl-primary: var(--fc-text);
       --pl-secondary: var(--fc-text-muted);
-      --pl-period-bg: rgba(255,255,255,0.05);
-      --pl-period-bd: rgba(255,255,255,0.09);
-      --pl-period-inactive: rgba(255,255,255,0.38);
-      --pl-tab-inactive-bg: rgba(255,255,255,0.05);
-      --pl-tab-inactive-bd: rgba(255,255,255,0.09);
-      --pl-bar-track: rgba(255,255,255,0.09);
-      --pl-row-border: rgba(255,255,255,0.06);
+      --pl-period-bg: var(--fc-bg-elevated-2);
+      --pl-period-bd: var(--fc-border);
+      --pl-period-inactive: var(--fc-text-faint);
+      --pl-tab-inactive-bg: var(--fc-bg-elevated-2);
+      --pl-tab-inactive-bd: var(--fc-border);
+      --pl-bar-track: var(--fc-bg-elevated-2);
+      --pl-row-border: var(--fc-border);
       --pl-sts-color: var(--fc-success);
       overflow-y: scroll; -webkit-overflow-scrolling: touch;
       padding-bottom: 100px; overscroll-behavior: contain;
     }
-    [data-theme="light"] #view-insights {
-      --pl-card-bg: #ffffff;
-      --pl-card-border: rgba(7,20,38,0.07);
-      --pl-card-shadow: 0 1px 3px rgba(7,20,38,0.06), 0 4px 16px rgba(7,20,38,0.04);
-      --pl-soft-blue: #EAF6FF;
-      --pl-soft-blue-bd: rgba(20,124,255,0.18);
-      --pl-soft-green: #EAF8EF;
-      --pl-soft-green-bd: rgba(22,163,74,0.18);
-      --pl-soft-amber: #FFF4DF;
-      --pl-soft-amber-bd: rgba(245,158,11,0.18);
-      --pl-soft-red: #FEE2E2;
-      --pl-soft-red-bd: rgba(239,68,68,0.18);
-      --pl-eyebrow: #94A3B8;
-      --pl-primary: #071426;
-      --pl-secondary: #64748B;
-      --pl-period-bg: rgba(7,20,38,0.04);
-      --pl-period-bd: rgba(7,20,38,0.09);
-      --pl-period-inactive: #94A3B8;
-      --pl-tab-inactive-bg: rgba(7,20,38,0.04);
-      --pl-tab-inactive-bd: rgba(7,20,38,0.09);
-      --pl-bar-track: rgba(7,20,38,0.08);
-      --pl-row-border: rgba(7,20,38,0.06);
-      --pl-sts-color: var(--fc-success);
-    }
+    /* No light override any more. Every --pl-* above is an alias onto an
+       --fc-* token, and those already carry both themes — a second light
+       block would be a second chance to disagree. */
 
     /* ── Header ── */
     .plan-header { display:flex; align-items:flex-start; justify-content:space-between; padding:20px 20px 12px; gap:12px; }
@@ -6159,7 +6144,10 @@ body:not(.keyboard-open) .fc-sheet {
     
 
     /* ── Card base ── */
-    .plan-card { background:var(--pl-card-bg); border:1px solid var(--pl-card-border); border-radius:22px; box-shadow:var(--pl-card-shadow); }
+    /* Card surface comes from ★ THE CARD ★ in flowcheck-design-system.css.
+       This was a fourth copy — and being inline it won by load order, which
+       is how Plan kept a 22px corner over a flat fill while the app's cards
+       are 24px over a gradient. Padding stays here; that is Plan's own. */
 
     /* ── Top 2-col row ── */
     .plan-top-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:0 16px 12px; }
@@ -6565,33 +6553,34 @@ body:not(.keyboard-open) .fc-sheet {
       overflow-y: scroll; -webkit-overflow-scrolling: touch;
       padding-bottom: 100px; overscroll-behavior: contain;
       /* Design tokens — dark mode defaults */
-      --wv-card: rgba(255,255,255,0.05);
-      --wv-border: rgba(255,255,255,0.07);
+      /* Aliases, like Plan's above. --wv-t1 was #071426 in light where
+         --fc-text is #0D1B2E, so Money's headline text was a colour of its
+         own on the theme most people read in daylight. */
+      --wv-card: var(--fc-bg-elevated);
+      --wv-border: var(--fc-border);
       --wv-shadow: none;
       --wv-t1: var(--fc-text);
       --wv-t2: var(--fc-text-muted);
       --wv-t3: var(--fc-text-faint);
-      --wv-divider: rgba(255,255,255,0.06);
+      --wv-divider: var(--fc-border);
       --wv-green: var(--fc-success); --wv-green-soft: var(--fc-success-soft);
       --wv-blue: var(--fc-accent);  --wv-blue-soft: var(--fc-accent-soft);
       --wv-red: var(--fc-danger);   --wv-red-soft: var(--fc-danger-soft);
       --wv-goal: var(--fc-electric); --wv-goal-soft: var(--fc-electric-soft);
       --wv-amber: var(--fc-warning);  --wv-amber-soft: var(--fc-warning-soft);
-      --wv-pill: rgba(255,255,255,0.06); --wv-pill-b: rgba(255,255,255,0.09);
+      --wv-pill: var(--fc-bg-elevated-2); --wv-pill-b: var(--fc-border);
     }
     [data-theme="light"] #view-wealth {
-      --wv-card: #FFFFFF; --wv-border: rgba(15,23,42,0.06);
-      --wv-shadow: 0 2px 12px rgba(15,23,42,0.06);
-      --wv-t1: #071426; --wv-t2: var(--fc-text-muted); --wv-t3: var(--fc-text-faint);
-      --wv-divider: rgba(15,23,42,0.05);
-      --wv-green-soft: #EAF8EF; --wv-blue-soft: #EAF6FF;
-      --wv-red-soft: #FEECEC;
-      --wv-amber-soft: #FFF4DF;
-      --wv-pill: rgba(15,23,42,0.04); --wv-pill-b: rgba(15,23,42,0.08);
+      /* Only the shadow. Every colour above is an alias that already
+         carries both themes; the rest of this block was a second set of
+         values for them, and the two disagreed. */
+      --wv-shadow: var(--fc-shadow-sm);
     }
     /* Radius comes from the token, not a local value — Money used to render
        22px here (and 15px on its heroes) against 24px everywhere else. */
-    .wv-card { background:var(--wv-card); border:1px solid var(--wv-border); border-radius:var(--fc-r-xl); box-shadow:var(--wv-shadow); }
+    /* Card surface comes from ★ THE CARD ★ in flowcheck-design-system.css.
+       The radius was already right; the flat fill and the missing hairline
+       were not. */
     /* Sticky header */
     .wv-bar { position:sticky; top:0; z-index:20; background:var(--fc-bg); padding:20px 20px 0; }
     [data-theme="light"] .wv-bar { background:#F3F7FA; }

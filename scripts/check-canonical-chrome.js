@@ -86,6 +86,88 @@ if (found.length === 0) {
   );
 }
 
+/* ── 1b. The card surface is defined ONCE ──────────────────────────────
+ *
+ * Every card in the app — Home's .fc-ui-card, Money's .wv-card, Plan's
+ * .plan-card, the generic .fc-card, Activity's summary and the Settings
+ * profile — is one component, and it mirrors FlowCheckCard in the SwiftUI
+ * app. It was six.
+ *
+ * Settings' card alone was declared FIVE times across three files, at 24,
+ * 24, 18, 14 and 22px, four of them with !important, and which one rendered
+ * was decided by load order. Money's was overridden by the premium layer's
+ * `background: … !important`, which replaces the background-image that draws
+ * the card's gradient hairline — so Money got the right fill with a flat
+ * border while Home and Plan kept the hairline. None of it is visible in
+ * review: every one of those blocks reads as correct on its own.
+ *
+ * A rule may still set a card's LAYOUT — margin, padding, overflow. What it
+ * may not do is redefine the surface: the radius, the fill, the border or
+ * the shadow. Those come from ★ THE CARD ★ in flowcheck-design-system.css.
+ */
+const CARD_SELECTORS = [
+  '.fc-ui-card', '.wv-card', '.plan-card', '.fc-card',
+  '.act-summary-card', '.settings-profile-card',
+];
+/* The surface. Deliberately NOT margin/padding/overflow — a screen owning
+   its own density is fine and is why these rules still exist. */
+const SURFACE_PROPS =
+  /(^|[;{\s])(border-radius|background(-image|-color)?|border(-color|-width|-style)?|box-shadow)\s*:/;
+
+const cardDefs = [];
+for (const rel of SOURCES) {
+  const abs = path.join(ROOT, rel);
+  if (!fs.existsSync(abs)) continue;
+  const text = fs.readFileSync(abs, 'utf8');
+  const ruleRe = /([^{}]+)\{([^{}]*)\}/g;
+  let m;
+  while ((m = ruleRe.exec(text)) !== null) {
+    const selector = m[1].replace(/\/\*[\s\S]*?\*\//g, '').trim();
+    const body = m[2];
+    /* Only rules that TARGET a card, not ones that merely mention it inside
+       a longer descendant selector like `.wv-card .wv-row`. */
+    const targetsCard = CARD_SELECTORS.some(c => {
+      const re = new RegExp(`\\${c}\\s*(,|$)`);
+      return selector.split(',').some(part => re.test(part.trim() + ','));
+    });
+    if (!targetsCard) continue;
+    if (!SURFACE_PROPS.test(body)) continue;
+    /* Shared transition groups name every card but decide no surface. */
+    if (/^\s*transition\s*:/.test(body.trim()) || /^[\s;]*$/.test(body)) continue;
+
+    const line = text.slice(0, m.index).split('\n').length;
+    cardDefs.push({ rel, line, selector: selector.replace(/\s+/g, ' ').slice(0, 70) });
+  }
+}
+
+/* A CEILING, not a limit of one — the same shape as check-design-scale.js,
+   and for the same reason. There are still 17 rules that touch a card's
+   surface, most of them `[data-theme="light"]` overrides that exist only to
+   undo hardcoded dark values the canonical card no longer has. They are
+   redundant rather than harmful: the five views measured after this change
+   all render an identical card. Unpicking the rest is careful work, because
+   a losing copy is not dead — a property only one copy declares still
+   applies, which is how a display:none once hid a whole rendered section.
+
+   So: this cannot GROW. Lower it as the redundant overrides come out; never
+   raise it. Reaching 1 is the goal. */
+const CARD_DEF_CEILING = 17;
+
+if (cardDefs.length === 0) {
+  failures.push('no card surface definition found at all — every card has lost its background.');
+} else if (cardDefs.length > CARD_DEF_CEILING) {
+  failures.push(
+    `${cardDefs.length} card SURFACE definitions, up from ${CARD_DEF_CEILING}:\n` +
+    cardDefs.map(f => `      ${f.rel}:${f.line}  ${f.selector}`).join('\n') +
+    '\n    Cards are one component and mirror FlowCheckCard in the SwiftUI app.\n' +
+    '    Fold the change into ★ THE CARD ★ in flowcheck-design-system.css.\n' +
+    '    A screen may still set its own margin/padding/overflow — just not the\n' +
+    '    radius, fill, border or shadow.'
+  );
+} else if (cardDefs.length < CARD_DEF_CEILING) {
+  console.log(`  ↓ card surface definitions down to ${cardDefs.length} (ceiling ${CARD_DEF_CEILING}) — lower CARD_DEF_CEILING in this file.`);
+}
+
 /* ── 2. No Home-card selector may live in two stylesheets ─────────────
  *
  * The nav was not the only component written twice. The Payday Runway card

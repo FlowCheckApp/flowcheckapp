@@ -2806,14 +2806,23 @@ body.fc-theme {
    TODAY SCREEN — reference-led stacked dashboard
    ══════════════════════════════════════════════════════════════════ */
 
-.home-v8 .fc-ui-card {
-  /* FlowCheckCard: FCGradient.card on a 24px continuous corner, under a
-     hairline that is brighter at the top than the bottom.
+/* ★ THE CARD ★
+   One definition, used by every card surface in the app: Home's .fc-ui-card,
+   Money's .wv-card and Plan's .plan-card. It mirrors FlowCheckCard in the
+   SwiftUI app — FCGradient.card on a 24px continuous corner, under a
+   hairline that is brighter at the top than the bottom, because light in the
+   real world falls from above and that gradient is most of what separates a
+   card from a flat rectangle.
 
-     Was a 22px corner over two hardcoded navy stops (rgba(7,18,30,…)) that
-     appear in no theme, inside a flat cyan border. So the cards were the
-     wrong shape, the wrong colour in light mode — those navies do not change
-     with the theme — and edged in a tint the app does not use. */
+   These were three different cards: 22px over hardcoded navy on Home, a flat
+   --wv-card fill at 24px on Money, 22px over --pl-card-bg on Plan. Three
+   radii, three fills, one concept. */
+.home-v8 .fc-ui-card,
+.wv-card,
+.plan-card,
+.fc-card,
+.act-summary-card,
+.settings-profile-card {
   background: linear-gradient(
     135deg,
     color-mix(in srgb, var(--fc-bg-elevated-2) 82%, transparent),
@@ -2821,9 +2830,8 @@ body.fc-theme {
   );
   border: 1px solid transparent;
   border-radius: var(--fc-r-xl);
-  /* The gradient hairline. Two backgrounds clipped to different boxes is the
-     only way to stroke a rounded rect with a gradient in CSS; `border-image`
-     does not follow a border-radius. */
+  /* Two backgrounds clipped to different boxes is the only way to stroke a
+     rounded rect with a gradient in CSS; `border-image` ignores the radius. */
   background-image:
     linear-gradient(
       135deg,
@@ -2837,7 +2845,7 @@ body.fc-theme {
     );
   background-origin: border-box;
   background-clip: padding-box, border-box;
-  box-shadow: var(--fc-shadow-sm);
+  box-shadow: var(--fc-premium-shadow);
   overflow: hidden;
 }
 
@@ -3705,14 +3713,11 @@ body.fc-theme,
   line-height: 1.45;
 }
 
-.fc-card,
-.plan-card,
-.wv-card,
-.act-summary-card,
-.settings-profile-card {
-  border-color: var(--fc-border);
-  box-shadow: var(--fc-shadow-sm);
-}
+/* Border and shadow come from ★ THE CARD ★ above. This rule sat 900 lines
+   below it at the same specificity, so it was what actually rendered — the
+   card's gradient hairline and its shadow were being replaced by a flat
+   border and --fc-shadow-sm on every surface except Home's, whose selector
+   is one class heavier and won by accident. */
 
 .fc-nav-item {
   min-height: 52px;
