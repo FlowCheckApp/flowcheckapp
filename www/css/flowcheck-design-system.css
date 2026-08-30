@@ -559,40 +559,62 @@ body.fc-theme {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  height: 52px;
+  /* Matched to FlowCheckPrimaryButtonStyle in the SwiftUI app: 54 tall, a
+     16px rounded rectangle, 17/600 label. It was a 52px PILL at 16/600, which
+     is the single most visible difference between the two apps — every button
+     on every screen read as a different product. --fc-r-pill stays as it is
+     and is still correct for chips and badges; a button is not a chip. */
+  height: 54px;
   padding: 0 24px;
-  border-radius: var(--fc-r-pill);
-  font-size: 16px;
+  border-radius: var(--fc-r-md);
+  font-size: 17px;
   font-weight: 600;
   border: none;
   cursor: pointer;
-  transition: transform 0.14s var(--fc-ease-spring), opacity 0.12s;
+  transition: transform 0.16s var(--fc-ease-out), opacity 0.16s var(--fc-ease-out);
   font-family: inherit;
   letter-spacing: -0.01em;
   position: relative;
   overflow: hidden;
 }
-.fc-btn:active { transform: scale(0.96); opacity: 0.90; }
+.fc-btn:active { transform: scale(0.985); opacity: 0.82; }
 
 .fc-btn--primary {
-  background: linear-gradient(135deg, var(--fc-accent) 0%, #0fa8d4 100%);
+  /* FCGradient.accent: accent → electric, leading to trailing. The web had
+     `135deg, accent → #0fa8d4` — a hardcoded colour that is in no theme and
+     no token, so it did not move with the accent and did not match the app.
+     Horizontal, because that is what `.leading`/`.trailing` means. */
+  background: linear-gradient(90deg, var(--fc-accent) 0%, var(--fc-electric) 100%);
   color: var(--fc-accent-ink);
-  box-shadow: 0 6px 24px rgba(26,196,240,0.35), inset 0 1px 0 rgba(255,255,255,0.2);
+  /* .shadow(color: accent 20%, radius: 16, y: 8). A SwiftUI shadow radius is
+     roughly half a CSS blur, so 16 → 32px. The web was throwing a 35%-opacity
+     glow, which is why its buttons looked lit from behind and the app's did
+     not. No inset highlight: the native button has none. */
+  box-shadow: 0 8px 32px rgba(26, 196, 240, 0.20);
 }
 .fc-btn--primary:hover {
-  box-shadow: 0 8px 30px rgba(26,196,240,0.45), inset 0 1px 0 rgba(255,255,255,0.2);
+  box-shadow: 0 8px 32px rgba(26, 196, 240, 0.28);
 }
 .fc-btn--primary:active {
-  box-shadow: 0 3px 12px rgba(26,196,240,0.25);
+  box-shadow: 0 4px 16px rgba(26, 196, 240, 0.20);
 }
 
 .fc-btn--ghost {
-  background: rgba(255,255,255,0.06);
-  color: var(--fc-text);
-  border: 1px solid var(--fc-border-strong);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+  /* FlowCheckSecondaryButtonStyle: accent label on a 9% accent wash inside a
+     32% accent hairline. The web's was a neutral grey — white text, white
+     wash, --fc-border-strong — so the secondary action on every screen read
+     as disabled chrome beside the app's tinted one. 52px rather than 54:
+     the native secondary really is two points shorter than the primary. */
+  background: color-mix(in srgb, var(--fc-accent) 9%, transparent);
+  color: var(--fc-accent);
+  border: 1px solid color-mix(in srgb, var(--fc-accent) 32%, transparent);
+  height: 52px;
+  box-shadow: none;
 }
-.fc-btn--ghost:hover { background: rgba(255,255,255,0.10); }
+.fc-btn--ghost:hover,
+.fc-btn--ghost:active {
+  background: color-mix(in srgb, var(--fc-accent) 16%, transparent);
+}
 
 .fc-btn--outline {
   background: transparent;
@@ -2785,11 +2807,36 @@ body.fc-theme {
    ══════════════════════════════════════════════════════════════════ */
 
 .home-v8 .fc-ui-card {
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.03)),
-    linear-gradient(180deg, rgba(7,18,30,0.94), rgba(7,18,30,0.88));
-  border: 1px solid rgba(26,196,240,0.12);
-  border-radius: 22px;
+  /* FlowCheckCard: FCGradient.card on a 24px continuous corner, under a
+     hairline that is brighter at the top than the bottom.
+
+     Was a 22px corner over two hardcoded navy stops (rgba(7,18,30,…)) that
+     appear in no theme, inside a flat cyan border. So the cards were the
+     wrong shape, the wrong colour in light mode — those navies do not change
+     with the theme — and edged in a tint the app does not use. */
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--fc-bg-elevated-2) 82%, transparent),
+    var(--fc-bg-elevated)
+  );
+  border: 1px solid transparent;
+  border-radius: var(--fc-r-xl);
+  /* The gradient hairline. Two backgrounds clipped to different boxes is the
+     only way to stroke a rounded rect with a gradient in CSS; `border-image`
+     does not follow a border-radius. */
+  background-image:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--fc-bg-elevated-2) 82%, transparent),
+      var(--fc-bg-elevated)
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--fc-text) 10%, transparent),
+      var(--fc-border)
+    );
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
   box-shadow: var(--fc-shadow-sm);
   overflow: hidden;
 }
@@ -4717,4 +4764,59 @@ a[role="tab"]:focus-visible,
 .fc-lb-stack > section {
   display: flex;
   flex-direction: column;
+}
+
+/* ── Hero proof card — FCRunwayPreview ────────────────────────
+   The card the native welcome screen leads on. Flat fcSurfaceRaised inside a
+   plain fcStroke hairline — deliberately NOT the gradient .fc-ui-card
+   treatment, which is what FCRunwayPreview does: it sits on the hero's own
+   gradient ground, where a second gradient would muddy it. */
+.fc-hero-preview {
+  margin-top: 32px;
+  padding: 20px;
+  border-radius: var(--fc-r-xl);
+  background: var(--fc-bg-elevated-2);
+  border: 1px solid var(--fc-border);
+  text-align: left;
+}
+
+.fc-hero-preview__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.fc-hero-preview__days {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--fc-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* FCType.hero — 44/700/-0.04em. The clamp's ceiling is a desktop value and
+   does not apply on phone, so this is the floor, flat. */
+.fc-hero-preview__amount {
+  margin-top: 12px;
+  font-size: 44px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1.12;
+  color: var(--fc-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.fc-hero-preview__note {
+  margin: 12px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--fc-text-muted);
+}
+
+.fc-hero-preview__spark {
+  display: block;
+  width: 100%;
+  height: 54px;
+  margin-top: 12px;
+  overflow: visible;
 }
