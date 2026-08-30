@@ -25,6 +25,23 @@
   --fc-electric-soft:   rgba(14, 104, 220, 0.10);
   --fc-electric-glow:   rgba(14, 104, 220, 0.20);
 
+  /* --- Leaderboard medals ---
+     Three ranks that have to be told apart at a glance, in a list where
+     everything else is deliberately monochrome.
+
+     Bright chip, dark ink, in BOTH themes — rather than the obvious
+     "dark metallic in light mode, bright metallic in dark mode". Measured:
+     dark metallics light enough to still read as gold/silver/bronze against
+     a light ground only reach 3.4:1 and 4.5:1 against the light text they
+     would carry, and darkening them to clear AA turns gold and bronze into
+     the same brown. Inverting the ink instead clears AA by a wide margin
+     (8.0 / 6.8 / 5.2) and keeps the three ranks distinguishable, which is
+     the entire reason they are coloured. */
+  --fc-medal-gold:      #E8A317;
+  --fc-medal-silver:    #94A3B8;
+  --fc-medal-bronze:    #C77B3C;
+  --fc-medal-ink:       #0D1B2E;
+
   /* --- Status --- */
   --fc-success:         #166534;
   --fc-success-ink:     #ffffff;
@@ -103,6 +120,10 @@
   --fc-electric:        #2563eb;
   --fc-electric-soft:   rgba(37, 99, 235, 0.15);
   --fc-electric-glow:   rgba(37, 99, 235, 0.4);
+  --fc-medal-gold:      #F5C542;
+  --fc-medal-silver:    #C2C8D0;
+  --fc-medal-bronze:    #D08A4E;
+  --fc-medal-ink:       #060e18;
   --fc-success:         #30d158;
   --fc-success-ink:     #04250f;
   --fc-success-soft:    rgba(48, 209, 88, 0.14);
@@ -4408,4 +4429,292 @@ a[role="tab"]:focus-visible,
   position: absolute; width: 1px; height: 1px;
   padding: 0; margin: -1px; overflow: hidden;
   clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   LEADERBOARD
+
+   Lives here rather than in a screen stylesheet because it renders on
+   two surfaces — the card at the bottom of Today and the full screen —
+   and the app has been through this before: the Payday Runway card was
+   defined in two files 21 times over, and which copy won was decided by
+   load order. One definition, both surfaces.
+
+   Everything is monochrome except the three medals. The board is a list
+   of near-identical rows, and colour spent anywhere else in it makes the
+   rank harder to find rather than easier.
+   ══════════════════════════════════════════════════════════════ */
+
+.fc-lb-card {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.fc-lb-card--quiet { opacity: 0.6; }
+
+/* Loading shim. Sized to a three-row board so the card does not resize
+   under the thumb when the fetch lands — the dashboard is scrolled while
+   this is in flight, and content that grows mid-scroll moves the page. */
+.fc-lb-skeleton {
+  height: 96px;
+  border-radius: var(--fc-r-sm);
+  background: var(--fc-bg-elevated-2);
+}
+
+/* ── Rows ──────────────────────────────────────────────────── */
+
+.fc-lb-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  min-height: 36px;
+}
+
+.fc-lb-row.is-me .fc-lb-handle { font-weight: 700; color: var(--fc-text); }
+.fc-lb-row.is-me .fc-lb-score  { color: var(--fc-accent); }
+
+/* The user's own row when it is not adjacent to the top three: a rule
+   above it, so "…and here is you, at 31" is legible as a jump rather
+   than looking like the 4th row. */
+.fc-lb-row--sep {
+  border-top: 1px solid var(--fc-border);
+  margin-top: 4px;
+  padding-top: 12px;
+}
+
+.fc-lb-rank {
+  flex: 0 0 24px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fc-text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.fc-lb-medal {
+  flex: 0 0 24px;
+  height: 24px;
+  border-radius: var(--fc-r-pill);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--fc-medal-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.fc-lb-medal--1 { background: var(--fc-medal-gold); }
+.fc-lb-medal--2 { background: var(--fc-medal-silver); }
+.fc-lb-medal--3 { background: var(--fc-medal-bronze); }
+
+.fc-lb-handle {
+  flex: 1 1 auto;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--fc-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fc-lb-score {
+  flex: 0 0 auto;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fc-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Invitation / waiting states ───────────────────────────── */
+
+.fc-lb-invite,
+.fc-lb-waiting { display: flex; flex-direction: column; gap: 8px; }
+
+.fc-lb-invite__lead {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--fc-text);
+}
+
+.fc-lb-invite__sub {
+  margin: 0;
+  font-size: 13px;
+  line-height: var(--fc-lh-relaxed);
+  color: var(--fc-text-muted);
+}
+
+.fc-lb-join { align-self: flex-start; margin-top: 4px; }
+
+.fc-lb-more {
+  align-self: stretch;
+  background: none;
+  border: none;
+  border-top: 1px solid var(--fc-border);
+  padding: 12px 0 0;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fc-accent);
+  text-align: center;
+  cursor: pointer;
+}
+
+.fc-lb-leave {
+  display: block;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 16px 0 32px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--fc-text-faint);
+  text-align: center;
+  cursor: pointer;
+}
+
+/* ── Your standing ─────────────────────────────────────────── */
+
+.fc-lb-standing { align-items: center; text-align: center; gap: 2px; }
+
+.fc-lb-standing__rank {
+  font-size: 44px;
+  font-weight: 700;
+  color: var(--fc-text);
+  letter-spacing: var(--fc-ls-hero);
+  line-height: var(--fc-lh-tight);
+  font-variant-numeric: tabular-nums;
+}
+
+.fc-lb-standing__of {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--fc-text-muted);
+}
+
+.fc-lb-standing__score {
+  margin-top: 8px;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--fc-accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.fc-lb-standing__score span {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--fc-text-faint);
+}
+
+/* ── Score breakdown ───────────────────────────────────────── */
+
+.fc-lb-comps {
+  width: 100%;
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Two columns and two rows: label and bar on top, value at the right,
+   the hint underneath the label. A grid rather than nested flexes so the
+   bars line up across the three rows regardless of label length. */
+.fc-lb-comp {
+  display: grid;
+  grid-template-columns: 84px 1fr auto;
+  grid-template-areas:
+    "label track val"
+    "hint  hint  hint";
+  align-items: center;
+  gap: 4px 12px;
+  text-align: left;
+}
+
+.fc-lb-comp__label {
+  grid-area: label;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fc-text);
+}
+
+.fc-lb-comp__track {
+  grid-area: track;
+  height: 6px;
+  border-radius: var(--fc-r-pill);
+  background: var(--fc-bg-elevated-2);
+  overflow: hidden;
+}
+
+.fc-lb-comp__fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--fc-r-pill);
+  background: var(--fc-accent);
+  transition: width var(--fc-dur-slow) var(--fc-ease-out);
+}
+
+.fc-lb-comp__val {
+  grid-area: val;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fc-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.fc-lb-comp__hint {
+  grid-area: hint;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--fc-text-faint);
+}
+
+.fc-lb-comp__none {
+  grid-area: track;
+  font-size: 12px;
+  color: var(--fc-text-faint);
+}
+
+/* ── Explainer ─────────────────────────────────────────────── */
+
+.fc-lb-explain__list {
+  margin: 0;
+  padding-left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13px;
+  line-height: var(--fc-lh-relaxed);
+  color: var(--fc-text-muted);
+}
+
+.fc-lb-explain__list strong { color: var(--fc-text); font-weight: 600; }
+
+.fc-lb-fine {
+  margin: 0;
+  font-size: 11px;
+  line-height: var(--fc-lh-relaxed);
+  color: var(--fc-text-faint);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fc-lb-comp__fill { transition: none; }
+}
+
+/* The screen owns the rhythm between its cards. .fc-ui-card is margin-free
+   app-wide, so stacking three of them without this renders them edge to
+   edge as one very tall card. Gap, not margins: a margin on the card class
+   would leak into every other screen that uses it. */
+.fc-lb-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.fc-lb-stack > section {
+  display: flex;
+  flex-direction: column;
 }

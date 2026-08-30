@@ -2058,6 +2058,8 @@ window.FCApp = (function () {
         _openSubScreen('notifications');
       } else if (tabId === 'vault') {
         _openSubScreen('vault');
+      } else if (tabId === 'leaderboard') {
+        _openSubScreen('leaderboard');
       }
       _ensureLegalFooter(target);
     });
@@ -2372,6 +2374,14 @@ window.FCApp = (function () {
     // Reset push listener guard — ensures new user's FCM token gets registered
     // after the next requestAndRegister() call (e.g. from _onPlaidSuccess).
     try { if (typeof FCPush !== 'undefined') FCPush.reset(); } catch (_) {}
+
+    /* The leaderboard cache is a module-level closure, not a `state` slot,
+       so nothing below reaches it. It holds the previous account's handle
+       and rank — sign out, sign in as someone else, and their dashboard
+       renders "6th — brandon_t" until the 5-minute TTL lapses. Same class
+       of leak as transactionsRaw immediately below. */
+    _lbCache     = null;
+    _lbFetchedAt = 0;
 
     state.user          = null;
     state.accounts      = [];
@@ -5075,8 +5085,16 @@ window.FCApp = (function () {
         ${_renderRecentActivityCard(recentTransactions)}
         ${_renderTodaysMoveCard(_stFigures)}
 
+        <!-- Filled by _renderLeaderboardCard() below. Left empty here and
+             populated after mount because the board comes from the network,
+             and the dashboard must never wait on it: it is the least
+             important row on the screen and the only one that can be slow. -->
+        <div id="home-leaderboard"></div>
+
         <p class="home-v8__disclaimer">FlowCheck is not a bank. Not financial advice.</p>
       </div>`;
+
+    _renderLeaderboardCard();
 
     // Hero numbers count up on load — static on unchanged re-renders.
     //
@@ -8738,6 +8756,7 @@ window.FCApp = (function () {
       else if (screenId === 'budgets')  _renderCategoryBudgets();
       else if (screenId === 'notifications') _renderNotificationsScreen();
       else if (screenId === 'vault')    _renderVaultScreen();
+      else if (screenId === 'leaderboard') _renderLeaderboard();
       else if (screenId === 'settings') { _renderSettings(); }
       _ensureLegalFooter(el);
     });
@@ -17664,10 +17683,324 @@ window.FCApp = (function () {
     };
   }
 
+  /* ═══════════════════════════════════════════════════════════
+     LEADERBOARD
+
+     Ranks opted-in users against each other on habit, never on money.
+     The score and its three parts are computed server-side and are all
+     dimensionless — see backend/lib/leaderboard.js for why ranking on
+     balances or savings amounts was rejected. Nothing in this render
+     path has a dollar figure to print, which is deliberate: the board
+     is the one surface in FlowCheck that shows other people, and it
+     cannot leak an amount it never receives.
+     ═══════════════════════════════════════════════════════════ */
+
+  /* Cached because both the Today card and the full screen want it, and a
+     board that is rebuilt nightly does not need two fetches a minute. */
+  let _lbCache = null;
+  let _lbFetchedAt = 0;
+  let _lbInFlight = null;
+  const _LB_TTL = 5 * 60 * 1000;
+
+  async function _fetchLeaderboard(force) {
+    if (!force && _lbCache && Date.now() - _lbFetchedAt < _LB_TTL) return _lbCache;
+    if (_lbInFlight) return _lbInFlight;
+
+    const base = (window.FC_CONFIG && FC_CONFIG.app && FC_CONFIG.app.apiBase) || '';
+    _lbInFlight = (async () => {
+      try {
+        const resp = await FCAuth.authedFetch(base + '/leaderboard');
+        if (!resp.ok) return null;
+        _lbCache = await resp.json();
+        _lbFetchedAt = Date.now();
+        return _lbCache;
+      } catch (err) {
+        /* Not surfaced as an error state. The leaderboard is the least
+           important thing on the dashboard, and a network blip on it must
+           never be what a user notices about their finances. */
+        fcLog('[FCApp] leaderboard fetch failed: ' + err.message);
+        return null;
+      } finally {
+        _lbInFlight = null;
+      }
+    })();
+    return _lbInFlight;
+  }
+
+  /** Ordinal for a rank — "1st", "2nd", "23rd". */
+  function _lbOrdinal(n) {
+    const num = Number(n) || 0;
+    const tens = num % 100;
+    if (tens >= 11 && tens <= 13) return num + 'th';
+    return num + (['th', 'st', 'nd', 'rd'][num % 10] || 'th');
+  }
+
+  /* Medals for the top three, plain numerals below. Rank is the content
+     here, so this is the one place a non-icon glyph is right — a numeral
+     in a circle for 4th and below reads as a list, which is what it is. */
+  function _lbRankMark(rank) {
+    if (rank === 1) return '<span class="fc-lb-medal fc-lb-medal--1">1</span>';
+    if (rank === 2) return '<span class="fc-lb-medal fc-lb-medal--2">2</span>';
+    if (rank === 3) return '<span class="fc-lb-medal fc-lb-medal--3">3</span>';
+    return '<span class="fc-lb-rank">' + Number(rank) + '</span>';
+  }
+
+  /**
+   * The compact card at the bottom of Today.
+   *
+   * Renders synchronously from whatever is cached and refreshes itself when
+   * the fetch lands, rather than blocking the dashboard on a network call
+   * for its least important row.
+   */
+  function _renderLeaderboardCard() {
+    const host = document.getElementById('home-leaderboard');
+    if (!host) return;
+
+    const data = _lbCache;
+    if (!data) {
+      host.innerHTML = '<div class="fc-eyebrow">Leaderboard</div>'
+        + '<div class="fc-ui-card fc-lb-card fc-lb-card--quiet">'
+          + '<div class="fc-lb-skeleton"></div>'
+        + '</div>';
+      _fetchLeaderboard().then(result => {
+        if (result) { _renderLeaderboardCard(); return; }
+        /* The fetch failed — offline, or the backend is down. Remove the
+           section rather than leaving the loading shim in place: a grey box
+           that never resolves at the bottom of the dashboard reads as a
+           broken app, and this is the one card on the screen whose absence
+           costs the user nothing. The next dashboard render retries. */
+        const el = document.getElementById('home-leaderboard');
+        if (el) el.innerHTML = '';
+      });
+      return;
+    }
+
+    let body;
+    if (!data.joined) {
+      /* The invitation. States the privacy terms up front rather than
+         behind a link, because "other users can see this" is the single
+         fact someone needs before opting in, and burying it is how you
+         get people opting into something they did not understand. */
+      body = '<div class="fc-lb-invite">'
+        + '<p class="fc-lb-invite__lead">See how your habits stack up.</p>'
+        + '<p class="fc-lb-invite__sub">Ranked on saving and steadiness — never on how much you have. '
+        + 'You pick a nickname; your name, balances and transactions are never shown.</p>'
+        + '<button type="button" class="fc-btn fc-btn--primary fc-lb-join" onclick="FCApp._lbOpenJoin()">Join the board</button>'
+      + '</div>';
+    } else if (!data.ready) {
+      const need = Math.max(0, (data.minimum || 5) - (data.participants || 0));
+      body = '<div class="fc-lb-waiting">'
+        + '<p class="fc-lb-invite__lead">You\'re in.</p>'
+        + '<p class="fc-lb-invite__sub">The board opens once ' + Number(data.minimum || 5)
+        + ' people have joined — ' + need + ' to go. A ranking of three is not a ranking.</p>'
+      + '</div>';
+    } else {
+      const top = (data.entries || []).slice(0, 3);
+      const me = data.me;
+      body = '<div class="fc-lb-mini">'
+        + top.map(row =>
+            '<div class="fc-lb-row' + (me && row.handle === me.handle ? ' is-me' : '') + '">'
+              + _lbRankMark(row.rank)
+              + '<span class="fc-lb-handle">' + esc(row.handle) + '</span>'
+              + '<span class="fc-lb-score">' + Number(row.score) + '</span>'
+            + '</div>').join('')
+        + (me && me.rank > 3
+            ? '<div class="fc-lb-row is-me fc-lb-row--sep">'
+                + _lbRankMark(me.rank)
+                + '<span class="fc-lb-handle">' + esc(me.handle) + '</span>'
+                + '<span class="fc-lb-score">' + Number(me.score) + '</span>'
+              + '</div>'
+            : '')
+      + '</div>'
+      + '<button type="button" class="fc-lb-more" onclick="FCApp._openSubScreen(\'leaderboard\')">'
+        + 'See all ' + Number(data.participants || 0) + ' &rsaquo;</button>';
+    }
+
+    host.innerHTML = '<div class="fc-eyebrow">Leaderboard</div>'
+      + '<div class="fc-ui-card fc-lb-card">' + body + '</div>';
+  }
+
+  /** One row of the score breakdown, as a labelled bar. */
+  function _lbComponent(label, value, hint) {
+    if (value == null) {
+      return '<div class="fc-lb-comp fc-lb-comp--unknown">'
+        + '<span class="fc-lb-comp__label">' + esc(label) + '</span>'
+        + '<span class="fc-lb-comp__none">Not enough data yet</span>'
+      + '</div>';
+    }
+    const pct = Math.max(0, Math.min(100, Number(value)));
+    return '<div class="fc-lb-comp">'
+      + '<span class="fc-lb-comp__label">' + esc(label) + '</span>'
+      + '<span class="fc-lb-comp__track"><span class="fc-lb-comp__fill" style="width:' + pct + '%"></span></span>'
+      + '<span class="fc-lb-comp__val">' + pct + '</span>'
+      + '<span class="fc-lb-comp__hint">' + esc(hint) + '</span>'
+    + '</div>';
+  }
+
+  /** The full leaderboard screen. */
+  async function _renderLeaderboard() {
+    const host = document.getElementById('leaderboard-content');
+    if (!host) return;
+
+    const head = '<div class="fc-page-head">'
+      + '<button type="button" class="fc-sub-back" onclick="FCApp._closeSubScreen()">'
+        + '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"'
+        + ' stroke-width="2.5" stroke-linecap="round" aria-hidden="true">'
+        + '<polyline points="15 18 9 12 15 6"/></svg>Back'
+      + '</button>'
+      + '<div class="fc-page-head__text">'
+        + '<h1 class="fc-page-title fc-page-title--sub">Leaderboard</h1>'
+      + '</div>'
+    + '</div>';
+
+    host.innerHTML = head + '<div class="fc-ui-card fc-lb-card fc-lb-card--quiet">'
+      + '<div class="fc-lb-skeleton"></div></div>';
+
+    const data = await _fetchLeaderboard(true);
+    if (!data) {
+      host.innerHTML = head + '<div class="fc-ui-card fc-lb-card">'
+        + '<p class="fc-lb-invite__sub">Couldn\'t load the board just now. Pull down to try again.</p>'
+      + '</div>';
+      return;
+    }
+
+    /* How the score works, stated plainly and before the ranking. A
+       competitive board whose number is unexplained reads as arbitrary,
+       and the first question anyone asks about a rank they dislike is
+       "measured how?". Answering it under a disclosure they have to open
+       is answering it too late. */
+    const explainer = '<div class="fc-ui-card fc-lb-card fc-lb-explain">'
+      + '<h2 class="fc-section-label">How the score works</h2>'
+      + '<p class="fc-lb-invite__sub">Every part is measured against <em>your own</em> past, '
+      + 'not against anyone else\'s money. Someone earning ten times what you do has no advantage here.</p>'
+      + '<ul class="fc-lb-explain__list">'
+        + '<li><strong>Saving</strong> — how much of what came in stayed in, over 30 days.</li>'
+        + '<li><strong>Momentum</strong> — this month\'s spending against your own last three.</li>'
+        + '<li><strong>Steadiness</strong> — how even your weeks are. One blowout month can\'t win it.</li>'
+      + '</ul>'
+      + '<p class="fc-lb-fine">No balances, income or transactions are ever shown to anyone. '
+      + 'Other people see only the nickname you chose and your score.</p>'
+    + '</div>';
+
+    if (!data.joined) {
+      host.innerHTML = head + '<div class="fc-lb-stack">'
+        + '<div class="fc-ui-card fc-lb-card"><div class="fc-lb-invite">'
+          + '<p class="fc-lb-invite__lead">See how your habits stack up.</p>'
+          + '<p class="fc-lb-invite__sub">Pick a nickname and you\'re on the board.</p>'
+          + '<button type="button" class="fc-btn fc-btn--primary fc-lb-join" onclick="FCApp._lbOpenJoin()">Join the board</button>'
+        + '</div></div>'
+        + explainer
+      + '</div>';
+      return;
+    }
+
+    let standing;
+    if (data.me) {
+      standing = '<div class="fc-ui-card fc-lb-card fc-lb-standing">'
+        + '<div class="fc-lb-standing__rank">' + _lbOrdinal(data.me.rank) + '</div>'
+        + '<div class="fc-lb-standing__of">of ' + Number(data.participants) + '</div>'
+        + '<div class="fc-lb-standing__score">' + Number(data.me.score) + '<span>/1000</span></div>'
+        + '<div class="fc-lb-comps">'
+          + _lbComponent('Saving', data.me.savings, 'of income kept')
+          + _lbComponent('Momentum', data.me.momentum, 'vs your own baseline')
+          + _lbComponent('Steadiness', data.me.consistency, 'week to week')
+        + '</div>'
+      + '</div>';
+    } else {
+      /* Joined but unranked. Says which of the two reasons applies, because
+         "you are not on the board" with no cause reads as a bug. */
+      const why = data.status === 'too_new'
+        ? 'We need about two months of history before a score means anything. Yours is still building.'
+        : data.status === 'no_transactions'
+          ? 'Connect a bank and your score starts building automatically.'
+          : 'Your score is still building — check back after tonight\'s update.';
+      standing = '<div class="fc-ui-card fc-lb-card">'
+        + '<p class="fc-lb-invite__lead">Not ranked yet</p>'
+        + '<p class="fc-lb-invite__sub">' + esc(why) + '</p>'
+      + '</div>';
+    }
+
+    const board = data.ready
+      ? '<section><div class="fc-eyebrow">Standings</div><div class="fc-ui-card fc-lb-card">'
+        + (data.entries || []).map(row =>
+            '<div class="fc-lb-row' + (data.me && row.handle === data.me.handle ? ' is-me' : '') + '">'
+              + _lbRankMark(row.rank)
+              + '<span class="fc-lb-handle">' + esc(row.handle) + '</span>'
+              + '<span class="fc-lb-score">' + Number(row.score) + '</span>'
+            + '</div>').join('')
+      + '</div></section>'
+      : '<div class="fc-ui-card fc-lb-card"><p class="fc-lb-invite__sub">'
+        + 'The board opens once ' + Number(data.minimum || 5) + ' people have joined. '
+        + 'There are ' + Number(data.participants || 0) + ' so far.</p></div>';
+
+    /* Stacked in a flex column with a gap rather than by margins on the
+       cards: .fc-ui-card is deliberately margin-free app-wide, so a screen
+       that stacks several of them owns the rhythm between them. Without
+       this the standings and the explainer render edge to edge, reading as
+       one very tall card. */
+    host.innerHTML = head + '<div class="fc-lb-stack">'
+      + standing + board + explainer
+      + '<button type="button" class="fc-lb-leave" onclick="FCApp._lbLeave()">Leave the leaderboard</button>'
+    + '</div>';
+  }
+
+  /** Prompt for a handle and join. */
+  function _lbOpenJoin() {
+    haptic('light');
+    const suggested = (state.user?.name || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12);
+    const entered = window.prompt(
+      'Pick a nickname for the board.\n\nEveryone on the leaderboard can see it, so don\'t use your real name or email.',
+      suggested || '');
+    if (entered == null) return;
+    _lbJoin(entered);
+  }
+
+  async function _lbJoin(handle) {
+    const base = (window.FC_CONFIG && FC_CONFIG.app && FC_CONFIG.app.apiBase) || '';
+    try {
+      const resp = await FCAuth.authedFetch(base + '/leaderboard/join', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ handle }),
+      });
+      const result = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        toast(result.message || 'Could not join the board.');
+        return;
+      }
+      haptic('success');
+      toast('You\'re on the board as ' + result.handle);
+      await _fetchLeaderboard(true);
+      _renderLeaderboardCard();
+      if (state.tab === 'leaderboard') _renderLeaderboard();
+    } catch (err) {
+      toast('Could not join the board.');
+    }
+  }
+
+  async function _lbLeave() {
+    if (!window.confirm('Leave the leaderboard? Your nickname is released and you disappear from everyone\'s board.')) return;
+    const base = (window.FC_CONFIG && FC_CONFIG.app && FC_CONFIG.app.apiBase) || '';
+    try {
+      await FCAuth.authedFetch(base + '/leaderboard/leave', { method: 'POST' });
+      haptic('light');
+      await _fetchLeaderboard(true);
+      _renderLeaderboard();
+      _renderLeaderboardCard();
+    } catch (err) {
+      toast('Could not leave the board.');
+    }
+  }
+
   return {
     boot,
     setScreen,
     switchTab,
+    // Leaderboard
+    _renderLeaderboard,
+    _renderLeaderboardCard,
+    _lbOpenJoin,
+    _lbLeave,
     // The Vault — proof-of-savings billing
     _renderVaultScreen,
     _vaultToggleReceipt,  // ledger receipt expand (inline onclick)

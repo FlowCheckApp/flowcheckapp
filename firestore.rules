@@ -459,6 +459,39 @@ service cloud.firestore {
     }
 
     // ─── /referrals — Admin SDK only ──────────────────────────────
+    /* ── Leaderboard — server-only, no client access ──────────
+     * The ranked board is built by the nightly cron (Admin SDK, which
+     * bypasses these rules) and served by GET /leaderboard, which strips
+     * the uid off every row before it leaves the backend.
+     *
+     * Denied to clients on purpose, even for reads. Letting the app read
+     * this collection directly would be the one place in FlowCheck where a
+     * client sees a document describing OTHER users, and the uid on each
+     * row would map every handle to an account. Going through the API also
+     * means the entitlement check and the minimum-participants floor are
+     * enforced somewhere a client cannot skip.
+     *
+     * `leaderboard_handles/{handle}` is the uniqueness index — one doc per
+     * claimed name, written inside a transaction so two users cannot take
+     * the same handle at once. It is a handle→uid map, which is exactly
+     * what must not be readable by anyone.
+     *
+     * Note there is deliberately NO addition to allowedUserUpdateFields()
+     * for `leaderboard_opt_in` / `leaderboard_handle` / `leaderboard_status`.
+     * Those live on the user doc but are written only by /leaderboard/join
+     * and /leaderboard/leave. A client that could set its own opt-in could
+     * put another person on a public board, and one that could set its own
+     * handle could take a name it never claimed. Same reasoning as `is_pro`
+     * and `referral_code`: if the client can write it, it is not a fact.
+     */
+    match /leaderboard/{doc} {
+      allow read, write: if false;
+    }
+
+    match /leaderboard_handles/{handle} {
+      allow read, write: if false;
+    }
+
     match /referrals/{code} {
       allow read, write: if false;
     }

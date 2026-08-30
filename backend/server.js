@@ -2908,6 +2908,233 @@ app.post('/notifications/mark-all-read', requireAuth, async (req, res) => {
 });
 
 /* ─────────────────────────────────────────────────────────────
+   LEADERBOARD
+
+   A ranked board of opted-in users, to make the habit social.
+
+   Three properties are deliberate and load-bearing; see
+   backend/lib/leaderboard.js for the reasoning behind the score itself:
+
+     · OPT-IN, and off by default. Nobody appears here because they
+       installed the app. `leaderboard_opt_in` is written ONLY through
+       these routes (Admin SDK), never by a client — it is in neither
+       allowlist in firestore.rules, so a client write carrying it is
+       rejected outright, same protection as `is_pro`.
+
+     · PSEUDONYMOUS. The board carries a handle the user chose and
+       nothing else. Never a name, never an email — those are on the
+       user doc a few fields away, and putting either on a surface other
+       users can read is the kind of mistake you only make once.
+
+     · NO AMOUNTS. The score and its three components are dimensionless.
+       There is no dollar figure anywhere in a board response, so the
+       board cannot leak a balance even to a participant.
+
+   The board is rebuilt by cron and read from one precomputed document.
+   Clients never query across users — /leaderboard reads a single doc
+   that the Admin SDK wrote, and firestore.rules denies the collection
+   to clients entirely. This is what keeps "users can ONLY read their
+   own data" true while still showing a ranking.
+   ───────────────────────────────────────────────────────────── */
+
+const { scoreUser, rankBoard, validateHandle, MIN_PARTICIPANTS } =
+  require('./lib/leaderboard');
+
+const LEADERBOARD_DOC = () => db.collection('leaderboard').doc('current');
+/**
+ * Claim a handle, or fail if someone already holds it.
+ *
+ * Uniqueness needs its own document because Firestore cannot enforce it
+ * across a collection: two users typing the same handle at the same moment
+ * both read "free" and both write. The transaction on a doc keyed by the
+ * handle is what actually serialises them.
+ */
+async function claimHandle(uid, handle) {
+  const ref = db.collection('leaderboard_handles').doc(handle);
+  return db.runTransaction(async (trx) => {
+    const snap = await trx.get(ref);
+    if (snap.exists && snap.data().uid !== uid) {
+      return { error: 'That name is taken. Try another.' };
+    }
+    trx.set(ref, { uid, handle, claimed_at: admin.firestore.Timestamp.now() });
+    return { handle };
+  });
+}
+
+/** Join the board. Idempotent — calling twice just updates the handle. */
+app.post('/leaderboard/join', requireAuth, requireEntitlement, perUserLimiter(12),
+  async (req, res) => {
+    try {
+      const check = validateHandle(req.body?.handle);
+      if (check.error) return res.status(400).json({ message: check.error });
+
+      const claim = await claimHandle(req.uid, check.handle);
+      if (claim.error) return res.status(409).json({ message: claim.error });
+
+      /* Release a handle this user previously held, so leaving and rejoining
+         under a new name does not silently hoard the old one forever. */
+      const userRef = db.collection('users').doc(req.uid);
+      const prior = (await userRef.get()).data()?.leaderboard_handle;
+      if (prior && prior !== check.handle) {
+        await db.collection('leaderboard_handles').doc(prior).delete().catch(() => {});
+      }
+
+      await userRef.update({
+        leaderboard_opt_in: true,
+        leaderboard_handle: check.handle,
+        leaderboard_joined_at: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      res.json({ ok: true, handle: check.handle });
+    } catch (err) {
+      console.error('[leaderboard/join]', err.message);
+      res.status(500).json({ message: 'Could not join the leaderboard.' });
+    }
+  });
+
+/**
+ * Leave the board.
+ *
+ * Deliberately NOT gated on entitlement. Leaving is the withdrawal of
+ * consent to be shown to other people, and that must never be blocked by a
+ * billing state — the same reasoning that keeps disconnect and account
+ * deletion open in the routes above.
+ */
+app.post('/leaderboard/leave', requireAuth, async (req, res) => {
+  try {
+    const userRef = db.collection('users').doc(req.uid);
+    const handle = (await userRef.get()).data()?.leaderboard_handle;
+    await userRef.update({
+      leaderboard_opt_in: false,
+      leaderboard_handle: admin.firestore.FieldValue.delete(),
+    });
+    if (handle) {
+      await db.collection('leaderboard_handles').doc(handle).delete().catch(() => {});
+    }
+    /* Drop them from the board that is already published, rather than
+       leaving them visible until the next nightly rebuild. Consent
+       withdrawn has to take effect now, not within 24 hours. */
+    const boardRef = LEADERBOARD_DOC();
+    const board = await boardRef.get();
+    if (board.exists) {
+      const kept = (board.data().entries || []).filter(e => e.uid !== req.uid);
+      await boardRef.update({ entries: rankBoard(kept), participants: kept.length });
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[leaderboard/leave]', err.message);
+    res.status(500).json({ message: 'Could not leave the leaderboard.' });
+  }
+});
+
+/** The board, plus this caller's own standing. */
+app.get('/leaderboard', requireAuth, requireEntitlement, async (req, res) => {
+  try {
+    const [boardSnap, userSnap] = await Promise.all([
+      LEADERBOARD_DOC().get(),
+      db.collection('users').doc(req.uid).get(),
+    ]);
+    const user = userSnap.data() || {};
+    const board = boardSnap.exists ? boardSnap.data() : null;
+    const entries = board?.entries || [];
+
+    /* Below the floor the board is withheld rather than shown short. Being
+       told you are 2nd of 3 is not competition, and a near-empty board on
+       first open reads as a broken feature rather than a new one. */
+    const ready = entries.length >= MIN_PARTICIPANTS;
+
+    const mine = entries.find(e => e.uid === req.uid) || null;
+
+    res.json({
+      ready,
+      participants: entries.length,
+      minimum: MIN_PARTICIPANTS,
+      computed_at: board?.computed_at?.toDate?.()?.toISOString() || null,
+      joined: user.leaderboard_opt_in === true,
+      handle: user.leaderboard_handle || null,
+      /* Rows are stripped of uid on the way out. The uid is stored so the
+         rebuild and the "which row is me" lookup above can work; handing it
+         to every participant would let anyone map a handle to an account. */
+      entries: ready
+        ? entries.slice(0, BOARD_PAGE).map(({ uid, ...row }) => row)
+        : [],
+      me: mine ? (({ uid, ...row }) => row)(mine) : null,
+      /* Why this user is not on the board, when they opted in but are not
+         ranked — "too_new" with a countdown, rather than silent absence. */
+      status: mine ? 'ranked' : (user.leaderboard_status || null),
+    });
+  } catch (err) {
+    console.error('[leaderboard]', err.message);
+    res.status(500).json({ message: 'Could not load the leaderboard.' });
+  }
+});
+
+/**
+ * Rebuild the whole board.
+ *
+ * Reads transactions per participant, which is the expensive part, so this
+ * runs nightly rather than on request and only for users who opted in —
+ * the cost scales with participants, not with the user base.
+ */
+async function _rebuildLeaderboard() {
+  const scored = [];
+  let lastDoc = null;
+  const PAGE = 200;
+
+  do {
+    let q = db.collection('users')
+      .where('leaderboard_opt_in', '==', true)
+      .orderBy('__name__').limit(PAGE);
+    if (lastDoc) q = q.startAfter(lastDoc);
+    const page = await q.get();
+    if (page.empty) break;
+    lastDoc = page.docs[page.docs.length - 1];
+
+    for (const userDoc of page.docs) {
+      const user = userDoc.data();
+      /* An account that stopped paying stops being ranked. Leaving them on
+         a board they can no longer open would show a name nobody can
+         reach, and rank live users behind a lapsed one. */
+      if (!hasEntitlement(user)) continue;
+      try {
+        const txnSnap = await userDoc.ref.collection('transactions')
+          .orderBy('date', 'desc').limit(1500).get();
+        const result = scoreUser(txnSnap.docs.map(d => d.data()));
+
+        if (!result.eligible) {
+          /* Recorded so /leaderboard can explain the absence. Without it a
+             user who joined and sees no row of their own has no way to
+             tell "still building your history" from "this is broken". */
+          await userDoc.ref.update({
+            leaderboard_status: result.reason,
+            leaderboard_days_until: result.daysUntilEligible ?? null,
+          }).catch(() => {});
+          continue;
+        }
+        await userDoc.ref.update({ leaderboard_status: 'ranked' }).catch(() => {});
+        scored.push({
+          uid: userDoc.id,
+          handle: user.leaderboard_handle || 'anonymous',
+          score: result.score,
+          savings: result.components.savings,
+          momentum: result.components.momentum,
+          consistency: result.components.consistency,
+        });
+      } catch (err) {
+        console.error(`[leaderboard] uid:${userDoc.id}:`, err.message);
+      }
+    }
+  } while (true);
+
+  const entries = rankBoard(scored);
+  await LEADERBOARD_DOC().set({
+    entries,
+    participants: entries.length,
+    computed_at: admin.firestore.FieldValue.serverTimestamp(),
+  });
+  return entries.length;
+}
+
+/* ─────────────────────────────────────────────────────────────
    SCHEDULED NOTIFICATIONS (node-cron)
    Runs inside this process — no external scheduler needed.
    Times are UTC. Railway servers stay up continuously.
@@ -3487,6 +3714,33 @@ if (cron) {
     }
   }, { timezone: 'UTC' });
   console.log('[Boot] Cron: weekly summary scheduled (Sunday 07:00 UTC)');
+}
+
+/* ── Cron: rebuild the leaderboard nightly at 04:00 UTC ─────────
+ * Before the 09:00 bill reminders, so a user opening the app in the
+ * US morning sees a board computed after the previous day closed
+ * everywhere rather than one that is most of a day stale.
+ *
+ * Nightly and not on-request: the rebuild reads up to 1,500
+ * transactions per participant, which is far too expensive to do
+ * while someone waits, and a ranking that moves between two refreshes
+ * of the same screen would read as broken anyway. */
+if (cron) {
+  cron.schedule('0 4 * * *', async () => {
+    if (!await _acquireCronLock('leaderboard')) {
+      console.log('[Cron] leaderboard: lock held, skipping');
+      return;
+    }
+    try {
+      const count = await _rebuildLeaderboard();
+      console.log(`[Cron] Leaderboard rebuilt: ${count} ranked`);
+    } catch (err) {
+      console.error('[Cron] Leaderboard rebuild failed:', err.message);
+    } finally {
+      await _releaseCronLock('leaderboard');
+    }
+  }, { timezone: 'UTC' });
+  console.log('[Boot] Cron: leaderboard rebuild scheduled (04:00 UTC)');
 }
 
 // ── Cron: monthly summary on 1st of month at 08:00 UTC ──────

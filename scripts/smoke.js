@@ -262,7 +262,8 @@ const DRIVE = `(async () => {
   }
 
   const TABS = ['home','activity','plan','wealth','more','settings','vault','goals',
-                'coach','reports','calendar','investments','notifications'];
+                'coach','reports','calendar','investments','notifications',
+                'leaderboard'];
 
   /* Tabs that deliberately land somewhere other than view-<name>. Both of
      these used to be standalone screens duplicating a segment of another
