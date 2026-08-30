@@ -36,6 +36,42 @@ block is LIGHT; dark lives under `[data-theme="dark"]`.
 - CSS vars defined in `flowcheck-design-system.css` — always use vars, never hardcode colors
 - Note: `--fc-purple` is deprecated and inconsistent — use `--fc-electric` instead
 
+### ★ Two apps, one design — what is generated and what is not
+
+FlowCheck ships twice: the Capacitor web app (heading for Android) and the
+SwiftUI app (iOS). They are the same product and must not look like two.
+
+**`flowcheck-design-system.css` is the single source of truth for tokens.**
+`scripts/sync-design-tokens.py` reads it and GENERATES the Xcode asset
+catalog from it:
+
+```bash
+python3 scripts/sync-design-tokens.py            # verify (runs in npm run check)
+python3 scripts/sync-design-tokens.py --write    # regenerate the colorsets
+```
+
+It covers all 18 colorsets in **both** themes, plus the type, radius and
+spacing scales. Colorsets are generated because they are pure data; the Swift
+scale in `FlowCheckTheme.swift` is checked but never rewritten, because it
+carries the reasoning that makes it usable. It **fails closed** — a colorset
+with no declared CSS source is an error, not a skip. The check it replaced
+covered 9 of 18 colorsets and only their dark values.
+
+`FlowCheckSwiftUI/scripts/check-design-system.py` defers to it when the web
+repo is reachable, so editing the CSS fails the native check and vice versa.
+
+**What is NOT generated, and cannot be:** screens. There is no mechanism that
+turns a SwiftUI view into HTML — different layout models, and anything
+claiming otherwise is a rewrite in disguise. Structure stays in step three
+other ways, all of which already exist:
+
+| Layer | How the two are kept together |
+|---|---|
+| Colour, type, radius, spacing | **Generated** from the CSS |
+| Business logic (money math, detectors, entitlement) | One backend + parity ratchets (`check-core-parity.js`, `check-detector-parity.js`) |
+| Screen structure and chrome | Ratchets per app (`check-canonical-chrome.js`, `check-design-system.py`) |
+| A new feature | Built twice, deliberately. Budget for it. |
+
 ### ★ Canonical screen chrome — READ BEFORE STYLING ANY SCREEN
 Every page header, segmented control, chip row, and section label in the app is
 defined ONCE, in the `★ CANONICAL SCREEN CHROME ★` block at the bottom of
