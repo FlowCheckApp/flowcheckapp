@@ -2478,34 +2478,6 @@ window.FCApp = (function () {
     if (settingsProRow) settingsProRow.style.display = 'none';
   }
 
-  function _renderProGate(section, icon, title, teaser) {
-    if (!section) return;
-    section.style.display = '';
-    // Build three "blurred bars" of varying width to mimic real content
-    const bars = [85, 62, 45, 72].map(w =>
-      `<div class="fc-pro-gate-bar" style="width:${w}%"></div>`
-    ).join('');
-    section.innerHTML = `
-      <div class="fc-pro-gate" onclick="FCApp.showPaywall()">
-        <div class="fc-pro-gate-preview">${bars}</div>
-        <div class="fc-pro-gate-overlay">
-          <div class="fc-pro-gate-badge">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                 stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
-              <rect x="3" y="11" width="18" height="11" rx="2"/>
-              <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-            </svg>
-            Pro Feature
-          </div>
-          <div class="fc-pro-gate-icon">${icon}</div>
-          <div class="fc-pro-gate-title">${title}</div>
-          <div class="fc-pro-gate-desc">${teaser}</div>
-          <button class="fc-pro-gate-btn" type="button" onclick="event.stopPropagation();FCApp.showPaywall()">
-            Unlock Pro →
-          </button>
-        </div>
-      </div>`;
-  }
 
   /* ── 50/30/20 Budget Wizard ─────────────────────────────────────────
      Maps this month's spending into Needs / Wants / Savings buckets and
@@ -2971,47 +2943,7 @@ window.FCApp = (function () {
   /* ── Dashboard v9: runway SVG markup (DASHBOARD_SPEC.md §2) ────── */
   let _rwSeries = null;   // last rendered runway, read by the scrub handler
 
-  /* Bank-linked test, mirroring the `isLinked` line in _renderHome.
-     Deliberately module scope: _renderRunwayCard must never reach for a
-     _renderHome local (that is the fmt() trap that blanked Today once). */
-  function _isBankLinked() {
-    const u = state.user || {};
-    return Boolean(u.plaid_linked || u.plaid_institution || (state.accounts || []).length || _isDemoMode);
-  }
 
-  /* Fixed, deterministic sample for the no-bank state (SPEC §6). Same shape
-     as _buildRunwaySeries so it renders through the identical code path — the
-     user sees the real instrument, just not real numbers. Rendered WITHOUT
-     any dollar figure: a fabricated balance must never be mistakable for the
-     user's own money. */
-  function _buildSampleRunwaySeries() {
-    const horizon = 14, dailyBurn = 46, start = 2400;
-    const billsByDay = {
-      3:  [{ name: 'Rent',     amount: 950 }],
-      8:  [{ name: 'Electric', amount: 130 }],
-      11: [{ name: 'Phone',    amount: 65  }],
-    };
-    let balance = start;
-    let lowest = { day: 0, balance: start };
-    const points = [];
-    for (let day = 0; day <= horizon; day++) {
-      const dayBills = billsByDay[day] || [];
-      balance -= dayBills.reduce((s, b) => s + b.amount, 0);
-      if (day > 0) balance -= dailyBurn;
-      if (balance < lowest.balance) lowest = { day, balance };
-      const date = new Date();
-      date.setDate(date.getDate() + day);
-      date.setHours(0, 0, 0, 0);
-      points.push({ day, date, balance, bills: dayBills });
-    }
-    return {
-      points, horizon, dailyBurn,
-      startBalance: start,
-      endBalance: points[points.length - 1].balance,
-      lowest, firstNegativeDay: null, goesNegative: false,
-      payday: null, hasPayday: true, billCount: 3, isSample: true,
-    };
-  }
 
   /* Shared chart geometry. _attachRunwayScrub mirrors this y-mapping —
      change one and you must change the other. */
@@ -3095,27 +3027,6 @@ window.FCApp = (function () {
       + '</section>';
   }
 
-  /* SPEC §6 — no bank linked. Show the shape of the value before asking for
-     access. Dimmed sample, explicit "Sample data" tag, and no dollar figure
-     anywhere on the card. */
-  function _renderRunwaySample() {
-    const r = _buildSampleRunwaySeries();
-    return ''
-      + '<section class="fc-ui-card rw-card rw-card--sample" aria-label="Sample runway">'
-        + '<div class="rw-head">'
-          + '<div class="rw-head__text"><p class="fc-section-label">Runway · Sample</p>'
-            + '<h2 class="rw-headline">See if you make it to payday</h2>'
-            + '<p class="rw-sub">Connect your bank and this becomes your real balance, day by day, with every bill already taken out.</p></div>'
-        + '</div>'
-        + '<div class="rw-chart rw-chart--sample">'
-          + _rwChartSVG(r, 'var(--fc-accent)')
-          + '<div class="rw-axis"><span>Today</span><span>Payday</span></div>'
-          + '<div class="rw-sample-veil"><span class="rw-sample-tag">Sample data</span></div>'
-        + '</div>'
-        + '<button class="rw-cta" type="button" onclick="FCApp.startPlaidLink&&FCApp.startPlaidLink(this)">Connect your bank</button>'
-        + _RW_TRUST_ROW
-      + '</section>';
-  }
 
   /* The shared renderer keeps the forecast math untouched while making the
      chart explain the forecast: named bill events, a semantic shortfall zone,
@@ -3279,210 +3190,6 @@ window.FCApp = (function () {
       + '</div>';
   }
 
-  function _renderRunwayCard() {
-    /* SPEC §6 states, in precedence order: loading beats everything, then
-       no-bank. Only a linked account with data draws a real runway. */
-    if (state.initialLoading && state.user?.plaid_linked && !(state.accounts || []).length) {
-      _rwSeries = null;                  // scrub must never read stale data
-      return _renderRunwaySkeleton();
-    }
-    if (!_isBankLinked()) {
-      _rwSeries = null;                  // scrub must never report sample money
-      return _renderRunwaySample();
-    }
-
-    const r = _buildRunwaySeries();
-    _rwSeries = r;
-    const pts = r.points;
-    if (!pts.length) return '';
-
-    /* The line stays the accent colour even when the balance goes negative.
-
-       Measured in a struggling profile, this card was rendering NINE
-       danger-red elements at once — headline, amount, line stroke, area
-       fill, zero rule, endpoint dot, "$0" label, crossing flag and its
-       background — every one of them restating a single fact. Repetition
-       carries no extra information; it only raises the volume. Someone
-       already worried about money opened this screen and got shouted at
-       nine times about something they came here to solve.
-
-       So the chart is data, not a verdict: one accent line showing the
-       shape, and exactly one red mark — the crossing — for the day that
-       needs attention. The zero rule keeps a muted red because it is the
-       threshold the crossing is measured against. */
-    const stroke = 'var(--fc-accent)';
-    /* "PAYDAY" over a dollar figure reads as "your paycheck is $353.82".
-       The number underneath is r.endBalance — what is LEFT when payday
-       arrives, which is close to the opposite of a paycheck. In an app whose
-       whole promise is that its numbers can be trusted, a label that invites
-       a 10x misreading of your own income is not a small thing. */
-    const edgeLabel = r.hasPayday ? 'LEFT AT PAYDAY' : 'LEFT IN 2 WEEKS';
-    const dLabel = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-
-    /* Headline states the answer in words before the chart explains it.
-       With no predicted payday we say "2 weeks" and never invent a date. */
-    /* Ask the question that fits the person.
-       With a paycheck: "will I make it to payday?"
-       On irregular income there IS no payday, so the honest question is
-       "how long am I covered if I don't earn another dollar?" — and we can
-       answer it, because coveredDays assumes zero future income. Everyone
-       else in this category just fails these users silently. */
-    const cov = r.coveredDays;
-    const covPhrase = !Number.isFinite(cov) ? null
-      : cov <= 0 ? 'Today is tight'
-      : cov === 1 ? 'Covered for 1 more day'
-      : 'Covered for ' + cov + ' days';
-
-    /* Does moving ONE bill actually close the gap?
-       The biggest bill that falls on or before the crossing is the single
-       lever with the most leverage — if it is at least as large as the
-       deepest dip, shifting it past that date clears the whole shortfall.
-       Computed, never assumed: when no single bill is big enough we do not
-       claim one is, and the copy falls back to the general instruction. */
-    const _gap = Math.abs(r.lowest.balance);
-    const _movable = r.goesNegative
-      ? pts.slice(0, (r.firstNegativeDay ?? 0) + 1)
-          .flatMap(p => p.bills || [])
-          .sort((a, b) => (b.amount || 0) - (a.amount || 0))[0]
-      : null;
-    const _oneBillFixesIt = !!(_movable && (_movable.amount || 0) >= _gap);
-
-    let headline, sub;
-    if (r.goesNegative) {
-      /* Lead with the lever, not the deficit.
-         "You run short on Aug 18" made the largest text on the app's most
-         important screen a piece of bad news, in red, with the actual
-         instruction relegated to 12px of grey underneath. The person
-         already knows money is tight — that is why they opened the app.
-         What they do not know is which single thing to move.
-         The date and the amount are both still here; they have just stopped
-         being the shout. */
-      const _when = dLabel(pts[r.firstNegativeDay].date);
-      if (_oneBillFixesIt) {
-        // Two lines of large type reads as deliberate; three reads as
-        // overflow. "Move X to stay above zero" says the same thing and fits.
-        headline = 'Move ' + (_movable.name || 'one bill') + ' to stay above zero';
-        sub = FCData.formatCurrency(_movable.amount) + ', due before ' + _when
-            + '. Shifting it past ' + _when + ' covers the gap.';
-      } else {
-        headline = _when + ' is the day to watch';
-        sub = 'Moving or delaying a bill before then keeps you above zero.';
-      }
-    } else if (r.isIrregular) {
-      headline = covPhrase || 'You are covered';
-      const wk = r.income.perWeek;
-      sub = r.billCount
-        ? r.billCount + ' bill' + (r.billCount === 1 ? '' : 's') + ' ahead. '
-        : 'Nothing due. ';
-      sub += wk > 0
-        ? 'You usually bring in about ' + FCData.formatCurrency(wk) + ' a week.'
-        : 'Income looks irregular, so this assumes nothing new comes in.';
-    } else {
-      headline = r.billCount
-        ? (r.hasPayday ? 'You make it to payday' : 'You are covered for 2 weeks')
-        : (r.hasPayday ? 'Nothing due before payday' : 'Nothing due in the next 2 weeks');
-      sub = r.billCount
-        ? r.billCount + ' bill' + (r.billCount === 1 ? '' : 's') + ' between now and then.'
-        : 'This is all yours.';
-      // Say plainly that the horizon is a fallback, not a detected payday.
-      if (!r.hasPayday) sub += ' Payday not detected yet.';
-    }
-
-    /* Safe to Spend, not the projected end balance.
-       This number was already being computed on every render and written
-       straight into the hidden compat block in index.html \u2014 calculated, then
-       thrown away. Meanwhile the hero's second slot carried the balance you
-       are projected to land on at payday, which is a fact about the future
-       rather than something you can act on this afternoon.
-       "You have $42 you can safely spend before Tuesday" is the question
-       people actually open the app with. It is also the one figure here that
-       already accounts for upcoming bills and typical spending, so it is the
-       honest answer rather than the raw one. */
-    const _sp   = _buildSafeSpendProjection();
-    const _safe = Math.max(0, _sp.safe || 0);
-    const _until = (_sp.payday && _sp.payday.date)
-      ? _sp.payday.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-      : '';
-
-    /* When the runway dips below zero, "Safe to spend $0.00" is a clamp
-       reported as a fact. Math.max(0, \u2026) maps a $12 shortfall and a $900
-       shortfall onto the same three characters, and $0.00 next to a red
-       "you run short on Aug 19" reads as a rounding artifact rather than
-       the answer. The magnitude is already known \u2014 r.lowest.balance is the
-       deepest point of the dip \u2014 so say it: "Short by $148" is what decides
-       whether you move one bill or three.
-       Deliberately r.lowest, not the balance on firstNegativeDay: what you
-       have to cover is the worst moment in the window, not the first one. */
-    const _short = r.goesNegative ? Math.abs(r.lowest.balance) : 0;
-    const _endLbl  = r.goesNegative ? 'Short by' : 'Safe to spend';
-    const _endVal  = r.goesNegative ? _short : _safe;
-    /* The headline already names the day you cross zero, and so does the
-       flag on the chart. Saying it a third time here is noise — so this
-       slot only speaks when it has something the other two do not: the day
-       the hole is DEEPEST, when that is later than the day it opens. That
-       is the date the amount above actually refers to. */
-    const _endMeta = r.goesNegative
-      ? (r.lowest.day !== r.firstNegativeDay ? 'worst on ' + dLabel(pts[r.lowest.day].date) : '')
-      : (_until ? 'until ' + _until : '');
-
-    return ''
-      + '<section class="fc-ui-card rw-card" aria-label="Runway to payday">'
-        + '<div class="rw-head">'
-          + '<div class="rw-head__text"><p class="fc-section-label">Runway</p>'
-            /* No --warn on the headline any more. It now names the action
-               rather than the problem, and an action rendered in danger red
-               reads as another alarm instead of a way out. The amount beside
-               it keeps the colour — one red number, not a red paragraph. */
-            + '<h2 class="rw-headline">' + esc(headline) + '</h2>'
-            + '<p class="rw-sub">' + esc(sub) + '</p></div>'
-          + '<div class="rw-end"><p class="rw-end-lbl">' + esc(_endLbl) + '</p>'
-            // data-countup lets the caller animate this without needing to
-            // recompute the value \u2014 see the count-up pass in
-            // _renderHomeDashboard(). Server-rendered text stays correct if
-            // the animation is skipped (reduced motion, unchanged value).
-            + '<p class="rw-endpoint-value fc-amount' + (r.goesNegative ? ' rw-endpoint-value--warn' : '') + '"'
-            + ' id="rw-endpoint-value" data-countup="' + _endVal + '">'
-            + FCData.formatCurrency(_endVal) + '</p>'
-            + (_endMeta ? '<p class="rw-end-meta">' + esc(_endMeta) + '</p>' : '')
-          + '</div>'
-        + '</div>'
-        + '<div class="rw-chart">'
-          + _rwChartSVG(r, stroke, true)
-          /* The middle label names the chart's window, and it exists because
-             the card was contradicting itself. The headline reports
-             coveredDays — how long you last assuming you never earn another
-             dollar — which for a healthy account is often 50+ days. The chart
-             plots `horizon`, a 14-day detail view. Both are right and they
-             measure different things, but stacked with nothing between them
-             the reader sees "Covered for 58 days" above a line that stops on
-             Sep 1, does the subtraction, and concludes one of the two numbers
-             is broken. Naming the window is what makes them legible as two
-             different statements instead of one inconsistency. */
-          + '<div class="rw-axis"><span>Today</span>'
-            + '<span class="rw-axis-span">' + esc(_rwWindowLabel(r.horizon)) + '</span>'
-            + '<span>' + esc(dLabel(pts[pts.length - 1].date)) + '</span></div>'
-        + '</div>'
-        /* The CTA has to answer the state it is sitting in. "Can I afford
-           something?" under a red "You run short on Aug 19" asks a question
-           the card has already answered, and answered no — while the actual
-           instruction ("Move or delay a bill to stay above zero") sits in
-           12px muted text with no affordance at all. In the short state the
-           button IS that instruction and goes where the bills are.
-
-           The button stays accent, not red: urgency is already carried by
-           the headline, the amount, the line and the flag on the chart, and
-           a fifth red element turns a warning into a siren. The accent is
-           the app's action colour — the calm thing to press. (It is also
-           the only one that clears 4.5:1 with white ink; --fc-danger does
-           not, at 15px/700.) */
-        + (r.goesNegative
-            ? '<button class="rw-cta" type="button" onclick="FCApp.switchTab(\'activity\');FCApp.switchActivitySegment(\'bills\')">Fix ' + esc(dLabel(pts[r.firstNegativeDay].date)) + '</button>'
-            : '<button class="rw-cta" type="button" onclick="FCApp.showAffordSheet&&FCApp.showAffordSheet()">Can I afford something?</button>')
-        /* _RW_TRUST_ROW deliberately absent: see the note on its definition.
-           It stays on the sample/skeleton cards, where it is doing real work
-           for someone deciding whether to connect a bank. */
-      + '</section>';
-  }
 
   /* ── Safe Today ────────────────────────────────────────────────
      Reserve every bill and a safety buffer first, then turn what remains
@@ -3636,23 +3343,6 @@ window.FCApp = (function () {
       + '</section>';
   }
 
-  function _renderSafePaycheckCard() {
-    let payday = null;
-    try { payday = _predictNextPayday(); }
-    catch (_) { /* The card has an honest no-prediction state. */ }
-    const dateLabel = payday?.date
-      ? payday.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-      : 'Not detected yet';
-    const amount = Math.max(0, Number(payday?.amount || 0));
-    return '<button class="fc-ui-card st-paycheck-card" type="button" onclick="FCApp.haptic(\'light\');FCApp.switchTab(\'plan\')"'
-      + ' aria-label="Open paycheck plan">'
-      + '<span class="st-paycheck-card__icon" aria-hidden="true">' + _ic('calendar', 'var(--fc-accent)', 26) + '</span>'
-      + '<span class="st-paycheck-card__copy"><span class="st-paycheck-card__kicker">Coming up</span>'
-      + '<span class="st-paycheck-card__date">' + (payday ? 'Next paycheck · ' : 'Payday · ') + esc(dateLabel) + '</span>'
-      + (payday ? '<span class="st-paycheck-card__amount"><strong id="st-paycheck-value" data-countup="' + amount + '" data-countup-decimals="0">$' + Math.round(amount).toLocaleString('en-US') + '</strong> expected</span>'
-        : '<span class="st-paycheck-card__missing">Add more income history to predict it</span>')
-      + '</span><span class="st-paycheck-card__chevron" aria-hidden="true">›</span></button>';
-  }
 
   function toggleSafeTodayCalculation(button) {
     const calculation = document.getElementById('st-calculation');
@@ -3808,31 +3498,6 @@ window.FCApp = (function () {
     }
   }
 
-  function _renderForecastCard() {
-    const s = _forecastStats;
-    if (!s || !s.count) return '';
-    const withinPct = Math.round((s.hitRate || 0) * 100);
-    const over = s.averageBias < 0;
-    return ''
-      + '<section class="fc-ui-card fc-score">'
-        + '<p class="fc-section-label">How accurate we’ve been</p>'
-        + '<p class="fc-score-lead">' + esc(
-            s.count === 1
-              ? 'One payday scored so far.'
-              : 'Within ' + FCData.formatCurrency(50) + ' on ' + s.withinFifty + ' of your last ' + s.count + ' paydays.'
-          ) + '</p>'
-        + '<div class="fc-score-row">'
-          + '<div><p class="fc-score-k">Typical miss</p><p class="fc-score-v fc-amount">'
-            + esc(FCData.formatCurrency(s.medianAbsError)) + '</p></div>'
-          + '<div><p class="fc-score-k">Within $50</p><p class="fc-score-v">' + withinPct + '%</p></div>'
-        + '</div>'
-        + '<p class="fc-score-note">' + esc(
-            over
-              ? 'We’ve been landing a little high on average — we’d rather be under.'
-              : 'We’ve been landing a little under on average, which is the safer side.'
-          ) + '</p>'
-      + '</section>';
-  }
 
   function _renderSafeSpendCommand(projection) {
     const chart = document.getElementById('home-runway-chart');
@@ -3895,118 +3560,6 @@ window.FCApp = (function () {
   }
 
   /* ── Next Bill compact card (right col on Home) ─────────────── */
-  /* ── Debt paid down ───────────────────────────────────────────────
-     The one debt number on Today, and deliberately the encouraging one.
-     Every other debt figure in the app answers "how much do you owe";
-     this one answers "how much have you got rid of", which is the only
-     one that grows when you do the right thing.
-
-     Rules it follows:
-       · Measured, never estimated. It compares recorded balances. With
-         fewer than two days on file it says so instead of printing a $0
-         that reads as "you have made no progress".
-       · It names the date it measured from, so the claim is exactly as
-         strong as the data behind it.
-       · A bad month is shown, in the same quiet type as a good one. Debt
-         rising is information; it is not an alarm, and it does not erase
-         the all-time figure sitting under it.
-       · Nothing at all for someone with no debt. A zeroed-out debt card is
-         a worry offered to a person who does not have that worry. */
-  function _renderDebtProgressCard() {
-    const debtNow = FCCore.netWorth(state.accounts || []).liabilities;
-    if (!(debtNow > 0)) return '';
-
-    const p = FCCore.debtProgress(state.debtHistory || {}, debtNow);
-    /* Home is whole dollars end to end — this card is a scanned stat, not a
-       ledger, so it follows the same rule as the hero above it. */
-    const money = v => FCData.formatSummary(Math.abs(v));
-
-    if (!p.ok) {
-      return _debtCard({
-        quiet: true,
-        kicker: 'Debt',
-        value: 'Tracking from today',
-        meta: 'Check back in a few weeks — we will show what you have paid off.',
-      });
-    }
-
-    const fromLabel = FCData.parseDateLocal(p.from)
-      .toLocaleDateString('en-US', { month: 'long' });
-
-    /* "…and that pulled your debt-free date N months closer."
-
-       A counterfactual, so it is held to the same bar as the date itself:
-       run the payoff simulation twice, once at today's balances and once at
-       what they were when tracking started, and report the difference.
-
-       The one assumption is HOW the paid-down amount was spread across the
-       debts — the daily snapshot records a total, not a per-account history.
-       Proportional to current balances, because that is roughly what
-       minimum payments do. It is a model, and it only ever appears when
-       debtFreePlan agrees to produce both dates; that function refuses
-       outright if any debt is missing a minimum, so an incomplete picture
-       silently prints no claim rather than a soft one. */
-    let closer = '';
-    const debtAccts = (state.accounts || []).filter(a => FCCore.accountClass(a) === 'debt');
-    if (p.paidDown > 0 && debtAccts.length) {
-      const debts = debtAccts.map(a => ({
-        name: a.name || 'Debt',
-        balance: Math.max(0, _acctBal(a)),
-        rate: _debtRate(a),
-        minimum: _minPayment(a),
-      }));
-      const total = debts.reduce((s, d) => s + d.balance, 0);
-      if (total > 0) {
-        const before = debts.map(d => ({
-          ...d, balance: d.balance + p.paidDown * (d.balance / total),
-        }));
-        const now  = FCCore.debtFreePlan(debts,  0, _debtStrategy());
-        const then = FCCore.debtFreePlan(before, 0, _debtStrategy());
-        if (now.ok && then.ok && then.months > now.months) {
-          const m = then.months - now.months;
-          closer = ` · debt-free date ${m} month${m === 1 ? '' : 's'} closer`;
-        }
-      }
-    }
-
-    /* A month where debt ROSE leads the card, even when the all-time figure
-       is still healthy. Letting the good number bury the bad one is the
-       version of this card that stops being trustworthy the first time
-       someone checks it against their bank. It is stated quietly — plain
-       text, no red, no alarm icon — and the progress line stays underneath
-       it, because both things are true at once. */
-    if (p.month !== null && p.month < 0) {
-      const under = p.paidDown > 0
-        ? `${money(p.paidDown)} paid down since ${fromLabel}`
-        : `${money(debtNow)} total · tracked since ${fromLabel}`;
-      return _debtCard({
-        quiet: true,
-        kicker: 'Debt',
-        value: `Up ${money(p.month)} this month`,
-        meta: under,
-      });
-    }
-
-    if (p.paidDown > 0) {
-      return _debtCard({
-        kicker: 'Debt paid down',
-        value: money(p.paidDown),
-        countup: p.paidDown,
-        meta: `since ${fromLabel}${closer}`,
-      });
-    }
-
-    /* Level, or down this month but not yet ahead of where they started. */
-    const monthLine = p.month
-      ? `${money(p.month)} paid down this month`
-      : 'No change this month';
-    return _debtCard({
-      quiet: true,
-      kicker: 'Debt',
-      value: monthLine,
-      meta: `${money(debtNow)} total · tracked since ${fromLabel}`,
-    });
-  }
 
   /* The answer is computed, not asserted.
 
@@ -4232,35 +3785,6 @@ window.FCApp = (function () {
       + '</button>';
   }
 
-  /* One card shape for all four debt states, so the good news and the bad
-     news are the same object and only the colour differs. Deliberately built
-     to the same anatomy as the paycheck card directly above it — 60px icon
-     circle, stacked copy, chevron — because they are peers on Home and read
-     as a pair.
-
-     `quiet` states are neutral: a month where debt rose is information, not
-     an alarm, and painting it red would make the card something people avoid
-     looking at. Only real progress gets the green.
-
-     The value counts up for the same reason every other hero number on Home
-     does. It needs BOTH data-countup and an id — the driver queries
-     `[data-countup][id]`, so a missing id silently animates nothing, which is
-     how Home's numbers stopped animating once already. */
-  function _debtCard({ kicker, value, meta, countup, quiet }) {
-    const tone = quiet ? '' : ' is-good';
-    return `
-      <button type="button" class="fc-ui-card st-debt-card${tone}"
-              aria-label="${esc(kicker)} — open debt detail"
-              onclick="FCApp.haptic('light');FCApp.switchTab('wealth');FCApp.switchWealthTab('debt')">
-        <span class="st-debt-card__icon" aria-hidden="true">${_ic('trending-down', 'currentColor', 26)}</span>
-        <span class="st-debt-card__copy">
-          <span class="st-debt-card__kicker">${esc(kicker)}</span>
-          <span class="st-debt-card__value"${countup ? ` id="st-debt-value" data-countup="${countup}" data-countup-decimals="0"` : ''}>${esc(value)}</span>
-          <span class="st-debt-card__meta">${esc(meta)}</span>
-        </span>
-        <span class="st-debt-card__chevron" aria-hidden="true">›</span>
-      </button>`;
-  }
 
   function _renderHomeNextBill() {
     const section  = document.getElementById('home-next-risk-section');
@@ -5332,8 +4856,11 @@ window.FCApp = (function () {
           three things you might want to do — moving a bill is, and it was
           reachable only through the sentence in the card above.
 
-       _rwSeries is safe to read here: _renderRunwayCard() ran on the line
-       above and either sets it or nulls it. */
+       _rwSeries is safe to read here: _renderSafeTodayCard() ran on the line
+       above and either sets it or nulls it. It used to name
+       _renderRunwayCard, which by then had been superseded and was no longer
+       called at all — the read was still safe, but for a different reason than
+       the comment gave. */
     const _short = Boolean(_rwSeries && _rwSeries.goesNegative);
     const _quickActions = [
       _short
